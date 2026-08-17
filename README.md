@@ -4,7 +4,7 @@ A free, browser-based auditor for DNS and email authentication. Paste up to 200 
 
 Every query runs client-side against [Cloudflare's DNS-over-HTTPS API](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/). There is no backend, no signup, no analytics, and nothing is stored or transmitted anywhere else.
 
-**[▶ Live demo](https://kwestic-tech.github.io/dns-email-audit/)**
+**[▶ Live demo](https://dnsaudit.kwestic.com)**
 
 ---
 
