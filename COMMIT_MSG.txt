@@ -1,0 +1,12 @@
+Restructure flat HTML app into multi-file open-source repo
+
+Split dns-audit-app.html into index.html + css/ + js/ + locales/, extract
+all user-facing strings into locales/en.json as the source of truth, and
+wire a dependency-free JSON i18n loader.
+
+- js/dns.js holds the audit logic and returns stable tokens, never English
+- js/app.js maps tokens to text via t()/tp()/tRaw()
+- English is inlined into js/locales-en.js so file:// still works
+- HTML export rebuilt as a self-contained, script-free static report
+- Adds MIT license, README, translation guide, Pages deploy and locale CI
+

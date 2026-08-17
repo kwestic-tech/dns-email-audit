@@ -41,6 +41,7 @@
   function spfLabel(spfStatus) {
     return t({
       missing: 'spf.missing',
+      permerror: 'spf.permerror',
       warn: 'spf.issues',
       ok: 'spf.hardfail',
       softfail: 'spf.softfail',
@@ -49,11 +50,57 @@
   }
 
   function dmarcLabel(dmarcStatus) {
+    if (dmarcStatus.status === 'permerror') return t('dmarc.permerror');
     if (dmarcStatus.status === 'missing') return t('dmarc.missing');
+    // 'present' means a record exists but p= is not a recognised value.
+    if (dmarcStatus.status === 'present') return t('dmarc.invalid');
     if (dmarcStatus.status === 'warn') return t('dmarc.none');
-    if (dmarcStatus.policy === 'reject') return t('dmarc.reject');
-    if (dmarcStatus.policy === 'quarantine') return t('dmarc.quarantine');
+    var suffix = '';
+    if (dmarcStatus.pct < 100) suffix = ' ' + t('dmarc.pctSuffix', dmarcStatus.pct);
+    if (dmarcStatus.policy === 'reject') return t('dmarc.reject') + suffix;
+    if (dmarcStatus.policy === 'quarantine') return t('dmarc.quarantine') + suffix;
     return t('dmarc.set');
+  }
+
+  /* ── Score breakdown ────────────────────────────────────────────────── */
+
+  // Trim trailing zeros so 1.5 shows as "1.5" and 6.0 as "6".
+  function num(n) { return String(Math.round(n * 10) / 10); }
+
+  function scoreBlockHtml(score) {
+    if (!score || !score.breakdown) return '';
+
+    var rows = score.breakdown.pillars.map(function (p) {
+      var ratio = p.max ? p.pts / p.max : 0;
+      var color = ratio >= 1 ? 'var(--ok)' : ratio > 0 ? 'var(--warn)' : '#cbd5e1';
+      return '<div class="sb-row">' +
+        '<span class="sb-label">' + esc(t('score.pillar.' + p.key)) + '</span>' +
+        '<span class="sb-track"><span class="sb-fill" style="width:' + Math.round(ratio * 100) + '%;background:' + color + ';"></span></span>' +
+        '<span class="sb-val">' + num(p.pts) + '<small>/' + p.max + '</small></span>' +
+        '</div>';
+    }).join('');
+
+    var parts = score.breakdown.dmarc || {};
+    var partOrder = ['policy', 'subdomain', 'pct', 'rua', 'alignment', 'ruf'];
+    var dmarcParts = partOrder
+      .filter(function (k) { return parts[k] !== undefined; })
+      .map(function (k) {
+        var zero = !parts[k];
+        return '<span class="sb-part' + (zero ? ' sb-part-zero' : '') + '">' +
+          esc(t('score.dmarcParts.' + k)) + ' <strong>' + num(parts[k]) + '</strong></span>';
+      }).join('');
+
+    return '<div class="score-block">' +
+      '<div class="score-head">' +
+      '<span class="score-total ' + score.cls + '">' + num(score.pts) + '<small>/' + score.max + '</small></span>' +
+      '<span class="issues-section-label">' + esc(t('score.label')) + '</span>' +
+      (score.parked ? '<span class="score-note">' + esc(t('score.parkedNote')) + '</span>' : '') +
+      '</div>' +
+      '<div class="sb-rows">' + rows + '</div>' +
+      (dmarcParts
+        ? '<div class="sb-dmarc"><span class="sb-dmarc-label">' + esc(t('score.dmarcParts.label')) + '</span>' + dmarcParts + '</div>'
+        : '') +
+      '</div>';
   }
 
   function issueMessage(issue) {
@@ -173,17 +220,21 @@
   function advMiniDots(adv) {
     if (!adv) return t('labels.dash');
     var items = [
-      { key: 'BIMI', ok: adv.bimi && adv.bimi.present },
-      { key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.present },
-      { key: 'TLS-RPT', ok: adv.tlsRpt && adv.tlsRpt.present },
+      { key: 'BIMI', ok: adv.bimi && adv.bimi.present, dup: adv.bimi && adv.bimi.multiple },
+      { key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.present, dup: adv.mtaSts && adv.mtaSts.multiple },
+      { key: 'TLS-RPT', ok: adv.tlsRpt && adv.tlsRpt.present, dup: adv.tlsRpt && adv.tlsRpt.multiple },
       { key: 'CAA', ok: adv.caa && adv.caa.found },
       { key: 'DNSSEC', ok: adv.dnssec && adv.dnssec.signed },
     ];
     var done = items.filter(function (i) { return i.ok; }).length;
     var dots = items.map(function (i) {
-      return '<span title="' + i.key + ': ' + esc(i.ok ? t('adv.configured') : t('adv.notConfigured')) +
+      // A duplicated record is not simply absent — it reads amber so the
+      // operator can tell "never set up" from "set up twice, silently off".
+      var state = i.ok ? t('adv.configured') : i.dup ? t('adv.duplicated') : t('adv.notConfigured');
+      var color = i.ok ? 'var(--ok)' : i.dup ? 'var(--warn)' : '#cbd5e1';
+      return '<span title="' + i.key + ': ' + esc(state) +
         '" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
-        (i.ok ? 'var(--ok)' : '#cbd5e1') + ';margin-right:2px;"></span>';
+        color + ';margin-right:2px;"></span>';
     }).join('');
     return '<span style="display:inline-flex;align-items:center;gap:4px;">' + dots +
       '<span style="font-size:10px;color:var(--ink3);margin-left:2px;">' + done + '/5</span></span>';
@@ -192,18 +243,20 @@
   function advFullDots(adv) {
     var items = [
       {
-        key: 'BIMI', ok: adv.bimi && adv.bimi.present,
+        key: 'BIMI', ok: adv.bimi && adv.bimi.present, dup: adv.bimi && adv.bimi.multiple,
         tip: adv.bimi && adv.bimi.present
           ? t('adv.tip.bimiOn', (adv.bimi.record || '').substring(0, 60))
-          : t('adv.tip.bimiOff'),
+          : (adv.bimi && adv.bimi.multiple) ? t('adv.tip.bimiDup') : t('adv.tip.bimiOff'),
       },
       {
-        key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.present,
-        tip: adv.mtaSts && adv.mtaSts.present ? t('adv.tip.mtaStsOn') : t('adv.tip.mtaStsOff'),
+        key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.present, dup: adv.mtaSts && adv.mtaSts.multiple,
+        tip: adv.mtaSts && adv.mtaSts.present ? t('adv.tip.mtaStsOn')
+          : (adv.mtaSts && adv.mtaSts.multiple) ? t('adv.tip.mtaStsDup') : t('adv.tip.mtaStsOff'),
       },
       {
-        key: 'TLS-RPT', ok: adv.tlsRpt && adv.tlsRpt.present,
-        tip: adv.tlsRpt && adv.tlsRpt.present ? t('adv.tip.tlsRptOn') : t('adv.tip.tlsRptOff'),
+        key: 'TLS-RPT', ok: adv.tlsRpt && adv.tlsRpt.present, dup: adv.tlsRpt && adv.tlsRpt.multiple,
+        tip: adv.tlsRpt && adv.tlsRpt.present ? t('adv.tip.tlsRptOn')
+          : (adv.tlsRpt && adv.tlsRpt.multiple) ? t('adv.tip.tlsRptDup') : t('adv.tip.tlsRptOff'),
       },
       {
         key: 'CAA', ok: adv.caa && adv.caa.found,
@@ -217,7 +270,7 @@
       },
     ];
     var dots = items.map(function (i) {
-      return '<span class="adv-dot ' + (i.ok ? 'dot-ok' : 'dot-miss') + '" data-tip="' + esc(i.tip) + '">' +
+      return '<span class="adv-dot ' + (i.ok ? 'dot-ok' : i.dup ? 'dot-dup' : 'dot-miss') + '" data-tip="' + esc(i.tip) + '">' +
         '<span class="dot-pip"></span>' + i.key + '</span>';
     }).join('');
     return '<div class="adv-strip"><div class="adv-strip-label">' + esc(t('labels.advanced')) +
@@ -298,7 +351,7 @@
     tr.innerHTML =
       '<td><button class="expand-toggle" onclick="toggleDetail(\'' + detailId + '\',this)">▶</button></td>' +
       '<td class="domain-cell">' + esc(r.domain) + '<span style="margin-left:5px;font-size:11px;">' + issueTag + '</span></td>' +
-      '<td data-label="' + esc(t('th.grade')) + '" style="text-align:center"><span class="score ' + r.score.cls + '">' + r.score.grade + '</span></td>' +
+      '<td data-label="' + esc(t('th.grade')) + '" style="text-align:center"><span class="score ' + r.score.cls + '" title="' + esc(t('score.outOf', num(r.score.pts), r.score.max)) + '">' + r.score.grade + '</span></td>' +
       '<td data-label="' + esc(t('th.dns')) + '">' + dnsB + '</td>' +
       '<td data-label="' + esc(t('th.email')) + '">' + emailB + '</td>' +
       '<td data-label="' + esc(t('th.spf')) + '">' + spfB + '</td>' +
@@ -371,7 +424,7 @@
           '<div class="di-label" style="color:var(--crit)">' + esc(t('labels.wildcardTitle')) + '</div>' +
           '<div class="di-value" style="color:var(--crit)">' + esc(t('labels.wildcardText')) + '</div></div>'
         : '') +
-      '</div>' + advDotsHtml +
+      '</div>' + scoreBlockHtml(r.score) + advDotsHtml +
       (issueHtml || suggestHtml
         ? '<div class="issues-block">' +
           (issueHtml ? '<div class="issues-section-label">' + esc(t('labels.issues')) + '</div>' + issueHtml : '') +
@@ -584,11 +637,16 @@
         return [r.domain, no].concat(new Array(cols.length - 2).fill(''));
       }
       return [
-        r.domain, yes, label(r.dnsProvider), label(r.emailProvider),
+        r.domain, yes,
+        r.score.grade, r.score.pts,
+        label(r.dnsProvider), label(r.emailProvider),
         r.spfStatus.status, r.spfRecord,
         r.dkimStatus.found ? yes : no,
         r.dkimStatus.found ? r.dkimStatus.selectors.map(function (s) { return s.sel; }).join(', ') : '',
-        r.dmarcStatus.status, r.dmarcStatus.policy || '', r.dmarcStatus.rua ? yes : no,
+        r.dmarcStatus.status, r.dmarcStatus.policy || '',
+        r.dmarcStatus.sp || '', r.dmarcStatus.np || '', r.dmarcStatus.pct,
+        r.dmarcStatus.adkim, r.dmarcStatus.aspf,
+        r.dmarcStatus.rua ? yes : no, r.dmarcStatus.ruf ? yes : no,
         r.advanced?.bimi?.present ? yes : no,
         r.advanced?.mtaSts?.present ? yes : no,
         r.advanced?.tlsRpt?.present ? yes : no,

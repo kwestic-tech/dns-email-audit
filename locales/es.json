@@ -5,18 +5,15 @@
     "nativeName": "Español",
     "dir": "ltr"
   },
-
   "doc": {
     "title": "Auditor de Seguridad DNS y Email — Verificador gratuito de SPF, DKIM, DMARC y DNSSEC",
     "description": "Auditor gratuito de DNS y seguridad de correo que funciona en el navegador. Verifica SPF, DKIM, DMARC, BIMI, MTA-STS, CAA y DNSSEC para hasta 200 dominios a la vez. Sin registro, sin datos almacenados."
   },
-
   "topbar": {
     "title": "Auditor DNS y Email",
     "subtitle": "· gratis · sin registro · sin datos fuera de tu navegador",
     "langTitle": "Idioma"
   },
-
   "btn": {
     "howItWorks": "📖 Cómo funciona",
     "exportCsv": "⬇ Exportar CSV",
@@ -28,30 +25,25 @@
     "clearResults": "🗑 Borrar resultados",
     "learnMore": "Más información →"
   },
-
   "input": {
     "heading": "Ingresa dominios para auditar",
     "desc": "Un dominio por línea, o sube un archivo .txt. Hasta 200 dominios a la vez.",
     "placeholder": "ejemplo.com\nmiempresa.org\notro-dominio.net"
   },
-
   "opt": {
     "dkim": "Verificar selectores DKIM",
     "www": "Detectar alojamiento web",
     "wildcard": "Detectar errores TXT comodín",
     "footer": "DNS vía Cloudflare DoH · Sin datos almacenados"
   },
-
   "progress": {
     "heading": "Consultando registros DNS…",
     "querying": "Consultando {0}…",
     "error": "Error en {0}: {1}"
   },
-
   "search": {
     "placeholder": "🔎 Filtrar dominios…"
   },
-
   "th": {
     "domain": "Dominio",
     "grade": "Calificación",
@@ -63,7 +55,6 @@
     "advanced": "Avanzado",
     "hosting": "Alojamiento"
   },
-
   "filter": {
     "all": "Todos los dominios",
     "warn": "⚠️ Tiene advertencias",
@@ -76,15 +67,12 @@
     "noCaa": "Sin CAA",
     "noDnssec": "Sin DNSSEC"
   },
-
   "empty": {
     "text": "Ningún dominio coincide con el filtro."
   },
-
   "footer": {
     "text": "DNS-over-HTTPS vía <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; Consultas en tu navegador &bull; Sin datos almacenados &bull; Gratis para usar y alojar"
   },
-
   "labels": {
     "issues": "Problemas",
     "suggestions": "💡 Recomendaciones",
@@ -103,26 +91,22 @@
     "na": "N/D",
     "dash": "—"
   },
-
   "showme": {
     "open": "Mostrar ▾",
     "close": "Mostrar ▴",
     "whatItIs": "Qué es",
     "whatItNeeds": "Cómo debe quedar"
   },
-
   "stat": {
     "domains": "Dominios",
     "haveEmail": "Con Email",
     "wildcardBug": "⚠ Error Comodín"
   },
-
   "badge": {
     "notRegistered": "No registrado / NXDOMAIN",
     "noEmail": "✗ Sin Email",
     "noDkim": "✗ Ninguno"
   },
-
   "provider": {
     "unknown": "Desconocido",
     "custom": "Personalizado",
@@ -134,7 +118,6 @@
     "cloudflareProxied": "Cloudflare (proxy)",
     "porkbunForwarding": "Reenvío Porkbun"
   },
-
   "spf": {
     "missing": "✗ Ausente",
     "issues": "⚠ Problemas",
@@ -144,27 +127,33 @@
     "meterOver": "{0}/10 🔴 LÍMITE EXCEDIDO",
     "meterNear": "{0}/10 ⚠ Cerca del límite",
     "meterOk": "{0}/10 ✓",
-    "meterSuffix": "consultas DNS"
+    "meterSuffix": "consultas DNS",
+    "permerror": "🔴 Permerror"
   },
-
   "dmarc": {
     "missing": "✗ Ausente",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none (monitoreo)",
-    "set": "✓ Configurado"
+    "set": "✓ Configurado",
+    "invalid": "⚠ p= inválido",
+    "pctSuffix": "({0}%)",
+    "permerror": "🔴 Registros múltiples"
   },
-
   "dkim": {
     "noteWildcard": "El error TXT comodín podría estar interfiriendo",
     "noteNotFound": "No se encontraron selectores comunes"
   },
-
   "adv": {
     "configured": "✓ Configurado",
-    "notConfigured": "Sin configurar"
+    "notConfigured": "Sin configurar",
+    "duplicated": "⚠ Registros múltiples",
+    "tip": {
+      "bimiDup": "Registros múltiples — BIMI se ignora, el logo no se mostrará",
+      "mtaStsDup": "Registros múltiples — los remitentes asumen que no hay política MTA-STS",
+      "tlsRptDup": "Registros múltiples — los remitentes asumen que no implementas TLS-RPT"
+    }
   },
-
   "rows": {
     "count": {
       "one": "{0} dominio",
@@ -184,7 +173,6 @@
       "other": "{0} sugerencias"
     }
   },
-
   "toast": {
     "noDomains": "Ingresa al menos un dominio.",
     "tooMany": "Máximo 200 dominios por ejecución.",
@@ -199,5 +187,83 @@
     },
     "langChanged": "Idioma cambiado",
     "langFailed": "No se pudo cargar ese idioma — se mantiene el inglés."
+  },
+  "score": {
+    "label": "Puntuación de seguridad",
+    "outOf": "{0} / {1}",
+    "parkedNote": "Dominio sin correo — evaluado solo con SPF, DMARC, DNSSEC y CAA",
+    "pillar": {
+      "dmarc": "DMARC",
+      "spf": "SPF",
+      "dkim": "DKIM",
+      "dnssec": "DNSSEC",
+      "caa": "CAA",
+      "mtaSts": "MTA-STS",
+      "bimi": "BIMI",
+      "tlsRpt": "TLS-RPT"
+    },
+    "dmarcParts": {
+      "label": "Desglose DMARC",
+      "policy": "Política (p=)",
+      "subdomain": "Cobertura de subdominios",
+      "pct": "Tasa de aplicación (pct=)",
+      "rua": "Informes agregados (rua=)",
+      "alignment": "Alineación estricta",
+      "ruf": "Informes forenses (ruf=)"
+    }
+  },
+  "csv": {
+    "headers": [
+      "Dominio",
+      "Registrado",
+      "Calificación",
+      "Puntuación",
+      "Proveedor DNS",
+      "Proveedor Email",
+      "Estado SPF",
+      "Registro SPF",
+      "DKIM encontrado",
+      "Selectores DKIM",
+      "Estado DMARC",
+      "Política DMARC",
+      "DMARC sp",
+      "DMARC np",
+      "DMARC pct",
+      "DMARC adkim",
+      "DMARC aspf",
+      "DMARC RUA",
+      "DMARC RUF",
+      "BIMI",
+      "MTA-STS",
+      "TLS-RPT",
+      "CAA",
+      "DNSSEC",
+      "Consultas SPF",
+      "Problemas",
+      "Sugerencias"
+    ],
+    "yes": "Sí",
+    "no": "No",
+    "yesAt": "Sí ({0})"
+  },
+  "issue": {
+    "spf-multiple-records": {
+      "msg": "Se encontraron varios registros SPF — SPF falla permanentemente (permerror) para todo el correo del dominio."
+    },
+    "dmarc-multiple-records": {
+      "msg": "Se encontraron varios registros DMARC en _dmarc — DMARC no se aplica y el dominio puede ser suplantado."
+    },
+    "mta-sts-multiple-records": {
+      "msg": "Se encontraron varios registros MTA-STS — los remitentes asumen que no hay política, TLS no se exige en el correo entrante."
+    },
+    "tls-rpt-multiple-records": {
+      "msg": "Se encontraron varios registros TLS-RPT — los remitentes asumen que no implementas TLS-RPT y no se envían informes."
+    },
+    "bimi-multiple-records": {
+      "msg": "Se encontraron varios registros BIMI — el procesamiento se detiene y el logo no se mostrará."
+    },
+    "dkim-multiple-records": {
+      "msg": "Varias claves DKIM en el/los selector(es): {0} — la verificación es indefinida y puede fallar."
+    }
   }
 }

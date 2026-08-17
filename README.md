@@ -4,7 +4,7 @@ A free, browser-based auditor for DNS and email authentication. Paste up to 200 
 
 Every query runs client-side against [Cloudflare's DNS-over-HTTPS API](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/). There is no backend, no signup, no analytics, and nothing is stored or transmitted anywhere else.
 
-**[▶ Live demo](https://dnsaudit.kwestic.com)**
+**[▶ Live demo](https://kwestic-tech.github.io/dns-email-audit/)**
 
 ---
 
@@ -24,6 +24,7 @@ Every query runs client-side against [Cloudflare's DNS-over-HTTPS API](https://d
 | **CAA** | Which certificate authorities may issue certs (walks up the domain tree) |
 | **DNSSEC** | Whether responses validate (AD flag) |
 | **Wildcard TXT** | Detects a `* TXT` record, which silently breaks DKIM and DMARC on every subdomain |
+| **Duplicate records** | Flags more than one SPF, DMARC, DKIM, BIMI, MTA-STS or TLS-RPT record — every one of these fails closed per its RFC |
 
 Results export to CSV (for spreadsheets) or to a self-contained HTML report (for sharing).
 
@@ -54,6 +55,81 @@ The same folder drops onto Netlify, Cloudflare Pages, or S3 unchanged.
 
 ---
 
+## How grading works
+
+Every domain gets a weighted score out of 100 and a letter grade. The full
+breakdown is shown in each domain's detail row, so a grade can always be
+explained rather than just asserted.
+
+| Pillar | Points | Why that weight |
+| --- | --- | --- |
+| **DMARC** | 30 | The richest signal available, and the only thing that makes SPF and DKIM enforceable |
+| **SPF** | 15 | Bypassable on its own without DMARC enforcement |
+| **DKIM** | 15 | Same — necessary but not sufficient |
+| **DNSSEC** | 15 | Also gates the A tier (see below) |
+| **CAA** | 10 | Independent attack surface: mis-issued TLS certificates |
+| **MTA-STS** | 8 | Independent attack surface: mail in transit |
+| **BIMI** | 4 | Trust signal; requires DMARC enforcement + DKIM to work at all |
+| **TLS-RPT** | 3 | Visibility into TLS delivery failures |
+
+DMARC's 30 points split further: policy (`p=`) 10, effective subdomain coverage
+6, enforcement rate (`pct=`) 4, aggregate reports (`rua=`) 5, strict alignment
+(`adkim=s`/`aspf=s`) 3, forensic reports (`ruf=`) 2.
+
+**Grades:** A++ ≥ 85, A+ ≥ 75, A ≥ 65, B ≥ 50, C ≥ 30, D ≥ 10, otherwise F.
+
+**DNSSEC gates the A tier.** Without a signed zone the grade caps at B no matter
+how good everything else is — an attacker who can poison your DNS responses can
+undermine every other record measured here. A wildcard TXT record is an instant
+F for the same reason: it breaks DKIM and DMARC lookups on every subdomain,
+which invalidates the rest of the audit.
+
+**Parked domains** (no MX) are scored on a separate rubric — SPF 30, DMARC 30,
+DNSSEC 25, CAA 15 — because DKIM, BIMI, MTA-STS and TLS-RPT cannot apply to a
+domain with no mail flow. A parked domain with a null MX, `SPF -all`,
+`DMARC p=reject` and a signed zone is correctly hardened and scores accordingly.
+
+### Two things the rubric deliberately gets right
+
+**Inherited subdomain policy counts.** Per RFC 7489, subdomains inherit `p=`
+when `sp=` is absent, so `p=reject` alone protects subdomains fully. Scoring
+tag *presence* would penalise a correct configuration, so the score uses the
+**effective** policy (`sp ?? p`, and `np ?? sp ?? p`) and takes the weaker of
+the two branches. Only genuine weakening — `sp=none` on a `p=reject` domain —
+costs points.
+
+**A duplicated record scores zero, because the mechanism fails closed.** Six
+record types allow exactly one record and specify failure when there are more:
+SPF (RFC 7208 §4.5) and DMARC (RFC 7489 §6.6.3) hard-fail; MTA-STS
+(RFC 8461 §3.1), TLS-RPT (RFC 8460 §3) and BIMI (draft §7.2) require senders to
+assume the feature is absent; DKIM keys must be unique per selector
+(RFC 6376 §3.6.2.2) or the result is undefined. In each case the operator
+believes the control is active when it is not, so the audit reports it as a
+finding rather than silently scoring the first record. CAA and MX are excluded
+deliberately — multiple records there are normal and expected.
+
+**A broken SPF record scores zero, however strict it looks.** More than 10 DNS
+lookups evaluates to `permerror`, which receivers treat as a failure, so
+`-all` on an over-limit record earns nothing. Likewise `+all` and `?all`
+authorise the entire internet and are worth nothing — while a missing provider
+include, a real record one line short, keeps partial credit.
+
+### Validating a scoring change
+
+```bash
+npm run test:scoring          # 87 assertions, no network needed
+node tools/backtest.mjs --sample   # grade distribution over live domains
+node tools/backtest.mjs domains.txt --json > after.json
+```
+
+`backtest.mjs` loads the production scoring code and reports the grade
+histogram, score percentiles and per-pillar adoption. Run it before and after
+changing weights or thresholds — a rubric that lands most of the internet on F
+is measuring the wrong thing. It needs outbound DNS, so run it locally rather
+than in CI.
+
+---
+
 ## Project layout
 
 ```
@@ -71,7 +147,9 @@ dns-email-audit/
 │   └── es.json
 ├── tools/
 │   ├── build-fallback.mjs  # en.json → js/locales-en.js
-│   └── check-locales.mjs   # validates every locale against en.json
+│   ├── check-locales.mjs   # validates every locale against en.json
+│   ├── scoring.test.mjs    # unit tests for the parser and scoring model
+│   └── backtest.mjs        # grade distribution over live domains
 └── .github/workflows/
     ├── pages.yml           # deploy to GitHub Pages
     └── ci.yml              # runs the locale check on every PR

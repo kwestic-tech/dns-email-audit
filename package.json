@@ -8,7 +8,8 @@
     "start": "npx --yes serve . -l 8080",
     "build:fallback": "node tools/build-fallback.mjs",
     "check": "node tools/check-locales.mjs",
-    "test": "node tools/check-locales.mjs"
+    "test": "node tools/check-locales.mjs && node tools/scoring.test.mjs",
+    "test:scoring": "node tools/scoring.test.mjs"
   },
   "keywords": [
     "dns",
