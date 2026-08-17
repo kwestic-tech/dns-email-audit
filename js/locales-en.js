@@ -142,14 +142,18 @@ window.__I18N_EN__ = {
     "meterOver": "{0}/10 🔴 OVER LIMIT",
     "meterNear": "{0}/10 ⚠ Near limit",
     "meterOk": "{0}/10 ✓",
-    "meterSuffix": "DNS lookups"
+    "meterSuffix": "DNS lookups",
+    "permerror": "🔴 Permerror"
   },
   "dmarc": {
     "missing": "✗ Missing",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none (monitor)",
-    "set": "✓ Set"
+    "set": "✓ Set",
+    "invalid": "⚠ Invalid p=",
+    "pctSuffix": "({0}%)",
+    "permerror": "🔴 Multiple records"
   },
   "dkim": {
     "noteWildcard": "Wildcard TXT bug may be interfering",
@@ -168,8 +172,12 @@ window.__I18N_EN__ = {
       "caaOn": "Found at {0}: {1}",
       "caaOff": "Not found — add CAA records to restrict which CAs can issue certs for this domain",
       "dnssecOn": "AD flag set — DNS responses are cryptographically verified",
-      "dnssecOff": "Not detected — enable DNSSEC in your DNS provider to prevent cache poisoning"
-    }
+      "dnssecOff": "Not detected — enable DNSSEC in your DNS provider to prevent cache poisoning",
+      "bimiDup": "Multiple records — BIMI ignored, logo will not display",
+      "mtaStsDup": "Multiple records — senders treat this domain as having no MTA-STS policy",
+      "tlsRptDup": "Multiple records — senders treat this domain as not implementing TLS-RPT"
+    },
+    "duplicated": "⚠ Multiple records"
   },
   "rows": {
     "count": {
@@ -209,6 +217,8 @@ window.__I18N_EN__ = {
     "headers": [
       "Domain",
       "Registered",
+      "Grade",
+      "Score",
       "DNS Provider",
       "Email Provider",
       "SPF Status",
@@ -217,7 +227,13 @@ window.__I18N_EN__ = {
       "DKIM Selectors",
       "DMARC Status",
       "DMARC Policy",
+      "DMARC sp",
+      "DMARC np",
+      "DMARC pct",
+      "DMARC adkim",
+      "DMARC aspf",
       "DMARC RUA",
+      "DMARC RUF",
       "BIMI",
       "MTA-STS",
       "TLS-RPT",
@@ -254,6 +270,42 @@ window.__I18N_EN__ = {
       "what": "This domain has no MX records, meaning no mail server is configured to receive email for it. Parked or unused domains with no email setup are prime spoofing targets — attackers send phishing emails \"from\" your domain because there's nothing in DNS to stop them.",
       "fix": "For a domain that will never send or receive email, publish a null MX (which explicitly says \"no mail accepted here\") plus a blocking SPF and DMARC policy.",
       "fixCode": "; Null MX — tells senders this domain accepts no mail:\n@    MX     0 .\n\n; SPF — block all senders:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — reject any spoofed mail:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
+    },
+    "spf-multiple-records": {
+      "msg": "Multiple SPF records found — SPF fails permanently (permerror) for all mail from this domain.",
+      "what": "RFC 7208 §4.5 allows exactly one <code>v=spf1</code> TXT record per domain. When a receiver finds two, it returns <code>permerror</code> and stops — it does not merge them, and it does not pick the stricter one. The practical effect is worse than having no SPF at all: your record looks correct in the DNS panel, but every message from your domain fails SPF authentication. This usually happens when a second mail service is onboarded and adds its own record instead of editing the existing one.",
+      "fix": "Merge the records into one. Take every <code>include:</code>, <code>ip4:</code> and <code>ip6:</code> mechanism from all records, put them in a single <code>v=spf1</code> record, and delete the others. Watch the 10-lookup limit while merging — combining records is a common way to exceed it.",
+      "fixCode": "; Before — two records, SPF fails for everything:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; After — one record with both senders:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "dmarc-multiple-records": {
+      "msg": "Multiple DMARC records found at _dmarc — DMARC is not applied at all, the domain can be spoofed.",
+      "what": "RFC 7489 §6.6.3 requires exactly one DMARC record. Receivers discard anything without a <code>v=DMARC1</code> tag, and if more than one remains, policy discovery terminates and DMARC is not applied to the message. Your policy — however strict — is ignored entirely, so the domain is spoofable while appearing to be protected. You will also stop receiving aggregate reports, which removes the signal that would have told you something was wrong.",
+      "fix": "Delete all but one TXT record at <code>_dmarc</code>. If the duplicates specify different report addresses, keep one record and list both addresses in a single <code>rua=</code> tag, separated by a comma.",
+      "fixCode": "; Before — two records at _dmarc, DMARC ignored:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; After — one record, both report destinations:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+    },
+    "mta-sts-multiple-records": {
+      "msg": "Multiple MTA-STS records found — senders treat your domain as having no MTA-STS policy, so inbound TLS is not enforced.",
+      "what": "RFC 8461 §3.1 is explicit: records that don't begin with <code>v=STSv1;</code> are discarded, and if the number remaining is not exactly one, senders <strong>MUST</strong> assume the domain has no MTA-STS policy. Your policy file is never fetched. Inbound mail falls back to opportunistic STARTTLS, which an attacker on the network path can strip — the downgrade attack MTA-STS exists to prevent. The control is inactive while appearing configured.",
+      "fix": "Delete the extra TXT record at <code>_mta-sts</code> so exactly one remains. Bump the <code>id=</code> value afterwards so sending servers refresh their cached policy rather than waiting out the old TTL.",
+      "fixCode": "; Before — two records, MTA-STS ignored entirely:\n_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\"\n_mta-sts    TXT    \"v=STSv1; id=20240615000000Z;\"\n\n; After — one record, id bumped to force a refresh:\n_mta-sts    TXT    \"v=STSv1; id=20260817000000Z;\""
+    },
+    "tls-rpt-multiple-records": {
+      "msg": "Multiple TLS-RPT records found — senders treat your domain as not implementing TLS-RPT, so no reports are sent.",
+      "what": "RFC 8460 §3 states that if the number of <code>v=TLSRPTv1;</code> records is not exactly one, senders <strong>MUST</strong> assume the domain does not implement TLS-RPT. No reports are generated for any destination, including the address in the first record. This matters most when it is paired with MTA-STS: TLS-RPT is how you find out that a policy is misconfigured or a certificate has expired, so a broken record means those failures happen silently.",
+      "fix": "Delete the extra record at <code>_smtp._tls</code>. If you need reports at more than one address, list them in a single <code>rua=</code> tag separated by commas.",
+      "fixCode": "; Before — two records, no reports sent at all:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com;\"\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:soc@vendor.example;\"\n\n; After — one record, both destinations:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com,mailto:soc@vendor.example;\""
+    },
+    "bimi-multiple-records": {
+      "msg": "Multiple BIMI records found — BIMI processing stops, so your logo will not display.",
+      "what": "The BIMI specification (Assertion Record Discovery) mirrors DMARC: records without a <code>v=BIMI1</code> tag are discarded, and if the remaining set contains more than one record, discovery terminates and BIMI processing is not performed. Your logo won't appear in Gmail, Apple Mail or Yahoo, and because BIMI failures are silent there's nothing to indicate why — including if you paid for a Verified Mark Certificate.",
+      "fix": "Delete the extra TXT record at <code>default._bimi</code> so exactly one remains.",
+      "fixCode": "; Before — two records, BIMI never evaluated:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\"\ndefault._bimi    TXT    \"v=BIMI1; l=https://cdn.example/old-logo.svg;\"\n\n; After — one record:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg; a=https://yourdomain.com/vmc.pem;\""
+    },
+    "dkim-multiple-records": {
+      "msg": "Multiple DKIM key records on selector(s): {0} — signature verification is undefined and may fail.",
+      "what": "RFC 6376 §3.6.2.2 requires that key records be unique for a given selector: \"if there are multiple records in an RRset, the results are undefined.\" Different verifiers resolve this differently — some take the first record, some the last, some fail outright. The result is intermittent DKIM failures that vary by recipient and are painful to diagnose, because the same message passes at one provider and fails at another. This most often happens after a key rotation where the old record was never removed.",
+      "fix": "Delete the stale key record so exactly one remains per selector. If you are mid-rotation and genuinely need two keys live, use two different selectors — that is what selectors are for — rather than two records under one name.",
+      "fixCode": "; Before — two keys on the same selector, undefined behaviour:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...OLD\"\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\n\n; After — one key per selector; rotate via a second selector instead:\ngoogle._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\ns2._domainkey         TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEXT\""
     },
     "spf-missing": {
       "msg": "No SPF record — sender authentication impossible.",
@@ -315,11 +367,47 @@ window.__I18N_EN__ = {
       "fix": "Review your DMARC aggregate reports (rua=) to confirm all your legitimate mail sources are passing. Once confident, upgrade the policy to quarantine, then reject.",
       "fixCode": "; Step 1 — quarantine (sends failing mail to spam):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@yourdomain.com;\"\n\n; Step 2 — reject (blocks failing mail entirely):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
+    "dmarc-quarantine": {
+      "msg": "DMARC p=quarantine sends spoofed mail to spam but still delivers it. p=reject is the end state.",
+      "what": "Your DMARC policy is <code>p=quarantine</code>, which is genuine enforcement — mail that fails authentication gets routed to the spam folder rather than the inbox. But it is still <em>delivered</em>. A convincing phishing message impersonating your domain remains one click away in a folder people do check, and some receivers apply quarantine inconsistently. <code>p=reject</code> instructs receiving servers to refuse the message outright, so it never reaches the recipient at all.",
+      "fix": "Review your DMARC aggregate reports (<code>rua=</code>) over a few weeks and confirm every legitimate sending source is passing SPF or DKIM alignment. Once no genuine mail is failing, change the policy to <code>p=reject</code>. If you're cautious, ramp with <code>pct=</code> — apply reject to a percentage of failing mail first, then raise it to 100.",
+      "fixCode": "; Current policy — failing mail goes to spam:\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; Optional ramp — reject 25% of failing mail, quarantine the rest:\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=25; rua=mailto:dmarc@yourdomain.com;\"\n\n; End state — reject all failing mail:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
     "dmarc-no-rua": {
       "msg": "DMARC has no rua= address — you won't receive aggregate reports.",
       "what": "Your DMARC record doesn't include an <code>rua=</code> tag. This is the email address where ISPs and mail providers send aggregate reports showing who is sending mail from your domain and whether it's passing authentication. Without it, you have no visibility into your email traffic — you won't know if something breaks or if someone is spoofing your domain.",
       "fix": "Add an <code>rua=</code> address to your DMARC record. It can be any mailbox you monitor.",
       "fixCode": "; Add rua= to your existing DMARC record:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc-reports@yourdomain.com;\""
+    },
+    "dmarc-weak-sp": {
+      "msg": "DMARC subdomain policy is sp={0} while the domain itself is p={1} — subdomains are less protected.",
+      "what": "Your record sets <code>sp={0}</code>, which explicitly overrides the policy for subdomains. Without that tag, subdomains would inherit your stricter <code>p={1}</code> policy automatically. As written, an attacker can spoof <code>anything.yourdomain.com</code> and receive the weaker treatment — and recipients rarely scrutinise the subdomain part of a sender address. Subdomain spoofing is a common phishing technique precisely because organisational policies often stop at the apex.",
+      "fix": "Unless you have a specific reason to treat subdomains differently — for example a marketing platform sending from a subdomain that isn't fully authenticated yet — remove the <code>sp=</code> tag so subdomains inherit your main policy, or raise it to match.",
+      "fixCode": "; Simplest — delete sp= so subdomains inherit p:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Or set it explicitly to match:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-weak-np": {
+      "msg": "DMARC non-existent-subdomain policy is np={0} while the domain is p={1} — unused subdomains are less protected.",
+      "what": "The <code>np=</code> tag (RFC 9091) sets the policy for subdomains that don't exist in DNS at all. Yours is <code>np={0}</code>, weaker than your <code>p={1}</code>. Non-existent subdomains are the attacker's favourite target — there's no legitimate mail to disrupt, so nobody notices, and addresses like <code>billing.yourdomain.com</code> look entirely plausible to a recipient.",
+      "fix": "Set <code>np=reject</code>. Nothing legitimate sends from a subdomain that doesn't exist, so this is one of the few DMARC changes with essentially no deliverability risk.",
+      "fixCode": "; Reject mail from subdomains that don't exist:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-partial-pct": {
+      "msg": "DMARC pct={0} — your policy applies to only {0}% of failing mail; the other {1}% is delivered normally.",
+      "what": "The <code>pct=</code> tag throttles how much failing mail your policy applies to. At <code>pct={0}</code>, receivers apply your policy to {0}% of messages that fail authentication and fall back to the next weaker action for the remaining {1}% — so a spoofed message has roughly a {1} in 100 chance of landing in the inbox untouched. <code>pct=</code> is a rollout tool for safely ramping enforcement, not a resting state.",
+      "fix": "Check your DMARC aggregate reports to confirm no legitimate senders are failing, then remove <code>pct=</code> entirely (it defaults to 100) or set it to 100.",
+      "fixCode": "; Remove pct= — defaults to 100:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Or state it explicitly:\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-pct": {
+      "msg": "DMARC pct= value is not a valid number between 0 and 100 — receivers may ignore it or your whole record.",
+      "what": "The <code>pct=</code> tag must be an integer from 0 to 100. Yours isn't, which means receiving mail servers may ignore the tag, or reject the entire DMARC record as malformed and treat your domain as having no policy at all. A record that looks correct in your DNS panel but doesn't parse gives you the illusion of protection without the substance.",
+      "fix": "Correct the value to an integer between 0 and 100, or remove the tag — it defaults to 100, which is what you want in almost every case.",
+      "fixCode": "; Remove the malformed pct= entirely:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-invalid-policy": {
+      "msg": "DMARC p= value is not one of none, quarantine or reject — the record is malformed and offers no protection.",
+      "what": "The <code>p=</code> tag must be exactly <code>none</code>, <code>quarantine</code> or <code>reject</code>. Yours is something else — a typo, a stray character, or an unsupported value. Receiving servers cannot act on a policy they don't recognise, so in practice your domain is treated as having no DMARC record at all, and can be freely spoofed.",
+      "fix": "Correct the <code>p=</code> value. If you're unsure where to start, publish <code>p=none</code> with an <code>rua=</code> address, review the reports for a few weeks, then tighten.",
+      "fixCode": "; Monitoring only, safe starting point:\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; Full enforcement:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "porkbun-forward": {
       "msg": "Porkbun forwarding doesn't support DKIM — forwarded mail often fails at destination.",
@@ -482,6 +570,30 @@ window.__I18N_EN__ = {
           "body": "Verify your DNSSEC chain of trust at <a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a> or visualize it at <a href=\"https://dnsviz.net\" target=\"_blank\" rel=\"noopener\">dnsviz.net</a>. A valid chain shows green at every level from root → TLD → your domain."
         }
       ]
+    }
+  },
+  "score": {
+    "label": "Security score",
+    "outOf": "{0} / {1}",
+    "parkedNote": "Parked domain — scored on SPF, DMARC, DNSSEC and CAA only",
+    "pillar": {
+      "dmarc": "DMARC",
+      "spf": "SPF",
+      "dkim": "DKIM",
+      "dnssec": "DNSSEC",
+      "caa": "CAA",
+      "mtaSts": "MTA-STS",
+      "bimi": "BIMI",
+      "tlsRpt": "TLS-RPT"
+    },
+    "dmarcParts": {
+      "label": "DMARC breakdown",
+      "policy": "Policy (p=)",
+      "subdomain": "Subdomain coverage",
+      "pct": "Enforcement rate (pct=)",
+      "rua": "Aggregate reports (rua=)",
+      "alignment": "Strict alignment",
+      "ruf": "Forensic reports (ruf=)"
     }
   }
 };

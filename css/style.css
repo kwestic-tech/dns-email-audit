@@ -1,5 +1,5 @@
 /* DNS & Email Security Auditor — stylesheet
-   https://dnsaudit.kwestic.com
+   https://github.com/kwestic-tech/dns-email-audit
    Licensed MIT. */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -286,3 +286,30 @@ td.domain-cell { font-weight: 700; font-size: 12.5px; white-space: nowrap; }
 /* ── Language select ── */
 .lang-select { border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 12px; background: var(--surface); color: var(--ink2); cursor: pointer; outline: none; transition: background .15s; }
 .lang-select:hover { background: var(--surface2); color: var(--ink); }
+
+/* ── Score breakdown (detail row) ── */
+.score-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-top: 14px; }
+.score-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.score-total { font-size: 22px; font-weight: 800; line-height: 1; }
+.score-total small { font-size: 12px; font-weight: 500; opacity: .5; }
+.score-note { font-size: 11px; color: var(--ink3); margin-left: auto; }
+.sb-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 6px 20px; }
+.sb-row { display: grid; grid-template-columns: 66px 1fr 52px; align-items: center; gap: 8px; }
+.sb-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink3); }
+.sb-track { height: 5px; background: var(--surface3); border-radius: 3px; overflow: hidden; }
+.sb-fill { display: block; height: 100%; border-radius: 3px; transition: width .3s ease; }
+.sb-val { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--ink2); text-align: right; }
+.sb-val small { opacity: .45; }
+.sb-dmarc { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
+.sb-dmarc-label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--ink3); width: 100%; margin-bottom: 2px; }
+.sb-part { font-size: 11px; color: var(--ink2); }
+.sb-part strong { font-variant-numeric: tabular-nums; color: var(--ink); }
+.sb-part-zero { opacity: .4; }
+@media (max-width: 768px) {
+  .sb-rows { grid-template-columns: 1fr; }
+  .score-note { margin-left: 0; width: 100%; }
+}
+
+/* Duplicated record: configured but silently inactive — neither pass nor absent. */
+.adv-dot.dot-dup { border-color: var(--warn-border); background: var(--warn-bg); color: var(--warn); }
+.adv-dot.dot-dup .dot-pip { background: var(--warn); }
