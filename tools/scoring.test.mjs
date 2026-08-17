@@ -7,9 +7,11 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import vm from 'node:vm';
 
-const REPO = process.argv[2] || '/home/claude/dns-email-audit';
+const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
 const sandbox = { window: {}, fetch: async () => ({ ok: false }), console };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
