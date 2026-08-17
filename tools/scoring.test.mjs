@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 import vm from 'node:vm';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
-const sandbox = { window: {}, fetch: async () => ({ ok: false }), console };
+const sandbox = { window: { __PUBLIC_SUFFIX_RULES__: ['com', 'co.uk', '*.ck', '!www.ck'] }, fetch: async () => ({ ok: false }), console, AbortController, URLSearchParams, setTimeout, clearTimeout };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(readFileSync(`${REPO}/js/dns.js`, 'utf8'), sandbox);
@@ -191,7 +191,7 @@ eq('malformed pct still graded', nanPct.grade !== 'F', true);
 section('9. Parked domains (no MX)');
 
 const parkedHard = D.calcScore({
-  emailProvider: '@none',
+  emailProvider: '@null-mx',
   spfStatus: spf('ok'), dkimStatus: { found: false },
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject;'),
   wildcardBug: false, advanced: full,
@@ -201,7 +201,7 @@ eq('parked flagged',        parkedHard.parked, true);
 eq('parked reaches A tier', parkedHard.grade, 'A++');
 
 const parkedBare = D.calcScore({
-  emailProvider: '@none',
+  emailProvider: '@null-mx',
   spfStatus: spf('missing'), dkimStatus: { found: false },
   dmarcStatus: D.analyzeDmarc(''), wildcardBug: false, advanced: bare,
 });
@@ -412,6 +412,57 @@ eq('multiple CAA still scores full',
   D.calcScore({ emailProvider: 'Google Workspace', spfStatus: spf('ok'), dkimStatus: { found: true },
     dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; sp=reject; rua=mailto:a@b.com'), wildcardBug: false,
     advanced: full }).breakdown.pillars.find(p => p.key === 'caa').pts, D.WEIGHTS.caa);
+
+/* ── 19. Standards-sensitive regressions ────────────────────────────── */
+section('19. MX, SPF, DMARC and PSL regressions');
+
+eq('uppercase SPF -ALL recognized', D.analyzeSpf('V=SPF1 -ALL', '@custom').status, 'ok');
+eq('null MX recognized', D.isNullMx(['0 .']), true);
+eq('null MX provider', D.detectEmailProvider(['0 .'], 'example.com', ['192.0.2.1']), '@null-mx');
+eq('absent MX with address uses implicit MX', D.detectEmailProvider([], 'example.com', ['192.0.2.1']), '@implicit-mx');
+eq('absent MX and address is no mail', D.detectEmailProvider([], 'example.com', []), '@none');
+eq('same-domain CNAME is not automatically a loop', D.detectHosting([], ['host.example.com'], 'example.com'), '@custom');
+
+const tenExists = 'v=spf1 ' + Array.from({ length: 10 }, (_, i) => `exists:x${i}.example`).join(' ') + ' -all';
+const elevenExists = tenExists.replace(' -all', ' exists:x10.example -all');
+const tenA = 'v=spf1 ' + Array(10).fill('a').join(' ') + ' -all';
+eq('exactly 10 SPF terms is allowed', (await D.countSpfLookups(tenExists, 'example.com')).error, false);
+eq('11 SPF terms is permerror', (await D.countSpfLookups(elevenExists, 'example.com')).error, true);
+eq('adjacent a mechanisms all counted', (await D.countSpfLookups(tenA, 'example.com')).count, 10);
+
+eq('organizational domain for co.uk', D.getOrganizationalDomain('mail.example.co.uk'), 'example.co.uk');
+eq('PSL wildcard rule', D.getOrganizationalDomain('a.b.ck'), 'a.b.ck');
+eq('PSL exception rule', D.getOrganizationalDomain('a.www.ck'), 'www.ck');
+eq('DMARC missing p is malformed', D.analyzeDmarc('v=DMARC1; rua=mailto:a@example.com').status, 'present');
+eq('DMARC duplicate p is malformed', D.analyzeDmarc('v=DMARC1; p=none; p=reject').status, 'present');
+
+/* ── 20. Confidence and advanced-record validation ──────────────────── */
+section('20. Confidence and advanced record validation');
+
+const sampledDkim = D.calcScore({
+  emailProvider: 'Google Workspace', spfStatus: spf('ok'),
+  dkimStatus: { found: false, confidence: 'sampled' },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'),
+  wildcardBug: false, advanced: full,
+});
+eq('sampled DKIM produces a score range', sampledDkim.uncertain, true);
+eq('DKIM unknown is not stored as zero', sampledDkim.breakdown.pillars.find(p => p.key === 'dkim').pts, null);
+eq('sampled DKIM is informational', D.buildIssues({
+  emailProvider: 'Google Workspace', spfStatus: spf('ok'),
+  dkimStatus: { found: false, confidence: 'sampled', note: 'noteNotFound', duplicated: [] },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject'), wildcardBug: false,
+  hosting: 'Custom', advanced: full,
+}).find(i => i.key === 'dkim-unverified').sev, 'info');
+
+eq('valid MTA-STS TXT', D.validateMtaStsRecord('v=STSv1; id=20260817').valid, true);
+eq('MTA-STS requires id', D.validateMtaStsRecord('v=STSv1').valid, false);
+eq('valid TLS-RPT rua', D.validateTlsRptRecord('v=TLSRPTv1; rua=mailto:tls@example.com').valid, true);
+eq('TLS-RPT requires rua', D.validateTlsRptRecord('v=TLSRPTv1').valid, false);
+eq('BIMI requires HTTPS logo', D.validateBimiRecord('v=BIMI1; l=https://example.com/logo.svg').valid, true);
+eq('BIMI rejects HTTP logo', D.validateBimiRecord('v=BIMI1; l=http://example.com/logo.svg').valid, false);
+
+const failedTransport = await D.dohFetch('failure.example', 'A', { retries: 0, noCache: true });
+eq('HTTP failure is not converted to empty success', failedTransport.kind, 'http-error');
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

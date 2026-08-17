@@ -18,7 +18,7 @@ window.__I18N_EN__ = {
   },
   "topbar": {
     "title": "DNS & Email Auditor",
-    "subtitle": "· free · no signup · no data leaves your browser",
+    "subtitle": "· free · no signup · no data sent to Kwestic",
     "langTitle": "Language"
   },
   "btn": {
@@ -27,6 +27,7 @@ window.__I18N_EN__ = {
     "exportHtml": "⬇ Export Report",
     "runAudit": "🔎 Run Audit",
     "auditRunning": "Auditing…",
+    "cancelAudit": "Cancel audit",
     "uploadFile": "📄 Upload .txt file",
     "loadExamples": "Load examples",
     "clearResults": "🗑 Clear results",
@@ -41,11 +42,12 @@ window.__I18N_EN__ = {
     "dkim": "Check DKIM selectors",
     "www": "Detect website hosting",
     "wildcard": "Detect wildcard TXT bugs",
+    "dkimSelectors": "Additional DKIM selectors",
     "footer": "DNS via Cloudflare DoH · No data stored"
   },
   "help": {
     "title": "How it works:",
-    "body": "Runs entirely in your browser via the <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a> — no data leaves your machine. Checks: NS (DNS provider), MX (email provider), SPF, DKIM (10 common selectors), DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC, and SPF lookup depth. To self-host, clone the repository and drop it on GitHub Pages, Netlify, or Cloudflare Pages — no build step required."
+    "body": "Runs in your browser via the <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a>. No data is sent to Kwestic or stored by this app; DNS query names are sent directly to Cloudflare and are subject to Cloudflare's privacy policy. Checks: NS, MX, SPF, sampled DKIM selectors, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC, and SPF lookup depth."
   },
   "netbanner": {
     "title": "⚠️ Network access blocked — DNS queries cannot reach the internet from here",
@@ -54,7 +56,9 @@ window.__I18N_EN__ = {
   "progress": {
     "heading": "Querying DNS records…",
     "querying": "Querying {0}…",
-    "error": "Error on {0}: {1}"
+    "error": "Error on {0}: {1}",
+    "cancelled": "Cancelled by user",
+    "cancelledDomain": "Cancelled {0}"
   },
   "search": {
     "placeholder": "🔎 Filter domains…"
@@ -86,7 +90,7 @@ window.__I18N_EN__ = {
     "text": "No domains match your filter."
   },
   "footer": {
-    "text": "DNS-over-HTTPS via <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; All queries run in your browser &bull; No data stored or transmitted &bull; Free to use &amp; self-host"
+    "text": "DNS-over-HTTPS via <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; No data sent to Kwestic or stored by this app &bull; Query names are sent to Cloudflare &bull; Free to use &amp; self-host"
   },
   "labels": {
     "issues": "Issues",
@@ -120,7 +124,11 @@ window.__I18N_EN__ = {
   "badge": {
     "notRegistered": "Not registered / NXDOMAIN",
     "noEmail": "✗ No Email",
-    "noDkim": "✗ None"
+    "noDkim": "✗ None",
+    "dkimUnverified": "? No tested selector found",
+    "notChecked": "Not checked",
+    "auditError": "Audit indeterminate",
+    "cancelled": "Cancelled"
   },
   "provider": {
     "unknown": "Unknown",
@@ -128,6 +136,8 @@ window.__I18N_EN__ = {
     "customUnknown": "Custom/Unknown",
     "selfHosted": "Self-hosted",
     "none": "None",
+    "nullMx": "Null MX (mail disabled)",
+    "implicitMx": "Implicit MX (no MX record)",
     "noWebPresence": "No web presence",
     "cnameLoop": "⚠ CNAME Loop",
     "cloudflareProxied": "Cloudflare (proxied)",
@@ -153,7 +163,8 @@ window.__I18N_EN__ = {
     "set": "✓ Set",
     "invalid": "⚠ Invalid p=",
     "pctSuffix": "({0}%)",
-    "permerror": "🔴 Multiple records"
+    "permerror": "🔴 Multiple records",
+    "inheritedFrom": "Inherited from {0}"
   },
   "dkim": {
     "noteWildcard": "Wildcard TXT bug may be interfering",
@@ -161,11 +172,13 @@ window.__I18N_EN__ = {
   },
   "adv": {
     "configured": "✓ Configured",
+    "unverified": "TXT valid; policy unverified",
     "notConfigured": "Not configured",
     "tip": {
       "bimiOn": "Record: {0}",
       "bimiOff": "Not configured — display your logo in Gmail & Apple Mail",
       "mtaStsOn": "Configured — TLS forced on inbound delivery",
+      "mtaStsUnverified": "The TXT record is valid, but the HTTPS policy file is not verified by this browser-only audit",
       "mtaStsOff": "Not configured — publish _mta-sts TXT to force TLS on inbound mail",
       "tlsRptOn": "Configured — TLS failure reports enabled",
       "tlsRptOff": "Not configured — companion to MTA-STS; publish _smtp._tls TXT",
@@ -205,15 +218,19 @@ window.__I18N_EN__ = {
     "htmlExported": "HTML report exported",
     "htmlExportFailed": "Could not build the standalone report — serve the app over HTTP and try again.",
     "fileLoaded": "Loaded {0}",
+    "fileTooLarge": "File is too large. Maximum upload size is 1 MB.",
     "examplesLoaded": "Examples loaded — click Run Audit",
     "auditDone": {
       "one": "✅ Audit complete — {0} domain analyzed",
       "other": "✅ Audit complete — {0} domains analyzed"
     },
+    "auditCancelled": "Audit cancelled",
     "langChanged": "Language changed",
     "langFailed": "Could not load that language — staying on English."
   },
   "csv": {
+    "unknown": "Unknown",
+    "txtOnly": "Valid TXT; HTTPS policy unverified",
     "headers": [
       "Domain",
       "Registered",
@@ -250,7 +267,7 @@ window.__I18N_EN__ = {
   "report": {
     "title": "DNS & Email Security Audit Report",
     "generated": "Generated {0} · {1} domains",
-    "note": "Static report generated by the DNS & Email Security Auditor. No data was transmitted or stored."
+    "note": "Static report generated locally by the DNS & Email Security Auditor. Audit results were not sent to Kwestic or stored by the app; DNS query names were sent to Cloudflare's resolver."
   },
   "issue": {
     "wildcard-txt": {
@@ -260,8 +277,8 @@ window.__I18N_EN__ = {
       "fixCode": "; Delete this record from your DNS zone:\n*    IN TXT    \"whatever value is here\""
     },
     "dns-loop": {
-      "msg": "www CNAME points back to root — DNS loop, website unreachable.",
-      "what": "Your <code>www</code> CNAME record points back to the root domain (e.g. <code>www CNAME yourdomain.com</code>), which then tries to resolve <code>www</code> again — creating an infinite loop. Visitors attempting to load your website receive a DNS error and can't reach it.",
+      "msg": "The www CNAME chain contains a cycle — the website name cannot resolve.",
+      "what": "The auditor followed the <code>www</code> CNAME chain and encountered a hostname it had already visited. That creates a DNS resolution cycle, so visitors cannot obtain a final A or AAAA address.",
       "fix": "Replace the looping CNAME with a direct A record pointing to your server's IP, or a CNAME pointing to your hosting provider's own domain name.",
       "fixCode": "; Option 1 — point directly to your server IP:\nwww    A      203.0.113.10\n\n; Option 2 — point to your host's domain:\nwww    CNAME  yoursite.netlify.app"
     },
@@ -355,6 +372,12 @@ window.__I18N_EN__ = {
       "fix": "DKIM setup happens inside your email provider's admin console — they generate a public/private key pair and give you a TXT record to publish in your DNS. You don't create the key yourself.",
       "fixCode": "; Google Workspace: Admin → Apps → Google Workspace → Gmail\n;   → Authenticate email → Generate Key → copy the TXT record\n;\n; Microsoft 365: Admin → Settings → Domains → select domain\n;   → DNS records → enable DKIM\n;\n; The TXT record will look something like:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
+    "dkim-unverified": {
+      "msg": "No tested DKIM selector was found. {0} This does not prove that DKIM is absent; supply a selector or paste one from a DKIM-Signature header."
+    },
+    "implicit-mx": {
+      "msg": "No MX record is published. SMTP may fall back to this domain's A/AAAA address as an implicit MX, which is fragile and often unintended."
+    },
     "dmarc-missing": {
       "msg": "No DMARC record — domain can be freely spoofed without policy enforcement.",
       "what": "DMARC (Domain-based Message Authentication, Reporting &amp; Conformance) is a policy that tells receiving mail servers what to do when an email fails SPF or DKIM — quarantine it, reject it, or let it through. Without a DMARC record, even a perfect SPF + DKIM setup doesn't prevent someone from spoofing your domain in the visible \"From:\" address.",
@@ -426,6 +449,30 @@ window.__I18N_EN__ = {
       "what": "Your SPF record is approaching the 10-lookup limit. Adding any more email sending services, or if an existing provider changes their SPF infrastructure, could push you over — causing legitimate emails to fail SPF authentication without any warning.",
       "fix": "Audit your SPF record and remove any services you no longer use. If you genuinely need all current senders, consider flattening to reduce lookup depth.",
       "fixCode": "; Audit: which of these are you still using?\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:... -all\"\n;\n; Remove unused includes, or flatten with a tool like:\n; AutoSPF (autospf.com), dmarcian, or MXToolbox"
+    },
+    "spf-cycle": {
+      "msg": "SPF include/redirect cycle detected through {0}; SPF evaluation can return permerror."
+    },
+    "spf-indeterminate": {
+      "msg": "The SPF lookup total is indeterminate because the record uses macros, excessive depth, or an invalid included policy."
+    },
+    "dnssec-bogus": {
+      "msg": "DNSSEC validation appears bogus: validation failed although the answer is available when checking is disabled."
+    },
+    "dnssec-indeterminate": {
+      "msg": "DNSSEC status could not be determined because the validating query failed. It was not scored as unsigned."
+    },
+    "mta-sts-invalid": {
+      "msg": "The MTA-STS TXT record is malformed or missing its required id= tag."
+    },
+    "mta-sts-policy-unverified": {
+      "msg": "The MTA-STS TXT record is valid, but this browser-only audit cannot verify the HTTPS policy file because most policy hosts do not permit cross-origin reads."
+    },
+    "tls-rpt-invalid": {
+      "msg": "The TLS-RPT record is malformed or has no valid rua= destination."
+    },
+    "bimi-invalid": {
+      "msg": "The BIMI record is malformed or does not contain a valid HTTPS logo URL."
     }
   },
   "suggestion": {
@@ -575,6 +622,7 @@ window.__I18N_EN__ = {
   "score": {
     "label": "Security score",
     "outOf": "{0} / {1}",
+    "range": "Confirmed score range: {0}–{1} / 100; unknown checks are not scored as failures",
     "parkedNote": "Parked domain — scored on SPF, DMARC, DNSSEC and CAA only",
     "pillar": {
       "dmarc": "DMARC",

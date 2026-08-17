@@ -2,7 +2,7 @@
 
 A free, browser-based auditor for DNS and email authentication. Paste up to 200 domains and get SPF, DKIM, DMARC, BIMI, MTA-STS, TLS-RPT, CAA and DNSSEC results with a letter grade, plain-language explanations of every problem, and copy-paste DNS records to fix them.
 
-Every query runs client-side against [Cloudflare's DNS-over-HTTPS API](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/). There is no backend, no signup, no analytics, and nothing is stored or transmitted anywhere else.
+Every query runs client-side against [Cloudflare's DNS-over-HTTPS API](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/). There is no backend, signup, or analytics, and the app does not send data to Kwestic or store audit results. DNS query names are sent directly to Cloudflare and are subject to Cloudflare's privacy policy.
 
 **[▶ Live demo](https://kwestic-tech.github.io/dns-email-audit/)**
 
@@ -15,11 +15,11 @@ Every query runs client-side against [Cloudflare's DNS-over-HTTPS API](https://d
 | **NS** | Which DNS provider hosts the zone |
 | **MX** | Which email provider receives mail |
 | **SPF** | Whether authorized senders are declared, and how strictly (`-all` / `~all` / `?all` / `+all`) |
-| **SPF lookup depth** | How close the record is to the hard 10-lookup limit, following includes one level deep |
-| **DKIM** | Probes 10 common selectors for a signing key |
+| **SPF lookup depth** | Recursively evaluates lookup-causing terms, includes, redirects, cycles and void lookups against RFC 7208 limits |
+| **DKIM** | Probes common and user-supplied selectors; an unsuccessful sample is reported as unknown, not proof that DKIM is absent |
 | **DMARC** | Whether a policy exists, and whether it's `none`, `quarantine` or `reject` |
 | **BIMI** | Whether a logo record is published |
-| **MTA-STS** | Whether inbound TLS is enforced |
+| **MTA-STS** | Whether the discovery TXT record is structurally valid; the HTTPS policy remains unverified in the browser-only build |
 | **TLS-RPT** | Whether TLS failure reports are configured |
 | **CAA** | Which certificate authorities may issue certs (walks up the domain tree) |
 | **DNSSEC** | Whether responses validate (AD flag) |
@@ -78,13 +78,18 @@ DMARC's 30 points split further: policy (`p=`) 10, effective subdomain coverage
 
 **Grades:** A++ ≥ 85, A+ ≥ 75, A ≥ 65, B ≥ 50, C ≥ 30, D ≥ 10, otherwise F.
 
+When a control cannot be conclusively tested from public DNS — most notably
+DKIM when none of the sampled selectors exists, or DNSSEC when validation is
+indeterminate — the UI shows a score and grade range. Unknown is never silently
+converted into a failed control.
+
 **DNSSEC gates the A tier.** Without a signed zone the grade caps at B no matter
 how good everything else is — an attacker who can poison your DNS responses can
 undermine every other record measured here. A wildcard TXT record is an instant
 F for the same reason: it breaks DKIM and DMARC lookups on every subdomain,
 which invalidates the rest of the audit.
 
-**Parked domains** (no MX) are scored on a separate rubric — SPF 30, DMARC 30,
+**Parked domains** (an explicit RFC 7505 null MX, `0 .`) are scored on a separate rubric — SPF 30, DMARC 30,
 DNSSEC 25, CAA 15 — because DKIM, BIMI, MTA-STS and TLS-RPT cannot apply to a
 domain with no mail flow. A parked domain with a null MX, `SPF -all`,
 `DMARC p=reject` and a signed zone is correctly hardened and scores accordingly.
@@ -117,7 +122,7 @@ include, a real record one line short, keeps partial credit.
 ### Validating a scoring change
 
 ```bash
-npm run test:scoring          # 87 assertions, no network needed
+npm run test:scoring          # standards and scoring assertions, no network needed
 node tools/backtest.mjs --sample   # grade distribution over live domains
 node tools/backtest.mjs domains.txt --json > after.json
 ```
@@ -138,6 +143,7 @@ dns-email-audit/
 ├── css/style.css
 ├── js/
 │   ├── locales-en.js       # AUTO-GENERATED English bundle (offline fallback)
+│   ├── public-suffixes.js  # AUTO-GENERATED PSL snapshot for DMARC discovery
 │   ├── i18n.js             # translation loader: t(), tp(), tRaw(), setLang()
 │   ├── dns.js              # DoH queries, analysis, scoring — no English in here
 │   └── app.js              # rendering, orchestration, exports
@@ -149,6 +155,8 @@ dns-email-audit/
 │   ├── build-fallback.mjs  # en.json → js/locales-en.js
 │   ├── check-locales.mjs   # validates every locale against en.json
 │   ├── scoring.test.mjs    # unit tests for the parser and scoring model
+│   ├── update-psl.mjs      # refreshes the vendored Public Suffix List
+│   ├── serve.mjs           # dependency-free local development server
 │   └── backtest.mjs        # grade distribution over live domains
 └── .github/workflows/
     ├── pages.yml           # deploy to GitHub Pages
@@ -180,7 +188,7 @@ Missing keys fall back to English at runtime, so a partial translation is genuin
 
 ## Privacy
 
-DNS queries go from your browser directly to `cloudflare-dns.com`. That's the only network request the app makes. No results, domains, or telemetry are sent anywhere, and nothing is written to storage except your language preference in `localStorage`.
+DNS queries go from your browser directly to `cloudflare-dns.com`. No results or telemetry are sent to Kwestic, and nothing is written to storage except your language preference in `localStorage`. The domain names being queried are necessarily disclosed to Cloudflare's resolver and are subject to Cloudflare's privacy policy.
 
 Because it's client-side, the app can't work inside a sandboxed iframe that blocks external requests — you'll see a banner explaining this if that happens.
 
