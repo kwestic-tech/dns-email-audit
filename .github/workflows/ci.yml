@@ -1,0 +1,27 @@
+# Validates locale files on every push and pull request.
+#
+# Catches the three things that actually break translations:
+#   • malformed JSON in a locale file
+#   • {0}/{1} placeholder mismatches against en.json
+#   • js/locales-en.js not regenerated after editing locales/en.json
+#
+# Missing keys are reported but do NOT fail the build — partial translations
+# are welcome and fall back to English at runtime.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  locales:
+    name: Locale integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm run check

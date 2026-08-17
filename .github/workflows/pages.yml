@@ -1,0 +1,53 @@
+# Deploys the site to GitHub Pages on every push to main.
+#
+# This is optional: the repo is a plain static site, so "Settings → Pages →
+# Deploy from a branch" works with no workflow at all. Use this instead when
+# you want the locale check to gate the deploy.
+#
+# To enable: Settings → Pages → Source → GitHub Actions.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish; queue at most one more.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate locale files
+        run: npm run check
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # The repo root IS the site — no build step.
+          path: '.'
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

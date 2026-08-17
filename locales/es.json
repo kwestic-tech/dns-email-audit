@@ -1,0 +1,203 @@
+{
+  "meta": {
+    "code": "es",
+    "name": "Spanish",
+    "nativeName": "Español",
+    "dir": "ltr"
+  },
+
+  "doc": {
+    "title": "Auditor de Seguridad DNS y Email — Verificador gratuito de SPF, DKIM, DMARC y DNSSEC",
+    "description": "Auditor gratuito de DNS y seguridad de correo que funciona en el navegador. Verifica SPF, DKIM, DMARC, BIMI, MTA-STS, CAA y DNSSEC para hasta 200 dominios a la vez. Sin registro, sin datos almacenados."
+  },
+
+  "topbar": {
+    "title": "Auditor DNS y Email",
+    "subtitle": "· gratis · sin registro · sin datos fuera de tu navegador",
+    "langTitle": "Idioma"
+  },
+
+  "btn": {
+    "howItWorks": "📖 Cómo funciona",
+    "exportCsv": "⬇ Exportar CSV",
+    "exportHtml": "⬇ Exportar Reporte",
+    "runAudit": "🔎 Iniciar Auditoría",
+    "auditRunning": "Auditando…",
+    "uploadFile": "📄 Subir archivo .txt",
+    "loadExamples": "Cargar ejemplos",
+    "clearResults": "🗑 Borrar resultados",
+    "learnMore": "Más información →"
+  },
+
+  "input": {
+    "heading": "Ingresa dominios para auditar",
+    "desc": "Un dominio por línea, o sube un archivo .txt. Hasta 200 dominios a la vez.",
+    "placeholder": "ejemplo.com\nmiempresa.org\notro-dominio.net"
+  },
+
+  "opt": {
+    "dkim": "Verificar selectores DKIM",
+    "www": "Detectar alojamiento web",
+    "wildcard": "Detectar errores TXT comodín",
+    "footer": "DNS vía Cloudflare DoH · Sin datos almacenados"
+  },
+
+  "progress": {
+    "heading": "Consultando registros DNS…",
+    "querying": "Consultando {0}…",
+    "error": "Error en {0}: {1}"
+  },
+
+  "search": {
+    "placeholder": "🔎 Filtrar dominios…"
+  },
+
+  "th": {
+    "domain": "Dominio",
+    "grade": "Calificación",
+    "dns": "Proveedor DNS",
+    "email": "Proveedor Email",
+    "spf": "SPF",
+    "dkim": "DKIM",
+    "dmarc": "DMARC",
+    "advanced": "Avanzado",
+    "hosting": "Alojamiento"
+  },
+
+  "filter": {
+    "all": "Todos los dominios",
+    "warn": "⚠️ Tiene advertencias",
+    "crit": "🔴 Tiene problemas",
+    "noEmail": "Sin email",
+    "noDmarc": "Sin DMARC",
+    "noDkim": "Sin DKIM",
+    "noSpf": "Sin SPF",
+    "hasBimi": "Tiene BIMI",
+    "noCaa": "Sin CAA",
+    "noDnssec": "Sin DNSSEC"
+  },
+
+  "empty": {
+    "text": "Ningún dominio coincide con el filtro."
+  },
+
+  "footer": {
+    "text": "DNS-over-HTTPS vía <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; Consultas en tu navegador &bull; Sin datos almacenados &bull; Gratis para usar y alojar"
+  },
+
+  "labels": {
+    "issues": "Problemas",
+    "suggestions": "💡 Recomendaciones",
+    "advanced": "Seguridad Avanzada",
+    "nameservers": "Servidores de nombres",
+    "mx": "Registros MX",
+    "spf": "Registro SPF",
+    "spfLookups": "Consultas DNS",
+    "dmarc": "Registro DMARC",
+    "dkim": "Selectores DKIM",
+    "verifications": "Verificaciones (TXT)",
+    "wildcardTitle": "⚠ Error TXT Comodín",
+    "wildcardText": "Un registro TXT comodín devuelve datos para TODOS los subdominios. Esto rompe DMARC y DKIM. Accede a tu proveedor DNS y elimina el registro * TXT.",
+    "status": "Estado",
+    "none": "Ninguno",
+    "na": "N/D",
+    "dash": "—"
+  },
+
+  "showme": {
+    "open": "Mostrar ▾",
+    "close": "Mostrar ▴",
+    "whatItIs": "Qué es",
+    "whatItNeeds": "Cómo debe quedar"
+  },
+
+  "stat": {
+    "domains": "Dominios",
+    "haveEmail": "Con Email",
+    "wildcardBug": "⚠ Error Comodín"
+  },
+
+  "badge": {
+    "notRegistered": "No registrado / NXDOMAIN",
+    "noEmail": "✗ Sin Email",
+    "noDkim": "✗ Ninguno"
+  },
+
+  "provider": {
+    "unknown": "Desconocido",
+    "custom": "Personalizado",
+    "customUnknown": "Personalizado/Desconocido",
+    "selfHosted": "Auto-alojado",
+    "none": "Ninguno",
+    "noWebPresence": "Sin presencia web",
+    "cnameLoop": "⚠ Bucle CNAME",
+    "cloudflareProxied": "Cloudflare (proxy)",
+    "porkbunForwarding": "Reenvío Porkbun"
+  },
+
+  "spf": {
+    "missing": "✗ Ausente",
+    "issues": "⚠ Problemas",
+    "hardfail": "✓ -all",
+    "softfail": "~ ~all",
+    "present": "✓ Presente",
+    "meterOver": "{0}/10 🔴 LÍMITE EXCEDIDO",
+    "meterNear": "{0}/10 ⚠ Cerca del límite",
+    "meterOk": "{0}/10 ✓",
+    "meterSuffix": "consultas DNS"
+  },
+
+  "dmarc": {
+    "missing": "✗ Ausente",
+    "reject": "✓ reject",
+    "quarantine": "✓ quarantine",
+    "none": "⚠ none (monitoreo)",
+    "set": "✓ Configurado"
+  },
+
+  "dkim": {
+    "noteWildcard": "El error TXT comodín podría estar interfiriendo",
+    "noteNotFound": "No se encontraron selectores comunes"
+  },
+
+  "adv": {
+    "configured": "✓ Configurado",
+    "notConfigured": "Sin configurar"
+  },
+
+  "rows": {
+    "count": {
+      "one": "{0} dominio",
+      "other": "{0} dominios"
+    },
+    "showing": "Mostrando {0} de {1}",
+    "critical": {
+      "one": "{0} crítico",
+      "other": "{0} críticos"
+    },
+    "warning": {
+      "one": "{0} advertencia",
+      "other": "{0} advertencias"
+    },
+    "suggestion": {
+      "one": "{0} sugerencia",
+      "other": "{0} sugerencias"
+    }
+  },
+
+  "toast": {
+    "noDomains": "Ingresa al menos un dominio.",
+    "tooMany": "Máximo 200 dominios por ejecución.",
+    "csvExported": "CSV exportado",
+    "htmlExported": "Reporte HTML exportado",
+    "htmlExportFailed": "No se pudo generar el reporte — sirve la app por HTTP e inténtalo de nuevo.",
+    "fileLoaded": "Cargado {0}",
+    "examplesLoaded": "Ejemplos cargados — haz clic en Iniciar Auditoría",
+    "auditDone": {
+      "one": "✅ Auditoría completa — {0} dominio analizado",
+      "other": "✅ Auditoría completa — {0} dominios analizados"
+    },
+    "langChanged": "Idioma cambiado",
+    "langFailed": "No se pudo cargar ese idioma — se mantiene el inglés."
+  }
+}

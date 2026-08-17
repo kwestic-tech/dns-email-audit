@@ -1,0 +1,43 @@
+#!/usr/bin/env node
+/**
+ * Regenerates js/locales-en.js from locales/en.json.
+ *
+ * Why this file exists: browsers block fetch() of local JSON over file://, so
+ * an app split across multiple files would break the moment someone
+ * double-clicks index.html. Inlining the English bundle as a plain script
+ * keeps that path working, and every other language still loads on demand.
+ *
+ * Run after editing locales/en.json:  npm run build:fallback
+ */
+
+import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const source = join(root, 'locales', 'en.json');
+const target = join(root, 'js', 'locales-en.js');
+
+const raw = readFileSync(source, 'utf8');
+
+let parsed;
+try {
+  parsed = JSON.parse(raw);
+} catch (err) {
+  console.error(`✗ locales/en.json is not valid JSON:\n  ${err.message}`);
+  process.exit(1);
+}
+
+const banner = `/* AUTO-GENERATED — DO NOT EDIT.
+ * Source: locales/en.json
+ * Regenerate with: npm run build:fallback
+ *
+ * English is inlined here so the app works when index.html is opened directly
+ * from disk (file://), where fetching locales/*.json is blocked by the browser.
+ */
+`;
+
+const body = `window.__I18N_EN__ = ${JSON.stringify(parsed, null, 2)};\n`;
+
+writeFileSync(target, banner + body, 'utf8');
+console.log(`✓ Wrote js/locales-en.js (${(banner + body).length.toLocaleString()} bytes)`);

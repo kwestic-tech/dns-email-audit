@@ -1,0 +1,27 @@
+{
+  "name": "dns-email-audit",
+  "version": "1.0.0",
+  "description": "Browser-based DNS and email security auditor — SPF, DKIM, DMARC, BIMI, MTA-STS, TLS-RPT, CAA and DNSSEC for up to 200 domains at once.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve . -l 8080",
+    "build:fallback": "node tools/build-fallback.mjs",
+    "check": "node tools/check-locales.mjs",
+    "test": "node tools/check-locales.mjs"
+  },
+  "keywords": [
+    "dns",
+    "spf",
+    "dkim",
+    "dmarc",
+    "dnssec",
+    "bimi",
+    "mta-sts",
+    "email-security",
+    "i18n"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

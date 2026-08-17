@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DNS &amp; Email Security Auditor — Free SPF, DKIM, DMARC &amp; DNSSEC Checker</title>
+
+<!-- SEO -->
+<meta name="description" content="Free browser-based DNS and email security auditor. Instantly check SPF, DKIM, DMARC, BIMI, MTA-STS, CAA, and DNSSEC for up to 200 domains at once. No signup, no data stored — runs entirely in your browser.">
+<meta name="keywords" content="DNS audit, SPF check, DKIM check, DMARC check, DNSSEC checker, BIMI, MTA-STS, CAA, email security, domain security, free DNS tool">
+<meta name="robots" content="index, follow">
+<meta name="author" content="DNS &amp; Email Security Auditor">
+
+<!-- Open Graph (social sharing) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="DNS &amp; Email Security Auditor — Free SPF, DKIM, DMARC &amp; DNSSEC Checker">
+<meta property="og:description" content="Check SPF, DKIM, DMARC, BIMI, MTA-STS, CAA, and DNSSEC for up to 200 domains instantly. Free, no signup, runs entirely in your browser.">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="es_ES">
+
+<!-- Twitter / X Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="DNS &amp; Email Security Auditor — Free SPF, DKIM, DMARC Checker">
+<meta name="twitter:description" content="Audit SPF, DKIM, DMARC, BIMI, MTA-STS, CAA &amp; DNSSEC for up to 200 domains at once. Free, no signup, no data stored.">
+
+<!-- Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "DNS & Email Security Auditor",
+  "description": "Free browser-based DNS and email security auditor. Check SPF, DKIM, DMARC, BIMI, MTA-STS, CAA, and DNSSEC for up to 200 domains at once. No signup required.",
+  "applicationCategory": "SecurityApplication",
+  "operatingSystem": "Web",
+  "browserRequirements": "Requires a modern browser with JavaScript enabled",
+  "inLanguage": ["en", "es"],
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "featureList": [
+    "SPF record check",
+    "DKIM selector check",
+    "DMARC policy check",
+    "BIMI record check",
+    "MTA-STS check",
+    "TLS-RPT check",
+    "CAA record check",
+    "DNSSEC validation",
+    "DNS provider detection",
+    "Email provider detection",
+    "SPF lookup depth analysis",
+    "Security grade scoring",
+    "Bulk domain audit (up to 200)",
+    "CSV and HTML export"
+  ]
+}
+</script>
+
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="logo">🔍</div>
+    <h1 data-i18n-text="topbar.title">DNS &amp; Email Auditor</h1>
+  </div>
+  <div class="topbar-actions">
+    <span class="topbar-sub" data-i18n="topbar.subtitle">· free · no signup · no data leaves your browser</span>
+    <!-- Options are rendered from locales/index.json by js/i18n.js -->
+    <select id="langSelect" class="lang-select" onchange="setLang(this.value)" data-i18n-title="topbar.langTitle" title="Language">
+      <option value="en">🌐 EN</option>
+    </select>
+    <button class="btn btn-outline btn-sm" onclick="showHelp()" data-i18n="btn.howItWorks">📖 How it works</button>
+    <button class="btn btn-outline btn-sm" id="exportCsvBtn" onclick="exportCSV()" style="display:none" data-i18n="btn.exportCsv">⬇ Export CSV</button>
+    <button class="btn btn-outline btn-sm" id="exportHtmlBtn" onclick="exportHTML()" style="display:none" data-i18n="btn.exportHtml">⬇ Export Report</button>
+  </div>
+</div>
+
+<div class="page">
+
+  <div class="callout callout-info" id="helpBox" style="display:none">
+    <strong data-i18n="help.title">How it works:</strong> <span data-i18n="help.body"></span>
+  </div>
+
+  <div id="netBanner">
+    <strong data-i18n="netbanner.title">⚠️ Network access blocked — DNS queries cannot reach the internet from here</strong>
+    <p data-i18n="netbanner.body"></p>
+  </div>
+
+  <div class="input-card">
+    <h2 data-i18n="input.heading">Enter domains to audit</h2>
+    <p data-i18n="input.desc">One domain per line, or upload a .txt file. Up to 200 domains at once.</p>
+    <div class="input-area">
+      <textarea id="domainInput" data-i18n-placeholder="input.placeholder" placeholder="example.com&#10;mycompany.org&#10;another-domain.net"></textarea>
+      <div class="side-controls">
+        <button class="btn btn-primary" id="auditBtn" onclick="startAudit()" data-i18n="btn.runAudit">🔎 Run Audit</button>
+        <label class="file-upload-label" for="fileInput"><span data-i18n="btn.uploadFile">📄 Upload .txt file</span><input type="file" id="fileInput" accept=".txt,.csv" onchange="loadFile(event)"></label>
+        <button class="btn btn-outline" onclick="loadExample()" data-i18n="btn.loadExamples">Load examples</button>
+        <button class="btn btn-outline" id="clearBtn" onclick="clearAll()" style="display:none" data-i18n="btn.clearResults">🗑 Clear results</button>
+      </div>
+    </div>
+    <div class="options-row">
+      <label class="checkbox-group"><input type="checkbox" id="optDKIM" checked><span data-i18n="opt.dkim">Check DKIM selectors</span></label>
+      <label class="checkbox-group"><input type="checkbox" id="optWWW" checked><span data-i18n="opt.www">Detect website hosting</span></label>
+      <label class="checkbox-group"><input type="checkbox" id="optWildcard"><span data-i18n="opt.wildcard">Detect wildcard TXT bugs</span></label>
+      <span style="font-size:11px;color:var(--ink3);margin-left:auto;" data-i18n="opt.footer">DNS via Cloudflare DoH · No data stored</span>
+    </div>
+  </div>
+
+  <div id="progressSection">
+    <div class="progress-card">
+      <div class="progress-header">
+        <h3 data-i18n="progress.heading">Querying DNS records…</h3>
+        <span class="progress-counts" id="progressCounts">0 / 0</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-log" id="progressLog"></div>
+    </div>
+  </div>
+
+  <div id="summarySection"><div class="stats-grid" id="statsGrid"></div></div>
+
+  <div id="resultsToolbar">
+    <div class="toolbar-left">
+      <input class="search-box" type="text" id="searchBox" oninput="filterTable()" data-i18n-placeholder="search.placeholder" placeholder="🔎 Filter domains…">
+      <select class="filter-select" id="filterStatus" onchange="filterTable()">
+        <option value="" data-i18n="filter.all">All domains</option>
+        <option value="warn" data-i18n="filter.warn">⚠️ Has warnings</option>
+        <option value="crit" data-i18n="filter.crit">🔴 Has issues</option>
+        <option value="no-email" data-i18n="filter.noEmail">No email</option>
+        <option value="no-dmarc" data-i18n="filter.noDmarc">Missing DMARC</option>
+        <option value="no-dkim" data-i18n="filter.noDkim">Missing DKIM</option>
+        <option value="no-spf" data-i18n="filter.noSpf">Missing SPF</option>
+        <option value="has-bimi" data-i18n="filter.hasBimi">Has BIMI</option>
+        <option value="no-caa" data-i18n="filter.noCaa">Missing CAA</option>
+        <option value="no-dnssec" data-i18n="filter.noDnssec">No DNSSEC</option>
+      </select>
+    </div>
+    <div><span id="rowCount" style="font-size:12px;color:var(--ink3);"></span></div>
+  </div>
+
+  <div id="resultsSection">
+    <div class="table-wrap">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th style="width:30px"></th>
+            <th onclick="sortTable('domain')"><span data-i18n="th.domain">Domain</span></th>
+            <th onclick="sortTable('grade')" style="width:58px;text-align:center"><span data-i18n="th.grade">Grade</span></th>
+            <th onclick="sortTable('dns')"><span data-i18n="th.dns">DNS Provider</span></th>
+            <th onclick="sortTable('email')"><span data-i18n="th.email">Email Provider</span></th>
+            <th onclick="sortTable('spf')"><span data-i18n="th.spf">SPF</span></th>
+            <th onclick="sortTable('dkim')"><span data-i18n="th.dkim">DKIM</span></th>
+            <th onclick="sortTable('dmarc')"><span data-i18n="th.dmarc">DMARC</span></th>
+            <th onclick="sortTable('adv')"><span data-i18n="th.advanced">Advanced</span></th>
+            <th onclick="sortTable('hosting')"><span data-i18n="th.hosting">Hosting</span></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="emptyState" style="display:none">
+    <div class="empty-state"><div class="es-icon">🔍</div><p data-i18n="empty.text">No domains match your filter.</p></div>
+  </div>
+
+  <div class="app-footer" data-i18n="footer.text"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Load order matters: the inlined English bundle must exist before i18n.js,
+     and i18n.js before anything that calls t(). Plain scripts (not modules)
+     so the app also works when opened directly from disk over file://. -->
+<script src="js/locales-en.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/dns.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

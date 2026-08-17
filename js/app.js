@@ -1,0 +1,748 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   UI, rendering and orchestration.
+
+   All user-facing text comes from the i18n layer (js/i18n.js → locales/*.json).
+   The audit logic lives in js/dns.js and speaks only in stable tokens; this
+   file is where tokens become words.
+   ────────────────────────────────────────────────────────────────────────── */
+
+(function (global) {
+  'use strict';
+
+  var CONCURRENCY = 6;
+  var MAX_DOMAINS = 200;
+
+  var results = [];
+  var sortCol = null;
+  var sortDir = 1;
+
+  /* ── Token → label ──────────────────────────────────────────────────── */
+
+  // js/dns.js returns '@'-prefixed tokens for anything a translator owns.
+  // Proper nouns ('Cloudflare', 'Google Workspace') come back verbatim.
+  var TOKEN_KEYS = {
+    '@unknown': 'provider.unknown',
+    '@custom': 'provider.custom',
+    '@custom-unknown': 'provider.customUnknown',
+    '@self-hosted': 'provider.selfHosted',
+    '@none': 'provider.none',
+    '@no-web': 'provider.noWebPresence',
+    '@cname-loop': 'provider.cnameLoop',
+    '@cloudflare-proxied': 'provider.cloudflareProxied',
+    '@porkbun-forwarding': 'provider.porkbunForwarding',
+    '@dash': 'labels.dash',
+  };
+
+  function label(value) {
+    if (typeof value !== 'string') return '';
+    return TOKEN_KEYS[value] ? t(TOKEN_KEYS[value]) : value;
+  }
+
+  function spfLabel(spfStatus) {
+    return t({
+      missing: 'spf.missing',
+      warn: 'spf.issues',
+      ok: 'spf.hardfail',
+      softfail: 'spf.softfail',
+      present: 'spf.present',
+    }[spfStatus.status] || 'spf.present');
+  }
+
+  function dmarcLabel(dmarcStatus) {
+    if (dmarcStatus.status === 'missing') return t('dmarc.missing');
+    if (dmarcStatus.status === 'warn') return t('dmarc.none');
+    if (dmarcStatus.policy === 'reject') return t('dmarc.reject');
+    if (dmarcStatus.policy === 'quarantine') return t('dmarc.quarantine');
+    return t('dmarc.set');
+  }
+
+  function issueMessage(issue) {
+    var args = issue.args ? issue.args.slice() : [];
+    if (issue.noteKey) args = [t('dkim.' + issue.noteKey)];
+    return t.apply(null, ['issue.' + issue.key + '.msg'].concat(args));
+  }
+
+  /* ── Small helpers ──────────────────────────────────────────────────── */
+
+  function $(id) { return document.getElementById(id); }
+
+  function esc(s) {
+    return String(s === undefined || s === null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function badge(text, cls) { return '<span class="badge badge-' + cls + '">' + esc(text) + '</span>'; }
+
+  function emailBadge(provider) {
+    var cls = provider === '@none' ? 'crit' : provider === '@porkbun-forwarding' ? 'warn' : 'info';
+    return badge(provider === '@none' ? t('badge.noEmail') : label(provider), cls);
+  }
+
+  function hostCls(h) {
+    if (h === '@cname-loop') return 'crit';
+    return 'muted';
+  }
+
+  function showToast(msg) {
+    var el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(function () { el.classList.remove('show'); }, 3000);
+  }
+
+  function log(msg, cls) {
+    var el = $('progressLog');
+    el.innerHTML += '<span class="log-' + (cls || 'info') + '">' + esc(msg) + '</span>\n';
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function parseDomains(raw) {
+    return raw.split(/[\n,\s]+/)
+      .map(function (d) {
+        return d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      })
+      .filter(function (d) {
+        return d && /^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)+$/.test(d);
+      });
+  }
+
+  /* ── Learn more pages ───────────────────────────────────────────────── */
+
+  // Structure and styling live here; every word comes from the locale file
+  // under learnMore.<key>.
+  var GUIDE_COLORS = {
+    'bimi': '#7c3aed',
+    'mta-sts': '#0284c7',
+    'tls-rpt': '#0284c7',
+    'caa': '#16a34a',
+    'dnssec': '#d97706',
+  };
+
+  function buildLearnMorePage(key) {
+    var data = tRaw('learnMore.' + key);
+    if (!data) return null;
+    var color = GUIDE_COLORS[key] || '#2563eb';
+
+    var sectionHtml = (data.sections || []).map(function (s) {
+      var html = '<section><h2>' + s.h + '</h2><p>' + s.body + '</p>';
+      if (s.code) html += '<pre><code>' + esc(s.code) + '</code></pre>';
+      if (s.body2) html += '<p>' + s.body2 + '</p>';
+      return html + '</section>';
+    }).join('');
+
+    return '<!DOCTYPE html>\n<html lang="' + i18n.lang + '">\n<head>\n' +
+      '<meta charset="UTF-8">\n' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+      '<title>' + esc(data.title) + '</title>\n<style>\n' +
+      "*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}\n" +
+      "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#111827;line-height:1.7;font-size:15px}\n" +
+      '.hero{background:linear-gradient(135deg,' + color + '22,' + color + '08);border-bottom:1px solid ' + color + '33;padding:48px 32px 40px;text-align:center}\n' +
+      '.hero h1{font-size:28px;font-weight:800;color:#111827;margin-bottom:8px}\n' +
+      '.hero .tag{display:inline-block;background:' + color + '18;color:' + color + ';border:1px solid ' + color + '44;border-radius:20px;padding:5px 16px;font-size:14px;font-weight:600;margin-bottom:16px}\n' +
+      '.hero p{font-size:16px;color:#4b5563;max-width:600px;margin:0 auto}\n' +
+      'main{max-width:760px;margin:0 auto;padding:40px 24px 80px}\n' +
+      'section{background:#fff;border:1px solid #dde1e9;border-radius:12px;padding:28px 32px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.06)}\n' +
+      'h2{font-size:18px;font-weight:700;color:#111827;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #f0f2f5}\n' +
+      'p{color:#374151;margin-bottom:0;font-size:15px}\n' +
+      'p+pre,p+p{margin-top:14px}\n' +
+      'pre{background:#f6f8fa;border:1px solid #dde1e9;border-radius:8px;padding:16px 18px;overflow-x:auto;margin-top:14px}\n' +
+      "code{font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:13px;color:#1e293b;line-height:1.8;white-space:pre}\n" +
+      'a{color:' + color + ';text-decoration:underline;text-underline-offset:2px}\n' +
+      '.back{display:inline-flex;align-items:center;gap:6px;margin-bottom:32px;color:#6b7280;font-size:14px;cursor:pointer;background:none;border:none;padding:0}\n' +
+      '.back:hover{color:#111827}\n' +
+      'footer{text-align:center;padding:24px;font-size:13px;color:#9ca3af}\n' +
+      '@media(max-width:600px){.hero{padding:32px 20px 28px}.hero h1{font-size:22px}section{padding:20px 18px}main{padding:24px 12px 60px}}\n' +
+      '</style>\n</head>\n<body>\n' +
+      '<div class="hero">\n  <div class="tag">' + esc(t('learnMore.badge')) + '</div>\n' +
+      '  <h1>' + esc(data.title) + '</h1>\n  <p>' + esc(data.tagline) + '</p>\n</div>\n' +
+      '<main>\n  <button class="back" onclick="window.close()">' + esc(t('learnMore.close')) + '</button>\n  ' +
+      sectionHtml + '\n</main>\n' +
+      '<footer>' + esc(t('learnMore.footer')) + '</footer>\n</body>\n</html>';
+  }
+
+  function openLearnMore(key) {
+    var html = buildLearnMorePage(key);
+    if (!html) return;
+    var url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    global.open(url, '_blank');
+  }
+
+  /* ── Row rendering ──────────────────────────────────────────────────── */
+
+  function advMiniDots(adv) {
+    if (!adv) return t('labels.dash');
+    var items = [
+      { key: 'BIMI', ok: adv.bimi && adv.bimi.present },
+      { key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.present },
+      { key: 'TLS-RPT', ok: adv.tlsRpt && adv.tlsRpt.present },
+      { key: 'CAA', ok: adv.caa && adv.caa.found },
+      { key: 'DNSSEC', ok: adv.dnssec && adv.dnssec.signed },
+    ];
+    var done = items.filter(function (i) { return i.ok; }).length;
+    var dots = items.map(function (i) {
+      return '<span title="' + i.key + ': ' + esc(i.ok ? t('adv.configured') : t('adv.notConfigured')) +
+        '" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
+        (i.ok ? 'var(--ok)' : '#cbd5e1') + ';margin-right:2px;"></span>';
+    }).join('');
+    return '<span style="display:inline-flex;align-items:center;gap:4px;">' + dots +
+      '<span style="font-size:10px;color:var(--ink3);margin-left:2px;">' + done + '/5</span></span>';
+  }
+
+  function advFullDots(adv) {
+    var items = [
+      {
+        key: 'BIMI', ok: adv.bimi && adv.bimi.present,
+        tip: adv.bimi && adv.bimi.present
+          ? t('adv.tip.bimiOn', (adv.bimi.record || '').substring(0, 60))
+          : t('adv.tip.bimiOff'),
+      },
+      {
+        key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.present,
+        tip: adv.mtaSts && adv.mtaSts.present ? t('adv.tip.mtaStsOn') : t('adv.tip.mtaStsOff'),
+      },
+      {
+        key: 'TLS-RPT', ok: adv.tlsRpt && adv.tlsRpt.present,
+        tip: adv.tlsRpt && adv.tlsRpt.present ? t('adv.tip.tlsRptOn') : t('adv.tip.tlsRptOff'),
+      },
+      {
+        key: 'CAA', ok: adv.caa && adv.caa.found,
+        tip: adv.caa && adv.caa.found
+          ? t('adv.tip.caaOn', adv.caa.atDomain, (adv.caa.records || []).slice(0, 2).join(', '))
+          : t('adv.tip.caaOff'),
+      },
+      {
+        key: 'DNSSEC', ok: adv.dnssec && adv.dnssec.signed,
+        tip: adv.dnssec && adv.dnssec.signed ? t('adv.tip.dnssecOn') : t('adv.tip.dnssecOff'),
+      },
+    ];
+    var dots = items.map(function (i) {
+      return '<span class="adv-dot ' + (i.ok ? 'dot-ok' : 'dot-miss') + '" data-tip="' + esc(i.tip) + '">' +
+        '<span class="dot-pip"></span>' + i.key + '</span>';
+    }).join('');
+    return '<div class="adv-strip"><div class="adv-strip-label">' + esc(t('labels.advanced')) +
+      '</div><div class="adv-dots">' + dots + '</div></div>';
+  }
+
+  function spfMeterHtml(spfLookups) {
+    var count = spfLookups.count;
+    var pct = Math.min(100, (count / 10) * 100);
+    var color = spfLookups.error ? 'var(--crit)' : spfLookups.warning ? 'var(--warn)' : 'var(--ok)';
+    var text = spfLookups.error ? t('spf.meterOver', count)
+      : spfLookups.warning ? t('spf.meterNear', count)
+        : t('spf.meterOk', count);
+    return '<div class="spf-meter" style="margin-top:6px;">' +
+      '<div class="spf-meter-bar"><div class="spf-meter-fill" style="width:' + pct + '%;background:' + color + ';"></div></div>' +
+      '<span class="spf-meter-label" style="color:' + color + ';">' + esc(text + ' ' + t('spf.meterSuffix')) + '</span></div>';
+  }
+
+  function appendRow(r) {
+    if (r.error) return;
+    var tbody = $('tableBody');
+    var rowId = 'row-' + r.domain.replace(/\W/g, '-');
+    var detailId = 'det-' + r.domain.replace(/\W/g, '-');
+
+    // Unregistered domain — muted row, no detail, no metrics
+    if (r.unregistered) {
+      var utr = document.createElement('tr');
+      utr.id = rowId;
+      utr.dataset.domain = r.domain;
+      utr.dataset.overall = 'unregistered';
+      utr.style.opacity = '0.55';
+      utr.innerHTML =
+        '<td></td>' +
+        '<td class="domain-cell" style="color:var(--ink3);font-style:italic">' + esc(r.domain) + '</td>' +
+        '<td data-label="' + esc(t('labels.status')) + '" colspan="8" style="color:var(--ink3);font-size:12px;">' +
+        badge(t('badge.notRegistered'), 'muted') + '</td>';
+      tbody.appendChild(utr);
+      return;
+    }
+
+    var spfB = badge(spfLabel(r.spfStatus), r.spfStatus.cls);
+    var dkimB = r.dkimStatus.found
+      ? badge('✓ ' + r.dkimStatus.selectors.map(function (s) { return s.sel; }).join(', '), 'ok')
+      : badge(t('badge.noDkim'), 'crit');
+    var dmarcB = badge(dmarcLabel(r.dmarcStatus), r.dmarcStatus.cls);
+    var dnsB = badge(label(r.dnsProvider), r.dnsProvider === 'Cloudflare' ? 'muted' : 'info');
+    var emailB = emailBadge(r.emailProvider);
+    var hostB = badge(label(r.hosting), hostCls(r.hosting));
+
+    var advCell = r.advScore
+      ? advMiniDots(r.advanced)
+      : '<span style="color:var(--ink3);font-size:11px;">' + esc(t('labels.dash')) + '</span>';
+
+    var critCount = r.issues.filter(function (i) { return i.sev === 'crit'; }).length;
+    var warnCount = r.issues.filter(function (i) { return i.sev === 'warn'; }).length;
+    var tipCount = (r.suggestions || []).length;
+    var issueTag = [
+      critCount ? '<span title="' + esc(tp('rows.critical', critCount)) + '">🔴</span>' : '',
+      warnCount ? '<span title="' + esc(tp('rows.warning', warnCount)) + '">🟡</span>' : '',
+      tipCount ? '<span title="' + esc(tp('rows.suggestion', tipCount)) + '">💡</span>' : '',
+    ].join('');
+
+    var tr = document.createElement('tr');
+    tr.id = rowId;
+    tr.dataset.domain = r.domain;
+    tr.dataset.dmarc = r.dmarcStatus.status !== 'missing' ? 'yes' : 'no';
+    tr.dataset.dkim = r.dkimStatus.found ? 'yes' : 'no';
+    tr.dataset.spf = r.spfStatus.status !== 'missing' ? 'yes' : 'no';
+    tr.dataset.email = r.emailProvider !== '@none' ? 'yes' : 'no';
+    tr.dataset.bimi = r.advanced && r.advanced.bimi && r.advanced.bimi.present ? 'yes' : 'no';
+    tr.dataset.caa = r.advanced && r.advanced.caa && r.advanced.caa.found ? 'yes' : 'no';
+    tr.dataset.dnssec = r.advanced && r.advanced.dnssec && r.advanced.dnssec.signed ? 'yes' : 'no';
+    tr.dataset.grade = r.score.grade;
+    var hasCrit = r.issues.some(function (i) { return i.sev === 'crit'; });
+    var hasWarn = r.issues.some(function (i) { return i.sev === 'warn'; });
+    tr.dataset.overall = hasCrit ? 'crit' : hasWarn ? 'warn' : 'ok';
+
+    tr.innerHTML =
+      '<td><button class="expand-toggle" onclick="toggleDetail(\'' + detailId + '\',this)">▶</button></td>' +
+      '<td class="domain-cell">' + esc(r.domain) + '<span style="margin-left:5px;font-size:11px;">' + issueTag + '</span></td>' +
+      '<td data-label="' + esc(t('th.grade')) + '" style="text-align:center"><span class="score ' + r.score.cls + '">' + r.score.grade + '</span></td>' +
+      '<td data-label="' + esc(t('th.dns')) + '">' + dnsB + '</td>' +
+      '<td data-label="' + esc(t('th.email')) + '">' + emailB + '</td>' +
+      '<td data-label="' + esc(t('th.spf')) + '">' + spfB + '</td>' +
+      '<td data-label="' + esc(t('th.dkim')) + '">' + dkimB + '</td>' +
+      '<td data-label="' + esc(t('th.dmarc')) + '">' + dmarcB + '</td>' +
+      '<td data-label="' + esc(t('th.advanced')) + '">' + advCell + '</td>' +
+      '<td data-label="' + esc(t('th.hosting')) + '">' + hostB + '</td>';
+    tbody.appendChild(tr);
+
+    // ── Detail row ──
+    var dkimDetail = r.dkimStatus.found
+      ? r.dkimStatus.selectors.map(function (s) {
+        return '<strong>' + esc(s.sel) + '</strong> (' + s.type + '): ' + esc(s.value.substring(0, 90)) + '…';
+      }).join('<br>')
+      : esc(r.dkimStatus.note ? t('dkim.' + r.dkimStatus.note) : '');
+
+    var spfLookupHtml = (r.advanced && r.advanced.spfLookups && r.spfRecord)
+      ? spfMeterHtml(r.advanced.spfLookups) : '';
+    var advDotsHtml = r.advanced ? advFullDots(r.advanced) : '';
+
+    var issueHtml = r.issues.map(function (i) {
+      var what = tRaw('issue.' + i.key + '.what');
+      var fix = tRaw('issue.' + i.key + '.fix');
+      var fixCode = tRaw('issue.' + i.key + '.fixCode');
+      var showMeHtml = what
+        ? '<div class="showme-wrap">' +
+          '<button class="showme-btn" onclick="toggleShowMe(this)">' + esc(t('showme.open')) + '</button>' +
+          '<div class="showme-content">' +
+          '<div class="showme-lbl">' + esc(t('showme.whatItIs')) + '</div>' +
+          '<div class="showme-text">' + what + '</div>' +
+          '<div class="showme-lbl">' + esc(t('showme.whatItNeeds')) + '</div>' +
+          '<div class="showme-text">' + (fix || '') +
+          (fixCode ? '<div class="showme-code">' + esc(fixCode) + '</div>' : '') +
+          '</div></div></div>'
+        : '';
+      return '<div class="issue"><span class="icon">' +
+        (i.sev === 'crit' ? '🔴' : i.sev === 'warn' ? '⚠️' : 'ℹ️') + '</span>' +
+        '<div class="issue-body"><span class="msg">' + esc(issueMessage(i)) + '</span>' + showMeHtml + '</div></div>';
+    }).join('');
+
+    var suggestHtml = (r.suggestions && r.suggestions.length)
+      ? '<hr class="suggestions-sep"><div class="issues-section-label">' + esc(t('labels.suggestions')) + '</div>' +
+        r.suggestions.map(function (s) {
+          var guide = s.guide && tRaw('learnMore.' + s.guide);
+          return '<div class="issue tip"><span class="icon">💡</span><div class="issue-body">' +
+            '<span class="msg">' + esc(t('suggestion.' + s.key)) + '</span>' +
+            (guide ? '<button class="learnmore-btn" onclick="openLearnMore(\'' + s.guide + '\')">' + esc(t('btn.learnMore')) + '</button>' : '') +
+            '</div></div>';
+        }).join('')
+      : '';
+
+    var dtr = document.createElement('tr');
+    dtr.id = detailId;
+    dtr.className = 'detail-row';
+    dtr.innerHTML =
+      '<td colspan="11"><div class="detail-grid">' +
+      detailItem(t('labels.nameservers'), esc(r.ns.join(', ') || t('labels.na'))) +
+      detailItem(t('labels.mx'), esc(r.mx.join('\n') || t('labels.none'))) +
+      detailItem(
+        t('labels.spf') + (spfLookupHtml ? ' &nbsp;·&nbsp; ' + esc(t('labels.spfLookups')) : ''),
+        esc(r.spfRecord || t('labels.none')) + spfLookupHtml
+      ) +
+      detailItem(t('labels.dmarc'), esc(r.dmarcRecord || t('labels.none'))) +
+      detailItem(t('labels.dkim'), dkimDetail) +
+      detailItem(t('labels.verifications'), r.verifications.length
+        ? r.verifications.map(esc).join('<br>')
+        : t('labels.dash')) +
+      (r.wildcardBug
+        ? '<div class="detail-item" style="grid-column:1/-1">' +
+          '<div class="di-label" style="color:var(--crit)">' + esc(t('labels.wildcardTitle')) + '</div>' +
+          '<div class="di-value" style="color:var(--crit)">' + esc(t('labels.wildcardText')) + '</div></div>'
+        : '') +
+      '</div>' + advDotsHtml +
+      (issueHtml || suggestHtml
+        ? '<div class="issues-block">' +
+          (issueHtml ? '<div class="issues-section-label">' + esc(t('labels.issues')) + '</div>' + issueHtml : '') +
+          suggestHtml + '</div>'
+        : '') +
+      '</td>';
+    tbody.appendChild(dtr);
+  }
+
+  function detailItem(labelText, valueHtml) {
+    return '<div class="detail-item"><div class="di-label">' + labelText +
+      '</div><div class="di-value">' + valueHtml + '</div></div>';
+  }
+
+  function toggleDetail(id, btn) {
+    var el = $(id);
+    btn.textContent = el.classList.toggle('open') ? '▼' : '▶';
+  }
+
+  function toggleShowMe(btn) {
+    var content = btn.nextElementSibling;
+    var open = content.style.display !== 'none' && content.style.display !== '';
+    content.style.display = open ? 'none' : 'block';
+    btn.textContent = open ? t('showme.open') : t('showme.close');
+  }
+
+  /* ── Summary, filter, sort ──────────────────────────────────────────── */
+
+  function tile(n, lbl, cls, denom) {
+    var numHtml = (denom !== undefined && denom !== null && denom !== n)
+      ? n + '<small style="font-size:17px;font-weight:500;opacity:.5"> (' + denom + ')</small>'
+      : n;
+    return '<div class="stat-tile"><div class="num ' + cls + '">' + numHtml + '</div><div class="lbl">' + esc(lbl) + '</div></div>';
+  }
+
+  function renderSummary() {
+    var submitted = results.filter(function (r) { return !r.error; });
+    var all = submitted.filter(function (r) { return !r.unregistered; });
+    var reg = all.length;
+    var tot = submitted.length;
+    function count(fn) { return all.filter(fn).length; }
+
+    $('statsGrid').innerHTML =
+      tile(reg, t('stat.domains'), 'c-muted', reg < tot ? tot : null) +
+      tile(count(function (r) { return r.emailProvider !== '@none'; }), t('stat.haveEmail'), 'c-info', reg) +
+      tile(count(function (r) { return r.spfStatus && r.spfStatus.status !== 'missing'; }), 'SPF', 'c-ok', reg) +
+      tile(count(function (r) { return r.dkimStatus && r.dkimStatus.found; }), 'DKIM', 'c-ok', reg) +
+      tile(count(function (r) { return r.dmarcStatus && r.dmarcStatus.status !== 'missing'; }), 'DMARC', 'c-ok', reg) +
+      tile(count(function (r) { return r.advanced && r.advanced.bimi && r.advanced.bimi.present; }), 'BIMI', 'c-tip', reg) +
+      tile(count(function (r) { return r.advanced && r.advanced.mtaSts && r.advanced.mtaSts.present; }), 'MTA-STS', 'c-tip', reg) +
+      tile(count(function (r) { return r.advanced && r.advanced.tlsRpt && r.advanced.tlsRpt.present; }), 'TLS-RPT', 'c-tip', reg) +
+      tile(count(function (r) { return r.advanced && r.advanced.caa && r.advanced.caa.found; }), 'CAA', 'c-tip', reg) +
+      tile(count(function (r) { return r.advanced && r.advanced.dnssec && r.advanced.dnssec.signed; }), 'DNSSEC', 'c-tip', reg) +
+      (count(function (r) { return r.wildcardBug; })
+        ? tile(count(function (r) { return r.wildcardBug; }), t('stat.wildcardBug'), 'c-crit')
+        : '');
+  }
+
+  function filterTable() {
+    var search = $('searchBox').value.toLowerCase();
+    var filter = $('filterStatus').value;
+    var visible = 0;
+
+    document.querySelectorAll('#tableBody tr:not(.detail-row)').forEach(function (tr) {
+      var domain = (tr.dataset.domain || '').toLowerCase();
+      var matchesSearch = !search || domain.includes(search);
+      var matchesFilter = true;
+      if (filter === 'warn') matchesFilter = tr.dataset.overall === 'warn';
+      else if (filter === 'crit') matchesFilter = tr.dataset.overall === 'crit';
+      else if (filter === 'no-email') matchesFilter = tr.dataset.email === 'no';
+      else if (filter === 'no-dmarc') matchesFilter = tr.dataset.dmarc === 'no';
+      else if (filter === 'no-dkim') matchesFilter = tr.dataset.dkim === 'no';
+      else if (filter === 'no-spf') matchesFilter = tr.dataset.spf === 'no';
+      else if (filter === 'has-bimi') matchesFilter = tr.dataset.bimi === 'yes';
+      else if (filter === 'no-caa') matchesFilter = tr.dataset.caa === 'no';
+      else if (filter === 'no-dnssec') matchesFilter = tr.dataset.dnssec === 'no';
+
+      var show = matchesSearch && matchesFilter;
+      tr.classList.toggle('hidden', !show);
+      var det = $('det-' + tr.id.replace('row-', ''));
+      if (det) det.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+
+    $('emptyState').style.display = visible === 0 ? 'block' : 'none';
+    var total = document.querySelectorAll('#tableBody tr:not(.detail-row)').length;
+    $('rowCount').textContent = visible < total
+      ? t('rows.showing', visible, total)
+      : tp('rows.count', total);
+  }
+
+  function updateRowCount() {
+    var rows = document.querySelectorAll('#tableBody tr:not(.detail-row)').length;
+    $('rowCount').textContent = tp('rows.count', rows);
+  }
+
+  function sortTable(col) {
+    if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = 1; }
+    document.querySelectorAll('thead th').forEach(function (th) {
+      th.classList.remove('sorted-asc', 'sorted-desc');
+    });
+    var hIdx = { domain: 1, grade: 2, dns: 3, email: 4, spf: 5, dkim: 6, dmarc: 7, adv: 8, hosting: 9 };
+    var idx = hIdx[col];
+    if (idx) document.querySelectorAll('thead th')[idx].classList.add(sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
+
+    var GRADE_ORDER = { 'A++': 0, 'A+': 1, 'A': 2, 'B': 3, 'C': 4, 'D': 5, 'F': 6, '': 7 };
+    var tbody = $('tableBody');
+    var collator = new Intl.Collator(i18n.lang);
+
+    Array.from(tbody.querySelectorAll('tr:not(.detail-row)')).sort(function (a, b) {
+      if (col === 'grade') {
+        // Sort on the stored grade, not the rendered cell — locale-independent.
+        return sortDir * ((GRADE_ORDER[a.dataset.grade] ?? 7) - (GRADE_ORDER[b.dataset.grade] ?? 7));
+      }
+      var av = col === 'domain' ? a.dataset.domain : (a.querySelectorAll('td')[idx]?.textContent?.trim() || '');
+      var bv = col === 'domain' ? b.dataset.domain : (b.querySelectorAll('td')[idx]?.textContent?.trim() || '');
+      return sortDir * collator.compare(av, bv);
+    }).forEach(function (tr) {
+      var det = $('det-' + tr.id.replace('row-', ''));
+      tbody.appendChild(tr);
+      if (det) tbody.appendChild(det);
+    });
+  }
+
+  /* ── Audit run ──────────────────────────────────────────────────────── */
+
+  async function startAudit() {
+    var domains = parseDomains($('domainInput').value);
+    if (!domains.length) { showToast(t('toast.noDomains')); return; }
+    if (domains.length > MAX_DOMAINS) { showToast(t('toast.tooMany')); return; }
+
+    // Pre-flight: verify we can reach the resolver before burning time on
+    // queries that will all come back empty.
+    var online = await DnsAudit.checkConnectivity();
+    if (!online) {
+      $('netBanner').style.display = 'block';
+      $('netBanner').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    $('netBanner').style.display = 'none';
+
+    var opts = {
+      dkim: $('optDKIM').checked,
+      www: $('optWWW').checked,
+      advanced: true,
+      wildcard: $('optWildcard').checked,
+    };
+
+    results = [];
+    $('auditBtn').disabled = true;
+    $('auditBtn').innerHTML = '<span class="spinner"></span> ' + esc(t('btn.auditRunning'));
+    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = 'none'; });
+    ['summarySection', 'resultsSection', 'emptyState'].forEach(function (id) { $(id).style.display = 'none'; });
+    $('resultsToolbar').style.display = 'none';
+    $('progressSection').style.display = 'block';
+    $('tableBody').innerHTML = '';
+    $('progressLog').innerHTML = '';
+    $('progressFill').style.width = '0%';
+    $('progressCounts').textContent = '0 / ' + domains.length;
+
+    var done = 0;
+    var queue = domains.slice();
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, domains.length) }, async function () {
+      while (queue.length) {
+        var domain = queue.shift();
+        log(t('progress.querying', domain));
+        try {
+          var result = await DnsAudit.analyzeDomain(domain, opts);
+          results.push(result);
+          appendRow(result);
+        } catch (e) {
+          results.push({ domain: domain, error: true });
+          log(t('progress.error', domain, e.message), 'err');
+        }
+        done++;
+        $('progressFill').style.width = Math.round((done / domains.length) * 100) + '%';
+        $('progressCounts').textContent = done + ' / ' + domains.length;
+      }
+    }));
+
+    $('auditBtn').disabled = false;
+    $('auditBtn').innerHTML = esc(t('btn.runAudit'));
+    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = ''; });
+    setTimeout(function () { $('progressSection').style.display = 'none'; }, 1200);
+
+    renderSummary();
+    $('summarySection').style.display = 'block';
+    $('resultsSection').style.display = 'block';
+    $('resultsToolbar').style.display = 'flex';
+    updateRowCount();
+    showToast(tp('toast.auditDone', domains.length));
+  }
+
+  /* ── Export ─────────────────────────────────────────────────────────── */
+
+  function dl(name, type, content) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type: type }));
+    a.download = name;
+    a.click();
+  }
+
+  function exportCSV() {
+    var yes = t('csv.yes');
+    var no = t('csv.no');
+    var cols = tRaw('csv.headers') || [];
+
+    var rows = results.filter(function (r) { return !r.error; }).map(function (r) {
+      if (r.unregistered) {
+        return [r.domain, no].concat(new Array(cols.length - 2).fill(''));
+      }
+      return [
+        r.domain, yes, label(r.dnsProvider), label(r.emailProvider),
+        r.spfStatus.status, r.spfRecord,
+        r.dkimStatus.found ? yes : no,
+        r.dkimStatus.found ? r.dkimStatus.selectors.map(function (s) { return s.sel; }).join(', ') : '',
+        r.dmarcStatus.status, r.dmarcStatus.policy || '', r.dmarcStatus.rua ? yes : no,
+        r.advanced?.bimi?.present ? yes : no,
+        r.advanced?.mtaSts?.present ? yes : no,
+        r.advanced?.tlsRpt?.present ? yes : no,
+        r.advanced?.caa?.found ? t('csv.yesAt', r.advanced.caa.atDomain) : no,
+        r.advanced?.dnssec?.signed ? yes : no,
+        r.advanced?.spfLookups?.count ?? '',
+        r.issues.map(issueMessage).join(' | '),
+        (r.suggestions || []).map(function (s) { return t('suggestion.' + s.key); }).join(' | '),
+      ];
+    });
+
+    var csv = [cols].concat(rows)
+      .map(function (row) {
+        return row.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
+      })
+      .join('\n');
+
+    // BOM keeps Excel happy with UTF-8 (accents, CJK) on Windows.
+    dl('dns-email-audit.csv', 'text/csv;charset=utf-8', '﻿' + csv);
+    showToast(t('toast.csvExported'));
+  }
+
+  // The app is no longer a single file, so the old
+  // `document.documentElement.outerHTML` trick would export a report with
+  // dead <link>/<script> references. Instead we build a self-contained,
+  // script-free snapshot with the stylesheet inlined.
+  async function getStylesheetText() {
+    try {
+      var r = await fetch('css/style.css');
+      if (r.ok) return await r.text();
+    } catch (e) { /* file:// or offline — fall through */ }
+    try {
+      return Array.from(document.styleSheets).map(function (sheet) {
+        try {
+          return Array.from(sheet.cssRules).map(function (rule) { return rule.cssText; }).join('\n');
+        } catch (e) { return ''; }
+      }).join('\n');
+    } catch (e) { return ''; }
+  }
+
+  async function exportHTML() {
+    var css = await getStylesheetText();
+    if (!css) { showToast(t('toast.htmlExportFailed')); return; }
+
+    var table = $('resultsSection').cloneNode(true);
+    // Static report: every detail row open, every explainer expanded, no toggles.
+    table.querySelectorAll('.detail-row').forEach(function (el) {
+      el.classList.add('open');
+      el.style.display = '';
+    });
+    table.querySelectorAll('tr').forEach(function (el) { el.classList.remove('hidden'); });
+    table.querySelectorAll('.expand-toggle, .showme-btn, .learnmore-btn').forEach(function (el) { el.remove(); });
+    table.querySelectorAll('.showme-content').forEach(function (el) { el.style.display = 'block'; });
+
+    var generated = new Date().toLocaleString(i18n.lang);
+    var counted = results.filter(function (r) { return !r.error; }).length;
+
+    var html = '<!DOCTYPE html>\n<html lang="' + i18n.lang + '">\n<head>\n<meta charset="UTF-8">\n' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+      '<title>' + esc(t('report.title')) + '</title>\n<style>\n' + css +
+      '\n/* static report overrides */\n' +
+      '.detail-row{display:table-row!important}.showme-content{display:block!important}\n' +
+      'thead th{cursor:default}\n</style>\n</head>\n<body>\n' +
+      '<div class="page">\n<h1 style="font-size:20px;margin-bottom:4px">' + esc(t('report.title')) + '</h1>\n' +
+      '<p style="font-size:12px;color:var(--ink3);margin-bottom:20px">' +
+      esc(t('report.generated', generated, counted)) + '</p>\n' +
+      '<div id="summarySection" style="display:block;margin-bottom:24px"><div class="stats-grid">' +
+      $('statsGrid').innerHTML + '</div></div>\n' +
+      table.innerHTML +
+      '\n<div class="app-footer">' + esc(t('report.note')) + '</div>\n</div>\n</body>\n</html>';
+
+    dl('dns-email-audit-report.html', 'text/html', html);
+    showToast(t('toast.htmlExported'));
+  }
+
+  /* ── Input helpers ──────────────────────────────────────────────────── */
+
+  function loadFile(e) {
+    var f = e.target.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      $('domainInput').value = ev.target.result;
+      showToast(t('toast.fileLoaded', f.name));
+    };
+    reader.readAsText(f);
+  }
+
+  function loadExample() {
+    $('domainInput').value = [
+      'google.com', 'microsoft.com', 'apple.com', 'github.com', 'cloudflare.com',
+      'netflix.com', 'shopify.com', 'slack.com', 'notion.so', 'figma.com',
+    ].join('\n');
+    showToast(t('toast.examplesLoaded'));
+  }
+
+  function clearAll() {
+    results = [];
+    $('domainInput').value = '';
+    $('tableBody').innerHTML = '';
+    ['summarySection', 'resultsSection', 'emptyState'].forEach(function (id) { $(id).style.display = 'none'; });
+    $('resultsToolbar').style.display = 'none';
+    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = 'none'; });
+    $('searchBox').value = '';
+  }
+
+  function showHelp() {
+    var el = $('helpBox');
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function setLang(code) {
+    i18n.setLang(code).then(function (ok) {
+      if (!ok) {
+        showToast(t('toast.langFailed'));
+        var sel = $('langSelect');
+        if (sel) sel.value = i18n.lang;
+      }
+    });
+  }
+
+  /* ── Boot ───────────────────────────────────────────────────────────── */
+
+  // Re-render results in the new language whenever it changes.
+  i18n.onChange(function () {
+    if (!results.length) return;
+    $('tableBody').innerHTML = '';
+    results.filter(function (r) { return !r.error; }).forEach(appendRow);
+    renderSummary();
+    filterTable();
+    showToast(t('toast.langChanged'));
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    i18n.init().then(function () {
+      // Surface the sandbox banner immediately if DoH is unreachable.
+      DnsAudit.checkConnectivity().then(function (ok) {
+        if (!ok) $('netBanner').style.display = 'block';
+      });
+    });
+  });
+
+  // Exposed for the inline onclick handlers in index.html.
+  global.startAudit = startAudit;
+  global.exportCSV = exportCSV;
+  global.exportHTML = exportHTML;
+  global.loadFile = loadFile;
+  global.loadExample = loadExample;
+  global.clearAll = clearAll;
+  global.showHelp = showHelp;
+  global.setLang = setLang;
+  global.filterTable = filterTable;
+  global.sortTable = sortTable;
+  global.toggleDetail = toggleDetail;
+  global.toggleShowMe = toggleShowMe;
+  global.openLearnMore = openLearnMore;
+})(window);
