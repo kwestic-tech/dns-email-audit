@@ -6,42 +6,54 @@
     "dir": "ltr"
   },
   "doc": {
-    "title": "Auditor de Seguridad DNS y Email — Verificador gratuito de SPF, DKIM, DMARC y DNSSEC",
-    "description": "Auditor gratuito de DNS y seguridad de correo que funciona en el navegador. Verifica SPF, DKIM, DMARC, BIMI, MTA-STS, CAA y DNSSEC para hasta 200 dominios a la vez. Sin registro, sin datos almacenados."
+    "title": "Auditor de Seguridad DNS y Correo Electrónico — Verificador Gratuito de SPF, DKIM, DMARC y DNSSEC",
+    "description": "Auditor gratuito de seguridad DNS y correo electrónico basado en el navegador. Comprueba al instante SPF, DKIM, DMARC, BIMI, MTA-STS, CAA y DNSSEC para hasta 200 dominios a la vez. Sin registro, sin almacenamiento de datos — se ejecuta completamente en tu navegador."
   },
   "topbar": {
-    "title": "Auditor DNS y Email",
-    "subtitle": "· gratis · sin registro · sin datos enviados a Kwestic",
+    "title": "Auditor de DNS y Correo Electrónico",
+    "subtitle": "· gratuito · sin registro · sin envío de datos a Kwestic",
     "langTitle": "Idioma"
   },
   "btn": {
     "howItWorks": "📖 Cómo funciona",
     "exportCsv": "⬇ Exportar CSV",
-    "exportHtml": "⬇ Exportar Reporte",
-    "runAudit": "🔎 Iniciar Auditoría",
+    "exportHtml": "⬇ Exportar Informe",
+    "runAudit": "🔎 Ejecutar Auditoría",
     "auditRunning": "Auditando…",
+    "cancelAudit": "Cancelar auditoría",
     "uploadFile": "📄 Subir archivo .txt",
     "loadExamples": "Cargar ejemplos",
-    "clearResults": "🗑 Borrar resultados",
+    "clearResults": "🗑 Limpiar resultados",
     "learnMore": "Más información →"
   },
   "input": {
-    "heading": "Ingresa dominios para auditar",
+    "heading": "Introduce los dominios a auditar",
     "desc": "Un dominio por línea, o sube un archivo .txt. Hasta 200 dominios a la vez.",
-    "placeholder": "ejemplo.com\nmiempresa.org\notro-dominio.net"
+    "placeholder": "example.com\nmycompany.org\nanother-domain.net"
   },
   "opt": {
-    "dkim": "Verificar selectores DKIM",
-    "dkimComprehensive": "Escaneo DKIM completo (máx. 5 dominios)",
-    "dkimComprehensiveTitle": "Usa los 1.677 selectores exactos verificados del catálogo; limitado a cinco dominios por ejecución",
-    "www": "Detectar alojamiento web",
-    "wildcard": "Detectar errores TXT comodín",
-    "footer": "DNS vía Cloudflare DoH · Sin datos almacenados"
+    "dkim": "Comprobar selectores DKIM",
+    "dkimComprehensive": "Escaneo DKIM exhaustivo (máx. 5 dominios)",
+    "dkimComprehensiveTitle": "Utiliza los 1,677 selectores exactos examinados del catálogo; limitado a cinco dominios por ejecución",
+    "www": "Detectar hosting del sitio web",
+    "wildcard": "Detectar errores de TXT comodín",
+    "dkimSelectors": "Selectores DKIM adicionales",
+    "footer": "DNS a través de Cloudflare DoH · Sin datos almacenados"
+  },
+  "help": {
+    "title": "Cómo funciona:",
+    "body": "Se ejecuta en tu navegador a través de la <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">API de DNS sobre HTTPS de Cloudflare</a>. No se envían datos a Kwestic ni se almacenan por esta aplicación; los nombres de consulta DNS se envían directamente a Cloudflare y están sujetos a la política de privacidad de Cloudflare. Comprobaciones: NS, MX, SPF, selectores DKIM exhaustivos o compatibles con proveedores, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC y profundidad de búsqueda SPF."
+  },
+  "netbanner": {
+    "title": "⚠️ Acceso a la red bloqueado — Las consultas DNS no pueden llegar a Internet desde aquí",
+    "body": "Esta aplicación utiliza la API de DNS sobre HTTPS de <code>cloudflare-dns.com</code>, la cual se bloquea cuando la página se ejecuta dentro de un iframe aislado (por ejemplo, el panel de vista previa integrado de un asistente de IA). Para utilizar el auditor, sirve la carpeta a través de HTTP o colócala en cualquier sitio estático gratuito:<br><br>• <strong>Lo más rápido:</strong> Arrastra la carpeta del proyecto a <a href=\"https://app.netlify.com/drop\" target=\"_blank\" rel=\"noopener\">app.netlify.com/drop</a> → URL activa en ~60 segundos.<br>• <strong>Dominio propio:</strong> Despliega en <a href=\"https://pages.cloudflare.com\" target=\"_blank\" rel=\"noopener\">Cloudflare Pages</a> o <a href=\"https://pages.github.com\" target=\"_blank\" rel=\"noopener\">GitHub Pages</a> de forma gratuita.<br>• <strong>Localmente:</strong> Ejecuta <code>npx serve</code> (o <code>python3 -m http.server</code>) dentro de la carpeta del proyecto."
   },
   "progress": {
     "heading": "Consultando registros DNS…",
     "querying": "Consultando {0}…",
-    "error": "Error en {0}: {1}"
+    "error": "Error en {0}: {1}",
+    "cancelled": "Cancelado por el usuario",
+    "cancelledDomain": "Cancelado {0}"
   },
   "search": {
     "placeholder": "🔎 Filtrar dominios…"
@@ -50,80 +62,85 @@
     "domain": "Dominio",
     "grade": "Calificación",
     "dns": "Proveedor DNS",
-    "email": "Proveedor Email",
+    "email": "Proveedor de Correo",
     "spf": "SPF",
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "Avanzado",
-    "hosting": "Alojamiento"
+    "hosting": "Hosting"
   },
   "filter": {
     "all": "Todos los dominios",
-    "warn": "⚠️ Tiene advertencias",
-    "crit": "🔴 Tiene problemas",
-    "noEmail": "Sin email",
-    "noDmarc": "Sin DMARC",
-    "noDkim": "Sin DKIM",
-    "noSpf": "Sin SPF",
+    "warn": "⚠️ Con advertencias",
+    "crit": "🔴 Con problemas",
+    "noEmail": "Sin correo",
+    "noDmarc": "Falta DMARC",
+    "noDkim": "Falta DKIM",
+    "noSpf": "Falta SPF",
     "hasBimi": "Tiene BIMI",
-    "noCaa": "Sin CAA",
+    "noCaa": "Falta CAA",
     "noDnssec": "Sin DNSSEC"
   },
   "empty": {
-    "text": "Ningún dominio coincide con el filtro."
+    "text": "Ningún dominio coincide con tu filtro."
   },
   "footer": {
-    "text": "DNS-over-HTTPS vía <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; La aplicación no envía datos a Kwestic ni almacena resultados &bull; Los nombres consultados se envían a Cloudflare &bull; Gratis para usar y alojar"
+    "text": "DNS sobre HTTPS a través de <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; Sin envío de datos a Kwestic ni almacenamiento por esta app &bull; Los nombres de consulta se envían a Cloudflare &bull; Uso gratuito y autohospedable"
   },
   "labels": {
     "issues": "Problemas",
     "suggestions": "💡 Recomendaciones",
     "advanced": "Seguridad Avanzada",
-    "nameservers": "Servidores de nombres",
+    "nameservers": "Servidores de Nombres",
     "mx": "Registros MX",
     "spf": "Registro SPF",
-    "spfLookups": "Consultas DNS",
+    "spfLookups": "Búsquedas DNS",
     "dmarc": "Registro DMARC",
     "dkim": "Selectores DKIM",
     "verifications": "Verificaciones (TXT)",
-    "wildcardTitle": "⚠ Error TXT Comodín",
-    "wildcardText": "Un registro TXT comodín devuelve datos para TODOS los subdominios. Esto rompe DMARC y DKIM. Accede a tu proveedor DNS y elimina el registro * TXT.",
+    "wildcardTitle": "⚠ Error de TXT Comodín",
+    "wildcardText": "Un registro TXT comodín está devolviendo datos para TODOS los subdominios. Esto rompe DMARC y DKIM. Inicia sesión en tu proveedor de DNS y elimina el registro TXT *.",
     "status": "Estado",
     "none": "Ninguno",
-    "na": "N/D",
+    "na": "N/A",
     "dash": "—"
   },
   "showme": {
     "open": "Mostrar ▾",
-    "close": "Mostrar ▴",
+    "close": "Ocultar ▴",
     "whatItIs": "Qué es",
-    "whatItNeeds": "Cómo debe quedar"
+    "whatItNeeds": "Cómo debe ser"
   },
   "stat": {
     "domains": "Dominios",
-    "haveEmail": "Con Email",
+    "haveEmail": "Tienen Correo",
     "wildcardBug": "⚠ Error Comodín"
   },
   "badge": {
     "notRegistered": "No registrado / NXDOMAIN",
-    "noEmail": "✗ Sin Email",
+    "noEmail": "✗ Sin Correo",
     "noDkim": "✗ Ninguno",
-    "dkimUnverified": "? No se encontró una clave de dominio en los selectores probados",
-    "dkimUncommon": "⚠ Poco común ({0})"
+    "dkimUnverified": "? No se encontró clave de dominio en los selectores probados",
+    "dkimUncommon": "⚠ Poco común ({0})",
+    "notChecked": "No comprobado",
+    "auditError": "Auditoría indeterminada",
+    "cancelled": "Cancelado"
   },
   "provider": {
     "unknown": "Desconocido",
     "custom": "Personalizado",
     "customUnknown": "Personalizado/Desconocido",
-    "selfHosted": "Auto-alojado",
+    "selfHosted": "Autohospedado",
     "none": "Ninguno",
+    "nullMx": "Null MX (correo deshabilitado)",
+    "implicitMx": "MX implícito (sin registro MX)",
     "noWebPresence": "Sin presencia web",
     "cnameLoop": "⚠ Bucle CNAME",
-    "cloudflareProxied": "Cloudflare (proxy)",
-    "porkbunForwarding": "Reenvío Porkbun"
+    "cloudflareProxied": "Cloudflare (con proxy)",
+    "porkbunForwarding": "Reenvío de Porkbun"
   },
   "spf": {
-    "missing": "✗ Ausente",
+    "missing": "✗ Faltante",
     "issues": "⚠ Problemas",
     "hardfail": "✓ -all",
     "softfail": "~ ~all",
@@ -131,37 +148,50 @@
     "meterOver": "{0}/10 🔴 LÍMITE EXCEDIDO",
     "meterNear": "{0}/10 ⚠ Cerca del límite",
     "meterOk": "{0}/10 ✓",
-    "meterSuffix": "consultas DNS",
+    "meterSuffix": "búsquedas DNS",
     "permerror": "🔴 Permerror"
   },
   "dmarc": {
-    "missing": "✗ Ausente",
+    "missing": "✗ Faltante",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none (monitoreo)",
     "set": "✓ Configurado",
-    "invalid": "⚠ p= inválido",
+    "invalid": "⚠ p= No válido",
     "pctSuffix": "({0}%)",
-    "permerror": "🔴 Registros múltiples"
+    "permerror": "🔴 Múltiples registros",
+    "inheritedFrom": "Heredado de {0}"
   },
   "dkim": {
     "uncommon": "Poco común ({0})",
-    "noDomainKeyFound": "No se encontró una clave de dominio ({0})",
+    "noDomainKeyFound": "No se encontró clave de dominio ({0})",
     "txtRecord": "Registro TXT",
     "cnameTarget": "Destino CNAME",
-    "noteWildcard": "El error TXT comodín podría estar interfiriendo",
-    "noteNotFound": "No se encontró una clave DKIM activa entre {0} selectores probados",
-    "noteNotFoundWithErrors": "No se encontró una clave DKIM activa entre {0} comprobaciones completadas; fallaron {1} consultas DNS"
+    "noteWildcard": "El error de TXT comodín puede estar interfiriendo",
+    "noteNotFound": "No se encontró ninguna clave DKIM activa entre los {0} selectores probados",
+    "noteNotFoundWithErrors": "No se encontró ninguna clave DKIM activa entre las {0} comprobaciones de selectores completadas; fallaron {1} consultas DNS"
   },
   "adv": {
     "configured": "✓ Configurado",
-    "notConfigured": "Sin configurar",
-    "duplicated": "⚠ Registros múltiples",
+    "unverified": "TXT válido; política no verificada",
+    "notConfigured": "No configurado",
     "tip": {
-      "bimiDup": "Registros múltiples — BIMI se ignora, el logo no se mostrará",
-      "mtaStsDup": "Registros múltiples — los remitentes asumen que no hay política MTA-STS",
-      "tlsRptDup": "Registros múltiples — los remitentes asumen que no implementas TLS-RPT"
-    }
+      "bimiOn": "Registro: {0}",
+      "bimiOff": "No configurado — muestra tu logotipo en Gmail y Apple Mail",
+      "mtaStsOn": "Configurado — TLS forzado en la entrega entrante",
+      "mtaStsUnverified": "El registro TXT es válido, pero el archivo de política HTTPS no está verificado por esta auditoría realizada solo en el navegador",
+      "mtaStsOff": "No configurado — publica el TXT _mta-sts para forzar TLS en el correo entrante",
+      "tlsRptOn": "Configurado — informes de fallos de TLS habilitados",
+      "tlsRptOff": "No configurado — complemento de MTA-STS; publica el TXT _smtp._tls",
+      "caaOn": "Encontrado en {0}: {1}",
+      "caaOff": "No encontrado — añade registros CAA para restringir qué CAs pueden emitir certificados para este dominio",
+      "dnssecOn": "Flag AD establecido — las respuestas DNS están verificadas criptográficamente",
+      "dnssecOff": "No detectado — habilita DNSSEC en tu proveedor de DNS para evitar el envenenamiento de caché",
+      "bimiDup": "Múltiples registros — BIMI ignorado, el logotipo no se mostrará",
+      "mtaStsDup": "Múltiples registros — los remitentes consideran que este dominio no tiene política MTA-STS",
+      "tlsRptDup": "Múltiples registros — los remitentes consideran que este dominio no implementa TLS-RPT"
+    },
+    "duplicated": "⚠ Múltiples registros"
   },
   "rows": {
     "count": {
@@ -183,56 +213,36 @@
     }
   },
   "toast": {
-    "noDomains": "Ingresa al menos un dominio.",
+    "noDomains": "Pega al menos un nombre de dominio.",
     "tooMany": "Máximo 200 dominios por ejecución.",
-    "tooManyComprehensiveDkim": "El escaneo DKIM completo está limitado a {0} dominios por ejecución.",
+    "tooManyComprehensiveDkim": "El escaneo DKIM exhaustivo está limitado a {0} dominios por ejecución.",
     "csvExported": "CSV exportado",
-    "htmlExported": "Reporte HTML exportado",
-    "htmlExportFailed": "No se pudo generar el reporte — sirve la app por HTTP e inténtalo de nuevo.",
+    "htmlExported": "Informe HTML exportado",
+    "htmlExportFailed": "No se pudo generar el informe independiente — sirve la aplicación a través de HTTP e inténtalo de nuevo.",
     "fileLoaded": "Cargado {0}",
-    "examplesLoaded": "Ejemplos cargados — haz clic en Iniciar Auditoría",
+    "fileTooLarge": "El archivo es demasiado grande. El tamaño máximo de subida es de 1 MB.",
+    "examplesLoaded": "Ejemplos cargados — haz clic en Ejecutar Auditoría",
     "auditDone": {
-      "one": "✅ Auditoría completa — {0} dominio analizado",
-      "other": "✅ Auditoría completa — {0} dominios analizados"
+      "one": "✅ Auditoría completada — {0} dominio analizado",
+      "other": "✅ Auditoría completada — {0} dominios analizados"
     },
+    "auditCancelled": "Auditoría cancelada",
     "langChanged": "Idioma cambiado",
-    "langFailed": "No se pudo cargar ese idioma — se mantiene el inglés."
-  },
-  "score": {
-    "label": "Puntuación de seguridad",
-    "outOf": "{0} / {1}",
-    "parkedNote": "Dominio sin correo — evaluado solo con SPF, DMARC, DNSSEC y CAA",
-    "pillar": {
-      "dmarc": "DMARC",
-      "spf": "SPF",
-      "dkim": "DKIM",
-      "dnssec": "DNSSEC",
-      "caa": "CAA",
-      "mtaSts": "MTA-STS",
-      "bimi": "BIMI",
-      "tlsRpt": "TLS-RPT"
-    },
-    "dmarcParts": {
-      "label": "Desglose DMARC",
-      "policy": "Política (p=)",
-      "subdomain": "Cobertura de subdominios",
-      "pct": "Tasa de aplicación (pct=)",
-      "rua": "Informes agregados (rua=)",
-      "alignment": "Alineación estricta",
-      "ruf": "Informes forenses (ruf=)"
-    }
+    "langFailed": "No se pudo cargar ese idioma — manteniendo inglés."
   },
   "csv": {
+    "unknown": "Desconocido",
+    "txtOnly": "TXT válido; política HTTPS no verificada",
     "headers": [
       "Dominio",
       "Registrado",
       "Calificación",
       "Puntuación",
       "Proveedor DNS",
-      "Proveedor Email",
+      "Proveedor de Correo",
       "Estado SPF",
       "Registro SPF",
-      "DKIM encontrado",
+      "DKIM Encontrado",
       "Selectores DKIM",
       "Estado DMARC",
       "Política DMARC",
@@ -248,7 +258,7 @@
       "TLS-RPT",
       "CAA",
       "DNSSEC",
-      "Consultas SPF",
+      "Búsquedas SPF",
       "Problemas",
       "Sugerencias"
     ],
@@ -256,24 +266,384 @@
     "no": "No",
     "yesAt": "Sí ({0})"
   },
+  "report": {
+    "title": "Informe de auditoría de seguridad DNS y correo electrónico",
+    "generated": "Generado el {0} · {1} dominios",
+    "note": "Informe estático generado localmente por el Auditor de Seguridad de DNS y Correo Electrónico. Los resultados de la auditoría no se enviaron a Kwestic ni se almacenaron en la aplicación; los nombres de consulta DNS se enviaron al resolutor de Cloudflare."
+  },
   "issue": {
+    "wildcard-txt": {
+      "msg": "Registro TXT comodín (* TXT) encontrado — rompe las búsquedas DMARC y DKIM para todos los subdominios. Elimínalo inmediatamente.",
+      "what": "Un registro TXT comodín (<code>* IN TXT \"...\"</code>) hace que tu servidor DNS devuelva datos para <em>cualquier</em> consulta de subdominio, incluso para los que no has definido explícitamente. Los validadores DKIM buscan selectores como <code>google._domainkey.tudominio.com</code> y los validadores DMARC buscan <code>_dmarc.tudominio.com</code>. En lugar de recibir \"no se encontró el registro\", obtienen el resultado del comodín, lo que rompe la autenticación para cada subdominio.",
+      "fix": "Inicia sesión en tu proveedor de DNS y elimina cualquier registro TXT cuyo nombre de host sea <code>*</code> (asterisco). Casi nunca hay una razón legítima para tener un registro TXT comodín.",
+      "fixCode": "; Elimina este registro de tu zona DNS:\n* IN TXT    \"cualquier valor que esté aquí\""
+    },
+    "dns-loop": {
+      "msg": "La cadena CNAME de www contiene un bucle — el nombre del sitio web no se puede resolver.",
+      "what": "El auditor siguió la cadena CNAME de <code>www</code> y encontró un nombre de host que ya había visitado. Esto crea un bucle de resolución DNS, por lo que los visitantes no pueden obtener una dirección A o AAAA final.",
+      "fix": "Reemplaza el CNAME en bucle por un registro A directo que apunte a la IP de tu servidor, o un CNAME que apunte al nombre de dominio de tu propio proveedor de hosting.",
+      "fixCode": "; Opción 1 — apuntar directamente a la IP de tu servidor:\nwww    A      203.0.113.10\n\n; Opción 2 — apuntar al dominio de tu host:\nwww    CNAME  tusitio.netlify.app"
+    },
+    "no-mx": {
+      "msg": "Sin registros MX. Añade un MX nulo (0 .) + SPF -all + DMARC p=reject para bloquear la suplantación del dominio estacionado.",
+      "what": "Este dominio no tiene registros MX, lo que significa que no hay ningún servidor de correo configurado para recibir correo electrónico para él. Los dominios estacionados o no utilizados sin configuración de correo electrónico son objetivos principales para la suplantación: los atacantes envían correos de phishing \"desde\" tu dominio porque no hay nada en el DNS que los detenga.",
+      "fix": "Para un dominio que nunca enviará ni recibirá correo electrónico, publica un MX nulo (que dice explícitamente \"no se acepta correo aquí\") además de una política de bloqueo SPF y DMARC.",
+      "fixCode": "; MX nulo — indica a los remitentes que este dominio no acepta correo:\n@    MX     0 .\n\n; SPF — bloquear a todos los remitentes:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — rechazar cualquier correo suplantado:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
+    },
     "spf-multiple-records": {
-      "msg": "Se encontraron varios registros SPF — SPF falla permanentemente (permerror) para todo el correo del dominio."
+      "msg": "Múltiples registros SPF encontrados — SPF falla permanentemente (permerror) para todo el correo de este dominio.",
+      "what": "El RFC 7208 §4.5 permite exactamente un registro TXT <code>v=spf1</code> por dominio. Cuando un receptor encuentra dos, devuelve <code>permerror</code> y se detiene — no los combina ni elige el más estricto. El efecto práctico es peor que no tener SPF en absoluto: tu registro parece correcto en el panel DNS, pero cada mensaje de tu dominio falla la autenticación SPF. Esto suele suceder cuando se incorpora un segundo servicio de correo y añade su propio registro en lugar de editar el existente.",
+      "fix": "Combina los registros en uno solo. Toma cada mecanismo <code>include:</code>, <code>ip4:</code> e <code>ip6:</code> de todos los registros, colócalos en un único registro <code>v=spf1</code> y elimina los demás. Vigila el límite de 10 búsquedas al combinar — combinar registros es una forma común de superarlo.",
+      "fixCode": "; Antes — dos registros, SPF falla para todo:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Después — un registro con ambos remitentes:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
     },
     "dmarc-multiple-records": {
-      "msg": "Se encontraron varios registros DMARC en _dmarc — DMARC no se aplica y el dominio puede ser suplantado."
+      "msg": "Múltiples registros DMARC encontrados en _dmarc — DMARC no se aplica en absoluto, el dominio se puede suplantar.",
+      "what": "El RFC 7489 §6.6.3 requiere exactamente un registro DMARC. Los receptores descartan cualquier cosa sin una etiqueta <code>v=DMARC1</code>, y si queda más de uno, la detección de la política finaliza y DMARC no se aplica al mensaje. Tu política — por muy estricta que sea — se ignora por completo, por lo que el dominio es suplantable a la vez que parece estar protegido. También dejarás de recibir informes agregados, lo que elimina la señal que te habría advertido si algo andaba mal.",
+      "fix": "Elimina todos los registros TXT en <code>_dmarc</code> excepto uno. Si los duplicados especifican diferentes direcciones de informe, conserva un registro y enumera ambas direcciones en una sola etiqueta <code>rua=</code>, separadas por una coma.",
+      "fixCode": "; Antes — dos registros en _dmarc, DMARC ignorado:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@tudominio.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Después — un registro, ambos destinos de informe:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@tudominio.com,mailto:reports@vendor.example;\""
     },
     "mta-sts-multiple-records": {
-      "msg": "Se encontraron varios registros MTA-STS — los remitentes asumen que no hay política, TLS no se exige en el correo entrante."
+      "msg": "Múltiples registros MTA-STS encontrados — los remitentes consideran que tu dominio no tiene política MTA-STS, por lo que no se fuerza TLS entrante.",
+      "what": "El RFC 8461 §3.1 es explícito: los registros que no comienzan con <code>v=STSv1;</code> se descartan, y si el número restante no es exactamente uno, los remitentes <strong>DEBEN</strong> asumir que el dominio no tiene política MTA-STS. Tu archivo de política nunca se recupera. El correo entrante recurre a STARTTLS oportunista, que un atacante en la ruta de red puede eliminar — el ataque de degradación que MTA-STS existe para prevenir. El control queda inactivo mientras parece configurado.",
+      "fix": "Elimina el registro TXT adicional en <code>_mta-sts</code> para que quede exactamente uno. Incrementa el valor de <code>id=</code> después para que los servidores de envío actualicen su política en caché en lugar de esperar a que venza el TTL anterior.",
+      "fixCode": "; Antes — dos registros, MTA-STS ignorado por completo:\n_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\"\n_mta-sts    TXT    \"v=STSv1; id=20240615000000Z;\"\n\n; Después — un registro, id incrementado para forzar una actualización:\n_mta-sts    TXT    \"v=STSv1; id=20260817000000Z;\""
     },
     "tls-rpt-multiple-records": {
-      "msg": "Se encontraron varios registros TLS-RPT — los remitentes asumen que no implementas TLS-RPT y no se envían informes."
+      "msg": "Múltiples registros TLS-RPT encontrados — los remitentes consideran que tu dominio no implementa TLS-RPT, por lo que no se envían informes.",
+      "what": "El RFC 8460 §3 establece que si el número de registros <code>v=TLSRPTv1;</code> no es exactamente uno, los remitentes <strong>DEBEN</strong> asumir que el dominio no implementa TLS-RPT. No se generan informes para ningún destino, incluida la dirección del primer registro. Esto importa más cuando se combina con MTA-STS: TLS-RPT es cómo descubres que una política está mal configurada o que un certificado ha caducado, por lo que un registro roto significa que esos fallos ocurren en silencio.",
+      "fix": "Elimina el registro adicional en <code>_smtp._tls</code>. Si necesitas informes en más de una dirección, enuméralas en una sola etiqueta <code>rua=</code> separadas por comas.",
+      "fixCode": "; Antes — dos registros, no se envían informes en absoluto:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@tudominio.com;\"\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:soc@vendor.example;\"\n\n; Después — un registro, ambos destinos:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@tudominio.com,mailto:soc@vendor.example;\""
     },
     "bimi-multiple-records": {
-      "msg": "Se encontraron varios registros BIMI — el procesamiento se detiene y el logo no se mostrará."
+      "msg": "Múltiples registros BIMI encontrados — el procesamiento de BIMI se detiene, por lo que tu logotipo no se mostrará.",
+      "what": "La especificación BIMI (Detección del Registro de Aserción) refleja a DMARC: los registros sin una etiqueta <code>v=BIMI1</code> se descartan, y si el conjunto restante contiene más de un registro, la detección se interrumpe y el procesamiento de BIMI no se realiza. Tu logotipo no aparecerá en Gmail, Apple Mail o Yahoo, y debido a que los fallos de BIMI son silenciosos, no hay nada que indique la razón, incluso si pagaste por un Verified Mark Certificate.",
+      "fix": "Elimina el registro TXT adicional en <code>default._bimi</code> para que quede exactamente uno.",
+      "fixCode": "; Antes — dos registros, BIMI nunca evaluado:\ndefault._bimi    TXT    \"v=BIMI1; l=https://tudominio.com/logo.svg;\"\ndefault._bimi    TXT    \"v=BIMI1; l=https://cdn.example/old-logo.svg;\"\n\n; Después — un registro:\ndefault._bimi    TXT    \"v=BIMI1; l=https://tudominio.com/logo.svg; a=https://tudominio.com/vmc.pem;\""
     },
     "dkim-multiple-records": {
-      "msg": "Varias claves DKIM en el/los selector(es): {0} — la verificación es indefinida y puede fallar."
+      "msg": "Múltiples registros de claves DKIM en el selector(es): {0} — la verificación de firma es indefinida y puede fallar.",
+      "what": "El RFC 6376 §3.6.2.2 requiere que los registros de claves sean únicos para un selector dado: \"si hay múltiples registros en un RRset, los resultados son indefinidos\". Diferentes verificadores resuelven esto de manera distinta — algunos toman el primer registro, algunos el último, otros fallan directamente. El resultado son fallos intermitentes de DKIM que varían según el destinatario y son difíciles de diagnosticar, porque el mismo mensaje pasa en un proveedor y falla en otro. Esto sucede con mayor frecuencia después de una rotación de clave donde el registro anterior nunca se eliminó.",
+      "fix": "Elimina el registro de clave obsoleto para que quede exactamente uno por selector. Si estás a mitad de la rotación y realmente necesitas dos claves activas, usa dos selectores diferentes — para eso están los selectores — en lugar de dos registros bajo un mismo nombre.",
+      "fixCode": "; Antes — dos claves en el mismo selector, comportamiento indefinido:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...OLD\"\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\n\n; Después — una clave por selector; rota a través de un segundo selector en su lugar:\ngoogle._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\ns2._domainkey         TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEXT\""
+    },
+    "spf-missing": {
+      "msg": "Sin registro SPF — autenticación de remitente imposible.",
+      "what": "SPF (Sender Policy Framework) es un registro DNS que enumera qué servidores de correo están autorizados a enviar correo electrónico desde tu dominio. Sin él, cualquier servidor en el mundo puede enviar correos afirmando ser tuyo, y los servidores de correo receptores no tienen forma de verificar si es legítimo.",
+      "fix": "Añade un registro TXT en la raíz de tu dominio enumerando tus remitentes de correo autorizados. Empieza con ~all (softfail) mientras realizas pruebas, luego ajústalo a -all una vez confirmado.",
+      "fixCode": "; Para Google Workspace:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; Para Microsoft 365:\n@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\"\n\n; Para un dominio estacionado/no utilizado:\n@    TXT    \"v=spf1 -all\""
+    },
+    "spf-softfail": {
+      "msg": "SPF: ~all softfail — reforzar a -all.",
+      "what": "Tu registro SPF termina con <code>~all</code> (tilde-all), conocido como \"soft fail\". Señala que el correo de servidores no enumerados <em>probablemente</em> no esté autorizado — pero es solo una sugerencia. La mayoría de los servidores receptores entregarán el mensaje de todos modos, tal vez marcándolo como spam. Ofrece solo una protección parcial contra la suplantación.",
+      "fix": "Una vez que hayas confirmado que tu registro SPF enumera todas tus fuentes de envío legítimas, refuérzalo de <code>~all</code> a <code>-all</code> (hard fail). Esto indica a los receptores que rechacen rotundamente el correo de cualquier servidor que no esté en tu lista.",
+      "fixCode": "; Cambiar de:\n@    TXT    \"v=spf1 include:_spf.google.com ~all\"\n\n; A:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-all-permit": {
+      "msg": "SPF: +all permite a todos — inseguro.",
+      "what": "Tu registro SPF termina con <code>+all</code>, lo que autoriza a <em>cada servidor en Internet</em> a enviar correo como tu dominio. Esto anula por completo el propósito de SPF — equivale a no tener SPF en absoluto, y es casi seguro una mala configuración.",
+      "fix": "Reemplaza <code>+all</code> con <code>-all</code> (hard fail) para rechazar remitentes no autorizados.",
+      "fixCode": "; Eliminar +all, reemplazar con -all:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-neutral": {
+      "msg": "SPF: ?all neutral — sin protección.",
+      "what": "Tu registro SPF termina con <code>?all</code> (signo de interrogación all), que es un resultado \"neutral\" — SPF no toma posición sobre si los servidores no enumerados están autorizados. Los servidores de correo receptores tratan esto igual que si no tuvieran ningún registro SPF, por lo que proporciona cero protección contra la suplantación.",
+      "fix": "Reemplaza <code>?all</code> con <code>-all</code> (hard fail) para bloquear remitentes no autorizados.",
+      "fixCode": "; Cambiar de:\n@    TXT    \"v=spf1 include:_spf.google.com ?all\"\n\n; A:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-missing-google": {
+      "msg": "SPF: falta el include de Google Workspace.",
+      "what": "Tu dominio utiliza Google Workspace para el correo electrónico, pero tu registro SPF no incluye los servidores de correo de Google (<code>_spf.google.com</code>). Los servidores de envío de Google no están autorizados en tu política SPF, por lo que los correos electrónicos salientes legítimos de tus buzones de Google Workspace pueden fallar las comprobaciones SPF y terminar en las carpetas de spam de los destinatarios.",
+      "fix": "Añade el include de SPF de Google a tu registro TXT.",
+      "fixCode": "; Añadir el include de Google:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; Si también utilizas otros remitentes:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "spf-missing-icloud": {
+      "msg": "SPF: falta el include de iCloud.",
+      "what": "Tu dominio parece utilizar Apple iCloud Mail (Dominio personalizado iCloud+), pero tu registro SPF no autoriza los servidores de envío de Apple. Los correos electrónicos enviados a través de iCloud pueden ser rechazados o marcados como spam por los destinatarios porque tu registro SPF no respalda los servidores de Apple.",
+      "fix": "Añade el include de SPF de Apple a tu registro.",
+      "fixCode": "@    TXT    \"v=spf1 include:icloud.com -all\""
+    },
+    "spf-missing-microsoft": {
+      "msg": "SPF: falta el include de Microsoft 365.",
+      "what": "Tu dominio utiliza Microsoft 365 para el correo electrónico, pero tu registro SPF no incluye los servidores de envío de Microsoft (<code>spf.protection.outlook.com</code>). El correo saliente de tus buzones de Microsoft 365 puede fallar las comprobaciones SPF en el servidor de correo del destinatario y ser tratado como spam o rechazado.",
+      "fix": "Añade el include de SPF de Microsoft a tu registro TXT.",
+      "fixCode": "@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\""
+    },
+    "dkim-missing": {
+      "msg": "DKIM no configurado. {0}",
+      "what": "DKIM (DomainKeys Identified Mail) adjunta una firma criptográfica a cada correo electrónico saliente, lo que permite a los destinatarios verificar que el mensaje proviene realmente de tu dominio y no fue alterado en tránsito. Sin él, es más probable que tus correos electrónicos sean marcados como spam y tu dominio es más vulnerable a la suplantación de identidad. DKIM también es necesario antes de poder hacer cumplir DMARC.",
+      "fix": "La configuración de DKIM ocurre dentro de la consola de administración de tu proveedor de correo electrónico — ellos generan un par de claves pública/privada y te dan un registro TXT para publicar en tu DNS. Tú no creas la clave por ti mismo.",
+      "fixCode": "; Google Workspace: Admin → Apps → Google Workspace → Gmail\n;   → Autenticar correo → Generar clave → copiar el registro TXT\n;\n; Microsoft 365: Admin → Configuración → Dominios → seleccionar dominio\n;   → Registros DNS → habilitar DKIM\n;\n; El registro TXT se verá algo como:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
+    },
+    "dkim-unverified": {
+      "msg": "No se encontró ningún selector DKIM probado. {0} Esto no prueba que DKIM esté ausente; proporciona un selector o pega uno de un encabezado DKIM-Signature."
+    },
+    "implicit-mx": {
+      "msg": "No hay ningún registro MX publicado. SMTP puede recurrir a la dirección A/AAAA de este dominio como un MX implícito, lo cual es frágil y a menudo no deseado."
+    },
+    "dmarc-missing": {
+      "msg": "Sin registro DMARC — el dominio se puede suplantar libremente sin aplicación de políticas.",
+      "what": "DMARC (Domain-based Message Authentication, Reporting &amp; Conformance) es una política que indica a los servidores de correo receptores qué hacer cuando un correo electrónico falla SPF o DKIM — ponerlo en cuarentena, rechazarlo o dejarlo pasar. Sin un registro DMARC, incluso una configuración perfecta de SPF + DKIM no evita que alguien suplante tu dominio en la dirección visible \"De:\".",
+      "fix": "Comienza con una política solo de monitoreo (<code>p=none</code>) para recopilar informes sin bloquear el correo, luego ajusta la política después de revisar los datos.",
+      "fixCode": "; Paso 1 — solo monitoreo (punto de partida seguro):\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@tudominio.com;\"\n\n; Paso 2 — cuarentena (marcar el correo fallido como spam):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@tudominio.com;\"\n\n; Paso 3 — rechazar (bloquear el correo fallido por completo):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@tudominio.com;\""
+    },
+    "dmarc-none": {
+      "msg": "DMARC p=none es solo monitoreo. Actualiza a p=quarantine y luego a p=reject.",
+      "what": "Tu registro DMARC está configurado en <code>p=none</code>, que es el modo solo de monitoreo. Instruye a los servidores receptores recopilar datos y enviarte informes, pero <em>no tomar ninguna medida</em> en los correos fallidos — los mensajes suplantados aún se entregan. <code>p=none</code> es una herramienta de diagnóstico pensada como un primer paso temporal, no como una configuración final.",
+      "fix": "Revisa tus informes agregados de DMARC (rua=) para confirmar que todas tus fuentes legítimas de correo estén pasando. Una vez seguro, actualiza la política a cuarentena y luego a rechazo.",
+      "fixCode": "; Paso 1 — cuarentena (envía el correo fallido a spam):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@tudominio.com;\"\n\n; Paso 2 — rechazar (bloquea el correo fallido por completo):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@tudominio.com;\""
+    },
+    "dmarc-quarantine": {
+      "msg": "DMARC p=quarantine envía el correo suplantado a spam pero aún lo entrega. p=reject es el estado final.",
+      "what": "Tu política DMARC es <code>p=quarantine</code>, lo cual es un cumplimiento auténtico — el correo que falla la autenticación se enruta a la carpeta de spam en lugar de la bandeja de entrada. Pero aún se <em>entrega</em>. Un mensaje de phishing convincente que suplanta a tu dominio permanece a un clic de distancia en una carpeta que las personas sí revisan, y algunos receptores aplican la cuarentena de manera inconsistente. <code>p=reject</code> instruye a los servidores receptores a rechazar el mensaje rotundamente, de modo que nunca llegue al destinatario.",
+      "fix": "Revisa tus informes agregados de DMARC (<code>rua=</code>) durante algunas semanas y confirma que cada fuente legítima de envío esté pasando la alineación de SPF o DKIM. Una vez que ningún correo legítimo esté fallando, cambia la política a <code>p=reject</code>. Si eres precavido, incrementa con <code>pct=</code> — aplica rechazo a un porcentaje del correo fallido primero, luego elévalo a 100.",
+      "fixCode": "; Política actual — el correo fallido va a spam:\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@tudominio.com;\"\n\n; Incremento opcional — rechazar el 25% del correo fallido, poner en cuarentena el resto:\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=25; rua=mailto:dmarc@tudominio.com;\"\n\n; Estado final — rechazar todo el correo fallido:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@tudominio.com;\""
+    },
+    "dmarc-no-rua": {
+      "msg": "DMARC no tiene dirección rua= — no recibirás informes agregados.",
+      "what": "Tu registro DMARC no incluye una etiqueta <code>rua=</code>. Esta es la dirección de correo electrónico donde los ISP y proveedores de correo envían informes agregados que muestran quién envía correo desde tu dominio y si está pasando la autenticación. Sin ella, no tienes visibilidad de tu tráfico de correo electrónico — no sabrás si algo se rompe o si alguien está suplantando tu dominio.",
+      "fix": "Añade una dirección <code>rua=</code> a tu registro DMARC. Puede ser cualquier buzón que monitorees.",
+      "fixCode": "; Añade rua= a tu registro DMARC existente:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc-reports@tudominio.com;\""
+    },
+    "dmarc-weak-sp": {
+      "msg": "La política de subdominio DMARC es sp={0} mientras que el dominio en sí es p={1} — los subdominios están menos protegidos.",
+      "what": "Tu registro establece <code>sp={0}</code>, lo que anula explícitamente la política para subdominios. Sin esa etiqueta, los subdominios heredarían automáticamente tu política <code>p={1}</code> más estricta. Tal como está escrito, un atacante puede suplantar <code>cualquiercosa.tudominio.com</code> y recibir el trato más débil — y los destinatarios rara vez examinan detenidamente la parte del subdominio de una dirección de remitente. La suplantación de subdominios es una técnica de phishing común precisamente porque las políticas organizacionales a menudo se detienen en la raíz.",
+      "fix": "A menos que tengas una razón específica para tratar los subdominios de manera diferente — por ejemplo, una plataforma de marketing que envía desde un subdominio que aún no está completamente autenticado — elimina la etiqueta <code>sp=</code> para que los subdominios hereden tu política principal, o elévala para que coincida.",
+      "fixCode": "; Lo más simple — elimina sp= para que los subdominios hereden p:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@tudominio.com;\"\n\n; O establécelo explícitamente para que coincida:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject; rua=mailto:dmarc@tudominio.com;\""
+    },
+    "dmarc-weak-np": {
+      "msg": "La política DMARC para subdominios no existentes es np={0} mientras que el dominio es p={1} — los subdominios no utilizados están menos protegidos.",
+      "what": "La etiqueta <code>np=</code> (RFC 9091) establece la política para los subdominios que no existen en el DNS en absoluto. La tuya es <code>np={0}</code>, más débil que tu <code>p={1}</code>. Los subdominios inexistentes son el objetivo favorito del atacante — no hay correo legítimo que interrumpir, por lo que nadie se da cuenta, y direcciones como <code>facturacion.tudominio.com</code> parecen completamente plausibles para un destinatario.",
+      "fix": "Establece <code>np=reject</code>. Nada legítimo envía desde un subdominio que no existe, por lo que este es uno de los pocos cambios de DMARC con esencialmente ningún riesgo de entregabilidad.",
+      "fixCode": "; Rechazar correo de subdominios que no existen:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject; rua=mailto:dmarc@tudominio.com;\""
+    },
+    "dmarc-partial-pct": {
+      "msg": "DMARC pct={0} — tu política se aplica a solo el {0}% del correo fallido; el otro {1}% se entrega normalmente.",
+      "what": "La etiqueta <code>pct=</code> limita a cuánto correo fallido se aplica tu política. En <code>pct={0}</code>, los receptores aplican tu política al {0}% de los mensajes que fallan la autenticación y recurren a la siguiente acción más débil para el {1}% restante — de modo que un mensaje suplantado tiene aproximadamente {1} de 100 probabilidades de llegar a la bandeja de entrada sin ser tocado. <code>pct=</code> es una herramienta de despliegue para aumentar de forma segura el cumplimiento, no un estado de reposo.",
+      "fix": "Revisa tus informes agregados de DMARC para confirmar que ningún remitente legítimo esté fallando, luego elimina <code>pct=</code> por completo (por defecto es 100) o establécelo en 100.",
+      "fixCode": "; Eliminar pct= — por defecto es 100:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@tudominio.com;\"\n\n; O indícalo explícitamente:\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@tudominio.com;\""
+    },
+    "dmarc-bad-pct": {
+      "msg": "El valor de DMARC pct= no es un número válido entre 0 y 100 — los receptores pueden ignorarlo o ignorar todo tu registro.",
+      "what": "La etiqueta <code>pct=</code> debe ser un entero de 0 a 100. La tuya no lo es, lo que significa que los servidores de correo receptores pueden ignorar la etiqueta o rechazar todo el registro DMARC por estar mal formado y tratar a tu dominio como si no tuviera ninguna política. Un registro que parece correcto en tu panel DNS pero no se analiza te da la ilusión de protección sin la sustancia.",
+      "fix": "Corrige el valor a un número entero entre 0 y 100, o elimina la etiqueta — por defecto es 100, que es lo que deseas en casi todos los casos.",
+      "fixCode": "; Eliminar el pct= mal formado por completo:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@tudominio.com;\""
+    },
+    "dmarc-invalid-policy": {
+      "msg": "El valor de DMARC p= no es ninguno de none, quarantine o reject — el registro está mal formado y no ofrece protección.",
+      "what": "La etiqueta <code>p=</code> debe ser exactamente <code>none</code>, <code>quarantine</code> o <code>reject</code>. La tuya es otra cosa — un error tipográfico, un carácter extraviado o un valor no soportado. Los servidores receptores no pueden actuar sobre una política que no reconocen, por lo que en la práctica tu dominio se trata como si no tuviera ningún registro DMARC, y se puede suplantar libremente.",
+      "fix": "Corrige el valor <code>p=</code>. Si no estás seguro de por dónde empezar, publica <code>p=none</code> con una dirección <code>rua=</code>, revisa los informes durante algunas semanas y luego ajusta.",
+      "fixCode": "; Solo monitoreo, punto de partida seguro:\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@tudominio.com;\"\n\n; Aplicación total:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@tudominio.com;\""
+    },
+    "porkbun-forward": {
+      "msg": "El reenvío de Porkbun no es compatible con DKIM — el correo reenviado a menudo falla en el destino.",
+      "what": "El reenvío de correo electrónico de Porkbun retransmite mensajes entrantes a otra dirección pero no los firma con DKIM. Cuando el mensaje reenviado llega al destino, falla DKIM (la firma está ausente o rota por el reenvío) y también puede fallar SPF (el mensaje se reenvió desde los servidores de Porkbun, no los tuyos). Esto causa altas tasas de entrega en spam y no hay una solución DNS para ello — es una limitación fundamental de la arquitectura de reenvío.",
+      "fix": "Para un correo electrónico confiable, cambia a un servicio de correo alojado adecuado que admita la firma DKIM. Hay varias opciones disponibles a bajo costo.",
+      "fixCode": "; Buenas alternativas al reenvío de Porkbun:\n;\n; Google Workspace — soporte DKIM completo\n; Microsoft 365 — soporte DKIM completo\n; Fastmail — soporte DKIM completo\n; Proton Mail for Business — soporte DKIM completo\n;\n; Para reenvío catch-all simple con DKIM:\n; ImprovMX (nivel gratuito) o Forward Email (gratuito, código abierto)"
+    },
+    "spf-over-limit": {
+      "msg": "SPF supera el límite de 10 búsquedas DNS (encontradas ~{0}) — el correo legítimo fallará SPF.",
+      "what": "SPF permite un máximo de 10 búsquedas DNS durante la evaluación — cada mecanismo <code>include:</code>, <code>mx</code>, <code>a</code>, <code>exists</code> y <code>redirect</code> cuenta para este límite. Tu registro lo supera. Cuando un servidor receptor llega a la búsqueda número 11, la especificación SPF exige que devuelva \"permerror\", que los receptores tratan como un fallo de SPF. El correo legítimo de tu dominio falla SPF.",
+      "fix": "Reduce tu recuento de búsquedas eliminando remitentes no utilizados o \"aplanando\" tu registro SPF — reemplazando las entradas <code>include:</code> con sus direcciones IP resueltas, eliminando las subbúsquedas.",
+      "fixCode": "; Antes (demasiadas búsquedas include:):\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:mailchimp.com include:amazonses.com -all\"\n\n; Después de aplanar (usa una herramienta para obtener tus IP reales):\n; Herramientas: MXToolbox SPF Analyzer, AutoSPF, dmarcian\n\"v=spf1 ip4:209.85.220.0/22 ip4:167.89.0.0/17 ip4:199.255.192.0/22 -all\""
+    },
+    "spf-near-limit": {
+      "msg": "SPF acercándose al límite de 10 búsquedas (~{0} contabilizadas) — añadir más remitentes puede romperlo.",
+      "what": "Tu registro SPF se está acercando al límite de 10 búsquedas. Añadir más servicios de envío de correo electrónico, o si un proveedor existente cambia su infraestructura SPF, podría hacer que lo superes — provocando que los correos electrónicos legítimos fallen la autenticación SPF sin ninguna advertencia.",
+      "fix": "Audita tu registro SPF y elimina cualquier servicio que ya no utilices. Si realmente necesitas a todos los remitentes actuales, considera aplanar para reducir la profundidad de búsqueda.",
+      "fixCode": "; Auditoría: ¿cuáles de estos sigues utilizando?\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:... -all\"\n;\n; Elimina includes no utilizados o aplana con una herramienta como:\n; AutoSPF (autospf.com), dmarcian o MXToolbox"
+    },
+    "spf-cycle": {
+      "msg": "Ciclo de include/redirect SPF detectado a través de {0}; la evaluación de SPF puede devolver permerror."
+    },
+    "spf-indeterminate": {
+      "msg": "El total de búsquedas SPF es indeterminado porque el registro utiliza macros, profundidad excesiva o una política incluida no válida."
+    },
+    "dnssec-bogus": {
+      "msg": "La validación DNSSEC parece falsa (bogus): la validación falló aunque la respuesta está disponible cuando la comprobación está deshabilitada."
+    },
+    "dnssec-indeterminate": {
+      "msg": "El estado de DNSSEC no se pudo determinar porque la consulta de validación falló. No se puntuó como no firmado."
+    },
+    "mta-sts-invalid": {
+      "msg": "El registro TXT de MTA-STS está mal formado o le falta la etiqueta id= requerida."
+    },
+    "mta-sts-policy-unverified": {
+      "msg": "El registro TXT de MTA-STS es válido, pero esta auditoría solo para el navegador no puede verificar el archivo de política HTTPS porque la mayoría de los hosts de políticas no permiten lecturas de origen cruzado (CORS)."
+    },
+    "tls-rpt-invalid": {
+      "msg": "El registro TLS-RPT está mal formado o no tiene un destino rua= válido."
+    },
+    "bimi-invalid": {
+      "msg": "El registro BIMI está mal formado o no contiene una URL de logotipo HTTPS válida."
+    }
+  },
+  "suggestion": {
+    "bimiEligible": "Elegible para BIMI: DMARC está aplicado y DKIM está configurado. Añade un registro TXT default._bimi con la URL de tu logotipo SVG para mostrar el logotipo de tu marca en las bandejas de entrada de Gmail y Apple Mail.",
+    "bimiPrereq": "BIMI (logotipo en bandeja de entrada): requiere DMARC en p=quarantine o p=reject + DKIM. Establece esos requisitos primero, luego añade BIMI.",
+    "mta-sts": "MTA-STS no configurado. Publicar un registro TXT _mta-sts y alojar un archivo de política fuerza TLS en la entrega de correo entrante, evitando ataques de degradación.",
+    "tls-rpt": "TLS-RPT (_smtp._tls TXT) no configurado. Este complemento de MTA-STS te envía informes cuando la negociación TLS falla — fácil de añadir, cero desventajas.",
+    "caa": "Sin registros CAA — cualquier autoridad de certificación puede emitir certificados SSL para este dominio. Añade registros CAA nombrando solo tus CA preferidas (por ejemplo, Let's Encrypt, DigiCert).",
+    "dnssec": "DNSSEC no detectado. Firmar tus registros DNS evita el envenenamiento de caché y el secuestro de MX. Cloudflare y la mayoría de los proveedores de DNS modernos lo habilitan con un solo clic."
+  },
+  "learnMore": {
+    "badge": "Guía de seguridad de correo electrónico",
+    "close": "✕ Cerrar pestaña",
+    "footer": "Generado por el Auditor de Seguridad DNS y Correo Electrónico — sin datos almacenados, sin registro requerido",
+    "bimi": {
+      "title": "BIMI — Brand Indicators for Message Identification",
+      "tagline": "Muestra tu logotipo en las bandejas de entrada de Gmail, Apple Mail y Yahoo.",
+      "sections": [
+        {
+          "h": "¿Qué es BIMI?",
+          "body": "BIMI es un estándar de correo electrónico que permite que el logotipo de tu organización aparezca directamente en la bandeja de entrada del destinatario — junto al nombre del remitente, incluso antes de que se abra el correo electrónico. Es compatible con Gmail, Apple Mail, Yahoo Mail y Fastmail."
+        },
+        {
+          "h": "Por qué es importante",
+          "body": "La visualización del logotipo genera confianza visual inmediata. Los destinatarios pueden ver de un vistazo que el correo electrónico proviene realmente de tu organización, lo que aumenta las tasas de apertura y reduce la posibilidad de que tu correo se confunda con phishing. BIMI también actúa como un motor para poner en orden toda tu infraestructura de autenticación (SPF + DKIM + DMARC)."
+        },
+        {
+          "h": "Requisitos antes de poder publicar BIMI",
+          "body": "• DMARC debe estar en <code>p=quarantine</code> o <code>p=reject</code> — <code>p=none</code> no califica<br>• DKIM debe estar configurado y firmar activamente el correo saliente<br>• Un logotipo SVG en formato <strong>Tiny PS</strong> alojado en una URL HTTPS pública<br>• (Para Gmail) Es posible que se requiera un Verified Mark Certificate (VMC) de DigiCert o Entrust para la insignia azul de verificación"
+        },
+        {
+          "h": "Cómo configurarlo",
+          "body": "1. Confirma que DMARC esté aplicado (<code>p=quarantine</code> o <code>p=reject</code>)<br>2. Confirma que DKIM esté configurado y firmando<br>3. Crea tu logotipo SVG en formato Tiny PS (Canva, Adobe Illustrator o <a href=\"https://bimigroup.org/bimi-generator/\" target=\"_blank\" rel=\"noopener\">el generador BIMI</a> pueden ayudar)<br>4. Aloja el SVG en una URL HTTPS pública — ej. <code>https://tudominio.com/logo.svg</code><br>5. Añade el registro DNS de BIMI:",
+          "code": "default._bimi    TXT    \"v=BIMI1; l=https://tudominio.com/logo.svg;\""
+        },
+        {
+          "h": "Pruebas",
+          "body": "Valida tu registro en <a href=\"https://bimigroup.org/bimi-generator\" target=\"_blank\" rel=\"noopener\">bimigroup.org/bimi-generator</a>. Envía un correo electrónico de prueba a una cuenta de Gmail y observa si tu logotipo aparece en el avatar de la bandeja de entrada."
+        }
+      ]
+    },
+    "mta-sts": {
+      "title": "MTA-STS — Mail Transfer Agent Strict Transport Security",
+      "tagline": "Fuerza la cifrado TLS en todas las entregas de correo electrónico entrante a tu dominio.",
+      "sections": [
+        {
+          "h": "¿Qué es MTA-STS?",
+          "body": "MTA-STS es un estándar (RFC 8461) que te permite publicar una política que declara que cualquiera que envíe un correo electrónico a tu dominio debe usar cifrado TLS y debe verificar el certificado de tu servidor de correo. Sin él, los atacantes de red pueden realizar \"ataques de degradación\", eliminando TLS y leyendo el correo en tránsito."
+        },
+        {
+          "h": "Por qué es importante",
+          "body": "El cifrado STARTTLS estándar se negocia de forma oportunista — un atacante man-in-the-middle puede eliminar silenciosamente la oferta STARTTLS y forzar la entrega en texto plano. MTA-STS soluciona esto almacenando en caché tu política en el servidor remitente con anticipación, por lo que sabe que se requiere TLS y se niega a realizar la entrega sin él."
+        },
+        {
+          "h": "Parte 1 — Publicar el registro TXT en el DNS",
+          "body": "Añade este registro TXT a tu DNS. Cambia el valor de <code>id=</code> cada vez que actualices el archivo de política.",
+          "code": "_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\""
+        },
+        {
+          "h": "Parte 2 — Alojar el archivo de política",
+          "body": "El archivo de política debe alojarse exactamente en esta URL de tu dominio:<br><code>https://mta-sts.tudominio.com/.well-known/mta-sts.txt</code><br><br>Ejemplo de contenido del archivo de política:",
+          "code": "version: STSv1\nmode: testing\nmx: mail.tudominio.com\nmx: *.google.com\nmax_age: 604800",
+          "body2": "Comienza con <code>mode: testing</code> para observar sin bloquear. Después de revisar los informes de TLS-RPT y confirmar que no hay fallos, cambia a <code>mode: enforce</code>."
+        },
+        {
+          "h": "Pruebas",
+          "body": "Utiliza <a href=\"https://www.checktls.com\" target=\"_blank\" rel=\"noopener\">CheckTLS.com</a> o <a href=\"https://mxtoolbox.com/mta-sts.aspx\" target=\"_blank\" rel=\"noopener\">MXToolbox MTA-STS Check</a> para validar tu política. Combina esto con TLS-RPT para recibir informes de fallos (consulta la recomendación de TLS-RPT)."
+        }
+      ]
+    },
+    "tls-rpt": {
+      "title": "TLS-RPT — SMTP TLS Reporting",
+      "tagline": "Recibe notificaciones cuando falle el cifrado TLS para el correo entregado a tu dominio.",
+      "sections": [
+        {
+          "h": "¿Qué es TLS-RPT?",
+          "body": "TLS-RPT (SMTP TLS Reporting, RFC 8460) es un registro TXT DNS único que indica a los servidores de envío de correo a dónde enviar informes diarios sobre fallos de conexión TLS al entregar correo a tu dominio. Piensa en ello como informes DMARC para fallos de TLS/cifrado."
+        },
+        {
+          "h": "Por qué es importante",
+          "body": "Si tu política MTA-STS está mal configurada, el certificado TLS de tu servidor de correo caduca o un proveedor de red está eliminando el cifrado, nunca lo sabrías sin TLS-RPT. Convierte los fallos de entrega invisibles en informes accionables en tu bandeja de entrada — y es uno de los registros DNS más fáciles de publicar."
+        },
+        {
+          "h": "Cómo configurarlo",
+          "body": "Añade un solo registro TXT — reemplaza el correo electrónico con un buzón que monitorees:",
+          "code": "_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls-reports@tudominio.com;\"",
+          "body2": "Los informes llegan diariamente como adjuntos en formato JSON. Las plataformas DMARC de terceros (Postmark, Valimail, dmarcian) también analizan y visualizan los informes de TLS-RPT junto con tus datos de DMARC."
+        },
+        {
+          "h": "Qué te dicen los informes",
+          "body": "Cada informe diario muestra: qué servidores de envío intentaron la entrega de correo a tu dominio, si la negociación TLS tuvo éxito o falló, y la razón específica del fallo — certificado caducado, desajuste de política, versión de TLS no soportada, etc. Visibilidad esencial cuando despliegas MTA-STS en modo de prueba por primera vez."
+        }
+      ]
+    },
+    "caa": {
+      "title": "CAA — Certification Authority Authorization",
+      "tagline": "Controla qué autoridades de certificación pueden emitir certificados SSL/TLS para tu dominio.",
+      "sections": [
+        {
+          "h": "¿Qué es CAA?",
+          "body": "Los registros DNS CAA (Certification Authority Authorization) te permiten especificar qué Autoridades de Certificación (CAs) tienen permitido emitir certificados SSL/TLS para tu dominio. Sin registros CAA, cualquiera de las cientos de CAs de confianza en todo el mundo puede emitir un certificado para tu dominio — sin tu conocimiento o consentimiento."
+        },
+        {
+          "h": "Por qué es importante",
+          "body": "La emisión errónea de certificados ha ocurrido históricamente por errores de CAs o vulneraciones. Un certificado emitido fraudulentamente para tu dominio podría usarse para suplantar tu sitio web, interceptar tráfico HTTPS o ejecutar páginas de phishing que muestran un candado. Los registros CAA te brindan una capa estricta de cumplimiento: las CAs que admiten el estándar deben verificar tus registros CAA antes de emitir y rechazar la solicitud si no están en la lista."
+        },
+        {
+          "h": "Cómo configurarlo",
+          "body": "Añade registros CAA nombrando tus CAs autorizadas. Usa <code>issue</code> para certificados normales e <code>issuewild</code> para certificados comodín.",
+          "code": "; Permitir solo Let's Encrypt:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; Permitir Let's Encrypt y DigiCert:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issue \"digicert.com\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; Opcional — recibir un informe cuando una CA rechace una emisión:\n@    CAA    0 iodef \"mailto:ssl-alerts@tudominio.com\""
+        },
+        {
+          "h": "Encontrar tu CA",
+          "body": "Haz clic en el candado en la barra de direcciones de tu navegador en tu sitio web para ver qué CA emitió tu certificado actual. Opciones comunes: <strong>Let's Encrypt</strong> (gratuito, automatizado), <strong>DigiCert</strong>, <strong>Sectigo</strong>, <strong>GlobalSign</strong>. Tu proveedor de hosting o Cloudflare suelen gestionar la emisión de certificados — consulta su documentación para obtener el nombre de host de CA correcto para listar."
+        }
+      ]
+    },
+    "dnssec": {
+      "title": "DNSSEC — Domain Name System Security Extensions",
+      "tagline": "Firma criptográficamente tus registros DNS para evitar manipulaciones y secuestros.",
+      "sections": [
+        {
+          "h": "¿Qué es DNSSEC?",
+          "body": "DNSSEC añade firmas criptográficas a tus registros DNS. Cuando un resolutor consulta una zona firmada por DNSSEC, puede verificar que la respuesta fue firmada por el propietario legítimo de la zona y no ha sido alterada en tránsito. Sin DNSSEC, un atacante que pueda interceptar o envenenar las respuestas DNS puede redirigir silenciosamente tu tráfico a cualquier lugar."
+        },
+        {
+          "h": "Por qué es importante",
+          "body": "Los ataques de envenenamiento de caché de DNS pueden redirigir a los visitantes de tu sitio web real a uno malicioso, interceptar correo electrónico secuestrando tus registros MX o corromper tus búsquedas de SPF/DKIM/DMARC — todo sin tocar tu servidor. DNSSEC hace que las respuestas DNS sean verificables criptográficamente para que estos ataques falten."
+        },
+        {
+          "h": "Cómo habilitarlo",
+          "body": "DNSSEC se habilita en tu proveedor de DNS — ellos gestionan las claves de firma. Los pasos varían según el proveedor:",
+          "code": "Cloudflare:  Pestaña DNS → DNSSEC → Habilitar (añade el registro DS automáticamente)\nGoDaddy:     DNS → DNSSEC → Activar DNSSEC\nRoute 53:    Zona alojada → Firma DNSSEC → Habilitar\nPorkbun:     DNS → DNSSEC → Habilitar\nName.com:    DNS → DNSSEC → Habilitar firma",
+          "body2": "Después de habilitarlo en tu proveedor de DNS, copia los valores del registro DS (Delegation Signer) que te proporcionan y añádelos en tu <strong>registrador</strong> de dominios. El registro DS en el registrador es lo que completa la cadena de confianza desde el DNS raíz hasta tu zona."
+        },
+        {
+          "h": "Advertencias críticas",
+          "body": "⚠ <strong>Si cambias de proveedor de DNS</strong>, deshabilita DNSSEC primero, migra todos los registros y luego vuelve a habilitarlo. No hacer esto en orden provoca fallos de DNS en todo el mundo.<br><br>⚠ <strong>El registro DS en el registrador debe coincidir exactamente</strong> con los valores que te da tu proveedor de DNS. Un desajuste rompe la resolución DNS de todo tu dominio."
+        },
+        {
+          "h": "Pruebas",
+          "body": "Verifica tu cadena de confianza de DNSSEC en <a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a> o visualízala en <a href=\"https://dnsviz.net\" target=\"_blank\" rel=\"noopener\">dnsviz.net</a>. Una cadena válida se muestra verde en cada nivel, desde la raíz → TLD → tu dominio."
+        }
+      ]
+    }
+  },
+  "score": {
+    "label": "Puntuación de seguridad",
+    "outOf": "{0} / {1}",
+    "range": "Rango de puntuación confirmado: {0}–{1} / 100; las comprobaciones desconocidas no se puntúan como fallos",
+    "parkedNote": "Dominio estacionado — puntuado solo en SPF, DMARC, DNSSEC y CAA",
+    "pillar": {
+      "dmarc": "DMARC",
+      "spf": "SPF",
+      "dkim": "DKIM",
+      "dnssec": "DNSSEC",
+      "caa": "CAA",
+      "mtaSts": "MTA-STS",
+      "bimi": "BIMI",
+      "tlsRpt": "TLS-RPT"
+    },
+    "dmarcParts": {
+      "label": "Desglose de DMARC",
+      "policy": "Política (p=)",
+      "subdomain": "Cobertura de subdominio",
+      "pct": "Tasa de aplicación (pct=)",
+      "rua": "Informes agregados (rua=)",
+      "alignment": "Alineación estricta",
+      "ruf": "Informes forenses (ruf=)"
     }
   }
 }

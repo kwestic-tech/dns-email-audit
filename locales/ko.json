@@ -1,0 +1,649 @@
+{
+  "meta": {
+    "code": "ko",
+    "name": "Korean",
+    "nativeName": "한국어",
+    "dir": "ltr"
+  },
+  "doc": {
+    "title": "DNS 및 이메일 보안 진단 도구 — 무료 SPF, DKIM, DMARC 및 DNSSEC 검사기",
+    "description": "웹 브라우저 기반의 무료 DNS 및 이메일 보안 진단 도구입니다. 최대 200개 도메인의 SPF, DKIM, DMARC, BIMI, MTA-STS, CAA 및 DNSSEC를 즉시 진단합니다. 회원가입이나 데이터 저장 없이 브라우저에서 전적으로 실행됩니다."
+  },
+  "topbar": {
+    "title": "DNS & 이메일 진단 도구",
+    "subtitle": "· 무료 · 회원가입 없음 · Kwestic으로 데이터 전송 없음",
+    "langTitle": "언어"
+  },
+  "btn": {
+    "howItWorks": "📖 작동 방식",
+    "exportCsv": "⬇ CSV 내보내기",
+    "exportHtml": "⬇ 보고서 내보내기",
+    "runAudit": "🔎 진단 실행",
+    "auditRunning": "진단 중…",
+    "cancelAudit": "진단 취소",
+    "uploadFile": "📄 .txt 파일 업로드",
+    "loadExamples": "예시 불러오기",
+    "clearResults": "🗑 결과 지우기",
+    "learnMore": "자세히 알아보기 →"
+  },
+  "input": {
+    "heading": "진단할 도메인 입력",
+    "desc": "한 줄에 하나씩 입력하거나 .txt 파일을 업로드하세요. 한 번에 최대 200개 도메인까지 가능합니다.",
+    "placeholder": "example.com\nmycompany.org\nanother-domain.net"
+  },
+  "opt": {
+    "dkim": "DKIM 셀렉터 검사",
+    "dkimComprehensive": "정밀 DKIM 스캔 (최대 5개 도메인)",
+    "dkimComprehensiveTitle": "카탈로그 검증을 거친 1,677개의 정확한 셀렉터를 전체 사용하며, 1회 실행당 최대 5개 도메인으로 제한됩니다",
+    "www": "웹사이트 호스팅 감지",
+    "wildcard": "와일드카드 TXT 버그 감지",
+    "dkimSelectors": "추가 DKIM 셀렉터",
+    "footer": "Cloudflare DoH 기반 DNS 조회 · 데이터 저장 없음"
+  },
+  "help": {
+    "title": "작동 방식:",
+    "body": "<a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a>를 통해 사용자의 브라우저에서 직접 실행됩니다. 본 앱은 Kwestic으로 데이터를 전송하거나 저장하지 않으며, DNS 조회 이름은 Cloudflare로 직접 전송되어 Cloudflare의 개인정보 처리방침을 따릅니다. 검사 항목: NS, MX, SPF, 제공자 인식 또는 정밀 DKIM 셀렉터, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC 및 SPF 조회 깊이."
+  },
+  "netbanner": {
+    "title": "⚠️ 네트워크 접근 차단됨 — 현재 환경에서 인터넷으로 DNS 조회를 보낼 수 없습니다",
+    "body": "본 앱은 <code>cloudflare-dns.com</code> DNS-over-HTTPS API를 사용하며, 페이지가 샌드박스 처리된 iframe(예: AI 어시스턴트의 내장 프레비유 패널) 내에서 실행될 경우 차단됩니다. 진단 도구를 사용하려면 프로젝트 폴더를 HTTP로 제공하거나 무료 정적 호스팅 서비스를 이용하세요:<br><br>• <strong>가장 빠른 방법:</strong> 프로젝트 폴더를 <a href=\"https://app.netlify.com/drop\" target=\"_blank\" rel=\"noopener\">app.netlify.com/drop</a>에 드래그 앤 드롭 → 약 60초 내 실시간 URL 생성.<br>• <strong>자체 도메인:</strong> <a href=\"https://pages.cloudflare.com\" target=\"_blank\" rel=\"noopener\">Cloudflare Pages</a> 또는 <a href=\"https://pages.github.com\" target=\"_blank\" rel=\"noopener\">GitHub Pages</a>에 무료 배포.<br>• <strong>로컬 실행:</strong> 프로젝트 폴더 내에서 <code>npx serve</code> (또는 <code>python3 -m http.server</code>) 실행."
+  },
+  "progress": {
+    "heading": "DNS 레코드 조회 중…",
+    "querying": "{0} 조회 중…",
+    "error": "{0} 오류 발생: {1}",
+    "cancelled": "사용자에 의해 취소됨",
+    "cancelledDomain": "{0} 취소됨"
+  },
+  "search": {
+    "placeholder": "🔎 도메인 필터링…"
+  },
+  "th": {
+    "domain": "도메인",
+    "grade": "등급",
+    "dns": "DNS 제공자",
+    "email": "이메일 제공자",
+    "spf": "SPF",
+    "dkim": "DKIM",
+    "dmarc": "DMARC",
+    "advanced": "고급 보안",
+    "hosting": "웹 호스팅"
+  },
+  "filter": {
+    "all": "모든 도메인",
+    "warn": "⚠️ 경고 있음",
+    "crit": "🔴 심각한 문제",
+    "noEmail": "이메일 미사용",
+    "noDmarc": "DMARC 누락",
+    "noDkim": "DKIM 누락",
+    "noSpf": "SPF 누락",
+    "hasBimi": "BIMI 설정됨",
+    "noCaa": "CAA 누락",
+    "noDnssec": "DNSSEC 미설정"
+  },
+  "empty": {
+    "text": "필터와 일치하는 도메인이 없습니다."
+  },
+  "footer": {
+    "text": "<a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> 기반 DNS-over-HTTPS &bull; Kwestic으로 데이터가 전송되거나 저장되지 않음 &bull; 조회 이름은 Cloudflare로 전송됨 &bull; 무료 사용 및 셀프 호스팅 가능"
+  },
+  "labels": {
+    "issues": "문제점",
+    "suggestions": "💡 권장 사항",
+    "advanced": "고급 보안",
+    "nameservers": "네임서버 (NS)",
+    "mx": "MX 레코드",
+    "spf": "SPF 레코드",
+    "spfLookups": "DNS 조회 횟수",
+    "dmarc": "DMARC 레코드",
+    "dkim": "DKIM 셀렉터",
+    "verifications": "소유권 검증 (TXT)",
+    "wildcardTitle": "⚠ 와일드카드 TXT 버그",
+    "wildcardText": "와일드카드 TXT 레코드가 '모든' 서브도메인에 대해 데이터를 반환하고 있습니다. 이는 DMARC 및 DKIM 검증을 오작동하게 만듭니다. DNS 제공자 페이지에 로그인하여 * TXT 레코드를 삭제하세요.",
+    "status": "상태",
+    "none": "없음",
+    "na": "해당 없음",
+    "dash": "—"
+  },
+  "showme": {
+    "open": "상세 보기 ▾",
+    "close": "상세 접기 ▴",
+    "whatItIs": "문제 설명",
+    "whatItNeeds": "해결 방법"
+  },
+  "stat": {
+    "domains": "총 도메인",
+    "haveEmail": "이메일 설정됨",
+    "wildcardBug": "⚠ 와일드카드 버그"
+  },
+  "badge": {
+    "notRegistered": "미등록 / NXDOMAIN",
+    "noEmail": "✗ 이메일 없음",
+    "noDkim": "✗ 없음",
+    "dkimUnverified": "? 테스트한 셀렉터에서 Domain Key를 찾을 수 없음",
+    "dkimUncommon": "⚠ 비표준 설정 ({0})",
+    "notChecked": "검사 안 함",
+    "auditError": "진단 불능",
+    "cancelled": "취소됨"
+  },
+  "provider": {
+    "unknown": "알 수 없음",
+    "custom": "커스텀",
+    "customUnknown": "커스텀/알 수 없음",
+    "selfHosted": "자체 호스팅",
+    "none": "없음",
+    "nullMx": "Null MX (이메일 비활성화)",
+    "implicitMx": "암묵적 MX (MX 레코드 없음)",
+    "noWebPresence": "웹사이트 없음",
+    "cnameLoop": "⚠ CNAME 루프",
+    "cloudflareProxied": "Cloudflare (프록시 적용됨)",
+    "porkbunForwarding": "Porkbun 전달"
+  },
+  "spf": {
+    "missing": "✗ 누락됨",
+    "issues": "⚠ 문제 있음",
+    "hardfail": "✓ -all",
+    "softfail": "~ ~all",
+    "present": "✓ 설정됨",
+    "meterOver": "{0}/10 🔴 제한 초과",
+    "meterNear": "{0}/10 ⚠ 제한 임박",
+    "meterOk": "{0}/10 ✓",
+    "meterSuffix": "DNS 조회 횟수",
+    "permerror": "🔴 영구 오류 (Permerror)"
+  },
+  "dmarc": {
+    "missing": "✗ 누락됨",
+    "reject": "✓ reject",
+    "quarantine": "✓ quarantine",
+    "none": "⚠ none (모니터링)",
+    "set": "✓ 설정됨",
+    "invalid": "⚠ 유효하지 않은 p=",
+    "pctSuffix": "({0}%)",
+    "permerror": "🔴 중복 레코드",
+    "inheritedFrom": "{0}에서 상속됨"
+  },
+  "dkim": {
+    "uncommon": "비표준 설정 ({0})",
+    "noDomainKeyFound": "Domain Key를 찾을 수 없음 ({0})",
+    "txtRecord": "TXT 레코드",
+    "cnameTarget": "CNAME 대상",
+    "noteWildcard": "와일드카드 TXT 버그가 영향을 미치고 있을 수 있습니다",
+    "noteNotFound": "테스트한 {0}개의 셀렉터 중 활성화된 DKIM 키를 찾지 못했습니다",
+    "noteNotFoundWithErrors": "{0}개의 셀렉터 검사를 완료했으나 활성화된 DKIM 키를 찾지 못했습니다. ({1}개 DNS 조회 실패)"
+  },
+  "adv": {
+    "configured": "✓ 설정됨",
+    "unverified": "TXT 유효함; 정책 미검증",
+    "notConfigured": "미설정",
+    "tip": {
+      "bimiOn": "레코드: {0}",
+      "bimiOff": "미설정 — Gmail 및 Apple Mail에서 브랜드 로고를 표시할 수 있습니다",
+      "mtaStsOn": "설정됨 — 수신 이메일에 TLS 암호화 강제 적용",
+      "mtaStsUnverified": "TXT 레코드는 유효하나, 브라우저 전용 진단 특성상 HTTPS 정책 파일을 검증할 수 없습니다",
+      "mtaStsOff": "미설정 — 수신 메일에 TLS를 강제하기 위해 _mta-sts TXT를 게시하세요",
+      "tlsRptOn": "설정됨 — TLS 실패 보고서 활성화됨",
+      "tlsRptOff": "미설정 — MTA-STS의 보완 기능입니다. _smtp._tls TXT를 게시하세요",
+      "caaOn": "{0}에서 발견됨: {1}",
+      "caaOff": "발견되지 않음 — CAA 레코드를 추가하여 이 도메인의 인증서를 발급할 수 있는 CA를 제한하세요",
+      "dnssecOn": "AD 플래그 설정됨 — DNS 응답이 암호학적으로 검증되었습니다",
+      "dnssecOff": "감지되지 않음 — 캐시 포이즈닝을 방지하려면 DNS 제공자에서 DNSSEC을 활성화하세요",
+      "bimiDup": "중복 레코드 — BIMI가 무시되며 로고가 표시되지 않습니다",
+      "mtaStsDup": "중복 레코드 — 발신자가 이 도메인에 MTA-STS 정책이 없는 것으로 간주합니다",
+      "tlsRptDup": "중복 레코드 — 발신자가 이 도메인이 TLS-RPT를 구현하지 않은 것으로 간주합니다"
+    },
+    "duplicated": "⚠ 중복 레코드"
+  },
+  "rows": {
+    "count": {
+      "one": "{0}개 도메인",
+      "other": "{0}개 도메인"
+    },
+    "showing": "{1}개 중 {0}개 표시",
+    "critical": {
+      "one": "심각 {0}개",
+      "other": "심각 {0}개"
+    },
+    "warning": {
+      "one": "경고 {0}개",
+      "other": "경고 {0}개"
+    },
+    "suggestion": {
+      "one": "제안 {0}개",
+      "other": "제안 {0}개"
+    }
+  },
+  "toast": {
+    "noDomains": "최소 하나 이상의 도메인 이름을 붙여넣으세요.",
+    "tooMany": "1회 실행당 최대 200개 도메인까지 가능합니다.",
+    "tooManyComprehensiveDkim": "정밀 DKIM 스캔은 1회 실행당 {0}개 도메인으로 제한됩니다.",
+    "csvExported": "CSV 내보내기 완료",
+    "htmlExported": "HTML 보고서 내보내기 완료",
+    "htmlExportFailed": "독립 실행형 보고서를 생성할 수 없습니다. 앱을 HTTP로 호스팅한 후 다시 시도하세요.",
+    "fileLoaded": "{0} 불러오기 완료",
+    "fileTooLarge": "파일이 너무 큽니다. 최대 업로드 용량은 1MB입니다.",
+    "examplesLoaded": "예시 불러오기 완료 — '진단 실행'을 클릭하세요",
+    "auditDone": {
+      "one": "✅ 진단 완료 — {0}개 도메인 분석됨",
+      "other": "✅ 진단 완료 — {0}개 도메인 분석됨"
+    },
+    "auditCancelled": "진단이 취소되었습니다",
+    "langChanged": "언어가 변경되었습니다",
+    "langFailed": "해당 언어를 불러올 수 없어 영어로 유지됩니다."
+  },
+  "csv": {
+    "unknown": "알 수 없음",
+    "txtOnly": "TXT 유효함; HTTPS 정책 미검증",
+    "headers": [
+      "도메인",
+      "등록 여부",
+      "등급",
+      "점수",
+      "DNS 제공자",
+      "이메일 제공자",
+      "SPF 상태",
+      "SPF 레코드",
+      "DKIM 발견",
+      "DKIM 셀렉터",
+      "DMARC 상태",
+      "DMARC 정책",
+      "DMARC sp",
+      "DMARC np",
+      "DMARC pct",
+      "DMARC adkim",
+      "DMARC aspf",
+      "DMARC RUA",
+      "DMARC RUF",
+      "BIMI",
+      "MTA-STS",
+      "TLS-RPT",
+      "CAA",
+      "DNSSEC",
+      "SPF 조회 횟수",
+      "문제점",
+      "권장 사항"
+    ],
+    "yes": "예",
+    "no": "아니요",
+    "yesAt": "예 ({0})"
+  },
+  "report": {
+    "title": "DNS & 이메일 보안 진단 보고서",
+    "generated": "생성일시: {0} · 총 {1}개 도메인",
+    "note": "DNS & 이메일 보안 진단 도구를 통해 로컬에서 생성된 정적 보고서입니다. 진단 결과는 Kwestic으로 전송되거나 저장되지 않았으며, DNS 조회 이름은 Cloudflare의 리졸버로 전송되었습니다."
+  },
+  "issue": {
+    "wildcard-txt": {
+      "msg": "와일드카드 TXT (* TXT) 레코드가 발견되었습니다 — 모든 서브도메인의 DMARC 및 DKIM 조회를 오작동하게 만듭니다. 즉시 삭제하세요.",
+      "what": "와일드카드 TXT 레코드(<code>* IN TXT \"...\"</code>)가 있으면 명시적으로 정의하지 않은 서브도메인을 포함해 <em>모든</em> 서브도메인 조회에 대해 DNS 서버가 데이터를 반환합니다. DKIM 검증기는 <code>google._domainkey.yourdomain.com</code>과 같은 셀렉터를 조회하고, DMARC 검증기는 <code>_dmarc.yourdomain.com</code>을 조회합니다. 이때 '레코드 없음'을 받는 대신 와일드카드 결과를 받게 되어 모든 서브도메인의 인증이 파괴됩니다.",
+      "fix": "DNS 제공자 관리 페이지에 로그인하여 호스트 이름이 <code>*</code>(별표)로 되어 있는 TXT 레코드를 삭제하세요. 와일드카드 TXT 레코드를 유지해야 하는 정당한 이유는 거의 없습니다.",
+      "fixCode": "; DNS 영역에서 이 레코드를 삭제하세요:\n*    IN TXT    \"여기에 입력된 값\""
+    },
+    "dns-loop": {
+      "msg": "www CNAME 체인에 순환 루프가 포함되어 있습니다 — 웹사이트 주소를 해석할 수 없습니다.",
+      "what": "진단 도구가 <code>www</code> CNAME 체인을 추적하는 동안 이미 방문했던 호스트 이름에 다시 접근했습니다. 이로 인해 DNS 해석 순환 루프가 발생하여 방문자가 최종 A 또는 AAAA 주소를 얻을 수 없게 됩니다.",
+      "fix": "루프가 발생하는 CNAME을 서버의 IP를 직접 가리키는 A 레코드로 교체하거나, 호스팅 업체의 도메인 이름을 가리키는 CNAME으로 수정하세요.",
+      "fixCode": "; 방법 1 — 서버 IP 직접 지정:\nwww    A      203.0.113.10\n\n; 방법 2 — 호스팅 업체 도메인 지정:\nwww    CNAME  yoursite.netlify.app"
+    },
+    "no-mx": {
+      "msg": "MX 레코드가 없습니다. 방치된 도메인의 스푸핑을 막기 위해 Null MX (0 .) + SPF -all + DMARC p=reject를 추가하세요.",
+      "what": "이 도메인에는 MX 레코드가 없어 이메일을 수신할 메일 서버가 설정되어 있지 않습니다. 이메일 설정이 없는 미사용 또는 파킹 도메인은 스푸핑 공격의 주요 타깃입니다. DNS상에 이를 막을 장치가 없으면 공격자가 당신의 도메인을 가장하여 사기 메일을 보낼 수 있습니다.",
+      "fix": "이메일을 절대 송수신하지 않을 도메인이라면 Null MX('이곳은 메일을 받지 않음'을 명시)와 차단 정책의 SPF 및 DMARC를 게시하세요.",
+      "fixCode": "; Null MX — 이 도메인이 메일을 받지 않음을 발신자에게 알림:\n@    MX     0 .\n\n; SPF — 모든 발신자 차단:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — 위조된 메일 완전 거부:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
+    },
+    "spf-multiple-records": {
+      "msg": "복수의 SPF 레코드가 발견되었습니다 — 이 도메인에서 발송되는 모든 메일의 SPF가 영구 오류(permerror)로 실패합니다.",
+      "what": "RFC 7208 §4.5에 따르면 도메인당 정확히 하나의 <code>v=spf1</code> TXT 레코드만 허용됩니다. 수신자가 2개의 레코드를 발견하면 <code>permerror</code>를 반환하고 검사를 중단합니다(병합하거나 더 엄격한 것을 선택하지 않음). 실질적인 피해는 SPF가 아예 없는 것보다 심각합니다. DNS 관리판에서는 정상처럼 보이지만 도메인에서 나가는 모든 메일이 SPF 인증에 실패합니다. 새로운 메일 서비스를 추가할 때 기존 레코드를 수정하지 않고 새 레코드를 추가할 때 주로 발생합니다.",
+      "fix": "레코드를 하나로 병합하세요. 모든 레코드에 포함된 <code>include:</code>, <code>ip4:</code>, <code>ip6:</code> 메커니즘을 단일 <code>v=spf1</code> 레코드에 모으고 나머지는 삭제하세요. 병합 시 10회 조회 제한을 넘지 않도록 주의하세요.",
+      "fixCode": "; 수정 전 — 2개의 레코드로 인해 모든 SPF 검사가 실패하는 상태:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; 수정 후 — 두 발신자를 모두 포함한 단일 레코드:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "dmarc-multiple-records": {
+      "msg": "_dmarc에 복수의 DMARC 레코드가 존재합니다 — DMARC가 전혀 적용되지 않아 도메인이 위조될 수 있습니다.",
+      "what": "RFC 7489 §6.6.3은 정확히 하나의 DMARC 레코드만 요구합니다. 수신자는 <code>v=DMARC1</code> 태그가 없는 것을 버리며, 2개 이상이 남아있으면 정책 탐색을 중단하고 DMARC를 적용하지 않습니다. 정책이 아무리 엄격하더라도 완전히 무시되므로 도메인이 보호받는 것처럼 보여도 위조가 가능해집니다. 또한 종합 보고서 수신도 중단되어 문제를 파악할 수 있는 신호도 사라집니다.",
+      "fix": "<code>_dmarc</code> 위치에 있는 TXT 레코드 중 하나만 남기고 모두 삭제하세요. 중복된 레코드가 서로 다른 보고서 주소를 지정하고 있다면, 하나의 레코드를 유지하고 쉼표로 구분하여 단일 <code>rua=</code> 태그에 두 주소를 모두 나열하세요.",
+      "fixCode": "; 수정 전 — _dmarc에 2개의 레코드가 있어 DMARC가 무시됨:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; 수정 후 — 단일 레코드에 두 보고서 수신처 나열:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+    },
+    "mta-sts-multiple-records": {
+      "msg": "복수의 MTA-STS 레코드가 발견되었습니다 — 발신자가 이 도메인에 MTA-STS 정책이 없는 것으로 간주하여 수신 TLS가 강제되지 않습니다.",
+      "what": "RFC 8461 §3.1에 명시되어 있습니다. <code>v=STSv1;</code>로 시작하지 않는 레코드는 버려지며, 남아있는 레코드 수가 정확히 1개가 아닌 경우 발신자는 도메인에 MTA-STS 정책이 없다고 간주해야 합니다(<strong>MUST</strong>). 정책 파일을 가져오지도 않습니다. 수신 메일은 무방비 상태인 STARTTLS로 되돌아가며, 네트워크상의 공격자가 이를 박탈할 수 있습니다(MTA-STS가 방지하려는 다운그레이드 공격). 설정된 것처럼 보여도 실제로는 비활성화되어 있습니다.",
+      "fix": "<code>_mta-sts</code>의 Extra TXT 레코드를 삭제하여 정확히 하나만 남기세요. 이후 발신 서버가 이전 TTL 만료를 기다리지 않고 캐시를 갱신하도록 <code>id=</code> 값을 올려주세요.",
+      "fixCode": "; 수정 전 — 2개의 레코드로 인해 MTA-STS가 완전히 무시됨:\n_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\"\n_mta-sts    TXT    \"v=STSv1; id=20240615000000Z;\"\n\n; 수정 후 — 단일 레코드, 강제 갱신을 위해 id 값 변경:\n_mta-sts    TXT    \"v=STSv1; id=20260817000000Z;\""
+    },
+    "tls-rpt-multiple-records": {
+      "msg": "복수의 TLS-RPT 레코드가 발견되었습니다 — 발신자가 이 도메인이 TLS-RPT를 구현하지 않은 것으로 간주하여 보고서가 전송되지 않습니다.",
+      "what": "RFC 8460 §3에 따르면 <code>v=TLSRPTv1;</code> 레코드 수가 정확히 1개가 아니면 발신자는 도메인이 TLS-RPT를 구현하지 않은 것으로 간주해야 합니다(<strong>MUST</strong>). 첫 번째 레코드의 주소를 포함하여 어떤 목적지로도 보고서가 생성되지 않습니다. 이는 MTA-STS와 함께 사용할 때 가장 중요합니다. TLS-RPT는 정책 미설정이나 인증서 만료를 알 수 있는 유일한 통로이므로, 파손된 레코드는 설정 실패가 조용히 넘어감을 의미합니다.",
+      "fix": "<code>_smtp._tls</code>에 있는 추가 레코드를 삭제하세요. 두 개 이상의 주소로 보고서를 받아야 하는 경우 쉼표로 구분하여 단일 <code>rua=</code> 태그에 적으세요.",
+      "fixCode": "; 수정 전 — 2개의 레코드로 인해 보고서가 전혀 발송되지 않음:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com;\"\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:soc@vendor.example;\"\n\n; 수정 후 — 단일 레코드, 두 수신처 지정:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com,mailto:soc@vendor.example;\""
+    },
+    "bimi-multiple-records": {
+      "msg": "복수의 BIMI 레코드가 발견되었습니다 — BIMI 처리가 중단되어 로고가 표시되지 않습니다.",
+      "what": "BIMI 명세(어서션 레코드 탐색)는 DMARC의 방식을 따릅니다. <code>v=BIMI1</code> 태그가 없는 레코드는 버려지며, 남아있는 집합에 2개 이상의 레코드가 있으면 탐색이 중단되고 BIMI 처리가 수행되지 않습니다. Gmail, Apple Mail, Yahoo에 로고가 나타나지 않으며, BIMI 실패는 조용히 발생하기 때문에 상표 인증서(VMC) 비용을 지불했더라도 원인을 알기 어렵습니다.",
+      "fix": "<code>default._bimi</code> 위치의 추가 TXT 레코드를 삭제하여 정확히 하나만 남기세요.",
+      "fixCode": "; 수정 전 — 2개의 레코드로 인해 BIMI가 평가조차 되지 않음:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\"\ndefault._bimi    TXT    \"v=BIMI1; l=https://cdn.example/old-logo.svg;\"\n\n; 수정 후 — 단일 레코드만 유지:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg; a=https://yourdomain.com/vmc.pem;\""
+    },
+    "dkim-multiple-records": {
+      "msg": "셀렉터 {0}에 복수의 DKIM 키 레코드가 존재합니다 — 서명 검증 동작이 정의되지 않아 실패할 수 있습니다.",
+      "what": "RFC 6376 §3.6.2.2는 주어진 셀렉터에 대해 키 레코드가 유일해야 함을 요구합니다('RRset에 복수의 레코드가 있는 경우 결과는 정의되지 않음'). 검증기마다 동작이 달라 첫 레코드를 채택하거나, 마지막을 채택하거나, 완전히 실패 처리합니다. 그 결과 수신자에 따라 가변적으로 DKIM 실패가 발생하여 원인 진단이 매우 까다로워집니다. 키 교체(Rotation) 후 이전 레코드를 제거하지 않았을 때 자주 발생합니다.",
+      "fix": "오래된 키 레코드를 삭제하여 셀렉터당 정확히 하나의 레코드만 남기세요. 교체 진행 중이어서 두 키를 모두 활성화해야 한다면, 하나의 이름 아래 두 레코드를 두지 말고 두 개의 서로 다른 셀렉터를 사용하세요.",
+      "fixCode": "; 수정 전 — 동일 셀렉터에 두 키가 존재하여 동작을 정의할 수 없음:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...OLD\"\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\n\n; 수정 후 — 셀렉터당 하나의 키 사용 (두 번째 셀렉터로 교체 진행):\ngoogle._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\ns2._domainkey         TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEXT\""
+    },
+    "spf-missing": {
+      "msg": "SPF 레코드가 없습니다 — 발신자 인증이 불가능합니다.",
+      "what": "SPF(Sender Policy Framework)는 당신의 도메인을 대리하여 이메일을 발송하도록 승인된 메일 서버 목록을 명시하는 DNS 레코드입니다. 이 레코드가 없으면 세상의 어떤 서버든 당신인 척 메일을 보낼 수 있으며, 수신 메일 서버는 이것이 정당한 메일인지 검증할 방법이 없습니다.",
+      "fix": "도메인 루트에 승인된 이메일 발신자를 명시하는 TXT 레코드를 추가하세요. 테스트 중에는 ~all (softfail)로 시작하고, 검증이 완료되면 -all로 강화하세요.",
+      "fixCode": "; Google Workspace 사용 시:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; Microsoft 365 사용 시:\n@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\"\n\n; 미사용/파킹 도메인의 경우:\n@    TXT    \"v=spf1 -all\""
+    },
+    "spf-softfail": {
+      "msg": "SPF: ~all softfail — -all로 강화를 권장합니다.",
+      "what": "SPF 레코드가 <code>~all</code>(물결표 all, 소프트 페일)로 끝나고 있습니다. 이는 목록에 없는 서버의 메일이 <em>아마도</em> 인가되지 않았음을 의미하지만, 단지 힌트에 불과합니다. 대부분의 수신 서버는 이 메일을 스팸으로 분류할 뿐 그대로 전달합니다. 스푸핑에 대한 임시 방편에 불과합니다.",
+      "fix": "SPF 레코드에 모든 정당한 발신 출처가 포함되었음을 확인했다면 <code>~all</code>에서 <code>-all</code>(하드 페일)로 강화하세요. 이는 목록에 없는 서버의 메일을 즉시 거부하도록 수신자에게 지시합니다.",
+      "fixCode": "; 변경 전:\n@    TXT    \"v=spf1 include:_spf.google.com ~all\"\n\n; 변경 후:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-all-permit": {
+      "msg": "SPF: +all 모두 허용 — 보안에 매우 취약합니다.",
+      "what": "SPF 레코드가 <code>+all</code>로 끝나고 있어 <em>인터넷상의 모든 서버</em>가 당신의 도메인 이름으로 메일을 발송하도록 허용하고 있습니다. 이는 SPF를 사용하는 목적을 완전히 무력화하며, 설정 오류일 가능성이 매우 높습니다.",
+      "fix": "<code>+all</code>을 <code>-all</code>(하드 페일)로 교체하여 인가되지 않은 발신자를 거부하세요.",
+      "fixCode": "; +all 제거 후 -all로 교체:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-neutral": {
+      "msg": "SPF: ?all 중립 — 보안 보호 기능이 없습니다.",
+      "what": "SPF 레코드가 <code>?all</code>(물음표 all)로 끝나며 '중립' 결과를 나타냅니다. SPF는 목록에 없는 서버의 인가 여부에 대해 아무런 입장을 취하지 않는 상태입니다. 수신 서버는 이를 SPF 레코드가 없는 것과 동일하게 처리하므로 스푸핑 방지 효과가 전혀 없습니다.",
+      "fix": "<code>?all</code>을 <code>-all</code>(하드 페일)로 교체하여 인가되지 않은 발신자를 차단하세요.",
+      "fixCode": "; 변경 전:\n@    TXT    \"v=spf1 include:_spf.google.com ?all\"\n\n; 변경 후:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-missing-google": {
+      "msg": "SPF: Google Workspace include가 누락되었습니다.",
+      "what": "이메일 송신에 Google Workspace를 사용 중이나, SPF 레코드에 Google 메일 서버(<code>_spf.google.com</code>)가 포함되어 있지 않습니다. Google의 발송 서버가 승인되지 않았기 때문에, Google Workspace에서 보낸 정상 메일이 수신자의 SPF 검사에서 실패하여 스팸함으로 들어갈 수 있습니다.",
+      "fix": "TXT 레코드에 Google의 SPF include를 추가하세요.",
+      "fixCode": "; Google include 추가:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; 다른 발신 서비스도 함께 사용하는 경우:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "spf-missing-icloud": {
+      "msg": "SPF: iCloud include가 누락되었습니다.",
+      "what": "Apple iCloud Mail(iCloud+ 사용자 설정 도메인)을 사용하는 것으로 보이나, SPF 레코드에서 Apple 발송 서버를 승인하지 않았습니다. iCloud를 통해 발송된 메일이 수신자 측에서 거부되거나 스팸으로 분류될 수 있습니다.",
+      "fix": "레코드에 Apple의 SPF include를 추가하세요.",
+      "fixCode": "@    TXT    \"v=spf1 include:icloud.com -all\""
+    },
+    "spf-missing-microsoft": {
+      "msg": "SPF: Microsoft 365 include가 누락되었습니다.",
+      "what": "이메일에 Microsoft 365를 사용 중이나, SPF 레코드에 Microsoft 발송 서버(<code>spf.protection.outlook.com</code>)가 포함되어 있지 않습니다. Microsoft 365에서 발송된 메일이 수신 메일 서버에서 SPF 검사 실패 처리되어 스팸으로 분류되거나 거부될 수 있습니다.",
+      "fix": "TXT 레코드에 Microsoft의 SPF include를 추가하세요.",
+      "fixCode": "@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\""
+    },
+    "dkim-missing": {
+      "msg": "DKIM이 설정되지 않았습니다. {0}",
+      "what": "DKIM(DomainKeys Identified Mail)은 발송하는 모든 이메일에 암호화 서명을 첨부하여, 수신자가 메일이 중간에 위변조되지 않고 실제로 해당 도메인에서 왔음을 검증할 수 있게 합니다. 설정이 없으면 메일이 스팸으로 분류될 확률이 높아지고 도메인 사칭에 취약해집니다. DMARC를 강제 적용하기 위해서도 필수적입니다.",
+      "fix": "DKIM 설정은 사용하는 이메일 서비스의 관리 콘솔에서 진행합니다. 서비스 제공업체가 공개키/개인키 쌍을 생성하고 DNS에 게시할 TXT 레코드를 제공합니다. 직접 키를 생성할 필요는 없습니다.",
+      "fixCode": "; Google Workspace: 관리자 → 앱 → Google Workspace → Gmail\n;   → 이메일 인증 → 새 레코드 생성 → TXT 레코드 복사\n;\n; Microsoft 365: 관리자 → 설정 → 도메인 → 도메인 선택\n;   → DNS 레코드 → DKIM 활성화\n;\n; TXT 레코드 형태 예시:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
+    },
+    "dkim-unverified": {
+      "msg": "테스트한 DKIM 셀렉터를 찾을 수 없습니다. {0} 이것이 DKIM이 없음을 의미하지는 않습니다. 셀렉터를 직접 입력하거나 DKIM-Signature 헤더에서 붙여넣으세요."
+    },
+    "implicit-mx": {
+      "msg": "MX 레코드가 게시되지 않았습니다. SMTP가 암묵적 MX로서 이 도메인의 A/AAAA 주소로 되돌아갈 수 있으며, 이는 취약하고 의도하지 않은 결과를 초래할 수 있습니다."
+    },
+    "dmarc-missing": {
+      "msg": "DMARC 레코드가 없습니다 — 정책 강제 적용 없이 도메인이 자유롭게 위조될 수 있습니다.",
+      "what": "DMARC(Domain-based Message Authentication, Reporting &amp; Conformance)는 이메일이 SPF나 DKIM 검사에 실패했을 때 수신 메일 서버가 어떻게 처리해야 하는지(격리, 거부, 또는 허용)를 알려주는 정책입니다. DMARC 레코드가 없으면 SPF와 DKIM이 완벽히 설정되어 있더라도 화면에 보이는 'From:' 주소를 사칭하는 것을 막을 수 없습니다.",
+      "fix": "메일을 차단하지 않고 보고서만 수집하는 모니터링 전용 정책(<code>p=none</code>)으로 시작하고, 데이터를 검토한 후 정책을 강화하세요.",
+      "fixCode": "; 1단계 — 모니터링 전용 (안전한 시작점):\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; 2단계 — 격리 (실패한 메일을 스팸함으로):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; 3단계 — 거부 (실패한 메일 완전히 차단):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-none": {
+      "msg": "DMARC p=none은 모니터링 전용입니다. p=quarantine을 거쳐 p=reject로 업그레이드하세요.",
+      "what": "DMARC 레코드가 <code>p=none</code>으로 설정되어 있으며, 이는 모니터링 전용 모드입니다. 수신 서버에 데이터를 수집하여 보고서를 보내도록 지시하지만, 실패한 메일에 대해 <em>아무런 조치도 취하지 않습니다</em>(사칭된 메일이 그대로 전달됨). <code>p=none</code>은 임시 첫 단계로서의 진단 도구이며, 최종 설정 상태가 아닙니다.",
+      "fix": "DMARC 종합 보고서(rua=)를 검토하여 정당한 발신처가 모두 통과하는지 확인하세요. 확신이 들면 정책을 quarantine으로, 이후 reject로 업그레이드하세요.",
+      "fixCode": "; 1단계 — 격리 (실패한 메일을 스팸함으로 배달):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@yourdomain.com;\"\n\n; 2단계 — 거부 (실패한 메일 완전 차단):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-quarantine": {
+      "msg": "DMARC p=quarantine은 사칭 메일을 스팸함으로 보내지만 전달은 이루어집니다. p=reject가 최종 목표 상태입니다.",
+      "what": "DMARC 정책이 <code>p=quarantine</code>으로 설정되어 실제 강제력이 작용하고 있습니다. 인증에 실패한 메일은 받은편지함 대신 스팸함으로 들어갑니다. 하지만 메일은 여전히 <em>전달</em>됩니다. 도메인을 설득력 있게 사칭한 피싱 메일이 사용자가 확인하는 폴더에 수신될 수 있으며, 일부 수신자는 격리 정책을 일관되지 않게 적용합니다. <code>p=reject</code>는 수신 서버가 메일 수신을 거부하도록 지시하므로 수신자에게 전혀 도달하지 않습니다.",
+      "fix": "몇 주 동안 DMARC 종합 보고서(<code>rua=</code>)를 검토하고 모든 정당한 발송 출처가 SPF 또는 DKIM 얼라인먼트를 통과하는지 확인하세요. 정상 메일의 실패가 없으면 정책을 <code>p=reject</code>로 변경하세요. 신중하게 진행하려면 <code>pct=</code>를 사용하여 단계적으로 비율을 올리세요.",
+      "fixCode": "; 현재 정책 — 실패 메일이 스팸함으로 전달됨:\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; 점진적 적용 — 실패 메일의 25% 거부, 나머지 격리:\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=25; rua=mailto:dmarc@yourdomain.com;\"\n\n; 최종 상태 — 모든 실패 메일 거부:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-no-rua": {
+      "msg": "DMARC에 rua= 주소가 없습니다 — 종합 보고서를 받지 못하게 됩니다.",
+      "what": "DMARC 레코드에 <code>rua=</code> 태그가 포함되어 있지 않습니다. 이 태그는 ISP와 이메일 제공업체가 누구에 의해 도메인 메일이 발송되고 있으며 인증을 통과하는지 보여주는 종합 보고서를 전송할 주소입니다. 이 태그가 없으면 메일 트래픽을 관찰할 수 없으며, 설정을 잘못 건드렸거나 누군가 도메인을 사칭하고 있어도 알 수 없습니다.",
+      "fix": "DMARC 레코드에 <code>rua=</code> 주소를 추가하세요. 모니터링할 수 있는 메일함 주소면 됩니다.",
+      "fixCode": "; 기존 DMARC 레코드에 rua= 추가:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc-reports@yourdomain.com;\""
+    },
+    "dmarc-weak-sp": {
+      "msg": "도메인 자체는 p={1}인 반면, DMARC 서브도메인 정책은 sp={0}으로 되어 있어 서브도메인의 보안이 취약합니다.",
+      "what": "레코드에 <code>sp={0}</code>가 설정되어 서브도메인의 정책을 명시적으로 덮어쓰고 있습니다. 이 태그가 없으면 서브도메인은 상위 도메인의 더 엄격한 <code>p={1}</code> 정책을 자동으로 상속받습니다. 현재 설정으로는 공격자가 <code>anything.yourdomain.com</code>을 사칭하여 더 약한 제재를 받을 수 있으며, 수신자는 발신자 주소의 서브도메인 부분을 잘 확인하지 않는 점을 이용당할 수 있습니다.",
+      "fix": "아직 완벽히 인증되지 않은 서브도메인에서 마케팅 메일을 보내는 등의 특정한 이유가 없다면 <code>sp=</code> 태그를 제거하여 서브도메인이 메인 정책을 상속받도록 하거나 동일하게 수치를 올리세요.",
+      "fixCode": "; 가장 간단함 — sp= 삭제하여 p를 상속받게 함:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 또는 명시적으로 수치를 일치시킴:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-weak-np": {
+      "msg": "도메인 자체는 p={1}인 반면, 존재하지 않는 서브도메인의 DMARC 정책은 np={0}으로 보안이 취약합니다.",
+      "what": "<code>np=</code> 태그(RFC 9091)는 DNS에 존재하지 않는 서브도메인에 대한 정책을 설정합니다. 당신의 레코드는 <code>np={0}</code>으로, 메인 정책인 <code>p={1}</code>보다 약합니다. 존재하지 않는 서브도메인은 공격자가 좋아하는 표적입니다. 정상적인 메일이 차단될 리가 없어 아무도 눈치채지 못하며, <code>billing.yourdomain.com</code> 같은 주소는 수신자에게 그럴듯하게 보이기 때문입니다.",
+      "fix": "<code>np=reject</code>로 설정하세요. 존재하지 않는 서브도메인에서 정상적인 메일이 발송될 일은 없으므로, 메일 전달 가능성에 영향을 주지 않는 매우 안전한 DMARC 변경 사항 중 하나입니다.",
+      "fixCode": "; 존재하지 않는 서브도메인의 메일 거부:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-partial-pct": {
+      "msg": "DMARC pct={0} — 실패한 메일의 {0}%에만 정책이 적용되며, 나머지 {1}%는 정상 배달됩니다.",
+      "what": "<code>pct=</code> 태그는 정책이 적용될 실패 메일의 비율을 조절합니다. <code>pct={0}</code>으로 설정하면 수신자는 인증에 실패한 메일의 {0}%에만 해당 정책을 적용하고, 나머지 {1}%에 대해서는 한 단계 약한 조치를 취합니다. 즉, 사칭된 메일이 약 {1}%의 확률로 받은편지함에 무사히 들어갈 수 있습니다. <code>pct=</code>는 안전한 적용을 위한 단계적 도구이며, 최종적으로 유지할 상태가 아닙니다.",
+      "fix": "DMARC 종합 보고서를 확인하여 실패하는 정상 발신자가 없는지 파악한 후 <code>pct=</code>를 완전히 제거하거나(기본값 100) 100으로 설정하세요.",
+      "fixCode": "; pct= 제거 — 기본값 100 적용:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 명시적으로 기재 시:\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-pct": {
+      "msg": "DMARC pct= 값이 0과 100 사이의 유효한 숫자가 아닙니다 — 수신자가 해당 태그 또는 레코드 전체를 무시할 수 있습니다.",
+      "what": "<code>pct=</code> 태그는 0에서 100 사이의 정수여야 합니다. 잘못된 값이 설정되면 수신 메일 서버가 해당 태그를 무시하거나, DMARC 레코드 전체를 잘못된 형식으로 판단하여 정책이 없는 도메인으로 취급할 수 있습니다. DNS상에서는 정상처럼 보여도 파싱되지 않으면 아무런 보호 효과가 없습니다.",
+      "fix": "값을 0~100 사이의 정수로 수정하거나 태그를 제거하세요(제거 시 기본값 100이 적용되며 대부분의 상황에 권장됩니다).",
+      "fixCode": "; 형식이 잘못된 pct= 전면 제거:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-invalid-policy": {
+      "msg": "DMARC p= 값이 none, quarantine, reject 중 하나가 아닙니다 — 레코드 형식이 잘못되어 어떠한 보호도 제공하지 못합니다.",
+      "what": "<code>p=</code> 태그는 반드시 <code>none</code>, <code>quarantine</code>, <code>reject</code> 중 하나여야 합니다. 오타나 불필요한 문자, 지원되지 않는 값이 들어가면 수신 서버가 정책을 인식할 수 없어 DMARC 레코드가 없는 것으로 간주하고 스푸핑을 방지하지 못합니다.",
+      "fix": "<code>p=</code> 값을 수정하세요. 어디서부터 시작할지 모르겠다면 <code>rua=</code> 주소와 함께 <code>p=none</code>을 게시한 뒤 몇 주 동안 보고서를 검토하고 강화하세요.",
+      "fixCode": "; 모니터링 전용 (안전한 시작점):\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; 완전 강제 적용:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "porkbun-forward": {
+      "msg": "Porkbun 포워딩은 DKIM을 지원하지 않습니다 — 전달된 메일이 수신처에서 오류를 일으키는 경우가 많습니다.",
+      "what": "Porkbun의 이메일 전달(Forwarding) 서비스는 수신된 메일을 다른 주소로 릴레이하지만 DKIM 서명을 하지 않습니다. 전달된 메일이 목적지에 도착했을 때 DKIM(서명이 없거나 전달 과정에서 깨짐) 검사에서 실패하며, SPF도 실패할 수 있습니다(메일이 당신의 서버가 아닌 Porkbun 서버에서 재발송됨). 이로 인해 스팸 분류율이 높아지며, 포워딩 구조 자체의 한계이므로 DNS 수정으로는 해결할 수 없습니다.",
+      "fix": "안정적인 이메일 사용을 위해 DKIM 서명을 지원하는 정식 호스팅 이메일 서비스로 전환하세요. 저렴한 비용으로 사용할 수 있는 여러 대안이 있습니다.",
+      "fixCode": "; Porkbun 포워딩의 좋은 대안:\n;\n; Google Workspace — DKIM 완벽 지원\n; Microsoft 365 — DKIM 완벽 지원\n; Fastmail — DKIM 완벽 지원\n; Proton Mail for Business — DKIM 완벽 지원\n;\n; DKIM을 지원하는 단순 캣치올 전달 서비스를 원할 경우:\n; ImprovMX (무료 플랜) 또는 Forward Email (무료, 오픈소스)"
+    },
+    "spf-over-limit": {
+      "msg": "SPF가 DNS 조회 제한 10회를 초과했습니다 (카운트: 약 {0}회) — 정상 메일이 SPF 검사에서 실패합니다.",
+      "what": "SPF 평가 과정 중 DNS 조회는 최대 10회로 제한됩니다. <code>include:</code>, <code>mx</code>, <code>a</code>, <code>exists</code>, <code>redirect</code> 메커니즘이 모두 카운트에 포함됩니다. 당신의 레코드는 이를 초과했습니다. 수신 서버가 11번째 조회를 시도할 때 SPF 규격에 따라 'permerror'를 반환하며, 수신자는 이를 SPF 실패로 처리합니다. 그 결과 도메인에서 나가는 정상 메일이 실패합니다.",
+      "fix": "사용하지 않는 발신자를 제거하거나 SPF 레코드를 '평탄화(flattening)'하여 조회 횟수를 줄이세요. <code>include:</code> 항목을 실제 해석된 IP 주소로 교체하여 하위 조회를 제거하는 방식입니다.",
+      "fixCode": "; 수정 전 (include: 조회가 너무 많음):\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:mailchimp.com include:amazonses.com -all\"\n\n; 평탄화 후 (도구를 사용하여 실제 IP 추출):\n; 도구: MXToolbox SPF Analyzer, AutoSPF, dmarcian\n\"v=spf1 ip4:209.85.220.0/22 ip4:167.89.0.0/17 ip4:199.255.192.0/22 -all\""
+    },
+    "spf-near-limit": {
+      "msg": "SPF 조회 횟수가 제한인 10회에 도달하고 있습니다 (카운트: 약 {0}회) — 발신 서비스를 추가하면 레코드가 깨질 수 있습니다.",
+      "what": "SPF 레코드가 10회 조회 제한에 거의 도달했습니다. 이메일 발송 서비스를 추가하거나 기존 서비스 제공자가 SPF 인프라를 변경하면 제한을 넘어설 수 있으며, 아무런 경고 없이 정상 이메일이 SPF 인증 실패 처리될 수 있습니다.",
+      "fix": "SPF 레코드를 점검하여 더 이상 사용하지 않는 서비스를 제거하세요. 현재 사용 중인 모든 발신자가 정말 필요한 경우, 평탄화를 진행하여 조회 깊이를 줄이세요.",
+      "fixCode": "; 점검: 다음 중 아직도 사용 중인 것은 무엇인가요?\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:... -all\"\n;\n; 미사용 include를 제거하거나 아래와 같은 도구로 평탄화 진행:\n; AutoSPF (autospf.com), dmarcian 또는 MXToolbox"
+    },
+    "spf-cycle": {
+      "msg": "{0}를 통한 SPF include/redirect 순환 루프가 감지되었습니다. SPF 평가 시 permerror가 반환될 수 있습니다."
+    },
+    "spf-indeterminate": {
+      "msg": "레코드가 매크로를 사용하거나 깊이가 너무 깊거나 무효한 정책을 포함하고 있어 총 SPF 조회 횟수를 산출할 수 없습니다."
+    },
+    "dnssec-bogus": {
+      "msg": "DNSSEC 검증이 위조(bogus)로 나타납니다: 검사를 비활성화했을 때는 응답을 얻을 수 있지만 검증에는 실패했습니다."
+    },
+    "dnssec-indeterminate": {
+      "msg": "검증 쿼리가 실패하여 DNSSEC 상태를 결정할 수 없습니다. 미서명 상태로 감점 처리되지는 않았습니다."
+    },
+    "mta-sts-invalid": {
+      "msg": "MTA-STS TXT 레코드 형식이 잘못되었거나 필수 id= 태그가 누락되었습니다."
+    },
+    "mta-sts-policy-unverified": {
+      "msg": "MTA-STS TXT 레코드는 유효하지만 대부분의 정책 호스트가 교차 출처 읽기(CORS)를 허용하지 않아, 브라우저 전용 진단 특성상 HTTPS 정책 파일을 검증할 수 없습니다."
+    },
+    "tls-rpt-invalid": {
+      "msg": "TLS-RPT 레코드 형식이 잘못되었거나 유효한 rua= 수신처가 없습니다."
+    },
+    "bimi-invalid": {
+      "msg": "BIMI 레코드 형식이 잘못되었거나 유효한 HTTPS 로고 URL을 포함하고 있지 않습니다."
+    }
+  },
+  "suggestion": {
+    "bimiEligible": "BIMI 자격 요건 충족: DMARC가 강제 적용 중이며 DKIM이 설정되어 있습니다. SVG 로고 URL이 포함된 default._bimi TXT 레코드를 추가하면 Gmail 및 Apple Mail에서 브랜드 로고를 표시할 수 있습니다.",
+    "bimiPrereq": "BIMI (받은편지함 로고): DMARC p=quarantine 또는 p=reject 설정과 DKIM이 필요합니다. 해당 설정을 먼저 마친 후 BIMI를 추가하세요.",
+    "mta-sts": "MTA-STS가 설정되지 않았습니다. _mta-sts TXT 레코드를 게시하고 정책 파일을 호스팅하면 수신 메일에 TLS 암호화를 강제하여 다운그레이드 공격을 예방할 수 있습니다.",
+    "tls-rpt": "TLS-RPT (_smtp._tls TXT)가 설정되지 않았습니다. MTA-STS의 보완 기능으로, TLS 협상이 실패했을 때 보고서를 받아볼 수 있습니다 — 단점 없이 쉽게 추가 가능합니다.",
+    "caa": "CAA 레코드가 없습니다 — 어떠한 인증기관(CA)이라도 이 도메인에 대한 SSL 인증서를 발급할 수 있습니다. 신뢰하는 CA(예: Let's Encrypt, DigiCert)만 지정한 CAA 레코드를 추가하세요.",
+    "dnssec": "DNSSEC이 감지되지 않았습니다. DNS 레코드에 암호화 서명을 하면 캐시 포이즈닝 및 MX 하이재킹을 방지할 수 있습니다. Cloudflare 및 최신 DNS 제공업체는 클릭 한 번으로 이를 활성화할 수 있습니다."
+  },
+  "learnMore": {
+    "badge": "이메일 보안 가이드",
+    "close": "✕ 탭 닫기",
+    "footer": "DNS & 이메일 보안 진단 도구에 의해 생성됨 — 데이터 저장 없음, 회원가입 불필요",
+    "bimi": {
+      "title": "BIMI — 메시지 식별을 위한 브랜드 지표 (Brand Indicators for Message Identification)",
+      "tagline": "Gmail, Apple Mail, Yahoo 받은편지함에 브랜드 로고를 표시하세요.",
+      "sections": [
+        {
+          "h": "BIMI란 무엇인가요?",
+          "body": "BIMI는 메일이 열리기 전부터 받은편지함의 발신자 이름 바로 옆에 조직의 로고를 표시해주는 이메일 표준입니다. Gmail, Apple Mail, Yahoo Mail, Fastmail에서 지원됩니다."
+        },
+        {
+          "h": "중요한 이유",
+          "body": "로고 표시는 즉각적인 시각적 신뢰를 형성합니다. 수신자는 이메일이 당신의 조직에서 온 진짜 메일임을 한눈에 파악할 수 있어 오픈율이 올라가고 피싱으로 오인될 가능성이 줄어듭니다. 또한 BIMI는 전반적인 이메일 인증 스택(SPF + DKIM + DMARC)을 완벽하게 정비하도록 유도하는 역할을 합니다."
+        },
+        {
+          "h": "BIMI 게시를 위한 사전 요구사항",
+          "body": "• DMARC가 <code>p=quarantine</code> 또는 <code>p=reject</code>로 설정되어야 함 — <code>p=none</code>은 불가<br>• DKIM이 설정되어 발신 메일에 정상 서명 중이어야 함<br>• 공개 HTTPS URL에 호스팅된 <strong>Tiny PS</strong> 규격의 SVG 로고<br>• (Gmail의 경우) 파란색 인증 체크마크를 얻으려면 DigiCert 등의 상표 인증서(VMC)가 필요할 수 있음"
+        },
+        {
+          "h": "설정 방법",
+          "body": "1. DMARC 적용 확인 (<code>p=quarantine</code> 또는 <code>p=reject</code>)<br>2. DKIM 설정 및 서명 적용 확인<br>3. Tiny PS 규격으로 SVG 로고 제작 (Canva, Adobe Illustrator 또는 <a href=\"https://bimigroup.org/bimi-generator/\" target=\"_blank\" rel=\"noopener\">BIMI 생성기</a> 활용)<br>4. 공개 HTTPS URL에 SVG 업로드 — 예: <code>https://yourdomain.com/logo.svg</code><br>5. BIMI DNS 레코드 추가:",
+          "code": "default._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\""
+        },
+        {
+          "h": "테스트",
+          "body": "<a href=\"https://bimigroup.org/bimi-generator\" target=\"_blank\" rel=\"noopener\">bimigroup.org/bimi-generator</a>에서 레코드를 검증하세요. Gmail 계정으로 테스트 메일을 보낸 뒤 받은편지함 아바타에 로고가 나타나는지 확인합니다."
+        }
+      ]
+    },
+    "mta-sts": {
+      "title": "MTA-STS — 메일 전송 에이전트 엄격한 전송 보안",
+      "tagline": "도메인으로 들어오는 모든 수신 메일에 TLS 암호화를 강제합니다.",
+      "sections": [
+        {
+          "h": "MTA-STS란 무엇인가요?",
+          "body": "MTA-STS는 당신의 도메인으로 이메일을 보내는 모든 발신자가 반드시 TLS 암호화를 사용하고 메일 서버 인증서를 검증해야 한다는 정책을 선언하는 표준 규격(RFC 8461)입니다. 이것이 없으면 네트워크 공격자가 '다운그레이드 공격'을 실행하여 TLS를 박탈하고 전송 중인 이메일을 평문으로 감청할 수 있습니다."
+        },
+        {
+          "h": "중요한 이유",
+          "body": "일반적인 STARTTLS 암호화는 기회주의적(opportunistic)으로 협상됩니다. 중간자 공격자가 STARTTLS 제안을 감쪽같이 삭제하여 평문 배달을 강제할 수 있습니다. MTA-STS는 발신 서버에 미리 정책을 캐싱하도록 만들어 TLS가 필수임을 알리고, 암호화가 없으면 배달을 거부하도록 하여 이 문제를 해결합니다."
+        },
+        {
+          "h": "1단계 — DNS TXT 레코드 게시",
+          "body": "DNS에 이 TXT 레코드를 추가하세요. 정책 파일을 업데이트할 때마다 <code>id=</code> 값을 변경합니다.",
+          "code": "_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\""
+        },
+        {
+          "h": "2단계 — 정책 파일 호스팅",
+          "body": "정책 파일은 도메인의 정확히 다음 URL에 호스팅되어야 합니다:<br><code>https://mta-sts.yourdomain.com/.well-known/mta-sts.txt</code><br><br>정책 파일 예시 내용:",
+          "code": "version: STSv1\nmode: testing\nmx: mail.yourdomain.com\nmx: *.google.com\nmax_age: 604800",
+          "body2": "차단 없이 상태를 모니터링하기 위해 <code>mode: testing</code>으로 시작하세요. TLS-RPT 보고서를 검토하고 이상이 없음을 확인한 후 <code>mode: enforce</code>로 전환하세요."
+        },
+        {
+          "h": "테스트",
+          "body": "<a href=\"https://www.checktls.com\" target=\"_blank\" rel=\"noopener\">CheckTLS.com</a> 또는 <a href=\"https://mxtoolbox.com/mta-sts.aspx\" target=\"_blank\" rel=\"noopener\">MXToolbox MTA-STS Check</a>를 사용하여 정책을 검증하세요. 실패 보고서를 받으려면 TLS-RPT와 함께 운용하는 것이 좋습니다."
+        }
+      ]
+    },
+    "tls-rpt": {
+      "title": "TLS-RPT — SMTP TLS 보고",
+      "tagline": "도메인으로 전달되는 이메일의 TLS 암호화 실패 시 알림을 받으세요.",
+      "sections": [
+        {
+          "h": "TLS-RPT란 무엇인가요?",
+          "body": "TLS-RPT(SMTP TLS Reporting, RFC 8460)는 발신 메일 서버가 당신의 도메인으로 메일을 배달할 때 TLS 연결 실패가 발생하면 일일 보고서를 어디로 보낼지 지정하는 단일 DNS TXT 레코드입니다. TLS/암호화 장애에 대한 DMARC 보고서라고 생각하시면 됩니다."
+        },
+        {
+          "h": "중요한 이유",
+          "body": "MTA-STS 정책이 잘못 설정되었거나, 메일 서버의 TLS 인증서가 만료되었거나, 네트워크 업자가 암호화를 박탈하고 있어도 TLS-RPT가 없다면 알 수 없습니다. 눈에 보이지 않는 전달 실패를 받은편지함에서 조치 가능한 보고서로 전환해주며, 게시하기도 가장 쉬운 DNS 레코드 중 하나입니다."
+        },
+        {
+          "h": "설정 방법",
+          "body": "단일 TXT 레코드를 추가하세요 — 이메일 주소는 본인이 모니터링하는 메일함으로 변경하세요:",
+          "code": "_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls-reports@yourdomain.com;\"",
+          "body2": "보고서는 매일 JSON 형태의 첨부파일로 도착합니다. 서드파티 DMARC 플랫폼(Postmark, Valimail, dmarcian)도 DMARC 데이터와 함께 TLS-RPT 보고서를 파싱하고 시각화해 줍니다."
+        },
+        {
+          "h": "보고서 내용",
+          "body": "일일 보고서에는 메일 배달을 시도한 발신 서버, TLS 협상 성공 여부, 특정 실패 원인(만료된 인증서, 정책 불일치, 지원되지 않는 TLS 버전 등)이 시각화되어 나타납니다. MTA-STS를 테스트 모드로 처음 배포할 때 매우 유용한 통찰을 제공합니다."
+        }
+      ]
+    },
+    "caa": {
+      "title": "CAA — 인증기관 승인 (Certification Authority Authorization)",
+      "tagline": "당신의 도메인에 대해 SSL/TLS 인증서를 발급할 수 있는 인증기관을 제어하세요.",
+      "sections": [
+        {
+          "h": "CAA란 무엇인가요?",
+          "body": "CAA(Certification Authority Authorization) DNS 레코드는 당신의 도메인에 대해 SSL/TLS 인증서를 발급하도록 승인된 인증기관(CA)을 지정할 수 있게 합니다. CAA 레코드가 없으면 전 세계의 수백 개 신뢰할 수 있는 CA 중 어느 곳이든 당신의 인지나 동의 없이 인증서를 발급할 수 있습니다."
+        },
+        {
+          "h": "중요한 이유",
+          "body": "과거 CA의 실수나 해킹으로 인해 인증서가 오발급된 사례가 있습니다. 위조 발급된 인증서는 웹사이트 사칭, HTTPS 트래픽 감청, 자물쇠 표시가 뜨는 피싱 페이지 운영에 악용될 수 있습니다. CAA 레코드는 강력한 강제 레이어를 제공합니다: 이 표준을 지원하는 CA는 발급 전 반드시 CAA 레코드를 확인하고 목록에 없으면 요청을 거부합니다."
+        },
+        {
+          "h": "설정 방법",
+          "body": "승인된 CA 이름을 명시한 CAA 레코드를 추가하세요. 일반 인증서에는 <code>issue</code>를, 와일드카드 인증서에는 <code>issuewild</code>를 사용하세요.",
+          "code": "; Let's Encrypt만 허용:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; Let's Encrypt 및 DigiCert 허용:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issue \"digicert.com\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; 선택 사항 — CA가 발급을 거부할 때 알림 수신:\n@    CAA    0 iodef \"mailto:ssl-alerts@yourdomain.com\""
+        },
+        {
+          "h": "사용 중인 CA 찾기",
+          "body": "웹사이트의 브라우저 주소창 자물쇠 아이콘을 클릭하여 현재 인증서를 발급한 CA를 확인하세요. 주요 선택지: <strong>Let's Encrypt</strong>(무료, 자동화), <strong>DigiCert</strong>, <strong>Sectigo</strong>, <strong>GlobalSign</strong>. 호스팅 업체나 Cloudflare에서 인증서 발급을 관리하는 경우가 많으므로 해당 업체의 도움말을 참조하여 올바른 CA 호스트 이름을 입력하세요."
+        }
+      ]
+    },
+    "dnssec": {
+      "title": "DNSSEC — 도메인 네임 시스템 보안 확장",
+      "tagline": "DNS 레코드에 암호화 서명을 하여 위변조 및 하이재킹을 방지하세요.",
+      "sections": [
+        {
+          "h": "DNSSEC이란 무엇인가요?",
+          "body": "DNSSEC은 DNS 레코드에 암호화 서명을 추가합니다. 리졸버가 DNSSEC으로 서명된 영역을 조회할 때 응답이 정당한 소유자에 의해 서명되었고 전송 중 변조되지 않았음을 검증할 수 있습니다. DNSSEC이 없으면 DNS 응답을 가로채거나 포이즈닝할 수 있는 공격자가 트래픽을 임의의 위치로 바이패스할 수 있습니다."
+        },
+        {
+          "h": "중요한 이유",
+          "body": "DNS 캐시 포이즈닝 공격은 서버에 직접 접근하지 않고도 실제 웹사이트 방문자를 악성 사이트로 우회시키거나, MX 레코드를 탈취해 이메일을 감청하거나, SPF/DKIM/DMARC 조회를 변조할 수 있습니다. DNSSEC은 DNS 응답을 암호학적으로 검증 가능하게 만들어 이러한 공격을 차단합니다."
+        },
+        {
+          "h": "활성화 방법",
+          "body": "DNSSEC은 DNS 제공업체 단에서 활성화합니다(서명 키는 업체가 관리). 절차는 업체마다 다릅니다:",
+          "code": "Cloudflare:  DNS 탭 → DNSSEC → 활성화 (DS 레코드 자동 추가됨)\nGoDaddy:     DNS → DNSSEC → DNSSEC 활성화\nRoute 53:    호스트 영역 → DNSSEC 서명 → 활성화\nPorkbun:     DNS → DNSSEC → Enable\nName.com:    DNS → DNSSEC → Enable signing",
+          "body2": "DNS 제공자에서 활성화한 후 제공되는 DS(Delegation Signer) 레코드 값을 복사하여 도메인 <strong>등록기관(Registrar)</strong>에 추가하세요. 등록기관의 DS 레코드가 루트 DNS부터 해당 영역까지의 신뢰 체인을 완성합니다."
+        },
+        {
+          "h": "주의사항",
+          "body": "⚠ <strong>DNS 제공자를 변경하는 경우</strong> 먼저 DNSSEC을 비활성화하고 모든 레코드를 이전한 뒤 다시 활성화하세요. 순서를 어기면 전 세계적으로 DNS 접속 장애가 발생합니다.<br><br>⚠ <strong>등록기관에 등록하는 DS 레코드 값은 DNS 제공업체가 제공한 값과 정확히 일치해야 합니다</strong>. 불일치 시 도메인 전체의 DNS 해석이 중단됩니다."
+        },
+        {
+          "h": "테스트",
+          "body": "<a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a>에서 DNSSEC 신뢰 체인을 검증하거나 <a href=\"https://dnsviz.net\" target=\"_blank\" rel=\"noopener\">dnsviz.net</a>에서 시각적으로 확인하세요. 정상적인 신뢰 체인은 루트 → TLD → 도메인까지 모든 단계에서 초록색으로 표시됩니다."
+        }
+      ]
+    }
+  },
+  "score": {
+    "label": "보안 점수",
+    "outOf": "{0} / {1}",
+    "range": "확인된 점수 범위: {0}–{1} / 100; 확인되지 않은 검사는 실패로 산정되지 않음",
+    "parkedNote": "파킹 도메인 — SPF, DMARC, DNSSEC 및 CAA만으로 점수 산정",
+    "pillar": {
+      "dmarc": "DMARC",
+      "spf": "SPF",
+      "dkim": "DKIM",
+      "dnssec": "DNSSEC",
+      "caa": "CAA",
+      "mtaSts": "MTA-STS",
+      "bimi": "BIMI",
+      "tlsRpt": "TLS-RPT"
+    },
+    "dmarcParts": {
+      "label": "DMARC 세부 분석",
+      "policy": "정책 (p=)",
+      "subdomain": "서브도메인 적용 범위",
+      "pct": "강제 적용 비율 (pct=)",
+      "rua": "종합 보고서 (rua=)",
+      "alignment": "엄격한 얼라인먼트",
+      "ruf": "포렌식 보고서 (ruf=)"
+    }
+  }
+}
