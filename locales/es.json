@@ -32,6 +32,8 @@
   },
   "opt": {
     "dkim": "Verificar selectores DKIM",
+    "dkimComprehensive": "Escaneo DKIM completo (máx. 5 dominios)",
+    "dkimComprehensiveTitle": "Usa los 1.683 selectores exactos del catálogo; limitado a cinco dominios por ejecución",
     "www": "Detectar alojamiento web",
     "wildcard": "Detectar errores TXT comodín",
     "footer": "DNS vía Cloudflare DoH · Sin datos almacenados"
@@ -105,7 +107,9 @@
   "badge": {
     "notRegistered": "No registrado / NXDOMAIN",
     "noEmail": "✗ Sin Email",
-    "noDkim": "✗ Ninguno"
+    "noDkim": "✗ Ninguno",
+    "dkimUnverified": "? No se encontró una clave de dominio en los selectores probados",
+    "dkimUncommon": "⚠ Poco común ({0})"
   },
   "provider": {
     "unknown": "Desconocido",
@@ -141,8 +145,13 @@
     "permerror": "🔴 Registros múltiples"
   },
   "dkim": {
+    "uncommon": "Poco común ({0})",
+    "noDomainKeyFound": "No se encontró una clave de dominio ({0})",
+    "txtRecord": "Registro TXT",
+    "cnameTarget": "Destino CNAME",
     "noteWildcard": "El error TXT comodín podría estar interfiriendo",
-    "noteNotFound": "No se encontraron selectores comunes"
+    "noteNotFound": "No se encontró una clave DKIM activa entre {0} selectores probados",
+    "noteNotFoundWithErrors": "No se encontró una clave DKIM activa entre {0} comprobaciones completadas; fallaron {1} consultas DNS"
   },
   "adv": {
     "configured": "✓ Configurado",
@@ -176,6 +185,7 @@
   "toast": {
     "noDomains": "Ingresa al menos un dominio.",
     "tooMany": "Máximo 200 dominios por ejecución.",
+    "tooManyComprehensiveDkim": "El escaneo DKIM completo está limitado a {0} dominios por ejecución.",
     "csvExported": "CSV exportado",
     "htmlExported": "Reporte HTML exportado",
     "htmlExportFailed": "No se pudo generar el reporte — sirve la app por HTTP e inténtalo de nuevo.",

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node tools/serve.mjs",
+    "update:dkim-selectors": "node tools/update-dkim-selectors.mjs",
     "update:psl": "node tools/update-psl.mjs",
     "build": "node tools/build-site.mjs",
     "build:fallback": "node tools/build-fallback.mjs",

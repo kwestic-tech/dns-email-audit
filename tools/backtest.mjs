@@ -11,6 +11,7 @@
  *   node tools/backtest.mjs domains.txt
  *   node tools/backtest.mjs domains.txt --json > before.json
  *   node tools/backtest.mjs --sample              # built-in 40-domain sample
+ *   node tools/backtest.mjs domains.txt --comprehensive-dkim # max 5 domains
  *
  * Requires outbound network access, so run it locally rather than in CI.
  */
@@ -24,6 +25,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const asJson = args.includes('--json');
 const useSample = args.includes('--sample');
+const comprehensiveDkim = args.includes('--comprehensive-dkim');
 const fileArg = args.find(a => !a.startsWith('--'));
 
 // A spread of well-known domains across sectors and maturity levels. Not a
@@ -46,14 +48,37 @@ const domains = useSample
     .split(/\r?\n/).map(s => s.trim().toLowerCase())
     .filter(s => s && !s.startsWith('#'));
 
+if (comprehensiveDkim && domains.length > 5) {
+  throw new Error('Comprehensive DKIM scanning is limited to 5 domains per run.');
+}
+
 // ── Load the production scoring code, unmodified ────────────────────────
-const sandbox = { window: {}, fetch, console, URLSearchParams, Promise, Math, JSON, Set, Array, String, Number, isNaN, parseInt };
+const sandbox = {
+  window: {},
+  fetch,
+  AbortController,
+  console,
+  URLSearchParams,
+  setTimeout,
+  clearTimeout,
+  Promise,
+  Math,
+  JSON,
+  Set,
+  Array,
+  String,
+  Number,
+  isNaN,
+  parseInt,
+};
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
+vm.runInContext(readFileSync(join(ROOT, 'js', 'public-suffixes.js'), 'utf8'), sandbox);
+vm.runInContext(readFileSync(join(ROOT, 'js', 'dkim-selectors.js'), 'utf8'), sandbox);
 vm.runInContext(readFileSync(join(ROOT, 'js', 'dns.js'), 'utf8'), sandbox);
 const D = sandbox.window.DnsAudit;
 
-const OPTS = { dkim: true, www: false, advanced: true, wildcard: false };
+const OPTS = { dkim: true, dkimComprehensive: comprehensiveDkim, www: false, advanced: true, wildcard: false };
 const CONCURRENCY = 6;
 
 const results = [];

@@ -125,6 +125,7 @@ include, a real record one line short, keeps partial credit.
 npm run test:scoring          # standards and scoring assertions, no network needed
 node tools/backtest.mjs --sample   # grade distribution over live domains
 node tools/backtest.mjs domains.txt --json > after.json
+node tools/backtest.mjs domains.txt --comprehensive-dkim # full catalog, max 5 domains
 ```
 
 `backtest.mjs` loads the production scoring code and reports the grade
@@ -132,6 +133,33 @@ histogram, score percentiles and per-pillar adoption. Run it before and after
 changing weights or thresholds — a rubric that lands most of the internet on F
 is measuring the wrong thing. It needs outbound DNS, so run it locally rather
 than in CI.
+
+### DKIM selector discovery
+
+DKIM selectors cannot be enumerated through DNS, so the normal audit combines
+the built-in common selectors, user-supplied selectors, and selectors associated
+with the detected mail provider. The optional comprehensive scan checks the full
+vendored catalog's 1,683 exact provider, generic, sequential, and temporal
+selectors. Two additional HubSpot entries are selector prefixes rather than
+queryable names and remain represented as catalog metadata. Because a full scan
+can generate substantial DNS traffic, comprehensive scans are explicitly
+enabled and limited to five domains per run.
+
+The scanner validates an active DKIM key instead of treating any TXT response as
+a key, follows delegated CNAME chains, and reports the exact number of selectors
+tested. A scan that finds no key remains inconclusive: a sender can always use a
+selector absent from the catalog. For definitive verification, supply the `s=`
+selector from a real `DKIM-Signature` header or a DMARC aggregate report.
+Recognized findings show the selector, full `<selector>._domainkey.<domain>`
+query name, CNAME target when applicable, and complete TXT key data. A supplied
+selector outside the catalog is labeled **Uncommon**; a supplied selector that
+does not resolve to an active key is listed as **No Domain Key Found**.
+
+Refresh the generated browser catalog from a compatible Markdown table with:
+
+```bash
+npm run update:dkim-selectors -- /path/to/recognized_dkim_selectors.md
+```
 
 ---
 
@@ -144,6 +172,7 @@ dns-email-audit/
 ├── js/
 │   ├── locales-en.js       # AUTO-GENERATED English bundle (offline fallback)
 │   ├── public-suffixes.js  # AUTO-GENERATED PSL snapshot for DMARC discovery
+│   ├── dkim-selectors.js   # AUTO-GENERATED recognized selector catalog
 │   ├── i18n.js             # translation loader: t(), tp(), tRaw(), setLang()
 │   ├── dns.js              # DoH queries, analysis, scoring — no English in here
 │   └── app.js              # rendering, orchestration, exports
@@ -156,6 +185,7 @@ dns-email-audit/
 │   ├── check-locales.mjs   # validates every locale against en.json
 │   ├── scoring.test.mjs    # unit tests for the parser and scoring model
 │   ├── update-psl.mjs      # refreshes the vendored Public Suffix List
+│   ├── update-dkim-selectors.mjs # Markdown catalog → browser selector data
 │   ├── serve.mjs           # dependency-free local development server
 │   └── backtest.mjs        # grade distribution over live domains
 └── .github/workflows/

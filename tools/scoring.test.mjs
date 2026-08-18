@@ -15,6 +15,7 @@ const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '.
 const sandbox = { window: { __PUBLIC_SUFFIX_RULES__: ['com', 'co.uk', '*.ck', '!www.ck'] }, fetch: async () => ({ ok: false }), console, AbortController, URLSearchParams, setTimeout, clearTimeout };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
+vm.runInContext(readFileSync(`${REPO}/js/dkim-selectors.js`, 'utf8'), sandbox);
 vm.runInContext(readFileSync(`${REPO}/js/dns.js`, 'utf8'), sandbox);
 const D = sandbox.window.DnsAudit;
 
@@ -463,6 +464,42 @@ eq('BIMI rejects HTTP logo', D.validateBimiRecord('v=BIMI1; l=http://example.com
 
 const failedTransport = await D.dohFetch('failure.example', 'A', { retries: 0, noCache: true });
 eq('HTTP failure is not converted to empty success', failedTransport.kind, 'http-error');
+
+/* ── 21. Recognized DKIM selector catalog ───────────────────────────── */
+section('21. Recognized DKIM selector catalog');
+
+const googleSelectors = D.buildDkimSelectorList([], 'Google Workspace', false);
+const comprehensiveSelectors = D.buildDkimSelectorList([], '@custom-unknown', true);
+eq('normal scan adds provider selectors', googleSelectors.includes('20230601'), true);
+eq('normal scan excludes generic expansion', googleSelectors.includes('newsletter1024'), false);
+eq('normal scan excludes temporal expansion', googleSelectors.includes('2030q4'), false);
+eq('comprehensive scan uses all 1,683 exact selectors', comprehensiveSelectors.length, 1683);
+eq('comprehensive scan includes generic selectors', comprehensiveSelectors.includes('newsletter1024'), true);
+eq('comprehensive scan includes temporal selectors', comprehensiveSelectors.includes('2030q4'), true);
+eq('custom selectors are retained', D.buildDkimSelectorList(['campaign-2026'], 'Google Workspace', false)[0], 'campaign-2026');
+eq('active DKIM key accepted', D.dkimKeyRecords([{ type: 16, data: '"v=DKIM1; k=rsa; p=abc123"' }]).length, 1);
+eq('DKIM v tag may be omitted', D.dkimKeyRecords([{ type: 16, data: '"k=rsa; p=abc123"' }]).length, 1);
+eq('unrelated TXT rejected', D.dkimKeyRecords([{ type: 16, data: '"verification=abc123"' }]).length, 0);
+eq('revoked empty DKIM key rejected', D.dkimKeyRecords([{ type: 16, data: '"v=DKIM1; p="' }]).length, 0);
+eq('catalog selector is recognized', D.isRecognizedDkimSelector('selector1'), true);
+eq('unknown supplied selector is uncommon', D.isRecognizedDkimSelector('campaign-live'), false);
+
+sandbox.fetch = async url => {
+  const name = new URL(url).searchParams.get('name');
+  const answer = name === 'campaign-live._domainkey.example.com'
+    ? [{ type: 16, data: '"v=DKIM1; p=campaignPublicKey"' }]
+    : [];
+  return { ok: true, json: async () => ({ Status: 0, Answer: answer }) };
+};
+const uncommonDkim = await D.checkDKIM('example.com', false, ['campaign-live'], '@custom-unknown', false, {});
+eq('uncommon supplied selector is found', uncommonDkim.found, true);
+eq('uncommon finding is labeled', uncommonDkim.selectors[0].uncommon, true);
+eq('uncommon finding includes query name', uncommonDkim.selectors[0].queryName, 'campaign-live._domainkey.example.com');
+eq('uncommon finding includes TXT data', uncommonDkim.selectors[0].value, 'v=DKIM1; p=campaignPublicKey');
+
+const missingDkim = await D.checkDKIM('missing.example', false, ['does-not-exist'], '@custom-unknown', false, {});
+eq('missing supplied selector does not verify DKIM', missingDkim.found, false);
+eq('missing selector is listed', missingDkim.missingSelectors[0].queryName, 'does-not-exist._domainkey.missing.example');
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

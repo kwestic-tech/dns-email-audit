@@ -17,6 +17,26 @@
 
   var DOH = 'https://cloudflare-dns.com/dns-query';
   var DKIM_SELECTORS = ['google', 'default', 'mail', 's1', 's2', 'selector1', 'selector2', 'dkim', 'sig1', 'odoo'];
+  var DKIM_CATALOG = global.__DKIM_SELECTOR_CATALOG__ || { providers: {}, generic: [], temporal: [], prefixes: [] };
+  var DKIM_SCAN_BATCH_SIZE = 24;
+  var DKIM_PROVIDER_CATALOG_KEYS = {
+    'Google Workspace': 'Google Workspace / Gmail',
+    'Apple iCloud': 'Apple iCloud Mail',
+    'Microsoft 365': 'Microsoft 365 / Exchange Online',
+    'Zoho Mail': 'Zoho Mail & Zoho Suite',
+    'Fastmail': 'Fastmail',
+    'Proton Mail': 'Proton Mail',
+    'Mailgun': 'Mailgun',
+    'SendGrid': 'Twilio SendGrid',
+    'Symantec/MessageLabs': 'Broadcom / Symantec / MessageLabs',
+  };
+  var RECOGNIZED_DKIM_SELECTORS = new Set(
+    DKIM_SELECTORS.concat(
+      Object.values(DKIM_CATALOG.providers).flat(),
+      DKIM_CATALOG.generic || [],
+      DKIM_CATALOG.temporal || []
+    )
+  );
   var DOH_TIMEOUT_MS = 8000;
   var DOH_RETRIES = 1;
   var MAX_DOH_CONCURRENCY = 16;
@@ -303,35 +323,112 @@
     return { status: 'present', cls: 'ok', warnings: [] };
   }
 
-  async function checkDKIM(domain, wildcardBug, selectors, queryOpts) {
-    var selectorList = Array.from(new Set(DKIM_SELECTORS.concat(selectors || []))).slice(0, 30);
-    const checks = await Promise.all(selectorList.map(async sel => {
-      const [txt, cname] = await Promise.all([
-        dohQuery(`${sel}._domainkey.${domain}`, 'TXT', queryOpts),
-        dohAll(`${sel}._domainkey.${domain}`, 'CNAME', queryOpts),
-      ]);
-      return { sel, txt, cname };
-    }));
+  function validDkimSelector(selector) {
+    return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(selector);
+  }
 
+  function dkimKeyRecords(answers) {
+    return answers.filter(function (answer) { return answer.type === 16; })
+      .map(function (answer) { return cleanAnswerData(answer.data, 'TXT'); })
+      .filter(function (value) {
+        var tags = Object.create(null);
+        String(value || '').split(';').forEach(function (part) {
+          var separator = part.indexOf('=');
+          if (separator < 0) return;
+          tags[part.slice(0, separator).trim().toLowerCase()] = part.slice(separator + 1).trim();
+        });
+        return Object.prototype.hasOwnProperty.call(tags, 'p') && tags.p.length > 0 &&
+          (!tags.v || tags.v.toLowerCase() === 'dkim1');
+      });
+  }
+
+  function catalogSelectors(emailProvider, comprehensive) {
+    var providerKey = DKIM_PROVIDER_CATALOG_KEYS[emailProvider];
+    var providerSelectors = providerKey && DKIM_CATALOG.providers[providerKey]
+      ? DKIM_CATALOG.providers[providerKey] : [];
+    if (!comprehensive) return providerSelectors;
+    return Object.values(DKIM_CATALOG.providers).flat()
+      .concat(DKIM_CATALOG.generic || [], DKIM_CATALOG.temporal || []);
+  }
+
+  function buildDkimSelectorList(selectors, emailProvider, comprehensive) {
+    return Array.from(new Set(
+      (selectors || []).concat(DKIM_SELECTORS, catalogSelectors(emailProvider, comprehensive))
+        .map(function (selector) { return String(selector || '').trim().toLowerCase(); })
+        .filter(validDkimSelector)
+    ));
+  }
+
+  function isRecognizedDkimSelector(selector) {
+    return RECOGNIZED_DKIM_SELECTORS.has(String(selector || '').trim().toLowerCase());
+  }
+
+  async function inspectDkimSelector(domain, selector, queryOpts) {
+    var queryName = `${selector}._domainkey.${domain}`;
+    var name = queryName;
+    var visited = new Set();
+    var firstCname = '';
+
+    for (var depth = 0; depth < 6; depth++) {
+      if (visited.has(name)) break;
+      visited.add(name);
+      var result = requireUsable(await dohFetch(name, 'TXT', queryOpts), name, 'TXT');
+      var keys = dkimKeyRecords(result.answers);
+      if (keys.length) {
+        return { sel: selector, queryName: queryName, keys: keys, cname: firstCname };
+      }
+      var cnameAnswer = result.answers.find(function (answer) { return answer.type === 5; });
+      if (!cnameAnswer) break;
+      name = cleanAnswerData(cnameAnswer.data, 'CNAME').toLowerCase().replace(/\.$/, '');
+      if (!firstCname) firstCname = name;
+    }
+    return { sel: selector, queryName: queryName, keys: [], cname: firstCname };
+  }
+
+  async function checkDKIM(domain, wildcardBug, selectors, emailProvider, comprehensive, queryOpts) {
+    var selectorList = buildDkimSelectorList(selectors, emailProvider, comprehensive);
+    var suppliedSelectors = new Set((selectors || [])
+      .map(function (selector) { return String(selector || '').trim().toLowerCase(); })
+      .filter(validDkimSelector));
     const found = [];
+    const missingSelectors = [];
     const duplicated = [];
-    for (const { sel, txt, cname } of checks) {
-      // Filter to actual DKIM keys rather than taking txt[0] — a selector can
-      // carry unrelated TXT records alongside the key.
-      const keys = txt.filter(v => startsWithCI(v, 'v=DKIM1'));
-      // RFC 6376 §3.6.2.2: key records MUST be unique per selector; with more
-      // than one the result is undefined, so verification may fail depending on
-      // which verifier looks.
-      if (keys.length > 1) duplicated.push(sel);
-      if (keys.length) found.push({ sel, type: 'key', value: keys[0] });
-      else if (cname.length && cname[0].includes('dkim') && !cname[0].includes('porkbun') && !cname[0].includes('pixie'))
-        found.push({ sel, type: 'cname', value: cname[0] });
+    const failedSelectors = [];
+    for (var offset = 0; offset < selectorList.length; offset += DKIM_SCAN_BATCH_SIZE) {
+      var batch = selectorList.slice(offset, offset + DKIM_SCAN_BATCH_SIZE);
+      var checks = await Promise.all(batch.map(async function (selector) {
+        try {
+          return await inspectDkimSelector(domain, selector, queryOpts);
+        } catch (error) {
+          if (error && error.name === 'AbortError') throw error;
+          return { sel: selector, keys: [], cname: '', error: true };
+        }
+      }));
+      for (const { sel, queryName, keys, cname, error } of checks) {
+        if (error) { failedSelectors.push(sel); continue; }
+        // RFC 6376 §3.6.2.2: key records MUST be unique per selector; with more
+        // than one the result is undefined, so verification may fail depending on
+        // which verifier looks.
+        if (keys.length > 1) duplicated.push(sel);
+        if (keys.length) {
+          found.push({
+            sel: sel,
+            queryName: queryName,
+            type: cname ? 'cname' : 'key',
+            value: keys[0],
+            cname: cname,
+            uncommon: !isRecognizedDkimSelector(sel),
+          });
+        } else if (suppliedSelectors.has(sel)) {
+          missingSelectors.push({ sel: sel, queryName: queryName, cname: cname });
+        }
+      }
     }
 
     if (!found.length) {
-      return { found: false, selectors: [], testedSelectors: selectorList, duplicated, confidence: 'sampled', note: wildcardBug ? 'noteWildcard' : 'noteNotFound' };
+      return { found: false, selectors: [], missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, confidence: 'sampled', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: wildcardBug ? 'noteWildcard' : failedSelectors.length ? 'noteNotFoundWithErrors' : 'noteNotFound' };
     }
-    return { found: true, selectors: found, testedSelectors: selectorList, duplicated, confidence: 'observed', note: '' };
+    return { found: true, selectors: found, missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, confidence: 'observed', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: '' };
   }
 
   // Valid policy values per RFC 7489 §6.3, ordered weakest → strongest.
@@ -933,7 +1030,7 @@
 
     let dkimStatus = { found: false, selectors: [], testedSelectors: [], confidence: 'not-checked', note: '' };
     if (opts.dkim && emailProvider !== '@none' && emailProvider !== '@null-mx') {
-      dkimStatus = await checkDKIM(d, wildcardBug, opts.selectors, queryOpts);
+      dkimStatus = await checkDKIM(d, wildcardBug, opts.selectors, emailProvider, opts.dkimComprehensive, queryOpts);
     }
 
     let hosting = '@dash';
@@ -996,6 +1093,10 @@
   global.DnsAudit = {
     DOH,
     DKIM_SELECTORS,
+    buildDkimSelectorList,
+    isRecognizedDkimSelector,
+    checkDKIM,
+    dkimKeyRecords,
     analyzeDomain,
     checkConnectivity,
     dohFetch,
