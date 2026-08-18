@@ -11,6 +11,7 @@
 
   var CONCURRENCY = 6;
   var MAX_DOMAINS = 200;
+  var MAX_COMPREHENSIVE_DKIM_DOMAINS = 5;
 
   var results = [];
   var sortCol = null;
@@ -345,8 +346,13 @@
     }
 
     var spfB = badge(spfLabel(r.spfStatus), r.spfStatus.cls);
+    var recognizedDkim = (r.dkimStatus.selectors || []).filter(function (s) { return !s.uncommon; });
+    var uncommonDkim = (r.dkimStatus.selectors || []).filter(function (s) { return s.uncommon; });
     var dkimB = r.dkimStatus.found
-      ? badge('✓ ' + r.dkimStatus.selectors.map(function (s) { return s.sel; }).join(', '), 'ok')
+      ? [
+        recognizedDkim.length ? badge('✓ ' + recognizedDkim.map(function (s) { return s.sel; }).join(', '), 'ok') : '',
+        uncommonDkim.map(function (s) { return badge(t('badge.dkimUncommon', s.queryName), 'warn'); }).join(' '),
+      ].join(' ')
       : r.dkimStatus.confidence === 'sampled'
         ? badge(t('badge.dkimUnverified'), 'warn')
         : badge(t('badge.notChecked'), 'muted');
@@ -399,11 +405,27 @@
     tbody.appendChild(tr);
 
     // ── Detail row ──
-    var dkimDetail = r.dkimStatus.found
-      ? r.dkimStatus.selectors.map(function (s) {
-        return '<strong>' + esc(s.sel) + '</strong> (' + s.type + '): ' + esc(s.value.substring(0, 90)) + '…';
-      }).join('<br>')
-      : esc(r.dkimStatus.note ? t('dkim.' + r.dkimStatus.note) : '');
+    var dkimDetails = (r.dkimStatus.selectors || []).map(function (s) {
+      return '<div class="dkim-record">' +
+        '<strong>' + (s.uncommon ? esc(t('dkim.uncommon', s.queryName)) : esc(s.sel + ' — ' + s.queryName)) + '</strong>' +
+        (s.cname ? '<div><span>' + esc(t('dkim.cnameTarget')) + ':</span> <code>' + esc(s.cname) + '</code></div>' : '') +
+        '<div><span>' + esc(t('dkim.txtRecord')) + ':</span> <code class="dkim-record-data">' + esc(s.value) + '</code></div>' +
+        '</div>';
+    });
+    (r.dkimStatus.missingSelectors || []).forEach(function (s) {
+      dkimDetails.push('<div class="dkim-record dkim-record-missing"><strong>' +
+        esc(t('dkim.noDomainKeyFound', s.queryName)) + '</strong>' +
+        (s.cname ? '<div><span>' + esc(t('dkim.cnameTarget')) + ':</span> <code>' + esc(s.cname) + '</code></div>' : '') +
+        '</div>');
+    });
+    if (!dkimDetails.length && r.dkimStatus.note) {
+      dkimDetails.push(esc(t(
+        'dkim.' + r.dkimStatus.note,
+        (r.dkimStatus.testedSelectors || []).length - (r.dkimStatus.failedSelectors || []).length,
+        (r.dkimStatus.failedSelectors || []).length
+      )));
+    }
+    var dkimDetail = dkimDetails.join('');
 
     var spfLookupHtml = (r.advanced && r.advanced.spfLookups && r.spfRecord)
       ? spfMeterHtml(r.advanced.spfLookups) : '';
@@ -594,6 +616,10 @@
     var domains = parseDomains($('domainInput').value);
     if (!domains.length) { showToast(t('toast.noDomains')); return; }
     if (domains.length > MAX_DOMAINS) { showToast(t('toast.tooMany')); return; }
+    if ($('optDKIM').checked && $('optDKIMComprehensive').checked && domains.length > MAX_COMPREHENSIVE_DKIM_DOMAINS) {
+      showToast(t('toast.tooManyComprehensiveDkim', MAX_COMPREHENSIVE_DKIM_DOMAINS));
+      return;
+    }
 
     // Pre-flight: verify we can reach the resolver before burning time on
     // queries that will all come back empty.
@@ -607,6 +633,7 @@
 
     var opts = {
       dkim: $('optDKIM').checked,
+      dkimComprehensive: $('optDKIMComprehensive').checked,
       www: $('optWWW').checked,
       advanced: true,
       wildcard: $('optWildcard').checked,
@@ -698,7 +725,12 @@
         label(r.dnsProvider), label(r.emailProvider),
         r.spfStatus.status, r.spfRecord,
         r.dkimStatus.found ? yes : (r.dkimStatus.confidence === 'sampled' || r.dkimStatus.confidence === 'not-checked') ? unknown : no,
-        r.dkimStatus.found ? r.dkimStatus.selectors.map(function (s) { return s.sel; }).join(', ') : '',
+        (r.dkimStatus.selectors || []).map(function (s) {
+          return (s.uncommon ? t('dkim.uncommon', s.queryName) : s.sel + ' — ' + s.queryName) +
+            (s.cname ? ' | CNAME: ' + s.cname : '') + ' | TXT: ' + s.value;
+        }).concat((r.dkimStatus.missingSelectors || []).map(function (s) {
+          return t('dkim.noDomainKeyFound', s.queryName);
+        })).join(' || '),
         r.dmarcStatus.status, r.dmarcStatus.policy || '',
         r.dmarcStatus.sp || '', r.dmarcStatus.np || '', r.dmarcStatus.pct,
         r.dmarcStatus.adkim, r.dmarcStatus.aspf,

@@ -11,6 +11,7 @@
  *   node tools/backtest.mjs domains.txt
  *   node tools/backtest.mjs domains.txt --json > before.json
  *   node tools/backtest.mjs --sample              # built-in 40-domain sample
+ *   node tools/backtest.mjs domains.txt --comprehensive-dkim # max 5 domains
  *
  * Requires outbound network access, so run it locally rather than in CI.
  */
@@ -24,6 +25,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const asJson = args.includes('--json');
 const useSample = args.includes('--sample');
+const comprehensiveDkim = args.includes('--comprehensive-dkim');
 const fileArg = args.find(a => !a.startsWith('--'));
 
 // A spread of well-known domains across sectors and maturity levels. Not a
@@ -46,14 +48,37 @@ const domains = useSample
     .split(/\r?\n/).map(s => s.trim().toLowerCase())
     .filter(s => s && !s.startsWith('#'));
 
+if (comprehensiveDkim && domains.length > 5) {
+  throw new Error('Comprehensive DKIM scanning is limited to 5 domains per run.');
+}
+
 // ── Load the production scoring code, unmodified ────────────────────────
-const sandbox = { window: {}, fetch, console, URLSearchParams, Promise, Math, JSON, Set, Array, String, Number, isNaN, parseInt };
+const sandbox = {
+  window: {},
+  fetch,
+  AbortController,
+  console,
+  URLSearchParams,
+  setTimeout,
+  clearTimeout,
+  Promise,
+  Math,
+  JSON,
+  Set,
+  Array,
+  String,
+  Number,
+  isNaN,
+  parseInt,
+};
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
+vm.runInContext(readFileSync(join(ROOT, 'js', 'public-suffixes.js'), 'utf8'), sandbox);
+vm.runInContext(readFileSync(join(ROOT, 'js', 'dkim-selectors.js'), 'utf8'), sandbox);
 vm.runInContext(readFileSync(join(ROOT, 'js', 'dns.js'), 'utf8'), sandbox);
 const D = sandbox.window.DnsAudit;
 
-const OPTS = { dkim: true, www: false, advanced: true, wildcard: false };
+const OPTS = { dkim: true, dkimComprehensive: comprehensiveDkim, www: false, advanced: true, wildcard: false };
 const CONCURRENCY = 6;
 
 const results = [];
@@ -81,7 +106,14 @@ if (!asJson) process.stderr.write('\r' + ' '.repeat(40) + '\r');
 
 // ── Report ──────────────────────────────────────────────────────────────
 const scored = results.filter(r => !r.error && !r.unregistered && r.score);
-const ORDER = ['A++', 'A+', 'A', 'B', 'C', 'D', 'F'];
+const BASE_ORDER = ['A++', 'A+', 'A', 'B', 'C', 'D', 'F'];
+
+function gradeSort(a, b) {
+  const [aLow, aHigh = aLow] = a.split('–');
+  const [bLow, bHigh = bLow] = b.split('–');
+  return BASE_ORDER.indexOf(aLow) - BASE_ORDER.indexOf(bLow)
+    || BASE_ORDER.indexOf(aHigh) - BASE_ORDER.indexOf(bHigh);
+}
 
 if (asJson) {
   console.log(JSON.stringify({
@@ -89,25 +121,43 @@ if (asJson) {
     thresholds: D.GRADE_THRESHOLDS,
     domains: scored.map(r => ({
       domain: r.domain, grade: r.score.grade, pts: r.score.pts,
+      maxPossible: r.score.maxPossible ?? r.score.pts,
       dmarc: r.dmarcStatus.policy, sp: r.dmarcStatus.effectiveSp,
       np: r.dmarcStatus.effectiveNp, pct: r.dmarcStatus.pct,
       dnssec: !!r.advanced?.dnssec?.signed,
+      dkim: {
+        found: r.dkimStatus.found,
+        scanMode: r.dkimStatus.scanMode,
+        selectors: r.dkimStatus.selectors,
+        missingSelectors: r.dkimStatus.missingSelectors,
+        failedSelectors: r.dkimStatus.failedSelectors,
+      },
       pillars: r.score.breakdown?.pillars,
     })),
   }, null, 2));
   process.exit(0);
 }
 
-const counts = Object.fromEntries(ORDER.map(g => [g, 0]));
+const displayedGrades = Array.from(new Set([
+  ...BASE_ORDER,
+  ...scored.map(r => r.score.grade),
+])).sort(gradeSort);
+const counts = Object.fromEntries(displayedGrades.map(g => [g, 0]));
 scored.forEach(r => { counts[r.score.grade]++; });
+
+const counted = Object.values(counts).reduce((sum, count) => sum + count, 0);
+if (counted !== scored.length) {
+  throw new Error(`Grade histogram counted ${counted} of ${scored.length} scored domains.`);
+}
 
 console.log(`\nGRADE DISTRIBUTION  (${scored.length} scored, ${results.length - scored.length} skipped)\n`);
 const widest = Math.max(...Object.values(counts), 1);
-for (const g of ORDER) {
+const gradeWidth = Math.max(4, ...displayedGrades.map(g => g.length));
+for (const g of displayedGrades) {
   const n = counts[g];
   const pct = scored.length ? (n / scored.length * 100) : 0;
   const bar = '█'.repeat(Math.round(n / widest * 40));
-  console.log(`  ${g.padEnd(4)} ${String(n).padStart(3)}  ${pct.toFixed(1).padStart(5)}%  ${bar}`);
+  console.log(`  ${g.padEnd(gradeWidth)} ${String(n).padStart(3)}  ${pct.toFixed(1).padStart(5)}%  ${bar}`);
 }
 
 const pts = scored.map(r => r.score.pts).sort((a, b) => a - b);

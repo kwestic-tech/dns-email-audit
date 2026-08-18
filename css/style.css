@@ -205,6 +205,11 @@ td.domain-cell { font-weight: 700; font-size: 12.5px; white-space: nowrap; }
 .detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
 .detail-item .di-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); margin-bottom: 3px; }
 .detail-item .di-value { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; color: var(--ink2); word-break: break-all; line-height: 1.6; }
+.dkim-record { margin-bottom: 8px; word-break: break-word; }
+.dkim-record:last-child { margin-bottom: 0; }
+.dkim-record div { margin-top: 3px; }
+.dkim-record code { white-space: normal; word-break: break-all; }
+.dkim-record-missing { color: var(--warn); }
 
 /* ── Issues / suggestions ── */
 .issues-block { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }

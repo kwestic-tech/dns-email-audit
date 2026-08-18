@@ -40,6 +40,8 @@ window.__I18N_EN__ = {
   },
   "opt": {
     "dkim": "Check DKIM selectors",
+    "dkimComprehensive": "Comprehensive DKIM scan (max 5 domains)",
+    "dkimComprehensiveTitle": "Uses all 1,677 vetted exact selectors from the catalog; limited to five domains per run",
     "www": "Detect website hosting",
     "wildcard": "Detect wildcard TXT bugs",
     "dkimSelectors": "Additional DKIM selectors",
@@ -47,7 +49,7 @@ window.__I18N_EN__ = {
   },
   "help": {
     "title": "How it works:",
-    "body": "Runs in your browser via the <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a>. No data is sent to Kwestic or stored by this app; DNS query names are sent directly to Cloudflare and are subject to Cloudflare's privacy policy. Checks: NS, MX, SPF, sampled DKIM selectors, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC, and SPF lookup depth."
+    "body": "Runs in your browser via the <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a>. No data is sent to Kwestic or stored by this app; DNS query names are sent directly to Cloudflare and are subject to Cloudflare's privacy policy. Checks: NS, MX, SPF, provider-aware or comprehensive DKIM selectors, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC, and SPF lookup depth."
   },
   "netbanner": {
     "title": "⚠️ Network access blocked — DNS queries cannot reach the internet from here",
@@ -125,7 +127,8 @@ window.__I18N_EN__ = {
     "notRegistered": "Not registered / NXDOMAIN",
     "noEmail": "✗ No Email",
     "noDkim": "✗ None",
-    "dkimUnverified": "? No tested selector found",
+    "dkimUnverified": "? No Domain Key Found in tested selectors",
+    "dkimUncommon": "⚠ Uncommon ({0})",
     "notChecked": "Not checked",
     "auditError": "Audit indeterminate",
     "cancelled": "Cancelled"
@@ -167,8 +170,13 @@ window.__I18N_EN__ = {
     "inheritedFrom": "Inherited from {0}"
   },
   "dkim": {
+    "uncommon": "Uncommon ({0})",
+    "noDomainKeyFound": "No Domain Key Found ({0})",
+    "txtRecord": "TXT record",
+    "cnameTarget": "CNAME target",
     "noteWildcard": "Wildcard TXT bug may be interfering",
-    "noteNotFound": "No common selectors found"
+    "noteNotFound": "No active DKIM key found among {0} tested selectors",
+    "noteNotFoundWithErrors": "No active DKIM key found among {0} completed selector checks; {1} DNS queries failed"
   },
   "adv": {
     "configured": "✓ Configured",
@@ -214,6 +222,7 @@ window.__I18N_EN__ = {
   "toast": {
     "noDomains": "Paste at least one domain name.",
     "tooMany": "Max 200 domains per run.",
+    "tooManyComprehensiveDkim": "Comprehensive DKIM scanning is limited to {0} domains per run.",
     "csvExported": "CSV exported",
     "htmlExported": "HTML report exported",
     "htmlExportFailed": "Could not build the standalone report — serve the app over HTTP and try again.",
