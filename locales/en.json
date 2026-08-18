@@ -34,7 +34,7 @@
   "opt": {
     "dkim": "Check DKIM selectors",
     "dkimComprehensive": "Comprehensive DKIM scan (max 5 domains)",
-    "dkimComprehensiveTitle": "Uses all 1,683 exact selectors from the catalog; limited to five domains per run",
+    "dkimComprehensiveTitle": "Uses all 1,677 vetted exact selectors from the catalog; limited to five domains per run",
     "www": "Detect website hosting",
     "wildcard": "Detect wildcard TXT bugs",
     "dkimSelectors": "Additional DKIM selectors",

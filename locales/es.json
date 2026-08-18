@@ -33,7 +33,7 @@
   "opt": {
     "dkim": "Verificar selectores DKIM",
     "dkimComprehensive": "Escaneo DKIM completo (máx. 5 dominios)",
-    "dkimComprehensiveTitle": "Usa los 1.683 selectores exactos del catálogo; limitado a cinco dominios por ejecución",
+    "dkimComprehensiveTitle": "Usa los 1.677 selectores exactos verificados del catálogo; limitado a cinco dominios por ejecución",
     "www": "Detectar alojamiento web",
     "wildcard": "Detectar errores TXT comodín",
     "footer": "DNS vía Cloudflare DoH · Sin datos almacenados"

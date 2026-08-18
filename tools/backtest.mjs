@@ -106,7 +106,14 @@ if (!asJson) process.stderr.write('\r' + ' '.repeat(40) + '\r');
 
 // ── Report ──────────────────────────────────────────────────────────────
 const scored = results.filter(r => !r.error && !r.unregistered && r.score);
-const ORDER = ['A++', 'A+', 'A', 'B', 'C', 'D', 'F'];
+const BASE_ORDER = ['A++', 'A+', 'A', 'B', 'C', 'D', 'F'];
+
+function gradeSort(a, b) {
+  const [aLow, aHigh = aLow] = a.split('–');
+  const [bLow, bHigh = bLow] = b.split('–');
+  return BASE_ORDER.indexOf(aLow) - BASE_ORDER.indexOf(bLow)
+    || BASE_ORDER.indexOf(aHigh) - BASE_ORDER.indexOf(bHigh);
+}
 
 if (asJson) {
   console.log(JSON.stringify({
@@ -114,25 +121,43 @@ if (asJson) {
     thresholds: D.GRADE_THRESHOLDS,
     domains: scored.map(r => ({
       domain: r.domain, grade: r.score.grade, pts: r.score.pts,
+      maxPossible: r.score.maxPossible ?? r.score.pts,
       dmarc: r.dmarcStatus.policy, sp: r.dmarcStatus.effectiveSp,
       np: r.dmarcStatus.effectiveNp, pct: r.dmarcStatus.pct,
       dnssec: !!r.advanced?.dnssec?.signed,
+      dkim: {
+        found: r.dkimStatus.found,
+        scanMode: r.dkimStatus.scanMode,
+        selectors: r.dkimStatus.selectors,
+        missingSelectors: r.dkimStatus.missingSelectors,
+        failedSelectors: r.dkimStatus.failedSelectors,
+      },
       pillars: r.score.breakdown?.pillars,
     })),
   }, null, 2));
   process.exit(0);
 }
 
-const counts = Object.fromEntries(ORDER.map(g => [g, 0]));
+const displayedGrades = Array.from(new Set([
+  ...BASE_ORDER,
+  ...scored.map(r => r.score.grade),
+])).sort(gradeSort);
+const counts = Object.fromEntries(displayedGrades.map(g => [g, 0]));
 scored.forEach(r => { counts[r.score.grade]++; });
+
+const counted = Object.values(counts).reduce((sum, count) => sum + count, 0);
+if (counted !== scored.length) {
+  throw new Error(`Grade histogram counted ${counted} of ${scored.length} scored domains.`);
+}
 
 console.log(`\nGRADE DISTRIBUTION  (${scored.length} scored, ${results.length - scored.length} skipped)\n`);
 const widest = Math.max(...Object.values(counts), 1);
-for (const g of ORDER) {
+const gradeWidth = Math.max(4, ...displayedGrades.map(g => g.length));
+for (const g of displayedGrades) {
   const n = counts[g];
   const pct = scored.length ? (n / scored.length * 100) : 0;
   const bar = '█'.repeat(Math.round(n / widest * 40));
-  console.log(`  ${g.padEnd(4)} ${String(n).padStart(3)}  ${pct.toFixed(1).padStart(5)}%  ${bar}`);
+  console.log(`  ${g.padEnd(gradeWidth)} ${String(n).padStart(3)}  ${pct.toFixed(1).padStart(5)}%  ${bar}`);
 }
 
 const pts = scored.map(r => r.score.pts).sort((a, b) => a - b);

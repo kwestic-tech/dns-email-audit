@@ -139,9 +139,11 @@ than in CI.
 DKIM selectors cannot be enumerated through DNS, so the normal audit combines
 the built-in common selectors, user-supplied selectors, and selectors associated
 with the detected mail provider. The optional comprehensive scan checks the full
-vendored catalog's 1,683 exact provider, generic, sequential, and temporal
+vendored catalog's 1,677 vetted exact provider, generic, sequential, and temporal
 selectors. Two additional HubSpot entries are selector prefixes rather than
-queryable names and remain represented as catalog metadata. Because a full scan
+queryable names. Six unsupported fixed Amazon SES guesses are retained as
+excluded metadata: Easy DKIM uses generated tokens, while BYODKIM selectors are
+chosen by the domain owner. Because a full scan
 can generate substantial DNS traffic, comprehensive scans are explicitly
 enabled and limited to five domains per run.
 

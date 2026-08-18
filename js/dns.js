@@ -17,7 +17,7 @@
 
   var DOH = 'https://cloudflare-dns.com/dns-query';
   var DKIM_SELECTORS = ['google', 'default', 'mail', 's1', 's2', 'selector1', 'selector2', 'dkim', 'sig1', 'odoo'];
-  var DKIM_CATALOG = global.__DKIM_SELECTOR_CATALOG__ || { providers: {}, generic: [], temporal: [], prefixes: [] };
+  var DKIM_CATALOG = global.__DKIM_SELECTOR_CATALOG__ || { providers: {}, generic: [], temporal: [], prefixes: [], excluded: [] };
   var DKIM_SCAN_BATCH_SIZE = 24;
   var DKIM_PROVIDER_CATALOG_KEYS = {
     'Google Workspace': 'Google Workspace / Gmail',
