@@ -16,6 +16,83 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **DMARC is now evaluated against RFC 9989 (DMARCbis, May 2026)** instead of
+  RFC 7489 + RFC 9091, which it obsoletes. The parser accepts the complete
+  RFC 9989 tag set — `v`, `p`, `sp`, `np`, `adkim`, `aspf`, `fo`, `rua`, `ruf`,
+  `psd`, `t` — and classifies anything else as removed (`pct`, `rf`, `ri`) or
+  unknown.
+- **`pct=` no longer contributes to the score.** RFC 9989 removed the tag, so a
+  conformant receiver ignores it; scoring it meant grading against an obsolete
+  spec. It is still parsed and surfaced: any record carrying `pct=` now gets a
+  **recommendation** to remove it, naming RFC 9989 and its May 2026
+  ratification, with a "Learn more" guide covering the migration. Advice to
+  drop an obsolete tag is guidance rather than a defect, so it sits in
+  Recommendations rather than Issues — but a `pct=` below 100 has a live
+  consequence (receivers that have not migrated still honour it, so
+  enforcement differs from one receiver to the next) and keeps its own
+  warning-level finding.
+- **The DMARC sub-score redistributes those 4 points.** New split: policy 12
+  (was 10), effective subdomain coverage 6, aggregate reports 6 (was 5), strict
+  alignment 3, forensic reports 2, and a new 1-point component for report
+  destinations that can actually be delivered to. The total is unchanged at 30.
+  Backtested over the 40-domain live sample: 29 domains scored identically, 11
+  moved by 1–3 points, and **no domain changed letter grade**.
+- The score breakdown now shows a "Report destinations" component in place of
+  "Enforcement rate (pct=)".
+- CSV export gains a `DMARC Test Mode (t=)` column (inserted after
+  `DMARC Policy`). The header row is now backfilled per-index from English, so
+  a locale whose header array predates a new column can no longer misalign the
+  export.
+
+### Added
+
+- **`t=` (test mode) support.** `t=y` tells receivers not to apply the policy,
+  so `p=reject; t=y` is scored at the `none` tier and badged as
+  "reject (test mode, not applied)" rather than as enforcement. This was
+  previously invisible: the record would have graded as full enforcement.
+- **`psd=` parsing and validation**, including a warning when a domain that is
+  not a public suffix declares `psd=y`.
+- **Strict `v=` validation.** RFC 9989 requires `v=` to be the first tag with
+  the case-sensitive value `DMARC1`; a record failing either test must be
+  ignored entirely. `v=dmarc1` and a misplaced `v=` are now reported as
+  critical findings rather than parsed as valid.
+- **Report-URI parsing for `rua=`/`ruf=`**, covering the comma-separated list
+  form, the `!` size-limit suffix, and unsupported schemes. A published but
+  undeliverable destination is now a finding instead of a silent monitoring gap.
+- **External report-destination detection and verification.** Reports sent
+  outside the organizational domain require the destination to publish an
+  authorization record (RFC 9990 §4.3). The audit now queries
+  `<policy-domain>._report._dmarc.<destination>` and falls back to the
+  wildcard form `*._report._dmarc.<destination>` that most reporting vendors
+  publish, then reports a verdict per destination:
+  - **authorized** — no finding at all. A correctly-configured domain hears
+    nothing, which is the point: the previous blanket "verify this" notice
+    fired on every external destination and was a false positive on every
+    properly set-up domain (cloudflare.com and paypal.com both included).
+  - **unauthorized** — a warning naming only the destinations that are
+    actually being discarded.
+  - **unverifiable** — an informational note when the DNS lookup itself
+    failed. A timeout is missing evidence, not evidence of a missing record.
+
+  Authorization is evaluated per URI, matching the RFC, so a record mixing an
+  in-house mailbox with a vendor address is scored and reported correctly: the
+  record stays valid, and only the unauthorized destination is flagged. When
+  the advanced checks are off, the previous advisory notice remains as a
+  fallback.
+- **`fo=` validation**, plus a notice when `fo=` is present with no `ruf=`,
+  where receivers must ignore it.
+- Duplicate DMARC tags now report as their own finding rather than as
+  "invalid p=".
+- **A `dmarc-rfc9989` "Learn more" guide** explaining what DMARCbis changed:
+  the RFC 9989/9990/9991 split, why `pct=` was removed, how `t=` replaces it
+  for staged rollout, the complete eleven-tag vocabulary, and external report
+  authorization.
+- 119 new assertions covering the above (`npm run test:scoring`), including
+  checks that every recommendation has translated text and that no
+  recommendation links to a guide that does not exist.
+
+### Changed
+
 - **Scoring is now a single weighted 0–100 rubric** instead of an additive
   points-to-grade shortcut. Pillars: DMARC 30, SPF 15, DKIM 15, DNSSEC 15,
   CAA 10, MTA-STS 8, BIMI 4, TLS-RPT 3. DNSSEC still gates the A tier — an

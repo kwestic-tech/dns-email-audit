@@ -246,6 +246,7 @@
       "DKIM セレクター",
       "DMARC ステータス",
       "DMARC ポリシー",
+      "DMARC Test Mode (t=)",
       "DMARC sp",
       "DMARC np",
       "DMARC pct",
@@ -640,7 +641,6 @@
       "label": "DMARC 内訳",
       "policy": "ポリシー (p=)",
       "subdomain": "サブドメイン適用",
-      "pct": "適用率 (pct=)",
       "rua": "集計レポート (rua=)",
       "alignment": "厳格なアライメント",
       "ruf": "詳細レポート (ruf=)"

@@ -39,7 +39,9 @@ sent to Cloudflare and are subject to Cloudflare's privacy policy.
 | **SPF** | Validates record uniqueness, provider includes, `all` qualifiers, and case-insensitive syntax. |
 | **SPF evaluation** | Recursively follows lookup-causing terms and `include`/`redirect` policies; reports cycles, excessive depth, macros, void lookups, and RFC 7208's 10-lookup limit. |
 | **DKIM** | Tests common, provider-associated, user-supplied, or comprehensive catalog selectors; follows CNAME delegation and requires an active public key. |
-| **DMARC** | Validates record uniqueness and `p`, `sp`, `np`, `pct`, `rua`, `ruf`, `adkim`, and `aspf`; discovers inherited organizational-domain policies with the Public Suffix List. |
+| **DMARC** | Validates against RFC 9989 (DMARCbis): record uniqueness, strict `v=` placement and casing, the full tag set (`p`, `sp`, `np`, `adkim`, `aspf`, `fo`, `rua`, `ruf`, `psd`, `t`), report-URI syntax, and tags the new RFC removed (`pct`, `rf`, `ri`) or does not define; discovers inherited organizational-domain policies with the Public Suffix List. |
+| **DMARC test mode** | Detects `t=y`, which tells receivers not to apply the policy — so `p=reject; t=y` is reported and scored as `none` rather than as enforcement. |
+| **DMARC report authorization** | For report destinations outside your organizational domain, checks whether that domain published the `_report._dmarc` record (RFC 9990 §4.3), including the wildcard form. Without it receivers discard those reports silently. |
 | **DNSSEC** | Distinguishes secure, insecure, bogus, and indeterminate validation results using the resolver's authenticated-data response. |
 | **CAA** | Walks up the domain tree to find the effective certificate-authority restrictions. |
 | **MTA-STS** | Validates discovery-record uniqueness and syntax, including the required `id=` tag. |
@@ -104,9 +106,22 @@ Active-mail domains use a weighted score out of 100:
 | BIMI | 4 |
 | TLS-RPT | 3 |
 
-DMARC's 30 points are split across policy, effective subdomain coverage,
-enforcement percentage, aggregate reporting, strict alignment, and forensic
-reporting. The detail view exposes every pillar and DMARC sub-score.
+DMARC's 30 points are split across policy (12), effective subdomain coverage
+(6), aggregate reporting (6), strict alignment (3), forensic reporting (2), and
+deliverable report destinations (1). The detail view exposes every pillar and
+DMARC sub-score.
+
+DMARC is scored against **RFC 9989** (DMARCbis, May 2026), which obsoletes
+RFC 7489 and RFC 9091. Two consequences are worth stating plainly:
+
+- **`pct=` earns no points.** RFC 9989 removed the tag, so a conformant receiver
+  ignores it. It is still parsed and reported — receivers that have not migrated
+  do honour it, which means a `pct=` below 100 now produces *inconsistent*
+  enforcement across the internet — but it no longer moves the score.
+- **`t=y` scores at the `none` tier.** Test mode tells receivers not to apply the
+  policy, so `p=reject; t=y` provides exactly as much spoofing protection as
+  `p=none`. The published policy is still shown; the score reflects what
+  receivers will actually do.
 
 | Grade | Minimum score | Additional requirement |
 | --- | ---: | --- |

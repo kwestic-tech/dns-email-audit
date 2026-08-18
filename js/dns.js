@@ -431,19 +431,35 @@
     return { found: true, selectors: found, missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, confidence: 'observed', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: '' };
   }
 
-  // Valid policy values per RFC 7489 §6.3, ordered weakest → strongest.
+  // Valid policy values per RFC 9989 §5.4, ordered weakest → strongest.
   var POLICY_RANK = { none: 0, quarantine: 1, reject: 2 };
 
+  /* ── RFC 9989 tag vocabulary ─────────────────────────────────────────────
+     DMARCbis was published in May 2026 as RFC 9989 (with RFC 9990 covering
+     aggregate reporting and RFC 9991 failure reporting), obsoleting RFC 7489
+     and RFC 9091. The tag list below is the complete set it defines.
+
+     `pct`, `rf` and `ri` are gone. A receiver implementing RFC 9989 ignores
+     them, so we neither score them nor treat them as errors — but we do say
+     they are there, because a record written against RFC 7489 will behave
+     differently depending on which spec the receiver implements, and the
+     operator should know that before it bites them.
+     ───────────────────────────────────────────────────────────────────────── */
+  var DMARC_TAGS_RFC9989 = ['v', 'p', 'sp', 'np', 'adkim', 'aspf', 'fo', 'rua', 'ruf', 'psd', 't'];
+  var DMARC_TAGS_REMOVED = ['pct', 'rf', 'ri'];
+  var DMARC_FO_VALUES = ['0', '1', 'd', 's'];
+
   /**
-   * Parse a DMARC record into its tags (RFC 7489, plus `np` from RFC 9091).
+   * Parse a DMARC record into its tags (RFC 9989 §5.4).
    *
    * Two things this has to get right that a naive regex does not:
    *
    *  1. Tag names must be anchored. An unanchored /p=([^;]+)/ matches the `p=`
    *     inside `sp=` and `np=`, so `sp=reject; p=none` would parse as
    *     policy=reject. Tag order is arbitrary in real records.
-   *  2. Tag names and values are case-insensitive — `P=REJECT` is valid and
-   *     appears in the wild.
+   *  2. Tag names are case-insensitive — `P=REJECT` is valid and appears in
+   *     the wild. Values are case-insensitive too, with one exception: the
+   *     `v=` value is case SENSITIVE and must be exactly `DMARC1`.
    *
    * Subdomain policies inherit rather than default to permissive:
    * `sp` falls back to `p`, and `np` falls back to `sp` then `p`. A record with
@@ -465,40 +481,118 @@
     return POLICY_RANK[lower] !== undefined ? lower : null;
   }
 
+  /**
+   * RFC 9989 §5.4: `v` MUST be the first tag, and its value is case sensitive
+   * with `DMARC1` the only accepted spelling. A record that fails either test
+   * "MUST be ignored" in its entirety — so this is a hard failure, not a nit.
+   * We still parse the rest of the record afterwards so the report can say
+   * what the operator *meant* alongside the fact that nobody will honour it.
+   */
+  function validateDmarcVersion(record) {
+    var m = String(record || '').match(/^\s*([A-Za-z][A-Za-z0-9_-]*)\s*=\s*([^;]*)/);
+    if (!m) return { valid: false, reason: 'absent' };
+    if (m[1].toLowerCase() !== 'v') return { valid: false, reason: 'not-first' };
+    if (m[2].trim() !== 'DMARC1') return { valid: false, reason: 'bad-value' };
+    return { valid: true, reason: null };
+  }
+
+  /**
+   * Parse a `rua=`/`ruf=` value into its individual destinations.
+   *
+   * RFC 9989 §5.4 defines a comma-separated list of DMARC URIs, each with an
+   * optional `!` size-limit suffix (digits plus an optional k/m/g/t unit).
+   * A literal `!` inside a URI must be percent-encoded, so the LAST `!` is
+   * unambiguously the delimiter.
+   *
+   * Only `mailto:` is a registered destination scheme for DMARC reporting.
+   * Anything else parses but is undeliverable, which is reported separately
+   * from outright malformed syntax because the fix is different.
+   */
+  function parseDmarcUriList(value) {
+    var entries = String(value || '').split(',')
+      .map(function (v) { return v.trim(); })
+      .filter(Boolean);
+
+    var uris = entries.map(function (raw) {
+      var bang = raw.lastIndexOf('!');
+      var uri = bang === -1 ? raw : raw.slice(0, bang);
+      var limit = bang === -1 ? '' : raw.slice(bang + 1);
+      var limitValid = limit === '' || /^\d+[kmgt]?$/i.test(limit);
+      var scheme = (uri.indexOf(':') === -1 ? '' : uri.slice(0, uri.indexOf(':'))).toLowerCase();
+      var mailbox = scheme === 'mailto' ? uri.slice(7) : '';
+      var at = mailbox.lastIndexOf('@');
+      var domain = at > 0 ? mailbox.slice(at + 1).toLowerCase().replace(/\.$/, '') : '';
+      var wellFormed = scheme === 'mailto' && at > 0 && /^[^\s@]+\.[^\s@.]+$/.test(domain);
+      return {
+        raw: raw, uri: uri, scheme: scheme,
+        mailbox: wellFormed ? mailbox : '',
+        domain: wellFormed ? domain : '',
+        sizeLimit: limit,
+        unsupportedScheme: scheme !== '' && scheme !== 'mailto',
+        valid: wellFormed && limitValid,
+      };
+    });
+
+    return {
+      uris: uris,
+      count: uris.length,
+      valid: uris.length > 0 && uris.every(function (u) { return u.valid; }),
+      invalid: uris.filter(function (u) { return !u.valid; }).map(function (u) { return u.raw; }),
+      domains: uris.filter(function (u) { return u.valid; }).map(function (u) { return u.domain; }),
+    };
+  }
+
   function analyzeDmarc(dmarc, multiple) {
-    // RFC 7489 §6.6.3: with multiple records, policy discovery terminates and
+    // RFC 9989 §4.7: with multiple records, policy discovery terminates and
     // DMARC is not applied at all — the domain is unprotected despite looking
     // configured. Distinct from 'missing' because the fix differs (delete a
     // duplicate vs. publish a first record).
-    if (multiple) {
-      return {
-        status: 'permerror', cls: 'crit', policy: '', rua: false, ruf: false,
-        sp: null, np: null, effectiveSp: null, effectiveNp: null,
-        pct: 100, pctValid: true, adkim: 'r', aspf: 'r', enforcing: false,
-      };
-    }
-    if (!dmarc) {
-      return {
-        status: 'missing', cls: 'crit', policy: '', rua: false, ruf: false,
-        sp: null, np: null, effectiveSp: null, effectiveNp: null,
-        pct: 100, pctValid: true, adkim: 'r', aspf: 'r', enforcing: false,
-      };
-    }
+    if (multiple) return emptyDmarcStatus('permerror');
+    if (!dmarc) return emptyDmarcStatus('missing');
 
     var parsedTags = parseTagList(dmarc);
     var tag = function (name) { return parseDmarcTag(dmarc, name); };
+    var version = validateDmarcVersion(dmarc);
 
     var rawPolicy = tag('p');
     var policy = normalizePolicy(rawPolicy) || 'none';
     var sp = normalizePolicy(tag('sp'));
     var np = normalizePolicy(tag('np'));
 
-    // Inheritance chain per RFC 7489 §6.3 and RFC 9091 §2.
+    // Inheritance chain per RFC 9989 §5.4. Note that sp/np apply only to
+    // subdomains of the Organizational Domain, never to the domain itself.
     var effectiveSp = sp || policy;
     var effectiveNp = np || sp || policy;
 
-    // pct defaults to 100 when absent. Guard against NaN and out-of-range
-    // values — an unguarded parseInt poisons every downstream total.
+    // ── t= (RFC 9989 §5.4, new) ──
+    // Test mode. `t=y` tells receivers the owner is still evaluating and the
+    // policy should NOT be applied. Reports keep flowing. This is bis's
+    // replacement for ramping with pct=, and it means `p=reject; t=y` gives
+    // exactly as much spoofing protection as `p=none` — which is none.
+    var rawT = tag('t');
+    var tValid = rawT === null || /^[yn]$/i.test(String(rawT).trim());
+    var testMode = String(rawT || 'n').trim().toLowerCase() === 'y';
+
+    // ── psd= (RFC 9989 §5.4, new) ──
+    // Marks a Public Suffix Domain so the Tree Walk knows where to stop.
+    // Default is 'u' (unknown — use normal discovery), NOT 'n'.
+    var rawPsd = tag('psd');
+    var psdValid = rawPsd === null || /^[ynu]$/i.test(String(rawPsd).trim());
+    var psd = String(rawPsd || 'u').trim().toLowerCase();
+
+    // ── fo= (RFC 9989 §5.4) ──
+    // Colon-separated subset of 0/1/d/s. Its content MUST be ignored when no
+    // ruf= is present, which makes fo-without-ruf a silent no-op worth naming.
+    var rawFo = tag('fo');
+    var fo = rawFo === null ? '0' : String(rawFo).trim().toLowerCase();
+    var foValid = rawFo === null || fo.split(':').every(function (v) {
+      return DMARC_FO_VALUES.indexOf(v.trim()) !== -1;
+    });
+
+    // ── pct= (removed in RFC 9989) ──
+    // Parsed for reporting only. It no longer contributes to the score: a
+    // bis-conformant receiver ignores it outright. Guard against NaN anyway —
+    // an unguarded parseInt used to poison every downstream total.
     var rawPct = tag('pct');
     var pct = 100;
     var pctValid = true;
@@ -511,13 +605,32 @@
     var adkim = (String(tag('adkim') || 'r').toLowerCase() === 's') ? 's' : 'r';
     var aspf = (String(tag('aspf') || 'r').toLowerCase() === 's') ? 's' : 'r';
 
-    var rua = !!tag('rua');
-    var ruf = !!tag('ruf');
-    var enforcing = policy === 'quarantine' || policy === 'reject';
+    var ruaUris = parseDmarcUriList(tag('rua'));
+    var rufUris = parseDmarcUriList(tag('ruf'));
+    var rua = ruaUris.count > 0;
+    var ruf = rufUris.count > 0;
 
-    // `present` covers a record whose p= value is unrecognized — malformed, but
-    // a record exists, so it is neither 'missing' nor trustworthy enforcement.
-    var malformed = rawPolicy === null || normalizePolicy(rawPolicy) === null || parsedTags.duplicates.length > 0;
+    // Classify every tag actually present against the RFC 9989 vocabulary.
+    var presentTags = Object.keys(parsedTags.tags);
+    var removedTags = presentTags.filter(function (k) { return DMARC_TAGS_REMOVED.indexOf(k) !== -1; });
+    var unknownTags = presentTags.filter(function (k) {
+      return DMARC_TAGS_RFC9989.indexOf(k) === -1 && DMARC_TAGS_REMOVED.indexOf(k) === -1;
+    });
+
+    // The published policy is what the operator wrote; the effective policy is
+    // what receivers will actually do. Test mode is the only thing that can
+    // make them differ, and keeping both means the UI can show the gap rather
+    // than silently reporting one as the other.
+    var effectivePolicy = testMode ? 'none' : policy;
+    var enforcing = effectivePolicy === 'quarantine' || effectivePolicy === 'reject';
+
+    // `present` covers a record receivers cannot act on: an unusable v=, an
+    // unrecognized p=, or duplicate tags. A record exists, so it is neither
+    // 'missing' nor trustworthy enforcement.
+    var malformed = !version.valid
+      || rawPolicy === null
+      || normalizePolicy(rawPolicy) === null
+      || parsedTags.duplicates.length > 0;
     var status = malformed ? 'present'
       : enforcing ? 'ok'
         : 'warn';
@@ -526,12 +639,118 @@
       status: status,
       cls: status === 'ok' ? 'ok' : 'warn',
       policy: policy, sp: sp, np: np,
+      effectivePolicy: effectivePolicy,
       effectiveSp: effectiveSp, effectiveNp: effectiveNp,
-      pct: pct, pctValid: pctValid,
+      pct: pct, pctValid: pctValid, pctPresent: rawPct !== null,
       adkim: adkim, aspf: aspf,
-      rua: rua, ruf: ruf, enforcing: enforcing,
+      rua: rua, ruf: ruf, ruaUris: ruaUris, rufUris: rufUris,
+      enforcing: enforcing,
+      fo: fo, foValid: foValid, foPresent: rawFo !== null,
+      testMode: testMode, tValid: tValid,
+      psd: psd, psdValid: psdValid, psdPresent: rawPsd !== null,
+      version: version,
+      removedTags: removedTags, unknownTags: unknownTags,
       malformed: malformed, duplicateTags: parsedTags.duplicates,
     };
+  }
+
+  /** Shared shape for the two "there is nothing to analyse" outcomes. */
+  function emptyDmarcStatus(status) {
+    return {
+      status: status, cls: 'crit', policy: '', effectivePolicy: '',
+      rua: false, ruf: false,
+      ruaUris: parseDmarcUriList(''), rufUris: parseDmarcUriList(''),
+      sp: null, np: null, effectiveSp: null, effectiveNp: null,
+      pct: 100, pctValid: true, pctPresent: false,
+      adkim: 'r', aspf: 'r', enforcing: false,
+      fo: '0', foValid: true, foPresent: false,
+      testMode: false, tValid: true,
+      psd: 'u', psdValid: true, psdPresent: false,
+      version: { valid: false, reason: 'absent' },
+      removedTags: [], unknownTags: [], duplicateTags: [],
+    };
+  }
+
+  /**
+   * Report destinations outside the audited domain's organizational domain.
+   *
+   * RFC 9989 §5.6: sending reports to a domain you do not control requires the
+   * receiving domain to publish `<source>._report._dmarc.<destination>`. Until
+   * it does, conformant receivers discard those reports — so the operator gets
+   * silence and assumes everything is fine. Kept separate from analyzeDmarc so
+   * that function stays pure and domain-agnostic.
+   */
+  function findExternalReportDestinations(dmarcStatus, domain) {
+    if (!dmarcStatus || !domain) return [];
+    var org = getOrganizationalDomain(domain) || domain;
+    var seen = new Set();
+    return []
+      .concat(dmarcStatus.ruaUris ? dmarcStatus.ruaUris.domains : [])
+      .concat(dmarcStatus.rufUris ? dmarcStatus.rufUris.domains : [])
+      .filter(function (dest) {
+        if (!dest || seen.has(dest)) return false;
+        seen.add(dest);
+        return dest !== org && (getOrganizationalDomain(dest) || dest) !== org;
+      });
+  }
+
+  /**
+   * Verify that each external report destination has authorized this domain.
+   *
+   * RFC 9990 §4.3: when a destination's organizational domain differs from the
+   * policy domain's, the receiver queries
+   *
+   *   <policy-domain>._report._dmarc.<destination-host>
+   *
+   * and requires a TXT record whose FIRST tag is `v=DMARC1`. A wildcard form,
+   * `*._report._dmarc.<destination-host>`, authorizes every domain at once and
+   * is what most reporting vendors publish rather than a record per customer.
+   *
+   * Authorization is evaluated per URI: an unauthorized destination is dropped
+   * on its own. It does not invalidate the DMARC record and it does not affect
+   * the other destinations, which is why this returns a verdict per destination
+   * rather than one verdict for the record.
+   *
+   * A DNS failure is reported as 'unverifiable' rather than 'unauthorized' —
+   * a timeout is not evidence of a missing record, and calling it one would
+   * send someone chasing a vendor over our own flaky lookup.
+   */
+  async function checkExternalReportAuth(domain, destinations, queryOpts) {
+    var policyDomain = String(domain || '').toLowerCase().replace(/\.$/, '');
+    var unique = [];
+    var seen = new Set();
+    (destinations || []).forEach(function (d) {
+      var host = String(d || '').toLowerCase().replace(/\.$/, '');
+      if (host && !seen.has(host)) { seen.add(host); unique.push(host); }
+    });
+
+    return Promise.all(unique.map(async function (host) {
+      var exact = policyDomain + '._report._dmarc.' + host;
+      var wildcard = '*._report._dmarc.' + host;
+      try {
+        var records = await dohQuery(exact, 'TXT', queryOpts);
+        var match = records.filter(function (r) { return startsWithCI(r, 'v=DMARC1'); });
+        if (match.length) {
+          return { destination: host, state: 'authorized', via: 'exact', queryName: exact, record: match[0] };
+        }
+        var wildcardRecords = await dohQuery(wildcard, 'TXT', queryOpts);
+        var wildcardMatch = wildcardRecords.filter(function (r) { return startsWithCI(r, 'v=DMARC1'); });
+        if (wildcardMatch.length) {
+          return { destination: host, state: 'authorized', via: 'wildcard', queryName: wildcard, record: wildcardMatch[0] };
+        }
+        // A TXT record that exists but does not open with v=DMARC1 does not
+        // authorize anything — worth distinguishing from nothing at all,
+        // because it usually means a truncated or hand-mangled record.
+        var malformed = records.length || wildcardRecords.length;
+        return {
+          destination: host, state: 'unauthorized', via: null, queryName: exact,
+          record: malformed ? (records[0] || wildcardRecords[0]) : '', malformed: !!malformed,
+        };
+      } catch (e) {
+        if (e && e.name === 'AbortError') throw e;
+        return { destination: host, state: 'unverifiable', via: null, queryName: exact, record: '', error: e && e.kind };
+      }
+    }));
   }
 
   /* ── Advanced checks ────────────────────────────────────────────────── */
@@ -713,38 +932,51 @@
   ];
 
   /**
-   * DMARC sub-score, 0–30. Returns the component breakdown so the UI can
-   * explain the number rather than just assert it.
+   * DMARC sub-score, 0–30 (RFC 9989). Returns the component breakdown so the
+   * UI can explain the number rather than just assert it.
+   *
+   * Changed from the RFC 7489 rubric: `pct` no longer earns points, because
+   * RFC 9989 removed the tag and conformant receivers ignore it. Its four
+   * points moved to `policy` (+2), `rua` (+1) and a new `uris` component (+1)
+   * that pays for report destinations receivers can actually deliver to —
+   * reporting is now standards-track in its own right (RFC 9990 / 9991), and
+   * a record whose rua= is malformed is a monitoring blind spot.
+   *
+   * Test mode (`t=y`) scores at the `none` tier regardless of what p= says,
+   * because receivers are explicitly told not to apply the policy.
    */
   function calcDmarcScore(d) {
-    var parts = { policy: 0, subdomain: 0, pct: 0, rua: 0, alignment: 0, ruf: 0 };
-    // 'present' = a record exists but p= is not a recognised value. Receivers
-    // cannot act on it, so it is worth no more than having no record.
+    var parts = { policy: 0, subdomain: 0, rua: 0, alignment: 0, ruf: 0, uris: 0 };
+    // 'present' = a record receivers cannot act on (bad v=, unrecognised p=,
+    // duplicate tags). Worth no more than having no record at all.
     if (!d || d.status === 'missing' || d.status === 'present' || d.status === 'permerror') {
       return { pts: 0, parts: parts };
     }
 
-    parts.policy = { reject: 10, quarantine: 7, none: 3 }[d.policy] || 0;
+    // Score what receivers will actually do, not what the record claims.
+    parts.policy = { reject: 12, quarantine: 8, none: 3 }[d.effectivePolicy || d.policy] || 0;
 
     // Score the EFFECTIVE subdomain posture, not whether sp/np are written out.
     // Absent tags inherit p, so `p=reject` alone protects subdomains fully.
     // Take the weaker of the two branches — security is the weakest link.
-    var subRank = Math.min(
+    // Test mode collapses the whole record to none, subdomains included.
+    var subRank = d.testMode ? 0 : Math.min(
       POLICY_RANK[d.effectiveSp] !== undefined ? POLICY_RANK[d.effectiveSp] : 0,
       POLICY_RANK[d.effectiveNp] !== undefined ? POLICY_RANK[d.effectiveNp] : 0
     );
     parts.subdomain = [1, 4, 6][subRank] || 0;
 
-    // pct throttles enforcement. Irrelevant at p=none, so award in full there
-    // rather than penalising a domain for a tag that has no effect.
-    parts.pct = d.enforcing ? (4 * (d.pct / 100)) : 4;
-
-    if (d.rua) parts.rua = 5;
+    if (d.rua) parts.rua = 6;
     if (d.adkim === 's') parts.alignment += 1.5;
     if (d.aspf === 's') parts.alignment += 1.5;
     if (d.ruf) parts.ruf = 2;
 
-    var total = parts.policy + parts.subdomain + parts.pct + parts.rua + parts.alignment + parts.ruf;
+    // Deliverable report destinations. Nothing published earns nothing; a
+    // published-but-unparseable destination earns nothing either, which is the
+    // point — it looks configured and silently is not.
+    if (d.ruaUris && d.ruaUris.valid && (!d.ruf || (d.rufUris && d.rufUris.valid))) parts.uris = 1;
+
+    var total = parts.policy + parts.subdomain + parts.rua + parts.alignment + parts.ruf + parts.uris;
     return { pts: Math.round(Math.min(WEIGHTS.dmarc, total)), parts: parts };
   }
 
@@ -796,7 +1028,7 @@
 
   // Each issue carries a key (→ locale lookup) and optional `args` used to
   // fill {0} placeholders in the translated message.
-  function buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardBug, hosting, advanced }) {
+  function buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardBug, hosting, advanced, domain }) {
     const issues = [];
 
     if (wildcardBug) issues.push({ key: 'wildcard-txt', sev: 'crit' });
@@ -830,7 +1062,11 @@
     // p=quarantine is real enforcement, so this is a nudge rather than a defect —
     // reject is the end state, and nothing else surfaces that gap.
     if (dmarcStatus.status === 'ok' && dmarcStatus.policy === 'quarantine') issues.push({ key: 'dmarc-quarantine', sev: 'info' });
-    if (dmarcStatus.status === 'ok' && !dmarcStatus.rua) issues.push({ key: 'dmarc-no-rua', sev: 'info' });
+    // Test mode without reporting is the one combination that makes no sense
+    // at all: t=y exists so you can watch the reports before enforcing.
+    if ((dmarcStatus.status === 'ok' || dmarcStatus.testMode) && !dmarcStatus.rua) {
+      issues.push({ key: 'dmarc-no-rua', sev: 'info' });
+    }
 
     // Subdomain gaps only matter where the effective policy is genuinely weaker
     // than the organizational one — an absent sp/np inherits p and is fine.
@@ -840,14 +1076,103 @@
     if (dmarcStatus.enforcing && POLICY_RANK[dmarcStatus.effectiveNp] < POLICY_RANK[dmarcStatus.policy]) {
       issues.push({ key: 'dmarc-weak-np', sev: 'warn', args: [dmarcStatus.effectiveNp, dmarcStatus.policy] });
     }
-    if (dmarcStatus.enforcing && dmarcStatus.pct < 100) {
+
+    /* ── RFC 9989 conformance ──────────────────────────────────────────────
+       Severity here tracks consequence, not spec pedantry. A record receivers
+       must ignore is critical; a policy that silently is not being applied is
+       a warning; a tag that has simply stopped meaning anything is info.
+       ───────────────────────────────────────────────────────────────────── */
+
+    // v= absent, not first, or not exactly 'DMARC1' → the whole record MUST be
+    // ignored (RFC 9989 §5.4). The domain is unprotected while looking fine.
+    if (dmarcStatus.status === 'present' && dmarcStatus.version && !dmarcStatus.version.valid) {
+      issues.push({
+        key: {
+          'absent': 'dmarc-version-missing',
+          'not-first': 'dmarc-version-not-first',
+          'bad-value': 'dmarc-version-bad-value',
+        }[dmarcStatus.version.reason] || 'dmarc-version-missing',
+        sev: 'crit',
+      });
+    } else if (dmarcStatus.status === 'present' && dmarcStatus.duplicateTags && dmarcStatus.duplicateTags.length) {
+      issues.push({ key: 'dmarc-duplicate-tags', sev: 'crit', args: [dmarcStatus.duplicateTags.join(', ')] });
+    } else if (dmarcStatus.status === 'present') {
+      issues.push({ key: 'dmarc-invalid-policy', sev: 'crit' });
+    }
+
+    // t=y: receivers are told not to apply the policy. `p=reject; t=y` offers
+    // exactly as much protection as p=none, so this is the headline finding
+    // for such a record, not a footnote.
+    if (dmarcStatus.testMode && dmarcStatus.status !== 'missing' && dmarcStatus.status !== 'permerror') {
+      issues.push({ key: 'dmarc-test-mode', sev: dmarcStatus.policy === 'none' ? 'info' : 'warn', args: [dmarcStatus.policy] });
+    }
+    if (dmarcStatus.tValid === false) issues.push({ key: 'dmarc-bad-t', sev: 'warn' });
+
+    // pct= was removed by RFC 9989. "This tag is obsolete, remove it" is advice
+    // rather than a defect, so it is raised as a recommendation (see
+    // buildSuggestions) and not repeated here. What DOES belong here is the
+    // subset with a live consequence: a pct that receivers still on RFC 7489
+    // will act on differently from receivers that have migrated.
+    if (dmarcStatus.pctPresent && dmarcStatus.enforcing && dmarcStatus.pctValid && dmarcStatus.pct < 100) {
       issues.push({ key: 'dmarc-partial-pct', sev: 'warn', args: [dmarcStatus.pct, 100 - dmarcStatus.pct] });
     }
     if (dmarcStatus.status !== 'missing' && !dmarcStatus.pctValid) {
       issues.push({ key: 'dmarc-bad-pct', sev: 'warn' });
     }
-    if (dmarcStatus.status === 'present') {
-      issues.push({ key: 'dmarc-invalid-policy', sev: 'crit' });
+
+    // Report destinations that will not receive anything.
+    if (dmarcStatus.rua && dmarcStatus.ruaUris && !dmarcStatus.ruaUris.valid) {
+      issues.push({ key: 'dmarc-rua-invalid', sev: 'warn', args: [dmarcStatus.ruaUris.invalid.join(', ')] });
+    }
+    if (dmarcStatus.ruf && dmarcStatus.rufUris && !dmarcStatus.rufUris.valid) {
+      issues.push({ key: 'dmarc-ruf-invalid', sev: 'warn', args: [dmarcStatus.rufUris.invalid.join(', ')] });
+    }
+    // fo= is defined only alongside ruf=; without it, receivers MUST ignore it.
+    if (dmarcStatus.foPresent && !dmarcStatus.ruf) issues.push({ key: 'dmarc-fo-without-ruf', sev: 'info' });
+    if (dmarcStatus.foValid === false) issues.push({ key: 'dmarc-bad-fo', sev: 'warn' });
+
+    /* Reports sent outside the organizational domain need the destination to
+       authorize them (RFC 9990 §4.3), or conformant receivers drop them
+       silently. Authorization is per URI, so this reports per destination —
+       one unauthorized vendor does not invalidate the record or stop reports
+       reaching the other destinations.
+
+       When the lookup ran, say only what it found: a domain whose vendor has
+       published the record correctly should hear nothing at all. The blanket
+       "verify this" notice is the fallback for when the check did not run. */
+    var externalReports = findExternalReportDestinations(dmarcStatus, domain);
+    if (externalReports.length) {
+      var reportAuth = advanced && advanced.reportAuth;
+      if (reportAuth && reportAuth.length) {
+        var unauthorized = reportAuth.filter(function (r) { return r.state === 'unauthorized'; });
+        var unverifiable = reportAuth.filter(function (r) { return r.state === 'unverifiable'; });
+        if (unauthorized.length) {
+          issues.push({
+            key: 'dmarc-external-unauthorized', sev: 'warn',
+            args: [unauthorized.map(function (r) { return r.destination; }).join(', ')],
+          });
+        }
+        if (unverifiable.length) {
+          issues.push({
+            key: 'dmarc-external-unverifiable', sev: 'info',
+            args: [unverifiable.map(function (r) { return r.destination; }).join(', ')],
+          });
+        }
+      } else {
+        issues.push({ key: 'dmarc-external-reporting', sev: 'info', args: [externalReports.join(', ')] });
+      }
+    }
+
+    if (dmarcStatus.psdValid === false) issues.push({ key: 'dmarc-bad-psd', sev: 'warn' });
+    if (dmarcStatus.psd === 'y' && domain && getOrganizationalDomain(domain) === domain) {
+      issues.push({ key: 'dmarc-psd-invalid', sev: 'warn' });
+    }
+    if (dmarcStatus.removedTags && dmarcStatus.removedTags.length) {
+      var stillRemoved = dmarcStatus.removedTags.filter(function (k) { return k !== 'pct'; });
+      if (stillRemoved.length) issues.push({ key: 'dmarc-removed-tags', sev: 'info', args: [stillRemoved.join(', ')] });
+    }
+    if (dmarcStatus.unknownTags && dmarcStatus.unknownTags.length) {
+      issues.push({ key: 'dmarc-unknown-tags', sev: 'info', args: [dmarcStatus.unknownTags.join(', ')] });
     }
     if (emailProvider === '@porkbun-forwarding') issues.push({ key: 'porkbun-forward', sev: 'warn' });
 
@@ -879,6 +1204,16 @@
   // `guide` names the Learn more page to link to (see locales → learnMore).
   function buildSuggestions({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced }) {
     const tips = [];
+
+    // Deliberately ahead of the `advanced` guard: this one is derived from the
+    // DMARC record alone, so it must still surface when the advanced checks
+    // are switched off. RFC 9989 removed pct= outright — there is no valid
+    // value any more, so the recommendation is always "remove it", whatever
+    // the number says.
+    if (dmarcStatus && dmarcStatus.pctPresent && dmarcStatus.status !== 'missing') {
+      tips.push({ key: 'dmarc-pct-obsolete', guide: 'dmarc-rfc9989' });
+    }
+
     if (!advanced) return tips;
 
     const hasEmail = emailProvider !== '@none' && emailProvider !== '@null-mx';
@@ -922,7 +1257,9 @@
       if (spfStatus.status === 'ok') parkedSpf = PARKED_WEIGHTS.spf;          // -all blocks
       else if (spfStatus.status !== 'missing') parkedSpf = 15;                // record, not blocking
 
-      var parkedDmarc = { reject: 30, quarantine: 20, none: 8 }[dmarcStatus.policy] || 0;
+      // Test mode collapses to none here too — a parked domain publishing
+      // p=reject; t=y is not actually refusing anything.
+      var parkedDmarc = { reject: 30, quarantine: 20, none: 8 }[dmarcStatus.effectivePolicy || dmarcStatus.policy] || 0;
       if (dmarcStatus.status === 'missing') parkedDmarc = 0;
 
       var parkedPillars = [
@@ -1014,10 +1351,14 @@
     const dmarcMultiple = dmarcMatches.length > 1;
     const dmarcStatus = analyzeDmarc(dmarcRecord, dmarcMultiple);
     if (dmarcAtDomain !== d && dmarcStatus.status !== 'missing' && dmarcStatus.status !== 'permerror' && dmarcStatus.status !== 'present') {
+      // The audited name is a subdomain covered by the organizational domain's
+      // record, so sp= is what applies to it — not p=. Test mode still wins:
+      // t=y on the organizational record suppresses enforcement here too.
       dmarcStatus.inherited = true;
       dmarcStatus.organizationalPolicy = dmarcStatus.policy;
       dmarcStatus.policy = dmarcStatus.effectiveSp;
-      dmarcStatus.enforcing = dmarcStatus.policy === 'quarantine' || dmarcStatus.policy === 'reject';
+      dmarcStatus.effectivePolicy = dmarcStatus.testMode ? 'none' : dmarcStatus.policy;
+      dmarcStatus.enforcing = dmarcStatus.effectivePolicy === 'quarantine' || dmarcStatus.effectivePolicy === 'reject';
       dmarcStatus.status = dmarcStatus.enforcing ? 'ok' : 'warn';
       dmarcStatus.cls = dmarcStatus.status === 'ok' ? 'ok' : 'warn';
     }
@@ -1040,15 +1381,16 @@
     }
 
     // ── Advanced checks ──
-    let advanced = { bimi: null, mtaSts: null, tlsRpt: null, caa: null, dnssec: null, spfLookups: null };
+    let advanced = { bimi: null, mtaSts: null, tlsRpt: null, caa: null, dnssec: null, spfLookups: null, reportAuth: null };
     if (opts.advanced) {
-      const [bimiTxt, mtaStsTxt, tlsRptTxt, caaResult, dnssecResult, spfLookups] = await Promise.all([
+      const [bimiTxt, mtaStsTxt, tlsRptTxt, caaResult, dnssecResult, spfLookups, reportAuth] = await Promise.all([
         dohQuery(`default._bimi.${d}`, 'TXT', queryOpts),
         dohQuery(`_mta-sts.${d}`, 'TXT', queryOpts),
         dohQuery(`_smtp._tls.${d}`, 'TXT', queryOpts),
         checkCAA(d, queryOpts),
         checkDNSSEC(d, queryOpts),
         spfRecord ? countSpfLookups(spfRecord, d, queryOpts) : Promise.resolve({ count: 0, warning: false, error: false, voidLookups: 0, cycles: [], indeterminate: false }),
+        checkExternalReportAuth(dmarcAtDomain, findExternalReportDestinations(dmarcStatus, dmarcAtDomain), queryOpts),
       ]);
 
       // All three specs say the same thing: filter to the versioned records,
@@ -1074,10 +1416,11 @@
         caa: caaResult,
         dnssec: dnssecResult,
         spfLookups,
+        reportAuth,
       };
     }
 
-    const issues = buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardBug, hosting, advanced });
+    const issues = buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardBug, hosting, advanced, domain: d });
     const suggestions = buildSuggestions({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
     const score = calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardBug, advanced });
     const advScore = opts.advanced ? calcAdvScore(advanced) : null;
@@ -1109,6 +1452,10 @@
     analyzeSpf,
     analyzeDmarc,
     parseDmarcTag,
+    validateDmarcVersion,
+    parseDmarcUriList,
+    findExternalReportDestinations,
+    checkExternalReportAuth,
     startsWithCI,
     countSpfLookups,
     parseSpfTerms,
@@ -1125,5 +1472,7 @@
     PARKED_WEIGHTS,
     GRADE_THRESHOLDS,
     POLICY_RANK,
+    DMARC_TAGS_RFC9989,
+    DMARC_TAGS_REMOVED,
   };
 })(window);

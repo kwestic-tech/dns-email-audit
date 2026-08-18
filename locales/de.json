@@ -246,6 +246,7 @@
       "DKIM-Selektoren",
       "DMARC-Status",
       "DMARC-Richtlinie",
+      "DMARC Test Mode (t=)",
       "DMARC sp",
       "DMARC np",
       "DMARC pct",
@@ -640,7 +641,6 @@
       "label": "DMARC-Aufschlüsselung",
       "policy": "Richtlinie (p=)",
       "subdomain": "Subdomain-Abdeckung",
-      "pct": "Durchsetzungsrate (pct=)",
       "rua": "Aggregatberichte (rua=)",
       "alignment": "Strikte Ausrichtung",
       "ruf": "Forensische Berichte (ruf=)"

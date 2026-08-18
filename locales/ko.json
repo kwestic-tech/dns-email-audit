@@ -246,6 +246,7 @@
       "DKIM 셀렉터",
       "DMARC 상태",
       "DMARC 정책",
+      "DMARC Test Mode (t=)",
       "DMARC sp",
       "DMARC np",
       "DMARC pct",
@@ -640,7 +641,6 @@
       "label": "DMARC 세부 분석",
       "policy": "정책 (p=)",
       "subdomain": "서브도메인 적용 범위",
-      "pct": "강제 적용 비율 (pct=)",
       "rua": "종합 보고서 (rua=)",
       "alignment": "엄격한 얼라인먼트",
       "ruf": "포렌식 보고서 (ruf=)"
