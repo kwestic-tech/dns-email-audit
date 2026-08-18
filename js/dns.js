@@ -17,6 +17,12 @@
 
   var DOH = 'https://cloudflare-dns.com/dns-query';
   var DKIM_SELECTORS = ['google', 'default', 'mail', 's1', 's2', 'selector1', 'selector2', 'dkim', 'sig1', 'odoo'];
+  var DOH_TIMEOUT_MS = 8000;
+  var DOH_RETRIES = 1;
+  var MAX_DOH_CONCURRENCY = 16;
+  var dohCache = new Map();
+  var activeDoh = 0;
+  var dohWaiters = [];
 
   /* ── DNS-over-HTTPS core ────────────────────────────────────────────── */
 
@@ -24,40 +30,126 @@
     return { NS: 2, A: 1, AAAA: 28, MX: 15, TXT: 16, CNAME: 5, CAA: 257 }[type] ?? 16;
   }
 
-  async function dohFetch(name, type, opts = {}) {
+  function dnsError(kind, name, type, detail) {
+    var e = new Error(kind + ' while querying ' + name + ' ' + type + (detail ? ': ' + detail : ''));
+    e.name = kind === 'cancelled' ? 'AbortError' : 'DnsQueryError';
+    e.kind = kind;
+    e.queryName = name;
+    e.queryType = type;
+    return e;
+  }
+
+  async function acquireDohSlot(signal) {
+    if (signal && signal.aborted) throw dnsError('cancelled', '', '');
+    if (activeDoh < MAX_DOH_CONCURRENCY) { activeDoh++; return; }
+    await new Promise(function (resolve, reject) {
+      var waiter = { resolve: resolve, reject: reject, signal: signal, onAbort: null };
+      if (signal) {
+        waiter.onAbort = function () {
+          var idx = dohWaiters.indexOf(waiter);
+          if (idx !== -1) dohWaiters.splice(idx, 1);
+          reject(dnsError('cancelled', '', ''));
+        };
+        signal.addEventListener('abort', waiter.onAbort, { once: true });
+      }
+      dohWaiters.push(waiter);
+    });
+    activeDoh++;
+  }
+
+  function releaseDohSlot() {
+    activeDoh = Math.max(0, activeDoh - 1);
+    var waiter = dohWaiters.shift();
+    if (!waiter) return;
+    if (waiter.signal && waiter.onAbort) waiter.signal.removeEventListener('abort', waiter.onAbort);
+    waiter.resolve();
+  }
+
+  function responseKind(status, answerCount) {
+    if (status === 0) return answerCount ? 'success' : 'nodata';
+    if (status === 3) return 'nxdomain';
+    if (status === 2) return 'servfail';
+    if (status === 5) return 'refused';
+    return 'dns-error';
+  }
+
+  async function fetchDohOnce(name, type, opts) {
+    await acquireDohSlot(opts.signal);
+    var controller = new AbortController();
+    var timedOut = false;
+    var timer = setTimeout(function () { timedOut = true; controller.abort(); }, opts.timeoutMs || DOH_TIMEOUT_MS);
+    var forwardAbort = function () { controller.abort(); };
+    if (opts.signal) opts.signal.addEventListener('abort', forwardAbort, { once: true });
     try {
-      const params = new URLSearchParams({ name, type: String(dnsTypeNum(type)) });
+      const params = new URLSearchParams({ name: name, type: String(dnsTypeNum(type)) });
       if (opts.dnssec) params.set('do', '1');
-      const r = await fetch(`${DOH}?${params}`, { headers: { Accept: 'application/dns-json' } });
-      if (!r.ok) return { answers: [], ad: false, status: -1 };
+      if (opts.checkingDisabled) params.set('cd', '1');
+      const r = await fetch(`${DOH}?${params}`, {
+        headers: { Accept: 'application/dns-json' }, signal: controller.signal,
+      });
+      if (!r.ok) return { answers: [], ad: false, status: -1, kind: 'http-error', httpStatus: r.status };
       const j = await r.json();
-      return { answers: j.Answer || [], ad: j.AD === true, status: j.Status };
-    } catch {
-      return { answers: [], ad: false, status: -1 };
+      const answers = Array.isArray(j.Answer) ? j.Answer : [];
+      const status = Number.isInteger(j.Status) ? j.Status : -1;
+      return { answers: answers, ad: j.AD === true, status: status, kind: responseKind(status, answers.length) };
+    } catch (e) {
+      if (opts.signal && opts.signal.aborted) return { answers: [], ad: false, status: -1, kind: 'cancelled' };
+      return { answers: [], ad: false, status: -1, kind: timedOut ? 'timeout' : 'network-error' };
+    } finally {
+      clearTimeout(timer);
+      if (opts.signal) opts.signal.removeEventListener('abort', forwardAbort);
+      releaseDohSlot();
     }
   }
 
-  async function dohQuery(name, type) {
-    const { answers } = await dohFetch(name, type);
-    const num = dnsTypeNum(type);
-    return answers.filter(a => a.type === num).map(a => a.data.replace(/^"|"$/g, '').trim());
+  async function dohFetch(name, type, opts = {}) {
+    const normalizedName = String(name || '').toLowerCase().replace(/\.$/, '');
+    const key = [normalizedName, type, opts.dnssec ? 1 : 0, opts.checkingDisabled ? 1 : 0].join('|');
+    if (!opts.noCache && dohCache.has(key)) return dohCache.get(key);
+    var result;
+    var retries = opts.retries ?? DOH_RETRIES;
+    for (var attempt = 0; attempt <= retries; attempt++) {
+      result = await fetchDohOnce(normalizedName, type, opts);
+      if (result.kind === 'success' || result.kind === 'nodata' || result.kind === 'nxdomain' || result.kind === 'cancelled') break;
+      if (attempt < retries) await new Promise(function (resolve) { setTimeout(resolve, 150 * (attempt + 1)); });
+    }
+    if (!opts.noCache && result && (result.kind === 'success' || result.kind === 'nodata' || result.kind === 'nxdomain')) dohCache.set(key, result);
+    return result;
   }
 
-  async function dohAll(name, type) {
-    const { answers } = await dohFetch(name, type);
-    return answers.map(a => a.data.replace(/^"|"$/g, '').trim());
+  function requireUsable(result, name, type) {
+    if (result.kind === 'success' || result.kind === 'nodata' || result.kind === 'nxdomain') return result;
+    throw dnsError(result.kind, name, type, result.httpStatus ? 'HTTP ' + result.httpStatus : '');
+  }
+
+  function cleanAnswerData(data, type) {
+    var value = String(data || '').trim();
+    if (type !== 'TXT') return value.replace(/^"|"$/g, '').trim();
+    var chunks = [];
+    var re = /"((?:\\.|[^"\\])*)"/g;
+    var match;
+    while ((match = re.exec(value))) {
+      try { chunks.push(JSON.parse('"' + match[1] + '"')); }
+      catch (e) { chunks.push(match[1]); }
+    }
+    return chunks.length ? chunks.join('') : value.replace(/^"|"$/g, '');
+  }
+
+  async function dohQuery(name, type, opts) {
+    const { answers } = requireUsable(await dohFetch(name, type, opts), name, type);
+    const num = dnsTypeNum(type);
+    return answers.filter(a => a.type === num).map(a => cleanAnswerData(a.data, type));
+  }
+
+  async function dohAll(name, type, opts) {
+    const { answers } = requireUsable(await dohFetch(name, type, opts), name, type);
+    return answers.map(a => cleanAnswerData(a.data, a.type === 16 ? 'TXT' : type));
   }
 
   /** Pre-flight: can we reach the resolver at all? */
   async function checkConnectivity() {
-    try {
-      const r = await fetch(`${DOH}?name=example.com&type=1`, { headers: { Accept: 'application/dns-json' } });
-      if (!r.ok) return false;
-      const j = await r.json();
-      return Array.isArray(j.Answer) || j.Status !== undefined;
-    } catch {
-      return false;
-    }
+    const result = await dohFetch('example.com', 'A', { noCache: true, retries: 0, timeoutMs: 5000 });
+    return result.kind === 'success' || result.kind === 'nodata';
   }
 
   /* ── Provider detection ─────────────────────────────────────────────── */
@@ -71,6 +163,32 @@
   // a security tool, so match liberally here and validate the contents later.
   function startsWithCI(value, prefix) {
     return String(value || '').slice(0, prefix.length).toLowerCase() === prefix.toLowerCase();
+  }
+
+  var PSL_EXACT = new Set();
+  var PSL_WILDCARD = new Set();
+  var PSL_EXCEPTION = new Set();
+  (global.__PUBLIC_SUFFIX_RULES__ || []).forEach(function (rule) {
+    if (rule[0] === '!') PSL_EXCEPTION.add(rule.slice(1));
+    else if (rule.startsWith('*.')) PSL_WILDCARD.add(rule.slice(2));
+    else PSL_EXACT.add(rule);
+  });
+
+  function getOrganizationalDomain(domain) {
+    var labels = String(domain || '').toLowerCase().replace(/\.$/, '').split('.').filter(Boolean);
+    if (labels.length < 2) return labels.join('.');
+    var suffixLength = 1; // prevailing "*" rule when the PSL has no match
+    for (var i = 0; i < labels.length; i++) {
+      var candidate = labels.slice(i).join('.');
+      if (PSL_EXCEPTION.has(candidate)) {
+        suffixLength = Math.max(1, labels.length - i - 1);
+        break;
+      }
+      if (PSL_EXACT.has(candidate)) suffixLength = Math.max(suffixLength, labels.length - i);
+      if (i > 0 && PSL_WILDCARD.has(candidate)) suffixLength = Math.max(suffixLength, labels.length - i + 1);
+    }
+    if (labels.length <= suffixLength) return labels.join('.');
+    return labels.slice(-(suffixLength + 1)).join('.');
   }
 
   function detectDNSProvider(ns, domain) {
@@ -107,8 +225,15 @@
     return '@custom';
   }
 
-  function detectEmailProvider(mx, domain) {
-    if (!mx.length) return '@none';
+  function isNullMx(mx) {
+    if (mx.length !== 1) return false;
+    var parts = String(mx[0]).trim().split(/\s+/);
+    return parts.length === 2 && parts[0] === '0' && parts[1] === '.';
+  }
+
+  function detectEmailProvider(mx, domain, addressRecords) {
+    if (isNullMx(mx)) return '@null-mx';
+    if (!mx.length) return addressRecords && addressRecords.length ? '@implicit-mx' : '@none';
     const m = mx.join(' ').toLowerCase();
     if (m.includes('aspmx.l.google') || m.includes('smtp.google') || m.includes('googlemail')) return 'Google Workspace';
     if (m.includes('icloud') || m.includes('mail.icloud')) return 'Apple iCloud';
@@ -148,7 +273,6 @@
     if (c.includes('porkbun')) return 'Porkbun Hosting';
     if (c.includes('fastly')) return 'Fastly';
     if (c.includes('icloudmailadmin')) return '@dash';
-    if (c.includes(domain)) return '@cname-loop';
     if (a.includes('104.21') || a.includes('172.67') || a.includes('104.18')) return '@cloudflare-proxied';
     if (a.includes('185.199.')) return 'GitHub Pages';
     if (a.includes('76.76.21') || a.includes('76.223')) return 'Vercel';
@@ -167,22 +291,24 @@
     if (multiple) return { status: 'permerror', cls: 'crit', warnings: ['spf-multiple-records'] };
     if (!spf) return { status: 'missing', cls: 'crit', warnings: [] };
     const warnings = [];
-    if (emailProvider === 'Google Workspace' && !spf.includes('_spf.google.com') && !spf.includes('google.com')) warnings.push('spf-missing-google');
-    if (emailProvider === 'Apple iCloud' && !spf.includes('icloud')) warnings.push('spf-missing-icloud');
-    if (emailProvider === 'Microsoft 365' && !spf.includes('protection.outlook')) warnings.push('spf-missing-microsoft');
-    if (spf.includes('+all')) warnings.push('spf-all-permit');
-    if (spf.includes('?all')) warnings.push('spf-neutral');
+    const lower = spf.toLowerCase();
+    if (emailProvider === 'Google Workspace' && !lower.includes('_spf.google.com') && !lower.includes('google.com')) warnings.push('spf-missing-google');
+    if (emailProvider === 'Apple iCloud' && !lower.includes('icloud')) warnings.push('spf-missing-icloud');
+    if (emailProvider === 'Microsoft 365' && !lower.includes('protection.outlook')) warnings.push('spf-missing-microsoft');
+    if (/(?:^|\s)\+all(?:\s|$)/i.test(spf)) warnings.push('spf-all-permit');
+    if (/(?:^|\s)\?all(?:\s|$)/i.test(spf)) warnings.push('spf-neutral');
     if (warnings.length) return { status: 'warn', cls: 'warn', warnings };
-    if (spf.includes('-all')) return { status: 'ok', cls: 'ok', warnings: [] };
-    if (spf.includes('~all')) return { status: 'softfail', cls: 'warn', warnings: ['spf-softfail'] };
+    if (/(?:^|\s)-all(?:\s|$)/i.test(spf)) return { status: 'ok', cls: 'ok', warnings: [] };
+    if (/(?:^|\s)~all(?:\s|$)/i.test(spf)) return { status: 'softfail', cls: 'warn', warnings: ['spf-softfail'] };
     return { status: 'present', cls: 'ok', warnings: [] };
   }
 
-  async function checkDKIM(domain, wildcardBug) {
-    const checks = await Promise.all(DKIM_SELECTORS.map(async sel => {
+  async function checkDKIM(domain, wildcardBug, selectors, queryOpts) {
+    var selectorList = Array.from(new Set(DKIM_SELECTORS.concat(selectors || []))).slice(0, 30);
+    const checks = await Promise.all(selectorList.map(async sel => {
       const [txt, cname] = await Promise.all([
-        dohQuery(`${sel}._domainkey.${domain}`, 'TXT'),
-        dohAll(`${sel}._domainkey.${domain}`, 'CNAME'),
+        dohQuery(`${sel}._domainkey.${domain}`, 'TXT', queryOpts),
+        dohAll(`${sel}._domainkey.${domain}`, 'CNAME', queryOpts),
       ]);
       return { sel, txt, cname };
     }));
@@ -203,9 +329,9 @@
     }
 
     if (!found.length) {
-      return { found: false, selectors: [], duplicated, note: wildcardBug ? 'noteWildcard' : 'noteNotFound' };
+      return { found: false, selectors: [], testedSelectors: selectorList, duplicated, confidence: 'sampled', note: wildcardBug ? 'noteWildcard' : 'noteNotFound' };
     }
-    return { found: true, selectors: found, duplicated, note: '' };
+    return { found: true, selectors: found, testedSelectors: selectorList, duplicated, confidence: 'observed', note: '' };
   }
 
   // Valid policy values per RFC 7489 §6.3, ordered weakest → strongest.
@@ -262,6 +388,7 @@
       };
     }
 
+    var parsedTags = parseTagList(dmarc);
     var tag = function (name) { return parseDmarcTag(dmarc, name); };
 
     var rawPolicy = tag('p');
@@ -293,8 +420,9 @@
 
     // `present` covers a record whose p= value is unrecognized — malformed, but
     // a record exists, so it is neither 'missing' nor trustworthy enforcement.
-    var status = enforcing ? 'ok'
-      : (rawPolicy !== null && normalizePolicy(rawPolicy) === null) ? 'present'
+    var malformed = rawPolicy === null || normalizePolicy(rawPolicy) === null || parsedTags.duplicates.length > 0;
+    var status = malformed ? 'present'
+      : enforcing ? 'ok'
         : 'warn';
 
     return {
@@ -305,17 +433,18 @@
       pct: pct, pctValid: pctValid,
       adkim: adkim, aspf: aspf,
       rua: rua, ruf: ruf, enforcing: enforcing,
+      malformed: malformed, duplicateTags: parsedTags.duplicates,
     };
   }
 
   /* ── Advanced checks ────────────────────────────────────────────────── */
 
-  async function checkCAA(domain) {
+  async function checkCAA(domain, queryOpts) {
     // Walk up the domain tree (CAA can be inherited from parent)
     const parts = domain.split('.');
     for (let i = 0; i < parts.length - 1; i++) {
       const check = parts.slice(i).join('.');
-      const { answers } = await dohFetch(check, 'CAA');
+      const { answers } = requireUsable(await dohFetch(check, 'CAA', queryOpts), check, 'CAA');
       const caaAnswers = answers.filter(a => a.type === 257);
       if (caaAnswers.length > 0) {
         return { found: true, records: caaAnswers.map(a => a.data), atDomain: check };
@@ -324,36 +453,135 @@
     return { found: false, records: [], atDomain: null };
   }
 
-  async function checkDNSSEC(domain) {
-    // Check AD (Authenticated Data) flag — true means DNSSEC validates
-    const { ad } = await dohFetch(domain, 'NS', { dnssec: true });
-    return { signed: ad };
+  function parseTagList(record) {
+    var tags = {};
+    var duplicates = [];
+    String(record || '').split(';').forEach(function (part) {
+      var at = part.indexOf('=');
+      if (at === -1) return;
+      var key = part.slice(0, at).trim().toLowerCase();
+      var value = part.slice(at + 1).trim();
+      if (Object.prototype.hasOwnProperty.call(tags, key)) duplicates.push(key);
+      else tags[key] = value;
+    });
+    return { tags: tags, duplicates: duplicates };
   }
 
-  async function countSpfLookups(spf, domain) {
-    // Count top-level lookup mechanisms, then follow one level of includes
-    const mxCount = (spf.match(/(?:^|\s)[+\-~?]?mx(?::|$|\s)/g) || []).length;
-    const aCount = (spf.match(/(?:^|\s)[+\-~?]?a(?::|$|\s)/g) || []).length;
-    const existsCount = (spf.match(/exists:[^\s]+/g) || []).length;
-    const includes = (spf.match(/include:[^\s]+/g) || []).map(s => s.replace('include:', ''));
-    const redirects = (spf.match(/redirect=[^\s]+/g) || []).map(s => s.replace('redirect=', ''));
+  function validateMtaStsRecord(record) {
+    var parsed = parseTagList(record);
+    var valid = parsed.tags.v && parsed.tags.v.toLowerCase() === 'stsv1' && !!parsed.tags.id && !parsed.duplicates.length;
+    return { valid: valid, id: parsed.tags.id || '', errors: parsed.duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'] };
+  }
 
-    let count = mxCount + aCount + existsCount + includes.length + redirects.length;
+  function validateTlsRptRecord(record) {
+    var parsed = parseTagList(record);
+    var destinations = String(parsed.tags.rua || '').split(',').map(function (v) { return v.trim(); }).filter(Boolean);
+    var validDestination = destinations.length && destinations.every(function (v) { return /^(mailto:|https:)/i.test(v); });
+    var valid = parsed.tags.v && parsed.tags.v.toLowerCase() === 'tlsrptv1' && validDestination && !parsed.duplicates.length;
+    return { valid: !!valid, destinations: destinations, errors: parsed.duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'] };
+  }
 
-    // Follow includes one level deep
-    const subCounts = await Promise.all([...includes, ...redirects].map(async inc => {
-      const txts = await dohQuery(inc, 'TXT');
-      const subSpf = txts.find(v => startsWithCI(v, 'v=spf1')) || '';
-      if (!subSpf) return 0;
-      const subMx = (subSpf.match(/(?:^|\s)[+\-~?]?mx(?::|$|\s)/g) || []).length;
-      const subA = (subSpf.match(/(?:^|\s)[+\-~?]?a(?::|$|\s)/g) || []).length;
-      const subEx = (subSpf.match(/exists:[^\s]+/g) || []).length;
-      const subInc = (subSpf.match(/include:[^\s]+/g) || []).length;
-      return subMx + subA + subEx + subInc;
-    }));
+  function validateBimiRecord(record) {
+    var parsed = parseTagList(record);
+    var logo = parsed.tags.l || '';
+    var authority = parsed.tags.a || '';
+    var valid = parsed.tags.v && parsed.tags.v.toLowerCase() === 'bimi1' && /^https:\/\//i.test(logo) &&
+      (!authority || /^https:\/\//i.test(authority)) && !parsed.duplicates.length;
+    return { valid: !!valid, logo: logo, authority: authority, errors: parsed.duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'] };
+  }
 
-    count += subCounts.reduce((a, b) => a + b, 0);
-    return { count, warning: count >= 8, error: count >= 10 };
+  async function resolveWebsite(domain, queryOpts) {
+    var current = 'www.' + domain;
+    var visited = new Set();
+    var chain = [];
+    for (var depth = 0; depth < 12; depth++) {
+      if (visited.has(current)) return { loop: true, chain: chain, addresses: [] };
+      visited.add(current);
+      var result = requireUsable(await dohFetch(current, 'CNAME', queryOpts), current, 'CNAME');
+      var cnames = result.answers.filter(function (a) { return a.type === 5; })
+        .map(function (a) { return a.data.replace(/\.$/, '').toLowerCase(); });
+      if (!cnames.length) {
+        var addresses = await Promise.all([dohQuery(current, 'A', queryOpts), dohQuery(current, 'AAAA', queryOpts)]);
+        return { loop: false, chain: chain, addresses: addresses[0].concat(addresses[1]) };
+      }
+      current = cnames[0];
+      chain.push(current);
+    }
+    return { loop: true, chain: chain, addresses: [] };
+  }
+
+  async function checkDNSSEC(domain, queryOpts) {
+    // AD=true means the validating resolver authenticated the answer. If the
+    // normal query SERVFAILs but succeeds with checking disabled, the chain is
+    // bogus rather than merely unsigned.
+    const validated = await dohFetch(domain, 'NS', Object.assign({}, queryOpts, { dnssec: true }));
+    if (validated.kind === 'success' || validated.kind === 'nodata') {
+      return { signed: validated.ad, state: validated.ad ? 'secure' : 'insecure' };
+    }
+    if (validated.kind === 'servfail') {
+      const unchecked = await dohFetch(domain, 'NS', Object.assign({}, queryOpts, { dnssec: true, checkingDisabled: true }));
+      if (unchecked.kind === 'success' || unchecked.kind === 'nodata') return { signed: false, state: 'bogus' };
+    }
+    return { signed: false, state: 'indeterminate', error: validated.kind };
+  }
+
+  function parseSpfTerms(spf) {
+    return String(spf || '').trim().split(/\s+/).slice(1).map(function (raw) {
+      var term = raw.toLowerCase();
+      var qualifier = /^[+\-~?]/.test(term) ? term[0] : '+';
+      if (qualifier !== '+') term = term.slice(1);
+      var modifierAt = term.indexOf('=');
+      if (modifierAt !== -1) return { raw: raw, name: term.slice(0, modifierAt), value: term.slice(modifierAt + 1), modifier: true };
+      var mechanism = term.split(/[:/]/, 1)[0];
+      var value = term.indexOf(':') === -1 ? '' : term.slice(term.indexOf(':') + 1).split('/')[0];
+      return { raw: raw, name: mechanism, value: value, qualifier: qualifier, modifier: false };
+    });
+  }
+
+  async function countSpfLookups(spf, domain, queryOpts) {
+    var visited = new Set();
+    var cycles = [];
+    var voidLookups = 0;
+    var indeterminate = false;
+
+    async function walk(record, recordDomain, depth) {
+      if (depth > 20) { indeterminate = true; return 0; }
+      var terms = parseSpfTerms(record);
+      var count = 0;
+      for (var i = 0; i < terms.length; i++) {
+        var term = terms[i];
+        var causesLookup = (!term.modifier && ['include', 'a', 'mx', 'ptr', 'exists'].includes(term.name)) ||
+          (term.modifier && term.name === 'redirect');
+        if (!causesLookup) continue;
+        count++;
+
+        if ((term.name === 'include' || term.name === 'redirect') && term.value) {
+          if (term.value.includes('%{')) { indeterminate = true; continue; }
+          var child = term.value.toLowerCase().replace(/\.$/, '');
+          var edge = recordDomain + '>' + child;
+          if (visited.has(edge)) { cycles.push(child); continue; }
+          visited.add(edge);
+          var result = requireUsable(await dohFetch(child, 'TXT', queryOpts), child, 'TXT');
+          var txts = result.answers.filter(function (a) { return a.type === 16; })
+            .map(function (a) { return cleanAnswerData(a.data, 'TXT'); });
+          var records = txts.filter(function (v) { return startsWithCI(v, 'v=spf1'); });
+          if (!records.length) { voidLookups++; continue; }
+          if (records.length > 1) { indeterminate = true; continue; }
+          count += await walk(records[0], child, depth + 1);
+        }
+      }
+      return count;
+    }
+
+    var count = await walk(spf, domain, 0);
+    return {
+      count: count,
+      warning: count >= 8 && count <= 10,
+      error: count > 10 || voidLookups > 2,
+      voidLookups: voidLookups,
+      cycles: cycles,
+      indeterminate: indeterminate,
+    };
   }
 
   /* ── Scoring model ──────────────────────────────────────────────────────
@@ -372,7 +600,7 @@
     caa: 10, mtaSts: 8, bimi: 4, tlsRpt: 3,
   };
 
-  // Parked domains (no MX) are scored on a different rubric: DKIM, BIMI,
+  // Parked domains (an explicit null MX) are scored on a different rubric: DKIM, BIMI,
   // MTA-STS and TLS-RPT are meaningless without mail flow, so the weight
   // redistributes onto the checks that actually harden an unused domain.
   var PARKED_WEIGHTS = { spf: 30, dmarc: 30, dnssec: 25, caa: 15 };
@@ -459,7 +687,7 @@
     if (!adv) return null;
     const checks = [
       adv.bimi?.present,
-      adv.mtaSts?.present,
+      adv.mtaSts?.policyVerified,
       adv.tlsRpt?.present,
       adv.caa?.found,
       adv.dnssec?.signed,
@@ -477,6 +705,7 @@
     if (wildcardBug) issues.push({ key: 'wildcard-txt', sev: 'crit' });
     if (hosting === '@cname-loop') issues.push({ key: 'dns-loop', sev: 'crit' });
     if (emailProvider === '@none') issues.push({ key: 'no-mx', sev: 'crit' });
+    if (emailProvider === '@implicit-mx') issues.push({ key: 'implicit-mx', sev: 'warn' });
     // Multiple-record failures come first: the fix ("delete the duplicate")
     // differs from the missing-record fix ("publish one"), and a domain in this
     // state must not also be told its record is absent.
@@ -492,8 +721,11 @@
       });
     }
 
-    if (!dkimStatus.found && emailProvider !== '@none' && emailProvider !== '@porkbun-forwarding') {
-      issues.push({ key: 'dkim-missing', sev: 'warn', noteKey: dkimStatus.note });
+    if (!dkimStatus.found && dkimStatus.confidence !== 'not-checked' && emailProvider !== '@none' && emailProvider !== '@null-mx' && emailProvider !== '@porkbun-forwarding') {
+      issues.push({
+        key: dkimStatus.confidence === 'sampled' ? 'dkim-unverified' : 'dkim-missing',
+        sev: dkimStatus.confidence === 'sampled' ? 'info' : 'warn', noteKey: dkimStatus.note,
+      });
     }
     if (dmarcStatus.status === 'permerror') issues.push({ key: 'dmarc-multiple-records', sev: 'crit' });
     else if (dmarcStatus.status === 'missing') issues.push({ key: 'dmarc-missing', sev: 'warn' });
@@ -524,8 +756,12 @@
 
     // Silently-inactive controls: configured, believed working, not working.
     if (advanced?.mtaSts?.multiple) issues.push({ key: 'mta-sts-multiple-records', sev: 'warn' });
+    else if (advanced?.mtaSts?.advertised && !advanced.mtaSts.present) issues.push({ key: 'mta-sts-invalid', sev: 'warn' });
+    else if (advanced?.mtaSts?.present && !advanced.mtaSts.policyVerified) issues.push({ key: 'mta-sts-policy-unverified', sev: 'info' });
     if (advanced?.tlsRpt?.multiple) issues.push({ key: 'tls-rpt-multiple-records', sev: 'warn' });
+    else if (advanced?.tlsRpt?.advertised && !advanced.tlsRpt.present) issues.push({ key: 'tls-rpt-invalid', sev: 'warn' });
     if (advanced?.bimi?.multiple) issues.push({ key: 'bimi-multiple-records', sev: 'warn' });
+    else if (advanced?.bimi?.advertised && !advanced.bimi.present) issues.push({ key: 'bimi-invalid', sev: 'warn' });
     if (dkimStatus?.duplicated?.length) {
       issues.push({ key: 'dkim-multiple-records', sev: 'warn', args: [dkimStatus.duplicated.join(', ')] });
     }
@@ -535,6 +771,10 @@
     } else if (advanced?.spfLookups?.warning) {
       issues.push({ key: 'spf-near-limit', sev: 'warn', args: [advanced.spfLookups.count] });
     }
+    if (advanced?.spfLookups?.cycles?.length) issues.push({ key: 'spf-cycle', sev: 'crit', args: [advanced.spfLookups.cycles.join(', ')] });
+    if (advanced?.spfLookups?.indeterminate) issues.push({ key: 'spf-indeterminate', sev: 'info' });
+    if (advanced?.dnssec?.state === 'bogus') issues.push({ key: 'dnssec-bogus', sev: 'crit' });
+    else if (advanced?.dnssec?.state === 'indeterminate') issues.push({ key: 'dnssec-indeterminate', sev: 'info' });
 
     return issues;
   }
@@ -544,7 +784,7 @@
     const tips = [];
     if (!advanced) return tips;
 
-    const hasEmail = emailProvider !== '@none';
+    const hasEmail = emailProvider !== '@none' && emailProvider !== '@null-mx';
     const dmarcEnforced = dmarcStatus.status === 'ok' && (dmarcStatus.policy === 'quarantine' || dmarcStatus.policy === 'reject');
 
     if (advanced.bimi?.multiple) { /* duplicate already raised as an issue */ }
@@ -572,6 +812,7 @@
     }
 
     var dnssecSigned = !!(advanced && advanced.dnssec && advanced.dnssec.signed);
+    var dnssecUnknown = !!(advanced && advanced.dnssec && advanced.dnssec.state === 'indeterminate');
     var dmarc = calcDmarcScore(dmarcStatus);
 
     // ── Parked / no-email domain ────────────────────────────────────────
@@ -579,7 +820,7 @@
     // by refusing it outright (null MX + SPF -all + DMARC reject), so it can
     // legitimately reach the A tier. DKIM/BIMI/MTA-STS/TLS-RPT are excluded
     // because they cannot apply.
-    if (emailProvider === '@none') {
+    if (emailProvider === '@null-mx') {
       var parkedSpf = 0;
       if (spfStatus.status === 'ok') parkedSpf = PARKED_WEIGHTS.spf;          // -all blocks
       else if (spfStatus.status !== 'missing') parkedSpf = 15;                // record, not blocking
@@ -604,23 +845,29 @@
     }
 
     // ── Active email domain ─────────────────────────────────────────────
+    var dkimUnknown = !!(dkimStatus && !dkimStatus.found && (dkimStatus.confidence === 'sampled' || dkimStatus.confidence === 'not-checked'));
     var pillars = [
       { key: 'dmarc', pts: dmarc.pts, max: WEIGHTS.dmarc },
       { key: 'spf', pts: calcSpfScore(spfStatus, advanced), max: WEIGHTS.spf },
-      { key: 'dkim', pts: dkimStatus && dkimStatus.found ? WEIGHTS.dkim : 0, max: WEIGHTS.dkim },
-      { key: 'dnssec', pts: dnssecSigned ? WEIGHTS.dnssec : 0, max: WEIGHTS.dnssec },
+      { key: 'dkim', pts: dkimStatus && dkimStatus.found ? WEIGHTS.dkim : dkimUnknown ? null : 0, max: WEIGHTS.dkim, unknown: dkimUnknown },
+      { key: 'dnssec', pts: dnssecSigned ? WEIGHTS.dnssec : dnssecUnknown ? null : 0, max: WEIGHTS.dnssec, unknown: dnssecUnknown },
       { key: 'caa', pts: (advanced && advanced.caa && advanced.caa.found) ? WEIGHTS.caa : 0, max: WEIGHTS.caa },
-      { key: 'mtaSts', pts: (advanced && advanced.mtaSts && advanced.mtaSts.present) ? WEIGHTS.mtaSts : 0, max: WEIGHTS.mtaSts },
+      { key: 'mtaSts', pts: (advanced && advanced.mtaSts && advanced.mtaSts.present && advanced.mtaSts.policyVerified !== false) ? WEIGHTS.mtaSts :
+        (advanced && advanced.mtaSts && advanced.mtaSts.present) ? WEIGHTS.mtaSts / 2 : 0, max: WEIGHTS.mtaSts },
       { key: 'bimi', pts: (advanced && advanced.bimi && advanced.bimi.present) ? WEIGHTS.bimi : 0, max: WEIGHTS.bimi },
       { key: 'tlsRpt', pts: (advanced && advanced.tlsRpt && advanced.tlsRpt.present) ? WEIGHTS.tlsRpt : 0, max: WEIGHTS.tlsRpt },
     ];
 
-    var pts = pillars.reduce(function (sum, p) { return sum + p.pts; }, 0);
+    var pts = pillars.reduce(function (sum, p) { return sum + (p.pts || 0); }, 0);
+    var unknownPoints = pillars.reduce(function (sum, p) { return sum + (p.unknown ? p.max : 0); }, 0);
+    var maxPossible = Math.min(100, pts + unknownPoints);
     var graded = gradeFor(pts, dnssecSigned);
+    var upper = gradeFor(maxPossible, dnssecSigned || dnssecUnknown);
+    var displayGrade = graded.grade === upper.grade ? graded.grade : graded.grade + '–' + upper.grade;
 
     return {
-      grade: graded.grade, cls: graded.cls,
-      pts: pts, max: 100, parked: false,
+      grade: displayGrade, gradeMin: graded.grade, gradeMax: upper.grade, cls: graded.cls,
+      pts: pts, maxPossible: maxPossible, max: 100, uncertain: unknownPoints > 0, parked: false,
       breakdown: { pillars: pillars, dmarc: dmarc.parts },
     };
   }
@@ -629,22 +876,25 @@
 
   async function analyzeDomain(domain, opts) {
     const d = domain.toLowerCase().trim();
+    const queryOpts = { signal: opts.signal };
 
     // Probe NS first — NXDOMAIN (Status 3) means the domain isn't registered
-    const nsResult = await dohFetch(d, 'NS');
+    const nsResult = await dohFetch(d, 'NS', queryOpts);
+    requireUsable(nsResult, d, 'NS');
     const ns = nsResult.answers.filter(a => a.type === 2).map(a => a.data.replace(/^"|"$/g, '').trim());
     if (nsResult.status === 3) {
       return { domain: d, unregistered: true, error: false };
     }
 
-    const [mx, txt, aRec] = await Promise.all([
-      dohQuery(d, 'MX'),
-      dohQuery(d, 'TXT'),
-      opts.www ? dohQuery(d, 'A') : Promise.resolve([]),
+    const [mx, txt, aRec, aaaaRec] = await Promise.all([
+      dohQuery(d, 'MX', queryOpts),
+      dohQuery(d, 'TXT', queryOpts),
+      dohQuery(d, 'A', queryOpts),
+      dohQuery(d, 'AAAA', queryOpts),
     ]);
 
     const dnsProvider = detectDNSProvider(ns, d);
-    const emailProvider = detectEmailProvider(mx, d);
+    const emailProvider = detectEmailProvider(mx, d, aRec.concat(aaaaRec));
     // Count matches rather than .find() — every one of these record types
     // fails closed when more than one exists (see the multiple-record checks
     // in buildIssues), so the count is part of the signal, not noise.
@@ -654,39 +904,54 @@
     const spfStatus = analyzeSpf(spfRecord, emailProvider, spfMultiple);
     const verifications = txt.filter(v => startsWithCI(v, 'google-site-verification') || startsWithCI(v, 'apple-domain'));
 
-    const dmarcTxts = await dohQuery(`_dmarc.${d}`, 'TXT');
-    const dmarcMatches = dmarcTxts.filter(v => startsWithCI(v, 'v=DMARC1'));
+    var dmarcAtDomain = d;
+    var dmarcTxts = await dohQuery(`_dmarc.${d}`, 'TXT', queryOpts);
+    var dmarcMatches = dmarcTxts.filter(v => startsWithCI(v, 'v=DMARC1'));
+    const organizationalDomain = getOrganizationalDomain(d);
+    if (!dmarcMatches.length && organizationalDomain && organizationalDomain !== d) {
+      dmarcAtDomain = organizationalDomain;
+      dmarcTxts = await dohQuery(`_dmarc.${organizationalDomain}`, 'TXT', queryOpts);
+      dmarcMatches = dmarcTxts.filter(v => startsWithCI(v, 'v=DMARC1'));
+    }
     const dmarcRecord = dmarcMatches[0] || '';
     const dmarcMultiple = dmarcMatches.length > 1;
     const dmarcStatus = analyzeDmarc(dmarcRecord, dmarcMultiple);
+    if (dmarcAtDomain !== d && dmarcStatus.status !== 'missing' && dmarcStatus.status !== 'permerror' && dmarcStatus.status !== 'present') {
+      dmarcStatus.inherited = true;
+      dmarcStatus.organizationalPolicy = dmarcStatus.policy;
+      dmarcStatus.policy = dmarcStatus.effectiveSp;
+      dmarcStatus.enforcing = dmarcStatus.policy === 'quarantine' || dmarcStatus.policy === 'reject';
+      dmarcStatus.status = dmarcStatus.enforcing ? 'ok' : 'warn';
+      dmarcStatus.cls = dmarcStatus.status === 'ok' ? 'ok' : 'warn';
+    }
 
     let wildcardBug = false;
     if (opts.wildcard) {
-      const testSub = await dohQuery(`_wildcardtest99xyz.${d}`, 'TXT');
+      const testSub = await dohQuery(`_wildcardtest99xyz.${d}`, 'TXT', queryOpts);
       wildcardBug = testSub.length > 0;
     }
 
-    let dkimStatus = { found: false, selectors: [], note: '' };
-    if (opts.dkim && emailProvider !== '@none') {
-      dkimStatus = await checkDKIM(d, wildcardBug);
+    let dkimStatus = { found: false, selectors: [], testedSelectors: [], confidence: 'not-checked', note: '' };
+    if (opts.dkim && emailProvider !== '@none' && emailProvider !== '@null-mx') {
+      dkimStatus = await checkDKIM(d, wildcardBug, opts.selectors, queryOpts);
     }
 
     let hosting = '@dash';
     if (opts.www) {
-      const wwwCname = await dohAll(`www.${d}`, 'CNAME');
-      hosting = detectHosting(aRec, wwwCname, d);
+      const website = await resolveWebsite(d, queryOpts);
+      hosting = website.loop ? '@cname-loop' : detectHosting(website.addresses, website.chain, d);
     }
 
     // ── Advanced checks ──
     let advanced = { bimi: null, mtaSts: null, tlsRpt: null, caa: null, dnssec: null, spfLookups: null };
     if (opts.advanced) {
       const [bimiTxt, mtaStsTxt, tlsRptTxt, caaResult, dnssecResult, spfLookups] = await Promise.all([
-        dohQuery(`default._bimi.${d}`, 'TXT'),
-        dohQuery(`_mta-sts.${d}`, 'TXT'),
-        dohQuery(`_smtp._tls.${d}`, 'TXT'),
-        checkCAA(d),
-        checkDNSSEC(d),
-        spfRecord ? countSpfLookups(spfRecord, d) : Promise.resolve({ count: 0, warning: false, error: false }),
+        dohQuery(`default._bimi.${d}`, 'TXT', queryOpts),
+        dohQuery(`_mta-sts.${d}`, 'TXT', queryOpts),
+        dohQuery(`_smtp._tls.${d}`, 'TXT', queryOpts),
+        checkCAA(d, queryOpts),
+        checkDNSSEC(d, queryOpts),
+        spfRecord ? countSpfLookups(spfRecord, d, queryOpts) : Promise.resolve({ count: 0, warning: false, error: false, voidLookups: 0, cycles: [], indeterminate: false }),
       ]);
 
       // All three specs say the same thing: filter to the versioned records,
@@ -701,11 +966,14 @@
       const bimiRecord = bimiMatches[0] || '';
       const mtaRecord = mtaMatches[0] || '';
       const tlsRecord = tlsMatches[0] || '';
+      const bimiValidation = validateBimiRecord(bimiRecord);
+      const mtaValidation = validateMtaStsRecord(mtaRecord);
+      const tlsValidation = validateTlsRptRecord(tlsRecord);
 
       advanced = {
-        bimi: { present: bimiMatches.length === 1, record: bimiRecord, multiple: bimiMatches.length > 1 },
-        mtaSts: { present: mtaMatches.length === 1, record: mtaRecord, multiple: mtaMatches.length > 1 },
-        tlsRpt: { present: tlsMatches.length === 1, record: tlsRecord, multiple: tlsMatches.length > 1 },
+        bimi: { present: bimiMatches.length === 1 && bimiValidation.valid, advertised: bimiMatches.length === 1, record: bimiRecord, validation: bimiValidation, multiple: bimiMatches.length > 1 },
+        mtaSts: { present: mtaMatches.length === 1 && mtaValidation.valid, advertised: mtaMatches.length === 1, policyVerified: false, record: mtaRecord, validation: mtaValidation, multiple: mtaMatches.length > 1 },
+        tlsRpt: { present: tlsMatches.length === 1 && tlsValidation.valid, advertised: tlsMatches.length === 1, record: tlsRecord, validation: tlsValidation, multiple: tlsMatches.length > 1 },
         caa: caaResult,
         dnssec: dnssecResult,
         spfLookups,
@@ -718,8 +986,8 @@
     const advScore = opts.advanced ? calcAdvScore(advanced) : null;
 
     return {
-      domain: d, ns, mx, txt, aRec, dnsProvider, emailProvider,
-      spfRecord, spfStatus, dmarcRecord, dmarcStatus, dkimStatus,
+      domain: d, ns, mx, txt, aRec, aaaaRec, dnsProvider, emailProvider,
+      spfRecord, spfStatus, dmarcRecord, dmarcStatus, dmarcAtDomain, organizationalDomain, dkimStatus,
       wildcardBug, hosting, verifications, advanced, advScore,
       issues, suggestions, score,
     };
@@ -730,15 +998,22 @@
     DKIM_SELECTORS,
     analyzeDomain,
     checkConnectivity,
+    dohFetch,
     // exported for unit testing / reuse
     detectDNSProvider,
     detectEmailProvider,
+    isNullMx,
     detectHosting,
+    getOrganizationalDomain,
     analyzeSpf,
     analyzeDmarc,
     parseDmarcTag,
     startsWithCI,
     countSpfLookups,
+    parseSpfTerms,
+    validateMtaStsRecord,
+    validateTlsRptRecord,
+    validateBimiRecord,
     calcScore,
     calcDmarcScore,
     calcSpfScore,

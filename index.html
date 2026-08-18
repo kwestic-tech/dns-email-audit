@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'nonce-dns-audit-static'; style-src 'self' 'unsafe-inline'; connect-src https://cloudflare-dns.com; img-src 'self' data: https:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>DNS &amp; Email Security Auditor — Free SPF, DKIM, DMARC &amp; DNSSEC Checker</title>
 
 <!-- SEO -->
@@ -24,7 +26,7 @@
 <meta name="twitter:description" content="Audit SPF, DKIM, DMARC, BIMI, MTA-STS, CAA &amp; DNSSEC for up to 200 domains at once. Free, no signup, no data stored.">
 
 <!-- Structured Data -->
-<script type="application/ld+json">
+<script type="application/ld+json" nonce="dns-audit-static">
 {
   "@context": "https://schema.org",
   "@type": "WebApplication",
@@ -69,14 +71,14 @@
     <h1 data-i18n-text="topbar.title">DNS &amp; Email Auditor</h1>
   </div>
   <div class="topbar-actions">
-    <span class="topbar-sub" data-i18n="topbar.subtitle">· free · no signup · no data leaves your browser</span>
+    <span class="topbar-sub" data-i18n="topbar.subtitle">· free · no signup · no data sent to Kwestic</span>
     <!-- Options are rendered from locales/index.json by js/i18n.js -->
-    <select id="langSelect" class="lang-select" onchange="setLang(this.value)" data-i18n-title="topbar.langTitle" title="Language">
+    <select id="langSelect" class="lang-select" data-i18n-title="topbar.langTitle" title="Language">
       <option value="en">🌐 EN</option>
     </select>
-    <button class="btn btn-outline btn-sm" onclick="showHelp()" data-i18n="btn.howItWorks">📖 How it works</button>
-    <button class="btn btn-outline btn-sm" id="exportCsvBtn" onclick="exportCSV()" style="display:none" data-i18n="btn.exportCsv">⬇ Export CSV</button>
-    <button class="btn btn-outline btn-sm" id="exportHtmlBtn" onclick="exportHTML()" style="display:none" data-i18n="btn.exportHtml">⬇ Export Report</button>
+    <button class="btn btn-outline btn-sm" id="helpBtn" data-i18n="btn.howItWorks">📖 How it works</button>
+    <button class="btn btn-outline btn-sm" id="exportCsvBtn" style="display:none" data-i18n="btn.exportCsv">⬇ Export CSV</button>
+    <button class="btn btn-outline btn-sm" id="exportHtmlBtn" style="display:none" data-i18n="btn.exportHtml">⬇ Export Report</button>
   </div>
 </div>
 
@@ -97,16 +99,18 @@
     <div class="input-area">
       <textarea id="domainInput" data-i18n-placeholder="input.placeholder" placeholder="example.com&#10;mycompany.org&#10;another-domain.net"></textarea>
       <div class="side-controls">
-        <button class="btn btn-primary" id="auditBtn" onclick="startAudit()" data-i18n="btn.runAudit">🔎 Run Audit</button>
-        <label class="file-upload-label" for="fileInput"><span data-i18n="btn.uploadFile">📄 Upload .txt file</span><input type="file" id="fileInput" accept=".txt,.csv" onchange="loadFile(event)"></label>
-        <button class="btn btn-outline" onclick="loadExample()" data-i18n="btn.loadExamples">Load examples</button>
-        <button class="btn btn-outline" id="clearBtn" onclick="clearAll()" style="display:none" data-i18n="btn.clearResults">🗑 Clear results</button>
+        <button class="btn btn-primary" id="auditBtn" data-i18n="btn.runAudit">🔎 Run Audit</button>
+        <button class="btn btn-outline" id="cancelBtn" style="display:none" data-i18n="btn.cancelAudit">Cancel audit</button>
+        <label class="file-upload-label" for="fileInput"><span data-i18n="btn.uploadFile">📄 Upload .txt file</span><input type="file" id="fileInput" accept=".txt,.csv"></label>
+        <button class="btn btn-outline" id="examplesBtn" data-i18n="btn.loadExamples">Load examples</button>
+        <button class="btn btn-outline" id="clearBtn" style="display:none" data-i18n="btn.clearResults">🗑 Clear results</button>
       </div>
     </div>
     <div class="options-row">
       <label class="checkbox-group"><input type="checkbox" id="optDKIM" checked><span data-i18n="opt.dkim">Check DKIM selectors</span></label>
       <label class="checkbox-group"><input type="checkbox" id="optWWW" checked><span data-i18n="opt.www">Detect website hosting</span></label>
       <label class="checkbox-group"><input type="checkbox" id="optWildcard"><span data-i18n="opt.wildcard">Detect wildcard TXT bugs</span></label>
+      <label class="selector-group"><span data-i18n="opt.dkimSelectors">Additional DKIM selectors</span><input type="text" id="dkimSelectors" maxlength="300" placeholder="selector3, newsletter"></label>
       <span style="font-size:11px;color:var(--ink3);margin-left:auto;" data-i18n="opt.footer">DNS via Cloudflare DoH · No data stored</span>
     </div>
   </div>
@@ -126,8 +130,8 @@
 
   <div id="resultsToolbar">
     <div class="toolbar-left">
-      <input class="search-box" type="text" id="searchBox" oninput="filterTable()" data-i18n-placeholder="search.placeholder" placeholder="🔎 Filter domains…">
-      <select class="filter-select" id="filterStatus" onchange="filterTable()">
+      <input class="search-box" type="text" id="searchBox" data-i18n-placeholder="search.placeholder" placeholder="🔎 Filter domains…">
+      <select class="filter-select" id="filterStatus">
         <option value="" data-i18n="filter.all">All domains</option>
         <option value="warn" data-i18n="filter.warn">⚠️ Has warnings</option>
         <option value="crit" data-i18n="filter.crit">🔴 Has issues</option>
@@ -149,15 +153,15 @@
         <thead>
           <tr>
             <th style="width:30px"></th>
-            <th onclick="sortTable('domain')"><span data-i18n="th.domain">Domain</span></th>
-            <th onclick="sortTable('grade')" style="width:58px;text-align:center"><span data-i18n="th.grade">Grade</span></th>
-            <th onclick="sortTable('dns')"><span data-i18n="th.dns">DNS Provider</span></th>
-            <th onclick="sortTable('email')"><span data-i18n="th.email">Email Provider</span></th>
-            <th onclick="sortTable('spf')"><span data-i18n="th.spf">SPF</span></th>
-            <th onclick="sortTable('dkim')"><span data-i18n="th.dkim">DKIM</span></th>
-            <th onclick="sortTable('dmarc')"><span data-i18n="th.dmarc">DMARC</span></th>
-            <th onclick="sortTable('adv')"><span data-i18n="th.advanced">Advanced</span></th>
-            <th onclick="sortTable('hosting')"><span data-i18n="th.hosting">Hosting</span></th>
+            <th data-sort="domain"><span data-i18n="th.domain">Domain</span></th>
+            <th data-sort="grade" style="width:58px;text-align:center"><span data-i18n="th.grade">Grade</span></th>
+            <th data-sort="dns"><span data-i18n="th.dns">DNS Provider</span></th>
+            <th data-sort="email"><span data-i18n="th.email">Email Provider</span></th>
+            <th data-sort="spf"><span data-i18n="th.spf">SPF</span></th>
+            <th data-sort="dkim"><span data-i18n="th.dkim">DKIM</span></th>
+            <th data-sort="dmarc"><span data-i18n="th.dmarc">DMARC</span></th>
+            <th data-sort="adv"><span data-i18n="th.advanced">Advanced</span></th>
+            <th data-sort="hosting"><span data-i18n="th.hosting">Hosting</span></th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -178,6 +182,7 @@
      and i18n.js before anything that calls t(). Plain scripts (not modules)
      so the app also works when opened directly from disk over file://. -->
 <script src="js/locales-en.js"></script>
+<script src="js/public-suffixes.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/dns.js"></script>
 <script src="js/app.js"></script>

@@ -15,6 +15,8 @@
   var results = [];
   var sortCol = null;
   var sortDir = 1;
+  var auditController = null;
+  var MAX_UPLOAD_BYTES = 1024 * 1024;
 
   /* ── Token → label ──────────────────────────────────────────────────── */
 
@@ -26,6 +28,8 @@
     '@custom-unknown': 'provider.customUnknown',
     '@self-hosted': 'provider.selfHosted',
     '@none': 'provider.none',
+    '@null-mx': 'provider.nullMx',
+    '@implicit-mx': 'provider.implicitMx',
     '@no-web': 'provider.noWebPresence',
     '@cname-loop': 'provider.cnameLoop',
     '@cloudflare-proxied': 'provider.cloudflareProxied',
@@ -71,12 +75,13 @@
     if (!score || !score.breakdown) return '';
 
     var rows = score.breakdown.pillars.map(function (p) {
-      var ratio = p.max ? p.pts / p.max : 0;
+      var unknown = p.pts === null || p.unknown;
+      var ratio = unknown ? 0 : p.max ? p.pts / p.max : 0;
       var color = ratio >= 1 ? 'var(--ok)' : ratio > 0 ? 'var(--warn)' : '#cbd5e1';
       return '<div class="sb-row">' +
         '<span class="sb-label">' + esc(t('score.pillar.' + p.key)) + '</span>' +
         '<span class="sb-track"><span class="sb-fill" style="width:' + Math.round(ratio * 100) + '%;background:' + color + ';"></span></span>' +
-        '<span class="sb-val">' + num(p.pts) + '<small>/' + p.max + '</small></span>' +
+        '<span class="sb-val">' + (unknown ? '?' : num(p.pts)) + '<small>/' + p.max + '</small></span>' +
         '</div>';
     }).join('');
 
@@ -92,7 +97,8 @@
 
     return '<div class="score-block">' +
       '<div class="score-head">' +
-      '<span class="score-total ' + score.cls + '">' + num(score.pts) + '<small>/' + score.max + '</small></span>' +
+      '<span class="score-total ' + score.cls + '">' + num(score.pts) +
+      (score.uncertain ? '<small>–' + num(score.maxPossible) + '/' + score.max + '</small>' : '<small>/' + score.max + '</small>') + '</span>' +
       '<span class="issues-section-label">' + esc(t('score.label')) + '</span>' +
       (score.parked ? '<span class="score-note">' + esc(t('score.parkedNote')) + '</span>' : '') +
       '</div>' +
@@ -119,11 +125,14 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  function rich(s) { return i18n.sanitizeHTML(s); }
+
   function badge(text, cls) { return '<span class="badge badge-' + cls + '">' + esc(text) + '</span>'; }
 
   function emailBadge(provider) {
-    var cls = provider === '@none' ? 'crit' : provider === '@porkbun-forwarding' ? 'warn' : 'info';
-    return badge(provider === '@none' ? t('badge.noEmail') : label(provider), cls);
+    var noEmail = provider === '@none' || provider === '@null-mx';
+    var cls = provider === '@none' ? 'crit' : provider === '@null-mx' ? 'ok' : provider === '@implicit-mx' ? 'warn' : provider === '@porkbun-forwarding' ? 'warn' : 'info';
+    return badge(noEmail ? label(provider) : label(provider), cls);
   }
 
   function hostCls(h) {
@@ -145,13 +154,24 @@
   }
 
   function parseDomains(raw) {
-    return raw.split(/[\n,\s]+/)
-      .map(function (d) {
-        return d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-      })
-      .filter(function (d) {
-        return d && /^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)+$/.test(d);
-      });
+    var seen = new Set();
+    return raw.split(/[\n,\s]+/).map(function (input) {
+      var value = input.trim();
+      if (!value) return '';
+      try {
+        var url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : 'http://' + value);
+        var host = url.hostname.toLowerCase().replace(/\.$/, '');
+        var labels = host.split('.');
+        if (host.length > 253 || labels.length < 2 || labels.some(function (label) {
+          return !label || label.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label);
+        })) return '';
+        return host;
+      } catch (e) { return ''; }
+    }).filter(function (domain) {
+      if (!domain || seen.has(domain)) return false;
+      seen.add(domain);
+      return true;
+    });
   }
 
   /* ── Learn more pages ───────────────────────────────────────────────── */
@@ -172,9 +192,9 @@
     var color = GUIDE_COLORS[key] || '#2563eb';
 
     var sectionHtml = (data.sections || []).map(function (s) {
-      var html = '<section><h2>' + s.h + '</h2><p>' + s.body + '</p>';
+      var html = '<section><h2>' + esc(s.h) + '</h2><p>' + rich(s.body) + '</p>';
       if (s.code) html += '<pre><code>' + esc(s.code) + '</code></pre>';
-      if (s.body2) html += '<p>' + s.body2 + '</p>';
+      if (s.body2) html += '<p>' + rich(s.body2) + '</p>';
       return html + '</section>';
     }).join('');
 
@@ -203,7 +223,7 @@
       '</style>\n</head>\n<body>\n' +
       '<div class="hero">\n  <div class="tag">' + esc(t('learnMore.badge')) + '</div>\n' +
       '  <h1>' + esc(data.title) + '</h1>\n  <p>' + esc(data.tagline) + '</p>\n</div>\n' +
-      '<main>\n  <button class="back" onclick="window.close()">' + esc(t('learnMore.close')) + '</button>\n  ' +
+      '<main>\n  <span class="back">' + esc(t('learnMore.close')) + '</span>\n  ' +
       sectionHtml + '\n</main>\n' +
       '<footer>' + esc(t('learnMore.footer')) + '</footer>\n</body>\n</html>';
   }
@@ -212,7 +232,8 @@
     var html = buildLearnMorePage(key);
     if (!html) return;
     var url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-    global.open(url, '_blank');
+    global.open(url, '_blank', 'noopener');
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
   }
 
   /* ── Row rendering ──────────────────────────────────────────────────── */
@@ -221,7 +242,7 @@
     if (!adv) return t('labels.dash');
     var items = [
       { key: 'BIMI', ok: adv.bimi && adv.bimi.present, dup: adv.bimi && adv.bimi.multiple },
-      { key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.present, dup: adv.mtaSts && adv.mtaSts.multiple },
+      { key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.policyVerified, partial: adv.mtaSts && adv.mtaSts.present, dup: adv.mtaSts && adv.mtaSts.multiple },
       { key: 'TLS-RPT', ok: adv.tlsRpt && adv.tlsRpt.present, dup: adv.tlsRpt && adv.tlsRpt.multiple },
       { key: 'CAA', ok: adv.caa && adv.caa.found },
       { key: 'DNSSEC', ok: adv.dnssec && adv.dnssec.signed },
@@ -230,8 +251,8 @@
     var dots = items.map(function (i) {
       // A duplicated record is not simply absent — it reads amber so the
       // operator can tell "never set up" from "set up twice, silently off".
-      var state = i.ok ? t('adv.configured') : i.dup ? t('adv.duplicated') : t('adv.notConfigured');
-      var color = i.ok ? 'var(--ok)' : i.dup ? 'var(--warn)' : '#cbd5e1';
+      var state = i.ok ? t('adv.configured') : i.partial ? t('adv.unverified') : i.dup ? t('adv.duplicated') : t('adv.notConfigured');
+      var color = i.ok ? 'var(--ok)' : (i.partial || i.dup) ? 'var(--warn)' : '#cbd5e1';
       return '<span title="' + i.key + ': ' + esc(state) +
         '" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
         color + ';margin-right:2px;"></span>';
@@ -249,8 +270,9 @@
           : (adv.bimi && adv.bimi.multiple) ? t('adv.tip.bimiDup') : t('adv.tip.bimiOff'),
       },
       {
-        key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.present, dup: adv.mtaSts && adv.mtaSts.multiple,
-        tip: adv.mtaSts && adv.mtaSts.present ? t('adv.tip.mtaStsOn')
+        key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.policyVerified, partial: adv.mtaSts && adv.mtaSts.present, dup: adv.mtaSts && adv.mtaSts.multiple,
+        tip: adv.mtaSts && adv.mtaSts.policyVerified ? t('adv.tip.mtaStsOn')
+          : (adv.mtaSts && adv.mtaSts.present) ? t('adv.tip.mtaStsUnverified')
           : (adv.mtaSts && adv.mtaSts.multiple) ? t('adv.tip.mtaStsDup') : t('adv.tip.mtaStsOff'),
       },
       {
@@ -270,7 +292,7 @@
       },
     ];
     var dots = items.map(function (i) {
-      return '<span class="adv-dot ' + (i.ok ? 'dot-ok' : i.dup ? 'dot-dup' : 'dot-miss') + '" data-tip="' + esc(i.tip) + '">' +
+      return '<span class="adv-dot ' + (i.ok ? 'dot-ok' : (i.partial || i.dup) ? 'dot-dup' : 'dot-miss') + '" data-tip="' + esc(i.tip) + '">' +
         '<span class="dot-pip"></span>' + i.key + '</span>';
     }).join('');
     return '<div class="adv-strip"><div class="adv-strip-label">' + esc(t('labels.advanced')) +
@@ -290,10 +312,21 @@
   }
 
   function appendRow(r) {
-    if (r.error) return;
     var tbody = $('tableBody');
     var rowId = 'row-' + r.domain.replace(/\W/g, '-');
     var detailId = 'det-' + r.domain.replace(/\W/g, '-');
+
+    if (r.error) {
+      var etr = document.createElement('tr');
+      etr.id = rowId;
+      etr.dataset.domain = r.domain;
+      etr.dataset.overall = 'error';
+      etr.innerHTML = '<td></td><td class="domain-cell">' + esc(r.domain) + '</td>' +
+        '<td colspan="8">' + badge(t(r.cancelled ? 'badge.cancelled' : 'badge.auditError'), r.cancelled ? 'muted' : 'crit') +
+        '<span style="margin-left:8px;color:var(--ink3);font-size:12px">' + esc(r.message || '') + '</span></td>';
+      tbody.appendChild(etr);
+      return;
+    }
 
     // Unregistered domain — muted row, no detail, no metrics
     if (r.unregistered) {
@@ -314,7 +347,9 @@
     var spfB = badge(spfLabel(r.spfStatus), r.spfStatus.cls);
     var dkimB = r.dkimStatus.found
       ? badge('✓ ' + r.dkimStatus.selectors.map(function (s) { return s.sel; }).join(', '), 'ok')
-      : badge(t('badge.noDkim'), 'crit');
+      : r.dkimStatus.confidence === 'sampled'
+        ? badge(t('badge.dkimUnverified'), 'warn')
+        : badge(t('badge.notChecked'), 'muted');
     var dmarcB = badge(dmarcLabel(r.dmarcStatus), r.dmarcStatus.cls);
     var dnsB = badge(label(r.dnsProvider), r.dnsProvider === 'Cloudflare' ? 'muted' : 'info');
     var emailB = emailBadge(r.emailProvider);
@@ -337,21 +372,23 @@
     tr.id = rowId;
     tr.dataset.domain = r.domain;
     tr.dataset.dmarc = r.dmarcStatus.status !== 'missing' ? 'yes' : 'no';
-    tr.dataset.dkim = r.dkimStatus.found ? 'yes' : 'no';
+    tr.dataset.dkim = r.dkimStatus.found ? 'yes' :
+      (r.dkimStatus.confidence === 'sampled' || r.dkimStatus.confidence === 'not-checked') ? 'unknown' : 'no';
     tr.dataset.spf = r.spfStatus.status !== 'missing' ? 'yes' : 'no';
-    tr.dataset.email = r.emailProvider !== '@none' ? 'yes' : 'no';
+    tr.dataset.email = r.emailProvider !== '@none' && r.emailProvider !== '@null-mx' ? 'yes' : 'no';
     tr.dataset.bimi = r.advanced && r.advanced.bimi && r.advanced.bimi.present ? 'yes' : 'no';
     tr.dataset.caa = r.advanced && r.advanced.caa && r.advanced.caa.found ? 'yes' : 'no';
     tr.dataset.dnssec = r.advanced && r.advanced.dnssec && r.advanced.dnssec.signed ? 'yes' : 'no';
-    tr.dataset.grade = r.score.grade;
+    tr.dataset.grade = r.score.gradeMin || r.score.grade;
     var hasCrit = r.issues.some(function (i) { return i.sev === 'crit'; });
     var hasWarn = r.issues.some(function (i) { return i.sev === 'warn'; });
     tr.dataset.overall = hasCrit ? 'crit' : hasWarn ? 'warn' : 'ok';
 
     tr.innerHTML =
-      '<td><button class="expand-toggle" onclick="toggleDetail(\'' + detailId + '\',this)">▶</button></td>' +
+      '<td><button class="expand-toggle" data-detail-id="' + detailId + '">▶</button></td>' +
       '<td class="domain-cell">' + esc(r.domain) + '<span style="margin-left:5px;font-size:11px;">' + issueTag + '</span></td>' +
-      '<td data-label="' + esc(t('th.grade')) + '" style="text-align:center"><span class="score ' + r.score.cls + '" title="' + esc(t('score.outOf', num(r.score.pts), r.score.max)) + '">' + r.score.grade + '</span></td>' +
+      '<td data-label="' + esc(t('th.grade')) + '" style="text-align:center"><span class="score ' + r.score.cls + '" title="' +
+      esc(r.score.uncertain ? t('score.range', num(r.score.pts), num(r.score.maxPossible)) : t('score.outOf', num(r.score.pts), r.score.max)) + '">' + esc(r.score.grade) + '</span></td>' +
       '<td data-label="' + esc(t('th.dns')) + '">' + dnsB + '</td>' +
       '<td data-label="' + esc(t('th.email')) + '">' + emailB + '</td>' +
       '<td data-label="' + esc(t('th.spf')) + '">' + spfB + '</td>' +
@@ -378,12 +415,12 @@
       var fixCode = tRaw('issue.' + i.key + '.fixCode');
       var showMeHtml = what
         ? '<div class="showme-wrap">' +
-          '<button class="showme-btn" onclick="toggleShowMe(this)">' + esc(t('showme.open')) + '</button>' +
+          '<button class="showme-btn">' + esc(t('showme.open')) + '</button>' +
           '<div class="showme-content">' +
           '<div class="showme-lbl">' + esc(t('showme.whatItIs')) + '</div>' +
-          '<div class="showme-text">' + what + '</div>' +
+          '<div class="showme-text">' + rich(what) + '</div>' +
           '<div class="showme-lbl">' + esc(t('showme.whatItNeeds')) + '</div>' +
-          '<div class="showme-text">' + (fix || '') +
+          '<div class="showme-text">' + rich(fix || '') +
           (fixCode ? '<div class="showme-code">' + esc(fixCode) + '</div>' : '') +
           '</div></div></div>'
         : '';
@@ -398,7 +435,7 @@
           var guide = s.guide && tRaw('learnMore.' + s.guide);
           return '<div class="issue tip"><span class="icon">💡</span><div class="issue-body">' +
             '<span class="msg">' + esc(t('suggestion.' + s.key)) + '</span>' +
-            (guide ? '<button class="learnmore-btn" onclick="openLearnMore(\'' + s.guide + '\')">' + esc(t('btn.learnMore')) + '</button>' : '') +
+            (guide ? '<button class="learnmore-btn" data-guide="' + esc(s.guide) + '">' + esc(t('btn.learnMore')) + '</button>' : '') +
             '</div></div>';
         }).join('')
       : '';
@@ -411,10 +448,11 @@
       detailItem(t('labels.nameservers'), esc(r.ns.join(', ') || t('labels.na'))) +
       detailItem(t('labels.mx'), esc(r.mx.join('\n') || t('labels.none'))) +
       detailItem(
-        t('labels.spf') + (spfLookupHtml ? ' &nbsp;·&nbsp; ' + esc(t('labels.spfLookups')) : ''),
+        t('labels.spf') + (spfLookupHtml ? ' · ' + t('labels.spfLookups') : ''),
         esc(r.spfRecord || t('labels.none')) + spfLookupHtml
       ) +
-      detailItem(t('labels.dmarc'), esc(r.dmarcRecord || t('labels.none'))) +
+      detailItem(t('labels.dmarc'), esc(r.dmarcRecord || t('labels.none')) +
+        (r.dmarcAtDomain && r.dmarcAtDomain !== r.domain ? '<br><small>' + esc(t('dmarc.inheritedFrom', r.dmarcAtDomain)) + '</small>' : '')) +
       detailItem(t('labels.dkim'), dkimDetail) +
       detailItem(t('labels.verifications'), r.verifications.length
         ? r.verifications.map(esc).join('<br>')
@@ -435,7 +473,7 @@
   }
 
   function detailItem(labelText, valueHtml) {
-    return '<div class="detail-item"><div class="di-label">' + labelText +
+    return '<div class="detail-item"><div class="di-label">' + esc(labelText) +
       '</div><div class="di-value">' + valueHtml + '</div></div>';
   }
 
@@ -469,7 +507,7 @@
 
     $('statsGrid').innerHTML =
       tile(reg, t('stat.domains'), 'c-muted', reg < tot ? tot : null) +
-      tile(count(function (r) { return r.emailProvider !== '@none'; }), t('stat.haveEmail'), 'c-info', reg) +
+      tile(count(function (r) { return r.emailProvider !== '@none' && r.emailProvider !== '@null-mx'; }), t('stat.haveEmail'), 'c-info', reg) +
       tile(count(function (r) { return r.spfStatus && r.spfStatus.status !== 'missing'; }), 'SPF', 'c-ok', reg) +
       tile(count(function (r) { return r.dkimStatus && r.dkimStatus.found; }), 'DKIM', 'c-ok', reg) +
       tile(count(function (r) { return r.dmarcStatus && r.dmarcStatus.status !== 'missing'; }), 'DMARC', 'c-ok', reg) +
@@ -552,6 +590,7 @@
   /* ── Audit run ──────────────────────────────────────────────────────── */
 
   async function startAudit() {
+    if (auditController) return;
     var domains = parseDomains($('domainInput').value);
     if (!domains.length) { showToast(t('toast.noDomains')); return; }
     if (domains.length > MAX_DOMAINS) { showToast(t('toast.tooMany')); return; }
@@ -571,10 +610,15 @@
       www: $('optWWW').checked,
       advanced: true,
       wildcard: $('optWildcard').checked,
+      selectors: $('dkimSelectors').value.split(/[\s,]+/).map(function (s) { return s.trim().toLowerCase(); })
+        .filter(function (s) { return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(s); }),
     };
+    auditController = new AbortController();
+    opts.signal = auditController.signal;
 
-    results = [];
+    results = new Array(domains.length);
     $('auditBtn').disabled = true;
+    $('cancelBtn').style.display = '';
     $('auditBtn').innerHTML = '<span class="spinner"></span> ' + esc(t('btn.auditRunning'));
     ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = 'none'; });
     ['summarySection', 'resultsSection', 'emptyState'].forEach(function (id) { $(id).style.display = 'none'; });
@@ -586,18 +630,19 @@
     $('progressCounts').textContent = '0 / ' + domains.length;
 
     var done = 0;
-    var queue = domains.slice();
+    var queue = domains.map(function (domain, index) { return { domain: domain, index: index }; });
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, domains.length) }, async function () {
       while (queue.length) {
-        var domain = queue.shift();
+        var item = queue.shift();
+        var domain = item.domain;
         log(t('progress.querying', domain));
         try {
           var result = await DnsAudit.analyzeDomain(domain, opts);
-          results.push(result);
-          appendRow(result);
+          results[item.index] = result;
         } catch (e) {
-          results.push({ domain: domain, error: true });
-          log(t('progress.error', domain, e.message), 'err');
+          var cancelled = e && (e.name === 'AbortError' || e.kind === 'cancelled');
+          results[item.index] = { domain: domain, error: true, cancelled: cancelled, message: cancelled ? t('progress.cancelled') : e.message };
+          log(cancelled ? t('progress.cancelledDomain', domain) : t('progress.error', domain, e.message), cancelled ? 'info' : 'err');
         }
         done++;
         $('progressFill').style.width = Math.round((done / domains.length) * 100) + '%';
@@ -605,17 +650,26 @@
       }
     }));
 
+    auditController = null;
     $('auditBtn').disabled = false;
+    $('cancelBtn').style.display = 'none';
     $('auditBtn').innerHTML = esc(t('btn.runAudit'));
     ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = ''; });
     setTimeout(function () { $('progressSection').style.display = 'none'; }, 1200);
 
+    $('tableBody').innerHTML = '';
+    results.filter(Boolean).forEach(appendRow);
     renderSummary();
     $('summarySection').style.display = 'block';
     $('resultsSection').style.display = 'block';
     $('resultsToolbar').style.display = 'flex';
     updateRowCount();
-    showToast(tp('toast.auditDone', domains.length));
+    var completed = results.filter(function (r) { return r && !r.error; }).length;
+    showToast(completed ? tp('toast.auditDone', completed) : t('toast.auditCancelled'));
+  }
+
+  function cancelAudit() {
+    if (auditController) auditController.abort();
   }
 
   /* ── Export ─────────────────────────────────────────────────────────── */
@@ -625,11 +679,13 @@
     a.href = URL.createObjectURL(new Blob([content], { type: type }));
     a.download = name;
     a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
   function exportCSV() {
     var yes = t('csv.yes');
     var no = t('csv.no');
+    var unknown = t('csv.unknown');
     var cols = tRaw('csv.headers') || [];
 
     var rows = results.filter(function (r) { return !r.error; }).map(function (r) {
@@ -641,17 +697,17 @@
         r.score.grade, r.score.pts,
         label(r.dnsProvider), label(r.emailProvider),
         r.spfStatus.status, r.spfRecord,
-        r.dkimStatus.found ? yes : no,
+        r.dkimStatus.found ? yes : (r.dkimStatus.confidence === 'sampled' || r.dkimStatus.confidence === 'not-checked') ? unknown : no,
         r.dkimStatus.found ? r.dkimStatus.selectors.map(function (s) { return s.sel; }).join(', ') : '',
         r.dmarcStatus.status, r.dmarcStatus.policy || '',
         r.dmarcStatus.sp || '', r.dmarcStatus.np || '', r.dmarcStatus.pct,
         r.dmarcStatus.adkim, r.dmarcStatus.aspf,
         r.dmarcStatus.rua ? yes : no, r.dmarcStatus.ruf ? yes : no,
         r.advanced?.bimi?.present ? yes : no,
-        r.advanced?.mtaSts?.present ? yes : no,
+        r.advanced?.mtaSts?.policyVerified ? yes : r.advanced?.mtaSts?.present ? t('csv.txtOnly') : no,
         r.advanced?.tlsRpt?.present ? yes : no,
         r.advanced?.caa?.found ? t('csv.yesAt', r.advanced.caa.atDomain) : no,
-        r.advanced?.dnssec?.signed ? yes : no,
+        r.advanced?.dnssec?.signed ? yes : r.advanced?.dnssec?.state || no,
         r.advanced?.spfLookups?.count ?? '',
         r.issues.map(issueMessage).join(' | '),
         (r.suggestions || []).map(function (s) { return t('suggestion.' + s.key); }).join(' | '),
@@ -727,6 +783,7 @@
   function loadFile(e) {
     var f = e.target.files[0];
     if (!f) return;
+    if (f.size > MAX_UPLOAD_BYTES) { showToast(t('toast.fileTooLarge')); e.target.value = ''; return; }
     var reader = new FileReader();
     reader.onload = function (ev) {
       $('domainInput').value = ev.target.result;
@@ -781,6 +838,28 @@
   });
 
   document.addEventListener('DOMContentLoaded', function () {
+    $('auditBtn').addEventListener('click', startAudit);
+    $('cancelBtn').addEventListener('click', cancelAudit);
+    $('fileInput').addEventListener('change', loadFile);
+    $('examplesBtn').addEventListener('click', loadExample);
+    $('clearBtn').addEventListener('click', clearAll);
+    $('helpBtn').addEventListener('click', showHelp);
+    $('exportCsvBtn').addEventListener('click', exportCSV);
+    $('exportHtmlBtn').addEventListener('click', exportHTML);
+    $('langSelect').addEventListener('change', function () { setLang(this.value); });
+    $('searchBox').addEventListener('input', filterTable);
+    $('filterStatus').addEventListener('change', filterTable);
+    document.querySelectorAll('[data-sort]').forEach(function (el) {
+      el.addEventListener('click', function () { sortTable(el.dataset.sort); });
+    });
+    $('tableBody').addEventListener('click', function (event) {
+      var expand = event.target.closest('.expand-toggle');
+      if (expand) { toggleDetail(expand.dataset.detailId, expand); return; }
+      var show = event.target.closest('.showme-btn');
+      if (show) { toggleShowMe(show); return; }
+      var learn = event.target.closest('.learnmore-btn');
+      if (learn) openLearnMore(learn.dataset.guide);
+    });
     i18n.init().then(function () {
       // Surface the sandbox banner immediately if DoH is unreachable.
       DnsAudit.checkConnectivity().then(function (ok) {
@@ -791,6 +870,7 @@
 
   // Exposed for the inline onclick handlers in index.html.
   global.startAudit = startAudit;
+  global.cancelAudit = cancelAudit;
   global.exportCSV = exportCSV;
   global.exportHTML = exportHTML;
   global.loadFile = loadFile;

@@ -93,6 +93,29 @@
     return value === null ? undefined : value;
   }
 
+  function sanitizeHTML(html) {
+    var template = document.createElement('template');
+    template.innerHTML = String(html || '');
+    var allowed = new Set(['A', 'BR', 'STRONG', 'CODE', 'EM', 'B', 'I', 'SMALL', 'UL', 'OL', 'LI', 'P']);
+    Array.from(template.content.querySelectorAll('*')).forEach(function (el) {
+      if (!allowed.has(el.tagName)) {
+        if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.tagName === 'IFRAME' || el.tagName === 'OBJECT') el.remove();
+        else el.replaceWith.apply(el, Array.from(el.childNodes));
+        return;
+      }
+      var originalHref = el.tagName === 'A' ? el.getAttribute('href') : null;
+      Array.from(el.attributes).forEach(function (attr) { el.removeAttribute(attr.name); });
+      if (el.tagName === 'A') {
+        if (/^https:\/\//i.test(originalHref || '')) {
+          el.setAttribute('href', originalHref);
+          el.setAttribute('target', '_blank');
+          el.setAttribute('rel', 'noopener noreferrer');
+        } else el.replaceWith(document.createTextNode(el.textContent));
+      }
+    });
+    return template.innerHTML;
+  }
+
   /* ── Loading ────────────────────────────────────────────────────────── */
 
   function fetchJSON(url) {
@@ -163,7 +186,7 @@
     var scope = root || document;
 
     scope.querySelectorAll('[data-i18n]').forEach(function (el) {
-      el.innerHTML = t(el.dataset.i18n);
+      el.innerHTML = sanitizeHTML(t(el.dataset.i18n));
     });
     scope.querySelectorAll('[data-i18n-text]').forEach(function (el) {
       el.textContent = t(el.dataset.i18nText);
@@ -192,10 +215,13 @@
   function renderLangSelect() {
     var sel = document.getElementById('langSelect');
     if (!sel) return;
-    sel.innerHTML = locales.map(function (l) {
-      return '<option value="' + l.code + '">' +
-        (l.label || l.nativeName || l.code) + '</option>';
-    }).join('');
+    sel.replaceChildren();
+    locales.forEach(function (l) {
+      var option = document.createElement('option');
+      option.value = l.code;
+      option.textContent = l.label || l.nativeName || l.code;
+      sel.appendChild(option);
+    });
     sel.value = currentLang;
     sel.title = t('topbar.langTitle');
   }
@@ -244,6 +270,7 @@
     t: t,
     tp: tp,
     tRaw: tRaw,
+    sanitizeHTML: sanitizeHTML,
     init: init,
     setLang: setLang,
     onChange: onChange,

@@ -2,7 +2,8 @@
 node_modules/
 package-lock.json
 
-# Build / editor / OS noise
+# Generated deploy output / editor / OS noise
+_site/
 dist/
 .DS_Store
 Thumbs.db

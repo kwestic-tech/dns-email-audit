@@ -11,7 +11,7 @@
   },
   "topbar": {
     "title": "Auditor DNS y Email",
-    "subtitle": "· gratis · sin registro · sin datos fuera de tu navegador",
+    "subtitle": "· gratis · sin registro · sin datos enviados a Kwestic",
     "langTitle": "Idioma"
   },
   "btn": {
@@ -71,7 +71,7 @@
     "text": "Ningún dominio coincide con el filtro."
   },
   "footer": {
-    "text": "DNS-over-HTTPS vía <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; Consultas en tu navegador &bull; Sin datos almacenados &bull; Gratis para usar y alojar"
+    "text": "DNS-over-HTTPS vía <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; La aplicación no envía datos a Kwestic ni almacena resultados &bull; Los nombres consultados se envían a Cloudflare &bull; Gratis para usar y alojar"
   },
   "labels": {
     "issues": "Problemas",
