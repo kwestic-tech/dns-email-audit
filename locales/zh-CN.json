@@ -246,6 +246,7 @@
       "DKIM 选择器",
       "DMARC 状态",
       "DMARC 策略",
+      "DMARC Test Mode (t=)",
       "DMARC sp",
       "DMARC np",
       "DMARC pct",
@@ -640,7 +641,6 @@
       "label": "DMARC 分析细节",
       "policy": "策略 (p=)",
       "subdomain": "子域名覆盖范围",
-      "pct": "强制执行率 (pct=)",
       "rua": "汇总报告 (rua=)",
       "alignment": "严格对齐",
       "ruf": "取证报告 (ruf=)"

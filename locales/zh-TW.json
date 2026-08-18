@@ -246,6 +246,7 @@
       "DKIM 選擇器",
       "DMARC 狀態",
       "DMARC 策略",
+      "DMARC Test Mode (t=)",
       "DMARC sp",
       "DMARC np",
       "DMARC pct",
@@ -640,7 +641,6 @@
       "label": "DMARC 分析細節",
       "policy": "策略 (p=)",
       "subdomain": "子網域涵蓋範圍",
-      "pct": "強制執行率 (pct=)",
       "rua": "彙總報告 (rua=)",
       "alignment": "嚴格對齊",
       "ruf": "鑑識報告 (ruf=)"

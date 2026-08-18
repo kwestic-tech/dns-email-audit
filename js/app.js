@@ -57,8 +57,13 @@
   function dmarcLabel(dmarcStatus) {
     if (dmarcStatus.status === 'permerror') return t('dmarc.permerror');
     if (dmarcStatus.status === 'missing') return t('dmarc.missing');
-    // 'present' means a record exists but p= is not a recognised value.
+    // 'present' means receivers cannot act on the record — bad v=, unrecognised
+    // p=, or duplicate tags.
     if (dmarcStatus.status === 'present') return t('dmarc.invalid');
+    // t=y (RFC 9989): name the published policy AND the fact that it is not
+    // being applied. Showing plain "none" here would hide the operator's
+    // intent; showing plain "reject" would overstate their protection.
+    if (dmarcStatus.testMode && dmarcStatus.policy) return t('dmarc.testMode', dmarcStatus.policy);
     if (dmarcStatus.status === 'warn') return t('dmarc.none');
     var suffix = '';
     if (dmarcStatus.pct < 100) suffix = ' ' + t('dmarc.pctSuffix', dmarcStatus.pct);
@@ -87,7 +92,7 @@
     }).join('');
 
     var parts = score.breakdown.dmarc || {};
-    var partOrder = ['policy', 'subdomain', 'pct', 'rua', 'alignment', 'ruf'];
+    var partOrder = ['policy', 'subdomain', 'rua', 'alignment', 'ruf', 'uris'];
     var dmarcParts = partOrder
       .filter(function (k) { return parts[k] !== undefined; })
       .map(function (k) {
@@ -713,7 +718,13 @@
     var yes = t('csv.yes');
     var no = t('csv.no');
     var unknown = t('csv.unknown');
-    var cols = tRaw('csv.headers') || [];
+    // Header arrays are positional, so a locale that predates a new column
+    // would silently misalign every CSV it exports. Backfill per index from
+    // English: English defines the column count, translations fill what they
+    // have. Never let the header row be shorter than the data row.
+    var enCols = (global.__I18N_EN__ && global.__I18N_EN__.csv && global.__I18N_EN__.csv.headers) || [];
+    var localeCols = tRaw('csv.headers') || [];
+    var cols = (enCols.length ? enCols : localeCols).map(function (h, i) { return localeCols[i] || h; });
 
     var rows = results.filter(function (r) { return !r.error; }).map(function (r) {
       if (r.unregistered) {
@@ -732,6 +743,7 @@
           return t('dkim.noDomainKeyFound', s.queryName);
         })).join(' || '),
         r.dmarcStatus.status, r.dmarcStatus.policy || '',
+        r.dmarcStatus.testMode ? yes : no,
         r.dmarcStatus.sp || '', r.dmarcStatus.np || '', r.dmarcStatus.pct,
         r.dmarcStatus.adkim, r.dmarcStatus.aspf,
         r.dmarcStatus.rua ? yes : no, r.dmarcStatus.ruf ? yes : no,

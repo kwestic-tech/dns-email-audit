@@ -246,6 +246,7 @@
       "Sélecteurs DKIM",
       "Statut DMARC",
       "Politique DMARC",
+      "DMARC Test Mode (t=)",
       "DMARC sp",
       "DMARC np",
       "DMARC pct",
@@ -640,7 +641,6 @@
       "label": "Détail DMARC",
       "policy": "Politique (p=)",
       "subdomain": "Couverture sous-domaines",
-      "pct": "Taux d'application (pct=)",
       "rua": "Rapports agrégés (rua=)",
       "alignment": "Alignement strict",
       "ruf": "Rapports d'expertise (ruf=)"
