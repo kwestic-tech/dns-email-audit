@@ -1,0 +1,649 @@
+{
+  "meta": {
+    "code": "zh-TW",
+    "name": "Traditional Chinese",
+    "nativeName": "繁體中文",
+    "dir": "ltr"
+  },
+  "doc": {
+    "title": "DNS 與電子郵件安全性稽核工具 — 免費 SPF、DKIM、DMARC 與 DNSSEC 檢查工具",
+    "description": "免費基於瀏覽器的 DNS 與電子郵件安全性稽核工具。可立即為最多 200 個網域同時檢查 SPF、DKIM、DMARC、BIMI、MTA-STS、CAA 與 DNSSEC。無須註冊，不儲存任何資料 — 完全在您的瀏覽器中執行。"
+  },
+  "topbar": {
+    "title": "DNS 與電子郵件稽核工具",
+    "subtitle": "· 免費 · 無須註冊 · 不會傳送任何資料至 Kwestic",
+    "langTitle": "語言"
+  },
+  "btn": {
+    "howItWorks": "📖 運作原理",
+    "exportCsv": "⬇ 匯出 CSV",
+    "exportHtml": "⬇ 匯出報告",
+    "runAudit": "🔎 執行稽核",
+    "auditRunning": "稽核中…",
+    "cancelAudit": "取消稽核",
+    "uploadFile": "📄 上傳 .txt 檔案",
+    "loadExamples": "載入範例",
+    "clearResults": "🗑 清除結果",
+    "learnMore": "瞭解更多 →"
+  },
+  "input": {
+    "heading": "輸入要稽核的網域",
+    "desc": "每行輸入一個網域，或上傳 .txt 檔案。一次最多可稽核 200 個網域。",
+    "placeholder": "example.com\nmycompany.org\nanother-domain.net"
+  },
+  "opt": {
+    "dkim": "檢查 DKIM 選擇器",
+    "dkimComprehensive": "全面 DKIM 掃描（最多 5 個網域）",
+    "dkimComprehensiveTitle": "使用目錄中經審核的所有 1,677 個精確選擇器；每次執行限制為最多 5 個網域",
+    "www": "偵測網站託管服務",
+    "wildcard": "偵測通配符 TXT 錯誤",
+    "dkimSelectors": "額外的 DKIM 選擇器",
+    "footer": "透過 Cloudflare DoH 查詢 DNS · 不儲存任何資料"
+  },
+  "help": {
+    "title": "運作原理：",
+    "body": "透過 <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a> 直接在您的瀏覽器中執行。本應用程式不會傳送或儲存任何資料至 Kwestic；DNS 查詢名稱將直接傳送至 Cloudflare，並受 Cloudflare 隱私權政策約束。檢查項目包含：NS、MX、SPF、感知提供者的或全面的 DKIM 選擇器、DMARC、BIMI、MTA-STS、TLS-RPT、CAA、DNSSEC 以及 SPF 查詢深度。"
+  },
+  "netbanner": {
+    "title": "⚠️ 網路存取受阻 — DNS 查詢無法從此處連接至網際網路",
+    "body": "本應用程式使用 <code>cloudflare-dns.com</code> DNS-over-HTTPS API，當頁面在沙盒化 iframe（例如 AI 助手的內建預覽面板）中執行時，該 API 會被阻擋。若要使用稽核工具，請透過 HTTP 服務此資料夾或將其託管於任何免費的靜態網站上：<br><br>• <strong>最快方法：</strong>將專案資料夾拖放至 <a href=\"https://app.netlify.com/drop\" target=\"_blank\" rel=\"noopener\">app.netlify.com/drop</a> → 約 60 秒內即可取得即時網址。<br>• <strong>自有網域：</strong>免費部署至 <a href=\"https://pages.cloudflare.com\" target=\"_blank\" rel=\"noopener\">Cloudflare Pages</a> 或 <a href=\"https://pages.github.com\" target=\"_blank\" rel=\"noopener\">GitHub Pages</a>。<br>• <strong>本機執行：</strong>在專案資料夾內執行 <code>npx serve</code>（或 <code>python3 -m http.server</code>）。"
+  },
+  "progress": {
+    "heading": "正在查詢 DNS 紀錄…",
+    "querying": "正在查詢 {0}…",
+    "error": "查詢 {0} 時發生錯誤: {1}",
+    "cancelled": "已由使用者取消",
+    "cancelledDomain": "已取消 {0}"
+  },
+  "search": {
+    "placeholder": "🔎 篩選網域…"
+  },
+  "th": {
+    "domain": "網域",
+    "grade": "評級",
+    "dns": "DNS 提供者",
+    "email": "郵件提供者",
+    "spf": "SPF",
+    "dkim": "DKIM",
+    "dmarc": "DMARC",
+    "advanced": "進階",
+    "hosting": "網站託管"
+  },
+  "filter": {
+    "all": "所有網域",
+    "warn": "⚠️ 有警告",
+    "crit": "🔴 有問題",
+    "noEmail": "無郵件服務",
+    "noDmarc": "缺少 DMARC",
+    "noDkim": "缺少 DKIM",
+    "noSpf": "缺少 SPF",
+    "hasBimi": "包含 BIMI",
+    "noCaa": "缺少 CAA",
+    "noDnssec": "無 DNSSEC"
+  },
+  "empty": {
+    "text": "沒有符合您篩選條件的網域。"
+  },
+  "footer": {
+    "text": "透過 <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> 進行 DNS-over-HTTPS &bull; 本應用程式不會傳送或儲存資料至 Kwestic &bull; 查詢名稱將傳送至 Cloudflare &bull; 免費使用與自建託管"
+  },
+  "labels": {
+    "issues": "問題",
+    "suggestions": "💡 改善建議",
+    "advanced": "進階安全性",
+    "nameservers": "名稱伺服器 (NS)",
+    "mx": "MX 紀錄",
+    "spf": "SPF 紀錄",
+    "spfLookups": "DNS 查詢次數",
+    "dmarc": "DMARC 紀錄",
+    "dkim": "DKIM 選擇器",
+    "verifications": "驗證紀錄 (TXT)",
+    "wildcardTitle": "⚠ 通配符 TXT 錯誤",
+    "wildcardText": "通配符 TXT 紀錄正在為「所有」子網域回傳資料。這會破壞 DMARC 與 DKIM 的驗證。請登入您的 DNS 提供者並刪除 * TXT 紀錄。",
+    "status": "狀態",
+    "none": "無",
+    "na": "不適用",
+    "dash": "—"
+  },
+  "showme": {
+    "open": "顯示細節 ▾",
+    "close": "隱藏細節 ▴",
+    "whatItIs": "問題說明",
+    "whatItNeeds": "修正方式"
+  },
+  "stat": {
+    "domains": "網域總數",
+    "haveEmail": "已設定郵件",
+    "wildcardBug": "⚠ 通配符錯誤"
+  },
+  "badge": {
+    "notRegistered": "未註冊 / NXDOMAIN",
+    "noEmail": "✗ 無郵件服務",
+    "noDkim": "✗ 無",
+    "dkimUnverified": "? 在測試的選擇器中未找到 Domain Key",
+    "dkimUncommon": "⚠ 不常見 ({0})",
+    "notChecked": "未檢查",
+    "auditError": "稽核結果不確定",
+    "cancelled": "已取消"
+  },
+  "provider": {
+    "unknown": "未知",
+    "custom": "自訂",
+    "customUnknown": "自訂/未知",
+    "selfHosted": "自建託管",
+    "none": "無",
+    "nullMx": "Null MX（郵件功能已停用）",
+    "implicitMx": "隱式 MX（無 MX 紀錄）",
+    "noWebPresence": "無網站部署",
+    "cnameLoop": "⚠ CNAME 迴圈",
+    "cloudflareProxied": "Cloudflare（已代理）",
+    "porkbunForwarding": "Porkbun 轉發"
+  },
+  "spf": {
+    "missing": "✗ 缺少",
+    "issues": "⚠ 問題",
+    "hardfail": "✓ -all",
+    "softfail": "~ ~all",
+    "present": "✓ 已設定",
+    "meterOver": "{0}/10 🔴 超出限制",
+    "meterNear": "{0}/10 ⚠ 接近限制",
+    "meterOk": "{0}/10 ✓",
+    "meterSuffix": "DNS 查詢次數",
+    "permerror": "🔴 永久錯誤 (Permerror)"
+  },
+  "dmarc": {
+    "missing": "✗ 缺少",
+    "reject": "✓ reject",
+    "quarantine": "✓ quarantine",
+    "none": "⚠ none（僅監控）",
+    "set": "✓ 已設定",
+    "invalid": "⚠ 無效的 p=",
+    "pctSuffix": "({0}%)",
+    "permerror": "🔴 多重紀錄",
+    "inheritedFrom": "繼承自 {0}"
+  },
+  "dkim": {
+    "uncommon": "不常見 ({0})",
+    "noDomainKeyFound": "未找到 Domain Key ({0})",
+    "txtRecord": "TXT 紀錄",
+    "cnameTarget": "CNAME 目標",
+    "noteWildcard": "通配符 TXT 錯誤可能會造成干擾",
+    "noteNotFound": "在 {0} 個已測試的選擇器中未找到有效的 DKIM 金鑰",
+    "noteNotFoundWithErrors": "在 {0} 個已完成的選擇器檢查中未找到有效的 DKIM 金鑰；其中 {1} 個 DNS 查詢失敗"
+  },
+  "adv": {
+    "configured": "✓ 已設定",
+    "unverified": "TXT 有效；策略未驗證",
+    "notConfigured": "未設定",
+    "tip": {
+      "bimiOn": "紀錄: {0}",
+      "bimiOff": "未設定 — 可在 Gmail 和 Apple Mail 中顯示您的品牌標誌",
+      "mtaStsOn": "已設定 — 強制對傳入郵件使用 TLS 加密",
+      "mtaStsUnverified": "TXT 紀錄有效，但此僅限瀏覽器的稽核無法驗證 HTTPS 策略檔案",
+      "mtaStsOff": "未設定 — 發佈 _mta-sts TXT 以強制對傳入郵件使用 TLS",
+      "tlsRptOn": "已設定 — 已啟用 TLS 失敗報告",
+      "tlsRptOff": "未設定 — MTA-STS 的配套功能；發佈 _smtp._tls TXT",
+      "caaOn": "在 {0} 找到: {1}",
+      "caaOff": "未找到 — 新增 CAA 紀錄以限制哪些憑證簽發機構 (CA) 可為此網域簽發憑證",
+      "dnssecOn": "已設定 AD 標記 — DNS 回應已通過密碼學驗證",
+      "dnssecOff": "未偵測到 — 請在您的 DNS 提供者端啟用 DNSSEC 以防止快取污染",
+      "bimiDup": "多重紀錄 — BIMI 被忽略，標誌將無法顯示",
+      "mtaStsDup": "多重紀錄 — 傳送方將視此網域為未設定 MTA-STS 策略",
+      "tlsRptDup": "多重紀錄 — 傳送方將視此網域為未實作 TLS-RPT"
+    },
+    "duplicated": "⚠ 多重紀錄"
+  },
+  "rows": {
+    "count": {
+      "one": "{0} 個網域",
+      "other": "{0} 個網域"
+    },
+    "showing": "顯示 {0} / {1}",
+    "critical": {
+      "one": "{0} 個嚴重問題",
+      "other": "{0} 個嚴重問題"
+    },
+    "warning": {
+      "one": "{0} 個警告",
+      "other": "{0} 個警告"
+    },
+    "suggestion": {
+      "one": "{0} 個建議",
+      "other": "{0} 個建議"
+    }
+  },
+  "toast": {
+    "noDomains": "請至少貼上一個網域名稱。",
+    "tooMany": "每次執行最多 200 個網域。",
+    "tooManyComprehensiveDkim": "全面 DKIM 掃描每次執行限制為 {0} 個網域。",
+    "csvExported": "已匯出 CSV",
+    "htmlExported": "已匯出 HTML 報告",
+    "htmlExportFailed": "無法建立獨立報告 — 請透過 HTTP 服務此應用程式後重試。",
+    "fileLoaded": "已載入 {0}",
+    "fileTooLarge": "檔案過大。最大上傳限制為 1 MB。",
+    "examplesLoaded": "已載入範例 — 請點擊「執行稽核」",
+    "auditDone": {
+      "one": "✅ 稽核完成 — 已分析 {0} 個網域",
+      "other": "✅ 稽核完成 — 已分析 {0} 個網域"
+    },
+    "auditCancelled": "稽核已取消",
+    "langChanged": "語言已變更",
+    "langFailed": "無法載入該語言 — 將保持使用英文。"
+  },
+  "csv": {
+    "unknown": "未知",
+    "txtOnly": "TXT 有效；HTTPS 策略未驗證",
+    "headers": [
+      "網域",
+      "已註冊",
+      "評級",
+      "分數",
+      "DNS 提供者",
+      "郵件提供者",
+      "SPF 狀態",
+      "SPF 紀錄",
+      "找到 DKIM",
+      "DKIM 選擇器",
+      "DMARC 狀態",
+      "DMARC 策略",
+      "DMARC sp",
+      "DMARC np",
+      "DMARC pct",
+      "DMARC adkim",
+      "DMARC aspf",
+      "DMARC RUA",
+      "DMARC RUF",
+      "BIMI",
+      "MTA-STS",
+      "TLS-RPT",
+      "CAA",
+      "DNSSEC",
+      "SPF 查詢次數",
+      "問題",
+      "建議"
+    ],
+    "yes": "是",
+    "no": "否",
+    "yesAt": "是 ({0})"
+  },
+  "report": {
+    "title": "DNS 與電子郵件安全性稽核報告",
+    "generated": "生成時間：{0} · 共 {1} 個網域",
+    "note": "由 DNS 與電子郵件安全性稽核工具於本機產生的靜態報告。稽核結果未傳送至 Kwestic，亦未由本應用程式儲存；DNS 查詢名稱已傳送至 Cloudflare 的解析器。"
+  },
+  "issue": {
+    "wildcard-txt": {
+      "msg": "發現通配符 TXT (* TXT) 紀錄 — 這會破壞所有子網域的 DMARC 與 DKIM 查詢。請立即刪除。",
+      "what": "通配符 TXT 紀錄 (<code>* IN TXT \"...\"</code>) 會使您的 DNS 伺服器為<em>任何</em>子網域查詢回傳資料 — 即使是您未明確定義的子網域。DKIM 驗證器會查詢如 <code>google._domainkey.yourdomain.com</code> 的選擇器，而 DMARC 驗證器會查詢 <code>_dmarc.yourdomain.com</code>。由於通配符紀錄存在，它們無法收到「未找到紀錄」的回應，而是取得通配符結果，這會破壞每個子網域的驗證。",
+      "fix": "請登入您的 DNS 提供者，並刪除主機名為 <code>*</code>（星號）的任何 TXT 紀錄。幾乎沒有任何合理的理由需要設定通配符 TXT 紀錄。",
+      "fixCode": "; 請從您的 DNS 區域中刪除此紀錄：\n*    IN TXT    \"無論此處的值為何\""
+    },
+    "dns-loop": {
+      "msg": "www CNAME 鏈包含循環 — 網站名稱無法解析。",
+      "what": "稽核工具在追蹤 <code>www</code> CNAME 鏈時遇到了已造訪過的主機名稱。這建立了 DNS 解析循環，導致訪客無法取得最終的 A 或 AAAA 地址。",
+      "fix": "將循環的 CNAME 替換為指向您伺服器 IP 的直接 A 紀錄，或指向您託管提供者網域名稱的 CNAME。",
+      "fixCode": "; 選項 1 — 直接指向您的伺服器 IP：\nwww    A      203.0.113.10\n\n; 選項 2 — 指向您託管商的網域：\nwww    CNAME  yoursite.netlify.app"
+    },
+    "no-mx": {
+      "msg": "無 MX 紀錄。請新增 Null MX (0 .) + SPF -all + DMARC p=reject 以防止停用網域遭冒用。",
+      "what": "此網域沒有 MX 紀錄，意味著沒有設定任何郵件伺服器來接收其電子郵件。未設定郵件的停用或未使用網域是主要的冒用目標 — 攻擊者會發送發件人為您網域的釣魚郵件，因為 DNS 中沒有任何機制阻止他們。",
+      "fix": "對於永遠不會發送或接收電子郵件的網域，請發佈 Null MX（明確表示「此處不接收郵件」）以及阻擋性的 SPF 與 DMARC 策略。",
+      "fixCode": "; Null MX — 告知傳送方此網域不接收郵件：\n@    MX     0 .\n\n; SPF — 封鎖所有傳送者：\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — 拒絕任何冒用的郵件：\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
+    },
+    "spf-multiple-records": {
+      "msg": "發現多重 SPF 紀錄 — 導致來自此網域的所有郵件發生 SPF 永久錯誤 (permerror)。",
+      "what": "RFC 7208 §4.5 規定每個網域嚴格僅允許一個 <code>v=spf1</code> TXT 紀錄。當接收方找到兩個紀錄時，會回傳 <code>permerror</code> 並停止驗證 — 它不會合併紀錄，也不會選擇較嚴格的一個。實際後果比完全沒有 SPF 更糟糕：您的紀錄在 DNS 面板中看起來正確，但來自您網域的每封郵件都會在 SPF 驗證中失敗。這通常發生在導入第二個郵件服務時，直接新增了自己的紀錄而非編輯現有紀錄。",
+      "fix": "將紀錄合併為一個。將所有紀錄中的每個 <code>include:</code>、<code>ip4:</code> 與 <code>ip6:</code> 機制整合到單一 <code>v=spf1</code> 紀錄中，並刪除其他紀錄。合併時請注意 10 次查詢的限制 — 組合紀錄是超出限制的常見原因。",
+      "fixCode": "; 合併前 — 兩條紀錄，所有郵件的 SPF 都會失敗：\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; 合併後 — 包含兩個傳送者的單一紀錄：\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "dmarc-multiple-records": {
+      "msg": "在 _dmarc 發現多重 DMARC 紀錄 — DMARC 將完全不生效，網域可能被冒用。",
+      "what": "RFC 7489 §6.6.3 要求嚴格只能有一個 DMARC 紀錄。接收方會丟棄任何沒有 <code>v=DMARC1</code> 標籤的內容，如果保留的紀錄超過一個，策略探索將終止且不會對郵件套用 DMARC。無論您的策略多麼嚴格，都會被完全忽略，因此網域雖然看起來受到保護，實際上卻極易被冒用。您也將停止收到彙總報告，從而失去了發現異常的警訊。",
+      "fix": "刪除 <code>_dmarc</code> 處除了單一 TXT 紀錄之外的所有紀錄。如果重複的紀錄指定了不同的報告地址，請保留一個紀錄，並在單一 <code>rua=</code> 標籤中列出這兩個地址，用逗號隔開。",
+      "fixCode": "; 修改前 — _dmarc 處有兩條紀錄，DMARC 被忽略：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; 修改後 — 單一紀錄，包含兩個報告目的地：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+    },
+    "mta-sts-multiple-records": {
+      "msg": "發現多重 MTA-STS 紀錄 — 傳送方將視您的網域沒有 MTA-STS 策略，因此不會強制執行傳入 TLS 加密。",
+      "what": "RFC 8461 §3.1 明確規定：不以 <code>v=STSv1;</code> 開頭的紀錄會被丟棄，若剩餘數量不恰好為一個，傳送方<strong>必須</strong>假定該網域沒有 MTA-STS 策略。您的策略檔案將永遠不會被擷取。傳入郵件會退回至機會性 STARTTLS，網路路徑上的攻擊者可以剝離該加密 — 這正是 MTA-STS 旨在防止的降級攻擊。該功能在看似已設定的情況下實際上處於無效狀態。",
+      "fix": "刪除 <code>_mta-sts</code> 處多餘的 TXT 紀錄，僅保留一個。之後請遞增 <code>id=</code> 的值，以使發送伺服器重新整理其快取的策略，而非等待舊 TTL 過期。",
+      "fixCode": "; 修改前 — 兩條紀錄，MTA-STS 被完全忽略：\n_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\"\n_mta-sts    TXT    \"v=STSv1; id=20240615000000Z;\"\n\n; 修改後 — 單一紀錄，遞增 id 以強制重新整理：\n_mta-sts    TXT    \"v=STSv1; id=20260817000000Z;\""
+    },
+    "tls-rpt-multiple-records": {
+      "msg": "發現多重 TLS-RPT 紀錄 — 傳送方將視您的網域未實作 TLS-RPT，因此不會傳送任何報告。",
+      "what": "RFC 8460 §3 規定，如果 <code>v=TLSRPTv1;</code> 紀錄的數量不恰好為一個，傳送方<strong>必須</strong>假定該網域未實作 TLS-RPT。不會為任何目的地（包括第一個紀錄中的地址）產生報告。當與 MTA-STS 搭配時這一點尤為重要：TLS-RPT 是您發現策略設定錯誤或憑證過期的途徑，因此損壞的紀錄意味著這些故障會在不知不覺中發生。",
+      "fix": "刪除 <code>_smtp._tls</code> 處多餘的紀錄。如果您需要在多個地址接收報告，請在單一 <code>rua=</code> 標籤中列出它們，並用逗號分隔。",
+      "fixCode": "; 修改前 — 兩條紀錄，完全不傳送報告：\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com;\"\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:soc@vendor.example;\"\n\n; 修改後 — 單一紀錄，包含兩個目的地：\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com,mailto:soc@vendor.example;\""
+    },
+    "bimi-multiple-records": {
+      "msg": "發現多重 BIMI 紀錄 — BIMI 處理終止，因此您的標誌將無法顯示。",
+      "what": "BIMI 規範 (Assertion Record Discovery) 鏡像了 DMARC：沒有 <code>v=BIMI1</code> 標籤的紀錄會被丟棄，若保留的集合包含多個紀錄，探索將終止且不會執行 BIMI 處理。您的標誌將不會出現在 Gmail、Apple Mail 或 Yahoo 中，且由於 BIMI 失敗是靜默發生的，因此沒有任何提示說明原因 — 即便您已付費購買了 Verified Mark Certificate (VMC)。",
+      "fix": "刪除 <code>default._bimi</code> 處多餘的 TXT 紀錄，僅保留一個。",
+      "fixCode": "; 修改前 — 兩條紀錄，BIMI 永遠不會被評估：\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\"\ndefault._bimi    TXT    \"v=BIMI1; l=https://cdn.example/old-logo.svg;\"\n\n; 修改後 — 單一紀錄：\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg; a=https://yourdomain.com/vmc.pem;\""
+    },
+    "dkim-multiple-records": {
+      "msg": "選擇器 {0} 上存在多重 DKIM 金鑰紀錄 — 簽章驗證未定義且可能會失敗。",
+      "what": "RFC 6376 §3.6.2.2 要求給定選擇器的金鑰紀錄必須唯一：「如果 RRset 中存在多個紀錄，其結果是未定義的。」不同的驗證器處理方式不同 — 有些取第一個紀錄，有些取最後一個，有些直接失敗。其結果是偶發性的 DKIM 失敗，因收件者而異且難以診斷，因為同一封郵件在某個提供者處通過，在另一個提供者處卻失敗。這最常發生在金鑰輪替後舊紀錄未被移除的情況下。",
+      "fix": "刪除過期的金鑰紀錄，使每個選擇器僅保留一個紀錄。如果您處於輪替中期且確實需要同時啟用兩個金鑰，請使用兩個不同的選擇器 — 這正是選擇器的作用 — 而非在同一個名稱下建立兩個紀錄。",
+      "fixCode": "; 修改前 — 同一選擇器上有兩個金鑰，行為未定義：\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...OLD\"\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\n\n; 修改後 — 每個選擇器一個金鑰；透過第二個選擇器進行輪替：\ngoogle._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\ns2._domainkey         TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEXT\""
+    },
+    "spf-missing": {
+      "msg": "無 SPF 紀錄 — 無法進行寄件者驗證。",
+      "what": "SPF (Sender Policy Framework) 是一種 DNS 紀錄，列出了獲授權代表您的網域發送電子郵件的郵件伺服器。沒有它，世界上任何伺服器都可以發送聲稱來自您的郵件，且接收郵件伺服器無法驗證其是否合規。",
+      "fix": "在您的網域根目錄新增 TXT 紀錄，列出授權的郵件傳送者。測試時可從 ~all (softfail) 開始，確認無誤後再收緊為 -all。",
+      "fixCode": "; 適用於 Google Workspace：\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; 適用於 Microsoft 365：\n@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\"\n\n; 適用於停用/未使用的網域：\n@    TXT    \"v=spf1 -all\""
+    },
+    "spf-softfail": {
+      "msg": "SPF: ~all softfail — 建議強化為 -all。",
+      "what": "您的 SPF 紀錄以 <code>~all</code>（波浪號-all）結尾，稱為「軟性失敗 (soft fail)」。它表明來自未列出伺服器的郵件<em>可能</em>未經授權 — 但這只是一個提示。大多數接收伺服器仍會交付該郵件，或許將其標記為垃圾郵件。它對冒用行為僅提供部分保護。",
+      "fix": "一旦確認 SPF 紀錄列出了所有合法的傳送來源，請將其從 <code>~all</code> 強化為 <code>-all</code>（硬性失敗 hard fail）。這會告知接收方直接拒絕來自不在清單中任何伺服器的郵件。",
+      "fixCode": "; 修改前：\n@    TXT    \"v=spf1 include:_spf.google.com ~all\"\n\n; 修改後：\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-all-permit": {
+      "msg": "SPF: +all 允許所有人傳送 — 極不安全。",
+      "what": "您的 SPF 紀錄以 <code>+all</code> 結尾，這授權了<em>網際網路上的每台伺服器</em>以您的網域發送郵件。這完全違背了 SPF 的初衷 — 等同於完全沒有 SPF，幾乎可以肯定是設定錯誤。",
+      "fix": "將 <code>+all</code> 替換為 <code>-all</code>（硬性失敗）以拒絕未授權的傳送者。",
+      "fixCode": "; 移除 +all，替換為 -all：\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-neutral": {
+      "msg": "SPF: ?all neutral — 無保護作用。",
+      "what": "您的 SPF 紀錄以 <code>?all</code>（問號 all）結尾，這是「中立 (neutral)」結果 — SPF 對未列出的伺服器是否獲授權不持立場。接收郵件伺服器對此的處理方式與完全沒有 SPF 紀錄相同，因此零冒用防護。",
+      "fix": "將 <code>?all</code> 替換為 <code>-all</code>（硬性失敗）以阻擋未授權的傳送者。",
+      "fixCode": "; 修改前：\n@    TXT    \"v=spf1 include:_spf.google.com ?all\"\n\n; 修改後：\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-missing-google": {
+      "msg": "SPF: 缺少 Google Workspace include。",
+      "what": "您的網域使用 Google Workspace 發送郵件，但您的 SPF 紀錄未包含 Google 的郵件伺服器 (<code>_spf.google.com</code>)。Google 的傳送伺服器未在您的 SPF 策略中獲得授權，因此從 Google Workspace 信箱發出的合法郵件可能會在 SPF 檢查中失敗並進入收件者的垃圾郵件資料夾。",
+      "fix": "在您的 TXT 紀錄中新增 Google 的 SPF include。",
+      "fixCode": "; 新增 Google 的 include：\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; 如果您也使用其他傳送者：\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "spf-missing-icloud": {
+      "msg": "SPF: 缺少 iCloud include。",
+      "what": "您的網域似乎使用了 Apple iCloud Mail（iCloud+ 自訂網域），但您的 SPF 紀錄未授權 Apple 的傳送伺服器。透過 iCloud 發送的電子郵件可能會因為 SPF 紀錄未替 Apple 伺服器背書而被收件者拒絕或標記為垃圾郵件。",
+      "fix": "在您的紀錄中新增 Apple 的 SPF include。",
+      "fixCode": "@    TXT    \"v=spf1 include:icloud.com -all\""
+    },
+    "spf-missing-microsoft": {
+      "msg": "SPF: 缺少 Microsoft 365 include。",
+      "what": "您的網域使用 Microsoft 365 發送郵件，但您的 SPF 紀錄未包含 Microsoft 的傳送伺服器 (<code>spf.protection.outlook.com</code>)。從 Microsoft 365 信箱發出的郵件可能會在收件者的郵件伺服器端 SPF 檢查失敗，並被視為垃圾郵件或被拒絕。",
+      "fix": "在您的 TXT 紀錄中新增 Microsoft 的 SPF include。",
+      "fixCode": "@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\""
+    },
+    "dkim-missing": {
+      "msg": "未設定 DKIM。{0}",
+      "what": "DKIM (DomainKeys Identified Mail) 為每封寄出郵件附加數位簽章，允許收件者驗證郵件是否確實來自您的網域且在傳輸過程中未被篡改。沒有它，您的郵件更容易被標記為垃圾郵件，且網域更容易遭受冒用。在強制執行 DMARC 之前，必須先設定 DKIM。",
+      "fix": "DKIM 設定在您的郵件提供者管理主控台中進行 — 他們會產生公鑰/私鑰對，並提供 TXT 紀錄供您在 DNS 中發佈。您不需要自己建立金鑰。",
+      "fixCode": "; Google Workspace: 管理員 → 應用程式 → Google Workspace → Gmail\n;   → 驗證電子郵件 → 產生新紀錄 → 複製 TXT 紀錄\n;\n; Microsoft 365: 管理員 → 設定 → 網域 → 選擇網域\n;   → DNS 紀錄 → 啟用 DKIM\n;\n; TXT 紀錄的格式類似於：\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
+    },
+    "dkim-unverified": {
+      "msg": "未找到已測試的 DKIM 選擇器。{0} 這不能證明不存在 DKIM；請提供選擇器或貼上來自 DKIM-Signature 標頭的選擇器。"
+    },
+    "implicit-mx": {
+      "msg": "未發佈 MX 紀錄。SMTP 可能會退回至此網域的 A/AAAA 地址作為隱式 MX，這是脆弱且通常非預期的。"
+    },
+    "dmarc-missing": {
+      "msg": "無 DMARC 紀錄 — 無法強制執行策略，網域可被任意冒用。",
+      "what": "DMARC (Domain-based Message Authentication, Reporting &amp; Conformance) 是一種策略，告訴接收郵件伺服器在郵件未能通過 SPF 或 DKIM 驗證時該怎麼做 — 隔離、拒絕或直接通過。沒有 DMARC 紀錄，即使有完美的 SPF + DKIM 設定，也無法阻止他人在可見的「From:」地址中冒用您的網域。",
+      "fix": "先從僅監控策略 (<code>p=none</code>) 開始以收集報告而不封鎖郵件，在審閱資料後再收緊策略。",
+      "fixCode": "; 步驟 1 — 僅監控（安全的起步）：\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; 步驟 2 — 隔離（將失敗郵件標記為垃圾郵件）：\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; 步驟 3 — 拒絕（完全封鎖失敗郵件）：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-none": {
+      "msg": "DMARC p=none 僅用於監控。請升級至 p=quarantine，最終升級至 p=reject。",
+      "what": "您的 DMARC 紀錄設為 <code>p=none</code>，這是僅監控模式。它指示接收伺服器收集資料並向您傳送報告，但對失敗的郵件<em>不採取任何行動</em> — 冒用的郵件仍會被交付。<code>p=none</code> 是作為臨時第一步的診斷工具，而不是最終配置。",
+      "fix": "審閱您的 DMARC 彙總報告 (rua=) 以確認您所有的合法郵件來源都已通過。確認後，將策略升級至 quarantine，然後再升級至 reject。",
+      "fixCode": "; 步驟 1 — 隔離（將失敗郵件傳送至垃圾郵件箱）：\n_dmarc    TXT    \"v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@yourdomain.com;\"\n\n; 步驟 2 — 拒絕（完全阻擋失敗郵件）：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-quarantine": {
+      "msg": "DMARC p=quarantine 會將冒用郵件送至垃圾郵件箱但仍會交付。p=reject 才是最終目標狀態。",
+      "what": "您的 DMARC 策略是 <code>p=quarantine</code>，這具備真正的強制力 — 驗證失敗的郵件會被路由至垃圾郵件資料夾而非收件匣。但它仍然被<em>交付</em>了。冒用您網域且具說服力的釣魚郵件在人們會檢查的資料夾中仍然觸手可及，且某些接收方對 quarantine 的執行並不一致。<code>p=reject</code> 指示接收伺服器直接拒絕該郵件，使其永遠無法到達收件者。",
+      "fix": "在幾週內審閱您的 DMARC 彙總報告 (<code>rua=</code>)，確認每個合法的發送來源都符合 SPF 或 DKIM 對齊。一旦沒有正當郵件失敗，將策略變更為 <code>p=reject</code>。如果比較謹慎，可以使用 <code>pct=</code> 來逐步實施 — 先對一定比例的失敗郵件套用 reject，然後提高到 100。",
+      "fixCode": "; 目前策略 — 失敗郵件進入垃圾郵件箱：\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; 可選漸進式 — 拒絕 25% 的失敗郵件，其餘隔離：\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=25; rua=mailto:dmarc@yourdomain.com;\"\n\n; 最終狀態 — 拒絕所有失敗郵件：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-no-rua": {
+      "msg": "DMARC 沒有 rua= 地址 — 您將無法收到彙總報告。",
+      "what": "您的 DMARC 紀錄不包含 <code>rua=</code> 標籤。這是 ISP 和郵件提供者傳送彙總報告的電子郵件地址，報告會顯示誰在代表您的網域發送郵件以及是否通過驗證。沒有它，您將無法獲得電子郵件流量的可視性 — 無法得知配置是否損壞或是否有人正在冒用您的網域。",
+      "fix": "在您的 DMARC 紀錄中新增一個 <code>rua=</code> 地址。它可以是您監控的任何信箱。",
+      "fixCode": "; 在現有的 DMARC 紀錄中新增 rua=：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc-reports@yourdomain.com;\""
+    },
+    "dmarc-weak-sp": {
+      "msg": "DMARC 子網域策略為 sp={0}，而主網域本身為 p={1} — 子網域受到的保護較少。",
+      "what": "您的紀錄設定了 <code>sp={0}</code>，這明確覆蓋了子網域的策略。如果沒有該標籤，子網域將自動繼承您較嚴格的 <code>p={1}</code> 策略。如此設定下，攻擊者可以冒用 <code>anything.yourdomain.com</code> 並獲得較寬鬆的對待 — 且收件者很少仔細審視寄件者地址的子網域部分。子網域冒用是常見的釣魚技術，正因為組織策略往往止步於主網域。",
+      "fix": "除非您有特定原因需要對子網域進行不同處理（例如行銷平台從尚未完全驗證的子網域傳送），否則請移除 <code>sp=</code> 標籤，讓子網域繼承主策略，或提高其設定以使其一致。",
+      "fixCode": "; 最簡單 — 刪除 sp= 讓子網域繼承 p：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 或明確設定以使其一致：\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-weak-np": {
+      "msg": "DMARC 不存在的子網域策略為 np={0}，而主網域為 p={1} — 未使用的子網域受到的保護較少。",
+      "what": "<code>np=</code> 標籤 (RFC 9091) 為 DNS 中根本不存在的子網域設定策略。您的是 <code>np={0}</code>，弱於您的 <code>p={1}</code>。不存在的子網域是攻擊者最喜歡的目標 — 沒有合法的郵件會被中斷，因此沒有人會注意到，且像 <code>billing.yourdomain.com</code> 這樣的地址對收件者來說看起來非常合情合理。",
+      "fix": "設定 <code>np=reject</code>。沒有任何合法的郵件會從不存在的子網域發出，因此這是少數幾乎完全沒有可達性風險的 DMARC 變更之一。",
+      "fixCode": "; 拒絕來自不存在子網域的郵件：\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-partial-pct": {
+      "msg": "DMARC pct={0} — 您的策略僅套用至 {0}% 的失敗郵件；其餘 {1}% 將正常交付。",
+      "what": "<code>pct=</code> 標籤限制了策略套用至失敗郵件的比例。設為 <code>pct={0}</code> 時，接收方會將您的策略套用至 {0}% 驗證失敗的郵件，並對剩餘的 {1}% 退回至下一個較弱的操作 — 因此冒用郵件在大約百份之 {1} 的機率下會完好無損地進入收件匣。<code>pct=</code> 是安全提高執行力度的推廣工具，而不是最終維持的狀態。",
+      "fix": "檢查您的 DMARC 彙總報告以確認沒有合法寄件者失敗，然後完全移除 <code>pct=</code>（預設為 100）或將其設定為 100。",
+      "fixCode": "; 移除 pct= — 預設為 100：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 或明確聲明：\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-pct": {
+      "msg": "DMARC pct= 值不是 0 到 100 之間的有效數字 — 接收方可能會忽略該標籤或您的整條紀錄。",
+      "what": "<code>pct=</code> 標籤必須是 0 到 100 之間的整數。您的不是，這意味著接收郵件伺服器可能會忽略該標籤，或將整條 DMARC 紀錄視為格式錯誤並視為沒有策略。在您的 DNS 面板中看起來正確但無法解析的紀錄，只給了您保護的假象，卻沒有實質作用。",
+      "fix": "將值修正為 0 到 100 之間的整數，或移除該標籤 — 預設為 100，這幾乎是您在所有情況下都希望設定的值。",
+      "fixCode": "; 完全移除格式錯誤的 pct=：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-invalid-policy": {
+      "msg": "DMARC p= 值不是 none、quarantine 或 reject 之一 — 紀錄格式錯誤且不提供任何保護。",
+      "what": "<code>p=</code> 標籤必須嚴格為 <code>none</code>、<code>quarantine</code> 或 <code>reject</code> 之一。您的值是其他內容 — 打字錯誤、多餘字元或不支援的值。接收伺服器無法對無法識別的策略採取行動，因此在實務上您的網域會被視為沒有 DMARC 紀錄，並且可以被隨意冒用。",
+      "fix": "修正 <code>p=</code> 的值。如果您不確定從何開始，請發佈帶有 <code>rua=</code> 地址的 <code>p=none</code>，審閱報告幾週，然後收緊。",
+      "fixCode": "; 僅監控，安全的起步：\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; 完全強制執行：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "porkbun-forward": {
+      "msg": "Porkbun 轉發不支援 DKIM — 轉發的郵件經常在目的地驗證失敗。",
+      "what": "Porkbun 的郵件轉發服務會將傳入郵件轉發至另一個地址，但不會使用 DKIM 對其進行簽章。當轉發的郵件到達目的地時，它會因缺乏簽章或因轉發而被破壞而未能通過 DKIM，且也可能未能通過 SPF（因為郵件是從 Porkbun 的伺服器重新發送的，而非您的伺服器）。這會導致高垃圾郵件率，且對此沒有 DNS 修正方案 — 這是轉發架構的根本局限。",
+      "fix": "為了穩定的電子郵件傳送，請切換至支援 DKIM 簽章的正規託管郵件服務。市面上有許多低成本的選擇。",
+      "fixCode": "; Porkbun 轉發的優良替代方案：\n;\n; Google Workspace — 完整 DKIM 支援\n; Microsoft 365 — 完整 DKIM 支援\n; Fastmail — 完整 DKIM 支援\n; Proton Mail for Business — 完整 DKIM 支援\n;\n; 適用於帶有 DKIM 的簡單全域轉發 (catch-all)：\n; ImprovMX（免費版）或 Forward Email（免費，開源）"
+    },
+    "spf-over-limit": {
+      "msg": "SPF 超過 10 次 DNS 查詢限制（計算約為 {0} 次）— 合法郵件將無法通過 SPF 驗證。",
+      "what": "SPF 允許在評估期間進行最多 10 次 DNS 查詢 — 每個 <code>include:</code>、<code>mx</code>、<code>a</code>、<code>exists</code> 與 <code>redirect</code> 機制都會計入此限制。您的紀錄超過了該限制。當接收伺服器遇到第 11 次查詢時，SPF 規範要求其回傳「permerror」，接收方將其視為 SPF 失敗。來自您網域的合法郵件將無法通過 SPF 驗證。",
+      "fix": "透過移除未使用的傳送者或透過「扁平化 (flattening)」您的 SPF 紀錄來減少查詢次數 — 將 <code>include:</code> 項目替換為其解析後的 IP 地址，從而消除子查詢。",
+      "fixCode": "; 修改前（有過多的 include: 查詢）：\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:mailchimp.com include:amazonses.com -all\"\n\n; 扁平化後（使用工具取得您的實際 IP）：\n; 工具：MXToolbox SPF Analyzer, AutoSPF, dmarcian\n\"v=spf1 ip4:209.85.220.0/22 ip4:167.89.0.0/17 ip4:199.255.192.0/22 -all\""
+    },
+    "spf-near-limit": {
+      "msg": "SPF 接近 10 次查詢限制（計算約為 {0} 次）— 新增更多傳送者可能會導致破壞。",
+      "what": "您的 SPF 紀錄正接近 10 次查詢的限制。新增任何更多的郵件發送服務，或者如果現有提供者變更了其 SPF 架構，都可能將您推向極限 — 導致合法郵件在沒有任何警告的情況下未能通過 SPF 驗證。",
+      "fix": "稽核您的 SPF 紀錄並移除您不再使用的任何服務。如果您確實需要所有目前的傳送者，請考慮進行扁平化以減少查詢深度。",
+      "fixCode": "; 稽核：這些之中您仍在使用的是哪些？\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:... -all\"\n;\n; 移除未使用的 includes，或使用以下工具扁平化：\n; AutoSPF (autospf.com)、dmarcian 或 MXToolbox"
+    },
+    "spf-cycle": {
+      "msg": "透過 {0} 偵測到 SPF include/redirect 循環；SPF 評估可能回傳 permerror。"
+    },
+    "spf-indeterminate": {
+      "msg": "由於紀錄使用了巨集 (macros)、過深的層級或包含無效的策略，SPF 查詢總數無法確定。"
+    },
+    "dnssec-bogus": {
+      "msg": "DNSSEC 驗證顯示為偽造 (bogus)：儘管停用檢查時答案可用，但驗證失敗。"
+    },
+    "dnssec-indeterminate": {
+      "msg": "由於驗證查詢失敗，無法確定 DNSSEC 狀態。未將其計為未簽章。"
+    },
+    "mta-sts-invalid": {
+      "msg": "MTA-STS TXT 紀錄格式錯誤或缺少必要的 id= 標籤。"
+    },
+    "mta-sts-policy-unverified": {
+      "msg": "MTA-STS TXT 紀錄有效，但此僅限瀏覽器的稽核無法驗證 HTTPS 策略檔案，因為大多數策略主機不允許跨來源讀取 (CORS)。"
+    },
+    "tls-rpt-invalid": {
+      "msg": "TLS-RPT 紀錄格式錯誤或沒有有效的 rua= 目的地。"
+    },
+    "bimi-invalid": {
+      "msg": "BIMI 紀錄格式錯誤或未包含有效的 HTTPS 標誌 URL。"
+    }
+  },
+  "suggestion": {
+    "bimiEligible": "符合 BIMI 資格：已強制執行 DMARC 且已設定 DKIM。新增帶有您 SVG 標誌 URL 的 default._bimi TXT 紀錄，即可在 Gmail 和 Apple Mail 中顯示您的品牌標誌。",
+    "bimiPrereq": "BIMI（收件匣標誌）：需要設定為 p=quarantine 或 p=reject 的 DMARC + DKIM。請先將這些配置到位，然後新增 BIMI。",
+    "mta-sts": "未設定 MTA-STS。發佈 _mta-sts TXT 紀錄並託管策略檔案可強制對傳入郵件使用 TLS 加密，從而防止降級攻擊。",
+    "tls-rpt": "未設定 TLS-RPT (_smtp._tls TXT)。作為 MTA-STS 的配套功能，它會在 TLS 協商失敗時向您傳送報告 — 易於新增，且無副作用。",
+    "caa": "無 CAA 紀錄 — 任何憑證簽發機構都可以為此網域簽發 SSL 憑證。新增僅指定您偏好的 CA（例如 Let's Encrypt, DigiCert）的 CAA 紀錄。",
+    "dnssec": "未偵測到 DNSSEC。對您的 DNS 紀錄進行數位簽章可防止快取污染和 MX 劫持。Cloudflare 和大多數現代 DNS 提供者都支援一鍵啟用。"
+  },
+  "learnMore": {
+    "badge": "電子郵件安全性指南",
+    "close": "✕ 關閉分頁",
+    "footer": "由 DNS 與電子郵件安全性稽核工具產生 — 不儲存任何資料，無須註冊",
+    "bimi": {
+      "title": "BIMI — 訊息識別品牌指標 (Brand Indicators for Message Identification)",
+      "tagline": "在 Gmail、Apple Mail 和 Yahoo 收件匣中顯示您的標誌。",
+      "sections": [
+        {
+          "h": "什麼是 BIMI？",
+          "body": "BIMI 是一項電子郵件標準，可讓您組織的標誌直接顯示在收件者的收件匣中 — 位於寄件者名稱旁，甚至在郵件被開啟之前。它受到 Gmail、Apple Mail、Yahoo Mail 和 Fastmail 的支援。"
+        },
+        {
+          "h": "為什麼它很重要",
+          "body": "標誌顯示可建立即時的視覺信任。收件者一眼就能看出該郵件確實來自您的組織，從而提高了開啟率並減少了郵件被誤認為釣魚郵件的機會。BIMI 還可以作為一種促動機制，推動您將整個驗證架構 (SPF + DKIM + DMARC) 完善就緒。"
+        },
+        {
+          "h": "發佈 BIMI 前的要求",
+          "body": "• DMARC 必須設定為 <code>p=quarantine</code> 或 <code>p=reject</code> — <code>p=none</code> 不符合資格<br>• DKIM 必須已設定並正在積極為寄出郵件簽章<br>• 託管於公開 HTTPS URL 的 <strong>Tiny PS</strong> 格式 SVG 標誌<br>•（針對 Gmail）可能需要來自 DigiCert 或 Entrust 的 Verified Mark Certificate (VMC) 以取得藍色勾勾"
+        },
+        {
+          "h": "如何設定",
+          "body": "1. 確認 DMARC 已強制執行 (<code>p=quarantine</code> 或 <code>p=reject</code>)<br>2. 確認 DKIM 已設定並正常簽章<br>3. 以 Tiny PS 格式建立您的 SVG 標誌（Canva、Adobe Illustrator 或 <a href=\"https://bimigroup.org/bimi-generator/\" target=\"_blank\" rel=\"noopener\">BIMI 產生器</a>可提供協助）<br>4. 將 SVG 託管於公開 HTTPS URL — 例如 <code>https://yourdomain.com/logo.svg</code><br>5. 新增 BIMI DNS 紀錄：",
+          "code": "default._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\""
+        },
+        {
+          "h": "測試",
+          "body": "在 <a href=\"https://bimigroup.org/bimi-generator\" target=\"_blank\" rel=\"noopener\">bimigroup.org/bimi-generator</a> 驗證您的紀錄。傳送測試郵件至 Gmail 帳戶，並觀察您的標誌是否出現在收件匣頭像中。"
+        }
+      ]
+    },
+    "mta-sts": {
+      "title": "MTA-STS — 郵件傳輸代理嚴格傳輸安全性",
+      "tagline": "強制對所有傳入您網域的電子郵件實施 TLS 加密。",
+      "sections": [
+        {
+          "h": "什麼是 MTA-STS？",
+          "body": "MTA-STS 是一項標準 (RFC 8461)，允許您發佈策略，聲明向您的網域傳送電子郵件的任何人必須使用 TLS 加密且必須驗證您郵件伺服器的憑證。沒有它，網路攻擊者可以執行「降級攻擊」，剝離 TLS 並以明文讀取傳輸中的郵件。"
+        },
+        {
+          "h": "為什麼它很重要",
+          "body": "標準的 STARTTLS 加密是機會性協商的 — 中間人攻擊者可以靜默移除 STARTTLS 提議並強制進行明文傳送。MTA-STS 通過預先在傳送伺服器上快取您的策略來解決這個問題，因此傳送方知道必須使用 TLS，如果沒有 TLS 則拒絕傳送。"
+        },
+        {
+          "h": "第 1 部分 — 發佈 DNS TXT 紀錄",
+          "body": "將此 TXT 紀錄新增至您的 DNS。每當您更新策略檔案時，請更新 <code>id=</code> 的值。",
+          "code": "_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\""
+        },
+        {
+          "h": "第 2 部分 — 託管策略檔案",
+          "body": "策略檔案必須正好託管於您網域的此 URL：<br><code>https://mta-sts.yourdomain.com/.well-known/mta-sts.txt</code><br><br>策略檔案內容範例：",
+          "code": "version: STSv1\nmode: testing\nmx: mail.yourdomain.com\nmx: *.google.com\nmax_age: 604800",
+          "body2": "從 <code>mode: testing</code> 開始以進行觀察而不封鎖。在審閱 TLS-RPT 報告並確認沒有失敗後，切換至 <code>mode: enforce</code>。"
+        },
+        {
+          "h": "測試",
+          "body": "使用 <a href=\"https://www.checktls.com\" target=\"_blank\" rel=\"noopener\">CheckTLS.com</a> 或 <a href=\"https://mxtoolbox.com/mta-sts.aspx\" target=\"_blank\" rel=\"noopener\">MXToolbox MTA-STS Check</a> 來驗證您的策略。將其與 TLS-RPT 搭配使用以接收失敗報告（請參閱 TLS-RPT 建議）。"
+        }
+      ]
+    },
+    "tls-rpt": {
+      "title": "TLS-RPT — SMTP TLS 報告",
+      "tagline": "當傳送至您網域的郵件發生 TLS 加密失敗時接收通知。",
+      "sections": [
+        {
+          "h": "什麼是 TLS-RPT？",
+          "body": "TLS-RPT (SMTP TLS Reporting, RFC 8460) 是一條單一的 DNS TXT 紀錄，告知傳送郵件伺服器在向您的網域交付郵件遇到 TLS 連線失敗時，將每日報告發送至何處。可以將其視為針對 TLS/加密失敗的 DMARC 報告。"
+        },
+        {
+          "h": "為什麼它很重要",
+          "body": "如果您的 MTA-STS 策略配置錯誤、郵件伺服器的 TLS 憑證過期，或者網路提供者正在剝離加密，如果沒有 TLS-RPT，您將永遠無法得知。它將無形的交付失敗轉換為收件匣中可採取的行動報告 — 且它是最容易發佈的 DNS 紀錄之一。"
+        },
+        {
+          "h": "如何設定",
+          "body": "新增一條單一 TXT 紀錄 — 將電子郵件替換為您監控的信箱：",
+          "code": "_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls-reports@yourdomain.com;\"",
+          "body2": "報告每天以 JSON 格式附件的形式送達。第三方 DMARC 平台（如 Postmark, Valimail, dmarcian）也可以解析並視覺化 TLS-RPT 報告以及您的 DMARC 資料。"
+        },
+        {
+          "h": "報告告知您的內容",
+          "body": "每份每日報告顯示：哪些傳送伺服器嘗試向您的網域交付郵件、TLS 協商成功還是失敗，以及具體的失敗原因 — 憑證過期、策略不符、不支援的 TLS 版本等。當您首次在測試模式下部署 MTA-STS 時，這是至關重要的可視性。"
+        }
+      ]
+    },
+    "caa": {
+      "title": "CAA — 憑證簽發機構授權",
+      "tagline": "控制哪些憑證簽發機構可以為您的網域簽發 SSL/TLS 憑證。",
+      "sections": [
+        {
+          "h": "什麼是 CAA？",
+          "body": "CAA (Certification Authority Authorization) DNS 紀錄允許您指定允許哪些憑證簽發機構 (CA) 為您的網域簽發 SSL/TLS 憑證。沒有 CAA 紀錄，全球數百個受信任的 CA 中的任何一個都可以為您的網域簽發憑證 — 而無需您的知情或同意。"
+        },
+        {
+          "h": "為什麼它很重要",
+          "body": "歷史上曾因 CA 錯誤或被入侵而發生憑證錯誤簽發的情況。為您的網域欺詐性簽發的憑證可用於冒充您的網站、截獲 HTTPS 流量或運作顯示安全鎖圖示的釣魚頁面。CAA 紀錄為您提供強大的強制層：支援該標準的 CA 在簽發前必須檢查您的 CAA 紀錄，如果未列出則拒絕請求。"
+        },
+        {
+          "h": "如何設定",
+          "body": "新增命名您獲授權 CA 的 CAA 紀錄。對普通憑證使用 <code>issue</code>，對通配符憑證使用 <code>issuewild</code>。",
+          "code": "; 僅允許 Let's Encrypt：\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; 允許 Let's Encrypt 與 DigiCert：\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issue \"digicert.com\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; 可選 — 當 CA 拒絕簽發時接收報告：\n@    CAA    0 iodef \"mailto:ssl-alerts@yourdomain.com\""
+        },
+        {
+          "h": "尋找您的 CA",
+          "body": "在瀏覽器網址列中點擊您網站的鎖頭圖示，查看是哪個 CA 簽發了您目前的憑證。常見選擇：<strong>Let's Encrypt</strong>（免費、自動化）、<strong>DigiCert</strong>、<strong>Sectigo</strong>、<strong>GlobalSign</strong>。您的託管提供者或 Cloudflare 通常會管理憑證簽發 — 請查看其說明文件以取得要列出的正確 CA 主機名稱。"
+        }
+      ]
+    },
+    "dnssec": {
+      "title": "DNSSEC — 網域名稱系統安全擴充套件",
+      "tagline": "對您的 DNS 紀錄進行密碼學簽章，以防止篡改和劫持。",
+      "sections": [
+        {
+          "h": "什麼是 DNSSEC？",
+          "body": "DNSSEC 為您的 DNS 紀錄新增密碼學簽章。當解析器查詢經過 DNSSEC 簽章的區域時，它可以驗證回應是由合法的區域所有者簽署的，並且在傳輸過程中未被修改。沒有 DNSSEC，能夠攔截或污染 DNS 回應的攻擊者可以靜默地將您的流量重定向至任何地方。"
+        },
+        {
+          "h": "為什麼它很重要",
+          "body": "DNS 快取污染攻擊可以將訪客從您的真實網站重定向至惡意網站、透過劫持您的 MX 紀錄來截獲電子郵件，或損壞您的 SPF/DKIM/DMARC 查詢 — 且完全不需要接觸您的伺服器。DNSSEC 使 DNS 回應在密碼學上可驗證，從而使這些攻擊失敗。"
+        },
+        {
+          "h": "如何啟用",
+          "body": "DNSSEC 在您的 DNS 提供者端啟用 — 他們管理簽章金鑰。步驟因提供者而異：",
+          "code": "Cloudflare:  DNS 頁籤 → DNSSEC → 啟用（自動新增 DS 紀錄）\nGoDaddy:     DNS → DNSSEC → 啟用 DNSSEC\nRoute 53:    託管區域 → DNSSEC 簽章 → 啟用\nPorkbun:     DNS → DNSSEC → 啟用\nName.com:    DNS → DNSSEC → 啟用簽章",
+          "body2": "在您的 DNS 提供者端啟用後，複製他們給您的 DS (Delegation Signer) 紀錄值，並將其新增至您的網域<strong>註冊商</strong>端。註冊商端的 DS 紀錄完成了從根 DNS 到您區域的信任鏈。"
+        },
+        {
+          "h": "重要警告",
+          "body": "⚠ <strong>如果您變更 DNS 提供者</strong>，請先停用 DNSSEC，遷移所有紀錄，然後重新啟用。不按順序執行會導致全球 DNS 解析失敗。<br><br>⚠ <strong>註冊商端的 DS 紀錄必須完全匹配</strong>您的 DNS 提供者給您的值。不匹配會破壞您整個網域的 DNS 解析。"
+        },
+        {
+          "h": "測試",
+          "body": "在 <a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a> 驗證您的 DNSSEC 信任鏈，或在 <a href=\"https://dnsviz.net\" target=\"_blank\" rel=\"noopener\">dnsviz.net</a> 將其視覺化。有效的信任鏈在從根 → TLD → 您的網域的每個層級上都顯示為綠色。"
+        }
+      ]
+    }
+  },
+  "score": {
+    "label": "安全性得分",
+    "outOf": "{0} / {1}",
+    "range": "已確認的分數範圍: {0}–{1} / 100；未知的檢查不會計為失敗",
+    "parkedNote": "停用網域 — 僅針對 SPF、DMARC、DNSSEC 與 CAA 進行評分",
+    "pillar": {
+      "dmarc": "DMARC",
+      "spf": "SPF",
+      "dkim": "DKIM",
+      "dnssec": "DNSSEC",
+      "caa": "CAA",
+      "mtaSts": "MTA-STS",
+      "bimi": "BIMI",
+      "tlsRpt": "TLS-RPT"
+    },
+    "dmarcParts": {
+      "label": "DMARC 分析細節",
+      "policy": "策略 (p=)",
+      "subdomain": "子網域涵蓋範圍",
+      "pct": "強制執行率 (pct=)",
+      "rua": "彙總報告 (rua=)",
+      "alignment": "嚴格對齊",
+      "ruf": "鑑識報告 (ruf=)"
+    }
+  }
+}
