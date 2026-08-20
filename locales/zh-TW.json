@@ -171,6 +171,7 @@
     "noDomainKeyFound": "未找到 Domain Key ({0})",
     "txtRecord": "TXT 紀錄",
     "cnameTarget": "CNAME 目標",
+    "viaSpf": "透過 SPF: {0}",
     "noteWildcard": "通配符 TXT 錯誤可能會造成干擾",
     "noteNotFound": "在 {0} 個已測試的選擇器中未找到有效的 DKIM 金鑰",
     "noteNotFoundWithErrors": "在 {0} 個已完成的選擇器檢查中未找到有效的 DKIM 金鑰；其中 {1} 個 DNS 查詢失敗"

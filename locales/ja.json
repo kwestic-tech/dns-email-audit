@@ -171,6 +171,7 @@
     "noDomainKeyFound": "Domain Key が見つかりません ({0})",
     "txtRecord": "TXT レコード",
     "cnameTarget": "CNAME ターゲット",
+    "viaSpf": "SPF 経由: {0}",
     "noteWildcard": "ワイルドカード TXT バグが影響している可能性があります",
     "noteNotFound": "テストした {0} 個のセレクター内に有効な DKIM 鍵が見つかりませんでした",
     "noteNotFoundWithErrors": "{0} 個のセレクター確認が完了しましたが有効な DKIM 鍵は見つかりませんでした（{1} 件の DNS 照会が失敗）"

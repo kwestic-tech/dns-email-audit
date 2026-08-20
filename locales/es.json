@@ -171,6 +171,7 @@
     "noDomainKeyFound": "No se encontró clave de dominio ({0})",
     "txtRecord": "Registro TXT",
     "cnameTarget": "Destino CNAME",
+    "viaSpf": "vía SPF: {0}",
     "noteWildcard": "El error de TXT comodín puede estar interfiriendo",
     "noteNotFound": "No se encontró ninguna clave DKIM activa entre los {0} selectores probados",
     "noteNotFoundWithErrors": "No se encontró ninguna clave DKIM activa entre las {0} comprobaciones de selectores completadas; fallaron {1} consultas DNS"

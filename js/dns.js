@@ -30,6 +30,28 @@
     'SendGrid': 'Twilio SendGrid',
     'Symantec/MessageLabs': 'Broadcom / Symantec / MessageLabs',
   };
+  // Services a domain names directly in its own SPF record. An `include:` is
+  // the domain stating that this vendor sends mail for it — the same claim MX
+  // makes about the inbound provider, and just as good a reason to probe that
+  // vendor's DKIM selectors. Without this, a Google-Workspace-on-MX domain
+  // that runs support through Zendesk never gets `zendesk1`/`zendesk2` tried
+  // outside a comprehensive scan, even though both are published.
+  //
+  // Each hostname below is the vendor's documented SPF include target, and was
+  // confirmed to serve a live `v=spf1` record when this table was written.
+  // Keys must match DKIM_CATALOG.providers exactly.
+  var DKIM_SPF_INCLUDE_PROVIDERS = [
+    { pattern: /(^|\.)mail\.zendesk\.com$/i, catalogKey: 'Zendesk' },
+    { pattern: /(^|\.)sendgrid\.net$/i, catalogKey: 'Twilio SendGrid' },
+    { pattern: /(^|\.)mailgun\.org$/i, catalogKey: 'Mailgun' },
+    { pattern: /(^|\.)servers\.mcsv\.net$/i, catalogKey: 'Mailchimp / Mandrill' },
+    { pattern: /(^|\.)mandrillapp\.com$/i, catalogKey: 'Mailchimp / Mandrill' },
+    { pattern: /(^|\.)spf\.mtasv\.net$/i, catalogKey: 'Postmark (ActiveCampaign)' },
+    { pattern: /(^|\.)cust-spf\.exacttarget\.com$/i, catalogKey: 'Salesforce / Marketing Cloud' },
+    { pattern: /(^|\.)hubspot(email)?\.(com|net)$/i, catalogKey: 'HubSpot' },
+    { pattern: /(^|\.)atlassian\.net$/i, catalogKey: 'Atlassian Jira / Service Desk' },
+    { pattern: /(^|\.)freshdesk\.com$/i, catalogKey: 'Freshdesk / Freshworks' },
+  ];
   var RECOGNIZED_DKIM_SELECTORS = new Set(
     DKIM_SELECTORS.concat(
       Object.values(DKIM_CATALOG.providers).flat(),
@@ -369,18 +391,70 @@
       });
   }
 
-  function catalogSelectors(emailProvider, comprehensive) {
+  // Only the literal include:/redirect= hostnames of the domain's own record
+  // count. Following an included record into its own includes would attribute
+  // the vendor's upstream to the audited domain — freshdesk.com's SPF includes
+  // sendgrid.net, which says nothing about who signs the domain's mail — and
+  // would cost DNS lookups this function deliberately does not make.
+  function spfReferencedCatalogKeys(spf) {
+    var keys = new Set();
+    if (!spf) return keys;
+    parseSpfTerms(spf).forEach(function (term) {
+      if (term.modifier ? term.name !== 'redirect' : term.name !== 'include') return;
+      // A macro can't be reduced to a literal hostname, so there is nothing to
+      // match — the same treatment countSpfLookups() gives it.
+      if (!term.value || term.value.indexOf('%{') !== -1) return;
+      var host = term.value.replace(/\.$/, '');
+      DKIM_SPF_INCLUDE_PROVIDERS.forEach(function (entry) {
+        if (entry.pattern.test(host)) keys.add(entry.catalogKey);
+      });
+    });
+    return keys;
+  }
+
+  function catalogSelectors(emailProvider, comprehensive, spfRecord) {
     var providerKey = DKIM_PROVIDER_CATALOG_KEYS[emailProvider];
     var providerSelectors = providerKey && DKIM_CATALOG.providers[providerKey]
       ? DKIM_CATALOG.providers[providerKey] : [];
-    if (!comprehensive) return providerSelectors;
-    return Object.values(DKIM_CATALOG.providers).flat()
-      .concat(DKIM_CATALOG.generic || [], DKIM_CATALOG.temporal || []);
+    if (comprehensive) {
+      return Object.values(DKIM_CATALOG.providers).flat()
+        .concat(DKIM_CATALOG.generic || [], DKIM_CATALOG.temporal || []);
+    }
+    // Comprehensive mode already covers every provider, so this only widens the
+    // provider-aware scan. .concat() returns a new array each time, leaving the
+    // catalog's own arrays untouched.
+    spfReferencedCatalogKeys(spfRecord).forEach(function (key) {
+      if (key !== providerKey && DKIM_CATALOG.providers[key]) {
+        providerSelectors = providerSelectors.concat(DKIM_CATALOG.providers[key]);
+      }
+    });
+    return providerSelectors;
   }
 
-  function buildDkimSelectorList(selectors, emailProvider, comprehensive) {
+  // Which tested selectors exist *only* because SPF named their vendor. A
+  // selector the MX provider (or the base list, or the user) would have
+  // supplied anyway is not attributed here — it needed no explaining.
+  function spfSelectorSources(selectors, emailProvider, comprehensive, spfRecord) {
+    var sources = new Map();
+    if (comprehensive) return sources;
+    var providerKey = DKIM_PROVIDER_CATALOG_KEYS[emailProvider];
+    var baseline = new Set(buildDkimSelectorList(selectors, emailProvider, false));
+    spfReferencedCatalogKeys(spfRecord).forEach(function (key) {
+      if (key === providerKey || !DKIM_CATALOG.providers[key]) return;
+      DKIM_CATALOG.providers[key].forEach(function (selector) {
+        var name = String(selector || '').trim().toLowerCase();
+        // Set iteration follows SPF term order, so a selector two referenced
+        // vendors share is credited to the one named first — deterministically.
+        if (baseline.has(name) || sources.has(name)) return;
+        sources.set(name, key);
+      });
+    });
+    return sources;
+  }
+
+  function buildDkimSelectorList(selectors, emailProvider, comprehensive, spfRecord) {
     return Array.from(new Set(
-      (selectors || []).concat(DKIM_SELECTORS, catalogSelectors(emailProvider, comprehensive))
+      (selectors || []).concat(DKIM_SELECTORS, catalogSelectors(emailProvider, comprehensive, spfRecord))
         .map(function (selector) { return String(selector || '').trim().toLowerCase(); })
         .filter(validDkimSelector)
     ));
@@ -417,10 +491,11 @@
     return { sel: selector, queryName: queryName, keys: [], cname: firstCname };
   }
 
-  async function checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive, queryOpts) {
+  async function checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive, spfRecord, queryOpts) {
     var wildcardDkim = !!(wildcard && wildcard.dkim);
     var synthesized = new Set((wildcard && wildcard.records) || []);
-    var selectorList = buildDkimSelectorList(selectors, emailProvider, comprehensive);
+    var selectorList = buildDkimSelectorList(selectors, emailProvider, comprehensive, spfRecord);
+    var spfSources = spfSelectorSources(selectors, emailProvider, comprehensive, spfRecord);
     var suppliedSelectors = new Set((selectors || [])
       .map(function (selector) { return String(selector || '').trim().toLowerCase(); })
       .filter(validDkimSelector));
@@ -452,6 +527,7 @@
             value: keys[0],
             cname: cname,
             uncommon: !isRecognizedDkimSelector(sel),
+            viaSpf: spfSources.get(sel) || '',
           });
         } else if (suppliedSelectors.has(sel)) {
           missingSelectors.push({ sel: sel, queryName: queryName, cname: cname });
@@ -1821,7 +1897,7 @@
 
     let dkimStatus = { found: false, selectors: [], testedSelectors: [], confidence: 'not-checked', note: '' };
     if (opts.dkim && emailProvider !== '@none' && emailProvider !== '@null-mx') {
-      dkimStatus = await checkDKIM(d, { dkim: wildcardDkim, records: wildcardDkimRecords }, opts.selectors, emailProvider, opts.dkimComprehensive, queryOpts);
+      dkimStatus = await checkDKIM(d, { dkim: wildcardDkim, records: wildcardDkimRecords }, opts.selectors, emailProvider, opts.dkimComprehensive, spfRecord, queryOpts);
     }
 
     let hosting = '@dash';
@@ -1910,6 +1986,9 @@
     DOH,
     DKIM_SELECTORS,
     buildDkimSelectorList,
+    catalogSelectors,
+    spfSelectorSources,
+    spfReferencedCatalogKeys,
     isRecognizedDkimSelector,
     checkDKIM,
     dkimKeyRecords,

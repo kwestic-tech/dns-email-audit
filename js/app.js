@@ -425,6 +425,7 @@
     var dkimDetails = (r.dkimStatus.selectors || []).map(function (s) {
       return '<div class="dkim-record">' +
         '<strong>' + (s.uncommon ? esc(t('dkim.uncommon', s.queryName)) : esc(s.sel + ' — ' + s.queryName)) + '</strong>' +
+        (s.viaSpf ? ' <span class="dkim-via-spf">' + esc(t('dkim.viaSpf', s.viaSpf)) + '</span>' : '') +
         (s.cname ? '<div><span>' + esc(t('dkim.cnameTarget')) + ':</span> <code>' + esc(s.cname) + '</code></div>' : '') +
         '<div><span>' + esc(t('dkim.txtRecord')) + ':</span> <code class="dkim-record-data">' + esc(s.value) + '</code></div>' +
         '</div>';
@@ -757,6 +758,7 @@
         r.dkimStatus.found ? yes : (r.dkimStatus.confidence === 'sampled' || r.dkimStatus.confidence === 'not-checked') ? unknown : no,
         (r.dkimStatus.selectors || []).map(function (s) {
           return (s.uncommon ? t('dkim.uncommon', s.queryName) : s.sel + ' — ' + s.queryName) +
+            (s.viaSpf ? ' (' + t('dkim.viaSpf', s.viaSpf) + ')' : '') +
             (s.cname ? ' | CNAME: ' + s.cname : '') + ' | TXT: ' + s.value;
         }).concat((r.dkimStatus.missingSelectors || []).map(function (s) {
           return t('dkim.noDomainKeyFound', s.queryName);

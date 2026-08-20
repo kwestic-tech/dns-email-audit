@@ -171,6 +171,7 @@
     "noDomainKeyFound": "Nenhuma chave de domínio encontrada ({0})",
     "txtRecord": "Registro TXT",
     "cnameTarget": "Destino do CNAME",
+    "viaSpf": "via SPF: {0}",
     "noteWildcard": "Um bug de TXT curinga pode estar interferindo",
     "noteNotFound": "Nenhuma chave DKIM ativa encontrada entre os {0} seletores testados.",
     "noteNotFoundWithErrors": "Nenhuma chave DKIM ativa encontrada entre as {0} verificações de seletor concluídas; {1} consultas DNS falharam."

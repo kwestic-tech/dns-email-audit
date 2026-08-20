@@ -218,6 +218,9 @@ td.domain-cell { font-weight: 700; font-size: 12.5px; white-space: nowrap; }
 .dkim-record div { margin-top: 3px; }
 .dkim-record code { white-space: normal; word-break: break-all; }
 .dkim-record-missing { color: var(--warn); }
+.dkim-via-spf { display: inline-block; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 700;
+  white-space: nowrap; vertical-align: 1px;
+  background: var(--tip-bg); color: var(--tip); border: 1px solid var(--tip-border); }
 
 /* ── Issues / suggestions ── */
 .issues-block { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }

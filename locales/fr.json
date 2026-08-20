@@ -171,6 +171,7 @@
     "noDomainKeyFound": "Clé de domaine non trouvée ({0})",
     "txtRecord": "Enregistrement TXT",
     "cnameTarget": "Cible CNAME",
+    "viaSpf": "via SPF : {0}",
     "noteWildcard": "Le bug de TXT générique (wildcard) peut interférer",
     "noteNotFound": "Aucune clé DKIM active trouvée parmi les {0} sélecteurs testés",
     "noteNotFoundWithErrors": "Aucune clé DKIM active trouvée sur {0} sélecteurs vérifiés ; {1} requêtes DNS ont échoué"
