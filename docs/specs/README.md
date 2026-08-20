@@ -52,6 +52,7 @@ precedent, and one spec was superseded outright during implementation.
 
 | Spec | Released in | PR | Merge commit | Spec version |
 | --- | --- | --- | --- | --- |
+| [wildcard-txt-depth](implemented/wildcard-txt-depth.md) | 0.2.0 | [#9](https://github.com/kwestic-tech/dns-email-audit/pull/9) | `b41b50d` | 1.0 (Implemented) |
 | [unproven-controls-scoring](implemented/unproven-controls-scoring.md) | 0.2.0 | [#10](https://github.com/kwestic-tech/dns-email-audit/pull/10) | `67a2339` | 1.0 (Implemented) |
 | [spf-subnet-and-redundancy](implemented/spf-subnet-and-redundancy.md) | 0.2.0 | [#11](https://github.com/kwestic-tech/dns-email-audit/pull/11) | `ef26ca5` | 1.0 (Implemented) |
 | [privacy-documentation](implemented/privacy-documentation.md) | 0.2.0 | [#12](https://github.com/kwestic-tech/dns-email-audit/pull/12) | `0e29b1c` | 1.0 (Implemented) |
@@ -60,7 +61,7 @@ precedent, and one spec was superseded outright during implementation.
 | [spf-referenced-dkim-selectors](implemented/spf-referenced-dkim-selectors.md) | 0.2.2 | [#15](https://github.com/kwestic-tech/dns-email-audit/pull/15) | `e158020` | 1.0 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
-work merged as PRs #1 through #9 are documented in
+work merged as PRs #1 through #8 are documented in
 [`CHANGELOG.md`](../../CHANGELOG.md) only.
 
 ## Document structure

@@ -51,6 +51,7 @@ and an unverifiable result is marked rather than hidden.
 
 | Release | Delivered | Spec |
 | --- | --- | --- |
+| 0.2.0 | A wildcard TXT record judged at the depth that predicts the harm | [wildcard-txt-depth](docs/specs/implemented/wildcard-txt-depth.md) |
 | 0.2.0 | Unproven controls score zero; the floor–ceiling range grade is gone | [unproven-controls-scoring](docs/specs/implemented/unproven-controls-scoring.md) |
 | 0.2.0 | SPF authorized-range size and `a`/`mx` redundancy audits, advisory only | [spf-subnet-and-redundancy](docs/specs/implemented/spf-subnet-and-redundancy.md) |
 | 0.2.0 | `PRIVACY.md`, `SECURITY.md`, and localized in-app links | [privacy-documentation](docs/specs/implemented/privacy-documentation.md) |
@@ -58,7 +59,7 @@ and an unverifiable result is marked rather than hidden.
 | 0.2.1 | XLIFF-based locale pipeline, thirteen locales complete, five new languages | [locale-translation-pipeline](docs/specs/implemented/locale-translation-pipeline.md) |
 | 0.2.2 | DKIM selectors for vendors named in the domain's own SPF record | [spf-referenced-dkim-selectors](docs/specs/implemented/spf-referenced-dkim-selectors.md) |
 
-`0.1.0` and the work merged as PRs #1 through #9 predate the spec process and are
+`0.1.0` and the work merged as PRs #1 through #8 predate the spec process and are
 documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 
 ## Status of the original eight workstreams
