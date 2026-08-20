@@ -14,7 +14,30 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **DKIM selectors for the services your SPF record names.** A normal
+  (non-Comprehensive) scan tests the selectors of the provider detected from
+  MX. That only ever names one provider, so a helpdesk or ESP that signs part
+  of your mail stayed invisible unless you ran a 1,677-selector Comprehensive
+  scan. An `include:` is the domain stating that a vendor sends mail for it —
+  the same claim MX makes about the inbound provider — so provider-aware mode
+  now also tests the selectors of any catalog vendor named by an `include:` or
+  `redirect=` in the domain's own SPF record. `slack.com` is the live example:
+  MX says Google Workspace, SPF names Zendesk, and `zendesk1`/`zendesk2` are
+  published — a normal scan now finds both, taking the domain from B (60) to
+  A+ (75), at 22 selectors tested instead of 1,677.
+
+  Only the literal hostnames in the domain's own record are matched; the
+  included records are not walked, and no extra DNS lookups are made beyond
+  the selector probes themselves. A domain whose SPF names no known vendor
+  scans exactly as it did before.
+
+  Each such finding is tagged with the vendor SPF pointed at — *via SPF:
+  Zendesk* — in both the detail view and the CSV export, so a selector that
+  belongs to neither the MX provider nor anything you typed explains itself.
+  Selectors that would have been tested anyway are not tagged. Translated into
+  all thirteen locales.
 
 ## [0.2.0] — 2026-08-20
 

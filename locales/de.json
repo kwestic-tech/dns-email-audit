@@ -171,6 +171,7 @@
     "noDomainKeyFound": "Kein Domain Key gefunden ({0})",
     "txtRecord": "TXT-Eintrag",
     "cnameTarget": "CNAME-Ziel",
+    "viaSpf": "über SPF: {0}",
     "noteWildcard": "Wildcard-TXT-Fehler könnte die Überprüfung stören",
     "noteNotFound": "Kein aktiver DKIM-Schlüssel unter {0} getesteten Selektoren gefunden",
     "noteNotFoundWithErrors": "Kein aktiver DKIM-Schlüssel unter {0} abgeschlossenen Selektor-Prüfungen gefunden; {1} DNS-Abfragen fehlgeschlagen"

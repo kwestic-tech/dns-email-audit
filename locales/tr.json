@@ -171,6 +171,7 @@
     "noDomainKeyFound": "Alan anahtarı bulunamadı ({0})",
     "txtRecord": "TXT kaydı",
     "cnameTarget": "CNAME hedefi",
+    "viaSpf": "SPF üzerinden: {0}",
     "noteWildcard": "Joker karakterli TXT hatası sonucu etkiliyor olabilir",
     "noteNotFound": "Test edilen {0} seçici arasında etkin bir DKIM anahtarı bulunamadı.",
     "noteNotFoundWithErrors": "Tamamlanan {0} seçici kontrolü arasında etkin bir DKIM anahtarı bulunamadı; {1} DNS sorgusu başarısız oldu."

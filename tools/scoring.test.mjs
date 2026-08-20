@@ -600,19 +600,19 @@ sandbox.fetch = async url => {
   }
   return { ok: true, json: async () => ({ Status: 0, Answer: answer }) };
 };
-const uncommonDkim = await D.checkDKIM('example.com', false, ['campaign-live'], '@custom-unknown', false, {});
+const uncommonDkim = await D.checkDKIM('example.com', false, ['campaign-live'], '@custom-unknown', false, '', {});
 eq('uncommon supplied selector is found', uncommonDkim.found, true);
 eq('uncommon finding is labeled', uncommonDkim.selectors[0].uncommon, true);
 eq('uncommon finding includes query name', uncommonDkim.selectors[0].queryName, 'campaign-live._domainkey.example.com');
 eq('uncommon finding includes TXT data', uncommonDkim.selectors[0].value, 'v=DKIM1; p=campaignPublicKey');
 
-const easyDkim = await D.checkDKIM('ses-example.com', false, ['easy-token'], '@custom-unknown', false, {});
+const easyDkim = await D.checkDKIM('ses-example.com', false, ['easy-token'], '@custom-unknown', false, '', {});
 eq('Easy DKIM CNAME is followed', easyDkim.found, true);
 eq('Easy DKIM reports the source record type', easyDkim.selectors[0].type, 'cname');
 eq('Easy DKIM reports the CNAME target', easyDkim.selectors[0].cname, 'easy-token.dkim.amazonses.com');
 eq('Easy DKIM reports the resolved TXT key', easyDkim.selectors[0].value, 'v=DKIM1; p=sesPublicKey');
 
-const missingDkim = await D.checkDKIM('missing.example', false, ['does-not-exist'], '@custom-unknown', false, {});
+const missingDkim = await D.checkDKIM('missing.example', false, ['does-not-exist'], '@custom-unknown', false, '', {});
 eq('missing supplied selector does not verify DKIM', missingDkim.found, false);
 eq('missing selector is listed', missingDkim.missingSelectors[0].queryName, 'does-not-exist._domainkey.missing.example');
 
@@ -1379,6 +1379,120 @@ eq('MEDIUM blocks grouped separately',  mediumIssue.args[0], 'ip4:192.0.2.0/26')
 // people to skim past the list where "no SPF record" lives.
 eq('large blocks warn, never crit', largeIssue.sev, 'warn');
 eq('medium blocks are informational', mediumIssue.sev, 'info');
+
+/* ── 27. SPF-referenced DKIM selectors ───────────────────────────────── */
+section('27. SPF-referenced DKIM selectors (provider-aware mode)');
+
+// An `include:` is the domain naming a vendor that sends mail for it. MX
+// detection can only ever name one provider, so without this a Zendesk or
+// SendGrid key sitting in plain sight goes untested outside a comprehensive
+// scan. slack.com is the live example: MX is Google, SPF names Zendesk, and
+// zendesk1/zendesk2 are published.
+const zendeskSpf = 'v=spf1 include:_spf.qualtrics.com include:mail.zendesk.com -all';
+const m365Zendesk = D.buildDkimSelectorList([], 'Microsoft 365', false, zendeskSpf);
+eq('SPF-named provider selectors are tested', m365Zendesk.includes('zendesk1'), true);
+eq('MX-detected provider selectors are still tested', m365Zendesk.includes('selector1'), true);
+eq('unrelated providers stay out', m365Zendesk.includes('sendgrid'), false);
+
+// A vendor whose catalog key differs from the include hostname.
+eq('sendgrid.net maps to the Twilio SendGrid key',
+  [...D.spfReferencedCatalogKeys('v=spf1 include:sendgrid.net -all')], ['Twilio SendGrid']);
+eq('SendGrid selectors are added under that key',
+  D.buildDkimSelectorList([], 'Microsoft 365', false, 'v=spf1 include:sendgrid.net -all').includes('sendgrid'), true);
+
+// redirect= delegates the whole record, so it names a vendor just as include: does.
+eq('redirect= is evaluated like include:',
+  [...D.spfReferencedCatalogKeys('v=spf1 redirect=mail.zendesk.com')], ['Zendesk']);
+eq('subdomains of a mapped host match',
+  [...D.spfReferencedCatalogKeys('v=spf1 include:_spf.hubspotemail.net -all')], ['HubSpot']);
+eq('mechanism case is irrelevant',
+  [...D.spfReferencedCatalogKeys('v=spf1 INCLUDE:MAIL.ZENDESK.COM -all')], ['Zendesk']);
+eq('a qualified include still counts',
+  [...D.spfReferencedCatalogKeys('v=spf1 ~include:mail.zendesk.com -all')], ['Zendesk']);
+eq('two hostnames for one vendor collapse to one key',
+  [...D.spfReferencedCatalogKeys('v=spf1 include:servers.mcsv.net include:mandrillapp.com -all')],
+  ['Mailchimp / Mandrill']);
+
+// The guard against this quietly becoming comprehensive-by-default: no
+// include, no extra selectors.
+const unreferenced = D.buildDkimSelectorList([], 'Microsoft 365', false, 'v=spf1 include:spf.protection.outlook.com -all');
+eq('an unreferenced provider is not tested', unreferenced.includes('zendesk1'), false);
+eq('a non-vendor include matches nothing', D.spfReferencedCatalogKeys('v=spf1 include:_spf.example.org -all').size, 0);
+// A macro cannot be reduced to a literal hostname (RFC 7208 §7).
+eq('macro includes are skipped', D.spfReferencedCatalogKeys('v=spf1 include:%{i}.mail.zendesk.com -all').size, 0);
+eq('a/mx/exists mechanisms are not includes', D.spfReferencedCatalogKeys('v=spf1 a:mail.zendesk.com mx exists:mailgun.org -all').size, 0);
+
+// Mailgun resolves to the same catalog key down both paths — MX detection
+// ('Mailgun' → 'Mailgun') and the SPF table (mailgun.org → 'Mailgun') — so it
+// is the fixture that proves the key !== providerKey skip actually fires.
+const mailgunBoth = D.catalogSelectors('Mailgun', false, 'v=spf1 include:mailgun.org -all');
+eq('the MX provider is not concatenated twice', mailgunBoth.filter(s => s === 'mg1').length, 1);
+eq('a doubly-matched provider adds nothing', mailgunBoth, D.catalogSelectors('Mailgun', false, ''));
+
+// No SPF record at all, and the pre-existing three-argument call, must both
+// behave exactly as they did before this existed.
+const googleBaseline = D.buildDkimSelectorList([], 'Google Workspace', false);
+eq('an empty SPF record changes nothing', D.buildDkimSelectorList([], 'Google Workspace', false, ''), googleBaseline);
+eq('a missing SPF argument changes nothing', D.buildDkimSelectorList([], 'Google Workspace', false, undefined), googleBaseline);
+
+// Comprehensive mode already covers every provider; it must not shift.
+eq('comprehensive scan is untouched',
+  D.buildDkimSelectorList([], '@custom-unknown', true, zendeskSpf).length, 1677);
+
+// End to end: the same domain, the same published key, found only when SPF
+// names the vendor.
+sandbox.fetch = async url => {
+  const name = new URL(url).searchParams.get('name');
+  let answer = [];
+  if (name === 'zendesk1._domainkey.helpdesk.example') {
+    answer = [{ type: 5, data: 'zendesk1._domainkey.zendesk.com.' }];
+  } else if (name === 'zendesk1._domainkey.zendesk.com') {
+    answer = [{ type: 16, data: '"v=DKIM1; k=rsa; p=zendeskPublicKey"' }];
+  }
+  return { ok: true, json: async () => ({ Status: 0, Answer: answer }) };
+};
+
+const viaSpf = await D.checkDKIM('helpdesk.example', false, [], 'Microsoft 365', false, zendeskSpf, {});
+eq('provider-aware scan finds the SPF-named vendor key', viaSpf.found, true);
+eq('the finding is the Zendesk selector', viaSpf.selectors[0].sel, 'zendesk1');
+eq('the CNAME to the vendor is followed', viaSpf.selectors[0].cname, 'zendesk1._domainkey.zendesk.com');
+eq('the key is not flagged uncommon', viaSpf.selectors[0].uncommon, false);
+eq('the scan is still provider-aware, not comprehensive', viaSpf.scanMode, 'provider-aware');
+eq('confidence is unchanged by the new signal', viaSpf.confidence, 'observed');
+
+const withoutSpf = await D.checkDKIM('helpdesk.example', false, [], 'Microsoft 365', false, 'v=spf1 -all', {});
+eq('the same key stays hidden with no SPF reference', withoutSpf.found, false);
+eq('and the selector was never queried', withoutSpf.testedSelectors.includes('zendesk1'), false);
+
+// Attribution: a selector nobody asked for needs to say why it was tested.
+eq('the finding names the vendor SPF pointed at', viaSpf.selectors[0].viaSpf, 'Zendesk');
+
+const sources = D.spfSelectorSources([], 'Microsoft 365', false, zendeskSpf);
+eq('every SPF-only selector is attributed', sources.get('zendesk2'), 'Zendesk');
+eq('nothing else is attributed', [...new Set(sources.values())], ['Zendesk']);
+eq('the MX provider\'s own selectors are not attributed', sources.has('selector1'), false);
+eq('the base selector list is not attributed', sources.has('google'), false);
+
+// A selector the user typed in would have been tested regardless, so crediting
+// SPF for it would be a lie.
+eq('a user-supplied selector is not credited to SPF',
+  D.spfSelectorSources(['zendesk1'], 'Microsoft 365', false, zendeskSpf).has('zendesk1'), false);
+eq('but its sibling still is',
+  D.spfSelectorSources(['zendesk1'], 'Microsoft 365', false, zendeskSpf).get('zendesk2'), 'Zendesk');
+
+// When SPF names the provider MX already found, nothing is attributed — those
+// selectors were never added by this path.
+eq('a doubly-matched provider attributes nothing',
+  D.spfSelectorSources([], 'Mailgun', false, 'v=spf1 include:mailgun.org -all').size, 0);
+// Comprehensive mode tests everything anyway, so "via SPF" would explain nothing.
+eq('comprehensive mode attributes nothing',
+  D.spfSelectorSources([], 'Microsoft 365', true, zendeskSpf).size, 0);
+eq('no SPF record attributes nothing', D.spfSelectorSources([], 'Microsoft 365', false, '').size, 0);
+
+// Ordinary findings carry no tag at all.
+const plainDkim = await D.checkDKIM('helpdesk.example', false, [], 'Microsoft 365', false, zendeskSpf, {});
+eq('an untagged finding reports an empty source',
+  plainDkim.selectors.every(x => x.sel.startsWith('zendesk') ? x.viaSpf === 'Zendesk' : x.viaSpf === ''), true);
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

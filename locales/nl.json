@@ -171,6 +171,7 @@
     "noDomainKeyFound": "Geen domeinsleutel gevonden ({0})",
     "txtRecord": "TXT-record",
     "cnameTarget": "CNAME-doel",
+    "viaSpf": "via SPF: {0}",
     "noteWildcard": "Een wildcard-TXT-bug kan het resultaat verstoren",
     "noteNotFound": "Geen actieve DKIM-sleutel gevonden onder de {0} geteste selectors.",
     "noteNotFoundWithErrors": "Geen actieve DKIM-sleutel gevonden onder de {0} voltooide selectorcontroles; {1} DNS-query's zijn mislukt."

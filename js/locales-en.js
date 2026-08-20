@@ -178,6 +178,7 @@ window.__I18N_EN__ = {
     "noDomainKeyFound": "No Domain Key Found ({0})",
     "txtRecord": "TXT record",
     "cnameTarget": "CNAME target",
+    "viaSpf": "via SPF: {0}",
     "noteWildcard": "Wildcard TXT bug may be interfering",
     "noteNotFound": "No active DKIM key found among {0} tested selectors.",
     "noteNotFoundWithErrors": "No active DKIM key found among {0} completed selector checks; {1} DNS queries failed."

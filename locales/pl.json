@@ -171,6 +171,7 @@
     "noDomainKeyFound": "Nie znaleziono klucza domeny ({0})",
     "txtRecord": "Rekord TXT",
     "cnameTarget": "Cel rekordu CNAME",
+    "viaSpf": "przez SPF: {0}",
     "noteWildcard": "Błąd rekordu TXT z symbolem wieloznacznym może zakłócać wynik",
     "noteNotFound": "Nie znaleziono aktywnego klucza DKIM wśród {0} testowanych selektorów.",
     "noteNotFoundWithErrors": "Nie znaleziono aktywnego klucza DKIM wśród {0} ukończonych sprawdzeń selektorów; {1} zapytań DNS zakończyło się niepowodzeniem."

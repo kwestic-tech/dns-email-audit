@@ -171,6 +171,7 @@
     "noDomainKeyFound": "Kunci domain tidak ditemukan ({0})",
     "txtRecord": "Data TXT",
     "cnameTarget": "Target CNAME",
+    "viaSpf": "via SPF: {0}",
     "noteWildcard": "Bug TXT wildcard mungkin mengganggu hasil",
     "noteNotFound": "Tidak ditemukan kunci DKIM aktif di antara {0} selektor yang diuji.",
     "noteNotFoundWithErrors": "Tidak ditemukan kunci DKIM aktif di antara {0} pemeriksaan selektor yang selesai; {1} kueri DNS gagal."
