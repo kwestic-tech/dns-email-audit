@@ -1,15 +1,20 @@
 {
   "$comment": "Registry of shipped languages. Add one entry per locale file, then drop the matching <code>.json</code> into this folder. Keep the list alphabetical by code, with 'en' first. See CONTRIBUTING.md.",
   "locales": [
-    { "code": "en",    "name": "English",              "nativeName": "English",  "label": "🌐 EN",    "dir": "ltr" },
-    { "code": "de",    "name": "German",               "nativeName": "Deutsch",  "label": "🌐 DE",    "dir": "ltr" },
-    { "code": "es",    "name": "Spanish",              "nativeName": "Español",  "label": "🌐 ES",    "dir": "ltr" },
-    { "code": "fr",    "name": "French",               "nativeName": "Français", "label": "🌐 FR",    "dir": "ltr" },
-    { "code": "it",    "name": "Italian",              "nativeName": "Italiano", "label": "🌐 IT",    "dir": "ltr" },
-    { "code": "ja",    "name": "Japanese",             "nativeName": "日本語",     "label": "🌐 JA",    "dir": "ltr" },
-    { "code": "ko",    "name": "Korean",               "nativeName": "한국어",     "label": "🌐 KO",    "dir": "ltr" },
-    { "code": "zh-CN", "name": "Chinese (Simplified)", "nativeName": "简体中文",   "label": "🌐 ZH-CN", "dir": "ltr" },
-    { "code": "zh-TW", "name": "Chinese (Traditional)","nativeName": "繁體中文",   "label": "🌐 ZH-TW", "dir": "ltr" }
+    { "code": "en",    "name": "English",               "nativeName": "English",          "label": "🌐 EN",    "dir": "ltr" },
+    { "code": "de",    "name": "German",                "nativeName": "Deutsch",          "label": "🌐 DE",    "dir": "ltr" },
+    { "code": "es",    "name": "Spanish",               "nativeName": "Español",          "label": "🌐 ES",    "dir": "ltr" },
+    { "code": "fr",    "name": "French",                "nativeName": "Français",         "label": "🌐 FR",    "dir": "ltr" },
+    { "code": "id",    "name": "Indonesian",            "nativeName": "Bahasa Indonesia", "label": "🌐 ID",    "dir": "ltr" },
+    { "code": "it",    "name": "Italian",               "nativeName": "Italiano",         "label": "🌐 IT",    "dir": "ltr" },
+    { "code": "ja",    "name": "Japanese",              "nativeName": "日本語",              "label": "🌐 JA",    "dir": "ltr" },
+    { "code": "ko",    "name": "Korean",                "nativeName": "한국어",              "label": "🌐 KO",    "dir": "ltr" },
+    { "code": "nl",    "name": "Dutch",                 "nativeName": "Nederlands",       "label": "🌐 NL",    "dir": "ltr" },
+    { "code": "pl",    "name": "Polish",                "nativeName": "Polski",           "label": "🌐 PL",    "dir": "ltr" },
+    { "code": "pt-BR", "name": "Portuguese (Brazil)",   "nativeName": "Português (BR)",   "label": "🌐 PT-BR", "dir": "ltr" },
+    { "code": "tr",    "name": "Turkish",               "nativeName": "Türkçe",           "label": "🌐 TR",    "dir": "ltr" },
+    { "code": "zh-CN", "name": "Chinese (Simplified)",  "nativeName": "简体中文",             "label": "🌐 ZH-CN", "dir": "ltr" },
+    { "code": "zh-TW", "name": "Chinese (Traditional)", "nativeName": "繁體中文",             "label": "🌐 ZH-TW", "dir": "ltr" }
   ],
   "planned": []
 }

@@ -98,6 +98,10 @@
     "dmarc": "DMARC 紀錄",
     "dkim": "DKIM 選擇器",
     "verifications": "驗證紀錄 (TXT)",
+    "wildcardApexTitle": "ℹ 萬用字元 TXT 記錄",
+    "wildcardApexText": "萬用字元 TXT 記錄會回應一層標籤深度內未定義子網域的查詢。在這個網域上它並未觸及 DKIM 選擇器查詢，而此處的其他檢查都會先比對版本前綴，因此不會影響任何結果。有些網域會刻意發布這樣的記錄，好讓來自虛構子網域的郵件撞上一個真實的 SPF 政策。",
+    "wildcardDkimTitle": "⚠ 萬用字元 TXT 觸及 DKIM",
+    "wildcardDkimText": "萬用字元 TXT 記錄會回應 _domainkey 之下的查詢，因此一個並不存在的 DKIM 選擇器回傳的是萬用字元的值，而不是什麼都沒有。您發布的選擇器仍能正常解析，但無法確認某個選擇器確實不存在，因此 DKIM 涵蓋情形不予評分，而是回報為未知。",
     "status": "狀態",
     "none": "無",
     "na": "不適用",
@@ -111,7 +115,8 @@
   },
   "stat": {
     "domains": "網域總數",
-    "haveEmail": "已設定郵件"
+    "haveEmail": "已設定郵件",
+    "wildcardDkim": "⚠ 萬用字元涵蓋 DKIM"
   },
   "badge": {
     "notRegistered": "未註冊 / NXDOMAIN",
@@ -134,7 +139,8 @@
     "noWebPresence": "無網站部署",
     "cnameLoop": "⚠ CNAME 迴圈",
     "cloudflareProxied": "Cloudflare（已代理）",
-    "porkbunForwarding": "Porkbun 轉發"
+    "porkbunForwarding": "Porkbun 轉發",
+    "dnsError": "⚠ 查詢失敗"
   },
   "spf": {
     "missing": "✗ 缺少",
@@ -157,7 +163,8 @@
     "invalid": "⚠ 無效的 p=",
     "pctSuffix": "({0}%)",
     "permerror": "🔴 多重紀錄",
-    "inheritedFrom": "繼承自 {0}"
+    "inheritedFrom": "繼承自 {0}",
+    "testMode": "⚠ {0}（測試模式，未套用）"
   },
   "dkim": {
     "uncommon": "不常見 ({0})",
@@ -243,7 +250,7 @@
       "DKIM 選擇器",
       "DMARC 狀態",
       "DMARC 策略",
-      "DMARC Test Mode (t=)",
+      "DMARC 測試模式 (t=)",
       "DMARC sp",
       "DMARC np",
       "DMARC pct",
@@ -270,6 +277,18 @@
     "note": "由 DNS 與電子郵件安全性稽核工具於本機產生的靜態報告。稽核結果未傳送至 Kwestic，亦未由本應用程式儲存；DNS 查詢名稱已傳送至 Cloudflare 的解析器。"
   },
   "issue": {
+    "wildcard-txt-apex": {
+      "msg": "有一筆萬用字元 TXT 記錄會回應未定義的子網域，但並未觸及 DKIM 查詢。對此處的各項檢查沒有影響。",
+      "what": "萬用字元 TXT 記錄（<code>* IN TXT \"...\"</code>）會讓您的 DNS 伺服器對一層標籤深度內的<em>任何</em>子網域查詢做出回應，包括您從未定義過的名稱。我們在該深度做了探測，又在 DKIM 選擇器所在的 <code>_domainkey</code> 之下再次探測。它並未觸及更深一層的名稱，因此這個網域的 DKIM 探索不受影響。此處的其他每一項檢查都會先比對版本前綴——<code>v=DMARC1</code>、<code>v=STSv1</code>、<code>v=BIMI1</code>、<code>v=spf1</code>——所以萬用字元字串在可能被誤認為政策之前就已被丟棄。",
+      "fix": "不需要處理。有些網域會刻意發布萬用字元 SPF 轉址，好讓聲稱來自虛構子網域的郵件撞上一個真實的政策，而不是什麼都找不到。若原意如此，請予以保留；若只是其他設定的殘留，則可移除。",
+      "fixCode": "; 請自行重現這兩次探測——真正重要的是第二次：\ndig +short TXT \"*.yourdomain.com\"\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com"
+    },
+    "wildcard-txt-dkim": {
+      "msg": "有一筆萬用字元 TXT 記錄會回應 DKIM 選擇器查詢，因此無法區分缺少的選擇器與已發布的選擇器。DKIM 回報為未知。",
+      "what": "此處有一筆萬用字元 TXT 記錄，會回應 DKIM 選擇器所在的 <code>_domainkey</code> 之下的查詢。當驗證方查詢一個您從未發布過的選擇器時，得到的是萬用字元的值，而不是「找不到記錄」。您確實發布的選擇器仍能正確解析並通過驗證，因此這不會破壞已簽章的郵件。被破壞的是否定回應：驗證方與本次稽核都無法區分一個不存在的選擇器與一個被合成出來的選擇器，因此 DKIM 涵蓋情形被判為未知，而非「已設定」或「缺少」。",
+      "fix": "請收窄該萬用字元，使其無法涵蓋 <code>_domainkey</code>：可以只把它限定在確實需要的子網域，也可以發布一個空的 <code>_domainkey</code> 節點。依照 RFC 4592 第 2.2.1 節，萬用字元不會在既有節點之下進行合成，但並非所有名稱伺服器都遵守這一點——任何更動之後，請用下面的 dig 指令驗證。",
+      "fixCode": "; 確認萬用字元是否觸及 DKIM 選擇器所在的深度：\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com\n\n; 收窄萬用字元之後，同樣的查詢應該什麼都不會回傳。"
+    },
     "dns-loop": {
       "msg": "www CNAME 鏈包含循環 — 網站名稱無法解析。",
       "what": "稽核工具在追蹤 <code>www</code> CNAME 鏈時遇到了已造訪過的主機名稱。這建立了 DNS 解析循環，導致訪客無法取得最終的 A 或 AAAA 地址。",
@@ -366,6 +385,12 @@
       "fix": "DKIM 設定在您的郵件提供者管理主控台中進行 — 他們會產生公鑰/私鑰對，並提供 TXT 紀錄供您在 DNS 中發佈。您不需要自己建立金鑰。",
       "fixCode": "; Google Workspace: 管理員 → 應用程式 → Google Workspace → Gmail\n;   → 驗證電子郵件 → 產生新紀錄 → 複製 TXT 紀錄\n;\n; Microsoft 365: 管理員 → 設定 → 網域 → 選擇網域\n;   → DNS 紀錄 → 啟用 DKIM\n;\n; TXT 紀錄的格式類似於：\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
+    "dkim-unverified": {
+      "msg": "找不到任何已測試的 DKIM 選擇器。{0} 以 DKIM 未設定的情況計分。如果您知道自己的 DKIM 選擇器，請填入「額外的 DKIM 選擇器」並重新執行稽核，即可計入評分。"
+    },
+    "dkim-not-checked": {
+      "msg": "本次執行未檢查 DKIM。以 DKIM 未設定的情況計分。請啟用「檢查 DKIM 選擇器」後重新執行，才會針對 DKIM 評分。"
+    },
     "implicit-mx": {
       "msg": "未發佈 MX 紀錄。SMTP 可能會退回至此網域的 A/AAAA 地址作為隱式 MX，這是脆弱且通常非預期的。"
     },
@@ -447,8 +472,32 @@
     "spf-indeterminate": {
       "msg": "由於紀錄使用了巨集 (macros)、過深的層級或包含無效的策略，SPF 查詢總數無法確定。"
     },
+    "spf-large-subnet": {
+      "msg": "SPF 授權了大範圍的 IP 位址：{0}——請確認這整片位址空間都在您的掌控之中。",
+      "what": "<code>ip4:</code> 或 <code>ip6:</code> 區塊內的每一個位址都被允許以您的網域寄信，而這些區塊很大：一個 IPv4 的 <code>/24</code> 是 256 個位址，<code>/16</code> 是 65,536 個，而 IPv6 的 <code>/48</code> 或更短則屬於站點級乃至 ISP 級的配額。當這個範圍屬於您自己時並沒有問題——許多大型組織正是這樣發布自有網段的。一旦這個範圍屬於共用主機商，或屬於其他客戶不受您控制的供應商，情況就不同了：那些「鄰居」中的任何一個都能以您的名義通過 SPF。本次稽核只回報範圍的大小，無法告訴您它歸誰所有，因此判斷權在您手上。",
+      "fix": "請確認所列的每個位址範圍實際歸誰所有。若是您自己的配額，就不需要更動。若屬於某個共用平台，請把這個範圍寬廣的區塊換成具體的寄件位址，或換成供應商自己的 <code>include:</code>——這樣就由供應商維護清單，您也不必授權他們的全部設備。",
+      "fixCode": "; 寬廣——256 個位址中的任何主機都能以您的名義寄信：\n\"v=spf1 ip4:203.0.113.0/24 -all\"\n\n; 收窄——只授權真正會寄信的主機：\n\"v=spf1 ip4:203.0.113.10 ip4:203.0.113.11 -all\"\n\n; 或者交給供應商維護清單：\n\"v=spf1 include:_spf.provider.example -all\""
+    },
+    "spf-medium-subnet": {
+      "msg": "SPF 授權了中等規模的 IP 位址範圍：{0}——建議確認每個範圍都屬於您。"
+    },
+    "spf-redundant-mechanism": {
+      "msg": "{0} 機制解析出的位址 {1} 已全數授權——移除它可將您的 SPF 查詢次數從 {2} 降到 {3}。",
+      "what": "SPF 最多允許 10 次 DNS 查詢，而 <code>a</code> 與 <code>mx</code> 機制各消耗一次。這個機制解析出的每一個位址——涵蓋 IPv4 與 IPv6——都已包含在同一筆記錄中寫明的 <code>ip4:</code> 或 <code>ip6:</code> 區塊內，因此這次查詢並未換來任何您尚未擁有的授權。移除它不會改變哪些伺服器可以用您的名義寄信，還能替您省回一次查詢額度。",
+      "fix": "請從您的 SPF 記錄中刪除該機制。若其背後的主機日後取得新的位址，請再次確認，因為屆時區塊也需要涵蓋那些位址。",
+      "fixCode": "; 修改前——mx 花掉一次查詢，去授權區塊本來就涵蓋的位址：\n\"v=spf1 mx ip4:203.0.113.0/28 include:_spf.provider.example -all\"\n\n; 修改後——授權的寄件方相同，少用一次查詢：\n\"v=spf1 ip4:203.0.113.0/28 include:_spf.provider.example -all\""
+    },
+    "spf-redundant-mechanism-nocount": {
+      "msg": "{0} 機制解析出的位址 {1} 已全數授權——移除它可以空出 SPF 十次 DNS 查詢中的一次。"
+    },
+    "spf-partial-coverage": {
+      "msg": "{2} 機制背後的 {1} 個位址中，已有 {0} 個被您的 ip4:/ip6: 區塊涵蓋——請保留該機制，它仍在授權其餘的位址。"
+    },
     "dnssec-bogus": {
       "msg": "DNSSEC 驗證顯示為偽造 (bogus)：儘管停用檢查時答案可用，但驗證失敗。"
+    },
+    "dnssec-indeterminate": {
+      "msg": "由於驗證查詢失敗，無法判定 DNSSEC 狀態。以未簽章計分。請重新執行稽核——這通常是解析器的暫時性問題。如果某個您已在註冊商或 DNS 服務供應商處確認已簽章的網域反覆出現這種情形，請在 GitHub 上開立 issue，附上網域、您的註冊商或 DNS 服務供應商，以及一張顯示 DNSSEC 已啟用的螢幕截圖。"
     },
     "mta-sts-invalid": {
       "msg": "MTA-STS TXT 紀錄格式錯誤或缺少必要的 id= 標籤。"
@@ -461,6 +510,114 @@
     },
     "bimi-invalid": {
       "msg": "BIMI 紀錄格式錯誤或未包含有效的 HTTPS 標誌 URL。"
+    },
+    "dmarc-version-missing": {
+      "msg": "DMARC 記錄並未以 v=DMARC1 開頭——接收方必須完全忽略它。",
+      "what": "RFC 9989 §5.4 要求 <code>v=</code> 標籤必須是記錄中的第一個標籤。缺少它的記錄根本不是 DMARC 記錄，無論其中還寫了什麼。接收伺服器會丟棄它，並把您的網域當作沒有 DMARC 政策來處理——因此這筆記錄只給了您防護的表象，卻沒有任何實質。",
+      "fix": "請重寫該記錄，讓它以 <code>v=DMARC1;</code> 開頭，後面再接您的政策。",
+      "fixCode": "; 錯誤——沒有版本標籤：\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正確：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-not-first": {
+      "msg": "v=DMARC1 存在，但不是第一個標籤——接收方必須忽略整筆記錄。",
+      "what": "RFC 9989 §5.4 規定 <code>v=</code> 必須是清單中的第一個標籤，而不只是出現在某處即可。其餘標籤的順序是自由的，這使得手動編輯記錄或以指令碼組裝記錄時很容易出錯。遵循規範的接收方會停止解析，並把該網域當作未受保護來處理。",
+      "fix": "請把 <code>v=DMARC1;</code> 移到記錄最前面。其他部分不需要更動。",
+      "fixCode": "; 錯誤——v= 不在最前面：\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正確：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-bad-value": {
+      "msg": "DMARC 版本值並非精確的「DMARC1」——這個值區分大小寫，記錄會被忽略。",
+      "what": "DMARC 記錄中幾乎所有的值都不區分大小寫，但 RFC 9989 §5.4 把 <code>v=</code> 訂為例外：唯一被接受的寫法是全大寫的 <code>DMARC1</code>。<code>v=dmarc1</code> 或 <code>v=DMARC2</code> 會導致整筆記錄被忽略。由於 DNS 控制台常在輸入時把值轉成小寫，這是複製貼上的常見受害者。",
+      "fix": "請將該值精確設為 <code>DMARC1</code>，之後再確認您的 DNS 控制台實際儲存了什麼。",
+      "fixCode": "; 錯誤——小寫：\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; 正確：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-duplicate-tags": {
+      "msg": "DMARC 記錄中同一個標籤重複出現（{0}）——記錄格式錯誤，可能被忽略。",
+      "what": "一筆 DMARC 記錄中每個標籤最多只能出現一次。您的記錄重複了 {0}。規範並未規定在多個值之間該如何取捨，因此行為取決於接收方：有的取第一個，有的取最後一個，有的乾脆丟棄整筆記錄。無論您以為自己設定了什麼樣的防護，都無法依賴它。",
+      "fix": "請刪除重複的標籤，讓每個標籤恰好出現一次。如果您原本想為 <code>rua=</code> 指定兩個值，請把它們合併成一個以逗號分隔的清單。",
+      "fixCode": "; 錯誤——p= 出現兩次：\n_dmarc    TXT    \"v=DMARC1; p=none; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正確：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-test-mode": {
+      "msg": "DMARC 處於測試模式（t=y）——您的 p={0} 政策雖已發布，卻並未套用。",
+      "what": "<code>t=</code> 標籤是 RFC 9989 新增的，取代 <code>pct=</code> 成為逐步推行 DMARC 的受支援方式。<code>t=y</code> 告訴接收方網域擁有者仍在評估，政策<em>不應</em>被強制執行——同時彙總報告照常送達，這正是這個模式的用意。但就防冒用而言，<code>p=reject; t=y</code> 給您的保護與 <code>p=none</code> 完全相同。那些只讀取 <code>p=</code> 的儀表板，會把這樣的網域顯示為已完全強制執行。",
+      "fix": "當您的彙總報告顯示不再有合法寄件者失敗時，請移除 <code>t=y</code>（或設為 <code>t=n</code>），讓已發布的政策成為真正生效的政策。",
+      "fixCode": "; 測試中——政策已發布，但未套用：\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正式上線——完全移除 t=（預設即為 n）：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-t": {
+      "msg": "DMARC 的 t= 值不是 y 也不是 n——接收方可能忽略這個標籤或整筆記錄。",
+      "what": "RFC 9989 為測試模式標籤定義了恰好兩個值：<code>y</code> 與 <code>n</code>，預設為 <code>n</code>。其他任何值都是語法錯誤。視接收方而定，您可能得到預設行為，也可能整筆記錄被當成格式錯誤而遭拒——從外部無法判斷是哪一種。",
+      "fix": "測試期間設為 <code>t=y</code>，正式上線後設為 <code>t=n</code>，或直接移除整個標籤，因為 <code>n</code> 本來就是預設值。",
+      "fixCode": "; 移除格式錯誤的標籤——n 是預設值：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-rua-invalid": {
+      "msg": "DMARC 的 rua= 接收位址無法使用（{0}）——彙總報告無法送達。",
+      "what": "報告的接收位址必須是 DMARC URI：也就是 <code>mailto:</code> 位址，後面可選擇性加上諸如 <code>!10m</code> 的大小上限。缺少 <code>mailto:</code> 前綴的裸位址、格式錯誤的位址，或接收方不支援的通訊協定，結果都一樣——收不到報告。由於 DMARC 是靜默失敗的，一個無法使用的 <code>rua=</code> 看起來與一個無人冒用的網域毫無差別。",
+      "fix": "請將接收位址改成完整的 <code>mailto:</code> URI。多個位址之間以逗號分隔。",
+      "fixCode": "; 錯誤——缺少 mailto: 通訊協定前綴：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=dmarc@yourdomain.com;\"\n\n; 正確——一個或多個 mailto: URI：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example!10m;\""
+    },
+    "dmarc-ruf-invalid": {
+      "msg": "DMARC 的 ruf= 接收位址無法使用（{0}）——失敗報告無法送達。",
+      "what": "<code>ruf=</code> 標籤採用與 <code>rua=</code> 相同的 DMARC URI 格式：<code>mailto:</code> 位址，可選擇性加上 <code>!</code> 大小上限。您的值無法解析，因此不會收到任何失敗報告。請注意，失敗報告（RFC 9991）包含郵件內容，而且會傳送它的接收方相對較少——失去它們不如失去彙總報告嚴重，但一個損壞的標籤仍然值得修正或移除。",
+      "fix": "請將接收位址改成完整的 <code>mailto:</code> URI；如果您並不打算收集失敗報告，就移除 <code>ruf=</code>。",
+      "fixCode": "; 正確——一個完整的 mailto: URI：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-fo-without-ruf": {
+      "msg": "DMARC 設了 fo= 卻沒有 ruf=——接收方必須忽略它。",
+      "what": "<code>fo=</code> 標籤控制的是<em>何時</em>產生失敗報告，因此 RFC 9989 規定：在沒有 <code>ruf=</code> 標籤時，必須忽略它的內容。也就是說這個標籤什麼也沒做。這通常表示某個時候 <code>ruf=</code> 被移除了，而 <code>fo=</code> 被留了下來，於是給人一種失敗回報仍在運作的錯覺。",
+      "fix": "如果您需要失敗報告，請新增 <code>ruf=</code> 接收位址；否則請移除 <code>fo=</code>，讓記錄名副其實。",
+      "fixCode": "; 要嘛新增一個接收位址：\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; 要嘛移除這個沒有作用的標籤：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-fo": {
+      "msg": "DMARC 的 fo= 含有非 0、1、d、s 的值。",
+      "what": "失敗回報選項標籤接受以冒號分隔的四個值的子集：<code>0</code>（全部失敗時回報）、<code>1</code>（任一項失敗時回報）、<code>d</code>（DKIM 失敗）與 <code>s</code>（SPF 失敗）。其他任何值都是語法錯誤。多數維運人員真正想要的是 <code>fo=1</code>——預設的 <code>fo=0</code> 只在 SPF 與 DKIM 同時失敗時才回報。",
+      "fix": "請使用有效的組合，最常見的是 <code>fo=1</code>。",
+      "fixCode": "; 只要任一機制失敗就回報：\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; 多個選項以冒號分隔：\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=d:s; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-external-reporting": {
+      "msg": "DMARC 報告送往外部網域（{0}）——該網域必須授權，否則報告會被丟棄。",
+      "what": "當報告的接收位址位於您的組織網域之外時——例如 DMARC 服務供應商、顧問或關係企業——RFC 9990 §4.3 要求接收方網域發布一筆授予許可的記錄。少了它，遵循規範的接收方會靜默丟棄送往該位址的報告。授權是逐一位址判定的，因此未獲授權的供應商並不會破壞您的 DMARC 記錄，也不會阻斷送往其他位址的報告；只是那一個位址會就此沉默。本次稽核並未驗證該記錄——請啟用進階檢查，以便自動查詢。",
+      "fix": "請要求目的地網域以 <code>&lt;您的網域&gt;._report._dmarc.&lt;對方網域&gt;</code> 的形式，發布一筆針對您網域的授權記錄。",
+      "fixCode": "; 您的記錄會把報告送往某個服務供應商：\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; 供應商必須在自己的區域中發布這筆記錄：\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
+    },
+    "dmarc-bad-psd": {
+      "msg": "DMARC 的 psd= 值不是 y、n 或 u。",
+      "what": "<code>psd=</code> 標籤是 RFC 9989 新增的，用來告訴 DNS Tree Walk 這個網域是否為公共後綴網域。它只接受三個值：<code>y</code>、<code>n</code> 與 <code>u</code>（預設值，表示採用一般的探索方式）。無效的值代表在一個控制接收方如何找到您政策的標籤中出現了語法錯誤。",
+      "fix": "除非您營運的是公共後綴，否則請移除這個標籤——<code>u</code> 是預設值，幾乎適用於所有一般網域。",
+      "fixCode": "; 一般網域完全不需要 psd=：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-psd-invalid": {
+      "msg": "DMARC 宣告了 psd=y，但這個網域並不是公共後綴。",
+      "what": "<code>psd=y</code> 告訴接收方這個名稱是公共後綴網域——例如 <code>.gov.uk</code> 這類註冊管理機構層級的名稱，互不相關的組織會在其下註冊。它會改變接收方尋找政策時 DNS Tree Walk 的停止位置，因此把它設在一般的組織網域上，可能導致子網域的政策被錯誤地解析出來。這幾乎總是照抄範例造成的失誤。",
+      "fix": "除非您確實營運著 Public Suffix List 中收錄的公共後綴，否則請移除 <code>psd=y</code>。",
+      "fixCode": "; 移除該標籤：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-removed-tags": {
+      "msg": "DMARC 記錄中含有已被 RFC 9989 移除的標籤（{0}）——它們不再有任何作用。",
+      "what": "RFC 9989 移除了若干從 RFC 7489 沿用下來的標籤。實作現行規範的接收方會忽略它們。就「不會破壞記錄」而言它們是無害的，但具有誤導性：日後閱讀這筆記錄的人會以為它們仍然生效。",
+      "fix": "請刪除這些已淘汰的標籤。報告的傳送頻率與格式已無法透過 DMARC 記錄設定——關於彙總報告現在如何運作，請參閱 RFC 9990。",
+      "fixCode": "; 已移除淘汰的標籤：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-unknown-tags": {
+      "msg": "DMARC 記錄中含有不屬於標準的標籤（{0}）。",
+      "what": "RFC 9989 定義的完整標籤集為：<code>v</code>、<code>p</code>、<code>sp</code>、<code>np</code>、<code>adkim</code>、<code>aspf</code>、<code>fo</code>、<code>rua</code>、<code>ruf</code>、<code>psd</code> 與 <code>t</code>。未知標籤必須被忽略，因此它們只是沒有作用而非危險——但它們通常是某個真實標籤名稱的拼字錯誤，這表示您想要的設定並未生效。拼錯的 <code>rua</code> 既是一個未知標籤，<em>同時</em>也是一個缺少的報告接收位址。",
+      "fix": "請逐一檢查這些無法辨識的標籤是否為拼字錯誤，然後移除那些確實不需要的。",
+      "fixCode": "; 拼字錯誤會被靜默忽略——這筆記錄根本沒有報告接收位址：\n_dmarc    TXT    \"v=DMARC1; p=reject; rau=mailto:dmarc@yourdomain.com;\"\n\n; 更正後：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-external-unauthorized": {
+      "msg": "送往 {0} 的 DMARC 報告正被丟棄——該網域尚未授權接收您的報告。",
+      "what": "當報告的接收位址位於您的組織網域之外時，RFC 9990 §4.3 要求接收方網域發布一筆授予許可的記錄。我們查過了，它並不存在。因此遵循規範的接收方會丟棄每一份送往 {0} 的報告：不會出錯，也不會退信，您只是拿到比預期更少的資料——而這很容易被誤解成「沒有人在冒用我們」。授權是逐一位址檢查的，因此您記錄中的其他位址仍可正常運作；被丟棄的只有這一個。",
+      "fix": "請要求 {0} 的營運方發布一筆針對您網域的授權記錄。多數報告服務供應商會在您新增網域時自動處理，因此如果您才剛完成設定，不妨先查看供應商的控制台——該記錄可能要等網域在對方端通過驗證後才會出現。",
+      "fixCode": "; 目的地網域在自己的區域中發布這筆記錄，\n; 並指明它接受哪個網域的報告：\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; 服務大量客戶的供應商通常改為發布萬用字元形式：\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
+    },
+    "dmarc-external-unverifiable": {
+      "msg": "無法驗證 {0} 的報告授權——DNS 查詢未能完成。",
+      "what": "送往組織網域之外的報告必須取得目的地授權，我們是透過向目的地查詢授權記錄來確認這一點。這次查詢失敗了——可能是逾時、SERVFAIL 或解析器的短暫狀況——因此我們無法告訴您該記錄是否存在。這是我們結果中的一處空白，而不是針對您設定的結論：請將它視為「未知」而非問題，並在採取行動前重新執行稽核。",
+      "fix": "請重新執行稽核。如果仍然失敗，請直接查詢該名稱，看記錄是否存在。",
+      "fixCode": "; 手動檢查授權記錄：\ndig +short TXT yourdomain.com._report._dmarc.{0}\n\n; 以及多數供應商會發布的萬用字元形式：\ndig +short TXT \"*._report._dmarc.{0}\""
+    },
+    "checks-unverified": {
+      "msg": "部分檢查未能完成（{0}）——以該記錄未發布的情況計分。",
+      "what": "針對這個網域的一次或多次 DNS 查詢沒有回傳可用的回應，通常是解析器回傳 SERVFAIL 或逾時。這可能真的是名稱伺服器故障，但同樣常見的是幾分鐘內就會恢復的暫時性狀況。稽核的其餘部分已正常完成，結果是準確的。受影響的檢查以零分計，因為一個本工具無法背書的評分，價值低於一個單純嚴格的評分——因此在重新執行之前，查詢失敗確實會讓您失分。",
+      "fix": "請先重新執行稽核：暫時性的故障會自行恢復，扣掉的分數也會回來。如果同樣的檢查持續失敗，請直接查詢受影響的名稱，看您的名稱伺服器是否回應。對不存在的名稱回傳 SERVFAIL 而非 NXDOMAIN 的伺服器，會反覆觸發這個問題。",
+      "fixCode": "; 檢查您的名稱伺服器是否會回應一個本不該存在的名稱。\n; 正常的伺服器回傳 NXDOMAIN，異常的伺服器回傳 SERVFAIL：\ndig +short does-not-exist-test.yourdomain.com\n\n; 略過解析器，直接詢問您的權威伺服器：\ndig @ns1.yourprovider.com www.yourdomain.com A"
     }
   },
   "suggestion": {
@@ -469,7 +626,8 @@
     "mta-sts": "未設定 MTA-STS。發佈 _mta-sts TXT 紀錄並託管策略檔案可強制對傳入郵件使用 TLS 加密，從而防止降級攻擊。",
     "tls-rpt": "未設定 TLS-RPT (_smtp._tls TXT)。作為 MTA-STS 的配套功能，它會在 TLS 協商失敗時向您傳送報告 — 易於新增，且無副作用。",
     "caa": "無 CAA 紀錄 — 任何憑證簽發機構都可以為此網域簽發 SSL 憑證。新增僅指定您偏好的 CA（例如 Let's Encrypt, DigiCert）的 CAA 紀錄。",
-    "dnssec": "未偵測到 DNSSEC。對您的 DNS 紀錄進行數位簽章可防止快取污染和 MX 劫持。Cloudflare 和大多數現代 DNS 提供者都支援一鍵啟用。"
+    "dnssec": "未偵測到 DNSSEC。對您的 DNS 紀錄進行數位簽章可防止快取污染和 MX 劫持。Cloudflare 和大多數現代 DNS 提供者都支援一鍵啟用。",
+    "dmarc-pct-obsolete": "您的 DMARC 記錄仍在使用 pct=。自 RFC 9989（DMARCbis，2026 年 5 月批准）起，pct= 不再是受支援的標籤，應予移除。已採納新標準的接收方會忽略它，而仍停留在 RFC 7489 的接收方不會——因此保留它意味著您的政策執行力度會因接收方而異。如果您需要分階段推行，請改用 t=y。"
   },
   "learnMore": {
     "badge": "電子郵件安全性指南",
@@ -605,11 +763,48 @@
           "body": "在 <a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a> 驗證您的 DNSSEC 信任鏈，或在 <a href=\"https://dnsviz.net\" target=\"_blank\" rel=\"noopener\">dnsviz.net</a> 將其視覺化。有效的信任鏈在從根 → TLD → 您的網域的每個層級上都顯示為綠色。"
         }
       ]
+    },
+    "dmarc-rfc9989": {
+      "title": "RFC 9989 — DMARC 有哪些變化",
+      "tagline": "DMARCbis 已於 2026 年 5 月獲得批准。以下是它移除了什麼、新增了什麼，以及您需要做出哪些更動。",
+      "sections": [
+        {
+          "h": "DMARC 現在是一項標準",
+          "body": "在最初的十年裡，DMARC 一直是 RFC 7489，一份<em>資訊性</em>文件——部署廣泛，卻從未正式成為標準。2026 年 5 月，IETF 發布了接替它的一組文件：RFC 9989（核心通訊協定）、RFC 9990（彙總報告）與 RFC 9991（失敗報告）。它們共同廢止了 RFC 7489 與 RFC 9091，並把 DMARC 提升為標準軌道上的 Proposed Standard。把報告拆分到獨立文件意味著，報告格式如今可以自行演進，而不必重新開啟核心規範。"
+        },
+        {
+          "h": "pct= 已被移除",
+          "body": "<code>pct=</code> 標籤讓您只對一定比例的失敗郵件套用政策。它的本意是輔助逐步推行，但實際效果難以預測——各接收方對抽樣的實作方式不同，一封郵件的命運取決於剛好由哪一台伺服器處理。RFC 9989 已將該標籤完全移除。實作新規範的接收方會忽略它。",
+          "body2": "過渡期的隱憂在於：仍在執行 RFC 7489 的接收方依舊尊重 <code>pct=</code>。於是一筆帶有 <code>pct=25</code> 的記錄，如今會被一部分接收方完整執行，又被另一部分限制到四分之一，而您無從得知兩者的比例。這比單獨任何一種行為都更糟，也正因如此，即使在所有接收方完成移轉之前，移除該標籤也是正確的做法。"
+        },
+        {
+          "h": "改由 t= 承擔分階段推行",
+          "body": "RFC 9989 新增了一個測試模式標籤。<code>t=y</code> 告訴接收方您仍在評估，政策<em>不應</em>被套用——同時彙總報告照常送達。它具備 <code>pct=</code> 從未有過的明確性：政策要嘛正在執行，要嘛沒有。",
+          "code": "; 第 1 步——以測試模式發布您的目標政策：\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; 第 2 步——當報告顯示不再有合法郵件失敗時，拿掉 t=：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"",
+          "body2": "請注意，<code>p=reject; t=y</code> 給您的防冒用保護與 <code>p=none</code> 完全相同——也就是沒有。測試模式是一個需要走過的階段，而不是長期停留之處。任何只讀取 <code>p=</code> 的儀表板，都會把這樣的網域回報為已完全執行。"
+        },
+        {
+          "h": "完整的標籤集",
+          "body": "RFC 9989 定義了恰好十一個標籤：<code>v</code>、<code>p</code>、<code>sp</code>、<code>np</code>、<code>adkim</code>、<code>aspf</code>、<code>fo</code>、<code>rua</code>、<code>ruf</code>、<code>psd</code> 與 <code>t</code>。其餘一切——包括 <code>pct</code>、<code>rf</code> 與 <code>ri</code>——都必須被接收方忽略。請注意未知標籤會被靜默丟棄，因此把 <code>rua=</code> 誤寫成 <code>rau=</code> 之類的錯誤，會讓您失去報告接收位址，而任何地方都不會出現錯誤訊息。",
+          "body2": "另有兩條規則比一般人預期的更嚴格。<code>v=</code> 必須是<em>第一個</em>標籤，且其值區分大小寫——只接受 <code>DMARC1</code>，因此 <code>v=dmarc1</code> 會導致整筆記錄被忽略。"
+        },
+        {
+          "h": "向外部網域傳送報告",
+          "body": "如果您的 <code>rua=</code> 或 <code>ruf=</code> 接收位址在組織網域之外——某個 DMARC 服務供應商、顧問或關係企業——接收方網域必須發布一筆記錄來授權它。少了這筆記錄，遵循規範的接收方會靜默丟棄您的報告。不會退信，也不會出錯；您只是看到的資料比原本應有的更少。",
+          "code": "; 您的記錄會把報告送往某個服務供應商：\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; 供應商必須在自己的區域中發布這筆記錄：\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\"",
+          "body2": "多數成熟的供應商會自動發布這筆記錄，但當一個新加入的報告接收位址遲遲沒有資料時，通常就是這個原因。"
+        },
+        {
+          "h": "現在該做什麼",
+          "body": "請從您的 DMARC 記錄中移除 <code>pct=</code>。如果您正在推行途中並依賴它，請改用 <code>t=y</code> 發布您的目標政策，觀察彙總報告直到沒有合法寄件者再失敗，然後移除 <code>t=</code>。既然要動這筆記錄，不妨順便檢查：<code>v=DMARC1</code> 是否在最前面且大小寫正確、每個標籤名稱是否拼寫無誤，以及任何外部報告接收位址是否已授權給您。"
+        }
+      ]
     }
   },
   "score": {
     "label": "安全性得分",
     "outOf": "{0} / {1}",
+    "unproven": "{0} / {1} — 無法驗證的檢查以零分計：{2}。展開此列可查看如何把這些分數拿回來。",
     "parkedNote": "停用網域 — 僅針對 SPF、DMARC、DNSSEC 與 CAA 進行評分",
     "pillar": {
       "dmarc": "DMARC",
@@ -627,7 +822,8 @@
       "subdomain": "子網域涵蓋範圍",
       "rua": "彙總報告 (rua=)",
       "alignment": "嚴格對齊",
-      "ruf": "鑑識報告 (ruf=)"
+      "ruf": "鑑識報告 (ruf=)",
+      "uris": "報告接收位址"
     }
   }
 }

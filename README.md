@@ -27,8 +27,9 @@ sent to Cloudflare and are subject to Cloudflare's privacy policy.
   one of them is named with the step that recovers the points.
 - Search, filters, sortable results, expandable evidence, CSV export, and a
   self-contained script-free HTML report.
-- Complete UI localization in English, German, Spanish, French, Italian,
-  Japanese, Korean, Simplified Chinese, and Traditional Chinese.
+- Complete UI localization in fourteen languages: English, German, Spanish,
+  French, Indonesian, Italian, Japanese, Korean, Dutch, Polish, Brazilian
+  Portuguese, Turkish, Simplified Chinese, and Traditional Chinese.
 - No runtime dependencies, database, cookies, accounts, or server-side audit
   processing.
 
@@ -238,9 +239,14 @@ The application ships with complete locale bundles for:
 | `de` | German / Deutsch |
 | `es` | Spanish / Español |
 | `fr` | French / Français |
+| `id` | Indonesian / Bahasa Indonesia |
 | `it` | Italian / Italiano |
 | `ja` | Japanese / 日本語 |
 | `ko` | Korean / 한국어 |
+| `nl` | Dutch / Nederlands |
+| `pl` | Polish / Polski |
+| `pt-BR` | Brazilian Portuguese / Português (BR) |
+| `tr` | Turkish / Türkçe |
 | `zh-CN` | Simplified Chinese / 简体中文 |
 | `zh-TW` | Traditional Chinese / 繁體中文 |
 

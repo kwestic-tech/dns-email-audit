@@ -20,6 +20,11 @@
     "build": "node tools/build-site.mjs",
     "build:fallback": "node tools/build-fallback.mjs",
     "check": "node tools/check-locales.mjs",
+    "locale:sync": "node tools/locale-sync.mjs",
+    "locale:todo": "node tools/locale-todo.mjs",
+    "locale:set": "node tools/locale-set.mjs",
+    "locale:gate": "node tools/check-locales.mjs --strict",
+    "pr:prep": "node tools/pr-readiness.mjs",
     "test": "node tools/check-locales.mjs && node tools/scoring.test.mjs",
     "test:scoring": "node tools/scoring.test.mjs"
   },

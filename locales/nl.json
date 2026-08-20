@@ -1,0 +1,829 @@
+{
+  "meta": {
+    "code": "nl",
+    "name": "Dutch",
+    "nativeName": "Nederlands",
+    "dir": "ltr"
+  },
+  "doc": {
+    "title": "DNS- en e-mailbeveiligingsaudit — gratis SPF-, DKIM-, DMARC- en DNSSEC-checker",
+    "description": "Gratis DNS- en e-mailbeveiligingsaudit die in uw browser draait. Controleer direct SPF, DKIM, DMARC, BIMI, MTA-STS, CAA en DNSSEC voor maximaal 200 domeinen tegelijk. Geen registratie, geen opgeslagen gegevens — alles draait in uw browser."
+  },
+  "topbar": {
+    "title": "DNS- en e-mailaudit",
+    "subtitle": "· gratis · geen registratie · geen gegevens naar Kwestic",
+    "langTitle": "Taal"
+  },
+  "btn": {
+    "howItWorks": "📖 Hoe het werkt",
+    "exportCsv": "⬇ CSV exporteren",
+    "exportHtml": "⬇ Rapport exporteren",
+    "runAudit": "🔎 Audit uitvoeren",
+    "auditRunning": "Bezig met auditen…",
+    "cancelAudit": "Audit annuleren",
+    "uploadFile": "📄 .txt-bestand uploaden",
+    "loadExamples": "Voorbeelden laden",
+    "clearResults": "🗑 Resultaten wissen",
+    "learnMore": "Meer informatie →"
+  },
+  "input": {
+    "heading": "Voer domeinen in om te auditen",
+    "desc": "Eén domein per regel, of upload een .txt-bestand. Maximaal 200 domeinen tegelijk.",
+    "placeholder": "example.com\nmycompany.org\nanother-domain.net"
+  },
+  "opt": {
+    "dkim": "DKIM-selectors controleren",
+    "dkimComprehensive": "Uitgebreide DKIM-scan (max. 5 domeinen)",
+    "dkimComprehensiveTitle": "Gebruikt alle 1.677 gecontroleerde exacte selectors uit de catalogus; beperkt tot vijf domeinen per uitvoering",
+    "www": "Websitehosting detecteren",
+    "wildcard": "Wildcard-TXT-records detecteren",
+    "dkimSelectors": "Extra DKIM-selectors",
+    "footer": "DNS via Cloudflare DoH · Geen gegevens opgeslagen · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a>"
+  },
+  "help": {
+    "title": "Hoe het werkt:",
+    "body": "Draait in uw browser via de <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">DNS-over-HTTPS-API van Cloudflare</a>. Er worden geen gegevens naar Kwestic gestuurd of door deze app opgeslagen; de opgevraagde DNS-namen gaan rechtstreeks naar Cloudflare en vallen onder het privacybeleid van Cloudflare. Wat wordt gecontroleerd: NS, MX, SPF, providerspecifieke of uitgebreide DKIM-selectors, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC en de SPF-lookupdiepte. Er worden geen cookies geplaatst; het enige dat in uw browser wordt opgeslagen is uw taalvoorkeur, die uw apparaat nooit verlaat en niet vanzelf verloopt — zie <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a> voor details."
+  },
+  "netbanner": {
+    "title": "⚠️ Netwerktoegang geblokkeerd — DNS-query's kunnen het internet hiervandaan niet bereiken",
+    "body": "Deze app gebruikt de DNS-over-HTTPS-API van <code>cloudflare-dns.com</code>, die wordt geblokkeerd wanneer de pagina in een sandboxed iframe draait (bijv. het ingebouwde voorbeeldpaneel van een AI-assistent). Om de auditor te gebruiken, serveert u de map via HTTP of host u hem op een willekeurige gratis statische site:<br><br>• <strong>Snelst:</strong> sleep de projectmap naar <a href=\"https://app.netlify.com/drop\" target=\"_blank\" rel=\"noopener\">app.netlify.com/drop</a> → live URL binnen ~60 seconden.<br>• <strong>Eigen domein:</strong> gratis uitrollen naar <a href=\"https://pages.cloudflare.com\" target=\"_blank\" rel=\"noopener\">Cloudflare Pages</a> of <a href=\"https://pages.github.com\" target=\"_blank\" rel=\"noopener\">GitHub Pages</a>.<br>• <strong>Lokaal:</strong> voer <code>npx serve</code> (of <code>python3 -m http.server</code>) uit in de projectmap."
+  },
+  "progress": {
+    "heading": "DNS-records opvragen…",
+    "querying": "{0} opvragen…",
+    "error": "Fout bij {0}: {1}",
+    "cancelled": "Geannuleerd door gebruiker",
+    "cancelledDomain": "{0} geannuleerd"
+  },
+  "search": {
+    "placeholder": "🔎 Domeinen filteren…"
+  },
+  "th": {
+    "domain": "Domein",
+    "grade": "Cijfer",
+    "dns": "DNS-provider",
+    "email": "E-mailprovider",
+    "spf": "SPF",
+    "dkim": "DKIM",
+    "dmarc": "DMARC",
+    "advanced": "Geavanceerd",
+    "hosting": "Hosting"
+  },
+  "filter": {
+    "all": "Alle domeinen",
+    "warn": "⚠️ Heeft waarschuwingen",
+    "crit": "🔴 Heeft problemen",
+    "noEmail": "Geen e-mail",
+    "noDmarc": "Geen DMARC",
+    "noDkim": "Geen DKIM",
+    "noSpf": "Geen SPF",
+    "hasBimi": "Heeft BIMI",
+    "noCaa": "Geen CAA",
+    "noDnssec": "Geen DNSSEC"
+  },
+  "empty": {
+    "text": "Geen domeinen komen overeen met uw filter."
+  },
+  "footer": {
+    "text": "DNS-over-HTTPS via <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; Er worden geen gegevens naar Kwestic gestuurd of door deze app opgeslagen &bull; Opgevraagde namen gaan naar Cloudflare &bull; Gratis te gebruiken &amp; zelf te hosten &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a> &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/SECURITY.md\" target=\"_blank\" rel=\"noopener\">Beveiliging</a>"
+  },
+  "labels": {
+    "issues": "Problemen",
+    "suggestions": "💡 Aanbevelingen",
+    "advanced": "Geavanceerde beveiliging",
+    "nameservers": "Naamservers",
+    "mx": "MX-records",
+    "spf": "SPF-record",
+    "spfLookups": "DNS-lookups",
+    "dmarc": "DMARC-record",
+    "dkim": "DKIM-selectors",
+    "verifications": "Verificaties (TXT)",
+    "wildcardApexTitle": "ℹ Wildcard-TXT-record",
+    "wildcardApexText": "Een wildcard-TXT-record beantwoordt query's voor niet-gedefinieerde subdomeinen één label diep. Op dit domein reikt hij niet tot DKIM-selectorlookups, en elke andere controle hier matcht een versievoorvoegsel, dus er wordt niets geraakt. Sommige domeinen publiceren dit bewust, zodat e-mail van verzonnen subdomeinen een echt SPF-beleid tegenkomt.",
+    "wildcardDkimTitle": "⚠ Wildcard-TXT reikt tot DKIM",
+    "wildcardDkimText": "Een wildcard-TXT-record beantwoordt query's onder _domainkey, dus een DKIM-selector die niet bestaat geeft de wildcardwaarde terug in plaats van niets. Selectors die u publiceert worden nog steeds omgezet, maar de afwezigheid van een selector kan niet worden bevestigd, dus de DKIM-dekking wordt als onbekend gerapporteerd in plaats van beoordeeld.",
+    "status": "Status",
+    "none": "Geen",
+    "na": "N.v.t.",
+    "dash": "—"
+  },
+  "showme": {
+    "open": "Toon mij ▾",
+    "close": "Toon mij ▴",
+    "whatItIs": "Wat het is",
+    "whatItNeeds": "Hoe het zou moeten zijn"
+  },
+  "stat": {
+    "domains": "Domeinen",
+    "haveEmail": "Met e-mail",
+    "wildcardDkim": "⚠ Wildcard over DKIM"
+  },
+  "badge": {
+    "notRegistered": "Niet geregistreerd / NXDOMAIN",
+    "noEmail": "✗ Geen e-mail",
+    "noDkim": "✗ Geen",
+    "dkimUnverified": "? Geen domeinsleutel gevonden in de geteste selectors",
+    "dkimUncommon": "⚠ Ongebruikelijk ({0})",
+    "notChecked": "Niet gecontroleerd",
+    "auditError": "Audit onbeslist",
+    "cancelled": "Geannuleerd"
+  },
+  "provider": {
+    "unknown": "Onbekend",
+    "custom": "Aangepast",
+    "customUnknown": "Aangepast/onbekend",
+    "selfHosted": "Zelf gehost",
+    "none": "Geen",
+    "nullMx": "Null-MX (e-mail uitgeschakeld)",
+    "implicitMx": "Impliciete MX (geen MX-record)",
+    "noWebPresence": "Geen webaanwezigheid",
+    "cnameLoop": "⚠ CNAME-lus",
+    "cloudflareProxied": "Cloudflare (via proxy)",
+    "porkbunForwarding": "Porkbun-doorsturen",
+    "dnsError": "⚠ Opvragen mislukt"
+  },
+  "spf": {
+    "missing": "✗ Ontbreekt",
+    "issues": "⚠ Problemen",
+    "hardfail": "✓ -all",
+    "softfail": "~ ~all",
+    "present": "✓ Aanwezig",
+    "meterOver": "{0}/10 🔴 BOVEN DE LIMIET",
+    "meterNear": "{0}/10 ⚠ Bijna aan de limiet",
+    "meterOk": "{0}/10 ✓",
+    "meterSuffix": "DNS-lookups",
+    "permerror": "🔴 Permerror"
+  },
+  "dmarc": {
+    "missing": "✗ Ontbreekt",
+    "reject": "✓ reject",
+    "quarantine": "✓ quarantine",
+    "none": "⚠ none (alleen monitoring)",
+    "set": "✓ Ingesteld",
+    "invalid": "⚠ Ongeldige p=",
+    "pctSuffix": "({0}%)",
+    "permerror": "🔴 Meerdere records",
+    "inheritedFrom": "Overgenomen van {0}",
+    "testMode": "⚠ {0} (testmodus, niet toegepast)"
+  },
+  "dkim": {
+    "uncommon": "Ongebruikelijk ({0})",
+    "noDomainKeyFound": "Geen domeinsleutel gevonden ({0})",
+    "txtRecord": "TXT-record",
+    "cnameTarget": "CNAME-doel",
+    "noteWildcard": "Een wildcard-TXT-bug kan het resultaat verstoren",
+    "noteNotFound": "Geen actieve DKIM-sleutel gevonden onder de {0} geteste selectors.",
+    "noteNotFoundWithErrors": "Geen actieve DKIM-sleutel gevonden onder de {0} voltooide selectorcontroles; {1} DNS-query's zijn mislukt."
+  },
+  "adv": {
+    "configured": "✓ Geconfigureerd",
+    "unverified": "TXT geldig; beleid niet geverifieerd",
+    "notConfigured": "Niet geconfigureerd",
+    "tip": {
+      "bimiOn": "Record: {0}",
+      "bimiOff": "Niet geconfigureerd — toon uw logo in Gmail en Apple Mail",
+      "mtaStsOn": "Geconfigureerd — TLS afgedwongen bij inkomende bezorging",
+      "mtaStsUnverified": "Het TXT-record is geldig, maar deze audit die alleen in de browser draait verifieert het HTTPS-beleidsbestand niet",
+      "mtaStsOff": "Niet geconfigureerd — publiceer een _mta-sts TXT-record om TLS af te dwingen op inkomende e-mail",
+      "tlsRptOn": "Geconfigureerd — rapporten over TLS-fouten ingeschakeld",
+      "tlsRptOff": "Niet geconfigureerd — aanvulling op MTA-STS; publiceer een _smtp._tls TXT-record",
+      "caaOn": "Gevonden op {0}: {1}",
+      "caaOff": "Niet gevonden — voeg CAA-records toe om te beperken welke certificaatautoriteiten certificaten voor dit domein mogen uitgeven",
+      "dnssecOn": "AD-vlag gezet — DNS-antwoorden worden cryptografisch geverifieerd",
+      "dnssecOff": "Niet gedetecteerd — schakel DNSSEC in bij uw DNS-provider om cachevergiftiging te voorkomen",
+      "bimiDup": "Meerdere records — BIMI wordt genegeerd, uw logo wordt niet weergegeven",
+      "mtaStsDup": "Meerdere records — verzenders behandelen dit domein alsof het geen MTA-STS-beleid heeft",
+      "tlsRptDup": "Meerdere records — verzenders behandelen dit domein alsof het TLS-RPT niet implementeert"
+    },
+    "duplicated": "⚠ Meerdere records"
+  },
+  "rows": {
+    "count": {
+      "one": "{0} domein",
+      "other": "{0} domeinen"
+    },
+    "showing": "{0} van {1} weergegeven",
+    "critical": {
+      "one": "{0} kritiek",
+      "other": "{0} kritiek"
+    },
+    "warning": {
+      "one": "{0} waarschuwing",
+      "other": "{0} waarschuwingen"
+    },
+    "suggestion": {
+      "one": "{0} suggestie",
+      "other": "{0} suggesties"
+    }
+  },
+  "toast": {
+    "noDomains": "Plak minstens één domeinnaam.",
+    "tooMany": "Maximaal 200 domeinen per uitvoering.",
+    "tooManyComprehensiveDkim": "Een uitgebreide DKIM-scan is beperkt tot {0} domeinen per uitvoering.",
+    "csvExported": "CSV geëxporteerd",
+    "htmlExported": "HTML-rapport geëxporteerd",
+    "htmlExportFailed": "Kon het losstaande rapport niet samenstellen — serveer de app via HTTP en probeer het opnieuw.",
+    "fileLoaded": "{0} geladen",
+    "fileTooLarge": "Het bestand is te groot. De maximale uploadgrootte is 1 MB.",
+    "examplesLoaded": "Voorbeelden geladen — klik op Audit uitvoeren",
+    "auditDone": {
+      "one": "✅ Audit voltooid — {0} domein geanalyseerd",
+      "other": "✅ Audit voltooid — {0} domeinen geanalyseerd"
+    },
+    "auditCancelled": "Audit geannuleerd",
+    "langChanged": "Taal gewijzigd",
+    "langFailed": "Kon die taal niet laden — we blijven bij Engels."
+  },
+  "csv": {
+    "unknown": "Onbekend",
+    "txtOnly": "TXT geldig; HTTPS-beleid niet geverifieerd",
+    "headers": [
+      "Domein",
+      "Geregistreerd",
+      "Cijfer",
+      "Score",
+      "DNS-provider",
+      "E-mailprovider",
+      "SPF-status",
+      "SPF-record",
+      "DKIM gevonden",
+      "DKIM-selectors",
+      "DMARC-status",
+      "DMARC-beleid",
+      "DMARC-testmodus (t=)",
+      "DMARC sp",
+      "DMARC np",
+      "DMARC pct",
+      "DMARC adkim",
+      "DMARC aspf",
+      "DMARC RUA",
+      "DMARC RUF",
+      "BIMI",
+      "MTA-STS",
+      "TLS-RPT",
+      "CAA",
+      "DNSSEC",
+      "SPF-lookups",
+      "Problemen",
+      "Suggesties"
+    ],
+    "yes": "Ja",
+    "no": "Nee",
+    "yesAt": "Ja ({0})"
+  },
+  "report": {
+    "title": "Auditrapport DNS- en e-mailbeveiliging",
+    "generated": "Gegenereerd op {0} · {1} domeinen",
+    "note": "Statisch rapport, lokaal gegenereerd door de DNS- en e-mailbeveiligingsaudit. De auditresultaten zijn niet naar Kwestic gestuurd of door de app opgeslagen; de opgevraagde DNS-namen zijn naar de resolver van Cloudflare gegaan."
+  },
+  "issue": {
+    "wildcard-txt-apex": {
+      "msg": "Een wildcard-TXT-record beantwoordt niet-gedefinieerde subdomeinen, maar reikt niet tot DKIM-lookups. Geen effect op de controles hier.",
+      "what": "Een wildcard-TXT-record (<code>* IN TXT \"...\"</code>) laat uw DNS-server <em>elke</em> subdomeinquery één label diep beantwoorden, ook namen die u nooit hebt gedefinieerd. Hij is op die diepte getest en nogmaals onder <code>_domainkey</code>, waar de DKIM-selectors staan. Hij reikte niet tot de diepere naam, dus de DKIM-discovery op dit domein blijft onaangetast. Elke andere controle hier matcht eerst een versievoorvoegsel — <code>v=DMARC1</code>, <code>v=STSv1</code>, <code>v=BIMI1</code>, <code>v=spf1</code> — dus een wildcardtekst wordt verworpen voordat hij voor een beleid kan worden aangezien.",
+      "fix": "Geen actie nodig. Sommige domeinen publiceren bewust een wildcard-SPF-redirect, zodat e-mail die beweert van een verzonnen subdomein te komen een echt beleid tegenkomt in plaats van niets. Behoud het als dat de bedoeling is; verwijder het als het een overblijfsel van iets anders is.",
+      "fixCode": "; Reproduceer beide tests zelf — de tweede is de bepalende:\ndig +short TXT \"*.yourdomain.com\"\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com"
+    },
+    "wildcard-txt-dkim": {
+      "msg": "Een wildcard-TXT-record beantwoordt DKIM-selectorlookups, waardoor ontbrekende selectors niet te onderscheiden zijn van gepubliceerde. DKIM wordt als onbekend gerapporteerd.",
+      "what": "Hier beantwoordt een wildcard-TXT-record query's onder <code>_domainkey</code>, waar de DKIM-selectors staan. Een verificator die een selector opvraagt die u nooit hebt gepubliceerd, krijgt de wildcardwaarde in plaats van \"geen record gevonden\". Selectors die u wél publiceert worden nog steeds correct omgezet en geverifieerd, dus dit breekt ondertekende e-mail niet. Wat wél breekt is het negatieve antwoord: noch een verificator noch deze audit kan een afwezige selector onderscheiden van een gesynthetiseerde, dus de DKIM-dekking wordt als onbekend beoordeeld in plaats van als aanwezig of ontbrekend.",
+      "fix": "Beperk de wildcard zo dat hij <code>_domainkey</code> niet kan afdekken, hetzij door hem te beperken tot de subdomeinen die hem nodig hebben, hetzij door een leeg <code>_domainkey</code>-knooppunt te publiceren. Volgens RFC 4592 paragraaf 2.2.1 synthetiseert een wildcard niet onder een bestaand knooppunt, al houdt niet elke naamserver zich daaraan — controleer na elke wijziging met het dig-commando hieronder.",
+      "fixCode": "; Bevestig of de wildcard tot de diepte van de DKIM-selectors reikt:\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com\n\n; Na het beperken van de wildcard hoort dezelfde query niets terug te geven."
+    },
+    "dns-loop": {
+      "msg": "De www-CNAME-keten bevat een cyclus — de websitenaam kan niet worden omgezet.",
+      "what": "De auditor volgde de <code>www</code>-CNAME-keten en kwam een hostnaam tegen die hij al had bezocht. Dat levert een DNS-resolutiecyclus op, waardoor bezoekers geen definitief A- of AAAA-adres kunnen verkrijgen.",
+      "fix": "Vervang de CNAME die in een lus zit door een A-record dat rechtstreeks naar het IP-adres van uw server wijst, of door een CNAME die naar de domeinnaam van uw hostingprovider wijst.",
+      "fixCode": "; Optie 1 — wijs rechtstreeks naar het IP van uw server:\nwww    A      203.0.113.10\n\n; Optie 2 — wijs naar het domein van uw host:\nwww    CNAME  yoursite.netlify.app"
+    },
+    "no-mx": {
+      "msg": "Geen MX-records. Voeg een null-MX (0 .) + SPF -all + DMARC p=reject toe om misbruik van dit geparkeerde domein te blokkeren.",
+      "what": "Dit domein heeft geen MX-records, wat betekent dat er geen mailserver is ingesteld om er e-mail voor te ontvangen. Geparkeerde of ongebruikte domeinen zonder e-mailinrichting zijn een geliefd doelwit voor misbruik — aanvallers sturen phishingmails \"namens\" uw domein omdat er in DNS niets is dat hen tegenhoudt.",
+      "fix": "Publiceer voor een domein dat nooit e-mail zal versturen of ontvangen een null-MX (die expliciet zegt \"hier wordt geen e-mail geaccepteerd\") plus een blokkerend SPF- en DMARC-beleid.",
+      "fixCode": "; Null-MX — vertelt verzenders dat dit domein geen e-mail accepteert:\n@    MX     0 .\n\n; SPF — blokkeer alle verzenders:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — weiger alle vervalste e-mail:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
+    },
+    "spf-multiple-records": {
+      "msg": "Meerdere SPF-records gevonden — SPF faalt permanent (permerror) voor alle e-mail vanaf dit domein.",
+      "what": "RFC 7208 §4.5 staat precies één <code>v=spf1</code> TXT-record per domein toe. Vindt een ontvanger er twee, dan geeft hij <code>permerror</code> terug en stopt — hij voegt ze niet samen en kiest ook niet de striktste. Het praktische effect is erger dan helemaal geen SPF hebben: uw record oogt correct in het DNS-paneel, maar elk bericht vanaf uw domein zakt voor de SPF-authenticatie. Dit gebeurt meestal wanneer een tweede maildienst wordt aangesloten en een eigen record toevoegt in plaats van het bestaande aan te passen.",
+      "fix": "Voeg de records samen tot één. Neem elk <code>include:</code>-, <code>ip4:</code>- en <code>ip6:</code>-mechanisme uit alle records, zet ze in één <code>v=spf1</code>-record en verwijder de rest. Let bij het samenvoegen op de limiet van 10 lookups — records samenvoegen is een veelvoorkomende manier om eroverheen te gaan.",
+      "fixCode": "; Voor — twee records, SPF faalt voor alles:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Na — één record met beide verzenders:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "dmarc-multiple-records": {
+      "msg": "Meerdere DMARC-records gevonden op _dmarc — DMARC wordt helemaal niet toegepast en er kan misbruik van het domein worden gemaakt.",
+      "what": "RFC 7489 §6.6.3 vereist precies één DMARC-record. Ontvangers verwerpen alles zonder <code>v=DMARC1</code>-tag, en blijft er meer dan één over, dan stopt de beleids-discovery en wordt DMARC niet op het bericht toegepast. Uw beleid — hoe streng ook — wordt volledig genegeerd, dus er kan misbruik van het domein worden gemaakt terwijl het beschermd lijkt. U ontvangt ook geen samengevoegde rapporten meer, waardoor het signaal wegvalt dat u had verteld dat er iets mis was.",
+      "fix": "Verwijder alle TXT-records op <code>_dmarc</code> op één na. Noemen de duplicaten verschillende rapportadressen, houd dan één record aan en zet beide adressen in één <code>rua=</code>-tag, gescheiden door een komma.",
+      "fixCode": "; Voor — twee records op _dmarc, DMARC genegeerd:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Na — één record, beide rapportbestemmingen:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+    },
+    "mta-sts-multiple-records": {
+      "msg": "Meerdere MTA-STS-records gevonden — verzenders behandelen uw domein alsof het geen MTA-STS-beleid heeft, dus inkomende TLS wordt niet afgedwongen.",
+      "what": "RFC 8461 §3.1 is expliciet: records die niet beginnen met <code>v=STSv1;</code> worden verworpen, en is het aantal dat overblijft niet precies één, dan <strong>MOETEN</strong> verzenders aannemen dat het domein geen MTA-STS-beleid heeft. Uw beleidsbestand wordt nooit opgehaald. Inkomende e-mail valt terug op opportunistische STARTTLS, die een aanvaller op het netwerkpad kan wegstrippen — precies de downgrade-aanval die MTA-STS moet voorkomen. De maatregel is inactief terwijl hij geconfigureerd lijkt.",
+      "fix": "Verwijder het extra TXT-record op <code>_mta-sts</code> zodat er precies één overblijft. Verhoog daarna de waarde van <code>id=</code> zodat verzendende servers hun opgeslagen beleid vernieuwen in plaats van de oude TTL af te wachten.",
+      "fixCode": "; Voor — twee records, MTA-STS volledig genegeerd:\n_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\"\n_mta-sts    TXT    \"v=STSv1; id=20240615000000Z;\"\n\n; Na — één record, id verhoogd om een vernieuwing af te dwingen:\n_mta-sts    TXT    \"v=STSv1; id=20260817000000Z;\""
+    },
+    "tls-rpt-multiple-records": {
+      "msg": "Meerdere TLS-RPT-records gevonden — verzenders behandelen uw domein alsof het TLS-RPT niet implementeert, dus er worden geen rapporten verstuurd.",
+      "what": "RFC 8460 §3 stelt dat als het aantal <code>v=TLSRPTv1;</code>-records niet precies één is, verzenders <strong>MOETEN</strong> aannemen dat het domein TLS-RPT niet implementeert. Er worden voor geen enkele bestemming rapporten gegenereerd, ook niet voor het adres in het eerste record. Dit weegt het zwaarst in combinatie met MTA-STS: via TLS-RPT komt u erachter dat een beleid verkeerd is ingesteld of dat een certificaat is verlopen, dus een kapot record zorgt ervoor dat zulke fouten in stilte gebeuren.",
+      "fix": "Verwijder het extra record op <code>_smtp._tls</code>. Hebt u rapporten op meer dan één adres nodig, vermeld ze dan in één <code>rua=</code>-tag, gescheiden door komma's.",
+      "fixCode": "; Voor — twee records, er worden helemaal geen rapporten verstuurd:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com;\"\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:soc@vendor.example;\"\n\n; Na — één record, beide bestemmingen:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com,mailto:soc@vendor.example;\""
+    },
+    "bimi-multiple-records": {
+      "msg": "Meerdere BIMI-records gevonden — de BIMI-verwerking stopt, dus uw logo wordt niet weergegeven.",
+      "what": "De BIMI-specificatie (Assertion Record Discovery) volgt DMARC: records zonder <code>v=BIMI1</code>-tag worden verworpen, en als er in de resterende set meer dan één record staat, stopt de discovery en wordt BIMI niet uitgevoerd. Uw logo verschijnt niet in Gmail, Apple Mail of Yahoo, en omdat BIMI-fouten stil verlopen is er niets dat de oorzaak aangeeft — ook niet als u voor een Verified Mark Certificate hebt betaald.",
+      "fix": "Verwijder het extra TXT-record op <code>default._bimi</code> zodat er precies één overblijft.",
+      "fixCode": "; Voor — twee records, BIMI wordt nooit geëvalueerd:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\"\ndefault._bimi    TXT    \"v=BIMI1; l=https://cdn.example/old-logo.svg;\"\n\n; Na — één record:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg; a=https://yourdomain.com/vmc.pem;\""
+    },
+    "dkim-multiple-records": {
+      "msg": "Meerdere DKIM-sleutelrecords op selector(s): {0} — handtekeningverificatie is ongedefinieerd en kan mislukken.",
+      "what": "RFC 6376 §3.6.2.2 vereist dat sleutelrecords uniek zijn voor een gegeven selector: \"als er meerdere records in een RRset staan, zijn de resultaten ongedefinieerd.\" Verschillende verificatoren lossen dit anders op — sommige nemen het eerste record, sommige het laatste, sommige falen meteen. Het resultaat zijn wisselende DKIM-fouten die per ontvanger verschillen en lastig te diagnosticeren zijn, omdat hetzelfde bericht bij de ene provider slaagt en bij de andere faalt. Dit gebeurt meestal na een sleutelwissel waarbij het oude record nooit is verwijderd.",
+      "fix": "Verwijder het verouderde sleutelrecord zodat er precies één per selector overblijft. Zit u midden in een sleutelwissel en hebt u echt twee actieve sleutels nodig, gebruik dan twee verschillende selectors — daar zijn selectors voor — in plaats van twee records onder één naam.",
+      "fixCode": "; Voor — twee sleutels op dezelfde selector, ongedefinieerd gedrag:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...OLD\"\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\n\n; Na — één sleutel per selector; roteer via een tweede selector:\ngoogle._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\ns2._domainkey         TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEXT\""
+    },
+    "spf-missing": {
+      "msg": "Geen SPF-record — afzenderauthenticatie is onmogelijk.",
+      "what": "SPF (Sender Policy Framework) is een DNS-record dat aangeeft welke mailservers geautoriseerd zijn om e-mail vanaf uw domein te versturen. Zonder dat record kan elke server ter wereld e-mail versturen die beweert van u te komen, en hebben ontvangende mailservers geen enkele manier om te controleren of dat klopt.",
+      "fix": "Voeg een TXT-record toe op de root van uw domein met daarin uw geautoriseerde e-mailverzenders. Begin tijdens het testen met ~all (softfail) en scherp daarna aan naar -all zodra het bevestigd is.",
+      "fixCode": "; Voor Google Workspace:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; Voor Microsoft 365:\n@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\"\n\n; Voor een geparkeerd/ongebruikt domein:\n@    TXT    \"v=spf1 -all\""
+    },
+    "spf-softfail": {
+      "msg": "SPF: ~all is een softfail — scherp aan naar -all.",
+      "what": "Uw SPF-record eindigt op <code>~all</code> (tilde-all), bekend als een \"soft fail\". Het geeft aan dat e-mail van niet-vermelde servers <em>waarschijnlijk</em> niet geautoriseerd is — maar het is slechts een hint. De meeste ontvangende servers bezorgen het bericht toch, mogelijk met een spammarkering. Het biedt slechts gedeeltelijke bescherming tegen misbruik.",
+      "fix": "Zodra u hebt bevestigd dat uw SPF-record al uw legitieme verzendbronnen bevat, scherpt u het aan van <code>~all</code> naar <code>-all</code> (hard fail). Dat vertelt ontvangers e-mail van servers buiten uw lijst regelrecht te weigeren.",
+      "fixCode": "; Wijzig van:\n@    TXT    \"v=spf1 include:_spf.google.com ~all\"\n\n; Naar:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-all-permit": {
+      "msg": "SPF: +all staat iedereen toe — onveilig.",
+      "what": "Uw SPF-record eindigt op <code>+all</code>, wat <em>elke server op het internet</em> toestemming geeft om e-mail namens uw domein te versturen. Dat ondermijnt het doel van SPF volledig — het staat gelijk aan helemaal geen SPF hebben, en is vrijwel zeker een configuratiefout.",
+      "fix": "Vervang <code>+all</code> door <code>-all</code> (hard fail) om ongeautoriseerde verzenders te weigeren.",
+      "fixCode": "; Haal +all weg, vervang door -all:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-neutral": {
+      "msg": "SPF: ?all is neutraal — geen bescherming.",
+      "what": "Uw SPF-record eindigt op <code>?all</code> (vraagteken-all), een \"neutraal\" resultaat — SPF neemt geen standpunt in over de vraag of niet-vermelde servers geautoriseerd zijn. Ontvangende mailservers behandelen dit precies hetzelfde als helemaal geen SPF-record, dus het biedt nul bescherming tegen misbruik.",
+      "fix": "Vervang <code>?all</code> door <code>-all</code> (hard fail) om ongeautoriseerde verzenders te blokkeren.",
+      "fixCode": "; Wijzig van:\n@    TXT    \"v=spf1 include:_spf.google.com ?all\"\n\n; Naar:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-missing-google": {
+      "msg": "SPF: de include voor Google Workspace ontbreekt.",
+      "what": "Uw domein gebruikt Google Workspace voor e-mail, maar uw SPF-record bevat de mailservers van Google niet (<code>_spf.google.com</code>). De verzendservers van Google zijn niet geautoriseerd in uw SPF-beleid, dus legitieme uitgaande e-mail vanuit uw Google Workspace-mailboxen kan de SPF-controle niet doorstaan en in de spammap van ontvangers belanden.",
+      "fix": "Voeg de SPF-include van Google toe aan uw TXT-record.",
+      "fixCode": "; Voeg de include van Google toe:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; Gebruikt u ook andere verzenders:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "spf-missing-icloud": {
+      "msg": "SPF: de include voor iCloud ontbreekt.",
+      "what": "Uw domein lijkt Apple iCloud Mail te gebruiken (iCloud+ met eigen domein), maar uw SPF-record autoriseert de verzendservers van Apple niet. E-mail die via iCloud wordt verstuurd kan door ontvangers worden geweigerd of als spam worden gemarkeerd, omdat uw SPF-record niet instaat voor de servers van Apple.",
+      "fix": "Voeg de SPF-include van Apple toe aan uw record.",
+      "fixCode": "@    TXT    \"v=spf1 include:icloud.com -all\""
+    },
+    "spf-missing-microsoft": {
+      "msg": "SPF: de include voor Microsoft 365 ontbreekt.",
+      "what": "Uw domein gebruikt Microsoft 365 voor e-mail, maar uw SPF-record bevat de verzendservers van Microsoft niet (<code>spf.protection.outlook.com</code>). Uitgaande e-mail vanuit uw Microsoft 365-mailboxen kan de SPF-controle bij de mailserver van de ontvanger niet doorstaan en als spam worden behandeld of worden geweigerd.",
+      "fix": "Voeg de SPF-include van Microsoft toe aan uw TXT-record.",
+      "fixCode": "@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\""
+    },
+    "dkim-missing": {
+      "msg": "DKIM niet geconfigureerd. {0}",
+      "what": "DKIM (DomainKeys Identified Mail) voegt aan elke uitgaande e-mail een cryptografische handtekening toe, zodat ontvangers kunnen verifiëren dat het bericht daadwerkelijk van uw domein komt en onderweg niet is gewijzigd. Zonder DKIM worden uw e-mails vaker als spam gemarkeerd en is uw domein kwetsbaarder voor misbruik. DKIM is ook een voorwaarde om DMARC te kunnen afdwingen.",
+      "fix": "DKIM stelt u in bij de beheerconsole van uw e-mailprovider — die genereert een publiek/privé-sleutelpaar en geeft u een TXT-record om in uw DNS te publiceren. U maakt de sleutel niet zelf aan.",
+      "fixCode": "; Google Workspace: Beheer → Apps → Google Workspace → Gmail\n;   → E-mail verifiëren → Sleutel genereren → kopieer het TXT-record\n;\n; Microsoft 365: Beheer → Instellingen → Domeinen → selecteer domein\n;   → DNS-records → schakel DKIM in\n;\n; Het TXT-record ziet er ongeveer zo uit:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
+    },
+    "dkim-unverified": {
+      "msg": "Er is geen geteste DKIM-selector gevonden. {0} Beoordeeld alsof DKIM niet is geconfigureerd. Kent u uw DKIM-selector, voeg die dan toe bij \"Extra DKIM-selectors\" en voer de audit opnieuw uit zodat hij meetelt."
+    },
+    "dkim-not-checked": {
+      "msg": "DKIM is deze keer niet gecontroleerd. Beoordeeld alsof DKIM niet is geconfigureerd. Schakel \"DKIM-selectors controleren\" in en voer opnieuw uit om op DKIM te worden beoordeeld."
+    },
+    "implicit-mx": {
+      "msg": "Er is geen MX-record gepubliceerd. SMTP kan terugvallen op het A/AAAA-adres van dit domein als impliciete MX, wat kwetsbaar en vaak onbedoeld is."
+    },
+    "dmarc-missing": {
+      "msg": "Geen DMARC-record — er kan vrij misbruik van het domein worden gemaakt, zonder enige beleidshandhaving.",
+      "what": "DMARC (Domain-based Message Authentication, Reporting &amp; Conformance) is een beleid dat ontvangende mailservers vertelt wat ze moeten doen wanneer een e-mail niet door SPF of DKIM komt — in quarantaine plaatsen, weigeren of doorlaten. Zonder DMARC-record voorkomt zelfs een perfecte SPF- en DKIM-inrichting niet dat iemand uw domein misbruikt in het zichtbare \"Van:\"-adres.",
+      "fix": "Begin met een beleid dat alleen monitort (<code>p=none</code>) om rapporten te verzamelen zonder e-mail te blokkeren, en scherp het beleid aan nadat u de gegevens hebt bekeken.",
+      "fixCode": "; Stap 1 — alleen monitoring (veilig startpunt):\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; Stap 2 — quarantine (markeert falende e-mail als spam):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; Stap 3 — reject (blokkeert falende e-mail volledig):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-none": {
+      "msg": "DMARC met p=none is alleen monitoring. Verhoog naar p=quarantine en daarna p=reject.",
+      "what": "Uw DMARC-record staat op <code>p=none</code>, de modus die alleen monitort. Die instrueert ontvangende servers om gegevens te verzamelen en u rapporten te sturen, maar <em>geen actie</em> te ondernemen op falende e-mails — vervalste berichten worden nog steeds bezorgd. <code>p=none</code> is een diagnostisch hulpmiddel dat bedoeld is als tijdelijke eerste stap, niet als eindconfiguratie.",
+      "fix": "Bekijk uw samengevoegde DMARC-rapporten (rua=) om te bevestigen dat al uw legitieme e-mailbronnen erdoor komen. Zodra u er zeker van bent, verhoogt u het beleid naar quarantine en daarna naar reject.",
+      "fixCode": "; Stap 1 — quarantine (stuurt falende e-mail naar spam):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; Stap 2 — reject (blokkeert falende e-mail volledig):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-quarantine": {
+      "msg": "DMARC met p=quarantine stuurt vervalste e-mail naar spam maar bezorgt hem nog steeds. De eindsituatie is p=reject.",
+      "what": "Uw DMARC-beleid staat op <code>p=quarantine</code>, en dat is echte handhaving — e-mail die de authenticatie niet doorstaat gaat naar de spammap in plaats van de inbox. Maar hij wordt nog steeds <em>bezorgd</em>. Een overtuigend phishingbericht dat zich voordoet als uw domein blijft één klik verwijderd, in een map waar mensen wél kijken, en sommige ontvangers passen quarantaine inconsistent toe. <code>p=reject</code> instrueert ontvangende servers het bericht meteen te weigeren, zodat het de ontvanger nooit bereikt.",
+      "fix": "Bekijk uw samengevoegde DMARC-rapporten (<code>rua=</code>) gedurende een paar weken en bevestig dat elke legitieme verzendbron door de SPF- of DKIM-uitlijning komt. Zodra er geen echte e-mail meer faalt, zet u het beleid op <code>p=reject</code>. Wilt u eerst een voorzichtige stap, publiceer dan <code>p=reject; t=y</code> — de testmodus uit RFC 9989 laat de rapporten doorlopen terwijl ontvangers de handhaving uitstellen — en verwijder daarna <code>t=y</code>. Bouw niet op met <code>pct=</code>: RFC 9989 heeft die tag verwijderd, dus hij gedraagt zich nu per ontvanger anders.",
+      "fixCode": "; Huidig beleid — falende e-mail gaat naar spam:\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; Optionele voorzichtige stap — publiceer reject, ontvangers passen het nog niet toe:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Eindsituatie — weiger alle falende e-mail:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-no-rua": {
+      "msg": "DMARC heeft geen rua=-adres — u ontvangt geen samengevoegde rapporten.",
+      "what": "Uw DMARC-record bevat geen <code>rua=</code>-tag. Dat is het e-mailadres waar providers samengevoegde rapporten naartoe sturen die laten zien wie er e-mail vanaf uw domein verstuurt en of die e-mail door de authenticatie komt. Zonder dat adres hebt u geen zicht op uw e-mailverkeer — u merkt niet dat er iets kapotgaat of dat iemand uw domein misbruikt.",
+      "fix": "Voeg een <code>rua=</code>-adres toe aan uw DMARC-record. Dat mag elke mailbox zijn die u in de gaten houdt.",
+      "fixCode": "; Voeg rua= toe aan uw bestaande DMARC-record:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc-reports@yourdomain.com;\""
+    },
+    "dmarc-weak-sp": {
+      "msg": "Het DMARC-subdomeinbeleid is sp={0} terwijl het domein zelf p={1} is — subdomeinen zijn minder goed beschermd.",
+      "what": "Uw record zet <code>sp={0}</code>, wat het beleid voor subdomeinen expliciet overschrijft. Zonder die tag zouden subdomeinen automatisch uw striktere beleid <code>p={1}</code> overnemen. Zoals het er nu staat, kan een aanvaller <code>vanalles.uwdomein.com</code> misbruiken en de mildere behandeling krijgen — en ontvangers kijken zelden nauwkeurig naar het subdomeindeel van een afzenderadres. Subdomeinmisbruik is een veelgebruikte phishingtechniek juist omdat organisatiebeleid vaak bij het hoofddomein ophoudt.",
+      "fix": "Tenzij u een specifieke reden hebt om subdomeinen anders te behandelen — bijvoorbeeld een marketingplatform dat verstuurt vanaf een subdomein dat nog niet volledig geauthenticeerd is — verwijder de tag <code>sp=</code> zodat subdomeinen uw hoofdbeleid overnemen, of verhoog hem zodat hij gelijk is.",
+      "fixCode": "; Eenvoudigst — verwijder sp= zodat subdomeinen p overnemen:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Of zet hem expliciet gelijk:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-weak-np": {
+      "msg": "Het DMARC-beleid voor niet-bestaande subdomeinen is np={0} terwijl het domein zelf p={1} is — ongebruikte subdomeinen zijn minder goed beschermd.",
+      "what": "De tag <code>np=</code> (RFC 9091) bepaalt het beleid voor subdomeinen die helemaal niet in DNS bestaan. De uwe staat op <code>np={0}</code>, zwakker dan uw <code>p={1}</code>. Niet-bestaande subdomeinen zijn het favoriete doelwit van aanvallers — er is geen legitieme e-mail die verstoord raakt, dus niemand merkt het, en adressen als <code>billing.yourdomain.com</code> ogen voor een ontvanger volstrekt geloofwaardig.",
+      "fix": "Zet <code>np=reject</code>. Er verstuurt niets legitiems vanaf een subdomein dat niet bestaat, dus dit is een van de weinige DMARC-wijzigingen met vrijwel geen risico voor de bezorgbaarheid.",
+      "fixCode": "; Weiger e-mail van subdomeinen die niet bestaan:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-partial-pct": {
+      "msg": "DMARC pct={0} — ontvangers die nog RFC 7489 volgen passen uw beleid op slechts {0}% van de falende e-mail toe en bezorgen de overige {1}% gewoon.",
+      "what": "De tag <code>pct=</code> is in RFC 9989 verwijderd, maar ontvangers die nog niet zijn overgestapt houden zich er nog aan. Bij <code>pct={0}</code> passen die ontvangers uw beleid toe op {0}% van de berichten die de authenticatie niet doorstaan en vallen ze voor de resterende {1}% terug op de eerstvolgende mildere actie, dus een vervalst bericht heeft ongeveer {1} op 100 kans om ongemoeid aan te komen. Ontvangers die de nieuwe specificatie volgen negeren de tag en handhaven volledig — uw handhaving is dus op dit moment inconsistent over het hele internet, en dat is een slechtere positie dan elk van beide instellingen op zich.",
+      "fix": "Controleer uw samengevoegde rapporten om te bevestigen dat er geen legitieme verzenders falen, en verwijder <code>pct=</code> daarna volledig. Gebruik <code>t=y</code> als u nog een gefaseerde uitrol nodig hebt.",
+      "fixCode": "; Verwijder pct= — de standaardwaarde is 100:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Of benoem het expliciet:\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-pct": {
+      "msg": "De DMARC-waarde pct= is geen geldig getal tussen 0 en 100 — oudere ontvangers kunnen het hele record verwerpen.",
+      "what": "De tag <code>pct=</code> is in RFC 9989 verwijderd, dus ontvangers die de huidige specificatie volgen negeren hem, wat er ook staat. Ontvangers die nog RFC 7489 implementeren verwachten een geheel getal van 0 tot 100, en sommige beschouwen een onjuiste waarde als reden om het hele DMARC-record te verwerpen — waardoor uw domein juist bij die ontvangers onbeschermd blijft. De veilige stap is in beide gevallen dezelfde.",
+      "fix": "Verwijder de tag. Hij heeft geen gedefinieerde betekenis meer, en verwijderen lost beide gedragingen in één keer op.",
+      "fixCode": "; Verwijder de onjuiste pct= volledig:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-invalid-policy": {
+      "msg": "De DMARC-waarde p= is niet none, quarantine of reject — het record is onjuist opgemaakt en biedt geen bescherming.",
+      "what": "De tag <code>p=</code> moet exact <code>none</code>, <code>quarantine</code> of <code>reject</code> zijn. De uwe is iets anders — een typefout, een verdwaald teken of een niet-ondersteunde waarde. Ontvangende servers kunnen niet handelen naar een beleid dat ze niet herkennen, dus in de praktijk wordt uw domein behandeld alsof het helemaal geen DMARC-record heeft, en kan er vrij misbruik van worden gemaakt.",
+      "fix": "Corrigeer de waarde van <code>p=</code>. Weet u niet waar u moet beginnen, publiceer dan <code>p=none</code> met een <code>rua=</code>-adres, bekijk de rapporten een paar weken en scherp daarna aan.",
+      "fixCode": "; Alleen monitoring, veilig startpunt:\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; Volledige handhaving:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "porkbun-forward": {
+      "msg": "Doorsturen via Porkbun ondersteunt geen DKIM — doorgestuurde e-mail faalt vaak op de bestemming.",
+      "what": "Het doorsturen van e-mail bij Porkbun geeft binnenkomende berichten door aan een ander adres, maar ondertekent ze niet met DKIM. Wanneer het doorgestuurde bericht op de bestemming aankomt, faalt het op DKIM (de handtekening ontbreekt of is door het doorsturen kapotgegaan) en mogelijk ook op SPF (het bericht is opnieuw verzonden vanaf de servers van Porkbun, niet die van u). Dit leidt tot veel bezorging in de spammap en er is geen DNS-oplossing voor — het is een fundamentele beperking van de doorstuurarchitectuur.",
+      "fix": "Stap voor betrouwbare e-mail over op een volwaardige gehoste e-maildienst die DKIM-ondertekening ondersteunt. Er zijn diverse goedkope opties.",
+      "fixCode": "; Goede alternatieven voor doorsturen via Porkbun:\n;\n; Google Workspace — volledige DKIM-ondersteuning\n; Microsoft 365 — volledige DKIM-ondersteuning\n; Fastmail — volledige DKIM-ondersteuning\n; Proton Mail for Business — volledige DKIM-ondersteuning\n;\n; Voor eenvoudig catch-all doorsturen mét DKIM:\n; ImprovMX (gratis niveau) of Forward Email (gratis, opensource)"
+    },
+    "spf-over-limit": {
+      "msg": "SPF overschrijdt de limiet van 10 DNS-lookups (~{0} gevonden) — legitieme e-mail zal zakken voor SPF.",
+      "what": "SPF staat tijdens de evaluatie maximaal 10 DNS-lookups toe — elk <code>include:</code>-, <code>mx</code>-, <code>a</code>-, <code>exists</code>- en <code>redirect</code>-mechanisme telt mee voor die limiet. Uw record gaat eroverheen. Zodra een ontvangende server bij lookup 11 komt, schrijft de SPF-specificatie voor dat hij \"permerror\" teruggeeft, wat ontvangers als een SPF-fout behandelen. Legitieme e-mail vanaf uw domein zakt voor SPF.",
+      "fix": "Verlaag het aantal lookups door ongebruikte verzenders te verwijderen of door uw SPF-record af te vlakken — <code>include:</code>-vermeldingen vervangen door de opgeloste IP-adressen, zodat de sublookups verdwijnen.",
+      "fixCode": "; Voor (te veel include:-lookups):\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:mailchimp.com include:amazonses.com -all\"\n\n; Na het afvlakken (gebruik een tool om uw werkelijke IP's te achterhalen):\n; Tools: MXToolbox SPF Analyzer, AutoSPF, dmarcian\n\"v=spf1 ip4:209.85.220.0/22 ip4:167.89.0.0/17 ip4:199.255.192.0/22 -all\""
+    },
+    "spf-near-limit": {
+      "msg": "SPF nadert de limiet van 10 lookups (~{0} geteld) — nog meer verzenders toevoegen kan het record breken.",
+      "what": "Uw SPF-record nadert de limiet van 10 lookups. Nog meer e-mailverzenddiensten toevoegen, of een bestaande provider die zijn SPF-infrastructuur wijzigt, kan u over de limiet duwen — waardoor legitieme e-mail zonder enige waarschuwing zakt voor de SPF-authenticatie.",
+      "fix": "Loop uw SPF-record na en verwijder diensten die u niet meer gebruikt. Hebt u echt alle huidige verzenders nodig, overweeg dan afvlakken om de lookupdiepte te verkleinen.",
+      "fixCode": "; Nalopen: welke hiervan gebruikt u nog?\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:... -all\"\n;\n; Verwijder ongebruikte includes, of vlak af met een tool als:\n; AutoSPF (autospf.com), dmarcian of MXToolbox"
+    },
+    "spf-cycle": {
+      "msg": "SPF-include/redirect-cyclus gedetecteerd via {0}; de SPF-evaluatie kan permerror teruggeven."
+    },
+    "spf-indeterminate": {
+      "msg": "Het totale aantal SPF-lookups is onbepaald omdat het record macro's, een te grote diepte of een ongeldig ingesloten beleid gebruikt."
+    },
+    "spf-large-subnet": {
+      "msg": "SPF autoriseert grote IP-bereiken: {0} — bevestig dat u die hele adresruimte beheert.",
+      "what": "Elk adres binnen een <code>ip4:</code>- of <code>ip6:</code>-blok mag e-mail versturen als uw domein, en deze blokken zijn groot: een IPv4-<code>/24</code> telt 256 adressen, een <code>/16</code> 65.536, en een IPv6-<code>/48</code> of korter is een toewijzing op locatie- tot providerschaal. Dat is prima wanneer het bereik van uzelf is — veel grote organisaties publiceren hun eigen netblokken op deze manier. Het is niet meer prima wanneer het bereik toebehoort aan een gedeelde host of aan een provider wiens andere klanten u niet beheert, want dan kan elk van die buren als u door SPF komen. Deze audit meldt alleen de omvang; wie het blok bezit kan zij niet vaststellen, dus dat oordeel is aan u.",
+      "fix": "Controleer wie elk vermeld bereik daadwerkelijk bezit. Is het uw eigen toewijzing, dan is er niets te wijzigen. Hoort het bij een gedeeld platform, vervang het brede blok dan door de specifieke verzendadressen, of door de eigen <code>include:</code> van de provider — dan onderhoudt de provider de lijst en autoriseert u niet hun hele infrastructuur.",
+      "fixCode": "; Breed — elke host binnen 256 adressen kan namens u versturen:\n\"v=spf1 ip4:203.0.113.0/24 -all\"\n\n; Smal — alleen de hosts die daadwerkelijk versturen:\n\"v=spf1 ip4:203.0.113.10 ip4:203.0.113.11 -all\"\n\n; Of laat de provider de lijst onderhouden:\n\"v=spf1 include:_spf.provider.example -all\""
+    },
+    "spf-medium-subnet": {
+      "msg": "SPF autoriseert middelgrote IP-bereiken: {0} — het is de moeite waard te bevestigen dat elk bereik van u is."
+    },
+    "spf-redundant-mechanism": {
+      "msg": "Het mechanisme {0} wijst alleen naar adressen die {1} al autoriseert — verwijderen brengt uw SPF-lookupaantal van {2} naar {3}.",
+      "what": "SPF staat maximaal 10 DNS-lookups toe, en de mechanismen <code>a</code> en <code>mx</code> kosten er elk één. Elk adres waarnaar dit mechanisme verwijst — zowel in IPv4 als IPv6 — valt al binnen een <code>ip4:</code>- of <code>ip6:</code>-blok in datzelfde record, dus die lookup levert geen autorisatie op die u nog niet had. Verwijderen verandert niets aan welke servers namens u mogen versturen, en geeft u een lookup terug richting het plafond.",
+      "fix": "Verwijder het mechanisme uit uw SPF-record. Controleer het later opnieuw als de hosts erachter nieuwe adressen krijgen, want dan moet het blok die ook dekken.",
+      "fixCode": "; Voor — mx besteedt een lookup aan adressen die het blok al dekt:\n\"v=spf1 mx ip4:203.0.113.0/28 include:_spf.provider.example -all\"\n\n; Na — dezelfde verzenders geautoriseerd, één lookup goedkoper:\n\"v=spf1 ip4:203.0.113.0/28 include:_spf.provider.example -all\""
+    },
+    "spf-redundant-mechanism-nocount": {
+      "msg": "Het mechanisme {0} wijst alleen naar adressen die {1} al autoriseert — verwijderen maakt een van de 10 SPF-DNS-lookups vrij."
+    },
+    "spf-partial-coverage": {
+      "msg": "{0} van de {1} adressen achter het mechanisme {2} vallen al binnen uw ip4:/ip6:-blokken — behoud het mechanisme, het autoriseert de rest nog steeds."
+    },
+    "dnssec-bogus": {
+      "msg": "DNSSEC-validatie lijkt onjuist (bogus): de validatie is mislukt hoewel het antwoord wel beschikbaar is wanneer de controle wordt uitgeschakeld."
+    },
+    "dnssec-indeterminate": {
+      "msg": "De DNSSEC-status kon niet worden vastgesteld omdat de validerende query is mislukt. Beoordeeld als niet-ondertekend. Voer de audit opnieuw uit — dit is meestal een tijdelijk resolverprobleem. Blijft het gebeuren bij een domein waarvan u bij uw registrar of DNS-provider hebt bevestigd dat het ondertekend is, open dan een issue op GitHub met het domein, uw registrar/DNS-provider en een schermafbeelding waarop DNSSEC ingeschakeld staat."
+    },
+    "mta-sts-invalid": {
+      "msg": "Het MTA-STS TXT-record is onjuist opgemaakt of mist de verplichte id=-tag."
+    },
+    "mta-sts-policy-unverified": {
+      "msg": "Het MTA-STS TXT-record is geldig, maar deze audit die alleen in de browser draait kan het HTTPS-beleidsbestand niet verifiëren omdat de meeste beleidshosts geen cross-origin leesacties toestaan."
+    },
+    "tls-rpt-invalid": {
+      "msg": "Het TLS-RPT-record is onjuist opgemaakt of heeft geen geldige rua=-bestemming."
+    },
+    "bimi-invalid": {
+      "msg": "Het BIMI-record is onjuist opgemaakt of bevat geen geldige HTTPS-logo-URL."
+    },
+    "dmarc-version-missing": {
+      "msg": "Het DMARC-record begint niet met v=DMARC1 — ontvangers moeten het volledig negeren.",
+      "what": "RFC 9989 §5.4 vereist dat de tag <code>v=</code> de eerste tag in het record is. Een record zonder die tag is helemaal geen DMARC-record, wat er verder ook in staat. Ontvangende servers verwerpen het en behandelen uw domein alsof het geen DMARC-beleid heeft, dus het record geeft u de schijn van bescherming zonder de inhoud ervan.",
+      "fix": "Herschrijf het record zodat het begint met <code>v=DMARC1;</code>, gevolgd door uw beleid.",
+      "fixCode": "; Fout — geen versietag:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-not-first": {
+      "msg": "v=DMARC1 is aanwezig maar is niet de eerste tag — ontvangers moeten het hele record negeren.",
+      "what": "RFC 9989 §5.4 stelt dat <code>v=</code> de eerste tag in de lijst MOET zijn, niet alleen ergens aanwezig. De volgorde van de overige tags is verder vrij, waardoor dit gemakkelijk misgaat wanneer een record met de hand wordt bewerkt of door een script wordt samengesteld. Een ontvanger die de specificatie volgt, stopt met parseren en behandelt het domein als onbeschermd.",
+      "fix": "Verplaats <code>v=DMARC1;</code> naar het begin van het record. Verder hoeft er niets te veranderen.",
+      "fixCode": "; Fout — v= staat niet vooraan:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-bad-value": {
+      "msg": "De DMARC-versiewaarde is niet exact \"DMARC1\" — de waarde is hoofdlettergevoelig en het record wordt genegeerd.",
+      "what": "Vrijwel elke waarde in een DMARC-record is niet hoofdlettergevoelig, maar RFC 9989 §5.4 maakt van <code>v=</code> de uitzondering: de enige geaccepteerde schrijfwijze is <code>DMARC1</code>, in hoofdletters. <code>v=dmarc1</code> of <code>v=DMARC2</code> zorgt ervoor dat het hele record wordt genegeerd. Dit is een veelvoorkomend slachtoffer van kopiëren en plakken, omdat DNS-panelen waarden bij invoer vaak omzetten naar kleine letters.",
+      "fix": "Zet de waarde op exact <code>DMARC1</code> en controleer daarna wat uw DNS-paneel werkelijk heeft opgeslagen.",
+      "fixCode": "; Fout — kleine letters:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-duplicate-tags": {
+      "msg": "Het DMARC-record herhaalt dezelfde tag ({0}) — het record is onjuist opgemaakt en kan worden genegeerd.",
+      "what": "Een DMARC-record mag elke tag hooguit één keer bevatten. Het uwe herhaalt {0}. De specificatie geeft geen regel om tussen de waarden te kiezen, dus het gedrag hangt af van de ontvanger: sommige nemen de eerste, sommige de laatste, sommige verwerpen het record volledig. Welke bescherming u ook denkt te hebben ingesteld, u kunt er niet op vertrouwen.",
+      "fix": "Verwijder de dubbele tags zodat elke tag precies één keer voorkomt. Waren er twee waarden bedoeld voor <code>rua=</code>, combineer ze dan tot één door komma's gescheiden lijst.",
+      "fixCode": "; Fout — p= tweemaal:\n_dmarc    TXT    \"v=DMARC1; p=none; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-test-mode": {
+      "msg": "DMARC staat in testmodus (t=y) — uw beleid p={0} is gepubliceerd maar wordt niet toegepast.",
+      "what": "De tag <code>t=</code> is nieuw in RFC 9989 en vervangt <code>pct=</code> als de ondersteunde manier om DMARC geleidelijk uit te rollen. <code>t=y</code> vertelt ontvangers dat de domeineigenaar nog aan het evalueren is en dat het beleid <em>niet</em> moet worden gehandhaafd. Samengevoegde rapporten blijven binnenkomen, en dat is de bedoeling van deze modus — maar voor misbruik beschermt <code>p=reject; t=y</code> u precies evenveel als <code>p=none</code>. Dashboards die alleen <code>p=</code> uitlezen tonen dit domein als volledig gehandhaafd.",
+      "fix": "Zodra uw samengevoegde rapporten laten zien dat er geen legitieme verzenders falen, verwijdert u <code>t=y</code> (of zet u <code>t=n</code>) om het gepubliceerde beleid een echt beleid te maken.",
+      "fixCode": "; Testen — beleid gepubliceerd, niet toegepast:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Live — verwijder t= volledig (standaardwaarde is n):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-t": {
+      "msg": "De DMARC-waarde t= is niet y of n — ontvangers kunnen de tag of het hele record negeren.",
+      "what": "RFC 9989 definieert precies twee waarden voor de testmodus-tag: <code>y</code> en <code>n</code>, met <code>n</code> als standaardwaarde. Al het andere is een syntaxisfout. Afhankelijk van de ontvanger krijgt u het standaardgedrag, of wordt het record als onjuist opgemaakt verworpen — van buitenaf kunt u niet zien welke van de twee.",
+      "fix": "Zet <code>t=y</code> tijdens het testen, <code>t=n</code> in productie, of verwijder de tag helemaal aangezien <code>n</code> de standaardwaarde is.",
+      "fixCode": "; Verwijder de onjuiste tag — n is de standaardwaarde:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-rua-invalid": {
+      "msg": "De DMARC-bestemming rua= is onbruikbaar ({0}) — samengevoegde rapporten kunnen niet worden bezorgd.",
+      "what": "Rapportbestemmingen moeten DMARC-URI's zijn: <code>mailto:</code>-adressen, eventueel gevolgd door een groottelimiet zoals <code>!10m</code>. Een kaal adres zonder <code>mailto:</code>-voorvoegsel, een onjuist opgemaakt adres of een schema dat ontvangers niet ondersteunen leveren allemaal hetzelfde op — geen rapporten. Omdat DMARC stilzwijgend faalt, ziet een onbruikbare <code>rua=</code> er precies zo uit als een domein waar niemand misbruik van maakt.",
+      "fix": "Corrigeer de bestemming naar een volledige <code>mailto:</code>-URI. Scheid meerdere bestemmingen met komma's.",
+      "fixCode": "; Fout — het mailto:-schema ontbreekt:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=dmarc@yourdomain.com;\"\n\n; Goed — een of meer mailto:-URI's:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example!10m;\""
+    },
+    "dmarc-ruf-invalid": {
+      "msg": "De DMARC-bestemming ruf= is onbruikbaar ({0}) — foutrapporten kunnen niet worden bezorgd.",
+      "what": "De tag <code>ruf=</code> gebruikt hetzelfde DMARC-URI-formaat als <code>rua=</code>: <code>mailto:</code>-adressen met een optionele <code>!</code>-groottelimiet. De uwe is niet te parseren, dus er komen geen foutrapporten binnen. Let op: foutrapporten (RFC 9991) bevatten berichtinhoud en worden door relatief weinig ontvangers verstuurd — ze kwijtraken is minder ernstig dan samengevoegde rapporten kwijtraken, maar een kapotte tag is het nog steeds waard om te herstellen of te verwijderen.",
+      "fix": "Corrigeer de bestemming naar een volledige <code>mailto:</code>-URI, of verwijder <code>ruf=</code> als u niet van plan bent foutrapporten te verzamelen.",
+      "fixCode": "; Goed — een volledige mailto:-URI:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-fo-without-ruf": {
+      "msg": "DMARC fo= is ingesteld maar er is geen ruf= — ontvangers moeten hem negeren.",
+      "what": "De tag <code>fo=</code> bepaalt <em>wanneer</em> foutrapporten worden gegenereerd, dus RFC 9989 stelt dat de inhoud ervan moet worden genegeerd als er geen <code>ruf=</code>-tag aanwezig is. De tag doet dus niets. Meestal betekent dit dat er ooit een <code>ruf=</code> is verwijderd en <code>fo=</code> is blijven staan, wat de indruk kan wekken dat foutrapportage nog is ingesteld.",
+      "fix": "Voeg een <code>ruf=</code>-bestemming toe als u foutrapporten wilt, of verwijder <code>fo=</code> zodat het record zegt wat het werkelijk betekent.",
+      "fixCode": "; Voeg een bestemming toe:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; Of laat de werkloze tag vervallen:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-fo": {
+      "msg": "DMARC fo= bevat een waarde die niet 0, 1, d of s is.",
+      "what": "De tag voor foutrapportageopties accepteert een door dubbele punten gescheiden subset van vier waarden: <code>0</code> (rapporteer als alles faalt), <code>1</code> (rapporteer als er iets faalt), <code>d</code> (DKIM gefaald) en <code>s</code> (SPF gefaald). Al het andere is een syntaxisfout, en <code>fo=1</code> is wat de meeste beheerders eigenlijk willen — de standaardwaarde <code>fo=0</code> rapporteert alleen als SPF én DKIM allebei falen.",
+      "fix": "Gebruik een geldige combinatie, meestal <code>fo=1</code>.",
+      "fixCode": "; Rapporteer zodra een willekeurig mechanisme faalt:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; Meerdere opties worden gescheiden door dubbele punten:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=d:s; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-external-reporting": {
+      "msg": "DMARC-rapporten gaan naar een extern domein ({0}) — dat domein moet ze autoriseren, anders worden de rapporten verworpen.",
+      "what": "Ligt een rapportbestemming buiten uw organisatiedomein — een DMARC-leverancier, een adviseur, een zusteronderneming — dan vereist RFC 9990 §4.3 dat het ontvangende domein een record publiceert dat toestemming verleent. Zonder dat record verwerpen specificatiegetrouwe ontvangers stilzwijgend de rapporten die voor die bestemming zijn bedoeld. Autorisatie wordt per bestemming beoordeeld, dus een niet-geautoriseerde leverancier maakt uw DMARC-record niet stuk en houdt rapporten naar uw andere adressen niet tegen; alleen die ene bestemming valt stil. Deze audit heeft het record niet geverifieerd — schakel de geavanceerde controles in zodat het automatisch wordt opgezocht.",
+      "fix": "Vraag het bestemmingsdomein een autorisatierecord voor uw domein te publiceren, in de vorm <code>&lt;uw-domein&gt;._report._dmarc.&lt;hun-domein&gt;</code>.",
+      "fixCode": "; Uw record stuurt rapporten naar een leverancier:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; De LEVERANCIER moet dit in zijn zone publiceren:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
+    },
+    "dmarc-bad-psd": {
+      "msg": "De DMARC-waarde psd= is niet y, n of u.",
+      "what": "De tag <code>psd=</code> is nieuw in RFC 9989 en vertelt de DNS Tree Walk of dit domein een Public Suffix Domain is. Hij accepteert precies drie waarden: <code>y</code>, <code>n</code> en <code>u</code> (de standaardwaarde, die betekent dat de normale discovery geldt). Een ongeldige waarde is een syntaxisfout in een tag die bepaalt hoe ontvangers uw beleid vinden.",
+      "fix": "Verwijder de tag tenzij u een public suffix beheert — <code>u</code> is de standaardwaarde en klopt voor vrijwel elk gewoon domein.",
+      "fixCode": "; Gewone domeinen hebben psd= helemaal niet nodig:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-psd-invalid": {
+      "msg": "DMARC verklaart psd=y maar dit domein is geen public suffix.",
+      "what": "<code>psd=y</code> vertelt ontvangers dat deze naam een Public Suffix Domain is — een naam op registryniveau zoals <code>.gov.uk</code> waaronder niet-verwante organisaties registreren. Het verandert waar de DNS Tree Walk stopt wanneer ontvangers naar een beleid zoeken, dus dit instellen op een gewoon organisatiedomein kan ertoe leiden dat uw beleid voor subdomeinen verkeerd wordt gevonden. Dit is vrijwel altijd een fout door een gekopieerd voorbeeld.",
+      "fix": "Verwijder <code>psd=y</code> tenzij u werkelijk een public suffix beheert die op de Public Suffix List staat.",
+      "fixCode": "; Verwijder de tag:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-removed-tags": {
+      "msg": "Het DMARC-record bevat tags die door RFC 9989 zijn verwijderd ({0}) — ze doen niets meer.",
+      "what": "RFC 9989 heeft verschillende tags verwijderd die uit RFC 7489 waren overgenomen. Ontvangers die de huidige specificatie implementeren negeren ze. Ze zijn onschadelijk in die zin dat ze het record niet stukmaken, maar ze zijn misleidend: wie het record later leest, gaat ervan uit dat ze van kracht zijn.",
+      "fix": "Verwijder de verouderde tags. De rapportagefrequentie en het formaat zijn niet langer in te stellen vanuit het DMARC-record — zie RFC 9990 voor hoe samengevoegde rapportage nu werkt.",
+      "fixCode": "; Verouderde tags verwijderd:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-unknown-tags": {
+      "msg": "Het DMARC-record bevat tags die geen onderdeel van de standaard zijn ({0}).",
+      "what": "RFC 9989 definieert deze volledige set tags: <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code> en <code>t</code>. Onbekende tags MOETEN worden genegeerd, dus ze zijn eerder werkloos dan gevaarlijk — maar meestal gaat het om een typefout in een echte tagnaam, wat betekent dat de instelling die u bedoelde niet wordt toegepast. Een verkeerd gespelde <code>rua</code> is een onbekende tag <em>én</em> een ontbrekende rapportbestemming.",
+      "fix": "Controleer elke niet-herkende tag op een typefout en verwijder daarna alles wat werkelijk niet nodig is.",
+      "fixCode": "; Een typefout wordt stilzwijgend genegeerd — dit record heeft GEEN rapportbestemming:\n_dmarc    TXT    \"v=DMARC1; p=reject; rau=mailto:dmarc@yourdomain.com;\"\n\n; Gecorrigeerd:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-external-unauthorized": {
+      "msg": "DMARC-rapporten naar {0} worden verworpen — dat domein heeft uw rapporten niet geautoriseerd.",
+      "what": "Ligt een rapportbestemming buiten uw organisatiedomein, dan vereist RFC 9990 §4.3 dat het ontvangende domein een record publiceert dat toestemming verleent. We hebben gekeken en het staat er niet. Specificatiegetrouwe ontvangers verwerpen daarom elk rapport dat voor {0} bestemd is: er treedt geen fout op en er bounct niets, u krijgt eenvoudigweg minder gegevens dan u denkt — wat gemakkelijk wordt aangezien voor \"niemand doet zich voor als ons\". Autorisatie wordt per bestemming gecontroleerd, dus andere adressen in uw record blijven gewoon werken; alleen deze wordt verworpen.",
+      "fix": "Vraag de beheerder van {0} een autorisatierecord voor uw domein te publiceren. De meeste rapportageleveranciers doen dit automatisch zodra u een domein toevoegt, dus als u dit net hebt ingesteld, is het de moeite waard om eerst het dashboard van de leverancier te bekijken — het record verschijnt mogelijk pas nadat het domein aan hun kant is geverifieerd.",
+      "fixCode": "; Het BESTEMMINGSdomein publiceert dit in zijn eigen zone\n; en noemt daarin het domein waarvan het rapporten accepteert:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; Leveranciers met veel klanten publiceren meestal de wildcardvorm:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
+    },
+    "dmarc-external-unverifiable": {
+      "msg": "Kon de rapportautorisatie voor {0} niet verifiëren — de DNS-lookup is niet afgerond.",
+      "what": "Rapporten die buiten uw organisatiedomein worden verstuurd, moeten door de bestemming worden geautoriseerd, en dat controleren wij door bij de bestemming een autorisatierecord op te vragen. Die query is mislukt — een time-out, een SERVFAIL of een hapering van de resolver — dus we kunnen u niet vertellen of het record bestaat. Dit is een gat in ons resultaat, geen bevinding tegen uw configuratie: behandel het als onbekend in plaats van als probleem, en voer de audit opnieuw uit voordat u actie onderneemt.",
+      "fix": "Voer de audit opnieuw uit. Blijft het misgaan, vraag de naam dan rechtstreeks op om te zien of het record er staat.",
+      "fixCode": "; Controleer het autorisatierecord handmatig:\ndig +short TXT yourdomain.com._report._dmarc.{0}\n\n; En de wildcardvorm die de meeste leveranciers publiceren:\ndig +short TXT \"*._report._dmarc.{0}\""
+    },
+    "checks-unverified": {
+      "msg": "Sommige controles konden niet worden afgerond ({0}) — ze worden beoordeeld alsof het record niet is gepubliceerd.",
+      "what": "Een of meer DNS-lookups voor dit domein leverden geen bruikbaar antwoord op, meestal een SERVFAIL of een time-out van de resolver. Dat kan echt een defecte naamserver zijn, maar net zo vaak is het een tijdelijke hapering die binnen enkele minuten voorbij is. De rest van de audit is normaal afgerond en klopt. De betrokken controles krijgen nul punten, omdat een beoordeling waar dit hulpmiddel niet achter kan staan minder waard is dan een beoordeling die simpelweg streng is — een mislukte lookup kost u dus punten totdat hij opnieuw wordt uitgevoerd.",
+      "fix": "Voer de audit eerst opnieuw uit — een tijdelijke storing lost zichzelf op en de punten komen terug. Blijven dezelfde controles falen, vraag de betreffende namen dan rechtstreeks op om te zien of uw naamservers antwoorden. Een server die SERVFAIL in plaats van NXDOMAIN teruggeeft voor namen die niet bestaan, veroorzaakt dit telkens opnieuw.",
+      "fixCode": "; Controleer of uw naamservers antwoorden op een naam die niet zou moeten bestaan.\n; Een gezonde server geeft NXDOMAIN terug; een defecte geeft SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Vraag uw autoritatieve servers rechtstreeks, buiten de resolver om:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    }
+  },
+  "suggestion": {
+    "bimiEligible": "Geschikt voor BIMI: DMARC wordt gehandhaafd en DKIM is ingesteld. Voeg een default._bimi TXT-record toe met de URL van uw SVG-logo om uw merklogo in Gmail en Apple Mail te tonen.",
+    "bimiPrereq": "BIMI (logo in de inbox): vereist DMARC op p=quarantine of p=reject plus DKIM. Breng die eerst op orde en voeg daarna BIMI toe.",
+    "mta-sts": "MTA-STS niet geconfigureerd. Een _mta-sts TXT-record publiceren en een beleidsbestand hosten dwingt TLS af bij inkomende e-mailbezorging en voorkomt downgrade-aanvallen.",
+    "tls-rpt": "TLS-RPT (_smtp._tls TXT) niet geconfigureerd. Deze aanvulling op MTA-STS stuurt u rapporten wanneer de TLS-onderhandeling mislukt — eenvoudig toe te voegen, zonder nadelen.",
+    "caa": "Geen CAA-records — elke certificaatautoriteit kan SSL-certificaten voor dit domein uitgeven. Voeg CAA-records toe die alleen uw voorkeurs-CA noemen (bijv. Let's Encrypt, DigiCert).",
+    "dnssec": "DNSSEC niet gedetecteerd. Uw DNS-records ondertekenen voorkomt cachevergiftiging en MX-kaping. Cloudflare en de meeste moderne DNS-providers schakelen dit met één klik in.",
+    "dmarc-pct-obsolete": "Uw DMARC-record gebruikt nog pct=. Sinds RFC 9989 — DMARCbis, bekrachtigd in mei 2026 — is pct= geen ondersteunde tag meer en zou hij moeten worden verwijderd. Ontvangers die de nieuwe standaard hebben overgenomen negeren hem; ontvangers die nog op RFC 7489 zitten niet, dus hem laten staan betekent dat uw handhaving per ontvanger verschilt. Gebruik t=y als u een gefaseerde uitrol nodig hebt."
+  },
+  "learnMore": {
+    "badge": "Gids e-mailbeveiliging",
+    "close": "✕ Tabblad sluiten",
+    "footer": "Gegenereerd door de DNS- en e-mailbeveiligingsaudit — geen gegevens opgeslagen, geen registratie nodig",
+    "bimi": {
+      "title": "BIMI — Brand Indicators for Message Identification",
+      "tagline": "Toon uw logo in de inbox van Gmail, Apple Mail en Yahoo.",
+      "sections": [
+        {
+          "h": "Wat is BIMI?",
+          "body": "BIMI is een e-mailstandaard waarmee het logo van uw organisatie rechtstreeks in de inbox van de ontvanger verschijnt — naast uw afzendernaam, nog voordat de e-mail is geopend. De standaard wordt ondersteund door Gmail, Apple Mail, Yahoo Mail en Fastmail."
+        },
+        {
+          "h": "Waarom dit belangrijk is",
+          "body": "Een zichtbaar logo wekt meteen visueel vertrouwen. Ontvangers zien in één oogopslag dat de e-mail echt van uw organisatie komt, wat de openingspercentages verhoogt en de kans verkleint dat uw bericht voor phishing wordt aangezien. BIMI werkt bovendien als stok achter de deur om uw volledige authenticatieketen (SPF + DKIM + DMARC) op orde te krijgen."
+        },
+        {
+          "h": "Voorwaarden voordat u BIMI kunt publiceren",
+          "body": "• DMARC moet op <code>p=quarantine</code> of <code>p=reject</code> staan — <code>p=none</code> volstaat niet<br>• DKIM moet zijn ingesteld en uitgaande e-mail actief ondertekenen<br>• Een SVG-logo in <strong>Tiny PS</strong>-formaat op een openbare HTTPS-URL<br>• (Voor Gmail) Een Verified Mark Certificate (VMC) van DigiCert of Entrust kan vereist zijn voor het blauwe vinkje"
+        },
+        {
+          "h": "Zo stelt u het in",
+          "body": "1. Bevestig dat DMARC wordt gehandhaafd (<code>p=quarantine</code> of <code>p=reject</code>)<br>2. Bevestig dat DKIM is ingesteld en ondertekent<br>3. Maak uw SVG-logo in Tiny PS-formaat (Canva, Adobe Illustrator of <a href=\"https://bimigroup.org/bimi-generator/\" target=\"_blank\" rel=\"noopener\">de BIMI-generator</a> kunnen helpen)<br>4. Host de SVG op een openbare HTTPS-URL — bijv. <code>https://yourdomain.com/logo.svg</code><br>5. Voeg het BIMI-DNS-record toe:",
+          "code": "default._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\""
+        },
+        {
+          "h": "Testen",
+          "body": "Valideer uw record op <a href=\"https://bimigroup.org/bimi-generator\" target=\"_blank\" rel=\"noopener\">bimigroup.org/bimi-generator</a>. Stuur een testmail naar een Gmail-account en kijk of uw logo als avatar in de inbox verschijnt."
+        }
+      ]
+    },
+    "mta-sts": {
+      "title": "MTA-STS — Mail Transfer Agent Strict Transport Security",
+      "tagline": "Dwing TLS-versleuteling af op alle inkomende e-mailbezorging naar uw domein.",
+      "sections": [
+        {
+          "h": "Wat is MTA-STS?",
+          "body": "MTA-STS is een standaard (RFC 8461) waarmee u een beleid publiceert dat stelt dat iedereen die e-mail naar uw domein stuurt TLS-versleuteling moet gebruiken en het certificaat van uw mailserver moet verifiëren. Zonder MTA-STS kunnen aanvallers op het netwerk \"downgrade-aanvallen\" uitvoeren, TLS wegstrippen en e-mail onderweg meelezen."
+        },
+        {
+          "h": "Waarom dit belangrijk is",
+          "body": "Standaard STARTTLS-versleuteling wordt opportunistisch onderhandeld — een man-in-the-middle kan het STARTTLS-aanbod stilletjes verwijderen en bezorging in leesbare tekst afdwingen. MTA-STS lost dit op door uw beleid vooraf op de verzendende server te cachen, zodat die weet dat TLS verplicht is en weigert zonder TLS te bezorgen."
+        },
+        {
+          "h": "Deel 1 — Publiceer het DNS-TXT-record",
+          "body": "Voeg dit TXT-record toe aan uw DNS. Wijzig de waarde van <code>id=</code> telkens wanneer u het beleidsbestand bijwerkt.",
+          "code": "_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\""
+        },
+        {
+          "h": "Deel 2 — Host het beleidsbestand",
+          "body": "Het beleidsbestand moet exact op deze URL op uw domein worden gehost:<br><code>https://mta-sts.yourdomain.com/.well-known/mta-sts.txt</code><br><br>Voorbeeldinhoud van het beleidsbestand:",
+          "code": "version: STSv1\nmode: testing\nmx: mail.yourdomain.com\nmx: *.google.com\nmax_age: 604800",
+          "body2": "Begin met <code>mode: testing</code> om te observeren zonder te blokkeren. Nadat u de TLS-RPT-rapporten hebt bekeken en hebt vastgesteld dat er geen fouten zijn, schakelt u over naar <code>mode: enforce</code>."
+        },
+        {
+          "h": "Testen",
+          "body": "Gebruik <a href=\"https://www.checktls.com\" target=\"_blank\" rel=\"noopener\">CheckTLS.com</a> of <a href=\"https://mxtoolbox.com/mta-sts.aspx\" target=\"_blank\" rel=\"noopener\">MXToolbox MTA-STS Check</a> om uw beleid te valideren. Combineer dit met TLS-RPT om foutrapporten te ontvangen (zie de aanbeveling over TLS-RPT)."
+        }
+      ]
+    },
+    "tls-rpt": {
+      "title": "TLS-RPT — SMTP TLS Reporting",
+      "tagline": "Word gewaarschuwd wanneer TLS-versleuteling faalt bij e-mail die aan uw domein wordt bezorgd.",
+      "sections": [
+        {
+          "h": "Wat is TLS-RPT?",
+          "body": "TLS-RPT (SMTP TLS Reporting, RFC 8460) is één DNS-TXT-record dat verzendende mailservers vertelt waar ze dagelijkse rapporten over mislukte TLS-verbindingen naartoe moeten mailen bij bezorging aan uw domein. Zie het als DMARC-rapportage, maar dan voor TLS- en versleutelingsfouten."
+        },
+        {
+          "h": "Waarom dit belangrijk is",
+          "body": "Is uw MTA-STS-beleid verkeerd ingesteld, verloopt het TLS-certificaat van uw mailserver, of stript een netwerkprovider de versleuteling weg, dan zou u dat zonder TLS-RPT nooit weten. Het verandert onzichtbare bezorgfouten in bruikbare rapporten in uw inbox — en het is een van de eenvoudigste DNS-records om te publiceren."
+        },
+        {
+          "h": "Zo stelt u het in",
+          "body": "Voeg één TXT-record toe — vervang het e-mailadres door een mailbox die u in de gaten houdt:",
+          "code": "_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls-reports@yourdomain.com;\"",
+          "body2": "Rapporten komen dagelijks binnen als bijlagen in JSON-formaat. Externe DMARC-platforms (Postmark, Valimail, dmarcian) verwerken en visualiseren TLS-RPT-rapporten ook naast uw DMARC-gegevens."
+        },
+        {
+          "h": "Wat de rapporten u vertellen",
+          "body": "Elk dagelijks rapport laat zien: welke verzendende servers e-mail aan uw domein probeerden te bezorgen, of de TLS-onderhandeling slaagde of mislukte, en de specifieke reden van de fout — verlopen certificaat, beleidsmismatch, niet-ondersteunde TLS-versie enzovoort. Onmisbaar inzicht wanneer u MTA-STS voor het eerst in testmodus uitrolt."
+        }
+      ]
+    },
+    "caa": {
+      "title": "CAA — Certification Authority Authorization",
+      "tagline": "Bepaal welke certificaatautoriteiten SSL/TLS-certificaten voor uw domein mogen uitgeven.",
+      "sections": [
+        {
+          "h": "Wat is CAA?",
+          "body": "Met CAA-DNS-records (Certification Authority Authorization) geeft u aan welke certificaatautoriteiten (CA's) SSL/TLS-certificaten voor uw domein mogen uitgeven. Zonder CAA-records kan elk van de honderden vertrouwde CA's ter wereld een certificaat voor uw domein uitgeven — zonder uw medeweten of toestemming."
+        },
+        {
+          "h": "Waarom dit belangrijk is",
+          "body": "Onterechte certificaatuitgifte is in het verleden voorgekomen door fouten bij of inbraken op CA's. Een frauduleus uitgegeven certificaat voor uw domein kan worden gebruikt om zich voor te doen als uw website, HTTPS-verkeer te onderscheppen of phishingpagina's met een slotje te tonen. CAA-records geven u een harde handhavingslaag: CA's die de standaard ondersteunen moeten uw CAA-records controleren vóór uitgifte, en het verzoek weigeren als zij er niet in staan."
+        },
+        {
+          "h": "Zo stelt u het in",
+          "body": "Voeg CAA-records toe met daarin uw geautoriseerde CA's. Gebruik <code>issue</code> voor gewone certificaten en <code>issuewild</code> voor wildcardcertificaten.",
+          "code": "; Sta alleen Let's Encrypt toe:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; Sta Let's Encrypt en DigiCert toe:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issue \"digicert.com\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; Optioneel — ontvang een melding wanneer een CA een uitgifte weigert:\n@    CAA    0 iodef \"mailto:ssl-alerts@yourdomain.com\""
+        },
+        {
+          "h": "Uw CA achterhalen",
+          "body": "Klik op het slotje in de adresbalk van uw browser op uw website om te zien welke CA uw huidige certificaat heeft uitgegeven. Veelgebruikte keuzes: <strong>Let's Encrypt</strong> (gratis, geautomatiseerd), <strong>DigiCert</strong>, <strong>Sectigo</strong>, <strong>GlobalSign</strong>. Meestal regelt uw hostingprovider of Cloudflare de certificaatuitgifte — raadpleeg hun documentatie voor de juiste CA-hostnaam om te vermelden."
+        }
+      ]
+    },
+    "dnssec": {
+      "title": "DNSSEC — Domain Name System Security Extensions",
+      "tagline": "Onderteken uw DNS-records cryptografisch om manipulatie en kaping te voorkomen.",
+      "sections": [
+        {
+          "h": "Wat is DNSSEC?",
+          "body": "DNSSEC voegt cryptografische handtekeningen toe aan uw DNS-records. Wanneer een resolver een met DNSSEC ondertekende zone bevraagt, kan hij verifiëren dat het antwoord door de rechtmatige zone-eigenaar is ondertekend en onderweg niet is gewijzigd. Zonder DNSSEC kan een aanvaller die DNS-antwoorden kan onderscheppen of vergiftigen uw verkeer stilletjes overal naartoe leiden."
+        },
+        {
+          "h": "Waarom dit belangrijk is",
+          "body": "Aanvallen met DNS-cachevergiftiging kunnen bezoekers van uw echte website naar een kwaadaardige leiden, e-mail onderscheppen door uw MX-records te kapen, of uw SPF-/DKIM-/DMARC-lookups corrumperen — allemaal zonder uw server aan te raken. DNSSEC maakt DNS-antwoorden cryptografisch verifieerbaar, zodat die aanvallen mislukken."
+        },
+        {
+          "h": "Zo schakelt u het in",
+          "body": "DNSSEC wordt ingeschakeld bij uw DNS-provider — die beheert de ondertekeningssleutels. De stappen verschillen per provider:",
+          "code": "Cloudflare:  tabblad DNS → DNSSEC → Inschakelen (voegt het DS-record automatisch toe)\nGoDaddy:     DNS → DNSSEC → DNSSEC activeren\nRoute 53:    Gehoste zone → DNSSEC-ondertekening → Inschakelen\nPorkbun:     DNS → DNSSEC → Inschakelen\nName.com:    DNS → DNSSEC → Ondertekening inschakelen",
+          "body2": "Nadat u het bij uw DNS-provider hebt ingeschakeld, kopieert u de DS-recordwaarden (Delegation Signer) die u van hen krijgt en voegt u ze toe bij de <strong>registrar</strong> van uw domein. Het DS-record bij de registrar is wat de vertrouwensketen van de DNS-root tot aan uw zone sluit."
+        },
+        {
+          "h": "Kritieke waarschuwingen",
+          "body": "⚠ <strong>Wisselt u van DNS-provider</strong>, schakel DNSSEC dan eerst uit, migreer alle records en schakel het daarna weer in. Doet u dit niet in die volgorde, dan ontstaan er wereldwijd DNS-storingen.<br><br>⚠ <strong>Het DS-record bij de registrar moet exact overeenkomen</strong> met de waarden die uw DNS-provider u geeft. Een afwijking breekt de DNS-resolutie voor uw hele domein."
+        },
+        {
+          "h": "Testen",
+          "body": "Verifieer uw DNSSEC-vertrouwensketen op <a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a> of visualiseer hem op <a href=\"https://dnsviz.net\" target=\"_blank\" rel=\"noopener\">dnsviz.net</a>. Een geldige keten is op elk niveau groen, van root → TLD → uw domein."
+        }
+      ]
+    },
+    "dmarc-rfc9989": {
+      "title": "RFC 9989 — Wat er in DMARC is veranderd",
+      "tagline": "DMARCbis is in mei 2026 bekrachtigd. Dit is wat eruit ging, wat erbij kwam en wat u moet wijzigen.",
+      "sections": [
+        {
+          "h": "DMARC is nu een standaard",
+          "body": "Het eerste decennium was DMARC RFC 7489, een <em>Informational</em> document — breed uitgerold maar nooit formeel gestandaardiseerd. In mei 2026 publiceerde de IETF de vervangende set: RFC 9989 (het kernprotocol), RFC 9990 (samengevoegde rapportage) en RFC 9991 (foutrapportage). Samen vervangen ze RFC 7489 en RFC 9091 en tillen ze DMARC naar Proposed Standard op het standaardentraject. Doordat de rapportage eigen documenten kreeg, kunnen de rapportformaten voortaan evolueren zonder de kernspecificatie opnieuw te openen."
+        },
+        {
+          "h": "pct= is verwijderd",
+          "body": "Met de tag <code>pct=</code> kon u uw beleid op slechts een percentage van de falende e-mail toepassen. Het was bedoeld als hulpmiddel bij de uitrol, maar leverde in de praktijk onvoorspelbare resultaten op — ontvangers implementeerden de steekproef verschillend, en het lot van een bericht hing af van welke server het toevallig verwerkte. RFC 9989 verwijdert de tag volledig. Ontvangers die de nieuwe specificatie implementeren negeren hem.",
+          "body2": "De addertje tijdens de overgang: ontvangers die nog RFC 7489 draaien houden zich nog steeds aan <code>pct=</code>. Een record met <code>pct=25</code> wordt dus nu door sommige ontvangers volledig gehandhaafd en door andere tot een kwart teruggebracht, en u kunt op geen enkele manier weten hoe die verhouding ligt. Dat is een slechtere positie dan elk van beide gedragingen op zich, en daarom is de tag verwijderen de juiste zet — nog vóór alle ontvangers zijn overgestapt."
+        },
+        {
+          "h": "t= vervangt hem voor een gefaseerde uitrol",
+          "body": "RFC 9989 voegt een testmodus-tag toe. <code>t=y</code> vertelt ontvangers dat u nog aan het evalueren bent en dat uw beleid <em>niet</em> moet worden toegepast — terwijl de samengevoegde rapporten gewoon blijven binnenkomen. Hij is ondubbelzinnig op een manier die <code>pct=</code> nooit was: het beleid wordt gehandhaafd of niet.",
+          "code": "; Stap 1 — publiceer uw doelbeleid in testmodus:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Stap 2 — zodra de rapporten geen falende legitieme e-mail meer tonen, haalt u t= weg:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"",
+          "body2": "Houd er rekening mee dat <code>p=reject; t=y</code> u precies evenveel bescherming tegen misbruik geeft als <code>p=none</code> — namelijk geen. De testmodus is een fase om doorheen te gaan, geen rustplaats. Elk dashboard dat alleen <code>p=</code> uitleest, rapporteert zo'n domein als volledig gehandhaafd."
+        },
+        {
+          "h": "De volledige set tags",
+          "body": "RFC 9989 definieert precies elf tags: <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code> en <code>t</code>. Al het andere — waaronder <code>pct</code>, <code>rf</code> en <code>ri</code> — moet door ontvangers worden genegeerd. Let op: onbekende tags worden stilzwijgend verworpen, dus een typefout als <code>rau=</code> in plaats van <code>rua=</code> kost u uw rapportbestemming zonder dat er ergens een foutmelding verschijnt.",
+          "body2": "Twee andere regels zijn strenger dan mensen verwachten. <code>v=</code> moet de <em>eerste</em> tag zijn, en de waarde is hoofdlettergevoelig — alleen <code>DMARC1</code> wordt geaccepteerd, dus <code>v=dmarc1</code> zorgt ervoor dat het hele record wordt genegeerd."
+        },
+        {
+          "h": "Rapporteren aan een extern domein",
+          "body": "Ligt uw <code>rua=</code>- of <code>ruf=</code>-bestemming buiten uw organisatiedomein — een DMARC-leverancier, een adviseur, een zusteronderneming — dan moet het ontvangende domein een record publiceren dat dit autoriseert. Zonder dat record verwerpen specificatiegetrouwe ontvangers uw rapporten stilzwijgend. Er bounct niets en er treedt geen fout op; u ziet gewoon minder gegevens dan zou moeten.",
+          "code": "; Uw record stuurt rapporten naar een leverancier:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; De LEVERANCIER moet dit in zijn eigen zone publiceren:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\"",
+          "body2": "De meeste gevestigde leveranciers publiceren dit automatisch, maar het is de gebruikelijke verklaring wanneer een pas toegevoegde rapportbestemming geen gegevens toont."
+        },
+        {
+          "h": "Wat u nu moet doen",
+          "body": "Verwijder <code>pct=</code> uit uw DMARC-record. Zat u midden in een uitrol en leunde u erop, publiceer dan in plaats daarvan uw doelbeleid met <code>t=y</code>, volg uw samengevoegde rapporten tot er geen legitieme verzender meer faalt, en verwijder daarna <code>t=</code>. Nu u het record toch bewerkt: controleer meteen of <code>v=DMARC1</code> vooraan staat en correct in hoofdletters, of elke tagnaam juist is gespeld, en of elke externe rapportbestemming u heeft geautoriseerd."
+        }
+      ]
+    }
+  },
+  "score": {
+    "label": "Beveiligingsscore",
+    "outOf": "{0} / {1}",
+    "unproven": "{0} / {1} — controles die niet konden worden geverifieerd kregen nul punten: {2}. Klap deze rij uit om te zien hoe u die punten terugkrijgt.",
+    "parkedNote": "Geparkeerd domein — alleen beoordeeld op SPF, DMARC, DNSSEC en CAA",
+    "pillar": {
+      "dmarc": "DMARC",
+      "spf": "SPF",
+      "dkim": "DKIM",
+      "dnssec": "DNSSEC",
+      "caa": "CAA",
+      "mtaSts": "MTA-STS",
+      "bimi": "BIMI",
+      "tlsRpt": "TLS-RPT"
+    },
+    "dmarcParts": {
+      "label": "DMARC-uitsplitsing",
+      "policy": "Beleid (p=)",
+      "subdomain": "Subdomeindekking",
+      "rua": "Samengevoegde rapporten (rua=)",
+      "alignment": "Strikte uitlijning",
+      "ruf": "Forensische rapporten (ruf=)",
+      "uris": "Rapportbestemmingen"
+    }
+  }
+}
