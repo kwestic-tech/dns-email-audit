@@ -38,11 +38,11 @@
     "www": "웹사이트 호스팅 감지",
     "wildcard": "와일드카드 TXT 버그 감지",
     "dkimSelectors": "추가 DKIM 셀렉터",
-    "footer": "Cloudflare DoH 기반 DNS 조회 · 데이터 저장 없음"
+    "footer": "Cloudflare DoH 기반 DNS 조회 · 데이터 저장 없음 · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">개인정보</a>"
   },
   "help": {
     "title": "작동 방식:",
-    "body": "<a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a>를 통해 사용자의 브라우저에서 직접 실행됩니다. 본 앱은 Kwestic으로 데이터를 전송하거나 저장하지 않으며, DNS 조회 이름은 Cloudflare로 직접 전송되어 Cloudflare의 개인정보 처리방침을 따릅니다. 검사 항목: NS, MX, SPF, 제공자 인식 또는 정밀 DKIM 셀렉터, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC 및 SPF 조회 깊이."
+    "body": "<a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a>를 통해 사용자의 브라우저에서 직접 실행됩니다. 본 앱은 Kwestic으로 데이터를 전송하거나 저장하지 않으며, DNS 조회 이름은 Cloudflare로 직접 전송되어 Cloudflare의 개인정보 처리방침을 따릅니다. 검사 항목: NS, MX, SPF, 제공자 인식 또는 정밀 DKIM 셀렉터, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC 및 SPF 조회 깊이. 쿠키는 사용되지 않습니다. 브라우저에 저장되는 것은 언어 설정뿐이며, 이는 기기 밖으로 전송되지 않고 자동으로 만료되지도 않습니다. 자세한 내용은 <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">개인정보</a> 처리방침을 참고하세요."
   },
   "netbanner": {
     "title": "⚠️ 네트워크 접근 차단됨 — 현재 환경에서 인터넷으로 DNS 조회를 보낼 수 없습니다",
@@ -85,7 +85,7 @@
     "text": "필터와 일치하는 도메인이 없습니다."
   },
   "footer": {
-    "text": "<a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> 기반 DNS-over-HTTPS &bull; Kwestic으로 데이터가 전송되거나 저장되지 않음 &bull; 조회 이름은 Cloudflare로 전송됨 &bull; 무료 사용 및 셀프 호스팅 가능"
+    "text": "<a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> 기반 DNS-over-HTTPS &bull; Kwestic으로 데이터가 전송되거나 저장되지 않음 &bull; 조회 이름은 Cloudflare로 전송됨 &bull; 무료 사용 및 셀프 호스팅 가능 &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">개인정보</a> &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/SECURITY.md\" target=\"_blank\" rel=\"noopener\">보안</a>"
   },
   "labels": {
     "issues": "문제점",

@@ -351,6 +351,16 @@ keeping audit logic independent from translation work.
 - DNS requests go directly from the browser to `cloudflare-dns.com`.
 - Audit results are not sent to Kwestic or written to persistent storage.
 - The selected language is stored in `localStorage`.
+- No cookies are set. Unlike a cookie, `localStorage` is never transmitted
+  over the network — it stays on the device and is never sent to this app's
+  host, to Cloudflare, or anywhere else.
+- The `dns-email-audit-lang` key has no expiration; it persists until the
+  user or browser clears site data. See [PRIVACY.md](PRIVACY.md) for the
+  full policy and [SECURITY.md](SECURITY.md) for vulnerability reporting.
+- One audit is many DNS queries, not one: a typical domain fans out to
+  roughly 30, and following the SPF `include:` chain means Cloudflare also
+  sees the audited domain's email vendor hostnames. See
+  [PRIVACY.md](PRIVACY.md#what-cloudflare-can-see) for detail.
 - A restrictive Content Security Policy allows same-origin runtime assets,
   limits external connections to Cloudflare DNS-over-HTTPS, and restricts
   scripts, frames, objects, forms, and referrer data.
