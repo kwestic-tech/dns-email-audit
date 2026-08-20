@@ -38,11 +38,11 @@
     "www": "Web ホスティングを検出",
     "wildcard": "ワイルドカード TXT バグを検出",
     "dkimSelectors": "追加の DKIM セレクター",
-    "footer": "Cloudflare DoH 経由の DNS 照会 · データ保存なし"
+    "footer": "Cloudflare DoH 経由の DNS 照会 · データ保存なし · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">プライバシー</a>"
   },
   "help": {
     "title": "仕組み：",
-    "body": "<a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a> を利用してブラウザ内で直接実行されます。Kwestic にデータが送信されたり保存されたりすることはありません。DNS クエリ名は Cloudflare に直接送信され、Cloudflare のプライバシーポリシーが適用されます。チェック項目：NS, MX, SPF, プロバイダー認識型または詳細 DKIM セレクター, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC, および SPF 参照深度。"
+    "body": "<a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a> を利用してブラウザ内で直接実行されます。Kwestic にデータが送信されたり保存されたりすることはありません。DNS クエリ名は Cloudflare に直接送信され、Cloudflare のプライバシーポリシーが適用されます。チェック項目：NS, MX, SPF, プロバイダー認識型または詳細 DKIM セレクター, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC, および SPF 参照深度。Cookie は使用されません。ブラウザに保存されるのは言語設定のみで、デバイスの外に送信されることはなく、自動的に失効することもありません。詳細は <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">プライバシー</a> をご覧ください。"
   },
   "netbanner": {
     "title": "⚠️ ネットワークアクセスがブロックされました — ここからインターネットに DNS 照会できません",
@@ -85,7 +85,7 @@
     "text": "フィルターに一致するドメインはありません。"
   },
   "footer": {
-    "text": "<a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> 経由の DNS-over-HTTPS &bull; データは Kwestic に送信・保存されません &bull; 照会名は Cloudflare に送信されます &bull; 無料利用・セルフホスト可能"
+    "text": "<a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> 経由の DNS-over-HTTPS &bull; データは Kwestic に送信・保存されません &bull; 照会名は Cloudflare に送信されます &bull; 無料利用・セルフホスト可能 &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">プライバシー</a> &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/SECURITY.md\" target=\"_blank\" rel=\"noopener\">セキュリティ</a>"
   },
   "labels": {
     "issues": "検出された問題",

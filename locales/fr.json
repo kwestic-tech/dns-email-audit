@@ -38,11 +38,11 @@
     "www": "Détecter l'hébergement web",
     "wildcard": "Détecter les bugs de TXT générique (wildcard)",
     "dkimSelectors": "Sélecteurs DKIM supplémentaires",
-    "footer": "DNS via Cloudflare DoH · Aucune donnée stockée"
+    "footer": "DNS via Cloudflare DoH · Aucune donnée stockée · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Confidentialité</a>"
   },
   "help": {
     "title": "Comment ça marche :",
-    "body": "S'exécute dans votre navigateur via l'<a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">API Cloudflare DNS-over-HTTPS</a>. Aucune donnée n'est envoyée à Kwestic ni stockée par cette application ; les noms de requêtes DNS sont envoyés directement à Cloudflare et sont soumis à leur politique de confidentialité. Vérifications : NS, MX, SPF, sélecteurs DKIM intelligents ou exhaustifs, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC et profondeur de recherche SPF."
+    "body": "S'exécute dans votre navigateur via l'<a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">API Cloudflare DNS-over-HTTPS</a>. Aucune donnée n'est envoyée à Kwestic ni stockée par cette application ; les noms de requêtes DNS sont envoyés directement à Cloudflare et sont soumis à leur politique de confidentialité. Vérifications : NS, MX, SPF, sélecteurs DKIM intelligents ou exhaustifs, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC et profondeur de recherche SPF. Aucun cookie n'est déposé ; seule votre préférence de langue est enregistrée dans le navigateur, elle ne quitte jamais votre appareil et n'expire jamais automatiquement — voir <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Confidentialité</a> pour plus de détails."
   },
   "netbanner": {
     "title": "⚠️ Accès réseau bloqué — Les requêtes DNS ne peuvent pas atteindre Internet depuis cet emplacement",
@@ -85,7 +85,7 @@
     "text": "Aucun domaine ne correspond à votre filtre."
   },
   "footer": {
-    "text": "DNS-over-HTTPS via <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; Aucune donnée envoyée à Kwestic ni stockée par cette app &bull; Les noms de requêtes sont envoyés à Cloudflare &bull; Gratuit et auto-hébergeable"
+    "text": "DNS-over-HTTPS via <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; Aucune donnée envoyée à Kwestic ni stockée par cette app &bull; Les noms de requêtes sont envoyés à Cloudflare &bull; Gratuit et auto-hébergeable &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Confidentialité</a> &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/SECURITY.md\" target=\"_blank\" rel=\"noopener\">Sécurité</a>"
   },
   "labels": {
     "issues": "Problèmes",

@@ -46,6 +46,16 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   by a before/after back-test showing no grade or score movement across the
   40-domain sample. They cost no DNS lookups at all on records with no
   `ip4:`/`ip6:` block, which is most of them.
+- **`PRIVACY.md` and `SECURITY.md`,** linked from the options row, the "How it
+  works" callout and the page footer in all nine shipped locales, with the link
+  labels translated like every other string in the app. `PRIVACY.md` documents
+  the whole footprint: one `localStorage` key (`dns-email-audit-lang`, written
+  only when the language selector is used), no cookies, no analytics, no
+  backend. It also states what the app does *not* hide — one audit is roughly
+  30 DNS queries, not one, and because the SPF `include:` chain is resolved,
+  the query pattern reveals which email and SaaS vendors the audited domain
+  uses, not merely that someone looked it up. Documentation only; nothing about
+  what the app stores or transmits changed.
 
 ### Fixed
 

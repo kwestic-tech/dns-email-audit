@@ -38,11 +38,11 @@
     "www": "Rileva hosting web",
     "wildcard": "Rileva bug TXT wildcard",
     "dkimSelectors": "Selettori DKIM aggiuntivi",
-    "footer": "DNS tramite Cloudflare DoH · Nessun dato salvato"
+    "footer": "DNS tramite Cloudflare DoH · Nessun dato salvato · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a>"
   },
   "help": {
     "title": "Come funziona:",
-    "body": "Eseguito direttamente nel browser tramite l'API <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS</a>. Nessun dato viene inviato a Kwestic o salvato; le query DNS vanno direttamente a Cloudflare. Controlli effettuati: NS, MX, SPF, DKIM, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC e profondità delle ricerche SPF."
+    "body": "Eseguito direttamente nel browser tramite l'API <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS</a>. Nessun dato viene inviato a Kwestic o salvato; le query DNS vanno direttamente a Cloudflare. Controlli effettuati: NS, MX, SPF, DKIM, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC e profondità delle ricerche SPF. Non vengono impostati cookie; l'unica cosa salvata nel browser è la preferenza della lingua, che non lascia mai il dispositivo e non scade automaticamente — vedi <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a> per i dettagli."
   },
   "netbanner": {
     "title": "⚠️ Accesso alla rete bloccato — Impossibile inviare query DNS da qui",
@@ -85,7 +85,7 @@
     "text": "Nessun dominio corrisponde al filtro."
   },
   "footer": {
-    "text": "DNS-over-HTTPS tramite <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; Nessun dato memorizzato o inviato a Kwestic &bull; Gratuito e self-hostable"
+    "text": "DNS-over-HTTPS tramite <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; Nessun dato memorizzato o inviato a Kwestic &bull; Gratuito e self-hostable &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a> &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/SECURITY.md\" target=\"_blank\" rel=\"noopener\">Sicurezza</a>"
   },
   "labels": {
     "issues": "Problemi",

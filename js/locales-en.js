@@ -45,11 +45,11 @@ window.__I18N_EN__ = {
     "www": "Detect website hosting",
     "wildcard": "Detect wildcard TXT records",
     "dkimSelectors": "Additional DKIM selectors",
-    "footer": "DNS via Cloudflare DoH · No data stored"
+    "footer": "DNS via Cloudflare DoH · No data stored · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a>"
   },
   "help": {
     "title": "How it works:",
-    "body": "Runs in your browser via the <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a>. No data is sent to Kwestic or stored by this app; DNS query names are sent directly to Cloudflare and are subject to Cloudflare's privacy policy. Checks: NS, MX, SPF, provider-aware or comprehensive DKIM selectors, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC, and SPF lookup depth."
+    "body": "Runs in your browser via the <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a>. No data is sent to Kwestic or stored by this app; DNS query names are sent directly to Cloudflare and are subject to Cloudflare's privacy policy. Checks: NS, MX, SPF, provider-aware or comprehensive DKIM selectors, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC, and SPF lookup depth. No cookies are set; the only thing written to your browser is your language preference, which never leaves your device and never expires on its own — see <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a> for details."
   },
   "netbanner": {
     "title": "⚠️ Network access blocked — DNS queries cannot reach the internet from here",
@@ -92,7 +92,7 @@ window.__I18N_EN__ = {
     "text": "No domains match your filter."
   },
   "footer": {
-    "text": "DNS-over-HTTPS via <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; No data sent to Kwestic or stored by this app &bull; Query names are sent to Cloudflare &bull; Free to use &amp; self-host"
+    "text": "DNS-over-HTTPS via <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; No data sent to Kwestic or stored by this app &bull; Query names are sent to Cloudflare &bull; Free to use &amp; self-host &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a> &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/SECURITY.md\" target=\"_blank\" rel=\"noopener\">Security</a>"
   },
   "labels": {
     "issues": "Issues",

@@ -38,11 +38,11 @@
     "www": "偵測網站託管服務",
     "wildcard": "偵測通配符 TXT 錯誤",
     "dkimSelectors": "額外的 DKIM 選擇器",
-    "footer": "透過 Cloudflare DoH 查詢 DNS · 不儲存任何資料"
+    "footer": "透過 Cloudflare DoH 查詢 DNS · 不儲存任何資料 · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">隱私</a>"
   },
   "help": {
     "title": "運作原理：",
-    "body": "透過 <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a> 直接在您的瀏覽器中執行。本應用程式不會傳送或儲存任何資料至 Kwestic；DNS 查詢名稱將直接傳送至 Cloudflare，並受 Cloudflare 隱私權政策約束。檢查項目包含：NS、MX、SPF、感知提供者的或全面的 DKIM 選擇器、DMARC、BIMI、MTA-STS、TLS-RPT、CAA、DNSSEC 以及 SPF 查詢深度。"
+    "body": "透過 <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a> 直接在您的瀏覽器中執行。本應用程式不會傳送或儲存任何資料至 Kwestic；DNS 查詢名稱將直接傳送至 Cloudflare，並受 Cloudflare 隱私權政策約束。檢查項目包含：NS、MX、SPF、感知提供者的或全面的 DKIM 選擇器、DMARC、BIMI、MTA-STS、TLS-RPT、CAA、DNSSEC 以及 SPF 查詢深度。本應用程式不使用 Cookie；瀏覽器中僅儲存您的語言偏好設定，該設定不會離開您的裝置，也不會自動過期——詳情請參閱<a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">隱私權政策</a>。"
   },
   "netbanner": {
     "title": "⚠️ 網路存取受阻 — DNS 查詢無法從此處連接至網際網路",
@@ -85,7 +85,7 @@
     "text": "沒有符合您篩選條件的網域。"
   },
   "footer": {
-    "text": "透過 <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> 進行 DNS-over-HTTPS &bull; 本應用程式不會傳送或儲存資料至 Kwestic &bull; 查詢名稱將傳送至 Cloudflare &bull; 免費使用與自建託管"
+    "text": "透過 <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> 進行 DNS-over-HTTPS &bull; 本應用程式不會傳送或儲存資料至 Kwestic &bull; 查詢名稱將傳送至 Cloudflare &bull; 免費使用與自建託管 &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">隱私</a> &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/SECURITY.md\" target=\"_blank\" rel=\"noopener\">安全</a>"
   },
   "labels": {
     "issues": "問題",

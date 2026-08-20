@@ -38,11 +38,11 @@
     "www": "检测网站托管服务",
     "wildcard": "检测通配符 TXT 错误",
     "dkimSelectors": "额外的 DKIM 选择器",
-    "footer": "通过 Cloudflare DoH 查询 DNS · 不存储任何数据"
+    "footer": "通过 Cloudflare DoH 查询 DNS · 不存储任何数据 · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">隐私</a>"
   },
   "help": {
     "title": "工作原理：",
-    "body": "通过 <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a> 直接在您的浏览器中运行。本应用不会向 Kwestic 发送或存储任何数据；DNS 查询名称将直接发送至 Cloudflare，并受 Cloudflare 隐私政策约束。检查项目包括：NS、MX、SPF、针对服务商优化或全面的 DKIM 选择器、DMARC、BIMI、MTA-STS、TLS-RPT、CAA、DNSSEC 以及 SPF 查询深度。"
+    "body": "通过 <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API</a> 直接在您的浏览器中运行。本应用不会向 Kwestic 发送或存储任何数据；DNS 查询名称将直接发送至 Cloudflare，并受 Cloudflare 隐私政策约束。检查项目包括：NS、MX、SPF、针对服务商优化或全面的 DKIM 选择器、DMARC、BIMI、MTA-STS、TLS-RPT、CAA、DNSSEC 以及 SPF 查询深度。本应用不使用 Cookie；浏览器中仅保存您的语言偏好设置，该设置不会离开您的设备，也不会自动过期——详情请参阅<a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">隐私政策</a>。"
   },
   "netbanner": {
     "title": "⚠️ 网络访问受阻 — DNS 查询无法从此处连接至互联网",
@@ -85,7 +85,7 @@
     "text": "没有符合您筛选条件的域名。"
   },
   "footer": {
-    "text": "通过 <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> 进行 DNS-over-HTTPS &bull; 本应用不会向 Kwestic 发送或存储数据 &bull; 查询名称将发送至 Cloudflare &bull; 免费使用与自托管"
+    "text": "通过 <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> 进行 DNS-over-HTTPS &bull; 本应用不会向 Kwestic 发送或存储数据 &bull; 查询名称将发送至 Cloudflare &bull; 免费使用与自托管 &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">隐私</a> &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/SECURITY.md\" target=\"_blank\" rel=\"noopener\">安全</a>"
   },
   "labels": {
     "issues": "问题",
