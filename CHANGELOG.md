@@ -14,6 +14,39 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **SPF authorized-range size audit.** Every `ip4:`/`ip6:` block in a record is
+  classified by how much address space it authorizes. IPv4 is judged on host
+  count — a `/24` is 256 addresses that can all send as you. IPv6 is judged on
+  allocation tier and deliberately does *not* reuse the IPv4 table: RFC 4291
+  §2.5.4 makes `/64` the standard single-subnet allocation, frequently one mail
+  server, and the `2^n` reasoning that makes an IPv4 `/24` worth a look would
+  rate that same `/64` as eighteen quintillion hosts and flag it hardest of all.
+  `nih.gov` publishes four of them and they are unremarkable. Single-host blocks
+  are classified but never surfaced as findings — `stanford.edu` publishes 15
+  `ip4:` mechanisms, 13 of them `/32`, and a line each saying "this is one host"
+  buries everything worth reading.
+- **SPF redundancy audit.** An `a` or `mx` mechanism spends one of the 10
+  permitted DNS lookups. When every address it resolves to already sits inside
+  an `ip4:`/`ip6:` block written into the same record, that lookup buys no
+  authorization and can be reclaimed. `python.org` is a live example: its `mx`
+  resolves to exactly the two addresses its own `ip4:`/`ip6:` mechanisms list,
+  and removing it takes the record from 8 lookups to 7 — out of the near-limit
+  warning band — with no change to which servers can send.
+
+  Removal is only ever recommended when **both** address families are fully
+  covered. A hostname with an `AAAA` record, in a record carrying no `ip6:`
+  mechanism, is never flagged: the IPv4 side looks fully covered, and acting on
+  that would silently drop IPv6 authorization. Partial coverage is reported as
+  an informational note instead, so the finding is not lost and the mechanism
+  is not deleted while it is still doing real work.
+
+  Both checks are advisory and feed no part of the weighted rubric — verified
+  by a before/after back-test showing no grade or score movement across the
+  40-domain sample. They cost no DNS lookups at all on records with no
+  `ip4:`/`ip6:` block, which is most of them.
+
 ### Fixed
 
 - **A failed optional DNS lookup no longer discards the whole audit.** Every

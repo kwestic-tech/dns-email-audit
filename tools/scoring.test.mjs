@@ -20,8 +20,10 @@ vm.runInContext(readFileSync(`${REPO}/js/dns.js`, 'utf8'), sandbox);
 const D = sandbox.window.DnsAudit;
 
 let pass = 0, fail = 0;
+// BigInt has no JSON representation, and the IPv6 address helpers return one.
+const show = v => JSON.stringify(v, (k, x) => (typeof x === 'bigint' ? `${x}n` : x));
 const eq = (label, actual, expected) => {
-  const a = JSON.stringify(actual), e = JSON.stringify(expected);
+  const a = show(actual), e = show(expected);
   if (a === e) { pass++; return; }
   fail++;
   console.log(`  ✗ ${label}\n      expected ${e}\n      actual   ${a}`);
@@ -1109,6 +1111,274 @@ eq('unverified DKIM is raised',            deepZone.issues.some(i => i.key === '
 // nothing else. These stay measured.
 eq('SPF still scored under the wildcard',   deepPillars.spf.pts > 0, true);
 eq('DMARC still scored under the wildcard', deepPillars.dmarc.pts > 0, true);
+
+
+/* ── 26. SPF subnet size and a/mx redundancy ─────────────────────────── */
+section('26. SPF subnet size and a/mx redundancy');
+
+// ── Address parsing ──
+// 128 bits does not fit in a Number. If any of this ever ran through one,
+// the low bits would round away and containment would start saying yes to
+// addresses outside the block.
+eq('IPv6 max is exact',          D.ipv6ToBigInt('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff') === (1n << 128n) - 1n, true);
+eq('adjacent addresses differ',  D.ipv6ToBigInt('2001:db8::2') - D.ipv6ToBigInt('2001:db8::1'), 1n);
+
+// `::` elides a run of zero hextets. Expanding it wrong misaligns every bit
+// of the address, so compressed and uncompressed must land on one value.
+eq('compressed == expanded',     D.ipv6ToBigInt('2001:db8::1') === D.ipv6ToBigInt('2001:0db8:0000:0000:0000:0000:0000:0001'), true);
+eq('trailing :: expands',        D.ipv6ToBigInt('2001:db8::') === D.ipv6ToBigInt('2001:0db8:0:0:0:0:0:0'), true);
+eq('leading :: expands',         D.ipv6ToBigInt('::1'), 1n);
+eq('bare :: is zero',            D.ipv6ToBigInt('::'), 0n);
+// A real record from nih.gov, written with both a padded group and '::'.
+eq('nih.gov form == plain form', D.ipv6ToBigInt('2607:f220:0404:8104::0') === D.ipv6ToBigInt('2607:f220:404:8104:0:0:0:0'), true);
+eq('dotted-quad tail (RFC 4291)', D.ipv6ToBigInt('::ffff:192.0.2.1') === D.ipv6ToBigInt('::ffff:c000:201'), true);
+
+// ── Prefix parsing: malformed input returns null, never throws ──
+eq('ip4 /33 rejected',      D.parseIpCidr('1.2.3.4/33', 'ipv4'), null);
+eq('ip4 /-1 rejected',      D.parseIpCidr('1.2.3.4/-1', 'ipv4'), null);
+eq('ip4 /abc rejected',     D.parseIpCidr('1.2.3.4/abc', 'ipv4'), null);
+eq('ip4 empty prefix',      D.parseIpCidr('1.2.3.4/', 'ipv4'), null);
+eq('ip4 bad octet',         D.parseIpCidr('999.1.1.1', 'ipv4'), null);
+eq('ip4 too few octets',    D.parseIpCidr('1.2.3', 'ipv4'), null);
+eq('ip6 /129 rejected',     D.parseIpCidr('2001:db8::/129', 'ipv6'), null);
+eq('ip6 double :: rejected', D.parseIpCidr('2001:db8::1::2/64', 'ipv6'), null);
+eq('ip6 bad hextet',        D.parseIpCidr('gggg::1', 'ipv6'), null);
+eq('IPv4 text is not IPv6', D.parseIpCidr('1.2.3.4', 'ipv6'), null);
+
+// /31 and /32 are ordinary valid prefixes, not edge cases to filter out.
+eq('/31 accepted',          D.parseIpCidr('1.2.3.4/31', 'ipv4').prefix, 31);
+eq('/32 accepted',          D.parseIpCidr('1.2.3.4/32', 'ipv4').prefix, 32);
+eq('/0 accepted',           D.parseIpCidr('0.0.0.0/0', 'ipv4').prefix, 0);
+// An absent prefix is a single host, not a wildcard.
+eq('no prefix → /32',       D.parseIpCidr('1.2.3.4', 'ipv4').prefix, 32);
+eq('no prefix → /128',      D.parseIpCidr('2001:db8::1', 'ipv6').prefix, 128);
+
+// ── Containment ──
+const v4Block = D.parseIpCidr('203.0.113.0/28', 'ipv4');
+eq('first address in /28',  D.cidrContains(v4Block, D.ipv4ToBigInt('203.0.113.0')), true);
+eq('last address in /28',   D.cidrContains(v4Block, D.ipv4ToBigInt('203.0.113.15')), true);
+eq('one past /28 excluded', D.cidrContains(v4Block, D.ipv4ToBigInt('203.0.113.16')), false);
+const v6Block = D.parseIpCidr('2001:db8::/64', 'ipv6');
+eq('host in /64',           D.cidrContains(v6Block, D.ipv6ToBigInt('2001:db8::1')), true);
+eq('last host in /64',      D.cidrContains(v6Block, D.ipv6ToBigInt('2001:db8::ffff:ffff:ffff:ffff')), true);
+eq('sibling /64 excluded',  D.cidrContains(v6Block, D.ipv6ToBigInt('2001:db8:0:1::1')), false);
+eq('/0 contains anything',  D.cidrContains(D.parseIpCidr('0.0.0.0/0', 'ipv4'), D.ipv4ToBigInt('8.8.8.8')), true);
+
+// ── Classification ──
+eq('ip4 /32 informational', D.classifySpfSubnet(32, 'ipv4'), 'LOW');
+eq('ip4 /29 informational', D.classifySpfSubnet(29, 'ipv4'), 'LOW');
+eq('ip4 /28 medium',        D.classifySpfSubnet(28, 'ipv4'), 'MEDIUM');
+eq('ip4 /25 medium',        D.classifySpfSubnet(25, 'ipv4'), 'MEDIUM');
+eq('ip4 /24 high',          D.classifySpfSubnet(24, 'ipv4'), 'HIGH');
+eq('ip4 /0 high',           D.classifySpfSubnet(0, 'ipv4'), 'HIGH');
+eq('ip6 /128 informational', D.classifySpfSubnet(128, 'ipv6'), 'LOW');
+eq('ip6 /65 informational',  D.classifySpfSubnet(65, 'ipv6'), 'LOW');
+eq('ip6 /64 informational',  D.classifySpfSubnet(64, 'ipv6'), 'LOW');
+eq('ip6 /63 medium',         D.classifySpfSubnet(63, 'ipv6'), 'MEDIUM');
+eq('ip6 /48 medium',         D.classifySpfSubnet(48, 'ipv6'), 'MEDIUM');
+eq('ip6 /47 high',           D.classifySpfSubnet(47, 'ipv6'), 'HIGH');
+eq('ip6 /32 high',           D.classifySpfSubnet(32, 'ipv6'), 'HIGH');
+
+// The headline of the separate IPv6 table: a /64 is the standard single-subnet
+// allocation (RFC 4291 §2.5.4), often one mail server. Reusing the IPv4
+// host-count reasoning would rate it 2^64 hosts and flag it hardest of all.
+eq('/64 is not judged like /24', [D.classifySpfSubnet(64, 'ipv6'), D.classifySpfSubnet(24, 'ipv4')], ['LOW', 'HIGH']);
+
+// ── Record-level classification (pure, no DNS) ──
+const sized = D.classifySpfSubnets('v=spf1 ip4:203.0.113.0/24 ip4:198.51.100.7 ip6:2001:db8::/64 ip6:2001:db8::/32 -all');
+eq('one finding per block',    sized.subnets.length, 4);
+eq('/24 → HIGH',               sized.subnets[0].severity, 'HIGH');
+eq('bare ip4 → /32 LOW',       [sized.subnets[1].severity, sized.subnets[1].prefix], ['LOW', 32]);
+eq('ip6 /64 → LOW',            sized.subnets[2].severity, 'LOW');
+eq('ip6 /32 → HIGH',           sized.subnets[3].severity, 'HIGH');
+eq('family is recorded',       sized.subnets.map(s => s.family), ['ipv4', 'ipv4', 'ipv6', 'ipv6']);
+eq('mechanism is quoted verbatim', sized.subnets[0].mechanism, 'ip4:203.0.113.0/24');
+eq('schema type is stable',    sized.subnets[0].type, 'SPF_LARGE_SUBNET');
+
+// A malformed mechanism drops itself, not the record around it.
+const messy = D.classifySpfSubnets('v=spf1 ip4:1.2.3.4/33 ip4:1.2.3.4/-1 ip4:nonsense ip6:gg::/64 ip4:203.0.113.0/24 -all');
+eq('malformed blocks ignored',  messy.subnets.length, 1);
+eq('valid block still audited', messy.subnets[0].mechanism, 'ip4:203.0.113.0/24');
+
+// Qualifiers are part of SPF syntax, not part of the address.
+eq('qualified mechanism parsed', D.classifySpfSubnets('v=spf1 +ip4:203.0.113.0/24 -all').subnets.length, 1);
+
+// A record with no ip4:/ip6: mechanisms produces nothing at all.
+eq('include-only record is silent', D.classifySpfSubnets('v=spf1 include:_spf.google.com ~all').subnets.length, 0);
+eq('empty record is silent',        D.classifySpfSubnets('').subnets.length, 0);
+
+// ── Redundancy, over stubbed DNS ──
+// One resolver for all the redundancy scenarios. Each domain isolates one
+// case; names are distinct because the DoH cache is shared across the run.
+const SPFNET = {
+  // Bare `a`, IPv4 only, inside the block → redundant.
+  'covered.example': {
+    NS: [{ type: 2, data: 'ns1.example.' }], MX: [], AAAA: [],
+    A: [{ type: 1, data: '203.0.113.5' }],
+    TXT: [{ type: 16, data: '"v=spf1 a ip4:203.0.113.0/28 -all"' }],
+  },
+  // `a:host` resolving outside every block → not redundant.
+  'outside.example': {
+    NS: [{ type: 2, data: 'ns1.example.' }], MX: [], AAAA: [], A: [{ type: 1, data: '198.51.100.1' }],
+    TXT: [{ type: 16, data: '"v=spf1 a:mail.outside.example ip4:203.0.113.0/28 -all"' }],
+  },
+  'mail.outside.example': { A: [{ type: 1, data: '198.51.100.200' }], AAAA: [] },
+  // Dual-stack, both families fully covered → redundant.
+  'dual.example': {
+    NS: [{ type: 2, data: 'ns1.example.' }], MX: [],
+    A: [{ type: 1, data: '203.0.113.5' }],
+    AAAA: [{ type: 28, data: '2001:db8::5' }],
+    TXT: [{ type: 16, data: '"v=spf1 a ip4:203.0.113.0/28 ip6:2001:db8::/64 -all"' }],
+  },
+  // IPv4 covered, but an AAAA exists and the record has no ip6: at all.
+  // Removing `a` here would silently drop IPv6 authorization.
+  'halfstack.example': {
+    NS: [{ type: 2, data: 'ns1.example.' }], MX: [],
+    A: [{ type: 1, data: '203.0.113.5' }],
+    AAAA: [{ type: 28, data: '2001:db8::5' }],
+    TXT: [{ type: 16, data: '"v=spf1 a ip4:203.0.113.0/28 -all"' }],
+  },
+  // Three MX targets, two inside the block and one outside → partial.
+  'partial.example': {
+    NS: [{ type: 2, data: 'ns1.example.' }], A: [], AAAA: [],
+    MX: [
+      { type: 15, data: '10 mx1.partial.example.' },
+      { type: 15, data: '20 mx2.partial.example.' },
+      { type: 15, data: '30 mx3.partial.example.' },
+    ],
+    TXT: [{ type: 16, data: '"v=spf1 mx ip4:203.0.113.0/28 -all"' }],
+  },
+  'mx1.partial.example': { A: [{ type: 1, data: '203.0.113.1' }], AAAA: [] },
+  'mx2.partial.example': { A: [{ type: 1, data: '203.0.113.2' }], AAAA: [] },
+  'mx3.partial.example': { A: [{ type: 1, data: '198.51.100.9' }], AAAA: [] },
+  // The address families must never cross-check. The IPv4 address here sits
+  // at the same numeric offset the IPv6 block starts at; testing one against
+  // the other must not produce a match.
+  'crossfamily.example': {
+    NS: [{ type: 2, data: 'ns1.example.' }], MX: [],
+    A: [{ type: 1, data: '198.51.100.1' }],
+    AAAA: [{ type: 28, data: '2001:db8::1' }],
+    TXT: [{ type: 16, data: '"v=spf1 a ip4:203.0.113.0/28 ip6:2001:db8::/64 -all"' }],
+  },
+  // A dual-CIDR suffix widens `mx` past the addresses it resolves to, so
+  // containment of the bare addresses proves nothing.
+  'dualcidr.example': {
+    NS: [{ type: 2, data: 'ns1.example.' }], A: [], AAAA: [],
+    MX: [{ type: 15, data: '10 mx1.partial.example.' }],
+    TXT: [{ type: 16, data: '"v=spf1 mx/24 ip4:203.0.113.0/28 -all"' }],
+  },
+  // `-all` ends in the letters of no mechanism, but it *starts* with 'a'
+  // once the qualifier is stripped, and `ptr:` is excluded outright. Both
+  // resolve inside the block here, so if either were mistaken for the `a`
+  // mechanism this domain would produce a redundancy finding — and the advice
+  // would be to delete the record's own `-all`.
+  'lookalike.example': {
+    NS: [{ type: 2, data: 'ns1.example.' }], MX: [], AAAA: [],
+    A: [{ type: 1, data: '203.0.113.5' }],
+    TXT: [{ type: 16, data: '"v=spf1 ip4:203.0.113.0/28 ptr exists:%{i}.x.example -all"' }],
+  },
+  // No ip4:/ip6: block at all — the a/mx resolution must be skipped entirely.
+  'noblocks.example': {
+    NS: [{ type: 2, data: 'ns1.example.' }], MX: [], AAAA: [],
+    A: [{ type: 1, data: '203.0.113.5' }],
+    TXT: [{ type: 16, data: '"v=spf1 a mx include:_spf.example -all"' }],
+  },
+};
+
+let spfQueries = [];
+sandbox.fetch = async url => {
+  const params = new URL(url).searchParams;
+  const name = params.get('name');
+  const typeName = { 1: 'A', 2: 'NS', 15: 'MX', 16: 'TXT', 28: 'AAAA', 5: 'CNAME', 257: 'CAA' }[params.get('type')];
+  spfQueries.push(`${name} ${typeName}`);
+  const entry = SPFNET[name];
+  if (entry && entry[typeName] !== undefined) {
+    return { ok: true, json: async () => ({ Status: 0, AD: false, Answer: entry[typeName] }) };
+  }
+  return { ok: true, json: async () => ({ Status: 0, AD: false, Answer: [] }) };
+};
+
+const runSpf = d => D.analyzeDomain(d, { advanced: true, dkim: false, www: false, wildcard: false, retries: 0 });
+
+const covered = await runSpf('covered.example');
+eq('bare a flagged redundant',    covered.advanced.spfSubnets.redundancy.length, 1);
+eq('redundancy is full',          covered.advanced.spfSubnets.redundancy[0].full, true);
+eq('the covering block is named', covered.advanced.spfSubnets.redundancy[0].coveredBy, ['ip4:203.0.113.0/28']);
+eq('schema type is stable',       covered.advanced.spfSubnets.redundancy[0].type, 'SPF_REDUNDANCY');
+eq('removal is recommended',      covered.issues.some(i => i.key === 'spf-redundant-mechanism'), true);
+// Advisory only: it must not move the score.
+eq('redundancy is not scored',    covered.issues.find(i => i.key === 'spf-redundant-mechanism').sev, 'info');
+
+const outside = await runSpf('outside.example');
+eq('a:host outside blocks not flagged', outside.advanced.spfSubnets.redundancy.length, 0);
+eq('no removal advice',                 outside.issues.some(i => i.key.startsWith('spf-redundant')), false);
+
+const dual = await runSpf('dual.example');
+eq('both families covered → redundant', dual.advanced.spfSubnets.redundancy[0].full, true);
+eq('both addresses counted',            dual.advanced.spfSubnets.redundancy[0].total, 2);
+eq('both blocks credited',              dual.advanced.spfSubnets.redundancy[0].coveredBy.length, 2);
+
+// The dual-stack rule. This is the one that matters most: the IPv4 side is
+// fully covered, so a naive check says "remove the a mechanism" — and doing
+// so would drop IPv6 authorization on the floor without saying a word.
+const halfstack = await runSpf('halfstack.example');
+eq('uncovered IPv6 blocks removal', halfstack.advanced.spfSubnets.redundancy[0].full, false);
+eq('reported as partial instead',   halfstack.issues.some(i => i.key === 'spf-partial-coverage'), true);
+eq('removal is NOT recommended',    halfstack.issues.some(i => i.key.startsWith('spf-redundant')), false);
+eq('the covered half is counted',   [halfstack.advanced.spfSubnets.redundancy[0].covered, halfstack.advanced.spfSubnets.redundancy[0].total], [1, 2]);
+
+const partial = await runSpf('partial.example');
+eq('2 of 3 MX targets covered',   [partial.advanced.spfSubnets.redundancy[0].covered, partial.advanced.spfSubnets.redundancy[0].total], [2, 3]);
+eq('partial is not full',         partial.advanced.spfSubnets.redundancy[0].full, false);
+eq('surfaced as informational',   partial.issues.find(i => i.key === 'spf-partial-coverage').sev, 'info');
+eq('no removal recommendation',   partial.issues.some(i => i.key.startsWith('spf-redundant')), false);
+
+const cross = await runSpf('crossfamily.example');
+eq('IPv6 matched its own block',    cross.advanced.spfSubnets.redundancy[0].coveredBy, ['ip6:2001:db8::/64']);
+eq('IPv4 not matched cross-family', cross.advanced.spfSubnets.redundancy[0].covered, 1);
+eq('so the mechanism stays',        cross.advanced.spfSubnets.redundancy[0].full, false);
+
+const dualCidr = await runSpf('dualcidr.example');
+eq('mx/24 is not judged redundant', dualCidr.advanced.spfSubnets.redundancy.length, 0);
+
+const lookalike = await runSpf('lookalike.example');
+eq('-all is not the a mechanism',  lookalike.advanced.spfSubnets.redundancy.length, 0);
+eq('ptr is excluded (RFC 7208 §5.5)', lookalike.issues.some(i => i.key.startsWith('spf-redundant')), false);
+eq('the block is still classified',   lookalike.advanced.spfSubnets.subnets.length, 1);
+
+// With no ip4:/ip6: block there is nothing to be contained in, so the audit
+// must not spend DNS lookups resolving a/mx targets to find that out.
+spfQueries = [];
+const noBlocks = await runSpf('noblocks.example');
+eq('no findings without blocks', [noBlocks.advanced.spfSubnets.subnets.length, noBlocks.advanced.spfSubnets.redundancy.length], [0, 0]);
+eq('and no errors',              noBlocks.error, undefined);
+eq('no MX lookup for redundancy', spfQueries.filter(q => q === 'noblocks.example MX').length <= 1, true);
+
+// ── Issue surfacing ──
+// Single-host blocks are classified but never surfaced: stanford.edu
+// publishes 15 ip4: mechanisms, 13 of them /32s, and a line each saying
+// "this is one host, which is fine" buries everything worth reading.
+const quiet = D.buildIssues({
+  emailProvider: '@none', spfStatus: { status: 'ok', warnings: [] }, dkimStatus: {},
+  dmarcStatus: { status: 'ok', warnings: [], policy: 'reject' },
+  advanced: { spfSubnets: { subnets: D.classifySpfSubnets('v=spf1 ip4:1.2.3.4 ip4:5.6.7.8 ip6:2001:db8::/64 -all').subnets, redundancy: [] } },
+});
+eq('LOW blocks raise no issue', quiet.filter(i => i.key.startsWith('spf-') && i.key.endsWith('subnet')).length, 0);
+
+const noisy = D.buildIssues({
+  emailProvider: '@none', spfStatus: { status: 'ok', warnings: [] }, dkimStatus: {},
+  dmarcStatus: { status: 'ok', warnings: [], policy: 'reject' },
+  advanced: { spfSubnets: { subnets: D.classifySpfSubnets('v=spf1 ip4:203.0.113.0/24 ip4:198.51.100.0/16 ip4:192.0.2.0/26 -all').subnets, redundancy: [] } },
+});
+const largeIssue = noisy.find(i => i.key === 'spf-large-subnet');
+const mediumIssue = noisy.find(i => i.key === 'spf-medium-subnet');
+eq('HIGH blocks grouped into one line', largeIssue.args[0], 'ip4:203.0.113.0/24, ip4:198.51.100.0/16');
+eq('MEDIUM blocks grouped separately',  mediumIssue.args[0], 'ip4:192.0.2.0/26');
+// Advisory, not a fault: irs.gov, github.com, bbc.co.uk and cloudflare.com
+// all publish their own large blocks. Ranking these critical would train
+// people to skim past the list where "no SPF record" lives.
+eq('large blocks warn, never crit', largeIssue.sev, 'warn');
+eq('medium blocks are informational', mediumIssue.sev, 'info');
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

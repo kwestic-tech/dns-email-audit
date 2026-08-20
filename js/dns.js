@@ -934,6 +934,282 @@
     };
   }
 
+
+  /* ── SPF subnet size & redundancy ───────────────────────────────────────
+     Two advisory checks over the ip4:/ip6:/a/mx mechanisms written directly
+     into one record: how much address space each block authorizes, and which
+     a/mx mechanisms only restate something a block already covers.
+
+     Both are deliberately ownership-blind. Whether a /20 belongs to the
+     domain owner or to a shared host is not answerable over DoH, and guessing
+     would be worse than saying nothing, so this reports size and leaves the
+     context to the reader. That is why nothing here reaches calcScore: it is
+     reported, not graded.
+
+     Sized against live records while this was written — irs.gov, github.com,
+     bbc.co.uk and cloudflare.com all publish their own large blocks and all
+     land in the top tier — so the top tier is worded as "review this", not
+     as a fault.
+     ──────────────────────────────────────────────────────────────────────── */
+
+  var IP_FAMILY_BITS = { ipv4: 32, ipv6: 128 };
+
+  function ipv4ToBigInt(text) {
+    var parts = String(text).split('.');
+    if (parts.length !== 4) return null;
+    var value = 0n;
+    for (var i = 0; i < 4; i++) {
+      if (!/^\d{1,3}$/.test(parts[i])) return null;
+      var octet = Number(parts[i]);
+      if (octet > 255) return null;
+      value = (value << 8n) | BigInt(octet);
+    }
+    return value;
+  }
+
+  /**
+   * Parse an IPv6 literal into one 128-bit BigInt, or null if it isn't one.
+   *
+   * Two things make this more than a split on ':'. `::` elides a run of zero
+   * hextets, so the text has to be expanded to exactly 8 groups before any
+   * arithmetic — splitting naively leaves `2001:db8::1` three groups short
+   * and silently misaligns every bit of the address. And 128 bits does not
+   * fit in a Number, which loses precision above 53, so this is BigInt from
+   * end to end rather than anything that could round.
+   */
+  function ipv6ToBigInt(text) {
+    var str = String(text);
+    if (str.indexOf(':') === -1) return null;
+    // RFC 4291 §2.2.3 allows the low 32 bits in dotted-quad form
+    // (::ffff:192.0.2.1). Fold it into two hextets first.
+    var embedded = /(\d{1,3}(?:\.\d{1,3}){3})$/.exec(str);
+    if (embedded) {
+      var v4 = ipv4ToBigInt(embedded[1]);
+      if (v4 === null) return null;
+      str = str.slice(0, embedded.index) +
+        ((v4 >> 16n) & 0xffffn).toString(16) + ':' + (v4 & 0xffffn).toString(16);
+    }
+    var halves = str.split('::');
+    if (halves.length > 2) return null;                       // '::' may appear once
+    var head = halves[0] ? halves[0].split(':') : [];
+    var tail = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+    var groups = head;
+    if (halves.length === 2) {
+      var fill = 8 - head.length - tail.length;
+      if (fill < 0) return null;
+      groups = head.concat(new Array(fill).fill('0'), tail);
+    }
+    if (groups.length !== 8) return null;
+    var value = 0n;
+    for (var i = 0; i < 8; i++) {
+      if (!/^[0-9a-fA-F]{1,4}$/.test(groups[i])) return null;
+      value = (value << 16n) | BigInt(parseInt(groups[i], 16));
+    }
+    return value;
+  }
+
+  /**
+   * Parse `address` or `address/prefix` into { address, prefix, bits }.
+   *
+   * Returns null for anything malformed rather than throwing or guessing. A
+   * bad prefix is not a /32: '/33', '/-1' and '/abc' all return null so the
+   * caller drops that one mechanism and still audits the rest of the record.
+   * An absent prefix is a single host — /32 for IPv4, /128 for IPv6.
+   */
+  function parseIpCidr(text, family) {
+    var bits = IP_FAMILY_BITS[family];
+    if (!bits) return null;
+    var value = String(text || '');
+    var prefix = bits;
+    var slash = value.lastIndexOf('/');
+    if (slash !== -1) {
+      var suffix = value.slice(slash + 1);
+      value = value.slice(0, slash);
+      if (!/^\d{1,3}$/.test(suffix)) return null;
+      prefix = Number(suffix);
+      if (prefix > bits) return null;
+    }
+    var address = family === 'ipv6' ? ipv6ToBigInt(value) : ipv4ToBigInt(value);
+    if (address === null) return null;
+    return { address: address, prefix: prefix, bits: bits };
+  }
+
+  /** Is `address` inside `block`? Compare only the prefix bits of each. */
+  function cidrContains(block, address) {
+    if (block.prefix === 0) return true;
+    var shift = BigInt(block.bits - block.prefix);
+    return (block.address >> shift) === (address >> shift);
+  }
+
+  /**
+   * Severity for one authorized block, by family.
+   *
+   * IPv4 is judged on host count, because blocks that size really are handed
+   * to single organizations: a /24 is 256 addresses and it is unusual for a
+   * sender to control that much space directly.
+   *
+   * IPv6 must NOT reuse that table. Allocation there is tier-based, not
+   * host-count-based — RFC 4291 §2.5.4 makes /64 the standard single-subnet
+   * allocation, frequently one mail server — while the 2^n reasoning that
+   * makes an IPv4 /24 worth a look would rate that same /64 as eighteen
+   * quintillion hosts and scream about it. nih.gov publishes four of them and
+   * they are entirely unremarkable, which is the whole argument for a
+   * separate table.
+   */
+  function classifySpfSubnet(prefix, family) {
+    if (family === 'ipv6') {
+      if (prefix >= 64) return 'LOW';      // /64 or tighter — one subnet at most
+      if (prefix >= 48) return 'MEDIUM';   // multi-subnet / small site block
+      return 'HIGH';                       // /47 and shorter — ISP/RIR scale
+    }
+    if (prefix >= 29) return 'LOW';        // 1–8 addresses
+    if (prefix >= 25) return 'MEDIUM';     // 9–128 addresses
+    return 'HIGH';                         // /24 and shorter — 256+
+  }
+
+  var SPF_IP_MECHANISM = /^(ip4|ip6):(.+)$/i;
+  // `a` and `mx`, with the optional host and the optional dual-CIDR suffix
+  // RFC 7208 §5.3 allows on both: a, mx, a:host, mx:host, a/24, mx:host//64.
+  var SPF_HOST_MECHANISM = /^(a|mx)(?::([^/]+))?((?:\/\/?\d+)*)$/i;
+
+  function stripSpfQualifier(raw) {
+    var text = String(raw || '');
+    return /^[+\-~?]/.test(text) ? text.slice(1) : text;
+  }
+
+  /**
+   * Classify every ip4:/ip6: block in a record. Pure — no DNS, never throws.
+   *
+   * Split out from the redundancy half deliberately: a resolver failure
+   * during redundancy resolution must not take the size findings down with
+   * it, and these need no network at all.
+   */
+  function classifySpfSubnets(spf) {
+    var blocks = { ipv4: [], ipv6: [] };
+    var subnets = [];
+    String(spf || '').trim().split(/\s+/).slice(1).forEach(function (raw) {
+      var match = SPF_IP_MECHANISM.exec(stripSpfQualifier(raw));
+      if (!match) return;
+      var family = match[1].toLowerCase() === 'ip6' ? 'ipv6' : 'ipv4';
+      var block = parseIpCidr(match[2], family);
+      // A malformed mechanism drops itself out of the audit instead of
+      // aborting it — the rest of the record is still worth reporting on.
+      if (!block) return;
+      blocks[family].push({ mechanism: raw, block: block });
+      subnets.push({
+        type: 'SPF_LARGE_SUBNET',
+        severity: classifySpfSubnet(block.prefix, family),
+        mechanism: raw,
+        family: family,
+        prefix: block.prefix,
+      });
+    });
+    return { subnets: subnets, blocks: blocks };
+  }
+
+  /**
+   * Find a/mx mechanisms whose resolved addresses an ip4:/ip6: block in the
+   * same record already authorizes.
+   *
+   * Costs no DNS at all unless the record contains at least one ip4:/ip6:
+   * block — with no block present nothing can be contained in one, so the
+   * whole resolution phase is skipped. That keeps records built purely from
+   * include: (google.com, apple.com, most of the sample) free.
+   *
+   * Scope is one record: nested IPs inside include: are not followed, and
+   * ptr: is ignored outright (RFC 7208 §5.5 discourages its use).
+   */
+  async function findSpfRedundancy(spf, domain, blocks, queryOpts) {
+    if (!blocks.ipv4.length && !blocks.ipv6.length) return [];
+
+    var mechanisms = [];
+    String(spf || '').trim().split(/\s+/).slice(1).forEach(function (raw) {
+      var match = SPF_HOST_MECHANISM.exec(stripSpfQualifier(raw));
+      // A dual-CIDR suffix widens the mechanism beyond the addresses it
+      // resolves to — `mx/24` authorizes a /24 around every MX host — so
+      // containment of the bare addresses would not prove it redundant.
+      if (!match || match[3]) return;
+      mechanisms.push({
+        mechanism: raw,
+        name: match[1].toLowerCase(),
+        host: (match[2] || '').toLowerCase().replace(/\.$/, ''),
+      });
+    });
+
+    var findings = [];
+    var seen = new Set();
+    for (var i = 0; i < mechanisms.length; i++) {
+      var mech = mechanisms[i];
+      // Bare `a`/`mx` and `a:host`/`mx:host` are separate checks, so the key
+      // is the mechanism as written, not the name it happens to resolve.
+      var key = mech.name + ':' + mech.host;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      var targets;
+      if (mech.host) {
+        targets = [mech.host];
+      } else if (mech.name === 'a') {
+        targets = [domain];
+      } else {
+        var mxRecords = await dohQuery(domain, 'MX', queryOpts);
+        targets = mxRecords.map(function (record) {
+          var parts = String(record).trim().split(/\s+/);
+          return parts[parts.length - 1].replace(/\.$/, '').toLowerCase();
+        }).filter(function (name) { return name && name !== '.'; });  // null MX authorizes nothing
+      }
+
+      var resolved = [];
+      for (var j = 0; j < targets.length; j++) {
+        var answers = await Promise.all([
+          dohQuery(targets[j], 'A', queryOpts),
+          dohQuery(targets[j], 'AAAA', queryOpts),
+        ]);
+        answers[0].forEach(function (text) { resolved.push({ family: 'ipv4', text: text }); });
+        answers[1].forEach(function (text) { resolved.push({ family: 'ipv6', text: text }); });
+      }
+      if (!resolved.length) continue;
+
+      var coveredBy = [];
+      var covered = 0;
+      resolved.forEach(function (entry) {
+        var address = entry.family === 'ipv6' ? ipv6ToBigInt(entry.text) : ipv4ToBigInt(entry.text);
+        if (address === null) return;
+        // Families never cross-check: an IPv4 address is tested only against
+        // ip4: blocks and an IPv6 address only against ip6:.
+        var hit = blocks[entry.family].find(function (candidate) {
+          return cidrContains(candidate.block, address);
+        });
+        if (!hit) return;
+        covered++;
+        if (coveredBy.indexOf(hit.mechanism) === -1) coveredBy.push(hit.mechanism);
+      });
+
+      if (!covered) continue;
+      findings.push({
+        type: 'SPF_REDUNDANCY',
+        severity: 'LOW',
+        mechanism: mech.mechanism,
+        covered: covered,
+        total: resolved.length,
+        // This equality *is* the dual-stack rule: `full` requires every
+        // resolved address in both families to have matched a same-family
+        // block. A hostname with an AAAA record in a record carrying no ip6:
+        // mechanism can never reach it, so "remove this" can never be advice
+        // that silently drops IPv6 authorization.
+        full: covered === resolved.length,
+        coveredBy: coveredBy,
+      });
+    }
+    return findings;
+  }
+
+  async function auditSpfSubnets(spf, domain, queryOpts) {
+    var classified = classifySpfSubnets(spf);
+    var redundancy = await findSpfRedundancy(spf, domain, classified.blocks, queryOpts);
+    return { subnets: classified.subnets, redundancy: redundancy, unknown: false };
+  }
+
   /* ── Scoring model ──────────────────────────────────────────────────────
      One weighted 0–100 rubric. Weights live here as data so they can be
      inspected, tested and tuned without touching the logic.
@@ -1261,6 +1537,39 @@
       issues.push({ key: 'spf-near-limit', sev: 'warn', args: [advanced.spfLookups.count] });
     }
     if (advanced?.spfLookups?.cycles?.length) issues.push({ key: 'spf-cycle', sev: 'crit', args: [advanced.spfLookups.cycles.join(', ')] });
+
+    // Advisory only — none of this moves the score (see calcScore). Severity
+    // here is deliberately below the spec's own HIGH/MEDIUM labels, which the
+    // structured findings still carry: a large block is a thing to look at,
+    // not a misconfiguration. irs.gov, github.com, bbc.co.uk and
+    // cloudflare.com all publish one, and putting them on the same line as
+    // "no SPF record" would teach people to ignore the critical list.
+    //
+    // Grouped one line per tier rather than one per mechanism. Per-mechanism
+    // lines drown the report: stanford.edu publishes 15 ip4: mechanisms and
+    // nih.gov six medium blocks, and the single-host ones say nothing at all,
+    // so the LOW tier is classified but never surfaced as an issue.
+    if (advanced?.spfSubnets) {
+      const subnets = advanced.spfSubnets.subnets || [];
+      const large = subnets.filter(s => s.severity === 'HIGH').map(s => s.mechanism);
+      const medium = subnets.filter(s => s.severity === 'MEDIUM').map(s => s.mechanism);
+      if (large.length) issues.push({ key: 'spf-large-subnet', sev: 'warn', args: [large.join(', ')] });
+      if (medium.length) issues.push({ key: 'spf-medium-subnet', sev: 'info', args: [medium.join(', ')] });
+
+      // Removing one a/mx mechanism frees exactly one of the 10 lookups, so
+      // the advice is worth much more next to the current count than alone.
+      const lookups = advanced.spfLookups;
+      const counted = lookups && !lookups.unknown && !lookups.indeterminate ? lookups.count : null;
+      (advanced.spfSubnets.redundancy || []).forEach(finding => {
+        if (!finding.full) {
+          issues.push({ key: 'spf-partial-coverage', sev: 'info', args: [finding.covered, finding.total, finding.mechanism] });
+        } else if (counted === null) {
+          issues.push({ key: 'spf-redundant-mechanism-nocount', sev: 'info', args: [finding.mechanism, finding.coveredBy.join(', ')] });
+        } else {
+          issues.push({ key: 'spf-redundant-mechanism', sev: 'info', args: [finding.mechanism, finding.coveredBy.join(', '), counted, counted - 1] });
+        }
+      });
+    }
     if (advanced?.spfLookups?.indeterminate) issues.push({ key: 'spf-indeterminate', sev: 'info' });
     if (advanced?.dnssec?.state === 'bogus') issues.push({ key: 'dnssec-bogus', sev: 'crit' });
     else if (advanced?.dnssec?.state === 'indeterminate') issues.push({ key: 'dnssec-indeterminate', sev: 'warn' });
@@ -1527,12 +1836,12 @@
     }
 
     // ── Advanced checks ──
-    let advanced = { bimi: null, mtaSts: null, tlsRpt: null, caa: null, dnssec: null, spfLookups: null, reportAuth: null };
+    let advanced = { bimi: null, mtaSts: null, tlsRpt: null, caa: null, dnssec: null, spfLookups: null, spfSubnets: null, reportAuth: null };
     if (opts.advanced) {
       // Every entry is wrapped independently. Promise.all rejects on the first
       // failure, so without this one unlucky lookup would take the other six
       // down with it and abort the audit.
-      const [bimiTxt, mtaStsTxt, tlsRptTxt, caaResult, dnssecResult, spfLookups, reportAuth] = await Promise.all([
+      const [bimiTxt, mtaStsTxt, tlsRptTxt, caaResult, dnssecResult, spfLookups, spfSubnets, reportAuth] = await Promise.all([
         optionalCheck(() => dohQuery(`default._bimi.${d}`, 'TXT', queryOpts), null),
         optionalCheck(() => dohQuery(`_mta-sts.${d}`, 'TXT', queryOpts), null),
         optionalCheck(() => dohQuery(`_smtp._tls.${d}`, 'TXT', queryOpts), null),
@@ -1543,6 +1852,13 @@
           ? optionalCheck(() => countSpfLookups(spfRecord, d, queryOpts),
             error => ({ count: 0, warning: false, error: false, voidLookups: 0, cycles: [], indeterminate: true, unknown: true, queryError: (error && error.kind) || 'dns-error' }))
           : Promise.resolve({ count: 0, warning: false, error: false, voidLookups: 0, cycles: [], indeterminate: false }),
+        // The size half of this needs no DNS, so a resolver failure during
+        // the redundancy half falls back to the size findings alone rather
+        // than discarding both.
+        spfRecord
+          ? optionalCheck(() => auditSpfSubnets(spfRecord, d, queryOpts),
+            () => ({ subnets: classifySpfSubnets(spfRecord).subnets, redundancy: [], unknown: true }))
+          : Promise.resolve({ subnets: [], redundancy: [], unknown: false }),
         optionalCheck(() => checkExternalReportAuth(dmarcAtDomain, findExternalReportDestinations(dmarcStatus, dmarcAtDomain), queryOpts), []),
       ]);
 
@@ -1572,6 +1888,7 @@
         caa: caaResult,
         dnssec: dnssecResult,
         spfLookups,
+        spfSubnets,
         reportAuth,
       };
     }
@@ -1616,6 +1933,14 @@
     startsWithCI,
     countSpfLookups,
     parseSpfTerms,
+    ipv4ToBigInt,
+    ipv6ToBigInt,
+    parseIpCidr,
+    cidrContains,
+    classifySpfSubnet,
+    classifySpfSubnets,
+    findSpfRedundancy,
+    auditSpfSubnets,
     validateMtaStsRecord,
     validateTlsRptRecord,
     validateBimiRecord,

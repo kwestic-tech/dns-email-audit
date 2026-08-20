@@ -479,6 +479,27 @@ window.__I18N_EN__ = {
     "spf-indeterminate": {
       "msg": "The SPF lookup total is indeterminate because the record uses macros, excessive depth, or an invalid included policy."
     },
+    "spf-large-subnet": {
+      "msg": "SPF authorizes large IP ranges: {0} — confirm you control all of that space.",
+      "what": "Every address inside an <code>ip4:</code> or <code>ip6:</code> block is allowed to send mail as your domain, and these blocks are large: an IPv4 <code>/24</code> is 256 addresses, a <code>/16</code> is 65,536, and an IPv6 <code>/48</code> or shorter is a site-to-ISP scale allocation. That is fine when the range is yours — plenty of large organizations publish their own netblocks this way. It stops being fine when the range belongs to a shared host or a provider whose other customers you do not control, because every one of those neighbours can then pass SPF as you. This audit reports the size only; it cannot tell you who owns the block, so the judgement is yours.",
+      "fix": "Check who actually owns each range listed. If it is your own allocation, no change is needed. If it belongs to a shared platform, replace the broad block with the specific sending addresses, or with the provider's own <code>include:</code> — that way the provider maintains the list and you are not authorizing their entire estate.",
+      "fixCode": "; Broad — every host in 256 addresses can send as you:\n\"v=spf1 ip4:203.0.113.0/24 -all\"\n\n; Narrow — only the hosts that actually send:\n\"v=spf1 ip4:203.0.113.10 ip4:203.0.113.11 -all\"\n\n; Or let the provider maintain the list:\n\"v=spf1 include:_spf.provider.example -all\""
+    },
+    "spf-medium-subnet": {
+      "msg": "SPF authorizes mid-sized IP ranges: {0} — worth confirming each range is yours."
+    },
+    "spf-redundant-mechanism": {
+      "msg": "The {0} mechanism resolves only to addresses {1} already authorizes — removing it takes your SPF lookup count from {2} to {3}.",
+      "what": "SPF allows a maximum of 10 DNS lookups, and <code>a</code> and <code>mx</code> mechanisms each spend one. Every address this mechanism resolves to — across both IPv4 and IPv6 — is already inside an <code>ip4:</code> or <code>ip6:</code> block written into the same record, so the lookup buys no authorization you do not already have. Removing it changes nothing about which servers can send as you, and gives you back a lookup toward the ceiling.",
+      "fix": "Delete the mechanism from your SPF record. Re-check afterwards if the hosts behind it get new addresses later, since the block would then need to cover those too.",
+      "fixCode": "; Before — mx spends a lookup to authorize addresses the block already covers:\n\"v=spf1 mx ip4:203.0.113.0/28 include:_spf.provider.example -all\"\n\n; After — same senders authorized, one lookup cheaper:\n\"v=spf1 ip4:203.0.113.0/28 include:_spf.provider.example -all\""
+    },
+    "spf-redundant-mechanism-nocount": {
+      "msg": "The {0} mechanism resolves only to addresses {1} already authorizes — removing it frees one of the 10 SPF DNS lookups."
+    },
+    "spf-partial-coverage": {
+      "msg": "{0} of {1} addresses behind the {2} mechanism are already covered by your ip4:/ip6: blocks — keep the mechanism, it still authorizes the rest."
+    },
     "dnssec-bogus": {
       "msg": "DNSSEC validation appears bogus: validation failed although the answer is available when checking is disabled."
     },
