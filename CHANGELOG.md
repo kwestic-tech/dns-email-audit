@@ -14,6 +14,10 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.2] — 2026-08-20
+
 ### Added
 
 - **DKIM selectors for the services your SPF record names.** A normal
@@ -38,6 +42,62 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   belongs to neither the MX provider nor anything you typed explains itself.
   Selectors that would have been tested anyway are not tagged. Translated into
   all thirteen locales.
+
+## [0.2.1] — 2026-08-20
+
+### Added
+
+- **XLIFF-based locale pipeline.** `locales/translation-status.json` tracks
+  every key in every locale using the XLIFF 2.1 `state` vocabulary verbatim —
+  `initial`, `translated`, `reviewed`, `final` — plus a namespaced `subState`
+  (`kwestic:mt` for machine-translated, `kwestic:stale` for a translation whose
+  English moved underneath it, the same idea as gettext's `fuzzy`). State is
+  derived from the files by fingerprinting both sides, not trusted from the
+  database, so editing either the English or a translation is detected on the
+  next `locale:sync`.
+
+  Four new commands drive it: `locale:sync` scaffolds and recomputes state,
+  `locale:todo` emits a per-locale work order (as JSON, carrying the target
+  language by name, the English source, and the placeholders and inline tags
+  that must survive), `locale:set` applies a patch file and **refuses any unit
+  whose `{0}`/`{1}` placeholders or `<code>`/`<em>`/`<strong>` tags do not
+  match the English**, and `locale:gate` blocks a PR while any key is still
+  `initial`. `pr-readiness.mjs` summarizes the state for a PR description.
+
+  This replaces a Markdown-packet round-trip that never named the target
+  language, was lossy for values containing newlines and DNS record syntax, and
+  could only record whether a key was present or absent.
+
+- **Five new languages: Brazilian Portuguese, Polish, Turkish, Indonesian and
+  Dutch.** Polish carries 543 keys rather than 533 because CLDR gives it
+  `one`/`few`/`many`/`other` where English has two plural categories; the
+  tooling preserves categories English does not have.
+
+- **`AGENTS.md`** — one contract shared by every coding agent working in the
+  repo, covering the translation loop, the terminology that must stay literal
+  (record types, tag names, example domains, `fixCode` record syntax), register
+  per language, and the CLDR plural rule. `CLAUDE.md` points at it so both
+  toolchains read the same rules.
+
+### Changed
+
+- **Every locale is now complete.** The eight existing translations went from
+  409–413 keys to 533 — **988 previously untranslated keys filled** — and the
+  five new locales landed complete, for 3,663 new translations in total. A
+  missing translation is invisible at runtime because the UI silently falls
+  back to English, which is how a 124-key gap sat in seven locales for months.
+- `check-locales.mjs` reworked to validate against the state database, with a
+  `--strict` mode behind `locale:gate`.
+
+### Notes
+
+- Arabic and Hindi were considered and deliberately deferred. Arabic is a
+  layout problem rather than a translation one: 140 strings carry DNS syntax
+  that reorders visually under RTL, and blocks meant to be copied into a DNS
+  panel must not read scrambled. Hindi was deferred on editorial grounds — DNS
+  terminology has little settled Hindi convention.
+- No runtime code changes: `js/`, `css/`, `index.html` and `locales/en.json`
+  are unchanged by this release.
 
 ## [0.2.0] — 2026-08-20
 
@@ -360,6 +420,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kwestic-tech/dns-email-audit/releases/tag/v0.1.0

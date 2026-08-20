@@ -1,6 +1,6 @@
 {
   "name": "dns-email-audit",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Browser-based DNS and email security auditor — SPF, DKIM, DMARC, BIMI, MTA-STS, TLS-RPT, CAA and DNSSEC for up to 200 domains at once.",
   "license": "MIT",
   "repository": {
