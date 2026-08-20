@@ -98,12 +98,16 @@ absent*.
 
 **2. Coverage beyond DKIM and DNSSEC.** The spec addressed two pillars. The
 shipped `unprovenPillars()` also covers a failed CAA, MTA-STS, BIMI or TLS-RPT
-lookup, and a `checks-unverified` finding
-([`js/dns.js:1666`](../../../js/dns.js)) names exactly which checks could not be
-completed. This became necessary because [the resilient-optional-checks
-work](https://github.com/kwestic-tech/dns-email-audit/pull/8) had just stopped a
+lookup. This became necessary because
+[resilient-optional-checks](resilient-optional-checks.md) had just stopped a
 failed optional lookup from discarding the whole audit, which made unverified
 optional checks common rather than theoretical.
+
+That release had already added the `checks-unverified` finding
+([`js/dns.js:1666`](../../../js/dns.js)) naming which checks could not be
+completed. This release raises it from `info` to `warn`, for the same reason the
+other two were raised: the gap now costs points, and a re-run is what recovers
+them.
 
 **3. The parked branch changed after all.** The spec stated that the
 parked-domain branch was already correct and needed no change. It needed one:
@@ -122,8 +126,9 @@ spec was stale on this point, not the implementation. The rule now stated in
 
 Removed: `score.range`. Rewritten: `issue.dkim-unverified.msg`,
 `issue.dnssec-indeterminate.msg`. Added: `issue.dkim-not-checked.*`,
-`issue.checks-unverified.*`, `score.unproven`, `score.pillar.*`. All nine
-locales shipping at the time.
+`score.unproven`, `score.pillar.*`. `issue.checks-unverified.*` already existed,
+added by [resilient-optional-checks](resilient-optional-checks.md); only its
+severity changes here. All nine locales shipping at the time.
 
 ## Testing
 

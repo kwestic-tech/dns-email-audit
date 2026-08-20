@@ -52,6 +52,7 @@ precedent, and one spec was superseded outright during implementation.
 
 | Spec | Released in | PR | Merge commit | Spec version |
 | --- | --- | --- | --- | --- |
+| [resilient-optional-checks](implemented/resilient-optional-checks.md) | 0.2.0 | [#8](https://github.com/kwestic-tech/dns-email-audit/pull/8) | `e74b47b` | 1.0 (Implemented) |
 | [wildcard-txt-depth](implemented/wildcard-txt-depth.md) | 0.2.0 | [#9](https://github.com/kwestic-tech/dns-email-audit/pull/9) | `b41b50d` | 1.0 (Implemented) |
 | [unproven-controls-scoring](implemented/unproven-controls-scoring.md) | 0.2.0 | [#10](https://github.com/kwestic-tech/dns-email-audit/pull/10) | `67a2339` | 1.0 (Implemented) |
 | [spf-subnet-and-redundancy](implemented/spf-subnet-and-redundancy.md) | 0.2.0 | [#11](https://github.com/kwestic-tech/dns-email-audit/pull/11) | `ef26ca5` | 1.0 (Implemented) |
@@ -61,8 +62,12 @@ precedent, and one spec was superseded outright during implementation.
 | [spf-referenced-dkim-selectors](implemented/spf-referenced-dkim-selectors.md) | 0.2.2 | [#15](https://github.com/kwestic-tech/dns-email-audit/pull/15) | `e158020` | 1.0 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
-work merged as PRs #1 through #8 are documented in
+work merged as PRs #1 through #7 are documented in
 [`CHANGELOG.md`](../../CHANGELOG.md) only.
+
+Every spec above was written from an original working specification except
+[resilient-optional-checks](implemented/resilient-optional-checks.md), which had
+none and is reconstructed from its merged diff. It says so in its own header.
 
 ## Document structure
 
