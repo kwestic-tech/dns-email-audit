@@ -98,8 +98,6 @@
     "dmarc": "Enregistrement DMARC",
     "dkim": "Sélecteurs DKIM",
     "verifications": "Vérifications (TXT)",
-    "wildcardTitle": "⚠ Bug de TXT générique (Wildcard)",
-    "wildcardText": "Un enregistrement TXT générique (* TXT) renvoie des données pour TOUS les sous-domaines. Cela casse DMARC et DKIM. Connectez-vous à votre fournisseur DNS et supprimez l'enregistrement * TXT.",
     "status": "Statut",
     "none": "Aucun",
     "na": "N/A",
@@ -113,8 +111,7 @@
   },
   "stat": {
     "domains": "Domaines",
-    "haveEmail": "Avec e-mail",
-    "wildcardBug": "⚠ Bug Wildcard"
+    "haveEmail": "Avec e-mail"
   },
   "badge": {
     "notRegistered": "Non enregistré / NXDOMAIN",
@@ -273,12 +270,6 @@
     "note": "Rapport statique généré localement par l'Auditeur de Sécurité DNS & E-mail. Les résultats n'ont pas été envoyés à Kwestic ni stockés par l'application ; les requêtes DNS ont été envoyées au résolveur de Cloudflare."
   },
   "issue": {
-    "wildcard-txt": {
-      "msg": "Enregistrement TXT générique (* TXT) trouvé — casse les recherches DMARC et DKIM pour tous les sous-domaines. À supprimer immédiatement.",
-      "what": "Un enregistrement TXT générique (<code>* IN TXT \"...\"</code>) fait renvoyer à votre serveur DNS des données pour <em>n'importe quel</em> sous-domaine — même ceux non définis. Les vérificateurs DKIM (ex: <code>google._domainkey.votredomaine.com</code>) et DMARC (ex: <code>_dmarc.votredomaine.com</code>) reçoivent ce résultat au lieu d'un « enregistrement introuvable », ce qui brise l'authentification de tous les sous-domaines.",
-      "fix": "Connectez-vous à votre fournisseur DNS et supprimez tout enregistrement TXT ayant pour hôte <code>*</code> (astérisque). Il n'y a pratiquement aucune raison légitime de garder un enregistrement TXT générique.",
-      "fixCode": "; Supprimez cet enregistrement de votre zone DNS :\n*    IN TXT    \"valeur_actuelle\""
-    },
     "dns-loop": {
       "msg": "La chaîne CNAME www contient une boucle — le nom du site web ne peut pas être résolu.",
       "what": "L'auditeur a suivi la chaîne CNAME de <code>www</code> et a rencontré un nom d'hôte déjà visité. Cela crée une boucle de résolution DNS empêchant d'obtenir une adresse A ou AAAA finale.",

@@ -98,8 +98,6 @@
     "dmarc": "DMARC 记录",
     "dkim": "DKIM 选择器",
     "verifications": "验证记录 (TXT)",
-    "wildcardTitle": "⚠ 通配符 TXT 错误",
-    "wildcardText": "通配符 TXT 记录正在为“所有”子域名返回数据。这会破坏 DMARC 和 DKIM 验证。请登录您的 DNS 服务商面板并删除 * TXT 记录。",
     "status": "状态",
     "none": "无",
     "na": "不适用",
@@ -113,8 +111,7 @@
   },
   "stat": {
     "domains": "域名总数",
-    "haveEmail": "已配置邮件",
-    "wildcardBug": "⚠ 通配符错误"
+    "haveEmail": "已配置邮件"
   },
   "badge": {
     "notRegistered": "未注册 / NXDOMAIN",
@@ -273,12 +270,6 @@
     "note": "由 DNS & 电子邮件安全审计工具在本地生成的静态报告。审计结果未发送至 Kwestic，也未由本应用存储；DNS 查询名称已发送至 Cloudflare 的解析器。"
   },
   "issue": {
-    "wildcard-txt": {
-      "msg": "发现通配符 TXT (* TXT) 记录 — 这会破坏所有子域名的 DMARC 和 DKIM 查询。请立即删除。",
-      "what": "通配符 TXT 记录 (<code>* IN TXT \"...\"</code>) 会使您的 DNS 服务器为<em>任何</em>子域名查询返回数据 — 即使是您未明确定义的子域名。DKIM 验证器会查询如 <code>google._domainkey.yourdomain.com</code> 的选择器，而 DMARC 验证器会查询 <code>_dmarc.yourdomain.com</code>。由于通配符记录的存在，它们无法收到“未找到记录”的回应，而是取得通配符结果，这会破坏每个子域名的验证。",
-      "fix": "请登录您的 DNS 服务商面板，并删除主机名为 <code>*</code>（星号）的任何 TXT 记录。几乎没有任何合理的理由需要配置通配符 TXT 记录。",
-      "fixCode": "; 请从您的 DNS 区域中删除此记录：\n*    IN TXT    \"无论此处的值是什么\""
-    },
     "dns-loop": {
       "msg": "www CNAME 链包含循环 — 网站名称无法解析。",
       "what": "审计工具在追溯 <code>www</code> CNAME 链时遇到了已访问的主机名。这建立了 DNS 解析循环，导致访客无法获取最终的 A 或 AAAA 地址。",

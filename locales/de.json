@@ -98,8 +98,6 @@
     "dmarc": "DMARC-Eintrag",
     "dkim": "DKIM-Selektoren",
     "verifications": "Verifizierungen (TXT)",
-    "wildcardTitle": "⚠ Wildcard-TXT-Fehler",
-    "wildcardText": "Ein Wildcard-TXT-Eintrag liefert Daten für ALLE Subdomains zurück. Dies beeinträchtigt DMARC und DKIM. Melden Sie sich bei Ihrem DNS-Anbieter an und löschen Sie den *-TXT-Eintrag.",
     "status": "Status",
     "none": "Keiner",
     "na": "N/A",
@@ -113,8 +111,7 @@
   },
   "stat": {
     "domains": "Domains",
-    "haveEmail": "Mit E-Mail",
-    "wildcardBug": "⚠ Wildcard-Fehler"
+    "haveEmail": "Mit E-Mail"
   },
   "badge": {
     "notRegistered": "Nicht registriert / NXDOMAIN",
@@ -273,12 +270,6 @@
     "note": "Statisch lokaler Bericht, erstellt vom DNS & E-Mail-Sicherheitsauditor. Die Ergebnisse wurden nicht an Kwestic gesendet oder gespeichert; DNS-Abfragen wurden an den Cloudflare-Resolver gesendet."
   },
   "issue": {
-    "wildcard-txt": {
-      "msg": "Wildcard-TXT-Eintrag (* TXT) gefunden — beeinträchtigt DMARC- und DKIM-Abfragen für alle Subdomains. Sofort löschen.",
-      "what": "Ein Wildcard-TXT-Eintrag (<code>* IN TXT \"...\"</code>) veranlasst Ihren DNS-Server dazu, Daten für <em>jede</em> Subdomain-Abfrage zurückzugeben — selbst für solche, die Sie nicht explizit definiert haben. DKIM-Validatoren fragen Selektoren wie <code>google._domainkey.yourdomain.com</code> ab und DMARC-Validatoren fragen <code>_dmarc.yourdomain.com</code> ab. Anstatt \"kein Eintrag gefunden\" zu erhalten, bekommen sie das Wildcard-Ergebnis, was die Authentifizierung für jede Subdomain beschädigt.",
-      "fix": "Melden Sie sich bei Ihrem DNS-Anbieter an und löschen Sie jeden TXT-Eintrag, dessen Hostname <code>*</code> (Sternchen) lautet. Es gibt fast nie einen legitimen Grund für einen Wildcard-TXT-Eintrag.",
-      "fixCode": "; Löschen Sie diesen Eintrag aus Ihrer DNS-Zone:\n* IN TXT    \"welcher Wert hier auch steht\""
-    },
     "dns-loop": {
       "msg": "Die www-CNAME-Kette enthält eine Schleife — der Website-Name kann nicht aufgelöst werden.",
       "what": "Der Auditor ist der <code>www</code> CNAME-Kette gefolgt und auf einen Hostnamen gestoßen, der bereits besucht wurde. Das erzeugt eine DNS-Auflösungsschleife, sodass Besucher keine finale A- oder AAAA-Adresse erhalten können.",

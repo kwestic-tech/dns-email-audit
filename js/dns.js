@@ -390,7 +390,7 @@
     return RECOGNIZED_DKIM_SELECTORS.has(String(selector || '').trim().toLowerCase());
   }
 
-  async function inspectDkimSelector(domain, selector, queryOpts) {
+  async function inspectDkimSelector(domain, selector, queryOpts, synthesized) {
     var queryName = `${selector}._domainkey.${domain}`;
     var name = queryName;
     var visited = new Set();
@@ -400,7 +400,12 @@
       if (visited.has(name)) break;
       visited.add(name);
       var result = requireUsable(await dohFetch(name, 'TXT', queryOpts), name, 'TXT');
-      var keys = dkimKeyRecords(result.answers);
+      // A wildcard covering _domainkey answers every selector query alike, so a
+      // value it synthesizes is not evidence of a key at this selector. Drop
+      // those by content; what survives is published for this selector only.
+      var keys = dkimKeyRecords(result.answers).filter(function (value) {
+        return !(synthesized && synthesized.has(value));
+      });
       if (keys.length) {
         return { sel: selector, queryName: queryName, keys: keys, cname: firstCname };
       }
@@ -412,7 +417,9 @@
     return { sel: selector, queryName: queryName, keys: [], cname: firstCname };
   }
 
-  async function checkDKIM(domain, wildcardBug, selectors, emailProvider, comprehensive, queryOpts) {
+  async function checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive, queryOpts) {
+    var wildcardDkim = !!(wildcard && wildcard.dkim);
+    var synthesized = new Set((wildcard && wildcard.records) || []);
     var selectorList = buildDkimSelectorList(selectors, emailProvider, comprehensive);
     var suppliedSelectors = new Set((selectors || [])
       .map(function (selector) { return String(selector || '').trim().toLowerCase(); })
@@ -425,7 +432,7 @@
       var batch = selectorList.slice(offset, offset + DKIM_SCAN_BATCH_SIZE);
       var checks = await Promise.all(batch.map(async function (selector) {
         try {
-          return await inspectDkimSelector(domain, selector, queryOpts);
+          return await inspectDkimSelector(domain, selector, queryOpts, synthesized);
         } catch (error) {
           if (error && error.name === 'AbortError') throw error;
           return { sel: selector, keys: [], cname: '', error: true };
@@ -453,7 +460,7 @@
     }
 
     if (!found.length) {
-      return { found: false, selectors: [], missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, confidence: 'sampled', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: wildcardBug ? 'noteWildcard' : failedSelectors.length ? 'noteNotFoundWithErrors' : 'noteNotFound' };
+      return { found: false, selectors: [], missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, confidence: 'sampled', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: wildcardDkim ? 'noteWildcard' : failedSelectors.length ? 'noteNotFoundWithErrors' : 'noteNotFound' };
     }
     return { found: true, selectors: found, missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, confidence: 'observed', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: '' };
   }
@@ -1064,10 +1071,16 @@
 
   // Each issue carries a key (→ locale lookup) and optional `args` used to
   // fill {0} placeholders in the translated message.
-  function buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardBug, hosting, advanced, domain }) {
+  function buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardApex, wildcardDkim, hosting, advanced, domain }) {
     const issues = [];
 
-    if (wildcardBug) issues.push({ key: 'wildcard-txt', sev: 'crit' });
+    // Reported by the depth that was actually measured. A wildcard only the
+    // apex probe sees never reaches DKIM, and is often deliberate: Apple
+    // publishes `*.apple.com IN TXT "v=spf1 redirect=_spf.apple.com"` so mail
+    // from an invented subdomain meets a real SPF policy instead of none. Worth
+    // reporting, not worth penalising.
+    if (wildcardDkim) issues.push({ key: 'wildcard-txt-dkim', sev: 'warn' });
+    else if (wildcardApex) issues.push({ key: 'wildcard-txt-apex', sev: 'info' });
     if (hosting === '@cname-loop') issues.push({ key: 'dns-loop', sev: 'crit' });
     if (emailProvider === '@none') issues.push({ key: 'no-mx', sev: 'crit' });
     if (emailProvider === '@implicit-mx') issues.push({ key: 'implicit-mx', sev: 'warn' });
@@ -1298,13 +1311,12 @@
 
   /* ── Scoring ────────────────────────────────────────────────────────── */
 
-  function calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardBug, advanced }) {
-    // A wildcard TXT record breaks DKIM and DMARC lookups on every subdomain,
-    // which invalidates everything else measured here. Unchanged: instant F.
-    if (wildcardBug) {
-      return { grade: 'F', cls: 'score-f', pts: 0, max: 100, breakdown: null, parked: false };
-    }
-
+  function calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced }) {
+    // A wildcard TXT record no longer scores an instant F. The furthest it can
+    // reach is DKIM discovery, and SPF, DMARC, DNSSEC and CAA stay perfectly
+    // measurable underneath it. A poisoned _domainkey makes DKIM unknown, which
+    // the DKIM pillar below already reports as an unscored grade range — the
+    // same treatment every other unknown gets here.
     var dnssecSigned = !!(advanced && advanced.dnssec && advanced.dnssec.signed);
     var dnssecUnknown = !!(advanced && advanced.dnssec && advanced.dnssec.state === 'indeterminate');
     var dmarc = calcDmarcScore(dmarcStatus);
@@ -1434,20 +1446,38 @@
       dmarcStatus.cls = dmarcStatus.status === 'ok' ? 'ok' : 'warn';
     }
 
-    // A failed wildcard probe must not read as "no wildcard": that answer feeds
-    // an instant-F verdict, so an unverified probe stays explicitly unknown.
-    let wildcardBug = false;
-    let wildcardChecked = false;
+    // Wildcard TXT synthesis is measured at both depths that matter, because
+    // only the deeper one predicts harm. The apex probe (one label) shows a
+    // `* IN TXT` record exists. The _domainkey probe (two labels) shows whether
+    // that synthesis actually reaches DKIM selector names — the only lookup a
+    // wildcard can poison, because selector names are unpredictable and carry
+    // no version prefix to filter on. Every other check here matches a version
+    // prefix (v=DMARC1, v=STSv1, v=BIMI1, v=spf1) and discards a stray wildcard
+    // string on its own.
+    //
+    // The depth is measured rather than inferred. RFC 4592 2.2.1 stops
+    // synthesis below an existing node, which protects any domain publishing
+    // _domainkey, but not every nameserver honours that — so only the probe is
+    // authoritative.
+    //
+    // A failed probe must not read as "no wildcard", so each depth stays false
+    // until its own probe returns.
+    let wildcardApex = false;
+    let wildcardDkim = false;
+    let wildcardDkimRecords = [];
     if (opts.wildcard) {
-      const testSub = await optionalCheck(
-        () => dohQuery(`_wildcardtest99xyz.${d}`, 'TXT', queryOpts), null);
-      wildcardChecked = testSub !== null;
-      wildcardBug = wildcardChecked && testSub.length > 0;
+      const [apexProbe, dkimProbe] = await Promise.all([
+        optionalCheck(() => dohQuery(`_wildcardtest99xyz.${d}`, 'TXT', queryOpts), null),
+        optionalCheck(() => dohQuery(`_wildcardtest99xyz._domainkey.${d}`, 'TXT', queryOpts), null),
+      ]);
+      wildcardApex = apexProbe !== null && apexProbe.length > 0;
+      wildcardDkim = dkimProbe !== null && dkimProbe.length > 0;
+      wildcardDkimRecords = wildcardDkim ? dkimProbe : [];
     }
 
     let dkimStatus = { found: false, selectors: [], testedSelectors: [], confidence: 'not-checked', note: '' };
     if (opts.dkim && emailProvider !== '@none' && emailProvider !== '@null-mx') {
-      dkimStatus = await checkDKIM(d, wildcardBug, opts.selectors, emailProvider, opts.dkimComprehensive, queryOpts);
+      dkimStatus = await checkDKIM(d, { dkim: wildcardDkim, records: wildcardDkimRecords }, opts.selectors, emailProvider, opts.dkimComprehensive, queryOpts);
     }
 
     let hosting = '@dash';
@@ -1511,15 +1541,15 @@
       };
     }
 
-    const issues = buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardBug, hosting, advanced, domain: d });
+    const issues = buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardApex, wildcardDkim, hosting, advanced, domain: d });
     const suggestions = buildSuggestions({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
-    const score = calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardBug, advanced });
+    const score = calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
     const advScore = opts.advanced ? calcAdvScore(advanced) : null;
 
     return {
       domain: d, ns, mx, txt, aRec, aaaaRec, dnsProvider, emailProvider,
       spfRecord, spfStatus, dmarcRecord, dmarcStatus, dmarcAtDomain, organizationalDomain, dkimStatus,
-      wildcardBug, hosting, verifications, advanced, advScore,
+      wildcardApex, wildcardDkim, hosting, verifications, advanced, advScore,
       issues, suggestions, score,
     };
   }

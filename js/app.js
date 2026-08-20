@@ -485,10 +485,17 @@
       detailItem(t('labels.verifications'), r.verifications.length
         ? r.verifications.map(esc).join('<br>')
         : t('labels.dash')) +
-      (r.wildcardBug
-        ? '<div class="detail-item" style="grid-column:1/-1">' +
-          '<div class="di-label" style="color:var(--crit)">' + esc(t('labels.wildcardTitle')) + '</div>' +
-          '<div class="di-value" style="color:var(--crit)">' + esc(t('labels.wildcardText')) + '</div></div>'
+      (r.wildcardDkim || r.wildcardApex
+        ? (function () {
+            // The two depths get different colours because they mean different
+            // things: one degrades DKIM discovery, the other is usually a
+            // deliberate anti-spoofing measure and costs nothing.
+            var colour = r.wildcardDkim ? 'var(--warn)' : 'var(--info)';
+            var suffix = r.wildcardDkim ? 'Dkim' : 'Apex';
+            return '<div class="detail-item" style="grid-column:1/-1">' +
+              '<div class="di-label" style="color:' + colour + '">' + esc(t('labels.wildcard' + suffix + 'Title')) + '</div>' +
+              '<div class="di-value" style="color:' + colour + '">' + esc(t('labels.wildcard' + suffix + 'Text')) + '</div></div>';
+          }())
         : '') +
       '</div>' + scoreBlockHtml(r.score) + advDotsHtml +
       (issueHtml || suggestHtml
@@ -544,8 +551,8 @@
       tile(count(function (r) { return r.advanced && r.advanced.tlsRpt && r.advanced.tlsRpt.present; }), 'TLS-RPT', 'c-tip', reg) +
       tile(count(function (r) { return r.advanced && r.advanced.caa && r.advanced.caa.found; }), 'CAA', 'c-tip', reg) +
       tile(count(function (r) { return r.advanced && r.advanced.dnssec && r.advanced.dnssec.signed; }), 'DNSSEC', 'c-tip', reg) +
-      (count(function (r) { return r.wildcardBug; })
-        ? tile(count(function (r) { return r.wildcardBug; }), t('stat.wildcardBug'), 'c-crit')
+      (count(function (r) { return r.wildcardDkim; })
+        ? tile(count(function (r) { return r.wildcardDkim; }), t('stat.wildcardDkim'), 'c-warn')
         : '');
   }
 

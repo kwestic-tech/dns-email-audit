@@ -171,7 +171,7 @@ const best = D.calcScore({
   emailProvider: 'Google Workspace',
   spfStatus: spf('ok'), dkimStatus: { found: true },
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; sp=reject; np=reject; rua=mailto:a@b.com; ruf=mailto:f@b.com; adkim=s; aspf=s'),
-  wildcardBug: false, advanced: full,
+  advanced: full,
 });
 eq('best case = 100 / A++', [best.pts, best.grade], [100, 'A++']);
 
@@ -179,7 +179,6 @@ const noDnssec = D.calcScore({
   emailProvider: 'Google Workspace',
   spfStatus: spf('ok'), dkimStatus: { found: true },
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'),
-  wildcardBug: false,
   advanced: Object.assign({}, full, { dnssec: { signed: false } }),
 });
 eq('strong but unsigned → B', noDnssec.grade, 'B');
@@ -187,24 +186,28 @@ eq('strong but unsigned → B', noDnssec.grade, 'B');
 const worst = D.calcScore({
   emailProvider: 'Google Workspace',
   spfStatus: spf('missing'), dkimStatus: { found: false },
-  dmarcStatus: D.analyzeDmarc(''), wildcardBug: false, advanced: bare,
+  dmarcStatus: D.analyzeDmarc(''), advanced: bare,
 });
 eq('nothing configured = 0 / F', [worst.pts, worst.grade], [0, 'F']);
 
+// A wildcard TXT record used to zero this outright. Scoring no longer takes
+// any wildcard input at all: the furthest a wildcard reaches is DKIM
+// discovery, and that is expressed through the DKIM pillar. Section 25 covers
+// the behaviour end to end.
 const wildcard = D.calcScore({
   emailProvider: 'Google Workspace',
   spfStatus: spf('ok'), dkimStatus: { found: true },
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'),
-  wildcardBug: true, advanced: full,
+  advanced: full,
 });
-eq('wildcard TXT → instant F', [wildcard.grade, wildcard.pts], ['F', 0]);
+eq('no instant-F path remains', [wildcard.grade, wildcard.pts], ['A++', 95]);
 
 // pct=abc previously produced NaN → every comparison false → silent F.
 const nanPct = D.calcScore({
   emailProvider: 'Google Workspace',
   spfStatus: spf('ok'), dkimStatus: { found: true },
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; pct=abc; rua=mailto:a@b.com'),
-  wildcardBug: false, advanced: full,
+  advanced: full,
 });
 eq('malformed pct is not NaN', Number.isFinite(nanPct.pts), true);
 eq('malformed pct still graded', nanPct.grade !== 'F', true);
@@ -216,7 +219,7 @@ const parkedHard = D.calcScore({
   emailProvider: '@null-mx',
   spfStatus: spf('ok'), dkimStatus: { found: false },
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject;'),
-  wildcardBug: false, advanced: full,
+  advanced: full,
 });
 eq('hardened parked = 100', parkedHard.pts, 100);
 eq('parked flagged',        parkedHard.parked, true);
@@ -225,7 +228,7 @@ eq('parked reaches A tier', parkedHard.grade, 'A++');
 const parkedBare = D.calcScore({
   emailProvider: '@null-mx',
   spfStatus: spf('missing'), dkimStatus: { found: false },
-  dmarcStatus: D.analyzeDmarc(''), wildcardBug: false, advanced: bare,
+  dmarcStatus: D.analyzeDmarc(''), advanced: bare,
 });
 eq('bare parked = 0 / F', [parkedBare.pts, parkedBare.grade], [0, 'F']);
 // DKIM must not drag down a domain that cannot have it.
@@ -252,7 +255,7 @@ section('11. Issue detection');
 const issuesFor = (rec, adv) => D.buildIssues({
   emailProvider: 'Google Workspace',
   spfStatus: spf('ok'), dkimStatus: { found: true },
-  dmarcStatus: D.analyzeDmarc(rec), wildcardBug: false,
+  dmarcStatus: D.analyzeDmarc(rec),
   hosting: 'Custom', advanced: adv || full,
 }).map(i => i.key);
 
@@ -297,7 +300,7 @@ eq('status is present',     bogus.status, 'present');
 eq('scores 0 not 3',        D.calcDmarcScore(bogus).pts, 0);
 eq('flagged critical',
   D.buildIssues({ emailProvider: 'Google Workspace', spfStatus: spf('ok'),
-    dkimStatus: { found: true }, dmarcStatus: bogus, wildcardBug: false,
+    dkimStatus: { found: true }, dmarcStatus: bogus,
     hosting: 'Custom', advanced: full })
     .filter(i => i.key === 'dmarc-invalid-policy')[0].sev, 'crit');
 
@@ -331,7 +334,7 @@ section('15. Permerror must not also report "missing"');
 
 const permIssues = (spfStatus, dmarcStatus, adv) => D.buildIssues({
   emailProvider: 'Google Workspace', spfStatus, dkimStatus: { found: true, duplicated: [] },
-  dmarcStatus, wildcardBug: false, hosting: 'Custom', advanced: adv || full,
+  dmarcStatus, hosting: 'Custom', advanced: adv || full,
 }).map(i => i.key);
 
 const spfDup = permIssues(D.analyzeSpf('', 'unknown', true), D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'));
@@ -372,7 +375,7 @@ eq('bimi dup flagged',     dupKeys.includes('bimi-multiple-records'), true);
 const dupScore = D.calcScore({
   emailProvider: 'Google Workspace', spfStatus: spf('ok'), dkimStatus: { found: true },
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; sp=reject; rua=mailto:a@b.com'),
-  wildcardBug: false, advanced: dupAdv,
+  advanced: dupAdv,
 });
 const pillar = k => dupScore.breakdown.pillars.find(p => p.key === k).pts;
 eq('mta-sts dup scores 0', pillar('mtaSts'), 0);
@@ -406,7 +409,7 @@ const dkimDup = D.buildIssues({
   emailProvider: 'Google Workspace', spfStatus: spf('ok'),
   dkimStatus: { found: true, selectors: [{ sel: 'google' }], duplicated: ['google', 's1'] },
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'),
-  wildcardBug: false, hosting: 'Custom', advanced: full,
+  hosting: 'Custom', advanced: full,
 });
 const dkimIssue = dkimDup.find(i => i.key === 'dkim-multiple-records');
 eq('dkim dup flagged',       !!dkimIssue, true);
@@ -417,7 +420,7 @@ eq('clean dkim not flagged', D.buildIssues({
   emailProvider: 'Google Workspace', spfStatus: spf('ok'),
   dkimStatus: { found: true, selectors: [{ sel: 'google' }], duplicated: [] },
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'),
-  wildcardBug: false, hosting: 'Custom', advanced: full,
+  hosting: 'Custom', advanced: full,
 }).some(i => i.key === 'dkim-multiple-records'), false);
 
 /* ── 18. CAA and MX multiples are legal, not errors ──────────────────── */
@@ -427,7 +430,7 @@ section('18. Record types where multiples are legitimate');
 // Flagging it would be a false positive, so assert we never do.
 const multiCaa = D.buildIssues({
   emailProvider: 'Google Workspace', spfStatus: spf('ok'), dkimStatus: { found: true, duplicated: [] },
-  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'), wildcardBug: false,
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'),
   hosting: 'Custom',
   advanced: Object.assign({}, full, {
     caa: { found: true, records: ['0 issue "letsencrypt.org"', '0 issue "digicert.com"', '0 iodef "mailto:a@b.com"'], atDomain: 'x.com' },
@@ -436,7 +439,7 @@ const multiCaa = D.buildIssues({
 eq('multiple CAA not flagged', multiCaa.some(k => k.indexOf('caa-multiple') !== -1), false);
 eq('multiple CAA still scores full',
   D.calcScore({ emailProvider: 'Google Workspace', spfStatus: spf('ok'), dkimStatus: { found: true },
-    dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; sp=reject; rua=mailto:a@b.com'), wildcardBug: false,
+    dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; sp=reject; rua=mailto:a@b.com'),
     advanced: full }).breakdown.pillars.find(p => p.key === 'caa').pts, D.WEIGHTS.caa);
 
 /* ── 19. Standards-sensitive regressions ────────────────────────────── */
@@ -469,14 +472,14 @@ const sampledDkim = D.calcScore({
   emailProvider: 'Google Workspace', spfStatus: spf('ok'),
   dkimStatus: { found: false, confidence: 'sampled' },
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'),
-  wildcardBug: false, advanced: full,
+  advanced: full,
 });
 eq('sampled DKIM produces a score range', sampledDkim.uncertain, true);
 eq('DKIM unknown is not stored as zero', sampledDkim.breakdown.pillars.find(p => p.key === 'dkim').pts, null);
 eq('sampled DKIM is informational', D.buildIssues({
   emailProvider: 'Google Workspace', spfStatus: spf('ok'),
   dkimStatus: { found: false, confidence: 'sampled', note: 'noteNotFound', duplicated: [] },
-  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject'), wildcardBug: false,
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject'),
   hosting: 'Custom', advanced: full,
 }).find(i => i.key === 'dkim-unverified').sev, 'info');
 
@@ -547,7 +550,7 @@ const dm = rec => D.analyzeDmarc(rec);
 const keys = (rec, domain) => D.buildIssues({
   emailProvider: 'Google Workspace',
   spfStatus: spf('ok'), dkimStatus: { found: true },
-  dmarcStatus: dm(rec), wildcardBug: false,
+  dmarcStatus: dm(rec),
   hosting: 'Custom', advanced: full, domain,
 }).map(i => i.key);
 
@@ -705,7 +708,7 @@ const withAuth = states => Object.assign({}, full, {
 const keysAuth = (rec, domain, adv) => D.buildIssues({
   emailProvider: 'Google Workspace',
   spfStatus: spf('ok'), dkimStatus: { found: true },
-  dmarcStatus: dm(rec), wildcardBug: false,
+  dmarcStatus: dm(rec),
   hosting: 'Custom', advanced: adv, domain,
 }).map(i => i.key);
 
@@ -730,7 +733,7 @@ const twoVendors = 'v=DMARC1; p=reject; rua=mailto:a@good.com,mailto:b@bad.com';
 const mixedVerdict = D.buildIssues({
   emailProvider: 'Google Workspace',
   spfStatus: spf('ok'), dkimStatus: { found: true },
-  dmarcStatus: dm(twoVendors), wildcardBug: false, hosting: 'Custom',
+  dmarcStatus: dm(twoVendors), hosting: 'Custom',
   advanced: withAuth([['good.com', 'authorized'], ['bad.com', 'unauthorized']]),
   domain: 'example.com',
 }).find(i => i.key === 'dmarc-external-unauthorized');
@@ -872,9 +875,10 @@ eq('TLS-RPT marked unknown',  resilient.advanced.tlsRpt.unknown, true);
 eq('BIMI marked unknown',     resilient.advanced.bimi.unknown, true);
 eq('hosting reports a lookup failure', resilient.hosting, '@dns-error');
 
-// The wildcard probe is the dangerous one: a failed probe read as "no
-// wildcard" is merely wrong, but read as "wildcard present" is an instant F.
-eq('failed wildcard probe is not a wildcard bug', resilient.wildcardBug, false);
+// Both wildcard probes failed here. Neither depth may read as "wildcard
+// present" on the strength of a lookup that never answered.
+eq('failed apex probe reports no wildcard',    resilient.wildcardApex, false);
+eq('failed DKIM-depth probe reports no wildcard', resilient.wildcardDkim, false);
 
 // Unknown pillars are unscored, not zeroed, so the grade is a range.
 const pillarsBy = Object.fromEntries(resilient.score.breakdown.pillars.map(p => [p.key, p]));
@@ -908,7 +912,7 @@ const dkimNoteIssue = D.buildIssues({
   spfStatus: spf('ok'),
   dkimStatus: { found: false, confidence: 'sampled', note: 'noteNotFoundWithErrors', testedSelectors: new Array(17), failedSelectors: new Array(5) },
   dmarcStatus: dm('v=DMARC1; p=reject; rua=mailto:a@b.com'),
-  wildcardBug: false, hosting: 'Custom', advanced: full,
+  hosting: 'Custom', advanced: full,
 }).find(i => i.noteKey);
 eq('DKIM note carries its counts', dkimNoteIssue.noteArgs, [12, 5]);
 
@@ -934,6 +938,96 @@ try {
   }, 'fallback');
 } catch { abortPropagated = true; }
 eq('cancellation is not swallowed', abortPropagated, true);
+
+/* ── 25. Wildcard TXT is judged at the depth that predicts the harm ──── */
+section('25. Wildcard TXT: apex synthesis vs synthesis over _domainkey');
+
+// The probe used to ask one label deep and infer harm to DKIM, which lives two
+// labels deep at <selector>._domainkey.<domain>. Those are different questions,
+// and on apple.com and ibm.com they get different answers: both publish an apex
+// wildcard, neither lets it reach DKIM. Both scored F=0 on the strength of the
+// shallow probe alone.
+//
+// Depth is measured, not inferred. RFC 4592 §2.2.1 stops synthesis below an
+// existing node, so publishing _domainkey ought to be protection enough — but
+// netflix.com publishes `_domainkey.netflix.com` and its nameservers synthesize
+// under it anyway. Only the deeper probe can tell.
+
+const WILDCARD_ZONES = {
+  // Synthesis one label deep only: the shape apple.com and ibm.com serve.
+  'apex.example': { depth: 1, wildcardValue: '"v=spf1 redirect=_spf.apex.example"' },
+  // Synthesis at any depth, the shape netflix.com's nameservers serve. The
+  // value is deliberately a well-formed DKIM key — an audit that trusts it
+  // reports DKIM present on every selector it tries.
+  'deep.example': { depth: 9, wildcardValue: '"v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEB"' },
+};
+
+const answer = records => ({ ok: true, json: async () => ({ Status: 0, AD: false, Answer: records }) });
+const nxdomain = { ok: true, json: async () => ({ Status: 3 }) };
+
+sandbox.fetch = async url => {
+  const params = new URL(url).searchParams;
+  const name = params.get('name');
+  const typeName = { 1: 'A', 2: 'NS', 15: 'MX', 16: 'TXT', 28: 'AAAA', 5: 'CNAME', 257: 'CAA' }[params.get('type')];
+  const zone = Object.keys(WILDCARD_ZONES).find(z => name === z || name.endsWith(`.${z}`));
+  if (!zone) return nxdomain;
+  const cfg = WILDCARD_ZONES[zone];
+
+  if (name === zone) {
+    if (typeName === 'NS') return answer([{ type: 2, data: 'ns1.example.' }]);
+    if (typeName === 'MX') return answer([{ type: 15, data: '10 mail.example.' }]);
+    if (typeName === 'TXT') return answer([{ type: 16, data: '"v=spf1 include:_spf.example -all"' }]);
+    if (typeName === 'A') return answer([{ type: 1, data: '203.0.113.5' }]);
+    return answer([]);
+  }
+  if (name === `_dmarc.${zone}`) {
+    return typeName === 'TXT'
+      ? answer([{ type: 16, data: `"v=DMARC1; p=reject; rua=mailto:d@${zone}"` }])
+      : answer([]);
+  }
+  // Everything else is undefined in the zone, so the wildcard answers it —
+  // but only as deep as this nameserver is willing to synthesize.
+  const depth = name.slice(0, -(zone.length + 1)).split('.').length;
+  if (typeName === 'TXT' && depth <= cfg.depth) return answer([{ type: 16, data: cfg.wildcardValue }]);
+  return nxdomain;
+};
+
+const WILDCARD_OPTS = { www: false, advanced: false, dkim: true, wildcard: true, retries: 0 };
+const apexZone = await D.analyzeDomain('apex.example', WILDCARD_OPTS);
+const deepZone = await D.analyzeDomain('deep.example', WILDCARD_OPTS);
+
+// ── Apex-only: reported, not penalised ──
+eq('apex wildcard detected',              apexZone.wildcardApex, true);
+eq('apex wildcard does not reach DKIM',   apexZone.wildcardDkim, false);
+const apexIssue = apexZone.issues.find(i => i.key === 'wildcard-txt-apex');
+eq('apex wildcard is informational',      apexIssue && apexIssue.sev, 'info');
+eq('no DKIM-depth issue raised',          apexZone.issues.some(i => i.key === 'wildcard-txt-dkim'), false);
+eq('apex wildcard costs no points',       apexZone.score.pts > 0, true);
+eq('apex wildcard is not an F',           apexZone.score.grade !== 'F', true);
+// No DKIM is found in either zone, so both report the sampled confidence a
+// selector scan can honestly claim. What separates them is why, and the note
+// records it: nothing published here, versus a lookup that cannot answer.
+eq('apex absence is a plain not-found',   apexZone.dkimStatus.note, 'noteNotFound');
+
+// ── Over _domainkey: DKIM becomes unknown, everything else still counts ──
+eq('deep wildcard detected at DKIM depth', deepZone.wildcardDkim, true);
+const deepIssue = deepZone.issues.find(i => i.key === 'wildcard-txt-dkim');
+eq('deep wildcard raises a warning',       deepIssue && deepIssue.sev, 'warn');
+// The synthesized value parses as a valid DKIM key. Trusting it would report a
+// key at every selector the scan tries, which is worse than reporting none.
+eq('synthesized value is not a DKIM key',  deepZone.dkimStatus.found, false);
+eq('DKIM is sampled, not missing',         deepZone.dkimStatus.confidence, 'sampled');
+eq('the wildcard is named as the reason',  deepZone.dkimStatus.note, 'noteWildcard');
+
+const deepPillars = Object.fromEntries(deepZone.score.breakdown.pillars.map(p => [p.key, p]));
+eq('DKIM pillar is unknown',               deepPillars.dkim.unknown, true);
+eq('DKIM pillar is unscored, not zeroed',  deepPillars.dkim.pts, null);
+eq('grade is reported as a range',         deepZone.score.grade.includes('–'), true);
+eq('score is not zeroed',                  deepZone.score.pts > 0, true);
+// The point of retiring the instant F: a wildcard makes DKIM unknowable and
+// nothing else. These stay measured.
+eq('SPF still scored under the wildcard',   deepPillars.spf.pts > 0, true);
+eq('DMARC still scored under the wildcard', deepPillars.dmarc.pts > 0, true);
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
