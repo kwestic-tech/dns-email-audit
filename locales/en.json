@@ -386,7 +386,10 @@
       "fixCode": "; Google Workspace: Admin → Apps → Google Workspace → Gmail\n;   → Authenticate email → Generate Key → copy the TXT record\n;\n; Microsoft 365: Admin → Settings → Domains → select domain\n;   → DNS records → enable DKIM\n;\n; The TXT record will look something like:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
     "dkim-unverified": {
-      "msg": "No tested DKIM selector was found. {0} This does not prove that DKIM is absent; supply a selector or paste one from a DKIM-Signature header."
+      "msg": "No tested DKIM selector was found. {0} Scored as if DKIM is not configured. If you know your DKIM selector, add it to \"Additional DKIM selectors\" and re-run the audit to get credit for it."
+    },
+    "dkim-not-checked": {
+      "msg": "DKIM was not checked this run. Scored as if DKIM is not configured. Enable \"Check DKIM selectors\" and re-run to be scored on DKIM."
     },
     "implicit-mx": {
       "msg": "No MX record is published. SMTP may fall back to this domain's A/AAAA address as an implicit MX, which is fragile and often unintended."
@@ -473,7 +476,7 @@
       "msg": "DNSSEC validation appears bogus: validation failed although the answer is available when checking is disabled."
     },
     "dnssec-indeterminate": {
-      "msg": "DNSSEC status could not be determined because the validating query failed. It was not scored as unsigned."
+      "msg": "DNSSEC status could not be determined because the validating query failed. Scored as unsigned. Re-run the audit — this is usually a transient resolver issue. If it keeps happening on a domain you have confirmed is signed at your registrar or DNS provider, open a GitHub issue with the domain, your registrar/DNS provider, and a screenshot showing DNSSEC enabled."
     },
     "mta-sts-invalid": {
       "msg": "The MTA-STS TXT record is malformed or missing its required id= tag."
@@ -590,9 +593,9 @@
       "fixCode": "; Check the authorization record by hand:\ndig +short TXT yourdomain.com._report._dmarc.{0}\n\n; And the wildcard form most vendors publish:\ndig +short TXT \"*._report._dmarc.{0}\""
     },
     "checks-unverified": {
-      "msg": "Some checks could not be completed ({0}) — these are shown as unknown, not as failures.",
-      "what": "One or more DNS lookups for this domain did not return a usable answer, usually a SERVFAIL or a timeout from the resolver. That can be a genuinely broken nameserver, but it is just as often a transient hiccup that clears within minutes. The rest of the audit completed normally and is accurate. The affected checks are reported as unknown and excluded from the score rather than counted as zero, which is why the grade may be shown as a range — scoring an unanswered query as a missing record would lower your grade for our failure, not yours.",
-      "fix": "Re-run the audit. If the same checks keep failing, query the affected names directly to see whether your nameservers answer them. A server that returns SERVFAIL instead of NXDOMAIN for names that do not exist will trip this repeatedly.",
+      "msg": "Some checks could not be completed ({0}) — they are scored as if the record is not published.",
+      "what": "One or more DNS lookups for this domain did not return a usable answer, usually a SERVFAIL or a timeout from the resolver. That can be a genuinely broken nameserver, but it is just as often a transient hiccup that clears within minutes. The rest of the audit completed normally and is accurate. The affected checks are scored as zero, because a grade this tool cannot stand behind is worth less than a grade that is simply strict — so a failed lookup does cost you points until it is re-run.",
+      "fix": "Re-run the audit first — a transient failure clears on its own and the points come back. If the same checks keep failing, query the affected names directly to see whether your nameservers answer them. A server that returns SERVFAIL instead of NXDOMAIN for names that do not exist will trip this repeatedly.",
       "fixCode": "; Check whether your nameservers answer a name that should not exist.\n; A healthy server returns NXDOMAIN; a broken one returns SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Ask your authoritative servers directly, bypassing the resolver:\ndig @ns1.yourprovider.com www.yourdomain.com A"
     }
   },
@@ -780,7 +783,7 @@
   "score": {
     "label": "Security score",
     "outOf": "{0} / {1}",
-    "range": "Confirmed score range: {0}–{1} / 100; unknown checks are not scored as failures",
+    "unproven": "{0} / {1} — checks that could not be verified scored zero: {2}. Open this row to see how to recover those points.",
     "parkedNote": "Parked domain — scored on SPF, DMARC, DNSSEC and CAA only",
     "pillar": {
       "dmarc": "DMARC",

@@ -366,9 +366,6 @@
       "fix": "DKIM の設定はご利用のメールプロバイダーの管理コンソールで行います。プロバイダーが公開鍵と秘密鍵のペアを生成し、DNS に公開するための TXT レコードを提供します。ご自身で鍵を作成する必要はありません。",
       "fixCode": "; Google Workspace: 管理コンソール → アプリ → Google Workspace → Gmail\n;   → メール認証 → 新しいレコードを生成 → TXT レコードをコピー\n;\n; Microsoft 365: 管理センター → 設定 → ドメイン → ドメインを選択\n;   → DNS レコード → DKIM を有効化\n;\n; TXT レコードの例:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
-    "dkim-unverified": {
-      "msg": "テストした DKIM セレクターが見つかりませんでした。{0} これは DKIM が存在しないことを証明するものではありません。セレクターを指定するか、DKIM-Signature ヘッダーから貼り付けてください。"
-    },
     "implicit-mx": {
       "msg": "MX レコードが公開されていません。SMTP は暗黙の MX としてこのドメインの A/AAAA アドレスにフォールバックする可能性がありますが、これは脆弱であり予期しない動作を引き起こすことがあります。"
     },
@@ -452,9 +449,6 @@
     },
     "dnssec-bogus": {
       "msg": "DNSSEC 検証が不正 (bogus) と判定されました: チェック無効時には応答が得られますが、検証自体に失敗しています。"
-    },
-    "dnssec-indeterminate": {
-      "msg": "検証クエリが失敗したため DNSSEC ステータスを判定できませんでした。未署名としてはスコア化されません。"
     },
     "mta-sts-invalid": {
       "msg": "MTA-STS TXT レコードの形式が不正か、必須の id= タグが不足しています。"
@@ -616,7 +610,6 @@
   "score": {
     "label": "セキュリティスコア",
     "outOf": "{0} / {1}",
-    "range": "確定スコア範囲: {0}–{1} / 100（未確認の項目は減点対象としません）",
     "parkedNote": "パークドメイン — SPF、DMARC、DNSSEC、CAA のみでスコア計算",
     "pillar": {
       "dmarc": "DMARC",

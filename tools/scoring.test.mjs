@@ -234,6 +234,21 @@ eq('bare parked = 0 / F', [parkedBare.pts, parkedBare.grade], [0, 'F']);
 // DKIM must not drag down a domain that cannot have it.
 eq('parked has no dkim pillar',
   parkedHard.breakdown.pillars.some(p => p.key === 'dkim'), false);
+// Nor may an unverifiable DKIM check mark a parked grade — there is no DKIM
+// pillar here, so no points were lost and there is nothing to recover.
+eq('unproven DKIM cannot mark a parked grade', D.calcScore({
+  emailProvider: '@null-mx',
+  spfStatus: spf('ok'), dkimStatus: { found: false, confidence: 'sampled' },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject;'),
+  advanced: full,
+}).unproven, []);
+// But a check a parked domain *is* scored on still marks it.
+eq('unproven CAA marks a parked grade', D.calcScore({
+  emailProvider: '@null-mx',
+  spfStatus: spf('ok'), dkimStatus: { found: false },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject;'),
+  advanced: Object.assign({}, full, { caa: { found: false, unknown: true } }),
+}).unproven, ['caa']);
 
 /* ── 10. Breakdown shape (consumed by the UI) ────────────────────────── */
 section('10. Breakdown contract');
@@ -474,14 +489,70 @@ const sampledDkim = D.calcScore({
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'),
   advanced: full,
 });
-eq('sampled DKIM produces a score range', sampledDkim.uncertain, true);
-eq('DKIM unknown is not stored as zero', sampledDkim.breakdown.pillars.find(p => p.key === 'dkim').pts, null);
-eq('sampled DKIM is informational', D.buildIssues({
+eq('sampled DKIM scores zero, not a range', sampledDkim.breakdown.pillars.find(p => p.key === 'dkim').pts, 0);
+eq('sampled DKIM produces a single-letter grade', /^[A-F][+]{0,2}$/.test(sampledDkim.grade), true);
+eq('sampled DKIM result has no range fields', 'gradeMin' in sampledDkim, false);
+// The zero is real, but the UI still has to say it rests on an unverified
+// check — that marker is what replaced the range, and it must not move points.
+eq('sampled DKIM marks the grade unproven', sampledDkim.unproven, ['dkim']);
+eq('sampled DKIM is a warning', D.buildIssues({
   emailProvider: 'Google Workspace', spfStatus: spf('ok'),
   dkimStatus: { found: false, confidence: 'sampled', note: 'noteNotFound', duplicated: [] },
   dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject'),
   hosting: 'Custom', advanced: full,
-}).find(i => i.key === 'dkim-unverified').sev, 'info');
+}).find(i => i.key === 'dkim-unverified').sev, 'warn');
+
+// Indeterminate DNSSEC is the same bargain: unproven scores zero, and the
+// A-tier gate stays shut because gradeFor() reads `signed`, which is false.
+const indeterminateDnssec = D.calcScore({
+  emailProvider: 'Google Workspace', spfStatus: spf('ok'),
+  dkimStatus: { found: true, selectors: [{ sel: 'google' }] },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'),
+  advanced: Object.assign({}, full, { dnssec: { signed: false, state: 'indeterminate' } }),
+});
+eq('indeterminate DNSSEC scores zero', indeterminateDnssec.breakdown.pillars.find(p => p.key === 'dnssec').pts, 0);
+eq('indeterminate DNSSEC marks the grade unproven', indeterminateDnssec.unproven, ['dnssec']);
+eq('indeterminate DNSSEC grades a single letter', /^[A-F][+]{0,2}$/.test(indeterminateDnssec.grade), true);
+eq('indeterminate DNSSEC cannot reach A tier', ['A', 'A+', 'A++'].includes(indeterminateDnssec.grade), false);
+eq('DNSSEC indeterminate issue is a warning', D.buildIssues({
+  emailProvider: 'Google Workspace', spfStatus: spf('ok'),
+  dkimStatus: { found: true, selectors: [], duplicated: [] },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject'),
+  hosting: 'Custom', advanced: Object.assign({}, full, { dnssec: { signed: false, state: 'indeterminate' } }),
+}).find(i => i.key === 'dnssec-indeterminate').sev, 'warn');
+
+// Opting out of DKIM checking still costs the pillar, so the point loss has to
+// be stated — without mislabelling the opt-out as a missing record.
+const dkimSkipped = D.calcScore({
+  emailProvider: 'Google Workspace', spfStatus: spf('ok'),
+  dkimStatus: { found: false, confidence: 'not-checked' },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@b.com'),
+  advanced: full,
+});
+eq('not-checked DKIM scores zero', dkimSkipped.breakdown.pillars.find(p => p.key === 'dkim').pts, 0);
+eq('not-checked DKIM marks the grade unproven', dkimSkipped.unproven, ['dkim']);
+
+// A fully measured domain must carry no marker at all, or the asterisk means
+// nothing. `best` is the all-controls-present fixture from section 6.
+eq('a fully verified grade is unmarked', best.unproven, []);
+
+const skippedIssues = D.buildIssues({
+  emailProvider: 'Google Workspace', spfStatus: spf('ok'),
+  dkimStatus: { found: false, confidence: 'not-checked', duplicated: [] },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject'),
+  hosting: 'Custom', advanced: full,
+});
+eq('not-checked DKIM raises its own issue', skippedIssues.find(i => i.key === 'dkim-not-checked')?.sev, 'info');
+eq('not-checked DKIM raises neither dkim-unverified nor dkim-missing',
+  skippedIssues.some(i => i.key === 'dkim-unverified' || i.key === 'dkim-missing'), false);
+
+// A domain with no email must not be nagged about a DKIM check it never needed.
+eq('parked domain raises no dkim-not-checked', D.buildIssues({
+  emailProvider: '@null-mx', spfStatus: spf('ok'),
+  dkimStatus: { found: false, confidence: 'not-checked', duplicated: [] },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject'),
+  hosting: 'Custom', advanced: full,
+}).some(i => i.key === 'dkim-not-checked'), false);
 
 eq('valid MTA-STS TXT', D.validateMtaStsRecord('v=STSv1; id=20260817').valid, true);
 eq('MTA-STS requires id', D.validateMtaStsRecord('v=STSv1').valid, false);
@@ -880,21 +951,29 @@ eq('hosting reports a lookup failure', resilient.hosting, '@dns-error');
 eq('failed apex probe reports no wildcard',    resilient.wildcardApex, false);
 eq('failed DKIM-depth probe reports no wildcard', resilient.wildcardDkim, false);
 
-// Unknown pillars are unscored, not zeroed, so the grade is a range.
+// A check that never answered scores zero, like every other unproven control.
+// The audit still completes and the measurable pillars still earn their points
+// — what it must never do is invent a grade range out of the gap.
 const pillarsBy = Object.fromEntries(resilient.score.breakdown.pillars.map(p => [p.key, p]));
-eq('CAA pillar is unknown',      pillarsBy.caa.unknown, true);
-eq('CAA pillar scores null',     pillarsBy.caa.pts, null);
-eq('MTA-STS pillar is unknown',  pillarsBy.mtaSts.unknown, true);
-eq('BIMI pillar is unknown',     pillarsBy.bimi.unknown, true);
-eq('TLS-RPT pillar is unknown',  pillarsBy.tlsRpt.unknown, true);
-eq('score is reported as a range', resilient.score.uncertain, true);
-eq('max possible exceeds score',   resilient.score.maxPossible > resilient.score.pts, true);
+eq('CAA pillar scores zero',      pillarsBy.caa.pts, 0);
+eq('MTA-STS pillar scores zero',  pillarsBy.mtaSts.pts, 0);
+eq('BIMI pillar scores zero',     pillarsBy.bimi.pts, 0);
+eq('TLS-RPT pillar scores zero',  pillarsBy.tlsRpt.pts, 0);
+eq('no pillar is left unscored',  resilient.score.breakdown.pillars.every(p => Number.isFinite(p.pts)), true);
+eq('grade is a single letter',    /^[A-F][+]{0,2}$/.test(resilient.score.grade), true);
+// Every failed optional lookup is named on the score, so one marker can stand
+// for all of them rather than the asterisk being a DKIM special case. This
+// audit also ran with dkim: false, so the opt-out is named alongside them.
+eq('failed lookups mark the grade', resilient.score.unproven.slice().sort(),
+  ['bimi', 'caa', 'dkim', 'mtaSts', 'tlsRpt']);
 
-// The gap is stated rather than silently omitted.
+// The gap is stated rather than silently omitted — and now that it costs
+// points, stated as a warning rather than a footnote.
 const resilientKeys = resilient.issues.map(i => i.key);
 eq('unverified checks are named', resilientKeys.includes('checks-unverified'), true);
 const unverifiedIssue = resilient.issues.find(i => i.key === 'checks-unverified');
 eq('the named checks are listed', unverifiedIssue.args[0].includes('CAA'), true);
+eq('unverified checks warn',      unverifiedIssue.sev, 'warn');
 
 // No "you have not configured this" advice for a check that never completed.
 const resilientTips = resilient.suggestions.map(s => s.key);
@@ -1020,10 +1099,12 @@ eq('DKIM is sampled, not missing',         deepZone.dkimStatus.confidence, 'samp
 eq('the wildcard is named as the reason',  deepZone.dkimStatus.note, 'noteWildcard');
 
 const deepPillars = Object.fromEntries(deepZone.score.breakdown.pillars.map(p => [p.key, p]));
-eq('DKIM pillar is unknown',               deepPillars.dkim.unknown, true);
-eq('DKIM pillar is unscored, not zeroed',  deepPillars.dkim.pts, null);
-eq('grade is reported as a range',         deepZone.score.grade.includes('–'), true);
+eq('DKIM pillar scores zero',              deepPillars.dkim.pts, 0);
+eq('grade is a single letter',             /^[A-F][+]{0,2}$/.test(deepZone.score.grade), true);
 eq('score is not zeroed',                  deepZone.score.pts > 0, true);
+// The wildcard costs the DKIM pillar, so it must say so rather than let 15
+// points disappear behind a note about the wildcard.
+eq('unverified DKIM is raised',            deepZone.issues.some(i => i.key === 'dkim-unverified'), true);
 // The point of retiring the instant F: a wildcard makes DKIM unknowable and
 // nothing else. These stay measured.
 eq('SPF still scored under the wildcard',   deepPillars.spf.pts > 0, true);

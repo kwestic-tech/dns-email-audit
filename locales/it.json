@@ -366,9 +366,6 @@
       "fix": "Genera la chiave DKIM dalla console del tuo servizio di posta e pubblicala nel DNS.",
       "fixCode": "google._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
-    "dkim-unverified": {
-      "msg": "Nessun selettore DKIM testato è stato trovato. {0} Specifica un selettore valido o inseriscilo dall'intestazione della mail."
-    },
     "implicit-mx": {
       "msg": "Nessun record MX pubblicato. Il server SMTP potrebbe usare l'indirizzo A/AAAA come MX implicito."
     },
@@ -452,9 +449,6 @@
     },
     "dnssec-bogus": {
       "msg": "La validazione DNSSEC risulta non valida (bogus)."
-    },
-    "dnssec-indeterminate": {
-      "msg": "Impossibile determinare lo stato DNSSEC a causa di un errore nella query."
     },
     "mta-sts-invalid": {
       "msg": "Il record TXT MTA-STS è errato o manca il tag id=."
@@ -616,7 +610,6 @@
   "score": {
     "label": "Punteggio di sicurezza",
     "outOf": "{0} / {1}",
-    "range": "Intervallo confermato: {0}–{1} / 100",
     "parkedNote": "Dominio inutilizzato — Valutato solo su SPF, DMARC, DNSSEC e CAA",
     "pillar": {
       "dmarc": "DMARC",

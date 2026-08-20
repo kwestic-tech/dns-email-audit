@@ -366,9 +366,6 @@
       "fix": "DKIM 配置在您的邮件服务商管理控制台中进行 — 他们会生成公钥/私钥对，并提供 TXT 记录供您在 DNS 中发布。您不需要自己创建密钥。",
       "fixCode": "; Google Workspace: 管理员 → 应用 → Google Workspace → Gmail\n;   → 验证电子邮件 → 生成新记录 → 复制 TXT 记录\n;\n; Microsoft 365: 管理员 → 设置 → 域名 → 选择域名\n;   → DNS 记录 → 启用 DKIM\n;\n; TXT 记录的格式类似于：\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
-    "dkim-unverified": {
-      "msg": "未找到已测试的 DKIM 选择器。{0} 这不能证明不存在 DKIM；请提供选择器或粘贴来自 DKIM-Signature 标头的选择器。"
-    },
     "implicit-mx": {
       "msg": "未发布 MX 记录。SMTP 可能会退回至此域名的 A/AAAA 地址作为隐式 MX，这是脆弱且通常非预期的。"
     },
@@ -452,9 +449,6 @@
     },
     "dnssec-bogus": {
       "msg": "DNSSEC 验证显示为伪造 (bogus)：尽管禁用检查时答案可用，但验证失败。"
-    },
-    "dnssec-indeterminate": {
-      "msg": "由于验证查询失败，无法确定 DNSSEC 状态。未将其计为未签名。"
     },
     "mta-sts-invalid": {
       "msg": "MTA-STS TXT 记录格式错误或缺少必要的 id= 标签。"
@@ -616,7 +610,6 @@
   "score": {
     "label": "安全性得分",
     "outOf": "{0} / {1}",
-    "range": "已确认的分数范围: {0}–{1} / 100；未知的检查不会计为失败",
     "parkedNote": "停用域名 — 仅针对 SPF、DMARC、DNSSEC 和 CAA 进行评分",
     "pillar": {
       "dmarc": "DMARC",

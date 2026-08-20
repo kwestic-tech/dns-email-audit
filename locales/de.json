@@ -366,9 +366,6 @@
       "fix": "Die DKIM-Einrichtung erfolgt in der Verwaltungskonsole Ihres E-Mail-Anbieters — dieser generiert das Schlüsselpaar und gibt Ihnen den DNS-TXT-Eintrag.",
       "fixCode": "; Google Workspace: Admin → Apps → Google Workspace → Gmail\n;   → E-Mail authentifizieren → Schlüssel generieren → TXT-Eintrag kopieren\n;\n; Microsoft 365: Admin → Einstellungen → Domains → Domain wählen\n;   → DNS-Einträge → DKIM aktivieren\n;\n; Der TXT-Eintrag sieht ähnlich aus wie:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
-    "dkim-unverified": {
-      "msg": "Kein getesteter DKIM-Selektor gefunden. {0} Dies beweist nicht, dass DKIM fehlt; geben Sie einen Selektor an oder fügen Sie einen aus einem DKIM-Signature-Header ein."
-    },
     "implicit-mx": {
       "msg": "Kein MX-Eintrag veröffentlicht. SMTP fällt möglicherweise auf die A/AAAA-Adresse dieser Domain als impliziten MX zurück, was anfällig und meist unbeabsichtigt ist."
     },
@@ -452,9 +449,6 @@
     },
     "dnssec-bogus": {
       "msg": "DNSSEC-Validierung erscheint gefälscht (bogus): Validierung schlug fehl, obwohl die Antwort bei deaktivierter Prüfung verfügbar ist."
-    },
-    "dnssec-indeterminate": {
-      "msg": "DNSSEC-Status konnte nicht bestimmt werden, da die validierende Abfrage fehlgeschlagen ist. Er wurde nicht als unsigniert bewertet."
     },
     "mta-sts-invalid": {
       "msg": "Der MTA-STS-TXT-Record ist fehlerhaft oder es fehlt der erforderliche id=-Tag."
@@ -616,7 +610,6 @@
   "score": {
     "label": "Sicherheitsbewertung",
     "outOf": "{0} / {1}",
-    "range": "Bestätigter Punktebereich: {0}–{1} / 100; unbestimmte Prüfungen werden nicht als Fehler gewertet",
     "parkedNote": "Geparkte Domain — Bewertung erfolgt nur für SPF, DMARC, DNSSEC und CAA",
     "pillar": {
       "dmarc": "DMARC",

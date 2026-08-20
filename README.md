@@ -20,7 +20,8 @@ sent to Cloudflare and are subject to Cloudflare's privacy policy.
   and website-hosting checks.
 - Provider detection for DNS, inbound email, and common hosting platforms.
 - A weighted 0–100 rubric with A++ through F grades and per-pillar breakdowns.
-- Score and grade ranges when public DNS cannot support a conclusive result.
+- Controls that public DNS cannot confirm are scored as unconfigured, and every
+  one of them is named with the step that recovers the points.
 - Search, filters, sortable results, expandable evidence, CSV export, and a
   self-contained script-free HTML report.
 - Complete UI localization in English, German, Spanish, French, Italian,
@@ -87,13 +88,19 @@ The auditor preserves that uncertainty:
 
 - observed active controls receive their normal score;
 - confirmed missing or invalid controls score accordingly;
-- inconclusive DKIM or DNSSEC checks produce minimum and maximum scores and, when
-  necessary, a grade range such as `C–B`;
-- disabling DKIM reports **Not checked** instead of silently penalizing it;
+- a control this tool could not confirm scores zero, exactly like one that is
+  genuinely absent — the grade is always a single letter, never a range;
+- a grade resting on such a control is drawn with a dashed border and an
+  asterisk (`B*`), in its own tier colour, so a recoverable check is visible
+  while scanning the table rather than only inside an expanded row;
+- because that costs real points, every unconfirmed control is named in the
+  results together with the step that recovers them. Inconclusive DKIM points
+  at the **Additional DKIM selectors** field; indeterminate DNSSEC asks for a
+  re-run; disabling DKIM checking reports **Not checked** and says what it cost;
 - a check whose DNS lookup fails outright is treated the same way. A SERVFAIL or
   timeout on CAA, MTA-STS, TLS-RPT, BIMI, the SPF lookup count or website hosting
-  leaves that one check unknown and the rest of the audit intact, and the
-  affected checks are named in the results.
+  leaves the rest of the audit intact, and the affected checks are named so a
+  re-run can settle them.
 
 Only the core `NS`, `MX`, `TXT` and `_dmarc` lookups are fail-closed. Without
 them there is nothing to audit, so the domain is reported as an error rather

@@ -366,9 +366,6 @@
       "fix": "DKIM 設定在您的郵件提供者管理主控台中進行 — 他們會產生公鑰/私鑰對，並提供 TXT 紀錄供您在 DNS 中發佈。您不需要自己建立金鑰。",
       "fixCode": "; Google Workspace: 管理員 → 應用程式 → Google Workspace → Gmail\n;   → 驗證電子郵件 → 產生新紀錄 → 複製 TXT 紀錄\n;\n; Microsoft 365: 管理員 → 設定 → 網域 → 選擇網域\n;   → DNS 紀錄 → 啟用 DKIM\n;\n; TXT 紀錄的格式類似於：\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
-    "dkim-unverified": {
-      "msg": "未找到已測試的 DKIM 選擇器。{0} 這不能證明不存在 DKIM；請提供選擇器或貼上來自 DKIM-Signature 標頭的選擇器。"
-    },
     "implicit-mx": {
       "msg": "未發佈 MX 紀錄。SMTP 可能會退回至此網域的 A/AAAA 地址作為隱式 MX，這是脆弱且通常非預期的。"
     },
@@ -452,9 +449,6 @@
     },
     "dnssec-bogus": {
       "msg": "DNSSEC 驗證顯示為偽造 (bogus)：儘管停用檢查時答案可用，但驗證失敗。"
-    },
-    "dnssec-indeterminate": {
-      "msg": "由於驗證查詢失敗，無法確定 DNSSEC 狀態。未將其計為未簽章。"
     },
     "mta-sts-invalid": {
       "msg": "MTA-STS TXT 紀錄格式錯誤或缺少必要的 id= 標籤。"
@@ -616,7 +610,6 @@
   "score": {
     "label": "安全性得分",
     "outOf": "{0} / {1}",
-    "range": "已確認的分數範圍: {0}–{1} / 100；未知的檢查不會計為失敗",
     "parkedNote": "停用網域 — 僅針對 SPF、DMARC、DNSSEC 與 CAA 進行評分",
     "pillar": {
       "dmarc": "DMARC",
