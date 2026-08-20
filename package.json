@@ -1,8 +1,17 @@
 {
   "name": "dns-email-audit",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "Browser-based DNS and email security auditor — SPF, DKIM, DMARC, BIMI, MTA-STS, TLS-RPT, CAA and DNSSEC for up to 200 domains at once.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kwestic-tech/dns-email-audit.git"
+  },
+  "homepage": "https://dnsaudit.kwestic.com",
+  "bugs": {
+    "url": "https://github.com/kwestic-tech/dns-email-audit/issues"
+  },
+  "author": "Kwestic LLC (Kwestic Media and Technology)",
   "type": "module",
   "scripts": {
     "start": "node tools/serve.mjs",

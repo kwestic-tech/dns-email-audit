@@ -2,6 +2,8 @@
 
 Thanks for helping out. There are three common kinds of contribution, in rough order of how often they're needed.
 
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ---
 
 ## 1. Adding a translation

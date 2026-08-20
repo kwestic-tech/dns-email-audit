@@ -1,5 +1,8 @@
 # DNS & Email Security Auditor
 
+[![CI](https://github.com/kwestic-tech/dns-email-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/kwestic-tech/dns-email-audit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kwestic-tech/dns-email-audit/blob/main/LICENSE)
+
 A free, dependency-free browser application for auditing DNS, email
 authentication, mail-transport security, and related domain controls. Audit up
 to 200 domains at once and get evidence-backed findings, a confidence-aware

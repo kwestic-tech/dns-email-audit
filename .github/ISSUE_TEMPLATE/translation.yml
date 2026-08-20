@@ -1,0 +1,72 @@
+name: Translation
+description: Offer a new language, or correct wording in one that already ships.
+labels: ["translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Translations are the contribution this project most wants, and they
+        need no JavaScript — one JSON file and one line in a registry. See
+        [CONTRIBUTING.md](https://github.com/kwestic-tech/dns-email-audit/blob/main/CONTRIBUTING.md)
+        for the full process.
+
+        Currently shipped: `de`, `en`, `es`, `fr`, `it`, `ja`, `ko`, `zh-CN`, `zh-TW`.
+
+  - type: input
+    id: locale
+    attributes:
+      label: Language and locale code
+      description: >
+        Use the correct BCP 47 tag — a plain language code where the language is
+        written one way (`fr`, `de`, `ja`), region- or script-qualified where it
+        isn't (`zh-CN`, `pt-BR`).
+      placeholder: Brazilian Portuguese (pt-BR)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of change is this?
+      options:
+        - New translation for a language that doesn't ship yet
+        - Correction to an existing translation
+    validations:
+      required: true
+
+  - type: input
+    id: file
+    attributes:
+      label: Relevant locale file
+      description: Link to the file on GitHub, or the path you intend to add.
+      placeholder: locales/pt-BR.json
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: >
+        For a correction, name the keys and give the current and proposed
+        strings. For a new translation, say roughly how complete you expect it
+        to be — partial translations are welcome and fall back to English at
+        runtime.
+      placeholder: |
+        Key: results.spf.tooLenient
+        Current: "..."
+        Proposed: "..."
+        Why: "..."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting a PR
+      description: Not required to open this issue — just a reminder of what CI checks.
+      options:
+        - label: "`npm run check` passes (placeholder `{0}`/`{1}` counts match `en.json`)"
+          required: false
+        - label: I've kept the placeholders intact, even where word order differs from English
+          required: false

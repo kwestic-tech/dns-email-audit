@@ -1,0 +1,69 @@
+name: Bug report or protocol correction
+description: A check returns the wrong result, a provider isn't detected, or the app misbehaves.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Audits run entirely in your browser against
+        Cloudflare DNS over HTTPS, so a public domain name is usually enough
+        for a maintainer to reproduce what you saw.
+
+        **Please don't paste anything private.** Use a domain whose DNS is
+        already public, and never include credentials or internal hostnames.
+
+  - type: textarea
+    id: domains
+    attributes:
+      label: Domain(s) tested
+      description: One per line. Public domains only — these get audited to reproduce the issue.
+      placeholder: |
+        example.com
+        example.org
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: What the check should have reported, and why — cite the RFC section or provider documentation if this is a protocol correction.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: What the app reported instead. Expand the finding's evidence row and paste it here if relevant.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it reproduce?
+      options:
+        - On the live demo (dnsaudit.kwestic.com)
+        - Only on a local checkout
+        - Both
+        - Haven't checked the other one
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Firefox 141 on macOS 15
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors (optional)
+      description: Anything logged to the browser console while the audit ran.
+      render: text
+    validations:
+      required: false
