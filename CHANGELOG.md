@@ -14,6 +14,10 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] — 2026-08-20
+
 ### Added
 
 - **SPF authorized-range size audit.** Every `ip4:`/`ip6:` block in a record is
@@ -333,5 +337,6 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kwestic-tech/dns-email-audit/releases/tag/v0.1.0
