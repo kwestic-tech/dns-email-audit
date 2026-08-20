@@ -36,7 +36,7 @@
     "dkimComprehensive": "Comprehensive DKIM scan (max 5 domains)",
     "dkimComprehensiveTitle": "Uses all 1,677 vetted exact selectors from the catalog; limited to five domains per run",
     "www": "Detect website hosting",
-    "wildcard": "Detect wildcard TXT bugs",
+    "wildcard": "Detect wildcard TXT records",
     "dkimSelectors": "Additional DKIM selectors",
     "footer": "DNS via Cloudflare DoH · No data stored"
   },
@@ -98,8 +98,10 @@
     "dmarc": "DMARC Record",
     "dkim": "DKIM Selectors",
     "verifications": "Verifications (TXT)",
-    "wildcardTitle": "⚠ Wildcard TXT Bug",
-    "wildcardText": "A wildcard TXT record is returning data for ALL subdomains. This breaks DMARC and DKIM. Log into your DNS provider and delete the * TXT record.",
+    "wildcardApexTitle": "ℹ Wildcard TXT record",
+    "wildcardApexText": "A wildcard TXT record answers queries for undefined subdomains one label deep. It does not reach DKIM selector lookups on this domain, and every other check here matches a version prefix, so nothing is affected. Some domains publish this deliberately so mail from invented subdomains meets a real SPF policy.",
+    "wildcardDkimTitle": "⚠ Wildcard TXT reaches DKIM",
+    "wildcardDkimText": "A wildcard TXT record answers queries under _domainkey, so a DKIM selector that does not exist returns the wildcard value instead of nothing. Selectors you publish still resolve, but the absence of a selector cannot be confirmed, so DKIM coverage is reported as unknown rather than scored.",
     "status": "Status",
     "none": "None",
     "na": "N/A",
@@ -114,7 +116,7 @@
   "stat": {
     "domains": "Domains",
     "haveEmail": "Have Email",
-    "wildcardBug": "⚠ Wildcard Bug"
+    "wildcardDkim": "⚠ Wildcard over DKIM"
   },
   "badge": {
     "notRegistered": "Not registered / NXDOMAIN",
@@ -275,11 +277,17 @@
     "note": "Static report generated locally by the DNS & Email Security Auditor. Audit results were not sent to Kwestic or stored by the app; DNS query names were sent to Cloudflare's resolver."
   },
   "issue": {
-    "wildcard-txt": {
-      "msg": "Wildcard TXT (* TXT) found — breaks DMARC and DKIM lookups for all subdomains. Delete immediately.",
-      "what": "A wildcard TXT record (<code>* IN TXT \"...\"</code>) makes your DNS server return data for <em>any</em> subdomain query — even ones you haven't explicitly defined. DKIM validators look up selectors like <code>google._domainkey.yourdomain.com</code> and DMARC validators look up <code>_dmarc.yourdomain.com</code>. Instead of getting \"no record found,\" they get the wildcard result, which breaks authentication for every subdomain.",
-      "fix": "Log in to your DNS provider and delete any TXT record whose hostname is <code>*</code> (asterisk). There is almost never a legitimate reason to have a wildcard TXT record.",
-      "fixCode": "; Delete this record from your DNS zone:\n*    IN TXT    \"whatever value is here\""
+    "wildcard-txt-apex": {
+      "msg": "A wildcard TXT record answers undefined subdomains, but does not reach DKIM lookups. No effect on the checks here.",
+      "what": "A wildcard TXT record (<code>* IN TXT \"...\"</code>) makes your DNS server answer <em>any</em> subdomain query one label deep, even names you never defined. It was probed at that depth and again under <code>_domainkey</code>, where DKIM selectors live. It did not reach the deeper name, so DKIM discovery on this domain is unaffected. Every other check here matches a version prefix first — <code>v=DMARC1</code>, <code>v=STSv1</code>, <code>v=BIMI1</code>, <code>v=spf1</code> — so a wildcard string is discarded before it can be mistaken for a policy.",
+      "fix": "No action required. Some domains publish a wildcard SPF redirect on purpose, so that mail claiming to come from an invented subdomain meets a real policy instead of finding none. Keep it if that is the intent; remove it if it is left over from something else.",
+      "fixCode": "; Reproduce both probes yourself — the second is the one that matters:\ndig +short TXT \"*.yourdomain.com\"\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com"
+    },
+    "wildcard-txt-dkim": {
+      "msg": "A wildcard TXT record answers DKIM selector lookups, so missing selectors cannot be distinguished from published ones. DKIM is reported as unknown.",
+      "what": "A wildcard TXT record here answers queries under <code>_domainkey</code>, where DKIM selectors live. A verifier looking up a selector you never published gets the wildcard value instead of \"no record found\". Selectors you do publish still resolve correctly and still verify, so this does not break signed mail. What it breaks is the negative answer: neither a verifier nor this audit can tell an absent selector from a synthesized one, so DKIM coverage is scored as unknown rather than as present or missing.",
+      "fix": "Scope the wildcard so it cannot cover <code>_domainkey</code>, either by narrowing it to the subdomains that need it or by publishing an empty <code>_domainkey</code> node. Under RFC 4592 section 2.2.1 a wildcard does not synthesize below an existing node, though not every nameserver honours that — verify with the dig command below after changing anything.",
+      "fixCode": "; Confirm the wildcard reaches DKIM selector depth:\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com\n\n; After scoping the wildcard, the same query should return nothing."
     },
     "dns-loop": {
       "msg": "The www CNAME chain contains a cycle — the website name cannot resolve.",

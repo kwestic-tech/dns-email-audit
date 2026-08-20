@@ -28,8 +28,19 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   BIMI, TLS-RPT and the SPF lookup count now feed the existing grade-range
   mechanism when their lookup fails, so a resolver problem can no longer lower
   a grade by being counted as a missing record.
-- **A failed wildcard probe is no longer read as "no wildcard".** That answer
-  feeds an instant-F verdict, so an unverified probe stays explicitly unknown.
+- **A failed wildcard probe is no longer read as "no wildcard".** Each depth
+  stays explicitly false until its own probe answers.
+- **The wildcard TXT check no longer fails domains it cannot be harming.** The
+  probe asked one label deep, at `_wildcardtest99xyz.<domain>`, but inferred
+  harm to DKIM discovery, which happens two labels deep at
+  `<selector>._domainkey.<domain>`. It measured at a depth that does not
+  predict the harm. `apple.com` and `ibm.com` both scored F (0/100) on the
+  strength of an apex wildcard that never reaches DKIM — Apple's is a
+  deliberate anti-spoofing measure, `*.apple.com IN TXT "v=spf1
+  redirect=_spf.apple.com"`, so that mail from an invented subdomain meets a
+  real SPF policy instead of finding none. Two of the three F verdicts in a
+  15-domain survey were wrong. The probe now runs at both depths and the
+  verdict follows the one that was actually measured.
 - **No "you have not configured this" advice for checks that never ran.**
   The CAA, MTA-STS, TLS-RPT, BIMI and DNSSEC recommendations are suppressed
   when the corresponding lookup did not complete.
@@ -57,6 +68,23 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **A wildcard TXT record no longer scores an instant F.** Even where the
+  wildcard genuinely does cover `_domainkey` — `netflix.com` is the one case in
+  the survey where it does — F=0 was the wrong answer. A poisoned `_domainkey`
+  makes DKIM *absence* unverifiable; it leaves SPF, DMARC, DNSSEC and CAA
+  perfectly measurable, and selectors that are published still resolve and
+  still verify. DKIM now routes into the existing confidence machinery
+  (`sampled` confidence, `noteWildcard`, unknown pillar, grade range) and the
+  remaining pillars stand on their own, which is how every other uncertainty in
+  this project is already handled.
+- **The two wildcard depths are reported separately.** A wildcard only the apex
+  probe sees is an informational finding with no score effect
+  (`wildcard-txt-apex`); one that reaches `_domainkey` is a warning
+  (`wildcard-txt-dkim`). The old blanket `wildcard-txt` critical issue is gone.
+- **A value synthesized by a `_domainkey` wildcard is no longer accepted as a
+  DKIM key.** A wildcard whose value happens to parse as a key would otherwise
+  report DKIM present at every selector tried, which is worse than reporting
+  none. Such values are discarded by content.
 - **DMARC is now evaluated against RFC 9989 (DMARCbis, May 2026)** instead of
   RFC 7489 + RFC 9091, which it obsoletes. The parser accepts the complete
   RFC 9989 tag set — `v`, `p`, `sp`, `np`, `adkim`, `aspf`, `fo`, `rua`, `ruf`,

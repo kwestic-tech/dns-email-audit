@@ -98,8 +98,6 @@
     "dmarc": "Registro DMARC",
     "dkim": "Selectores DKIM",
     "verifications": "Verificaciones (TXT)",
-    "wildcardTitle": "⚠ Error de TXT Comodín",
-    "wildcardText": "Un registro TXT comodín está devolviendo datos para TODOS los subdominios. Esto rompe DMARC y DKIM. Inicia sesión en tu proveedor de DNS y elimina el registro TXT *.",
     "status": "Estado",
     "none": "Ninguno",
     "na": "N/A",
@@ -113,8 +111,7 @@
   },
   "stat": {
     "domains": "Dominios",
-    "haveEmail": "Tienen Correo",
-    "wildcardBug": "⚠ Error Comodín"
+    "haveEmail": "Tienen Correo"
   },
   "badge": {
     "notRegistered": "No registrado / NXDOMAIN",
@@ -273,12 +270,6 @@
     "note": "Informe estático generado localmente por el Auditor de Seguridad de DNS y Correo Electrónico. Los resultados de la auditoría no se enviaron a Kwestic ni se almacenaron en la aplicación; los nombres de consulta DNS se enviaron al resolutor de Cloudflare."
   },
   "issue": {
-    "wildcard-txt": {
-      "msg": "Registro TXT comodín (* TXT) encontrado — rompe las búsquedas DMARC y DKIM para todos los subdominios. Elimínalo inmediatamente.",
-      "what": "Un registro TXT comodín (<code>* IN TXT \"...\"</code>) hace que tu servidor DNS devuelva datos para <em>cualquier</em> consulta de subdominio, incluso para los que no has definido explícitamente. Los validadores DKIM buscan selectores como <code>google._domainkey.tudominio.com</code> y los validadores DMARC buscan <code>_dmarc.tudominio.com</code>. En lugar de recibir \"no se encontró el registro\", obtienen el resultado del comodín, lo que rompe la autenticación para cada subdominio.",
-      "fix": "Inicia sesión en tu proveedor de DNS y elimina cualquier registro TXT cuyo nombre de host sea <code>*</code> (asterisco). Casi nunca hay una razón legítima para tener un registro TXT comodín.",
-      "fixCode": "; Elimina este registro de tu zona DNS:\n* IN TXT    \"cualquier valor que esté aquí\""
-    },
     "dns-loop": {
       "msg": "La cadena CNAME de www contiene un bucle — el nombre del sitio web no se puede resolver.",
       "what": "El auditor siguió la cadena CNAME de <code>www</code> y encontró un nombre de host que ya había visitado. Esto crea un bucle de resolución DNS, por lo que los visitantes no pueden obtener una dirección A o AAAA final.",

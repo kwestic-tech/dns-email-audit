@@ -98,8 +98,6 @@
     "dmarc": "Record DMARC",
     "dkim": "Selettori DKIM",
     "verifications": "Verifiche (TXT)",
-    "wildcardTitle": "⚠ Bug Wildcard TXT",
-    "wildcardText": "Un record TXT wildcard risponde a TUTTI i sottodomini. Questo compromette DMARC e DKIM. Accedi al tuo pannello DNS ed elimina il record TXT *.",
     "status": "Stato",
     "none": "Nessuno",
     "na": "N/D",
@@ -113,8 +111,7 @@
   },
   "stat": {
     "domains": "Domini",
-    "haveEmail": "Con E-mail",
-    "wildcardBug": "⚠ Bug Wildcard"
+    "haveEmail": "Con E-mail"
   },
   "badge": {
     "notRegistered": "Non registrato / NXDOMAIN",
@@ -273,12 +270,6 @@
     "note": "Report statico generato localmente. I dati non sono stati inviati a Kwestic o salvati dall'app."
   },
   "issue": {
-    "wildcard-txt": {
-      "msg": "Trovato record TXT Wildcard (* TXT) — interrompe le verifiche DMARC e DKIM per i sottodomini. Eliminalo subito.",
-      "what": "Un record TXT wildcard (<code>* IN TXT \"...\"</code>) risponde a qualsiasi query di sottodominio, impedendo il corretto funzionamento di DKIM e DMARC.",
-      "fix": "Elimina dal DNS qualsiasi record TXT con nome host <code>*</code>.",
-      "fixCode": "* IN TXT    \"qualsiasi valore\""
-    },
     "dns-loop": {
       "msg": "La catena CNAME di www contiene un ciclo — impossibile risolvere il sito web.",
       "what": "Rilevato un loop infinito nella risoluzione CNAME del sottodominio www.",
