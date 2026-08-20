@@ -33,6 +33,7 @@
     '@implicit-mx': 'provider.implicitMx',
     '@no-web': 'provider.noWebPresence',
     '@cname-loop': 'provider.cnameLoop',
+    '@dns-error': 'provider.dnsError',
     '@cloudflare-proxied': 'provider.cloudflareProxied',
     '@porkbun-forwarding': 'provider.porkbunForwarding',
     '@dash': 'labels.dash',
@@ -117,7 +118,7 @@
 
   function issueMessage(issue) {
     var args = issue.args ? issue.args.slice() : [];
-    if (issue.noteKey) args = [t('dkim.' + issue.noteKey)];
+    if (issue.noteKey) args = [t.apply(null, ['dkim.' + issue.noteKey].concat(issue.noteArgs || []))];
     return t.apply(null, ['issue.' + issue.key + '.msg'].concat(args));
   }
 

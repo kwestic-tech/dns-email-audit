@@ -818,6 +818,123 @@ const deduped = await D.checkExternalReportAuth('example.com',
   ['exact-vendor.com', 'exact-vendor.com', 'EXACT-VENDOR.COM.'], {});
 eq('destinations deduplicated', deduped.length, 1);
 
+/* ── 24. Optional checks degrade instead of aborting the audit ───────── */
+section('24. Resilience: a failed optional lookup must not discard the audit');
+
+// The regression this guards: intercamsa.com resolved perfectly for NS, MX,
+// TXT and _dmarc, but Cloudflare returned a transient SERVFAIL for
+// www.intercamsa.com and for a nonexistent probe name. Both were optional
+// checks, both threw, and the throw destroyed a complete, valid audit.
+
+// A resolver that answers the core records but SERVFAILs everything else —
+// the shape of a broken or flaky subdomain.
+// Only the core lookups answer. Anything not listed here — CAA, www, the
+// wildcard probe, _mta-sts, _smtp._tls, default._bimi — returns SERVFAIL.
+const CORE = {
+  'flaky.example': {
+    NS: [{ type: 2, data: 'ns1.host.example.' }],
+    MX: [{ type: 15, data: '10 mail.host.example.' }],
+    TXT: [{ type: 16, data: '"v=spf1 -all"' }],
+    A: [{ type: 1, data: '203.0.113.10' }],
+    AAAA: [],
+  },
+  '_dmarc.flaky.example': {
+    TXT: [{ type: 16, data: '"v=DMARC1; p=reject; rua=mailto:d@flaky.example"' }],
+  },
+};
+sandbox.fetch = async url => {
+  const params = new URL(url).searchParams;
+  const name = params.get('name');
+  const typeName = { 1: 'A', 2: 'NS', 15: 'MX', 16: 'TXT', 28: 'AAAA', 5: 'CNAME', 257: 'CAA' }[params.get('type')];
+  const entry = CORE[name];
+  if (entry && entry[typeName] !== undefined) {
+    return { ok: true, json: async () => ({ Status: 0, AD: false, Answer: entry[typeName] }) };
+  }
+  return { ok: true, json: async () => ({ Status: 2 }) };
+};
+
+const resilient = await D.analyzeDomain('flaky.example', {
+  www: true, advanced: true, dkim: false, wildcard: true, retries: 0,
+});
+
+eq('audit completes despite SERVFAILs', !!resilient, true);
+eq('core records still parsed',         resilient.mx.length, 1);
+eq('SPF still analysed',                resilient.spfStatus.status, 'ok');
+eq('DMARC still analysed',              resilient.dmarcStatus.policy, 'reject');
+eq('a real score is produced',          Number.isFinite(resilient.score.pts), true);
+eq('grade is not F',                    resilient.score.grade !== 'F', true);
+
+// Failed optional checks must read as unknown, never as absent.
+eq('CAA marked unknown',      resilient.advanced.caa.unknown, true);
+eq('CAA not claimed missing', resilient.advanced.caa.found, false);
+eq('MTA-STS marked unknown',  resilient.advanced.mtaSts.unknown, true);
+eq('TLS-RPT marked unknown',  resilient.advanced.tlsRpt.unknown, true);
+eq('BIMI marked unknown',     resilient.advanced.bimi.unknown, true);
+eq('hosting reports a lookup failure', resilient.hosting, '@dns-error');
+
+// The wildcard probe is the dangerous one: a failed probe read as "no
+// wildcard" is merely wrong, but read as "wildcard present" is an instant F.
+eq('failed wildcard probe is not a wildcard bug', resilient.wildcardBug, false);
+
+// Unknown pillars are unscored, not zeroed, so the grade is a range.
+const pillarsBy = Object.fromEntries(resilient.score.breakdown.pillars.map(p => [p.key, p]));
+eq('CAA pillar is unknown',      pillarsBy.caa.unknown, true);
+eq('CAA pillar scores null',     pillarsBy.caa.pts, null);
+eq('MTA-STS pillar is unknown',  pillarsBy.mtaSts.unknown, true);
+eq('BIMI pillar is unknown',     pillarsBy.bimi.unknown, true);
+eq('TLS-RPT pillar is unknown',  pillarsBy.tlsRpt.unknown, true);
+eq('score is reported as a range', resilient.score.uncertain, true);
+eq('max possible exceeds score',   resilient.score.maxPossible > resilient.score.pts, true);
+
+// The gap is stated rather than silently omitted.
+const resilientKeys = resilient.issues.map(i => i.key);
+eq('unverified checks are named', resilientKeys.includes('checks-unverified'), true);
+const unverifiedIssue = resilient.issues.find(i => i.key === 'checks-unverified');
+eq('the named checks are listed', unverifiedIssue.args[0].includes('CAA'), true);
+
+// No "you have not configured this" advice for a check that never completed.
+const resilientTips = resilient.suggestions.map(s => s.key);
+eq('no CAA advice when unverified',     resilientTips.includes('caa'), false);
+eq('no MTA-STS advice when unverified', resilientTips.includes('mta-sts'), false);
+eq('no TLS-RPT advice when unverified', resilientTips.includes('tls-rpt'), false);
+
+// Advanced completion excludes unverified checks from its denominator.
+eq('unverified checks leave the denominator', resilient.advScore.total < 5, true);
+
+// The DKIM note interpolates two counts. Without them the UI renders the raw
+// "{0}"/"{1}" placeholders, and a failed lookup makes this note far more common.
+const dkimNoteIssue = D.buildIssues({
+  emailProvider: 'Google Workspace',
+  spfStatus: spf('ok'),
+  dkimStatus: { found: false, confidence: 'sampled', note: 'noteNotFoundWithErrors', testedSelectors: new Array(17), failedSelectors: new Array(5) },
+  dmarcStatus: dm('v=DMARC1; p=reject; rua=mailto:a@b.com'),
+  wildcardBug: false, hosting: 'Custom', advanced: full,
+}).find(i => i.noteKey);
+eq('DKIM note carries its counts', dkimNoteIssue.noteArgs, [12, 5]);
+
+// A total resolver failure is still a hard error: with no NS there is nothing
+// to audit, and inventing a result would be worse than reporting the failure.
+sandbox.fetch = async () => ({ ok: true, json: async () => ({ Status: 2 }) });
+let coreFailed = false;
+try { await D.analyzeDomain('dead.example', { www: true, advanced: true, retries: 0 }); }
+catch { coreFailed = true; }
+eq('core NS failure still aborts', coreFailed, true);
+
+// optionalCheck itself: swallow failures, but never swallow cancellation.
+eq('fallback value returned',
+  await D.optionalCheck(async () => { throw new Error('servfail'); }, 'fallback'), 'fallback');
+eq('fallback may be a function',
+  await D.optionalCheck(async () => { throw new Error('boom'); }, () => 'computed'), 'computed');
+eq('success passes through',
+  await D.optionalCheck(async () => 'value', 'fallback'), 'value');
+let abortPropagated = false;
+try {
+  await D.optionalCheck(async () => {
+    const e = new Error('cancelled'); e.name = 'AbortError'; throw e;
+  }, 'fallback');
+} catch { abortPropagated = true; }
+eq('cancellation is not swallowed', abortPropagated, true);
+
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);
