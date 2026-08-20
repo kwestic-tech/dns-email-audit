@@ -1,0 +1,839 @@
+{
+  "meta": {
+    "code": "pl",
+    "name": "Polish",
+    "nativeName": "Polski",
+    "dir": "ltr"
+  },
+  "doc": {
+    "title": "Audyt bezpieczeństwa DNS i poczty — bezpłatne narzędzie do sprawdzania SPF, DKIM, DMARC i DNSSEC",
+    "description": "Bezpłatny audyt bezpieczeństwa DNS i poczty działający w przeglądarce. Natychmiast sprawdź SPF, DKIM, DMARC, BIMI, MTA-STS, CAA i DNSSEC dla maksymalnie 200 domen naraz. Bez rejestracji, bez przechowywania danych — wszystko działa w Twojej przeglądarce."
+  },
+  "topbar": {
+    "title": "Audyt DNS i poczty",
+    "subtitle": "· bezpłatnie · bez rejestracji · bez wysyłania danych do Kwestic",
+    "langTitle": "Język"
+  },
+  "btn": {
+    "howItWorks": "📖 Jak to działa",
+    "exportCsv": "⬇ Eksportuj CSV",
+    "exportHtml": "⬇ Eksportuj raport",
+    "runAudit": "🔎 Uruchom audyt",
+    "auditRunning": "Trwa audyt…",
+    "cancelAudit": "Anuluj audyt",
+    "uploadFile": "📄 Prześlij plik .txt",
+    "loadExamples": "Wczytaj przykłady",
+    "clearResults": "🗑 Wyczyść wyniki",
+    "learnMore": "Dowiedz się więcej →"
+  },
+  "input": {
+    "heading": "Podaj domeny do audytu",
+    "desc": "Jedna domena w wierszu albo prześlij plik .txt. Maksymalnie 200 domen naraz.",
+    "placeholder": "example.com\nmycompany.org\nanother-domain.net"
+  },
+  "opt": {
+    "dkim": "Sprawdź selektory DKIM",
+    "dkimComprehensive": "Wyczerpujące skanowanie DKIM (maks. 5 domen)",
+    "dkimComprehensiveTitle": "Używa wszystkich 1677 zweryfikowanych dokładnych selektorów z katalogu; ograniczone do pięciu domen na przebieg",
+    "www": "Wykrywaj hosting witryny",
+    "wildcard": "Wykrywaj wieloznaczne rekordy TXT",
+    "dkimSelectors": "Dodatkowe selektory DKIM",
+    "footer": "DNS przez Cloudflare DoH · Bez przechowywania danych · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Prywatność</a>"
+  },
+  "help": {
+    "title": "Jak to działa:",
+    "body": "Działa w Twojej przeglądarce poprzez <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">API DNS-over-HTTPS firmy Cloudflare</a>. Żadne dane nie są wysyłane do Kwestic ani przechowywane przez tę aplikację; nazwy zapytań DNS trafiają bezpośrednio do Cloudflare i podlegają jej polityce prywatności. Sprawdzane są: NS, MX, SPF, selektory DKIM dobrane do dostawcy lub wyczerpujące, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC oraz głębokość zapytań SPF. Nie są ustawiane żadne pliki cookie; jedyne, co zapisujemy w przeglądarce, to preferencja języka, która nigdy nie opuszcza Twojego urządzenia i nie wygasa samoczynnie — szczegóły znajdziesz w sekcji <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Prywatność</a>."
+  },
+  "netbanner": {
+    "title": "⚠️ Dostęp do sieci zablokowany — zapytania DNS nie mogą stąd dotrzeć do internetu",
+    "body": "Ta aplikacja korzysta z API DNS-over-HTTPS pod adresem <code>cloudflare-dns.com</code>, które jest blokowane, gdy strona działa wewnątrz ramki iframe w piaskownicy (np. we wbudowanym panelu podglądu asystenta AI). Aby skorzystać z audytora, udostępnij katalog przez HTTP albo umieść go na dowolnym bezpłatnym hostingu statycznym:<br><br>• <strong>Najszybciej:</strong> przeciągnij folder projektu na <a href=\"https://app.netlify.com/drop\" target=\"_blank\" rel=\"noopener\">app.netlify.com/drop</a> → działający adres w ok. 60 sekund.<br>• <strong>Własna domena:</strong> wdróż bezpłatnie na <a href=\"https://pages.cloudflare.com\" target=\"_blank\" rel=\"noopener\">Cloudflare Pages</a> albo <a href=\"https://pages.github.com\" target=\"_blank\" rel=\"noopener\">GitHub Pages</a>.<br>• <strong>Lokalnie:</strong> uruchom <code>npx serve</code> (albo <code>python3 -m http.server</code>) w folderze projektu."
+  },
+  "progress": {
+    "heading": "Odpytywanie rekordów DNS…",
+    "querying": "Odpytywanie {0}…",
+    "error": "Błąd przy {0}: {1}",
+    "cancelled": "Anulowane przez użytkownika",
+    "cancelledDomain": "Anulowano {0}"
+  },
+  "search": {
+    "placeholder": "🔎 Filtruj domeny…"
+  },
+  "th": {
+    "domain": "Domena",
+    "grade": "Ocena",
+    "dns": "Dostawca DNS",
+    "email": "Dostawca poczty",
+    "spf": "SPF",
+    "dkim": "DKIM",
+    "dmarc": "DMARC",
+    "advanced": "Zaawansowane",
+    "hosting": "Hosting"
+  },
+  "filter": {
+    "all": "Wszystkie domeny",
+    "warn": "⚠️ Z ostrzeżeniami",
+    "crit": "🔴 Z problemami",
+    "noEmail": "Brak poczty",
+    "noDmarc": "Brak DMARC",
+    "noDkim": "Brak DKIM",
+    "noSpf": "Brak SPF",
+    "hasBimi": "Ma BIMI",
+    "noCaa": "Brak CAA",
+    "noDnssec": "Brak DNSSEC"
+  },
+  "empty": {
+    "text": "Żadna domena nie pasuje do filtra."
+  },
+  "footer": {
+    "text": "DNS-over-HTTPS przez <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; Żadne dane nie są wysyłane do Kwestic ani przechowywane przez tę aplikację &bull; Nazwy zapytań są wysyłane do Cloudflare &bull; Bezpłatne w użyciu i do samodzielnego hostowania &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Prywatność</a> &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/SECURITY.md\" target=\"_blank\" rel=\"noopener\">Bezpieczeństwo</a>"
+  },
+  "labels": {
+    "issues": "Problemy",
+    "suggestions": "💡 Zalecenia",
+    "advanced": "Zabezpieczenia zaawansowane",
+    "nameservers": "Serwery nazw",
+    "mx": "Rekordy MX",
+    "spf": "Rekord SPF",
+    "spfLookups": "Zapytania DNS",
+    "dmarc": "Rekord DMARC",
+    "dkim": "Selektory DKIM",
+    "verifications": "Weryfikacje (TXT)",
+    "wildcardApexTitle": "ℹ Wieloznaczny rekord TXT",
+    "wildcardApexText": "Wieloznaczny rekord TXT odpowiada na zapytania o niezdefiniowane subdomeny o jedną etykietę w głąb. Nie sięga zapytań o selektory DKIM w tej domenie, a każde inne sprawdzenie w tym audycie dopasowuje przedrostek wersji, więc nic nie jest zagrożone. Niektóre domeny publikują to celowo, aby poczta z wymyślonych subdomen trafiała na prawdziwą politykę SPF.",
+    "wildcardDkimTitle": "⚠ Wieloznaczny TXT sięga DKIM",
+    "wildcardDkimText": "Wieloznaczny rekord TXT odpowiada na zapytania pod _domainkey, więc nieistniejący selektor DKIM zwraca wartość wieloznaczną zamiast niczego. Selektory, które publikujesz, nadal się rozwiązują, ale nie da się potwierdzić braku selektora, więc pokrycie DKIM jest raportowane jako nieznane, a nie punktowane.",
+    "status": "Status",
+    "none": "Brak",
+    "na": "Nd.",
+    "dash": "—"
+  },
+  "showme": {
+    "open": "Pokaż ▾",
+    "close": "Pokaż ▴",
+    "whatItIs": "Co to jest",
+    "whatItNeeds": "Jak powinno wyglądać"
+  },
+  "stat": {
+    "domains": "Domeny",
+    "haveEmail": "Mają pocztę",
+    "wildcardDkim": "⚠ Symbol wieloznaczny nad DKIM"
+  },
+  "badge": {
+    "notRegistered": "Niezarejestrowana / NXDOMAIN",
+    "noEmail": "✗ Brak poczty",
+    "noDkim": "✗ Brak",
+    "dkimUnverified": "? Nie znaleziono klucza domeny w testowanych selektorach",
+    "dkimUncommon": "⚠ Nietypowy ({0})",
+    "notChecked": "Nie sprawdzono",
+    "auditError": "Audyt nierozstrzygnięty",
+    "cancelled": "Anulowano"
+  },
+  "provider": {
+    "unknown": "Nieznany",
+    "custom": "Własny",
+    "customUnknown": "Własny/Nieznany",
+    "selfHosted": "Hosting własny",
+    "none": "Brak",
+    "nullMx": "Pusty MX (poczta wyłączona)",
+    "implicitMx": "Niejawny MX (brak rekordu MX)",
+    "noWebPresence": "Brak obecności w sieci",
+    "cnameLoop": "⚠ Pętla CNAME",
+    "cloudflareProxied": "Cloudflare (przez proxy)",
+    "porkbunForwarding": "Przekierowanie Porkbun",
+    "dnsError": "⚠ Zapytanie nie powiodło się"
+  },
+  "spf": {
+    "missing": "✗ Brak",
+    "issues": "⚠ Problemy",
+    "hardfail": "✓ -all",
+    "softfail": "~ ~all",
+    "present": "✓ Obecny",
+    "meterOver": "{0}/10 🔴 PONAD LIMIT",
+    "meterNear": "{0}/10 ⚠ Blisko limitu",
+    "meterOk": "{0}/10 ✓",
+    "meterSuffix": "zapytań DNS",
+    "permerror": "🔴 Permerror"
+  },
+  "dmarc": {
+    "missing": "✗ Brak",
+    "reject": "✓ reject",
+    "quarantine": "✓ quarantine",
+    "none": "⚠ none (monitorowanie)",
+    "set": "✓ Ustawiono",
+    "invalid": "⚠ Nieprawidłowe p=",
+    "pctSuffix": "({0}%)",
+    "permerror": "🔴 Wiele rekordów",
+    "inheritedFrom": "Odziedziczone z {0}",
+    "testMode": "⚠ {0} (tryb testowy, nie stosowane)"
+  },
+  "dkim": {
+    "uncommon": "Nietypowy ({0})",
+    "noDomainKeyFound": "Nie znaleziono klucza domeny ({0})",
+    "txtRecord": "Rekord TXT",
+    "cnameTarget": "Cel rekordu CNAME",
+    "noteWildcard": "Błąd rekordu TXT z symbolem wieloznacznym może zakłócać wynik",
+    "noteNotFound": "Nie znaleziono aktywnego klucza DKIM wśród {0} testowanych selektorów.",
+    "noteNotFoundWithErrors": "Nie znaleziono aktywnego klucza DKIM wśród {0} ukończonych sprawdzeń selektorów; {1} zapytań DNS zakończyło się niepowodzeniem."
+  },
+  "adv": {
+    "configured": "✓ Skonfigurowano",
+    "unverified": "TXT prawidłowy; polityka niezweryfikowana",
+    "notConfigured": "Nie skonfigurowano",
+    "tip": {
+      "bimiOn": "Rekord: {0}",
+      "bimiOff": "Nie skonfigurowano — wyświetlaj swoje logo w Gmailu i Apple Mail",
+      "mtaStsOn": "Skonfigurowano — TLS wymuszony przy dostarczaniu poczty przychodzącej",
+      "mtaStsUnverified": "Rekord TXT jest prawidłowy, ale ten audyt działający wyłącznie w przeglądarce nie weryfikuje pliku polityki HTTPS",
+      "mtaStsOff": "Nie skonfigurowano — opublikuj rekord TXT w _mta-sts, aby wymusić TLS na poczcie przychodzącej",
+      "tlsRptOn": "Skonfigurowano — raporty o błędach TLS włączone",
+      "tlsRptOff": "Nie skonfigurowano — uzupełnienie MTA-STS; opublikuj rekord TXT w _smtp._tls",
+      "caaOn": "Znaleziono w {0}: {1}",
+      "caaOff": "Nie znaleziono — dodaj rekordy CAA, aby ograniczyć, które urzędy certyfikacji mogą wydawać certyfikaty dla tej domeny",
+      "dnssecOn": "Flaga AD ustawiona — odpowiedzi DNS są weryfikowane kryptograficznie",
+      "dnssecOff": "Nie wykryto — włącz DNSSEC u swojego dostawcy DNS, aby zapobiec zatruwaniu pamięci podręcznej",
+      "bimiDup": "Wiele rekordów — BIMI zignorowane, logo nie zostanie wyświetlone",
+      "mtaStsDup": "Wiele rekordów — nadawcy traktują tę domenę tak, jakby nie miała polityki MTA-STS",
+      "tlsRptDup": "Wiele rekordów — nadawcy traktują tę domenę tak, jakby nie obsługiwała TLS-RPT"
+    },
+    "duplicated": "⚠ Wiele rekordów"
+  },
+  "rows": {
+    "count": {
+      "one": "{0} domena",
+      "other": "{0} domeny",
+      "few": "{0} domeny",
+      "many": "{0} domen"
+    },
+    "showing": "Wyświetlane {0} z {1}",
+    "critical": {
+      "one": "{0} krytyczny",
+      "other": "{0} krytycznych",
+      "few": "{0} krytyczne",
+      "many": "{0} krytycznych"
+    },
+    "warning": {
+      "one": "{0} ostrzeżenie",
+      "other": "{0} ostrzeżenia",
+      "few": "{0} ostrzeżenia",
+      "many": "{0} ostrzeżeń"
+    },
+    "suggestion": {
+      "one": "{0} sugestia",
+      "other": "{0} sugestii",
+      "few": "{0} sugestie",
+      "many": "{0} sugestii"
+    }
+  },
+  "toast": {
+    "noDomains": "Wklej co najmniej jedną nazwę domeny.",
+    "tooMany": "Maksymalnie 200 domen na przebieg.",
+    "tooManyComprehensiveDkim": "Wyczerpujące skanowanie DKIM jest ograniczone do {0} domen na przebieg.",
+    "csvExported": "Wyeksportowano CSV",
+    "htmlExported": "Wyeksportowano raport HTML",
+    "htmlExportFailed": "Nie udało się zbudować samodzielnego raportu — udostępnij aplikację przez HTTP i spróbuj ponownie.",
+    "fileLoaded": "Wczytano {0}",
+    "fileTooLarge": "Plik jest za duży. Maksymalny rozmiar przesyłanego pliku to 1 MB.",
+    "examplesLoaded": "Wczytano przykłady — kliknij Uruchom audyt",
+    "auditDone": {
+      "one": "✅ Audyt zakończony — przeanalizowano {0} domenę",
+      "other": "✅ Audyt zakończony — przeanalizowano {0} domeny",
+      "few": "✅ Audyt zakończony — przeanalizowano {0} domeny",
+      "many": "✅ Audyt zakończony — przeanalizowano {0} domen"
+    },
+    "auditCancelled": "Audyt anulowany",
+    "langChanged": "Zmieniono język",
+    "langFailed": "Nie udało się wczytać tego języka — pozostajemy przy angielskim."
+  },
+  "csv": {
+    "unknown": "Nieznany",
+    "txtOnly": "TXT prawidłowy; polityka HTTPS niezweryfikowana",
+    "headers": [
+      "Domena",
+      "Zarejestrowana",
+      "Ocena",
+      "Punktacja",
+      "Dostawca DNS",
+      "Dostawca poczty",
+      "Status SPF",
+      "Rekord SPF",
+      "Znaleziono DKIM",
+      "Selektory DKIM",
+      "Status DMARC",
+      "Polityka DMARC",
+      "Tryb testowy DMARC (t=)",
+      "DMARC sp",
+      "DMARC np",
+      "DMARC pct",
+      "DMARC adkim",
+      "DMARC aspf",
+      "DMARC RUA",
+      "DMARC RUF",
+      "BIMI",
+      "MTA-STS",
+      "TLS-RPT",
+      "CAA",
+      "DNSSEC",
+      "Zapytania SPF",
+      "Problemy",
+      "Sugestie"
+    ],
+    "yes": "Tak",
+    "no": "Nie",
+    "yesAt": "Tak ({0})"
+  },
+  "report": {
+    "title": "Raport z audytu bezpieczeństwa DNS i poczty",
+    "generated": "Wygenerowano {0} · {1} domen",
+    "note": "Statyczny raport wygenerowany lokalnie przez Audyt bezpieczeństwa DNS i poczty. Wyniki audytu nie zostały wysłane do Kwestic ani zapisane przez aplikację; nazwy zapytań DNS trafiły do resolwera Cloudflare."
+  },
+  "issue": {
+    "wildcard-txt-apex": {
+      "msg": "Wieloznaczny rekord TXT odpowiada na niezdefiniowane subdomeny, ale nie sięga zapytań DKIM. Bez wpływu na sprawdzenia w tym audycie.",
+      "what": "Wieloznaczny rekord TXT (<code>* IN TXT \"...\"</code>) sprawia, że Twój serwer DNS odpowiada na <em>dowolne</em> zapytanie o subdomenę o jedną etykietę w głąb, nawet o nazwy, których nigdy nie zdefiniowałeś. Sprawdziliśmy go na tej głębokości i ponownie pod <code>_domainkey</code>, gdzie mieszkają selektory DKIM. Nie sięgnął głębszej nazwy, więc wyszukiwanie DKIM w tej domenie pozostaje nienaruszone. Każde inne sprawdzenie w tym audycie dopasowuje najpierw przedrostek wersji — <code>v=DMARC1</code>, <code>v=STSv1</code>, <code>v=BIMI1</code>, <code>v=spf1</code> — więc wieloznaczny ciąg zostaje odrzucony, zanim mógłby zostać wzięty za politykę.",
+      "fix": "Nie trzeba nic robić. Niektóre domeny celowo publikują wieloznaczne przekierowanie SPF, aby poczta podająca się za pochodzącą z wymyślonej subdomeny trafiała na prawdziwą politykę zamiast na jej brak. Zachowaj je, jeśli taki był zamiar; usuń, jeśli został po czymś innym.",
+      "fixCode": "; Odtwórz obie sondy samodzielnie — liczy się ta druga:\ndig +short TXT \"*.yourdomain.com\"\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com"
+    },
+    "wildcard-txt-dkim": {
+      "msg": "Wieloznaczny rekord TXT odpowiada na zapytania o selektory DKIM, więc brakujących selektorów nie da się odróżnić od opublikowanych. DKIM jest raportowany jako nieznany.",
+      "what": "Wieloznaczny rekord TXT odpowiada tutaj na zapytania pod <code>_domainkey</code>, gdzie mieszkają selektory DKIM. Weryfikator pytający o selektor, którego nigdy nie opublikowałeś, dostaje wartość wieloznaczną zamiast „nie znaleziono rekordu”. Selektory, które faktycznie publikujesz, nadal rozwiązują się poprawnie i nadal przechodzą weryfikację, więc podpisana poczta nie jest zepsuta. Zepsuta jest odpowiedź przecząca: ani weryfikator, ani ten audyt nie odróżni nieobecnego selektora od wygenerowanego, więc pokrycie DKIM jest punktowane jako nieznane, a nie jako obecne albo brakujące.",
+      "fix": "Zawęź symbol wieloznaczny tak, aby nie mógł obejmować <code>_domainkey</code> — albo ograniczając go do subdomen, które go potrzebują, albo publikując pusty węzeł <code>_domainkey</code>. Zgodnie z RFC 4592 sekcja 2.2.1 symbol wieloznaczny nie tworzy nazw poniżej istniejącego węzła, choć nie każdy serwer nazw tego przestrzega — po każdej zmianie sprawdź poniższym poleceniem dig.",
+      "fixCode": "; Potwierdź, że symbol wieloznaczny sięga głębokości selektorów DKIM:\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com\n\n; Po zawężeniu to samo zapytanie nie powinno zwracać niczego."
+    },
+    "dns-loop": {
+      "msg": "Łańcuch CNAME dla www zawiera cykl — nazwa witryny nie może zostać rozwiązana.",
+      "what": "Audytor podążył łańcuchem CNAME dla <code>www</code> i natrafił na nazwę hosta, którą już wcześniej odwiedził. Tworzy to cykl w rozwiązywaniu DNS, więc odwiedzający nie mogą uzyskać ostatecznego adresu A ani AAAA.",
+      "fix": "Zastąp zapętlony rekord CNAME rekordem A wskazującym bezpośrednio na adres IP Twojego serwera albo rekordem CNAME wskazującym na nazwę domeny Twojego dostawcy hostingu.",
+      "fixCode": "; Opcja 1 — wskaż bezpośrednio adres IP serwera:\nwww    A      203.0.113.10\n\n; Opcja 2 — wskaż domenę dostawcy hostingu:\nwww    CNAME  yoursite.netlify.app"
+    },
+    "no-mx": {
+      "msg": "Brak rekordów MX. Dodaj pusty MX (0 .) + SPF -all + DMARC p=reject, aby zablokować podszywanie się pod zaparkowaną domenę.",
+      "what": "Ta domena nie ma rekordów MX, czyli żaden serwer pocztowy nie jest skonfigurowany do odbierania dla niej poczty. Zaparkowane lub nieużywane domeny bez konfiguracji poczty to główny cel podszywania się — atakujący wysyłają wiadomości phishingowe „z” Twojej domeny, bo w DNS nie ma nic, co by ich powstrzymało.",
+      "fix": "Dla domeny, która nigdy nie będzie wysyłać ani odbierać poczty, opublikuj pusty rekord MX (który wprost mówi „tu nie przyjmujemy poczty”) oraz blokującą politykę SPF i DMARC.",
+      "fixCode": "; Pusty MX — informuje nadawców, że ta domena nie przyjmuje poczty:\n@    MX     0 .\n\n; SPF — blokuje wszystkich nadawców:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — odrzuca każdą sfałszowaną wiadomość:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
+    },
+    "spf-multiple-records": {
+      "msg": "Znaleziono wiele rekordów SPF — SPF zawodzi trwale (permerror) dla całej poczty z tej domeny.",
+      "what": "RFC 7208 §4.5 dopuszcza dokładnie jeden rekord TXT <code>v=spf1</code> na domenę. Gdy odbiorca znajdzie dwa, zwraca <code>permerror</code> i przerywa — nie scala ich ani nie wybiera surowszego. W praktyce jest to gorsze niż brak SPF: rekord wygląda poprawnie w panelu DNS, ale każda wiadomość z Twojej domeny nie przechodzi uwierzytelnienia SPF. Zwykle dzieje się tak, gdy wdrażana jest druga usługa pocztowa, która dodaje własny rekord zamiast edytować istniejący.",
+      "fix": "Połącz rekordy w jeden. Weź wszystkie mechanizmy <code>include:</code>, <code>ip4:</code> i <code>ip6:</code> ze wszystkich rekordów, umieść je w pojedynczym rekordzie <code>v=spf1</code> i usuń pozostałe. Podczas łączenia pilnuj limitu 10 zapytań — scalanie rekordów to częsty sposób na jego przekroczenie.",
+      "fixCode": "; Przed — dwa rekordy, SPF zawodzi dla wszystkiego:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Po — jeden rekord z obydwoma nadawcami:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "dmarc-multiple-records": {
+      "msg": "Znaleziono wiele rekordów DMARC w _dmarc — DMARC nie jest w ogóle stosowane, a pod domenę można się podszyć.",
+      "what": "RFC 7489 §6.6.3 wymaga dokładnie jednego rekordu DMARC. Odbiorcy odrzucają wszystko bez znacznika <code>v=DMARC1</code>, a jeśli zostanie więcej niż jeden, wyszukiwanie polityki zostaje przerwane i DMARC nie jest stosowane do wiadomości. Twoja polityka — choćby najsurowsza — jest całkowicie ignorowana, więc pod domenę można się podszyć, choć wygląda na chronioną. Przestaniesz też otrzymywać raporty zbiorcze, co odbiera sygnał, który powiedziałby Ci, że coś jest nie tak.",
+      "fix": "Usuń wszystkie rekordy TXT w <code>_dmarc</code> poza jednym. Jeśli duplikaty wskazują różne adresy raportowania, zostaw jeden rekord i wypisz oba adresy w pojedynczym znaczniku <code>rua=</code>, rozdzielone przecinkiem.",
+      "fixCode": "; Przed — dwa rekordy w _dmarc, DMARC zignorowane:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Po — jeden rekord, oba adresy raportowania:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+    },
+    "mta-sts-multiple-records": {
+      "msg": "Znaleziono wiele rekordów MTA-STS — nadawcy traktują Twoją domenę tak, jakby nie miała polityki MTA-STS, więc TLS na poczcie przychodzącej nie jest wymuszany.",
+      "what": "RFC 8461 §3.1 mówi wprost: rekordy niezaczynające się od <code>v=STSv1;</code> są odrzucane, a jeśli liczba pozostałych nie wynosi dokładnie jeden, nadawcy <strong>MUSZĄ</strong> przyjąć, że domena nie ma polityki MTA-STS. Twój plik polityki nigdy nie zostaje pobrany. Poczta przychodząca wraca do oportunistycznego STARTTLS, który atakujący na trasie sieciowej może usunąć — czyli dokładnie do ataku obniżenia zabezpieczeń, któremu MTA-STS ma zapobiegać. Zabezpieczenie jest nieaktywne, choć wygląda na skonfigurowane.",
+      "fix": "Usuń nadmiarowy rekord TXT w <code>_mta-sts</code>, tak aby został dokładnie jeden. Następnie zwiększ wartość <code>id=</code>, aby serwery wysyłające odświeżyły zapisaną politykę, zamiast czekać na wygaśnięcie starego TTL.",
+      "fixCode": "; Przed — dwa rekordy, MTA-STS całkowicie zignorowane:\n_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\"\n_mta-sts    TXT    \"v=STSv1; id=20240615000000Z;\"\n\n; Po — jeden rekord, id zwiększone, aby wymusić odświeżenie:\n_mta-sts    TXT    \"v=STSv1; id=20260817000000Z;\""
+    },
+    "tls-rpt-multiple-records": {
+      "msg": "Znaleziono wiele rekordów TLS-RPT — nadawcy traktują Twoją domenę tak, jakby nie obsługiwała TLS-RPT, więc żadne raporty nie są wysyłane.",
+      "what": "RFC 8460 §3 stwierdza, że jeśli liczba rekordów <code>v=TLSRPTv1;</code> nie wynosi dokładnie jeden, nadawcy <strong>MUSZĄ</strong> przyjąć, że domena nie obsługuje TLS-RPT. Żadne raporty nie są generowane dla żadnego adresu, w tym dla adresu z pierwszego rekordu. Ma to największe znaczenie w połączeniu z MTA-STS: to właśnie z TLS-RPT dowiadujesz się, że polityka jest źle skonfigurowana albo że wygasł certyfikat, więc zepsuty rekord sprawia, że takie awarie przebiegają bezgłośnie.",
+      "fix": "Usuń nadmiarowy rekord w <code>_smtp._tls</code>. Jeśli potrzebujesz raportów na więcej niż jeden adres, wymień je w jednym znaczniku <code>rua=</code>, rozdzielone przecinkami.",
+      "fixCode": "; Przed — dwa rekordy, żadne raporty nie są wysyłane:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com;\"\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:soc@vendor.example;\"\n\n; Po — jeden rekord, oba adresy:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com,mailto:soc@vendor.example;\""
+    },
+    "bimi-multiple-records": {
+      "msg": "Znaleziono wiele rekordów BIMI — przetwarzanie BIMI zostaje przerwane, więc logo nie zostanie wyświetlone.",
+      "what": "Specyfikacja BIMI (Assertion Record Discovery) odzwierciedla DMARC: rekordy bez znacznika <code>v=BIMI1</code> są odrzucane, a jeśli w pozostałym zbiorze jest więcej niż jeden rekord, wyszukiwanie zostaje przerwane i BIMI nie jest przetwarzane. Twoje logo nie pojawi się w Gmailu, Apple Mail ani Yahoo, a ponieważ awarie BIMI przebiegają bezgłośnie, nic nie wskaże przyczyny — także wtedy, gdy zapłaciłeś za certyfikat Verified Mark Certificate.",
+      "fix": "Usuń nadmiarowy rekord TXT w <code>default._bimi</code>, tak aby został dokładnie jeden.",
+      "fixCode": "; Przed — dwa rekordy, BIMI nigdy nie zostaje ocenione:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\"\ndefault._bimi    TXT    \"v=BIMI1; l=https://cdn.example/old-logo.svg;\"\n\n; Po — jeden rekord:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg; a=https://yourdomain.com/vmc.pem;\""
+    },
+    "dkim-multiple-records": {
+      "msg": "Wiele rekordów klucza DKIM na selektorze/selektorach: {0} — weryfikacja podpisu jest niezdefiniowana i może się nie powieść.",
+      "what": "RFC 6376 §3.6.2.2 wymaga, aby rekordy klucza były unikalne dla danego selektora: „jeśli w zbiorze RRset znajduje się wiele rekordów, wyniki są niezdefiniowane”. Poszczególne weryfikatory rozstrzygają to inaczej — jedne biorą pierwszy rekord, inne ostatni, jeszcze inne od razu zgłaszają błąd. W efekcie pojawiają się nieregularne awarie DKIM, różne u różnych odbiorców i uciążliwe w diagnozie, bo ta sama wiadomość przechodzi u jednego dostawcy, a u drugiego nie. Najczęściej dzieje się tak po rotacji klucza, gdy stary rekord nigdy nie został usunięty.",
+      "fix": "Usuń nieaktualny rekord klucza, tak aby na każdy selektor przypadał dokładnie jeden. Jeśli trwa rotacja i naprawdę potrzebujesz dwóch aktywnych kluczy, użyj dwóch różnych selektorów — właśnie po to selektory istnieją — zamiast dwóch rekordów pod jedną nazwą.",
+      "fixCode": "; Przed — dwa klucze na tym samym selektorze, zachowanie niezdefiniowane:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...OLD\"\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\n\n; Po — jeden klucz na selektor; rotację wykonuj przez drugi selektor:\ngoogle._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\ns2._domainkey         TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEXT\""
+    },
+    "spf-missing": {
+      "msg": "Brak rekordu SPF — uwierzytelnienie nadawcy jest niemożliwe.",
+      "what": "SPF (Sender Policy Framework) to rekord DNS wymieniający serwery pocztowe upoważnione do wysyłania poczty z Twojej domeny. Bez niego dowolny serwer na świecie może wysłać wiadomość podającą się za Twoją, a serwery odbiorcze nie mają jak sprawdzić, czy jest ona prawdziwa.",
+      "fix": "Dodaj rekord TXT w katalogu głównym domeny, wymieniając autoryzowanych nadawców poczty. Na czas testów zacznij od ~all (miękkie odrzucenie), a po potwierdzeniu zaostrz do -all.",
+      "fixCode": "; Dla Google Workspace:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; Dla Microsoft 365:\n@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\"\n\n; Dla domeny zaparkowanej/nieużywanej:\n@    TXT    \"v=spf1 -all\""
+    },
+    "spf-softfail": {
+      "msg": "SPF: ~all to miękkie odrzucenie — zaostrz do -all.",
+      "what": "Twój rekord SPF kończy się na <code>~all</code> (tylda all), zwanym „miękkim odrzuceniem”. Sygnalizuje ono, że poczta z niewymienionych serwerów jest <em>prawdopodobnie</em> nieautoryzowana — ale to tylko wskazówka. Większość serwerów odbiorczych i tak dostarczy wiadomość, być może oznaczając ją jako spam. Daje to jedynie częściową ochronę przed podszywaniem się.",
+      "fix": "Gdy upewnisz się, że rekord SPF wymienia wszystkie Twoje legalne źródła wysyłki, zaostrz go z <code>~all</code> do <code>-all</code> (twarde odrzucenie). Mówi to odbiorcom, aby od razu odrzucali pocztę z serwerów spoza Twojej listy.",
+      "fixCode": "; Zmień z:\n@    TXT    \"v=spf1 include:_spf.google.com ~all\"\n\n; Na:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-all-permit": {
+      "msg": "SPF: +all zezwala każdemu — niebezpieczne.",
+      "what": "Twój rekord SPF kończy się na <code>+all</code>, co upoważnia <em>każdy serwer w internecie</em> do wysyłania poczty w imieniu Twojej domeny. Całkowicie niweczy to sens SPF — jest to równoważne z brakiem SPF w ogóle i niemal na pewno stanowi błąd konfiguracji.",
+      "fix": "Zamień <code>+all</code> na <code>-all</code> (twarde odrzucenie), aby odrzucać nieautoryzowanych nadawców.",
+      "fixCode": "; Usuń +all, zamień na -all:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-neutral": {
+      "msg": "SPF: ?all jest neutralne — brak ochrony.",
+      "what": "Twój rekord SPF kończy się na <code>?all</code> (znak zapytania all), co daje wynik „neutralny” — SPF nie zajmuje stanowiska w sprawie tego, czy niewymienione serwery są upoważnione. Serwery odbiorcze traktują to tak samo jak całkowity brak rekordu SPF, więc ochrona przed podszywaniem jest zerowa.",
+      "fix": "Zamień <code>?all</code> na <code>-all</code> (twarde odrzucenie), aby blokować nieautoryzowanych nadawców.",
+      "fixCode": "; Zmień z:\n@    TXT    \"v=spf1 include:_spf.google.com ?all\"\n\n; Na:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-missing-google": {
+      "msg": "SPF: brakuje wpisu include dla Google Workspace.",
+      "what": "Twoja domena korzysta z poczty Google Workspace, ale rekord SPF nie zawiera serwerów pocztowych Google (<code>_spf.google.com</code>). Serwery wysyłkowe Google nie są autoryzowane w Twojej polityce SPF, więc legalne wiadomości wychodzące ze skrzynek Google Workspace mogą nie przechodzić kontroli SPF i trafiać do folderu spamu odbiorców.",
+      "fix": "Dodaj wpis include Google do swojego rekordu TXT.",
+      "fixCode": "; Dodaj include Google:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; Jeśli korzystasz też z innych nadawców:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "spf-missing-icloud": {
+      "msg": "SPF: brakuje wpisu include dla iCloud.",
+      "what": "Twoja domena wygląda na korzystającą z poczty Apple iCloud (domena własna w iCloud+), ale rekord SPF nie autoryzuje serwerów wysyłkowych Apple. Wiadomości wysyłane przez iCloud mogą być odrzucane albo oznaczane jako spam przez odbiorców, bo Twój rekord SPF nie ręczy za serwery Apple.",
+      "fix": "Dodaj wpis include Apple do swojego rekordu.",
+      "fixCode": "@    TXT    \"v=spf1 include:icloud.com -all\""
+    },
+    "spf-missing-microsoft": {
+      "msg": "SPF: brakuje wpisu include dla Microsoft 365.",
+      "what": "Twoja domena korzysta z poczty Microsoft 365, ale rekord SPF nie zawiera serwerów wysyłkowych Microsoftu (<code>spf.protection.outlook.com</code>). Poczta wychodząca ze skrzynek Microsoft 365 może nie przechodzić kontroli SPF na serwerze odbiorcy i być traktowana jako spam albo odrzucana.",
+      "fix": "Dodaj wpis include Microsoftu do swojego rekordu TXT.",
+      "fixCode": "@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\""
+    },
+    "dkim-missing": {
+      "msg": "DKIM nie jest skonfigurowany. {0}",
+      "what": "DKIM (DomainKeys Identified Mail) dołącza podpis kryptograficzny do każdej wysyłanej wiadomości, dzięki czemu odbiorcy mogą zweryfikować, że wiadomość faktycznie pochodzi z Twojej domeny i nie została zmieniona po drodze. Bez niego Twoje wiadomości częściej trafiają do spamu, a domena jest bardziej narażona na podszywanie się. DKIM jest też niezbędny, zanim będziesz mógł egzekwować DMARC.",
+      "fix": "Konfiguracja DKIM odbywa się w panelu administracyjnym dostawcy poczty — to on generuje parę kluczy publiczny/prywatny i przekazuje rekord TXT do opublikowania w DNS. Klucza nie tworzysz samodzielnie.",
+      "fixCode": "; Google Workspace: Administracja → Aplikacje → Google Workspace → Gmail\n;   → Uwierzytelnij pocztę → Wygeneruj klucz → skopiuj rekord TXT\n;\n; Microsoft 365: Administracja → Ustawienia → Domeny → wybierz domenę\n;   → Rekordy DNS → włącz DKIM\n;\n; Rekord TXT będzie wyglądał mniej więcej tak:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
+    },
+    "dkim-unverified": {
+      "msg": "Nie znaleziono żadnego testowanego selektora DKIM. {0} Punktowane tak, jakby DKIM nie był skonfigurowany. Jeśli znasz swój selektor DKIM, dodaj go w polu „Dodatkowe selektory DKIM” i uruchom audyt ponownie, aby został uwzględniony."
+    },
+    "dkim-not-checked": {
+      "msg": "DKIM nie został sprawdzony w tym przebiegu. Punktowane tak, jakby DKIM nie był skonfigurowany. Włącz „Sprawdź selektory DKIM” i uruchom ponownie, aby DKIM został oceniony."
+    },
+    "implicit-mx": {
+      "msg": "Nie opublikowano żadnego rekordu MX. SMTP może użyć adresu A/AAAA tej domeny jako niejawnego MX, co jest kruche i często niezamierzone."
+    },
+    "dmarc-missing": {
+      "msg": "Brak rekordu DMARC — pod domenę można się swobodnie podszywać, bez egzekwowania jakiejkolwiek polityki.",
+      "what": "DMARC (Domain-based Message Authentication, Reporting &amp; Conformance) to polityka, która mówi serwerom odbiorczym, co zrobić z wiadomością niespełniającą wymagań SPF lub DKIM — poddać ją kwarantannie, odrzucić czy przepuścić. Bez rekordu DMARC nawet idealna konfiguracja SPF + DKIM nie powstrzyma kogoś przed podszyciem się pod Twoją domenę w widocznym polu „Od:”.",
+      "fix": "Zacznij od polityki wyłącznie monitorującej (<code>p=none</code>), aby zbierać raporty bez blokowania poczty, a po przeanalizowaniu danych zaostrz politykę.",
+      "fixCode": "; Krok 1 — tylko monitorowanie (bezpieczny punkt wyjścia):\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; Krok 2 — quarantine (oznacza wiadomości niespełniające wymagań jako spam):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; Krok 3 — reject (całkowicie blokuje wiadomości niespełniające wymagań):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-none": {
+      "msg": "DMARC z p=none to wyłącznie monitorowanie. Podnieś do p=quarantine, a następnie p=reject.",
+      "what": "Twój rekord DMARC ma ustawienie <code>p=none</code>, czyli tryb wyłącznie monitorujący. Nakazuje serwerom odbiorczym zbierać dane i wysyłać Ci raporty, ale <em>nie podejmować żadnych działań</em> wobec wiadomości niespełniających wymagań — sfałszowane wiadomości nadal są dostarczane. <code>p=none</code> to narzędzie diagnostyczne pomyślane jako tymczasowy pierwszy krok, a nie jako konfiguracja docelowa.",
+      "fix": "Przejrzyj raporty zbiorcze DMARC (rua=), aby potwierdzić, że wszystkie Twoje legalne źródła poczty przechodzą uwierzytelnianie. Gdy nabierzesz pewności, podnieś politykę do quarantine, a następnie do reject.",
+      "fixCode": "; Krok 1 — quarantine (kieruje niespełniające wymagań wiadomości do spamu):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; Krok 2 — reject (całkowicie blokuje niespełniające wymagań wiadomości):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-quarantine": {
+      "msg": "DMARC z p=quarantine kieruje sfałszowaną pocztę do spamu, ale nadal ją dostarcza. Stanem docelowym jest p=reject.",
+      "what": "Twoja polityka DMARC to <code>p=quarantine</code>, czyli prawdziwe egzekwowanie — poczta, która nie przechodzi uwierzytelniania, trafia do folderu spamu zamiast do skrzynki odbiorczej. Ale nadal jest <em>dostarczana</em>. Przekonująca wiadomość phishingowa podszywająca się pod Twoją domenę pozostaje o jedno kliknięcie stąd, w folderze, do którego ludzie zaglądają, a część odbiorców stosuje kwarantannę niekonsekwentnie. <code>p=reject</code> nakazuje serwerom odbiorczym odmówić przyjęcia wiadomości od razu, więc nigdy nie dociera ona do adresata.",
+      "fix": "Przez kilka tygodni przeglądaj raporty zbiorcze DMARC (<code>rua=</code>) i potwierdź, że każde legalne źródło wysyłki przechodzi zgodność SPF lub DKIM. Gdy żadna prawdziwa poczta nie będzie odrzucana, zmień politykę na <code>p=reject</code>. Jeśli chcesz najpierw postąpić ostrożnie, opublikuj <code>p=reject; t=y</code> — tryb testowy z RFC 9989 utrzymuje przepływ raportów, a odbiorcy wstrzymują się z egzekwowaniem — a potem usuń <code>t=y</code>. Nie wdrażaj etapowo przez <code>pct=</code>: RFC 9989 usunęło ten znacznik, więc zachowuje się on teraz różnie u różnych odbiorców.",
+      "fixCode": "; Obecna polityka — niespełniająca wymagań poczta trafia do spamu:\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; Opcjonalny ostrożny krok — opublikuj reject, odbiorcy jeszcze go nie stosują:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Stan docelowy — odrzucaj całą niespełniającą wymagań pocztę:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-no-rua": {
+      "msg": "DMARC nie ma adresu rua= — nie będziesz otrzymywać raportów zbiorczych.",
+      "what": "Twój rekord DMARC nie zawiera znacznika <code>rua=</code>. To adres e-mail, na który dostawcy poczty wysyłają raporty zbiorcze pokazujące, kto wysyła wiadomości z Twojej domeny i czy przechodzą one uwierzytelnianie. Bez niego nie masz wglądu w swój ruch pocztowy — nie dowiesz się, że coś przestało działać ani że ktoś podszywa się pod Twoją domenę.",
+      "fix": "Dodaj adres <code>rua=</code> do swojego rekordu DMARC. Może to być dowolna skrzynka, którą monitorujesz.",
+      "fixCode": "; Dodaj rua= do istniejącego rekordu DMARC:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc-reports@yourdomain.com;\""
+    },
+    "dmarc-weak-sp": {
+      "msg": "Polityka DMARC dla subdomen to sp={0}, podczas gdy sama domena ma p={1} — subdomeny są słabiej chronione.",
+      "what": "Twój rekord ustawia <code>sp={0}</code>, co jawnie nadpisuje politykę dla subdomen. Bez tego znacznika subdomeny automatycznie dziedziczyłyby Twoją surowszą politykę <code>p={1}</code>. W obecnej postaci atakujący może podszyć się pod <code>cokolwiek.twojadomena.com</code> i zostanie potraktowany łagodniej — a odbiorcy rzadko przyglądają się subdomenie w adresie nadawcy. Podszywanie się pod subdomeny to popularna technika phishingu właśnie dlatego, że polityki organizacji często kończą się na domenie głównej.",
+      "fix": "O ile nie masz konkretnego powodu, by traktować subdomeny inaczej — na przykład platformy marketingowej wysyłającej z subdomeny, która nie jest jeszcze w pełni uwierzytelniona — usuń znacznik <code>sp=</code>, aby subdomeny dziedziczyły politykę główną, albo podnieś go do tego samego poziomu.",
+      "fixCode": "; Najprościej — usuń sp=, aby subdomeny dziedziczyły p:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Albo ustaw go wprost na tę samą wartość:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-weak-np": {
+      "msg": "Polityka DMARC dla nieistniejących subdomen to np={0}, podczas gdy domena ma p={1} — nieużywane subdomeny są słabiej chronione.",
+      "what": "Znacznik <code>np=</code> (RFC 9091) ustala politykę dla subdomen, które w ogóle nie istnieją w DNS. Twój ma wartość <code>np={0}</code>, słabszą niż Twoje <code>p={1}</code>. Nieistniejące subdomeny to ulubiony cel atakujących — nie ma legalnej poczty, którą można by zakłócić, więc nikt niczego nie zauważa, a adresy w rodzaju <code>billing.yourdomain.com</code> wyglądają dla odbiorcy zupełnie wiarygodnie.",
+      "fix": "Ustaw <code>np=reject</code>. Nic legalnego nie wysyła poczty z nieistniejącej subdomeny, więc to jedna z niewielu zmian w DMARC praktycznie bez ryzyka dla dostarczalności.",
+      "fixCode": "; Odrzucaj pocztę z nieistniejących subdomen:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-partial-pct": {
+      "msg": "DMARC z pct={0} — odbiorcy nadal działający na RFC 7489 stosują Twoją politykę tylko do {0}% niespełniającej wymagań poczty, dostarczając pozostałe {1}% normalnie.",
+      "what": "Znacznik <code>pct=</code> został usunięty w RFC 9989, ale odbiorcy, którzy jeszcze nie przeszli na nową specyfikację, nadal go respektują. Przy <code>pct={0}</code> stosują oni Twoją politykę do {0}% wiadomości niespełniających uwierzytelnienia, a dla pozostałych {1}% sięgają po łagodniejsze działanie, więc sfałszowana wiadomość ma około {1} na 100 szans, że dotrze nienaruszona. Odbiorcy zgodni z nową specyfikacją ignorują znacznik i egzekwują politykę w pełni — czyli Twoje egzekwowanie jest obecnie niespójne w skali internetu, co jest gorsze niż którekolwiek z tych ustawień osobno.",
+      "fix": "Sprawdź raporty zbiorcze, aby potwierdzić, że żaden legalny nadawca nie jest odrzucany, a następnie usuń <code>pct=</code> w całości. Jeśli nadal potrzebujesz wdrożenia etapowego, użyj <code>t=y</code>.",
+      "fixCode": "; Usuń pct= — wartość domyślna to 100:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Albo podaj ją wprost:\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-pct": {
+      "msg": "Wartość pct= w DMARC nie jest prawidłową liczbą z zakresu 0–100 — starsze systemy odbiorcze mogą odrzucić cały rekord.",
+      "what": "Znacznik <code>pct=</code> został usunięty w RFC 9989, więc odbiorcy zgodni z aktualną specyfikacją ignorują go bez względu na wartość. Odbiorcy nadal stosujący RFC 7489 wymagają liczby całkowitej od 0 do 100, a część z nich traktuje nieprawidłową wartość jako powód do odrzucenia całego rekordu DMARC — pozostawiając Twoją domenę bez ochrony właśnie u tych odbiorców. Bezpieczne rozwiązanie jest w obu przypadkach takie samo.",
+      "fix": "Usuń ten znacznik. Nie ma już zdefiniowanego znaczenia, a jego usunięcie rozwiązuje oba zachowania naraz.",
+      "fixCode": "; Usuń nieprawidłowe pct= w całości:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-invalid-policy": {
+      "msg": "Wartość p= w DMARC nie jest równa none, quarantine ani reject — rekord jest nieprawidłowy i nie daje ochrony.",
+      "what": "Znacznik <code>p=</code> musi mieć dokładnie wartość <code>none</code>, <code>quarantine</code> albo <code>reject</code>. Twój ma coś innego — literówkę, zbędny znak albo nieobsługiwaną wartość. Serwery odbiorcze nie mogą zadziałać zgodnie z polityką, której nie rozpoznają, więc w praktyce Twoja domena jest traktowana tak, jakby w ogóle nie miała rekordu DMARC, i można się pod nią swobodnie podszywać.",
+      "fix": "Popraw wartość <code>p=</code>. Jeśli nie wiesz, od czego zacząć, opublikuj <code>p=none</code> wraz z adresem <code>rua=</code>, przejrzyj raporty przez kilka tygodni, a potem zaostrz politykę.",
+      "fixCode": "; Tylko monitorowanie, bezpieczny punkt wyjścia:\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; Pełne egzekwowanie:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "porkbun-forward": {
+      "msg": "Przekierowanie Porkbun nie obsługuje DKIM — przekazywana poczta często zawodzi w miejscu docelowym.",
+      "what": "Przekierowanie poczty w Porkbun przekazuje przychodzące wiadomości na inny adres, ale ich nie podpisuje kluczem DKIM. Gdy przekazana wiadomość dotrze do celu, nie przechodzi DKIM (podpisu brakuje albo został zniszczony przez przekazanie), a może też nie przejść SPF (wiadomość została wysłana ponownie z serwerów Porkbun, nie z Twoich). Powoduje to wysoki odsetek dostarczeń do spamu i nie da się tego naprawić w DNS — to fundamentalne ograniczenie architektury przekierowania.",
+      "fix": "Aby poczta działała niezawodnie, przejdź na prawdziwą hostowaną usługę pocztową obsługującą podpisywanie DKIM. Dostępnych jest kilka niedrogich opcji.",
+      "fixCode": "; Dobre alternatywy dla przekierowania Porkbun:\n;\n; Google Workspace — pełna obsługa DKIM\n; Microsoft 365 — pełna obsługa DKIM\n; Fastmail — pełna obsługa DKIM\n; Proton Mail for Business — pełna obsługa DKIM\n;\n; Do prostego przekierowania catch-all z DKIM:\n; ImprovMX (plan bezpłatny) albo Forward Email (bezpłatny, open source)"
+    },
+    "spf-over-limit": {
+      "msg": "SPF przekracza limit 10 zapytań DNS (znaleziono ~{0}) — legalna poczta nie przejdzie SPF.",
+      "what": "SPF dopuszcza maksymalnie 10 zapytań DNS podczas oceny — każdy mechanizm <code>include:</code>, <code>mx</code>, <code>a</code>, <code>exists</code> i <code>redirect</code> wlicza się do tego limitu. Twój rekord go przekracza. Gdy serwer odbiorczy dojdzie do zapytania nr 11, specyfikacja SPF nakazuje mu zwrócić „permerror”, co odbiorcy traktują jako niepowodzenie SPF. Legalna poczta z Twojej domeny nie przechodzi SPF.",
+      "fix": "Zmniejsz liczbę zapytań, usuwając nieużywanych nadawców albo „spłaszczając” rekord SPF — zastępując wpisy <code>include:</code> rozwiązanymi adresami IP, co eliminuje zapytania podrzędne.",
+      "fixCode": "; Przed (za dużo zapytań include:):\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:mailchimp.com include:amazonses.com -all\"\n\n; Po spłaszczeniu (użyj narzędzia, aby poznać swoje rzeczywiste adresy IP):\n; Narzędzia: MXToolbox SPF Analyzer, AutoSPF, dmarcian\n\"v=spf1 ip4:209.85.220.0/22 ip4:167.89.0.0/17 ip4:199.255.192.0/22 -all\""
+    },
+    "spf-near-limit": {
+      "msg": "SPF zbliża się do limitu 10 zapytań (naliczono ~{0}) — dodanie kolejnych nadawców może go zepsuć.",
+      "what": "Twój rekord SPF zbliża się do limitu 10 zapytań. Dodanie kolejnych usług wysyłających pocztę albo zmiana infrastruktury SPF u obecnego dostawcy może przekroczyć limit — powodując, że legalne wiadomości przestaną przechodzić uwierzytelnienie SPF bez żadnego ostrzeżenia.",
+      "fix": "Przejrzyj swój rekord SPF i usuń usługi, z których już nie korzystasz. Jeśli naprawdę potrzebujesz wszystkich obecnych nadawców, rozważ spłaszczenie rekordu, aby zmniejszyć głębokość zapytań.",
+      "fixCode": "; Przegląd: z których z nich nadal korzystasz?\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:... -all\"\n;\n; Usuń nieużywane wpisy include albo spłaszcz rekord narzędziem takim jak:\n; AutoSPF (autospf.com), dmarcian albo MXToolbox"
+    },
+    "spf-cycle": {
+      "msg": "Wykryto cykl include/redirect w SPF przechodzący przez {0}; ocena SPF może zwrócić permerror."
+    },
+    "spf-indeterminate": {
+      "msg": "Łączna liczba zapytań SPF jest nieokreślona, ponieważ rekord używa makr, nadmiernej głębokości albo nieprawidłowej dołączonej polityki."
+    },
+    "spf-large-subnet": {
+      "msg": "SPF autoryzuje duże zakresy adresów IP: {0} — upewnij się, że kontrolujesz całą tę przestrzeń.",
+      "what": "Każdy adres wewnątrz bloku <code>ip4:</code> lub <code>ip6:</code> może wysyłać pocztę jako Twoja domena, a bloki te są duże: <code>/24</code> w IPv4 to 256 adresów, <code>/16</code> to 65 536, a <code>/48</code> lub krótszy w IPv6 to pula w skali lokalizacji albo wręcz dostawcy internetu. To w porządku, gdy zakres należy do Ciebie — wiele dużych organizacji publikuje w ten sposób własne bloki sieciowe. Przestaje być w porządku, gdy zakres należy do hostingu współdzielonego albo do dostawcy, nad którego pozostałymi klientami nie masz kontroli, bo wtedy każdy z tych sąsiadów może przejść SPF jako Ty. Ten audyt raportuje wyłącznie rozmiar; nie potrafi powiedzieć, do kogo blok należy, więc ocena należy do Ciebie.",
+      "fix": "Sprawdź, kto faktycznie jest właścicielem każdego wymienionego zakresu. Jeśli to Twoja własna pula, nic nie trzeba zmieniać. Jeśli należy do platformy współdzielonej, zastąp szeroki blok konkretnymi adresami wysyłkowymi albo własnym <code>include:</code> dostawcy — wtedy to dostawca utrzymuje listę, a Ty nie autoryzujesz całej jego infrastruktury.",
+      "fixCode": "; Szeroko — każdy host spośród 256 adresów może wysyłać w Twoim imieniu:\n\"v=spf1 ip4:203.0.113.0/24 -all\"\n\n; Wąsko — tylko hosty, które faktycznie wysyłają:\n\"v=spf1 ip4:203.0.113.10 ip4:203.0.113.11 -all\"\n\n; Albo pozwól dostawcy utrzymywać listę:\n\"v=spf1 include:_spf.provider.example -all\""
+    },
+    "spf-medium-subnet": {
+      "msg": "SPF autoryzuje średniej wielkości zakresy adresów IP: {0} — warto potwierdzić, że każdy zakres należy do Ciebie."
+    },
+    "spf-redundant-mechanism": {
+      "msg": "Mechanizm {0} rozwiązuje się wyłącznie do adresów, które {1} już autoryzuje — usunięcie go zmniejszy liczbę zapytań SPF z {2} do {3}.",
+      "what": "SPF dopuszcza maksymalnie 10 zapytań DNS, a mechanizmy <code>a</code> i <code>mx</code> zużywają po jednym. Każdy adres, do którego rozwiązuje się ten mechanizm — zarówno w IPv4, jak i IPv6 — znajduje się już w bloku <code>ip4:</code> lub <code>ip6:</code> zapisanym w tym samym rekordzie, więc zapytanie nie daje żadnej autoryzacji, której już byś nie miał. Usunięcie go niczego nie zmienia w tym, które serwery mogą wysyłać w Twoim imieniu, a zwraca Ci jedno zapytanie z puli.",
+      "fix": "Usuń ten mechanizm ze swojego rekordu SPF. Sprawdź to ponownie później, jeśli stojące za nim hosty otrzymają nowe adresy, bo wtedy blok musiałby objąć również je.",
+      "fixCode": "; Przed — mx zużywa zapytanie, aby autoryzować adresy już objęte blokiem:\n\"v=spf1 mx ip4:203.0.113.0/28 include:_spf.provider.example -all\"\n\n; Po — ci sami nadawcy autoryzowani, o jedno zapytanie taniej:\n\"v=spf1 ip4:203.0.113.0/28 include:_spf.provider.example -all\""
+    },
+    "spf-redundant-mechanism-nocount": {
+      "msg": "Mechanizm {0} rozwiązuje się wyłącznie do adresów, które {1} już autoryzuje — usunięcie go zwalnia jedno z 10 zapytań DNS w SPF."
+    },
+    "spf-partial-coverage": {
+      "msg": "{0} z {1} adresów stojących za mechanizmem {2} jest już objętych Twoimi blokami ip4:/ip6: — zachowaj ten mechanizm, nadal autoryzuje pozostałe."
+    },
+    "dnssec-bogus": {
+      "msg": "Walidacja DNSSEC wygląda na nieprawidłową (bogus): walidacja nie powiodła się, choć odpowiedź jest dostępna po wyłączeniu sprawdzania."
+    },
+    "dnssec-indeterminate": {
+      "msg": "Nie udało się ustalić stanu DNSSEC, ponieważ zapytanie walidujące zawiodło. Punktowane jako niepodpisane. Uruchom audyt ponownie — zwykle to przejściowy problem resolwera. Jeśli powtarza się to dla domeny, co do której masz potwierdzenie u rejestratora lub dostawcy DNS, że jest podpisana, zgłoś to na GitHubie, podając domenę, rejestratora/dostawcę DNS oraz zrzut ekranu pokazujący włączony DNSSEC."
+    },
+    "mta-sts-invalid": {
+      "msg": "Rekord TXT MTA-STS jest nieprawidłowo sformułowany albo brakuje w nim wymaganego znacznika id=."
+    },
+    "mta-sts-policy-unverified": {
+      "msg": "Rekord TXT MTA-STS jest prawidłowy, ale ten audyt działający wyłącznie w przeglądarce nie może zweryfikować pliku polityki HTTPS, ponieważ większość serwerów polityk nie zezwala na odczyt z innych źródeł."
+    },
+    "tls-rpt-invalid": {
+      "msg": "Rekord TLS-RPT jest nieprawidłowo sformułowany albo nie ma prawidłowego adresu rua=."
+    },
+    "bimi-invalid": {
+      "msg": "Rekord BIMI jest nieprawidłowo sformułowany albo nie zawiera prawidłowego adresu HTTPS z logo."
+    },
+    "dmarc-version-missing": {
+      "msg": "Rekord DMARC nie zaczyna się od v=DMARC1 — odbiorcy muszą go całkowicie zignorować.",
+      "what": "RFC 9989 §5.4 wymaga, aby znacznik <code>v=</code> był pierwszym znacznikiem w rekordzie. Rekord bez niego w ogóle nie jest rekordem DMARC, cokolwiek innego by zawierał. Serwery odbiorcze odrzucają go i traktują Twoją domenę tak, jakby nie miała polityki DMARC, więc rekord daje Ci pozór ochrony bez żadnej treści.",
+      "fix": "Przepisz rekord tak, aby zaczynał się od <code>v=DMARC1;</code>, po którym następuje Twoja polityka.",
+      "fixCode": "; Źle — brak znacznika wersji:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Dobrze:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-not-first": {
+      "msg": "Znacznik v=DMARC1 jest obecny, ale nie jest pierwszy — odbiorcy muszą zignorować cały rekord.",
+      "what": "RFC 9989 §5.4 mówi, że <code>v=</code> MUSI być pierwszym znacznikiem na liście, a nie jedynie występować gdziekolwiek. Kolejność pozostałych znaczników jest dowolna, przez co łatwo o pomyłkę przy ręcznej edycji rekordu albo składaniu go skryptem. Odbiorca zgodny ze specyfikacją przerywa analizę i traktuje domenę jako niechronioną.",
+      "fix": "Przenieś <code>v=DMARC1;</code> na początek rekordu. Nic więcej nie musi się zmieniać.",
+      "fixCode": "; Źle — v= nie jest pierwsze:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; Dobrze:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-bad-value": {
+      "msg": "Wartość wersji DMARC nie brzmi dokładnie „DMARC1” — wartość rozróżnia wielkość liter, a rekord jest ignorowany.",
+      "what": "Niemal wszystkie wartości w rekordzie DMARC nie rozróżniają wielkości liter, ale RFC 9989 §5.4 czyni z <code>v=</code> wyjątek: jedyny akceptowany zapis to <code>DMARC1</code>, wielkimi literami. <code>v=dmarc1</code> albo <code>v=DMARC2</code> powoduje zignorowanie całego rekordu. To częsta ofiara kopiowania i wklejania, bo panele DNS przy wprowadzaniu często zamieniają wartości na małe litery.",
+      "fix": "Ustaw wartość dokładnie na <code>DMARC1</code> i sprawdź potem, co faktycznie zapisał Twój panel DNS.",
+      "fixCode": "; Źle — małe litery:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; Dobrze:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-duplicate-tags": {
+      "msg": "Rekord DMARC powtarza ten sam znacznik ({0}) — rekord jest nieprawidłowy i może zostać zignorowany.",
+      "what": "Rekord DMARC może zawierać każdy znacznik najwyżej raz. Twój powtarza {0}. Specyfikacja nie podaje reguły wyboru między wartościami, więc zachowanie zależy od odbiorcy: jedni biorą pierwszą, inni ostatnią, jeszcze inni odrzucają cały rekord. Jakąkolwiek ochronę myślisz, że skonfigurowałeś, nie możesz na niej polegać.",
+      "fix": "Usuń zduplikowane znaczniki, tak aby każdy występował dokładnie raz. Jeśli chodziło o dwie wartości dla <code>rua=</code>, połącz je w jedną listę rozdzieloną przecinkami.",
+      "fixCode": "; Źle — p= dwa razy:\n_dmarc    TXT    \"v=DMARC1; p=none; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Dobrze:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-test-mode": {
+      "msg": "DMARC działa w trybie testowym (t=y) — Twoja polityka p={0} jest opublikowana, ale nie jest stosowana.",
+      "what": "Znacznik <code>t=</code> jest nowością w RFC 9989 i zastępuje <code>pct=</code> jako wspierany sposób stopniowego wdrażania DMARC. <code>t=y</code> mówi odbiorcom, że właściciel domeny wciąż testuje i że polityka <em>nie</em> powinna być egzekwowana. Raporty zbiorcze nadal przychodzą, bo o to w tym trybie chodzi — ale pod względem ochrony przed podszywaniem <code>p=reject; t=y</code> chroni Cię dokładnie tak samo jak <code>p=none</code>. Panele, które odczytują wyłącznie <code>p=</code>, pokażą taką domenę jako w pełni egzekwowaną.",
+      "fix": "Gdy raporty zbiorcze pokażą, że żaden legalny nadawca nie jest odrzucany, usuń <code>t=y</code> (albo ustaw <code>t=n</code>), aby opublikowana polityka stała się rzeczywista.",
+      "fixCode": "; Testowo — polityka opublikowana, ale nie stosowana:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Produkcyjnie — usuń t= w całości (wartość domyślna to n):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-t": {
+      "msg": "Wartość t= w DMARC nie jest równa y ani n — odbiorcy mogą zignorować znacznik albo cały rekord.",
+      "what": "RFC 9989 definiuje dokładnie dwie wartości znacznika trybu testowego: <code>y</code> i <code>n</code>, przy czym <code>n</code> jest domyślna. Wszystko inne to błąd składni. W zależności od odbiorcy otrzymasz zachowanie domyślne albo rekord zostanie odrzucony jako nieprawidłowy — z zewnątrz nie sposób stwierdzić które.",
+      "fix": "Ustaw <code>t=y</code> na czas testów, <code>t=n</code> na produkcji albo usuń znacznik w całości, skoro <code>n</code> jest wartością domyślną.",
+      "fixCode": "; Usuń nieprawidłowy znacznik — n jest wartością domyślną:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-rua-invalid": {
+      "msg": "Adres docelowy rua= w DMARC jest nieużyteczny ({0}) — raportów zbiorczych nie da się dostarczyć.",
+      "what": "Adresy docelowe raportów muszą być identyfikatorami URI DMARC: adresami <code>mailto:</code>, opcjonalnie z limitem rozmiaru w rodzaju <code>!10m</code>. Goły adres bez przedrostka <code>mailto:</code>, adres nieprawidłowo zapisany albo schemat nieobsługiwany przez odbiorców dają ten sam efekt — brak raportów. Ponieważ DMARC zawodzi bezgłośnie, nieużyteczne <code>rua=</code> wygląda dokładnie tak samo jak domena, pod którą nikt się nie podszywa.",
+      "fix": "Popraw adres docelowy do pełnego identyfikatora URI <code>mailto:</code>. Wiele adresów rozdziel przecinkami.",
+      "fixCode": "; Źle — brakuje schematu mailto::\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=dmarc@yourdomain.com;\"\n\n; Dobrze — jeden lub więcej identyfikatorów URI mailto::\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example!10m;\""
+    },
+    "dmarc-ruf-invalid": {
+      "msg": "Adres docelowy ruf= w DMARC jest nieużyteczny ({0}) — raportów o awariach nie da się dostarczyć.",
+      "what": "Znacznik <code>ruf=</code> używa tego samego formatu URI DMARC co <code>rua=</code>: adresów <code>mailto:</code> z opcjonalnym limitem rozmiaru po znaku <code>!</code>. Twojego nie da się sparsować, więc żadne raporty o awariach nie dotrą. Pamiętaj, że raporty o awariach (RFC 9991) zawierają treść wiadomości i wysyła je stosunkowo niewielu odbiorców — ich utrata jest mniej dotkliwa niż utrata raportów zbiorczych, ale zepsuty znacznik i tak warto naprawić albo usunąć.",
+      "fix": "Popraw adres docelowy do pełnego identyfikatora URI <code>mailto:</code> albo usuń <code>ruf=</code>, jeśli nie zamierzasz zbierać raportów o awariach.",
+      "fixCode": "; Dobrze — pełny identyfikator URI mailto::\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-fo-without-ruf": {
+      "msg": "Znacznik fo= w DMARC jest ustawiony, ale brakuje ruf= — odbiorcy muszą go zignorować.",
+      "what": "Znacznik <code>fo=</code> steruje tym, <em>kiedy</em> generowane są raporty o awariach, dlatego RFC 9989 stwierdza, że jego treść musi zostać zignorowana, gdy nie ma znacznika <code>ruf=</code>. Znacznik nie robi więc nic. Zwykle oznacza to, że w pewnym momencie usunięto <code>ruf=</code>, a <code>fo=</code> pozostało, co może sprawiać wrażenie, że raportowanie awarii nadal jest skonfigurowane.",
+      "fix": "Dodaj adres docelowy <code>ruf=</code>, jeśli chcesz otrzymywać raporty o awariach, albo usuń <code>fo=</code>, aby rekord mówił to, co faktycznie znaczy.",
+      "fixCode": "; Albo dodaj adres docelowy:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; Albo usuń bezczynny znacznik:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-fo": {
+      "msg": "Znacznik fo= w DMARC zawiera wartość inną niż 0, 1, d lub s.",
+      "what": "Znacznik opcji raportowania awarii przyjmuje rozdzielony dwukropkami podzbiór czterech wartości: <code>0</code> (raportuj, gdy zawiedzie wszystko), <code>1</code> (raportuj, gdy zawiedzie cokolwiek), <code>d</code> (DKIM zawiódł) i <code>s</code> (SPF zawiódł). Wszystko inne jest błędem składni, a <code>fo=1</code> to zwykle to, czego naprawdę chcą administratorzy — domyślne <code>fo=0</code> raportuje tylko wtedy, gdy zawiodą jednocześnie SPF i DKIM.",
+      "fix": "Użyj prawidłowej kombinacji, najczęściej <code>fo=1</code>.",
+      "fixCode": "; Raportuj, gdy zawiedzie którykolwiek mechanizm:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; Wiele opcji rozdziela się dwukropkiem:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=d:s; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-external-reporting": {
+      "msg": "Raporty DMARC trafiają do zewnętrznej domeny ({0}) — ta domena musi je autoryzować, inaczej raporty są odrzucane.",
+      "what": "Gdy adres docelowy raportów znajduje się poza Twoją domeną organizacyjną — dostawca usług DMARC, konsultant, spółka siostrzana — RFC 9990 §4.3 wymaga, aby domena odbiorcza opublikowała rekord udzielający zgody. Bez niego odbiorcy zgodni ze specyfikacją bezgłośnie odrzucają raporty kierowane pod ten adres. Autoryzacja jest oceniana osobno dla każdego adresu, więc nieautoryzowany dostawca nie psuje Twojego rekordu DMARC ani nie wstrzymuje raportów do pozostałych adresów; milknie tylko ten jeden. Ten audyt nie zweryfikował rekordu — włącz sprawdzenia zaawansowane, aby był sprawdzany automatycznie.",
+      "fix": "Poproś domenę docelową o opublikowanie rekordu autoryzacji dla Twojej domeny, w postaci <code>&lt;twoja-domena&gt;._report._dmarc.&lt;ich-domena&gt;</code>.",
+      "fixCode": "; Twój rekord wysyła raporty do dostawcy zewnętrznego:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; DOSTAWCA musi opublikować to w swojej strefie:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
+    },
+    "dmarc-bad-psd": {
+      "msg": "Wartość psd= w DMARC nie jest równa y, n ani u.",
+      "what": "Znacznik <code>psd=</code> jest nowością w RFC 9989 i informuje mechanizm DNS Tree Walk, czy dana domena jest domeną sufiksu publicznego. Przyjmuje dokładnie trzy wartości: <code>y</code>, <code>n</code> i <code>u</code> (domyślną, oznaczającą zwykły sposób wyszukiwania). Nieprawidłowa wartość to błąd składni w znaczniku, który steruje sposobem odnajdywania Twojej polityki przez odbiorców.",
+      "fix": "Usuń ten znacznik, chyba że prowadzisz sufiks publiczny — <code>u</code> jest wartością domyślną i właściwą praktycznie dla każdej zwykłej domeny.",
+      "fixCode": "; Zwykłe domeny w ogóle nie potrzebują psd=:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-psd-invalid": {
+      "msg": "DMARC deklaruje psd=y, ale ta domena nie jest sufiksem publicznym.",
+      "what": "<code>psd=y</code> informuje odbiorców, że dana nazwa jest domeną sufiksu publicznego — nazwą na poziomie rejestru, taką jak <code>.gov.uk</code>, pod którą rejestrują się niepowiązane ze sobą organizacje. Zmienia to miejsce, w którym mechanizm DNS Tree Walk zatrzymuje się przy szukaniu polityki, więc ustawienie tego na zwykłej domenie organizacyjnej może sprawić, że Twoja polityka zostanie błędnie odnaleziona dla subdomen. To niemal zawsze skutek skopiowania przykładu.",
+      "fix": "Usuń <code>psd=y</code>, chyba że faktycznie prowadzisz sufiks publiczny wpisany na listę Public Suffix List.",
+      "fixCode": "; Usuń znacznik:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-removed-tags": {
+      "msg": "Rekord DMARC zawiera znaczniki usunięte przez RFC 9989 ({0}) — nie robią już nic.",
+      "what": "RFC 9989 usunęło kilka znaczników przeniesionych z RFC 7489. Odbiorcy stosujący aktualną specyfikację je ignorują. Są nieszkodliwe w tym sensie, że nie zepsują rekordu, ale wprowadzają w błąd: ktoś, kto przeczyta rekord później, założy, że są w mocy.",
+      "fix": "Usuń przestarzałe znaczniki. Częstotliwości i formatu raportów nie da się już konfigurować z poziomu rekordu DMARC — zobacz RFC 9990, aby dowiedzieć się, jak działa dziś raportowanie zbiorcze.",
+      "fixCode": "; Przestarzałe znaczniki usunięte:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-unknown-tags": {
+      "msg": "Rekord DMARC zawiera znaczniki spoza standardu ({0}).",
+      "what": "RFC 9989 definiuje pełny zestaw znaczników: <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code> i <code>t</code>. Nieznane znaczniki MUSZĄ być ignorowane, więc są raczej bezczynne niż groźne — ale zwykle są literówką w nazwie prawdziwego znacznika, co oznacza, że zamierzone ustawienie nie działa. Błędnie zapisane <code>rua</code> to nieznany znacznik <em>i</em> jednocześnie brakujący adres raportowania.",
+      "fix": "Sprawdź, czy każdy nierozpoznany znacznik nie jest literówką, a potem usuń wszystko, co naprawdę nie jest potrzebne.",
+      "fixCode": "; Literówka jest bezgłośnie ignorowana — ten rekord NIE ma adresu raportowania:\n_dmarc    TXT    \"v=DMARC1; p=reject; rau=mailto:dmarc@yourdomain.com;\"\n\n; Poprawione:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-external-unauthorized": {
+      "msg": "Raporty DMARC kierowane do {0} są odrzucane — ta domena nie autoryzowała Twoich raportów.",
+      "what": "Gdy adres docelowy raportów znajduje się poza Twoją domeną organizacyjną, RFC 9990 §4.3 wymaga, aby domena odbiorcza opublikowała rekord udzielający zgody. Sprawdziliśmy — nie ma go. Odbiorcy zgodni ze specyfikacją odrzucają zatem każdy raport kierowany do {0}: nic nie zgłasza błędu i nic nie wraca, po prostu dostajesz mniej danych, niż Ci się wydaje — co łatwo pomylić z „nikt się pod nas nie podszywa”. Autoryzacja jest sprawdzana osobno dla każdego adresu, więc pozostałe adresy w Twoim rekordzie działają normalnie; odrzucany jest tylko ten jeden.",
+      "fix": "Poproś operatora {0} o opublikowanie rekordu autoryzacji dla Twojej domeny. Większość dostawców raportowania robi to automatycznie przy dodaniu domeny, więc jeśli konfiguracja jest świeża, warto najpierw zajrzeć do panelu dostawcy — rekord może pojawić się dopiero po zweryfikowaniu domeny po ich stronie.",
+      "fixCode": "; Domena DOCELOWA publikuje to we własnej strefie,\n; wskazując domenę, której raporty przyjmuje:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; Dostawcy obsługujący wielu klientów publikują zwykle postać wieloznaczną:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
+    },
+    "dmarc-external-unverifiable": {
+      "msg": "Nie udało się zweryfikować autoryzacji raportów dla {0} — zapytanie DNS nie zostało ukończone.",
+      "what": "Raporty wysyłane poza Twoją domenę organizacyjną wymagają autoryzacji przez adres docelowy, a sprawdzamy to, odpytując go o rekord autoryzacji. To zapytanie zawiodło — przekroczenie limitu czasu, SERVFAIL albo chwilowa usterka resolwera — więc nie możemy powiedzieć, czy rekord istnieje. To luka w naszym wyniku, a nie zarzut wobec Twojej konfiguracji: potraktuj to jako stan nieznany, a nie problem, i przed podjęciem działań uruchom audyt ponownie.",
+      "fix": "Uruchom audyt ponownie. Jeśli nadal zawodzi, odpytaj nazwę bezpośrednio, aby sprawdzić, czy rekord istnieje.",
+      "fixCode": "; Sprawdź rekord autoryzacji ręcznie:\ndig +short TXT yourdomain.com._report._dmarc.{0}\n\n; Oraz postać wieloznaczną, którą publikuje większość dostawców:\ndig +short TXT \"*._report._dmarc.{0}\""
+    },
+    "checks-unverified": {
+      "msg": "Niektórych sprawdzeń nie udało się ukończyć ({0}) — są punktowane tak, jakby rekord nie był opublikowany.",
+      "what": "Co najmniej jedno zapytanie DNS dla tej domeny nie zwróciło użytecznej odpowiedzi, zwykle jest to SERVFAIL albo przekroczenie limitu czasu przez resolwer. To może być faktycznie uszkodzony serwer nazw, ale równie często jest to chwilowa usterka, która mija w ciągu kilku minut. Pozostała część audytu przebiegła normalnie i jest wiarygodna. Dotknięte sprawdzenia są punktowane na zero, ponieważ ocena, za którą to narzędzie nie może ręczyć, jest warta mniej niż ocena po prostu surowa — nieudane zapytanie kosztuje więc punkty do czasu ponownego uruchomienia.",
+      "fix": "Najpierw uruchom audyt ponownie — przejściowa awaria mija sama, a punkty wracają. Jeśli te same sprawdzenia nadal zawodzą, odpytaj bezpośrednio dotknięte nazwy, aby sprawdzić, czy Twoje serwery nazw na nie odpowiadają. Serwer, który zwraca SERVFAIL zamiast NXDOMAIN dla nieistniejących nazw, będzie wywoływał ten problem wielokrotnie.",
+      "fixCode": "; Sprawdź, czy Twoje serwery nazw odpowiadają na nazwę, która nie powinna istnieć.\n; Sprawny serwer zwraca NXDOMAIN, uszkodzony zwraca SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Zapytaj bezpośrednio serwery autorytatywne, z pominięciem resolwera:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    }
+  },
+  "suggestion": {
+    "bimiEligible": "Kwalifikuje się do BIMI: DMARC jest egzekwowane, a DKIM skonfigurowany. Dodaj rekord TXT default._bimi z adresem swojego logo SVG, aby wyświetlać logo marki w Gmailu i Apple Mail.",
+    "bimiPrereq": "BIMI (logo w skrzynce): wymaga DMARC na poziomie p=quarantine albo p=reject oraz DKIM. Najpierw uporządkuj te elementy, a dopiero potem dodaj BIMI.",
+    "mta-sts": "MTA-STS nie jest skonfigurowane. Opublikowanie rekordu TXT _mta-sts i udostępnienie pliku polityki wymusza TLS przy dostarczaniu poczty przychodzącej, zapobiegając atakom obniżenia zabezpieczeń.",
+    "tls-rpt": "TLS-RPT (_smtp._tls TXT) nie jest skonfigurowane. To uzupełnienie MTA-STS przesyła raporty, gdy negocjacja TLS zawiedzie — łatwe do dodania, bez żadnych minusów.",
+    "caa": "Brak rekordów CAA — dowolny urząd certyfikacji może wydać certyfikaty SSL dla tej domeny. Dodaj rekordy CAA wskazujące wyłącznie preferowany urząd (np. Let's Encrypt, DigiCert).",
+    "dnssec": "Nie wykryto DNSSEC. Podpisanie rekordów DNS zapobiega zatruwaniu pamięci podręcznej i przejmowaniu rekordów MX. Cloudflare i większość nowoczesnych dostawców DNS włącza to jednym kliknięciem.",
+    "dmarc-pct-obsolete": "Twój rekord DMARC nadal używa pct=. Od czasu RFC 9989 — DMARCbis, zatwierdzonego w maju 2026 — pct= nie jest już obsługiwanym znacznikiem i należy go usunąć. Odbiorcy, którzy przyjęli nowy standard, ignorują go; odbiorcy nadal działający na RFC 7489 nie — pozostawienie go oznacza więc, że egzekwowanie Twojej polityki różni się u poszczególnych odbiorców. Jeśli potrzebujesz wdrożenia etapowego, użyj t=y."
+  },
+  "learnMore": {
+    "badge": "Przewodnik po bezpieczeństwie poczty",
+    "close": "✕ Zamknij kartę",
+    "footer": "Wygenerowano przez Audyt bezpieczeństwa DNS i poczty — bez przechowywania danych, bez rejestracji",
+    "bimi": {
+      "title": "BIMI — Brand Indicators for Message Identification",
+      "tagline": "Wyświetlaj swoje logo w skrzynkach Gmail, Apple Mail i Yahoo.",
+      "sections": [
+        {
+          "h": "Czym jest BIMI?",
+          "body": "BIMI to standard poczty, dzięki któremu logo Twojej organizacji pojawia się bezpośrednio w skrzynce odbiorczej adresata — obok nazwy nadawcy, jeszcze zanim wiadomość zostanie otwarta. Obsługują go Gmail, Apple Mail, Yahoo Mail i Fastmail."
+        },
+        {
+          "h": "Dlaczego to ważne",
+          "body": "Wyświetlanie logo od razu buduje zaufanie wizualne. Odbiorcy jednym rzutem oka widzą, że wiadomość naprawdę pochodzi od Twojej organizacji, co zwiększa wskaźnik otwarć i zmniejsza ryzyko pomylenia jej z phishingiem. BIMI działa też jak dźwignia wymuszająca uporządkowanie całego zestawu uwierzytelniania (SPF + DKIM + DMARC)."
+        },
+        {
+          "h": "Wymagania przed opublikowaniem BIMI",
+          "body": "• DMARC musi być ustawione na <code>p=quarantine</code> albo <code>p=reject</code> — <code>p=none</code> nie wystarcza<br>• DKIM musi być skonfigurowany i aktywnie podpisywać pocztę wychodzącą<br>• Logo SVG w formacie <strong>Tiny PS</strong> hostowane pod publicznym adresem HTTPS<br>• (Dla Gmaila) Do niebieskiego znacznika może być wymagany certyfikat Verified Mark Certificate (VMC) od DigiCert albo Entrust"
+        },
+        {
+          "h": "Jak to skonfigurować",
+          "body": "1. Potwierdź, że DMARC jest egzekwowane (<code>p=quarantine</code> albo <code>p=reject</code>)<br>2. Potwierdź, że DKIM jest skonfigurowany i podpisuje<br>3. Utwórz logo SVG w formacie Tiny PS (pomogą Canva, Adobe Illustrator albo <a href=\"https://bimigroup.org/bimi-generator/\" target=\"_blank\" rel=\"noopener\">generator BIMI</a>)<br>4. Umieść plik SVG pod publicznym adresem HTTPS — np. <code>https://yourdomain.com/logo.svg</code><br>5. Dodaj rekord DNS BIMI:",
+          "code": "default._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\""
+        },
+        {
+          "h": "Testowanie",
+          "body": "Sprawdź poprawność rekordu na <a href=\"https://bimigroup.org/bimi-generator\" target=\"_blank\" rel=\"noopener\">bimigroup.org/bimi-generator</a>. Wyślij wiadomość testową na konto Gmail i sprawdź, czy logo pojawi się jako awatar w skrzynce odbiorczej."
+        }
+      ]
+    },
+    "mta-sts": {
+      "title": "MTA-STS — Mail Transfer Agent Strict Transport Security",
+      "tagline": "Wymuś szyfrowanie TLS przy całej poczcie przychodzącej do Twojej domeny.",
+      "sections": [
+        {
+          "h": "Czym jest MTA-STS?",
+          "body": "MTA-STS to standard (RFC 8461) pozwalający opublikować politykę deklarującą, że każdy, kto wysyła pocztę do Twojej domeny, musi używać szyfrowania TLS i weryfikować certyfikat Twojego serwera pocztowego. Bez niego atakujący w sieci mogą przeprowadzać „ataki obniżenia zabezpieczeń”, usuwając TLS i czytając pocztę w tranzycie."
+        },
+        {
+          "h": "Dlaczego to ważne",
+          "body": "Standardowe szyfrowanie STARTTLS jest negocjowane oportunistycznie — atakujący pośrodku może bezgłośnie usunąć ofertę STARTTLS i wymusić dostarczenie tekstem jawnym. MTA-STS rozwiązuje ten problem, zapisując Twoją politykę w pamięci podręcznej serwera wysyłającego z wyprzedzeniem, dzięki czemu wie on, że TLS jest wymagany, i odmawia dostarczenia bez niego."
+        },
+        {
+          "h": "Część 1 — opublikuj rekord TXT w DNS",
+          "body": "Dodaj ten rekord TXT do swojego DNS. Zmieniaj wartość <code>id=</code> za każdym razem, gdy aktualizujesz plik polityki.",
+          "code": "_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\""
+        },
+        {
+          "h": "Część 2 — udostępnij plik polityki",
+          "body": "Plik polityki musi być hostowany dokładnie pod tym adresem w Twojej domenie:<br><code>https://mta-sts.yourdomain.com/.well-known/mta-sts.txt</code><br><br>Przykładowa zawartość pliku polityki:",
+          "code": "version: STSv1\nmode: testing\nmx: mail.yourdomain.com\nmx: *.google.com\nmax_age: 604800",
+          "body2": "Zacznij od <code>mode: testing</code>, aby obserwować bez blokowania. Po przejrzeniu raportów TLS-RPT i potwierdzeniu braku awarii przełącz na <code>mode: enforce</code>."
+        },
+        {
+          "h": "Testowanie",
+          "body": "Użyj <a href=\"https://www.checktls.com\" target=\"_blank\" rel=\"noopener\">CheckTLS.com</a> albo <a href=\"https://mxtoolbox.com/mta-sts.aspx\" target=\"_blank\" rel=\"noopener\">MXToolbox MTA-STS Check</a>, aby sprawdzić poprawność polityki. Połącz to z TLS-RPT, aby otrzymywać raporty o awariach (zobacz zalecenie dotyczące TLS-RPT)."
+        }
+      ]
+    },
+    "tls-rpt": {
+      "title": "TLS-RPT — SMTP TLS Reporting",
+      "tagline": "Otrzymuj powiadomienia, gdy szyfrowanie TLS zawiedzie przy poczcie dostarczanej do Twojej domeny.",
+      "sections": [
+        {
+          "h": "Czym jest TLS-RPT?",
+          "body": "TLS-RPT (SMTP TLS Reporting, RFC 8460) to pojedynczy rekord DNS TXT, który mówi serwerom wysyłającym, dokąd przesyłać codzienne raporty o awariach połączeń TLS przy dostarczaniu poczty do Twojej domeny. Można o nim myśleć jak o raportowaniu DMARC, tyle że dla awarii TLS i szyfrowania."
+        },
+        {
+          "h": "Dlaczego to ważne",
+          "body": "Jeśli Twoja polityka MTA-STS jest źle skonfigurowana, certyfikat TLS serwera pocztowego wygaśnie albo dostawca sieci usuwa szyfrowanie, bez TLS-RPT nigdy byś się o tym nie dowiedział. Zamienia on niewidoczne awarie dostarczania w konkretne raporty w Twojej skrzynce — a jest jednym z najłatwiejszych rekordów DNS do opublikowania."
+        },
+        {
+          "h": "Jak to skonfigurować",
+          "body": "Dodaj pojedynczy rekord TXT — zamień adres na skrzynkę, którą monitorujesz:",
+          "code": "_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls-reports@yourdomain.com;\"",
+          "body2": "Raporty przychodzą codziennie jako załączniki w formacie JSON. Zewnętrzne platformy DMARC (Postmark, Valimail, dmarcian) również analizują i wizualizują raporty TLS-RPT obok Twoich danych DMARC."
+        },
+        {
+          "h": "Co mówią raporty",
+          "body": "Każdy dzienny raport pokazuje: które serwery próbowały dostarczyć pocztę do Twojej domeny, czy negocjacja TLS się powiodła, oraz konkretną przyczynę awarii — wygasły certyfikat, niezgodność polityki, nieobsługiwana wersja TLS itd. To niezbędny wgląd, gdy po raz pierwszy wdrażasz MTA-STS w trybie testowym."
+        }
+      ]
+    },
+    "caa": {
+      "title": "CAA — Certification Authority Authorization",
+      "tagline": "Kontroluj, które urzędy certyfikacji mogą wydawać certyfikaty SSL/TLS dla Twojej domeny.",
+      "sections": [
+        {
+          "h": "Czym jest CAA?",
+          "body": "Rekordy DNS CAA (Certification Authority Authorization) pozwalają wskazać, które urzędy certyfikacji mogą wydawać certyfikaty SSL/TLS dla Twojej domeny. Bez rekordów CAA dowolny spośród setek zaufanych urzędów na świecie może wydać certyfikat dla Twojej domeny — bez Twojej wiedzy i zgody."
+        },
+        {
+          "h": "Dlaczego to ważne",
+          "body": "W przeszłości zdarzały się już przypadki błędnego wydania certyfikatów wskutek pomyłek albo naruszeń bezpieczeństwa urzędów certyfikacji. Certyfikat wydany dla Twojej domeny w sposób oszukańczy mógłby posłużyć do podszycia się pod Twoją witrynę, przechwycenia ruchu HTTPS albo prowadzenia stron phishingowych z kłódką w pasku adresu. Rekordy CAA dają twardą warstwę egzekwowania: urzędy obsługujące ten standard muszą sprawdzić Twoje rekordy CAA przed wydaniem certyfikatu i odrzucić wniosek, jeśli nie są na liście."
+        },
+        {
+          "h": "Jak to skonfigurować",
+          "body": "Dodaj rekordy CAA wskazujące autoryzowane urzędy certyfikacji. Użyj <code>issue</code> dla zwykłych certyfikatów i <code>issuewild</code> dla certyfikatów wieloznacznych.",
+          "code": "; Zezwól tylko Let's Encrypt:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; Zezwól Let's Encrypt i DigiCert:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issue \"digicert.com\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; Opcjonalnie — otrzymuj powiadomienie, gdy urząd odrzuci wydanie:\n@    CAA    0 iodef \"mailto:ssl-alerts@yourdomain.com\""
+        },
+        {
+          "h": "Jak ustalić swój urząd certyfikacji",
+          "body": "Kliknij kłódkę na pasku adresu przeglądarki w swojej witrynie, aby zobaczyć, który urząd wydał obecny certyfikat. Popularne wybory: <strong>Let's Encrypt</strong> (bezpłatny, zautomatyzowany), <strong>DigiCert</strong>, <strong>Sectigo</strong>, <strong>GlobalSign</strong>. Wydawaniem certyfikatów zwykle zarządza Twój dostawca hostingu albo Cloudflare — sprawdź w ich dokumentacji właściwą nazwę hosta urzędu do wpisania."
+        }
+      ]
+    },
+    "dnssec": {
+      "title": "DNSSEC — Domain Name System Security Extensions",
+      "tagline": "Podpisz kryptograficznie swoje rekordy DNS, aby zapobiec manipulacji i przejęciu.",
+      "sections": [
+        {
+          "h": "Czym jest DNSSEC?",
+          "body": "DNSSEC dodaje podpisy kryptograficzne do Twoich rekordów DNS. Gdy resolwer odpytuje strefę podpisaną DNSSEC, może zweryfikować, że odpowiedź została podpisana przez prawowitego właściciela strefy i nie została zmieniona po drodze. Bez DNSSEC atakujący zdolny przechwycić albo zatruć odpowiedzi DNS może bezgłośnie przekierować Twój ruch w dowolne miejsce."
+        },
+        {
+          "h": "Dlaczego to ważne",
+          "body": "Ataki polegające na zatruwaniu pamięci podręcznej DNS mogą przekierować odwiedzających z Twojej prawdziwej witryny na złośliwą, przechwycić pocztę przez przejęcie rekordów MX albo zafałszować odpytania SPF/DKIM/DMARC — a wszystko to bez dotykania Twojego serwera. DNSSEC sprawia, że odpowiedzi DNS można zweryfikować kryptograficznie, więc takie ataki zawodzą."
+        },
+        {
+          "h": "Jak to włączyć",
+          "body": "DNSSEC włącza się u dostawcy DNS — to on zarządza kluczami podpisującymi. Kroki różnią się w zależności od dostawcy:",
+          "code": "Cloudflare:  karta DNS → DNSSEC → Włącz (rekord DS dodawany automatycznie)\nGoDaddy:     DNS → DNSSEC → Aktywuj DNSSEC\nRoute 53:    Strefa hostowana → podpisywanie DNSSEC → Włącz\nPorkbun:     DNS → DNSSEC → Włącz\nName.com:    DNS → DNSSEC → Włącz podpisywanie",
+          "body2": "Po włączeniu u dostawcy DNS skopiuj wartości rekordu DS (Delegation Signer), które od niego otrzymasz, i dodaj je u <strong>rejestratora</strong> swojej domeny. To rekord DS u rejestratora domyka łańcuch zaufania od korzenia DNS aż do Twojej strefy."
+        },
+        {
+          "h": "Ostrzeżenia krytyczne",
+          "body": "⚠ <strong>Jeśli zmieniasz dostawcę DNS</strong>, najpierw wyłącz DNSSEC, przenieś wszystkie rekordy, a dopiero potem włącz go ponownie. Niezachowanie tej kolejności powoduje awarie DNS na całym świecie.<br><br>⚠ <strong>Rekord DS u rejestratora musi dokładnie odpowiadać</strong> wartościom podanym przez dostawcę DNS. Rozbieżność uniemożliwia rozwiązywanie DNS dla całej Twojej domeny."
+        },
+        {
+          "h": "Testowanie",
+          "body": "Zweryfikuj swój łańcuch zaufania DNSSEC na <a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a> albo zwizualizuj go na <a href=\"https://dnsviz.net\" target=\"_blank\" rel=\"noopener\">dnsviz.net</a>. Prawidłowy łańcuch świeci się na zielono na każdym poziomie, od korzenia przez TLD aż po Twoją domenę."
+        }
+      ]
+    },
+    "dmarc-rfc9989": {
+      "title": "RFC 9989 — Co zmieniło się w DMARC",
+      "tagline": "DMARCbis zatwierdzono w maju 2026. Oto co usunięto, co dodano i co musisz zmienić.",
+      "sections": [
+        {
+          "h": "DMARC jest już standardem",
+          "body": "Przez pierwszą dekadę DMARC funkcjonowało jako RFC 7489, dokument o charakterze <em>informacyjnym</em> — szeroko wdrożony, ale nigdy formalnie ustandaryzowany. W maju 2026 IETF opublikowało zestaw dokumentów zastępczych: RFC 9989 (protokół podstawowy), RFC 9990 (raportowanie zbiorcze) i RFC 9991 (raportowanie awarii). Razem unieważniają RFC 7489 i RFC 9091 oraz podnoszą DMARC do rangi Proposed Standard na ścieżce standaryzacyjnej. Wydzielenie raportowania do osobnych dokumentów oznacza, że formaty raportów mogą się teraz rozwijać bez otwierania na nowo specyfikacji podstawowej."
+        },
+        {
+          "h": "pct= zostało usunięte",
+          "body": "Znacznik <code>pct=</code> pozwalał stosować politykę tylko do części poczty niespełniającej wymagań. Pomyślano go jako pomoc przy wdrażaniu, ale w praktyce dawał nieprzewidywalne wyniki — odbiorcy różnie implementowali próbkowanie, a los wiadomości zależał od tego, który serwer akurat ją obsłużył. RFC 9989 usuwa ten znacznik w całości. Odbiorcy stosujący nową specyfikację go ignorują.",
+          "body2": "Haczyk na czas przejściowy: odbiorcy nadal działający na RFC 7489 wciąż respektują <code>pct=</code>. Rekord z <code>pct=25</code> jest więc obecnie u części odbiorców egzekwowany w pełni, a u innych ograniczany do jednej czwartej i nie masz jak poznać tych proporcji. To gorsza sytuacja niż którekolwiek z tych zachowań osobno i właśnie dlatego usunięcie znacznika jest właściwym krokiem jeszcze zanim wszyscy odbiorcy przejdą na nową specyfikację."
+        },
+        {
+          "h": "t= zastępuje go przy wdrażaniu etapowym",
+          "body": "RFC 9989 dodaje znacznik trybu testowego. <code>t=y</code> mówi odbiorcom, że wciąż testujesz i że Twoja polityka <em>nie</em> powinna być stosowana — podczas gdy raporty zbiorcze przychodzą normalnie. Jest jednoznaczny w sposób, w jaki <code>pct=</code> nigdy nie był: albo polityka jest egzekwowana, albo nie.",
+          "code": "; Krok 1 — opublikuj docelową politykę w trybie testowym:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Krok 2 — gdy raporty pokażą, że legalna poczta nie jest odrzucana, usuń t=:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"",
+          "body2": "Pamiętaj, że <code>p=reject; t=y</code> daje Ci dokładnie tyle samo ochrony przed podszywaniem co <code>p=none</code> — czyli żadnej. Tryb testowy to etap do przejścia, a nie miejsce na dłuższy postój. Każdy panel odczytujący wyłącznie <code>p=</code> pokaże taką domenę jako w pełni egzekwowaną."
+        },
+        {
+          "h": "Pełny zestaw znaczników",
+          "body": "RFC 9989 definiuje dokładnie jedenaście znaczników: <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code> i <code>t</code>. Wszystko inne — w tym <code>pct</code>, <code>rf</code> i <code>ri</code> — musi być przez odbiorców ignorowane. Pamiętaj, że nieznane znaczniki są bezgłośnie odrzucane, więc literówka w rodzaju <code>rau=</code> zamiast <code>rua=</code> kosztuje Cię adres raportowania i nigdzie nie pojawia się żaden błąd.",
+          "body2": "Dwie inne reguły są surowsze, niż się powszechnie sądzi. <code>v=</code> musi być <em>pierwszym</em> znacznikiem, a jego wartość rozróżnia wielkość liter — akceptowane jest wyłącznie <code>DMARC1</code>, więc <code>v=dmarc1</code> powoduje zignorowanie całego rekordu."
+        },
+        {
+          "h": "Raportowanie do domeny zewnętrznej",
+          "body": "Jeśli adres w <code>rua=</code> albo <code>ruf=</code> znajduje się poza Twoją domeną organizacyjną — dostawca usług DMARC, konsultant, spółka siostrzana — domena odbiorcza musi opublikować rekord autoryzujący. Bez tego rekordu odbiorcy zgodni ze specyfikacją bezgłośnie odrzucają Twoje raporty. Nic nie wraca i nic nie zgłasza błędu; po prostu widzisz mniej danych, niż powinieneś.",
+          "code": "; Twój rekord wysyła raporty do dostawcy zewnętrznego:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; DOSTAWCA musi opublikować to we własnej strefie:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\"",
+          "body2": "Większość uznanych dostawców publikuje to automatycznie, ale to zwykłe wyjaśnienie sytuacji, w której świeżo dodany adres raportowania nie pokazuje żadnych danych."
+        },
+        {
+          "h": "Co zrobić teraz",
+          "body": "Usuń <code>pct=</code> ze swojego rekordu DMARC. Jeśli byłeś w trakcie wdrożenia i na nim polegałeś, opublikuj zamiast tego docelową politykę z <code>t=y</code>, obserwuj raporty zbiorcze, aż żaden legalny nadawca nie będzie odrzucany, a potem usuń <code>t=</code>. Skoro i tak edytujesz rekord, sprawdź, czy <code>v=DMARC1</code> jest pierwsze i poprawnie zapisane wielkimi literami, czy nazwa każdego znacznika jest napisana bezbłędnie i czy każdy zewnętrzny adres raportowania Cię autoryzował."
+        }
+      ]
+    }
+  },
+  "score": {
+    "label": "Ocena bezpieczeństwa",
+    "outOf": "{0} / {1}",
+    "unproven": "{0} / {1} — sprawdzenia, których nie dało się zweryfikować, otrzymały zero punktów: {2}. Rozwiń ten wiersz, aby zobaczyć, jak odzyskać te punkty.",
+    "parkedNote": "Domena zaparkowana — punktowana wyłącznie w zakresie SPF, DMARC, DNSSEC i CAA",
+    "pillar": {
+      "dmarc": "DMARC",
+      "spf": "SPF",
+      "dkim": "DKIM",
+      "dnssec": "DNSSEC",
+      "caa": "CAA",
+      "mtaSts": "MTA-STS",
+      "bimi": "BIMI",
+      "tlsRpt": "TLS-RPT"
+    },
+    "dmarcParts": {
+      "label": "Rozbicie DMARC",
+      "policy": "Polityka (p=)",
+      "subdomain": "Pokrycie subdomen",
+      "rua": "Raporty zbiorcze (rua=)",
+      "alignment": "Ścisła zgodność",
+      "ruf": "Raporty szczegółowe (ruf=)",
+      "uris": "Adresy raportowania"
+    }
+  }
+}

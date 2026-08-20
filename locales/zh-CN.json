@@ -98,6 +98,10 @@
     "dmarc": "DMARC 记录",
     "dkim": "DKIM 选择器",
     "verifications": "验证记录 (TXT)",
+    "wildcardApexTitle": "ℹ 通配符 TXT 记录",
+    "wildcardApexText": "通配符 TXT 记录会响应一层标签深度内未定义子域名的查询。在该域名上它并未触及 DKIM 选择器查询，而此处的其他检查都会先匹配版本前缀，因此不会影响任何结果。有些域名会刻意发布这样的记录，好让来自虚构子域名的邮件撞上一条真实的 SPF 策略。",
+    "wildcardDkimTitle": "⚠ 通配符 TXT 触及 DKIM",
+    "wildcardDkimText": "通配符 TXT 记录会响应 _domainkey 之下的查询，因此一个并不存在的 DKIM 选择器返回的是通配符的值，而不是什么都没有。您发布的选择器仍能正常解析，但无法确认某个选择器确实不存在，因此 DKIM 覆盖情况不作评分，而是报告为未知。",
     "status": "状态",
     "none": "无",
     "na": "不适用",
@@ -111,7 +115,8 @@
   },
   "stat": {
     "domains": "域名总数",
-    "haveEmail": "已配置邮件"
+    "haveEmail": "已配置邮件",
+    "wildcardDkim": "⚠ 通配符覆盖 DKIM"
   },
   "badge": {
     "notRegistered": "未注册 / NXDOMAIN",
@@ -134,7 +139,8 @@
     "noWebPresence": "无网站部署",
     "cnameLoop": "⚠ CNAME 循环",
     "cloudflareProxied": "Cloudflare（已代理）",
-    "porkbunForwarding": "Porkbun 转发"
+    "porkbunForwarding": "Porkbun 转发",
+    "dnsError": "⚠ 查询失败"
   },
   "spf": {
     "missing": "✗ 缺少",
@@ -157,7 +163,8 @@
     "invalid": "⚠ 无效的 p=",
     "pctSuffix": "({0}%)",
     "permerror": "🔴 多条记录",
-    "inheritedFrom": "继承自 {0}"
+    "inheritedFrom": "继承自 {0}",
+    "testMode": "⚠ {0}（测试模式，未生效）"
   },
   "dkim": {
     "uncommon": "不常见 ({0})",
@@ -243,7 +250,7 @@
       "DKIM 选择器",
       "DMARC 状态",
       "DMARC 策略",
-      "DMARC Test Mode (t=)",
+      "DMARC 测试模式 (t=)",
       "DMARC sp",
       "DMARC np",
       "DMARC pct",
@@ -270,6 +277,18 @@
     "note": "由 DNS & 电子邮件安全审计工具在本地生成的静态报告。审计结果未发送至 Kwestic，也未由本应用存储；DNS 查询名称已发送至 Cloudflare 的解析器。"
   },
   "issue": {
+    "wildcard-txt-apex": {
+      "msg": "存在一条通配符 TXT 记录，它会响应未定义的子域名，但未触及 DKIM 查询。对此处的各项检查没有影响。",
+      "what": "通配符 TXT 记录（<code>* IN TXT \"...\"</code>）会让您的 DNS 服务器对一层标签深度内的<em>任何</em>子域名查询作出应答，包括您从未定义过的名称。我们在该深度做了探测，又在 DKIM 选择器所在的 <code>_domainkey</code> 之下再次探测。它没有触及更深一层的名称，因此该域名的 DKIM 查找不受影响。此处的其他每一项检查都会先匹配版本前缀——<code>v=DMARC1</code>、<code>v=STSv1</code>、<code>v=BIMI1</code>、<code>v=spf1</code>——所以通配符字符串在可能被误认为策略之前就已被丢弃。",
+      "fix": "无需处理。有些域名会刻意发布通配符 SPF 重定向，好让声称来自虚构子域名的邮件撞上一条真实的策略，而不是什么都找不到。若本意如此，请予以保留；若只是其他配置的遗留物，则可删除。",
+      "fixCode": "; 请亲自重现这两次探测——真正重要的是第二次：\ndig +short TXT \"*.yourdomain.com\"\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com"
+    },
+    "wildcard-txt-dkim": {
+      "msg": "存在一条通配符 TXT 记录会响应 DKIM 选择器查询，因此无法区分缺失的选择器与已发布的选择器。DKIM 报告为未知。",
+      "what": "此处有一条通配符 TXT 记录会响应 DKIM 选择器所在的 <code>_domainkey</code> 之下的查询。当验证方查询一个您从未发布过的选择器时，得到的是通配符的值，而不是「未找到记录」。您确实发布的选择器仍能正确解析并通过验证，因此这不会破坏已签名的邮件。被破坏的是否定应答：验证方和本次审计都无法区分一个不存在的选择器与一个被合成出来的选择器，因此 DKIM 覆盖情况被判为未知，而非「已配置」或「缺失」。",
+      "fix": "请收窄该通配符，使其无法覆盖 <code>_domainkey</code>：可以只把它限定到确实需要的子域名，也可以发布一个空的 <code>_domainkey</code> 节点。按照 RFC 4592 第 2.2.1 节，通配符不会在已存在的节点之下进行合成，但并非所有域名服务器都遵守这一点——任何改动之后，请用下面的 dig 命令验证。",
+      "fixCode": "; 确认通配符是否触及 DKIM 选择器所在的深度：\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com\n\n; 收窄通配符之后，同样的查询应当什么也不返回。"
+    },
     "dns-loop": {
       "msg": "www CNAME 链包含循环 — 网站名称无法解析。",
       "what": "审计工具在追溯 <code>www</code> CNAME 链时遇到了已访问的主机名。这建立了 DNS 解析循环，导致访客无法获取最终的 A 或 AAAA 地址。",
@@ -366,6 +385,12 @@
       "fix": "DKIM 配置在您的邮件服务商管理控制台中进行 — 他们会生成公钥/私钥对，并提供 TXT 记录供您在 DNS 中发布。您不需要自己创建密钥。",
       "fixCode": "; Google Workspace: 管理员 → 应用 → Google Workspace → Gmail\n;   → 验证电子邮件 → 生成新记录 → 复制 TXT 记录\n;\n; Microsoft 365: 管理员 → 设置 → 域名 → 选择域名\n;   → DNS 记录 → 启用 DKIM\n;\n; TXT 记录的格式类似于：\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
+    "dkim-unverified": {
+      "msg": "未找到任何已测试的 DKIM 选择器。{0} 按 DKIM 未配置来计分。如果您知道自己的 DKIM 选择器，请将其填入「附加 DKIM 选择器」并重新运行审计，即可计入评分。"
+    },
+    "dkim-not-checked": {
+      "msg": "本次运行未检查 DKIM。按 DKIM 未配置来计分。请启用「检查 DKIM 选择器」后重新运行，以便对 DKIM 进行评分。"
+    },
     "implicit-mx": {
       "msg": "未发布 MX 记录。SMTP 可能会退回至此域名的 A/AAAA 地址作为隐式 MX，这是脆弱且通常非预期的。"
     },
@@ -447,8 +472,32 @@
     "spf-indeterminate": {
       "msg": "由于记录使用了宏 (macros)、过深的层级或包含无效的策略，SPF 查询总数无法确定。"
     },
+    "spf-large-subnet": {
+      "msg": "SPF 授权了大段 IP 地址范围：{0}——请确认这整片地址空间都在您的掌控之中。",
+      "what": "<code>ip4:</code> 或 <code>ip6:</code> 地址块内的每一个地址都被允许以您的域名发信，而这些地址块很大：一个 IPv4 的 <code>/24</code> 是 256 个地址，<code>/16</code> 是 65,536 个，而 IPv6 的 <code>/48</code> 或更短则属于站点级乃至 ISP 级的分配。当这个地址段属于您自己时，这没有问题——许多大型组织正是这样发布自有网段的。一旦地址段属于共享主机商，或属于其他客户不受您控制的服务商，问题就来了：那些「邻居」中的任何一个都能以您的名义通过 SPF。本次审计只报告地址段的大小，无法告诉您它归谁所有，因此判断权在您手中。",
+      "fix": "请核实所列的每个地址段实际归谁所有。若是您自己的分配，则无需改动。若属于某个共享平台，请把这个宽泛的地址块替换为具体的发信地址，或替换为服务商自己的 <code>include:</code>——这样由服务商维护名单，您也不必授权他们的全部资产。",
+      "fixCode": "; 宽泛——256 个地址中的任何主机都能以您的名义发信：\n\"v=spf1 ip4:203.0.113.0/24 -all\"\n\n; 收窄——只授权真正发信的主机：\n\"v=spf1 ip4:203.0.113.10 ip4:203.0.113.11 -all\"\n\n; 或者交给服务商维护名单：\n\"v=spf1 include:_spf.provider.example -all\""
+    },
+    "spf-medium-subnet": {
+      "msg": "SPF 授权了中等规模的 IP 地址范围：{0}——建议确认每个地址段都属于您。"
+    },
+    "spf-redundant-mechanism": {
+      "msg": "{0} 机制解析出的地址 {1} 已全部授权——删除它可将您的 SPF 查询次数从 {2} 降到 {3}。",
+      "what": "SPF 最多允许 10 次 DNS 查询，而 <code>a</code> 和 <code>mx</code> 机制各消耗一次。该机制解析出的每一个地址——涵盖 IPv4 与 IPv6——都已包含在同一条记录中写明的 <code>ip4:</code> 或 <code>ip6:</code> 地址块内，因此这次查询并未换来任何您尚未拥有的授权。删除它不会改变哪些服务器可以用您的名义发信，还能为您省回一次查询额度。",
+      "fix": "请从 SPF 记录中删除该机制。如果其背后的主机日后获得新地址，请再次核查，因为届时地址块也需要覆盖那些地址。",
+      "fixCode": "; 修改前——mx 花掉一次查询，去授权地址块本已覆盖的地址：\n\"v=spf1 mx ip4:203.0.113.0/28 include:_spf.provider.example -all\"\n\n; 修改后——授权的发件方不变，少用一次查询：\n\"v=spf1 ip4:203.0.113.0/28 include:_spf.provider.example -all\""
+    },
+    "spf-redundant-mechanism-nocount": {
+      "msg": "{0} 机制解析出的地址 {1} 已全部授权——删除它可以腾出 SPF 十次 DNS 查询中的一次。"
+    },
+    "spf-partial-coverage": {
+      "msg": "{2} 机制背后的 {1} 个地址中，已有 {0} 个被您的 ip4:/ip6: 地址块覆盖——请保留该机制，它仍在授权其余地址。"
+    },
     "dnssec-bogus": {
       "msg": "DNSSEC 验证显示为伪造 (bogus)：尽管禁用检查时答案可用，但验证失败。"
+    },
+    "dnssec-indeterminate": {
+      "msg": "由于验证查询失败，无法确定 DNSSEC 状态。按未签名计分。请重新运行审计——这通常是解析器的临时问题。如果某个您已在注册商或 DNS 服务商处确认已签名的域名反复出现此情况，请在 GitHub 上提交 issue，附上域名、您的注册商或 DNS 服务商，以及一张显示 DNSSEC 已启用的截图。"
     },
     "mta-sts-invalid": {
       "msg": "MTA-STS TXT 记录格式错误或缺少必要的 id= 标签。"
@@ -461,6 +510,114 @@
     },
     "bimi-invalid": {
       "msg": "BIMI 记录格式错误或未包含有效的 HTTPS 标识 URL。"
+    },
+    "dmarc-version-missing": {
+      "msg": "DMARC 记录未以 v=DMARC1 开头——接收方必须完全忽略它。",
+      "what": "RFC 9989 §5.4 要求 <code>v=</code> 标签必须是记录中的第一个标签。缺少它的记录根本不是 DMARC 记录，无论其中还写了什么。接收服务器会丢弃它，并把您的域名当作没有 DMARC 策略来处理——因此这条记录只给了您防护的表象，却没有任何实质。",
+      "fix": "请重写该记录，使其以 <code>v=DMARC1;</code> 开头，后面再跟您的策略。",
+      "fixCode": "; 错误——没有版本标签：\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-not-first": {
+      "msg": "v=DMARC1 存在，但不是第一个标签——接收方必须忽略整条记录。",
+      "what": "RFC 9989 §5.4 规定 <code>v=</code> 必须是列表中的第一个标签，而不只是出现在某处即可。其余标签的顺序是自由的，这使得手工编辑记录或用脚本拼装记录时很容易出错。遵循规范的接收方会停止解析，并把该域名当作未受保护来处理。",
+      "fix": "请把 <code>v=DMARC1;</code> 移到记录最前面。其他部分无需改动。",
+      "fixCode": "; 错误——v= 不在最前：\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-bad-value": {
+      "msg": "DMARC 版本值并非精确的「DMARC1」——该值区分大小写，记录会被忽略。",
+      "what": "DMARC 记录中几乎所有的值都不区分大小写，但 RFC 9989 §5.4 把 <code>v=</code> 定为例外：唯一被接受的写法是全大写的 <code>DMARC1</code>。<code>v=dmarc1</code> 或 <code>v=DMARC2</code> 会导致整条记录被忽略。由于 DNS 控制台常在录入时把值转为小写，这是复制粘贴的常见受害者。",
+      "fix": "请将该值精确设为 <code>DMARC1</code>，随后再核对您的 DNS 控制台实际保存了什么。",
+      "fixCode": "; 错误——小写：\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-duplicate-tags": {
+      "msg": "DMARC 记录中同一标签重复出现（{0}）——记录格式错误，可能被忽略。",
+      "what": "一条 DMARC 记录中每个标签最多只能出现一次。您的记录重复了 {0}。规范没有规定在多个值之间如何取舍，因此行为取决于接收方：有的取第一个，有的取最后一个，有的干脆丢弃整条记录。无论您以为自己配置了怎样的防护，都不能依赖它。",
+      "fix": "请删除重复的标签，使每个标签恰好出现一次。如果您本意是为 <code>rua=</code> 指定两个值，请将它们合并为一个以逗号分隔的列表。",
+      "fixCode": "; 错误——p= 出现了两次：\n_dmarc    TXT    \"v=DMARC1; p=none; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-test-mode": {
+      "msg": "DMARC 处于测试模式（t=y）——您的 p={0} 策略虽已发布，但并未生效。",
+      "what": "<code>t=</code> 标签是 RFC 9989 新增的，取代 <code>pct=</code> 成为逐步推行 DMARC 的受支持方式。<code>t=y</code> 告诉接收方域名所有者仍在评估，策略<em>不应</em>被执行——同时聚合报告照常送达，这正是该模式的用意。但就防冒用而言，<code>p=reject; t=y</code> 给您的保护与 <code>p=none</code> 完全相同。那些只读取 <code>p=</code> 的看板会把这样的域名显示为已完全执行。",
+      "fix": "当您的聚合报告显示不再有合法发件人失败时，请删除 <code>t=y</code>（或设为 <code>t=n</code>），把已发布的策略变成真正生效的策略。",
+      "fixCode": "; 测试中——策略已发布，但未生效：\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正式启用——完全删除 t=（默认即为 n）：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-t": {
+      "msg": "DMARC 的 t= 值不是 y 也不是 n——接收方可能忽略该标签或整条记录。",
+      "what": "RFC 9989 为测试模式标签定义了恰好两个值：<code>y</code> 和 <code>n</code>，默认为 <code>n</code>。其他任何值都是语法错误。视接收方而定，您可能得到默认行为，也可能整条记录被当作格式错误而拒绝——从外部无法判断是哪一种。",
+      "fix": "测试期间设为 <code>t=y</code>，正式启用后设为 <code>t=n</code>，或者直接删除该标签，因为 <code>n</code> 本就是默认值。",
+      "fixCode": "; 删除格式错误的标签——n 是默认值：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-rua-invalid": {
+      "msg": "DMARC 的 rua= 接收地址不可用（{0}）——聚合报告无法送达。",
+      "what": "报告的接收地址必须是 DMARC URI：即 <code>mailto:</code> 地址，后面可选地跟一个诸如 <code>!10m</code> 的大小上限。缺少 <code>mailto:</code> 前缀的裸地址、格式错误的地址，或接收方不支持的协议，结果都一样——收不到报告。由于 DMARC 是静默失败的，一个不可用的 <code>rua=</code> 看起来与一个无人冒用的域名毫无区别。",
+      "fix": "请把接收地址改成完整的 <code>mailto:</code> URI。多个地址之间用逗号分隔。",
+      "fixCode": "; 错误——缺少 mailto: 协议前缀：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=dmarc@yourdomain.com;\"\n\n; 正确——一个或多个 mailto: URI：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example!10m;\""
+    },
+    "dmarc-ruf-invalid": {
+      "msg": "DMARC 的 ruf= 接收地址不可用（{0}）——失败报告无法送达。",
+      "what": "<code>ruf=</code> 标签采用与 <code>rua=</code> 相同的 DMARC URI 格式：<code>mailto:</code> 地址，可选地带一个 <code>!</code> 大小上限。您的值无法解析，因此不会收到任何失败报告。请注意，失败报告（RFC 9991）包含邮件正文内容，且发送它的接收方相对较少——丢失它们不如丢失聚合报告严重，但一个损坏的标签仍然值得修复或删除。",
+      "fix": "请把接收地址改成完整的 <code>mailto:</code> URI；如果您并不打算收集失败报告，则删除 <code>ruf=</code>。",
+      "fixCode": "; 正确——一个完整的 mailto: URI：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-fo-without-ruf": {
+      "msg": "DMARC 设置了 fo= 却没有 ruf=——接收方必须忽略它。",
+      "what": "<code>fo=</code> 标签控制的是<em>何时</em>生成失败报告，因此 RFC 9989 规定：在没有 <code>ruf=</code> 标签时，必须忽略它的内容。也就是说这个标签什么也没做。这通常意味着某个时候 <code>ruf=</code> 被删掉了，而 <code>fo=</code> 被留了下来，从而给人一种失败报告仍在运作的错觉。",
+      "fix": "如果您需要失败报告，请添加 <code>ruf=</code> 接收地址；否则请删除 <code>fo=</code>，让记录名副其实。",
+      "fixCode": "; 要么添加一个接收地址：\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; 要么删除这个不起作用的标签：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-fo": {
+      "msg": "DMARC 的 fo= 含有既非 0、1、d 也非 s 的值。",
+      "what": "失败报告选项标签接受由冒号分隔的四个值的子集：<code>0</code>（全部失败时报告）、<code>1</code>（任一项失败时报告）、<code>d</code>（DKIM 失败）和 <code>s</code>（SPF 失败）。其他任何值都是语法错误。多数运维人员真正想要的是 <code>fo=1</code>——默认的 <code>fo=0</code> 只在 SPF 与 DKIM 同时失败时才报告。",
+      "fix": "请使用有效的组合，最常用的是 <code>fo=1</code>。",
+      "fixCode": "; 任一机制失败时即报告：\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; 多个选项以冒号分隔：\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=d:s; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-external-reporting": {
+      "msg": "DMARC 报告发往外部域名（{0}）——该域名必须授权，否则报告将被丢弃。",
+      "what": "当报告的接收地址位于您的组织域名之外时——例如 DMARC 服务商、顾问或兄弟公司——RFC 9990 §4.3 要求接收方域名发布一条授予许可的记录。没有它，遵循规范的接收方会静默丢弃发往该地址的报告。授权按地址逐一判定，因此未获授权的服务商不会破坏您的 DMARC 记录，也不会阻断发往其他地址的报告；只是那一个地址会归于沉默。本次审计未验证该记录——请启用高级检查以便自动查询。",
+      "fix": "请要求目标域名以 <code>&lt;您的域名&gt;._report._dmarc.&lt;对方域名&gt;</code> 的形式，发布一条针对您域名的授权记录。",
+      "fixCode": "; 您的记录将报告发送给某个服务商：\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; 服务商必须在其区域中发布这条记录：\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
+    },
+    "dmarc-bad-psd": {
+      "msg": "DMARC 的 psd= 值不是 y、n 或 u。",
+      "what": "<code>psd=</code> 标签是 RFC 9989 新增的，用于告知 DNS Tree Walk 该域名是否为公共后缀域名。它只接受三个值：<code>y</code>、<code>n</code> 和 <code>u</code>（默认值，表示按常规方式查找）。无效的值意味着在一个控制接收方如何定位您策略的标签中出现了语法错误。",
+      "fix": "除非您运营的是公共后缀，否则请删除该标签——<code>u</code> 是默认值，几乎适用于所有普通域名。",
+      "fixCode": "; 普通域名完全不需要 psd=：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-psd-invalid": {
+      "msg": "DMARC 声明了 psd=y，但该域名并不是公共后缀。",
+      "what": "<code>psd=y</code> 告诉接收方该名称是一个公共后缀域名——例如 <code>.gov.uk</code> 这样的注册局层级名称，互不相关的组织会在其下注册。它会改变接收方查找策略时 DNS Tree Walk 的终止位置，因此把它设在普通的组织域名上，可能导致子域名的策略被错误地解析出来。这几乎总是照抄示例造成的失误。",
+      "fix": "除非您确实运营着 Public Suffix List 中收录的公共后缀，否则请删除 <code>psd=y</code>。",
+      "fixCode": "; 删除该标签：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-removed-tags": {
+      "msg": "DMARC 记录中含有已被 RFC 9989 删除的标签（{0}）——它们不再起任何作用。",
+      "what": "RFC 9989 删除了若干从 RFC 7489 沿袭下来的标签。实现当前规范的接收方会忽略它们。就「不会破坏记录」而言它们是无害的，但具有误导性：日后阅读这条记录的人会以为它们仍然生效。",
+      "fix": "请删除这些已废弃的标签。报告的发送频率与格式不再能通过 DMARC 记录配置——关于聚合报告现在如何运作，请参阅 RFC 9990。",
+      "fixCode": "; 已删除废弃标签：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-unknown-tags": {
+      "msg": "DMARC 记录中含有不属于标准的标签（{0}）。",
+      "what": "RFC 9989 定义的完整标签集为：<code>v</code>、<code>p</code>、<code>sp</code>、<code>np</code>、<code>adkim</code>、<code>aspf</code>、<code>fo</code>、<code>rua</code>、<code>ruf</code>、<code>psd</code> 和 <code>t</code>。未知标签必须被忽略，因此它们只是无效而非危险——但它们通常是某个真实标签名的拼写错误，这意味着您想要的设置并未生效。拼错的 <code>rua</code> 既是一个未知标签，<em>同时</em>也是一个缺失的报告接收地址。",
+      "fix": "请逐个检查这些无法识别的标签是否为拼写错误，然后删除那些确实不需要的。",
+      "fixCode": "; 拼写错误会被静默忽略——这条记录根本没有报告接收地址：\n_dmarc    TXT    \"v=DMARC1; p=reject; rau=mailto:dmarc@yourdomain.com;\"\n\n; 更正后：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-external-unauthorized": {
+      "msg": "发往 {0} 的 DMARC 报告正在被丢弃——该域名尚未授权接收您的报告。",
+      "what": "当报告的接收地址位于您的组织域名之外时，RFC 9990 §4.3 要求接收方域名发布一条授予许可的记录。我们查询过了，它并不存在。因此遵循规范的接收方会丢弃每一份发往 {0} 的报告：不会报错，也不会退信，您只是拿到了比预想更少的数据——而这很容易被误读成「没有人在冒用我们」。授权按地址逐一判定，因此您记录中的其他地址仍能正常工作；被丢弃的只有这一个。",
+      "fix": "请要求 {0} 的运营方发布一条针对您域名的授权记录。多数报告服务商在您添加域名时会自动完成此项，因此如果您刚刚完成配置，不妨先查看服务商的控制台——该记录可能要等到域名在对方侧通过验证后才会出现。",
+      "fixCode": "; 目标域名在自己的区域中发布这条记录，\n; 并写明它接受哪个域名的报告：\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; 面向大量客户的服务商通常改为发布通配符形式：\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
+    },
+    "dmarc-external-unverifiable": {
+      "msg": "无法验证 {0} 的报告授权——DNS 查询未能完成。",
+      "what": "发往组织域名之外的报告需要目标方授权，我们通过向目标方查询授权记录来核实这一点。该查询失败了——可能是超时、SERVFAIL 或解析器波动——因此我们无法告诉您该记录是否存在。这是我们结果中的一处空白，而不是针对您配置的结论：请将其视为「未知」而非问题，并在采取行动前重新运行审计。",
+      "fix": "请重新运行审计。如果仍然失败，请直接查询该名称，看记录是否存在。",
+      "fixCode": "; 手动检查授权记录：\ndig +short TXT yourdomain.com._report._dmarc.{0}\n\n; 以及多数服务商发布的通配符形式：\ndig +short TXT \"*._report._dmarc.{0}\""
+    },
+    "checks-unverified": {
+      "msg": "部分检查未能完成（{0}）——按该记录未发布来计分。",
+      "what": "针对该域名的一次或多次 DNS 查询没有返回可用的应答，通常是解析器返回 SERVFAIL 或超时。这可能确实是域名服务器出了故障，但同样常见的是几分钟内即可恢复的临时性波动。审计的其余部分已正常完成，结果准确。受影响的检查按零分计，因为一个本工具无法为之背书的评分，其价值低于一个仅仅是严格的评分——因此在重新运行之前，查询失败确实会让您失分。",
+      "fix": "请先重新运行审计：临时性故障会自行恢复，扣掉的分数也会回来。如果同样的检查持续失败，请直接查询受影响的名称，看您的域名服务器是否作出响应。对不存在的名称返回 SERVFAIL 而非 NXDOMAIN 的服务器会反复触发此问题。",
+      "fixCode": "; 检查您的域名服务器是否会响应一个本不应存在的名称。\n; 正常的服务器返回 NXDOMAIN，异常的服务器返回 SERVFAIL：\ndig +short does-not-exist-test.yourdomain.com\n\n; 绕过解析器，直接询问您的权威服务器：\ndig @ns1.yourprovider.com www.yourdomain.com A"
     }
   },
   "suggestion": {
@@ -469,7 +626,8 @@
     "mta-sts": "未配置 MTA-STS。发布 _mta-sts TXT 记录并托管策略文件可强制对入站邮件使用 TLS 加密，从而防止降级攻击。",
     "tls-rpt": "未配置 TLS-RPT (_smtp._tls TXT)。作为 MTA-STS 的配套功能，它会在 TLS 协商失败时向您发送报告 — 易于添加，且无副作用。",
     "caa": "无 CAA 记录 — 任何证书颁发机构都可以为此域名签发 SSL 证书。添加仅指定您偏好的 CA（例如 Let's Encrypt, DigiCert）的 CAA 记录。",
-    "dnssec": "未检测到 DNSSEC。对您的 DNS 记录进行数字签名可防止缓存污染和 MX 劫持。Cloudflare 和大多数现代 DNS 服务商都支持一键启用。"
+    "dnssec": "未检测到 DNSSEC。对您的 DNS 记录进行数字签名可防止缓存污染和 MX 劫持。Cloudflare 和大多数现代 DNS 服务商都支持一键启用。",
+    "dmarc-pct-obsolete": "您的 DMARC 记录仍在使用 pct=。自 RFC 9989（DMARCbis，2026 年 5 月批准）起，pct= 不再是受支持的标签，应予删除。已采纳新标准的接收方会忽略它，而仍停留在 RFC 7489 的接收方不会——因此保留它意味着您的策略执行力度会因接收方而异。如果您需要分阶段推行，请改用 t=y。"
   },
   "learnMore": {
     "badge": "电子邮件安全指南",
@@ -605,11 +763,48 @@
           "body": "在 <a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a> 验证您的 DNSSEC 信任链，或在 <a href=\"https://dnsviz.net\" target=\"_blank\" rel=\"noopener\">dnsviz.net</a> 将其可视化。有效的信任链在从根 → TLD → 您的域名的每个层级上都显示为绿色。"
         }
       ]
+    },
+    "dmarc-rfc9989": {
+      "title": "RFC 9989 — DMARC 有哪些变化",
+      "tagline": "DMARCbis 已于 2026 年 5 月获得批准。以下是它删除了什么、新增了什么，以及您需要做出哪些改动。",
+      "sections": [
+        {
+          "h": "DMARC 现在是一项标准",
+          "body": "在最初的十年里，DMARC 一直是 RFC 7489，一份<em>信息性</em>文档——部署广泛，却从未正式成为标准。2026 年 5 月，IETF 发布了接替它的一组文档：RFC 9989（核心协议）、RFC 9990（聚合报告）与 RFC 9991（失败报告）。它们共同废止了 RFC 7489 和 RFC 9091，并把 DMARC 提升为标准轨道上的 Proposed Standard。把报告拆分到独立文档意味着，报告格式如今可以自行演进，而无需重新开启核心规范。"
+        },
+        {
+          "h": "pct= 已被移除",
+          "body": "<code>pct=</code> 标签让您只对一定比例的失败邮件施加策略。它的本意是辅助逐步推行，但实际效果难以预测——各接收方对抽样的实现方式不同，一封邮件的命运取决于恰好由哪台服务器处理。RFC 9989 已将该标签完全移除。实现新规范的接收方会忽略它。",
+          "body2": "过渡期的隐患在于：仍在运行 RFC 7489 的接收方依旧尊重 <code>pct=</code>。于是一条带 <code>pct=25</code> 的记录，如今会被一部分接收方完整执行，又被另一部分限制到四分之一，而您无从得知两者的比例。这比单独任何一种行为都更糟，也正因如此，即使在所有接收方完成迁移之前，删除该标签也是正确之举。"
+        },
+        {
+          "h": "改由 t= 承担分阶段推行",
+          "body": "RFC 9989 新增了一个测试模式标签。<code>t=y</code> 告诉接收方您仍在评估，策略<em>不应</em>被执行——与此同时聚合报告照常送达。它具备 <code>pct=</code> 从未有过的明确性：策略要么在执行，要么没有。",
+          "code": "; 第 1 步——以测试模式发布您的目标策略：\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; 第 2 步——当报告显示不再有合法邮件失败时，去掉 t=：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"",
+          "body2": "请注意，<code>p=reject; t=y</code> 给您的防冒用保护与 <code>p=none</code> 完全相同——也就是没有。测试模式是一个需要走过的阶段，而不是长期停留之地。任何只读取 <code>p=</code> 的看板，都会把这样的域名报告为已完全执行。"
+        },
+        {
+          "h": "完整的标签集",
+          "body": "RFC 9989 定义了恰好十一个标签：<code>v</code>、<code>p</code>、<code>sp</code>、<code>np</code>、<code>adkim</code>、<code>aspf</code>、<code>fo</code>、<code>rua</code>、<code>ruf</code>、<code>psd</code> 和 <code>t</code>。其余一切——包括 <code>pct</code>、<code>rf</code> 和 <code>ri</code>——都必须被接收方忽略。请注意未知标签会被静默丢弃，因此把 <code>rua=</code> 误写成 <code>rau=</code> 之类的错误，会让您失去报告接收地址，而任何地方都不会报错。",
+          "body2": "另有两条规则比人们预想的更严格。<code>v=</code> 必须是<em>第一个</em>标签，且其值区分大小写——只接受 <code>DMARC1</code>，因此 <code>v=dmarc1</code> 会导致整条记录被忽略。"
+        },
+        {
+          "h": "向外部域名发送报告",
+          "body": "如果您的 <code>rua=</code> 或 <code>ruf=</code> 接收地址在组织域名之外——某个 DMARC 服务商、顾问或兄弟公司——接收方域名必须发布一条记录来授权它。没有这条记录，遵循规范的接收方会静默丢弃您的报告。不会退信，也不会报错；您只是看到的数据比本应有的更少。",
+          "code": "; 您的记录将报告发送给某个服务商：\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; 服务商必须在其自己的区域中发布这条记录：\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\"",
+          "body2": "多数成熟的服务商会自动发布这条记录，但当一个新添加的报告接收地址迟迟没有数据时，这通常就是原因所在。"
+        },
+        {
+          "h": "现在该做什么",
+          "body": "请从您的 DMARC 记录中删除 <code>pct=</code>。如果您正处于推行途中并依赖它，请改为用 <code>t=y</code> 发布您的目标策略，观察聚合报告直到没有合法发件人再失败，然后删除 <code>t=</code>。既然要动这条记录，不妨顺带检查：<code>v=DMARC1</code> 是否在最前且大小写正确、每个标签名是否拼写无误、以及任何外部报告接收地址是否已授权给您。"
+        }
+      ]
     }
   },
   "score": {
     "label": "安全性得分",
     "outOf": "{0} / {1}",
+    "unproven": "{0} / {1} — 无法验证的检查按零分计：{2}。展开此行可查看如何把这些分数拿回来。",
     "parkedNote": "停用域名 — 仅针对 SPF、DMARC、DNSSEC 和 CAA 进行评分",
     "pillar": {
       "dmarc": "DMARC",
@@ -627,7 +822,8 @@
       "subdomain": "子域名覆盖范围",
       "rua": "汇总报告 (rua=)",
       "alignment": "严格对齐",
-      "ruf": "取证报告 (ruf=)"
+      "ruf": "取证报告 (ruf=)",
+      "uris": "报告接收地址"
     }
   }
 }

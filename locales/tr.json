@@ -1,0 +1,829 @@
+{
+  "meta": {
+    "code": "tr",
+    "name": "Turkish",
+    "nativeName": "Türkçe",
+    "dir": "ltr"
+  },
+  "doc": {
+    "title": "DNS ve E-posta Güvenliği Denetleyicisi — Ücretsiz SPF, DKIM, DMARC ve DNSSEC kontrolü",
+    "description": "Tarayıcıda çalışan ücretsiz DNS ve e-posta güvenliği denetleyicisi. En fazla 200 alan adı için SPF, DKIM, DMARC, BIMI, MTA-STS, CAA ve DNSSEC kayıtlarını anında kontrol edin. Kayıt gerekmez, veri saklanmaz — tamamen tarayıcınızda çalışır."
+  },
+  "topbar": {
+    "title": "DNS ve E-posta Denetleyicisi",
+    "subtitle": "· ücretsiz · kayıt yok · Kwestic'e veri gönderilmez",
+    "langTitle": "Dil"
+  },
+  "btn": {
+    "howItWorks": "📖 Nasıl çalışır",
+    "exportCsv": "⬇ CSV dışa aktar",
+    "exportHtml": "⬇ Raporu dışa aktar",
+    "runAudit": "🔎 Denetimi çalıştır",
+    "auditRunning": "Denetleniyor…",
+    "cancelAudit": "Denetimi iptal et",
+    "uploadFile": "📄 .txt dosyası yükle",
+    "loadExamples": "Örnekleri yükle",
+    "clearResults": "🗑 Sonuçları temizle",
+    "learnMore": "Daha fazla bilgi →"
+  },
+  "input": {
+    "heading": "Denetlenecek alan adlarını girin",
+    "desc": "Her satıra bir alan adı yazın veya bir .txt dosyası yükleyin. Tek seferde en fazla 200 alan adı.",
+    "placeholder": "example.com\nmycompany.org\nanother-domain.net"
+  },
+  "opt": {
+    "dkim": "DKIM seçicilerini kontrol et",
+    "dkimComprehensive": "Kapsamlı DKIM taraması (en fazla 5 alan adı)",
+    "dkimComprehensiveTitle": "Katalogdaki doğrulanmış 1.677 kesin seçicinin tamamını kullanır; çalıştırma başına beş alan adıyla sınırlıdır",
+    "www": "Web sitesi barındırmasını algıla",
+    "wildcard": "Joker karakterli TXT kayıtlarını algıla",
+    "dkimSelectors": "Ek DKIM seçicileri",
+    "footer": "Cloudflare DoH üzerinden DNS · Veri saklanmaz · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Gizlilik</a>"
+  },
+  "help": {
+    "title": "Nasıl çalışır:",
+    "body": "<a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">Cloudflare DNS-over-HTTPS API'si</a> aracılığıyla tarayıcınızda çalışır. Kwestic'e veri gönderilmez ve bu uygulama tarafından saklanmaz; DNS sorgu adları doğrudan Cloudflare'e gider ve Cloudflare'in gizlilik politikasına tabidir. Kontrol edilenler: NS, MX, SPF, sağlayıcıya duyarlı veya kapsamlı DKIM seçicileri, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC ve SPF sorgu derinliği. Çerez kullanılmaz; tarayıcınıza yazılan tek şey, cihazınızdan hiç çıkmayan ve kendiliğinden sona ermeyen dil tercihinizdir — ayrıntılar için <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Gizlilik</a> bölümüne bakın."
+  },
+  "netbanner": {
+    "title": "⚠️ Ağ erişimi engellendi — DNS sorguları buradan internete ulaşamıyor",
+    "body": "Bu uygulama <code>cloudflare-dns.com</code> DNS-over-HTTPS API'sini kullanır; sayfa korumalı alanda çalışan bir iframe içinde çalıştığında (örneğin bir yapay zekâ asistanının yerleşik önizleme panelinde) bu API engellenir. Denetleyiciyi kullanmak için klasörü HTTP üzerinden sunun ya da ücretsiz herhangi bir statik site barındırma hizmetine yükleyin:<br><br>• <strong>En hızlısı:</strong> proje klasörünü <a href=\"https://app.netlify.com/drop\" target=\"_blank\" rel=\"noopener\">app.netlify.com/drop</a> üzerine sürükleyin → yaklaşık 60 saniyede canlı adres.<br>• <strong>Kendi alan adınız:</strong> <a href=\"https://pages.cloudflare.com\" target=\"_blank\" rel=\"noopener\">Cloudflare Pages</a> veya <a href=\"https://pages.github.com\" target=\"_blank\" rel=\"noopener\">GitHub Pages</a> üzerine ücretsiz dağıtın.<br>• <strong>Yerelde:</strong> proje klasöründe <code>npx serve</code> (veya <code>python3 -m http.server</code>) çalıştırın."
+  },
+  "progress": {
+    "heading": "DNS kayıtları sorgulanıyor…",
+    "querying": "{0} sorgulanıyor…",
+    "error": "{0} üzerinde hata: {1}",
+    "cancelled": "Kullanıcı tarafından iptal edildi",
+    "cancelledDomain": "{0} iptal edildi"
+  },
+  "search": {
+    "placeholder": "🔎 Alan adlarını filtrele…"
+  },
+  "th": {
+    "domain": "Alan adı",
+    "grade": "Derece",
+    "dns": "DNS sağlayıcısı",
+    "email": "E-posta sağlayıcısı",
+    "spf": "SPF",
+    "dkim": "DKIM",
+    "dmarc": "DMARC",
+    "advanced": "Gelişmiş",
+    "hosting": "Barındırma"
+  },
+  "filter": {
+    "all": "Tüm alan adları",
+    "warn": "⚠️ Uyarılı",
+    "crit": "🔴 Sorunlu",
+    "noEmail": "E-posta yok",
+    "noDmarc": "DMARC eksik",
+    "noDkim": "DKIM eksik",
+    "noSpf": "SPF eksik",
+    "hasBimi": "BIMI var",
+    "noCaa": "CAA eksik",
+    "noDnssec": "DNSSEC yok"
+  },
+  "empty": {
+    "text": "Filtrenizle eşleşen alan adı yok."
+  },
+  "footer": {
+    "text": "<a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> üzerinden DNS-over-HTTPS &bull; Kwestic'e veri gönderilmez ve bu uygulama tarafından saklanmaz &bull; Sorgu adları Cloudflare'e gönderilir &bull; Kullanımı ve kendi sunucunuzda barındırması ücretsiz &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Gizlilik</a> &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/SECURITY.md\" target=\"_blank\" rel=\"noopener\">Güvenlik</a>"
+  },
+  "labels": {
+    "issues": "Sorunlar",
+    "suggestions": "💡 Öneriler",
+    "advanced": "Gelişmiş güvenlik",
+    "nameservers": "Ad sunucuları",
+    "mx": "MX kayıtları",
+    "spf": "SPF kaydı",
+    "spfLookups": "DNS sorguları",
+    "dmarc": "DMARC kaydı",
+    "dkim": "DKIM seçicileri",
+    "verifications": "Doğrulamalar (TXT)",
+    "wildcardApexTitle": "ℹ Joker karakterli TXT kaydı",
+    "wildcardApexText": "Joker karakterli bir TXT kaydı, bir etiket derinliğindeki tanımsız alt alan adı sorgularına yanıt verir. Bu alan adında DKIM seçici sorgularına ulaşmaz ve buradaki diğer tüm kontroller bir sürüm öneki eşleştirir; dolayısıyla hiçbir şey etkilenmez. Bazı alan adları, uydurma alt alan adlarından gelen postanın gerçek bir SPF politikasıyla karşılaşması için bunu bilerek yayımlar.",
+    "wildcardDkimTitle": "⚠ Joker karakterli TXT, DKIM'e ulaşıyor",
+    "wildcardDkimText": "Joker karakterli bir TXT kaydı _domainkey altındaki sorgulara yanıt verir; dolayısıyla var olmayan bir DKIM seçicisi hiçbir şey yerine joker karakter değerini döndürür. Yayımladığınız seçiciler yine çözümlenir, ancak bir seçicinin yokluğu doğrulanamaz; bu nedenle DKIM kapsamı puanlanmak yerine bilinmiyor olarak raporlanır.",
+    "status": "Durum",
+    "none": "Yok",
+    "na": "Yok",
+    "dash": "—"
+  },
+  "showme": {
+    "open": "Göster ▾",
+    "close": "Göster ▴",
+    "whatItIs": "Nedir",
+    "whatItNeeds": "Nasıl olmalı"
+  },
+  "stat": {
+    "domains": "Alan adı",
+    "haveEmail": "E-postası olan",
+    "wildcardDkim": "⚠ DKIM üzerinde joker karakter"
+  },
+  "badge": {
+    "notRegistered": "Kayıtlı değil / NXDOMAIN",
+    "noEmail": "✗ E-posta yok",
+    "noDkim": "✗ Yok",
+    "dkimUnverified": "? Test edilen seçicilerde alan anahtarı bulunamadı",
+    "dkimUncommon": "⚠ Alışılmadık ({0})",
+    "notChecked": "Kontrol edilmedi",
+    "auditError": "Denetim sonuçsuz",
+    "cancelled": "İptal edildi"
+  },
+  "provider": {
+    "unknown": "Bilinmiyor",
+    "custom": "Özel",
+    "customUnknown": "Özel/Bilinmiyor",
+    "selfHosted": "Kendi sunucusunda",
+    "none": "Yok",
+    "nullMx": "Boş MX (posta devre dışı)",
+    "implicitMx": "Örtük MX (MX kaydı yok)",
+    "noWebPresence": "Web varlığı yok",
+    "cnameLoop": "⚠ CNAME döngüsü",
+    "cloudflareProxied": "Cloudflare (proxy üzerinden)",
+    "porkbunForwarding": "Porkbun yönlendirmesi",
+    "dnsError": "⚠ Sorgu başarısız"
+  },
+  "spf": {
+    "missing": "✗ Eksik",
+    "issues": "⚠ Sorunlar",
+    "hardfail": "✓ -all",
+    "softfail": "~ ~all",
+    "present": "✓ Mevcut",
+    "meterOver": "{0}/10 🔴 SINIR AŞILDI",
+    "meterNear": "{0}/10 ⚠ Sınıra yakın",
+    "meterOk": "{0}/10 ✓",
+    "meterSuffix": "DNS sorgusu",
+    "permerror": "🔴 Permerror"
+  },
+  "dmarc": {
+    "missing": "✗ Eksik",
+    "reject": "✓ reject",
+    "quarantine": "✓ quarantine",
+    "none": "⚠ none (yalnızca izleme)",
+    "set": "✓ Ayarlandı",
+    "invalid": "⚠ Geçersiz p=",
+    "pctSuffix": "(%{0})",
+    "permerror": "🔴 Birden fazla kayıt",
+    "inheritedFrom": "{0} kaydından devralındı",
+    "testMode": "⚠ {0} (test modu, uygulanmıyor)"
+  },
+  "dkim": {
+    "uncommon": "Alışılmadık ({0})",
+    "noDomainKeyFound": "Alan anahtarı bulunamadı ({0})",
+    "txtRecord": "TXT kaydı",
+    "cnameTarget": "CNAME hedefi",
+    "noteWildcard": "Joker karakterli TXT hatası sonucu etkiliyor olabilir",
+    "noteNotFound": "Test edilen {0} seçici arasında etkin bir DKIM anahtarı bulunamadı.",
+    "noteNotFoundWithErrors": "Tamamlanan {0} seçici kontrolü arasında etkin bir DKIM anahtarı bulunamadı; {1} DNS sorgusu başarısız oldu."
+  },
+  "adv": {
+    "configured": "✓ Yapılandırıldı",
+    "unverified": "TXT geçerli; politika doğrulanmadı",
+    "notConfigured": "Yapılandırılmadı",
+    "tip": {
+      "bimiOn": "Kayıt: {0}",
+      "bimiOff": "Yapılandırılmadı — logonuzu Gmail ve Apple Mail'de gösterin",
+      "mtaStsOn": "Yapılandırıldı — gelen teslimatta TLS zorunlu",
+      "mtaStsUnverified": "TXT kaydı geçerli, ancak yalnızca tarayıcıda çalışan bu denetim HTTPS politika dosyasını doğrulayamaz",
+      "mtaStsOff": "Yapılandırılmadı — gelen postada TLS'i zorunlu kılmak için _mta-sts TXT kaydı yayımlayın",
+      "tlsRptOn": "Yapılandırıldı — TLS hata raporları etkin",
+      "tlsRptOff": "Yapılandırılmadı — MTA-STS'in tamamlayıcısı; _smtp._tls TXT kaydı yayımlayın",
+      "caaOn": "{0} konumunda bulundu: {1}",
+      "caaOff": "Bulunamadı — bu alan adı için hangi sertifika makamlarının sertifika verebileceğini sınırlamak üzere CAA kayıtları ekleyin",
+      "dnssecOn": "AD bayrağı ayarlı — DNS yanıtları kriptografik olarak doğrulanıyor",
+      "dnssecOff": "Algılanmadı — önbellek zehirlenmesini önlemek için DNS sağlayıcınızda DNSSEC'i etkinleştirin",
+      "bimiDup": "Birden fazla kayıt — BIMI yok sayılır, logonuz görüntülenmez",
+      "mtaStsDup": "Birden fazla kayıt — gönderenler bu alan adını MTA-STS politikası yokmuş gibi değerlendirir",
+      "tlsRptDup": "Birden fazla kayıt — gönderenler bu alan adını TLS-RPT uygulamıyormuş gibi değerlendirir"
+    },
+    "duplicated": "⚠ Birden fazla kayıt"
+  },
+  "rows": {
+    "count": {
+      "one": "{0} alan adı",
+      "other": "{0} alan adı"
+    },
+    "showing": "{1} kaydın {0} tanesi gösteriliyor",
+    "critical": {
+      "one": "{0} kritik",
+      "other": "{0} kritik"
+    },
+    "warning": {
+      "one": "{0} uyarı",
+      "other": "{0} uyarı"
+    },
+    "suggestion": {
+      "one": "{0} öneri",
+      "other": "{0} öneri"
+    }
+  },
+  "toast": {
+    "noDomains": "En az bir alan adı yapıştırın.",
+    "tooMany": "Çalıştırma başına en fazla 200 alan adı.",
+    "tooManyComprehensiveDkim": "Kapsamlı DKIM taraması çalıştırma başına {0} alan adıyla sınırlıdır.",
+    "csvExported": "CSV dışa aktarıldı",
+    "htmlExported": "HTML raporu dışa aktarıldı",
+    "htmlExportFailed": "Bağımsız rapor oluşturulamadı — uygulamayı HTTP üzerinden sunup yeniden deneyin.",
+    "fileLoaded": "{0} yüklendi",
+    "fileTooLarge": "Dosya çok büyük. En fazla yükleme boyutu 1 MB'tır.",
+    "examplesLoaded": "Örnekler yüklendi — Denetimi çalıştır'a tıklayın",
+    "auditDone": {
+      "one": "✅ Denetim tamamlandı — {0} alan adı incelendi",
+      "other": "✅ Denetim tamamlandı — {0} alan adı incelendi"
+    },
+    "auditCancelled": "Denetim iptal edildi",
+    "langChanged": "Dil değiştirildi",
+    "langFailed": "Bu dil yüklenemedi — İngilizce'de kalınıyor."
+  },
+  "csv": {
+    "unknown": "Bilinmiyor",
+    "txtOnly": "TXT geçerli; HTTPS politikası doğrulanmadı",
+    "headers": [
+      "Alan adı",
+      "Kayıtlı",
+      "Derece",
+      "Puan",
+      "DNS sağlayıcısı",
+      "E-posta sağlayıcısı",
+      "SPF durumu",
+      "SPF kaydı",
+      "DKIM bulundu",
+      "DKIM seçicileri",
+      "DMARC durumu",
+      "DMARC politikası",
+      "DMARC test modu (t=)",
+      "DMARC sp",
+      "DMARC np",
+      "DMARC pct",
+      "DMARC adkim",
+      "DMARC aspf",
+      "DMARC RUA",
+      "DMARC RUF",
+      "BIMI",
+      "MTA-STS",
+      "TLS-RPT",
+      "CAA",
+      "DNSSEC",
+      "SPF sorguları",
+      "Sorunlar",
+      "Öneriler"
+    ],
+    "yes": "Evet",
+    "no": "Hayır",
+    "yesAt": "Evet ({0})"
+  },
+  "report": {
+    "title": "DNS ve E-posta Güvenliği Denetim Raporu",
+    "generated": "{0} tarihinde oluşturuldu · {1} alan adı",
+    "note": "DNS ve E-posta Güvenliği Denetleyicisi tarafından yerel olarak oluşturulmuş statik rapor. Denetim sonuçları Kwestic'e gönderilmedi ve uygulama tarafından saklanmadı; DNS sorgu adları Cloudflare'in çözümleyicisine gönderildi."
+  },
+  "issue": {
+    "wildcard-txt-apex": {
+      "msg": "Joker karakterli bir TXT kaydı tanımsız alt alan adlarına yanıt veriyor, ancak DKIM sorgularına ulaşmıyor. Buradaki kontrollere etkisi yok.",
+      "what": "Joker karakterli bir TXT kaydı (<code>* IN TXT \"...\"</code>), DNS sunucunuzun bir etiket derinliğindeki <em>her</em> alt alan adı sorgusuna, hiç tanımlamadığınız adlara bile yanıt vermesini sağlar. Bu derinlikte ve ayrıca DKIM seçicilerinin bulunduğu <code>_domainkey</code> altında sondalandı. Daha derindeki ada ulaşmadı; dolayısıyla bu alan adında DKIM keşfi etkilenmiyor. Buradaki diğer tüm kontroller önce bir sürüm öneki eşleştirir — <code>v=DMARC1</code>, <code>v=STSv1</code>, <code>v=BIMI1</code>, <code>v=spf1</code> — bu yüzden joker karakterli bir dize, bir politika sanılmadan önce atılır.",
+      "fix": "Herhangi bir işlem gerekmiyor. Bazı alan adları, uydurma bir alt alan adından geldiğini iddia eden postanın hiçbir politikayla karşılaşmamak yerine gerçek bir politikayla karşılaşması için bilerek joker karakterli bir SPF yönlendirmesi yayımlar. Amaç buysa koruyun; başka bir şeyden kalmışsa kaldırın.",
+      "fixCode": "; Her iki sondayı kendiniz yineleyin — asıl önemli olan ikincisidir:\ndig +short TXT \"*.yourdomain.com\"\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com"
+    },
+    "wildcard-txt-dkim": {
+      "msg": "Joker karakterli bir TXT kaydı DKIM seçici sorgularına yanıt veriyor; dolayısıyla eksik seçiciler yayımlanmış olanlardan ayırt edilemiyor. DKIM bilinmiyor olarak raporlanıyor.",
+      "what": "Burada joker karakterli bir TXT kaydı, DKIM seçicilerinin bulunduğu <code>_domainkey</code> altındaki sorgulara yanıt veriyor. Hiç yayımlamadığınız bir seçiciyi sorgulayan bir doğrulayıcı, \"kayıt bulunamadı\" yerine joker karakter değerini alır. Yayımladığınız seçiciler yine doğru çözümlenir ve doğrulanmayı sürdürür; dolayısıyla bu, imzalı postayı bozmaz. Bozulan şey olumsuz yanıttır: ne bir doğrulayıcı ne de bu denetim, olmayan bir seçiciyi üretilmiş olandan ayırt edebilir; bu nedenle DKIM kapsamı var ya da yok yerine bilinmiyor olarak puanlanır.",
+      "fix": "Joker karakteri, <code>_domainkey</code> kapsamına giremeyecek şekilde daraltın: ya buna ihtiyaç duyan alt alan adlarıyla sınırlayın ya da boş bir <code>_domainkey</code> düğümü yayımlayın. RFC 4592 bölüm 2.2.1'e göre joker karakter mevcut bir düğümün altında ad üretmez; ancak her ad sunucusu buna uymaz — herhangi bir değişiklikten sonra aşağıdaki dig komutuyla doğrulayın.",
+      "fixCode": "; Joker karakterin DKIM seçici derinliğine ulaşıp ulaşmadığını doğrulayın:\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com\n\n; Joker karakteri daralttıktan sonra aynı sorgu hiçbir şey döndürmemelidir."
+    },
+    "dns-loop": {
+      "msg": "www CNAME zinciri bir döngü içeriyor — web sitesi adı çözümlenemiyor.",
+      "what": "Denetleyici <code>www</code> CNAME zincirini izledi ve daha önce uğradığı bir ana bilgisayar adıyla karşılaştı. Bu bir DNS çözümleme döngüsü oluşturur; dolayısıyla ziyaretçiler nihai bir A veya AAAA adresi elde edemez.",
+      "fix": "Döngüye giren CNAME kaydını, sunucunuzun IP adresine doğrudan işaret eden bir A kaydıyla ya da barındırma sağlayıcınızın kendi alan adına işaret eden bir CNAME kaydıyla değiştirin.",
+      "fixCode": "; 1. seçenek — doğrudan sunucu IP'nize işaret edin:\nwww    A      203.0.113.10\n\n; 2. seçenek — barındırma sağlayıcınızın alan adına işaret edin:\nwww    CNAME  yoursite.netlify.app"
+    },
+    "no-mx": {
+      "msg": "MX kaydı yok. Park edilmiş alan adının taklit edilmesini engellemek için boş MX (0 .) + SPF -all + DMARC p=reject ekleyin.",
+      "what": "Bu alan adının MX kaydı yok; yani onun için e-posta alacak hiçbir posta sunucusu yapılandırılmamış. E-posta kurulumu olmayan park edilmiş veya kullanılmayan alan adları, taklit için başlıca hedeflerdir — saldırganlar alan adınız \"adına\" kimlik avı e-postaları gönderir, çünkü DNS'te onları durduracak hiçbir şey yoktur.",
+      "fix": "Hiçbir zaman e-posta göndermeyecek veya almayacak bir alan adı için, boş MX kaydı (açıkça \"burada posta kabul edilmiyor\" diyen) ile birlikte engelleyici bir SPF ve DMARC politikası yayımlayın.",
+      "fixCode": "; Boş MX — gönderenlere bu alan adının posta kabul etmediğini bildirir:\n@    MX     0 .\n\n; SPF — tüm göndericileri engeller:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — taklit edilen tüm postayı reddeder:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
+    },
+    "spf-multiple-records": {
+      "msg": "Birden fazla SPF kaydı bulundu — bu alan adından gönderilen tüm posta için SPF kalıcı olarak başarısız (permerror).",
+      "what": "RFC 7208 §4.5, alan adı başına tam olarak bir <code>v=spf1</code> TXT kaydına izin verir. Bir alıcı iki kayıt bulduğunda <code>permerror</code> döndürür ve durur — kayıtları birleştirmez, daha katı olanı da seçmez. Pratik etkisi, hiç SPF olmamasından daha kötüdür: kaydınız DNS panelinde doğru görünür, ama alan adınızdan çıkan her ileti SPF kimlik doğrulamasından geçemez. Bu genellikle ikinci bir posta hizmeti devreye alınırken mevcut kaydı düzenlemek yerine kendi kaydını eklemesiyle olur.",
+      "fix": "Kayıtları tek bir kayıtta birleştirin. Tüm kayıtlardaki <code>include:</code>, <code>ip4:</code> ve <code>ip6:</code> mekanizmalarını alıp tek bir <code>v=spf1</code> kaydına koyun ve diğerlerini silin. Birleştirirken 10 sorgu sınırına dikkat edin — kayıtları birleştirmek bu sınırı aşmanın yaygın bir yoludur.",
+      "fixCode": "; Önce — iki kayıt, SPF her şey için başarısız:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Sonra — her iki göndericiyi içeren tek kayıt:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "dmarc-multiple-records": {
+      "msg": "_dmarc altında birden fazla DMARC kaydı bulundu — DMARC hiç uygulanmıyor, alan adı taklit edilebilir.",
+      "what": "RFC 7489 §6.6.3 tam olarak bir DMARC kaydı şart koşar. Alıcılar <code>v=DMARC1</code> etiketi olmayan her şeyi atar ve birden fazla kayıt kalırsa politika keşfi sona erer ve DMARC iletiye uygulanmaz. Politikanız — ne kadar katı olursa olsun — tamamen yok sayılır; dolayısıyla alan adı korunuyormuş gibi görünürken taklit edilebilir durumdadır. Ayrıca toplu raporları da almayı bırakırsınız; bu da bir şeylerin ters gittiğini size söyleyecek sinyali ortadan kaldırır.",
+      "fix": "<code>_dmarc</code> altındaki TXT kayıtlarından biri hariç hepsini silin. Yinelenen kayıtlar farklı rapor adresleri belirtiyorsa, tek bir kayıt bırakıp her iki adresi tek bir <code>rua=</code> etiketinde virgülle ayırarak listeleyin.",
+      "fixCode": "; Önce — _dmarc altında iki kayıt, DMARC yok sayılıyor:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Sonra — tek kayıt, iki rapor hedefi:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+    },
+    "mta-sts-multiple-records": {
+      "msg": "Birden fazla MTA-STS kaydı bulundu — gönderenler alan adınızı MTA-STS politikası yokmuş gibi değerlendirir, dolayısıyla gelen postada TLS zorunlu kılınmaz.",
+      "what": "RFC 8461 §3.1 açıktır: <code>v=STSv1;</code> ile başlamayan kayıtlar atılır ve geriye kalan sayı tam olarak bir değilse gönderenler alan adının MTA-STS politikası olmadığını varsaymak <strong>ZORUNDADIR</strong>. Politika dosyanız hiç alınmaz. Gelen posta, ağ yolundaki bir saldırganın kaldırabileceği fırsatçı STARTTLS'e geri döner — yani MTA-STS'in tam da önlemek için var olduğu düşürme saldırısına. Denetim yapılandırılmış görünürken aslında etkisizdir.",
+      "fix": "<code>_mta-sts</code> altındaki fazla TXT kaydını silin; tam olarak bir tane kalsın. Ardından <code>id=</code> değerini artırın; böylece gönderen sunucular eski TTL'in dolmasını beklemek yerine önbelleğe alınmış politikayı yeniler.",
+      "fixCode": "; Önce — iki kayıt, MTA-STS tamamen yok sayılıyor:\n_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\"\n_mta-sts    TXT    \"v=STSv1; id=20240615000000Z;\"\n\n; Sonra — tek kayıt, yenilemeyi zorlamak için id artırıldı:\n_mta-sts    TXT    \"v=STSv1; id=20260817000000Z;\""
+    },
+    "tls-rpt-multiple-records": {
+      "msg": "Birden fazla TLS-RPT kaydı bulundu — gönderenler alan adınızı TLS-RPT uygulamıyormuş gibi değerlendirir, dolayısıyla hiç rapor gönderilmez.",
+      "what": "RFC 8460 §3, <code>v=TLSRPTv1;</code> kayıtlarının sayısı tam olarak bir değilse gönderenlerin alan adının TLS-RPT uygulamadığını varsayması <strong>GEREKTİĞİNİ</strong> belirtir. İlk kayıttaki adres dahil hiçbir hedef için rapor üretilmez. Bu en çok MTA-STS ile birlikte kullanıldığında önemlidir: bir politikanın yanlış yapılandırıldığını ya da bir sertifikanın süresinin dolduğunu TLS-RPT sayesinde öğrenirsiniz; dolayısıyla bozuk bir kayıt bu hataların sessizce yaşanması demektir.",
+      "fix": "<code>_smtp._tls</code> altındaki fazla kaydı silin. Raporları birden fazla adrese istiyorsanız, hepsini tek bir <code>rua=</code> etiketinde virgülle ayırarak listeleyin.",
+      "fixCode": "; Önce — iki kayıt, hiç rapor gönderilmiyor:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com;\"\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:soc@vendor.example;\"\n\n; Sonra — tek kayıt, iki hedef:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com,mailto:soc@vendor.example;\""
+    },
+    "bimi-multiple-records": {
+      "msg": "Birden fazla BIMI kaydı bulundu — BIMI işlemesi durur, dolayısıyla logonuz görüntülenmez.",
+      "what": "BIMI belirtimi (Assertion Record Discovery) DMARC'ı yansıtır: <code>v=BIMI1</code> etiketi olmayan kayıtlar atılır ve kalan kümede birden fazla kayıt varsa keşif sona erer ve BIMI işlenmez. Logonuz Gmail, Apple Mail veya Yahoo'da görünmez ve BIMI hataları sessiz olduğundan nedenini gösterecek hiçbir şey olmaz — Verified Mark Certificate için ödeme yapmış olsanız bile.",
+      "fix": "<code>default._bimi</code> altındaki fazla TXT kaydını silin; tam olarak bir tane kalsın.",
+      "fixCode": "; Önce — iki kayıt, BIMI hiç değerlendirilmiyor:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\"\ndefault._bimi    TXT    \"v=BIMI1; l=https://cdn.example/old-logo.svg;\"\n\n; Sonra — tek kayıt:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg; a=https://yourdomain.com/vmc.pem;\""
+    },
+    "dkim-multiple-records": {
+      "msg": "Şu seçici(ler)de birden fazla DKIM anahtar kaydı var: {0} — imza doğrulaması tanımsızdır ve başarısız olabilir.",
+      "what": "RFC 6376 §3.6.2.2, anahtar kayıtlarının belirli bir seçici için benzersiz olmasını şart koşar: \"bir RRset içinde birden fazla kayıt varsa sonuçlar tanımsızdır.\" Farklı doğrulayıcılar bunu farklı çözer — kimi ilk kaydı, kimi sonuncusunu alır, kimi doğrudan hata verir. Sonuç, alıcıya göre değişen ve teşhisi zahmetli olan aralıklı DKIM hatalarıdır; çünkü aynı ileti bir sağlayıcıda geçerken diğerinde başarısız olur. Bu çoğunlukla eski kaydın hiç silinmediği bir anahtar değişiminden sonra olur.",
+      "fix": "Eski anahtar kaydını silin; her seçici için tam olarak bir tane kalsın. Anahtar değişimi sürecindeyseniz ve gerçekten iki anahtarın etkin olması gerekiyorsa, tek bir ad altında iki kayıt yerine iki farklı seçici kullanın — seçiciler tam da bunun içindir.",
+      "fixCode": "; Önce — aynı seçicide iki anahtar, davranış tanımsız:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...OLD\"\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\n\n; Sonra — seçici başına tek anahtar; değişimi ikinci bir seçiciyle yapın:\ngoogle._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\ns2._domainkey         TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEXT\""
+    },
+    "spf-missing": {
+      "msg": "SPF kaydı yok — gönderen kimlik doğrulaması imkânsız.",
+      "what": "SPF (Sender Policy Framework), alan adınızdan e-posta göndermeye hangi posta sunucularının yetkili olduğunu listeleyen bir DNS kaydıdır. Bu kayıt olmadan dünyadaki herhangi bir sunucu sizden geliyormuş gibi e-posta gönderebilir ve alıcı posta sunucularının bunun meşru olup olmadığını doğrulamasının hiçbir yolu olmaz.",
+      "fix": "Alan adınızın kökünde, yetkili posta göndericilerinizi listeleyen bir TXT kaydı ekleyin. Test sırasında ~all (yumuşak başarısızlık) ile başlayın, doğruladıktan sonra -all olarak sıkılaştırın.",
+      "fixCode": "; Google Workspace için:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; Microsoft 365 için:\n@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\"\n\n; Park edilmiş/kullanılmayan alan adı için:\n@    TXT    \"v=spf1 -all\""
+    },
+    "spf-softfail": {
+      "msg": "SPF: ~all yumuşak başarısızlık — -all olarak sıkılaştırın.",
+      "what": "SPF kaydınız <code>~all</code> (tilde-all) ile bitiyor; buna \"yumuşak başarısızlık\" denir. Listelenmemiş sunuculardan gelen postanın <em>muhtemelen</em> yetkisiz olduğunu bildirir — ama bu yalnızca bir ipucudur. Alıcı sunucuların çoğu iletiyi yine de teslim eder, belki spam olarak işaretleyerek. Taklide karşı yalnızca kısmi koruma sağlar.",
+      "fix": "SPF kaydınızın tüm meşru gönderim kaynaklarınızı listelediğini doğruladıktan sonra, kaydı <code>~all</code> yerine <code>-all</code> (sert başarısızlık) olarak sıkılaştırın. Bu, alıcılara listenizde olmayan sunuculardan gelen postayı doğrudan reddetmelerini söyler.",
+      "fixCode": "; Şundan:\n@    TXT    \"v=spf1 include:_spf.google.com ~all\"\n\n; Şuna:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-all-permit": {
+      "msg": "SPF: +all herkese izin veriyor — güvensiz.",
+      "what": "SPF kaydınız <code>+all</code> ile bitiyor; bu, <em>internetteki her sunucuya</em> alan adınız adına posta gönderme yetkisi verir. Bu, SPF'in amacını tamamen ortadan kaldırır — hiç SPF olmamasıyla eşdeğerdir ve neredeyse kesinlikle bir yapılandırma hatasıdır.",
+      "fix": "Yetkisiz göndericileri reddetmek için <code>+all</code> yerine <code>-all</code> (sert başarısızlık) kullanın.",
+      "fixCode": "; +all değerini kaldırın, yerine -all koyun:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-neutral": {
+      "msg": "SPF: ?all nötr — koruma yok.",
+      "what": "SPF kaydınız <code>?all</code> (soru işareti all) ile bitiyor; bu \"nötr\" bir sonuçtur — SPF, listelenmemiş sunucuların yetkili olup olmadığı konusunda tavır almaz. Alıcı posta sunucuları bunu hiç SPF kaydı olmamasıyla aynı şekilde değerlendirir; dolayısıyla taklide karşı sıfır koruma sağlar.",
+      "fix": "Yetkisiz göndericileri engellemek için <code>?all</code> yerine <code>-all</code> (sert başarısızlık) kullanın.",
+      "fixCode": "; Şundan:\n@    TXT    \"v=spf1 include:_spf.google.com ?all\"\n\n; Şuna:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-missing-google": {
+      "msg": "SPF: Google Workspace include kaydı eksik.",
+      "what": "Alan adınız e-posta için Google Workspace kullanıyor, ancak SPF kaydınız Google'ın posta sunucularını (<code>_spf.google.com</code>) içermiyor. Google'ın gönderim sunucuları SPF politikanızda yetkilendirilmediğinden, Google Workspace posta kutularınızdan çıkan meşru e-postalar SPF kontrolünden geçemeyip alıcıların spam klasörüne düşebilir.",
+      "fix": "TXT kaydınıza Google'ın SPF include kaydını ekleyin.",
+      "fixCode": "; Google'ın include kaydını ekleyin:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; Başka göndericiler de kullanıyorsanız:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "spf-missing-icloud": {
+      "msg": "SPF: iCloud include kaydı eksik.",
+      "what": "Alan adınız Apple iCloud Mail (iCloud+ Özel Alan Adı) kullanıyor gibi görünüyor, ancak SPF kaydınız Apple'ın gönderim sunucularını yetkilendirmiyor. SPF kaydınız Apple'ın sunucuları için kefil olmadığından, iCloud üzerinden gönderilen e-postalar alıcılar tarafından reddedilebilir veya spam olarak işaretlenebilir.",
+      "fix": "Kaydınıza Apple'ın SPF include kaydını ekleyin.",
+      "fixCode": "@    TXT    \"v=spf1 include:icloud.com -all\""
+    },
+    "spf-missing-microsoft": {
+      "msg": "SPF: Microsoft 365 include kaydı eksik.",
+      "what": "Alan adınız e-posta için Microsoft 365 kullanıyor, ancak SPF kaydınız Microsoft'un gönderim sunucularını (<code>spf.protection.outlook.com</code>) içermiyor. Microsoft 365 posta kutularınızdan çıkan posta, alıcının posta sunucusunda SPF kontrolünden geçemeyip spam sayılabilir veya reddedilebilir.",
+      "fix": "TXT kaydınıza Microsoft'un SPF include kaydını ekleyin.",
+      "fixCode": "@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\""
+    },
+    "dkim-missing": {
+      "msg": "DKIM yapılandırılmamış. {0}",
+      "what": "DKIM (DomainKeys Identified Mail), giden her e-postaya kriptografik bir imza ekler; böylece alıcılar iletinin gerçekten sizin alan adınızdan geldiğini ve yolda değiştirilmediğini doğrulayabilir. DKIM olmadan e-postalarınızın spam olarak işaretlenme olasılığı artar ve alan adınız taklit edilmeye daha açık hale gelir. DMARC'ı uygulayabilmeniz için de önce DKIM gerekir.",
+      "fix": "DKIM kurulumu e-posta sağlayıcınızın yönetim panelinde yapılır — sağlayıcı bir açık/gizli anahtar çifti üretir ve DNS'inizde yayımlamanız için bir TXT kaydı verir. Anahtarı siz oluşturmazsınız.",
+      "fixCode": "; Google Workspace: Yönetici → Uygulamalar → Google Workspace → Gmail\n;   → E-postayı kimlik doğrula → Anahtar oluştur → TXT kaydını kopyalayın\n;\n; Microsoft 365: Yönetici → Ayarlar → Alan adları → alan adını seçin\n;   → DNS kayıtları → DKIM'i etkinleştirin\n;\n; TXT kaydı aşağıdakine benzer görünecektir:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
+    },
+    "dkim-unverified": {
+      "msg": "Test edilen hiçbir DKIM seçicisi bulunamadı. {0} DKIM yapılandırılmamış gibi puanlandı. DKIM seçicinizi biliyorsanız \"Ek DKIM seçicileri\" alanına ekleyip denetimi yeniden çalıştırın; böylece hesaba katılır."
+    },
+    "dkim-not-checked": {
+      "msg": "Bu çalıştırmada DKIM kontrol edilmedi. DKIM yapılandırılmamış gibi puanlandı. DKIM üzerinden puan almak için \"DKIM seçicilerini kontrol et\" seçeneğini etkinleştirip yeniden çalıştırın."
+    },
+    "implicit-mx": {
+      "msg": "Hiç MX kaydı yayımlanmamış. SMTP, bu alan adının A/AAAA adresini örtük MX olarak kullanabilir; bu kırılgan ve çoğu zaman istenmeyen bir durumdur."
+    },
+    "dmarc-missing": {
+      "msg": "DMARC kaydı yok — alan adı, hiçbir politika uygulanmadan serbestçe taklit edilebilir.",
+      "what": "DMARC (Domain-based Message Authentication, Reporting &amp; Conformance), bir e-posta SPF veya DKIM'den geçemediğinde alıcı posta sunucularına ne yapacaklarını söyleyen bir politikadır — karantinaya al, reddet ya da geçir. DMARC kaydı olmadan, kusursuz bir SPF + DKIM kurulumu bile birinin görünen \"Kimden:\" adresinde alan adınızı taklit etmesini engellemez.",
+      "fix": "Postayı engellemeden rapor toplamak için yalnızca izleme politikasıyla (<code>p=none</code>) başlayın, verileri inceledikten sonra politikayı sıkılaştırın.",
+      "fixCode": "; 1. adım — yalnızca izleme (güvenli başlangıç noktası):\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; 2. adım — quarantine (başarısız postayı spam olarak işaretler):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; 3. adım — reject (başarısız postayı tamamen engeller):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-none": {
+      "msg": "DMARC p=none yalnızca izlemedir. Önce p=quarantine, sonra p=reject seviyesine yükseltin.",
+      "what": "DMARC kaydınız <code>p=none</code> olarak ayarlı; bu yalnızca izleme modudur. Alıcı sunuculara veri toplayıp size rapor göndermelerini, ancak başarısız e-postalara <em>hiçbir işlem uygulamamalarını</em> söyler — taklit iletiler yine de teslim edilir. <code>p=none</code>, nihai bir yapılandırma değil, geçici bir ilk adım olarak tasarlanmış bir tanı aracıdır.",
+      "fix": "Tüm meşru posta kaynaklarınızın geçtiğini doğrulamak için DMARC toplu raporlarınızı (rua=) inceleyin. Emin olduğunuzda politikayı önce quarantine, sonra reject seviyesine yükseltin.",
+      "fixCode": "; 1. adım — quarantine (başarısız postayı spam'e yönlendirir):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; 2. adım — reject (başarısız postayı tamamen engeller):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-quarantine": {
+      "msg": "DMARC p=quarantine taklit postayı spam'e yönlendirir ama yine de teslim eder. Nihai durum p=reject'tir.",
+      "what": "DMARC politikanız <code>p=quarantine</code>; bu gerçek bir uygulamadır — kimlik doğrulamasından geçemeyen posta gelen kutusu yerine spam klasörüne yönlendirilir. Ama yine de <em>teslim edilir</em>. Alan adınızı taklit eden inandırıcı bir kimlik avı iletisi, insanların gerçekten baktığı bir klasörde, bir tık uzaklıkta durur ve bazı alıcılar karantinayı tutarsız uygular. <code>p=reject</code>, alıcı sunuculara iletiyi doğrudan reddetmelerini söyler; böylece ileti alıcıya hiç ulaşmaz.",
+      "fix": "DMARC toplu raporlarınızı (<code>rua=</code>) birkaç hafta boyunca inceleyin ve her meşru gönderim kaynağının SPF veya DKIM hizalamasından geçtiğini doğrulayın. Gerçek posta artık başarısız olmadığında politikayı <code>p=reject</code> yapın. Önce temkinli bir adım isterseniz <code>p=reject; t=y</code> yayımlayın — RFC 9989 test modu, alıcılar uygulamayı beklemedeyken raporların akmasını sürdürür — sonra <code>t=y</code> etiketini kaldırın. Geçişi <code>pct=</code> ile yapmayın: RFC 9989 bu etiketi kaldırdı, dolayısıyla artık alıcıdan alıcıya farklı davranıyor.",
+      "fixCode": "; Mevcut politika — başarısız posta spam'e gider:\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; İsteğe bağlı temkinli adım — reject yayımlayın, alıcılar henüz uygulamaz:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Nihai durum — başarısız tüm postayı reddedin:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-no-rua": {
+      "msg": "DMARC'ta rua= adresi yok — toplu rapor alamayacaksınız.",
+      "what": "DMARC kaydınız bir <code>rua=</code> etiketi içermiyor. Bu, İSS'lerin ve posta sağlayıcılarının, alan adınızdan kimin posta gönderdiğini ve bunların kimlik doğrulamasından geçip geçmediğini gösteren toplu raporları yolladığı e-posta adresidir. Bu adres olmadan e-posta trafiğinize hiç görünürlüğünüz olmaz — bir şeyin bozulduğunu ya da birinin alan adınızı taklit ettiğini fark edemezsiniz.",
+      "fix": "DMARC kaydınıza bir <code>rua=</code> adresi ekleyin. İzlediğiniz herhangi bir posta kutusu olabilir.",
+      "fixCode": "; Mevcut DMARC kaydınıza rua= ekleyin:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc-reports@yourdomain.com;\""
+    },
+    "dmarc-weak-sp": {
+      "msg": "Alt alan adı DMARC politikası sp={0} iken alan adının kendisi p={1} — alt alan adları daha az korunuyor.",
+      "what": "Kaydınız <code>sp={0}</code> ayarlıyor; bu, alt alan adlarına yönelik politikayı açıkça geçersiz kılar. Bu etiket olmasaydı alt alan adları daha katı olan <code>p={1}</code> politikanızı otomatik olarak devralırdı. Şu haliyle bir saldırgan <code>herhangibirsey.alanadiniz.com</code> adresini taklit edebilir ve daha yumuşak muamele görür — üstelik alıcılar gönderen adresindeki alt alan adı kısmını nadiren inceler. Alt alan adı taklidi, kurumsal politikaların çoğu zaman ana alan adında durması nedeniyle yaygın bir kimlik avı tekniğidir.",
+      "fix": "Alt alan adlarını farklı ele almak için özel bir nedeniniz yoksa — örneğin henüz tam kimlik doğrulaması yapılmamış bir alt alan adından gönderim yapan bir pazarlama platformu — alt alan adlarının ana politikanızı devralması için <code>sp=</code> etiketini kaldırın ya da eşitleyecek şekilde yükseltin.",
+      "fixCode": "; En basiti — sp= etiketini silin, alt alan adları p'yi devralsın:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Ya da eşitleyecek şekilde açıkça ayarlayın:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-weak-np": {
+      "msg": "Var olmayan alt alan adları için DMARC politikası np={0} iken alan adı p={1} — kullanılmayan alt alan adları daha az korunuyor.",
+      "what": "<code>np=</code> etiketi (RFC 9091), DNS'te hiç var olmayan alt alan adları için politikayı belirler. Sizinki <code>np={0}</code>; <code>p={1}</code> politikanızdan daha zayıf. Var olmayan alt alan adları saldırganların en sevdiği hedeftir — kesintiye uğrayacak meşru posta olmadığı için kimse fark etmez ve <code>billing.yourdomain.com</code> gibi adresler alıcıya son derece makul görünür.",
+      "fix": "<code>np=reject</code> ayarlayın. Var olmayan bir alt alan adından meşru hiçbir posta gönderilmez; dolayısıyla bu, teslim edilebilirlik açısından neredeyse hiç riski olmayan birkaç DMARC değişikliğinden biridir.",
+      "fixCode": "; Var olmayan alt alan adlarından gelen postayı reddedin:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-partial-pct": {
+      "msg": "DMARC pct={0} — hâlâ RFC 7489 kullanan alıcılar politikanızı başarısız postanın yalnızca %{0}'ine uygular, kalan %{1}'ini normal teslim eder.",
+      "what": "<code>pct=</code> etiketi RFC 9989'da kaldırıldı, ancak henüz geçiş yapmamış alıcılar onu dikkate almayı sürdürüyor. <code>pct={0}</code> iken bu alıcılar politikanızı kimlik doğrulamasından geçemeyen iletilerin %{0}'ine uygular, kalan %{1} için bir alt kademedeki daha yumuşak eyleme döner; dolayısıyla taklit bir iletinin dokunulmadan ulaşma olasılığı yaklaşık yüzde {1}'dir. Yeni belirtimi uygulayan alıcılar etiketi yok sayıp politikayı tam uygular — yani uygulamanız şu anda internet genelinde tutarsızdır ve bu, iki ayarın herhangi birinden tek başına daha kötü bir durumdur.",
+      "fix": "Meşru göndericilerin başarısız olmadığını doğrulamak için toplu raporlarınızı kontrol edin, ardından <code>pct=</code> etiketini tamamen kaldırın. Hâlâ aşamalı bir geçişe ihtiyacınız varsa <code>t=y</code> kullanın.",
+      "fixCode": "; pct= etiketini kaldırın — varsayılan 100'dür:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Ya da açıkça belirtin:\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-pct": {
+      "msg": "DMARC pct= değeri 0 ile 100 arasında geçerli bir sayı değil — eski alıcılar kaydın tamamını reddedebilir.",
+      "what": "<code>pct=</code> etiketi RFC 9989'da kaldırıldı; dolayısıyla güncel belirtimi uygulayan alıcılar değeri ne olursa olsun onu yok sayar. Hâlâ RFC 7489 uygulayan alıcılar 0 ile 100 arasında bir tam sayı bekler ve bazıları hatalı bir değeri DMARC kaydının tamamını atmak için gerekçe sayar — alan adınızı tam da o alıcılarda korumasız bırakır. Güvenli hamle her iki durumda da aynıdır.",
+      "fix": "Etiketi kaldırın. Artık tanımlı bir anlamı yok ve kaldırmak her iki davranışı da tek seferde çözer.",
+      "fixCode": "; Hatalı pct= etiketini tamamen kaldırın:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-invalid-policy": {
+      "msg": "DMARC p= değeri none, quarantine veya reject değil — kayıt hatalı biçimlendirilmiş ve hiçbir koruma sağlamıyor.",
+      "what": "<code>p=</code> etiketi tam olarak <code>none</code>, <code>quarantine</code> veya <code>reject</code> olmalıdır. Sizinki başka bir şey — bir yazım hatası, fazladan bir karakter veya desteklenmeyen bir değer. Alıcı sunucular tanımadıkları bir politikaya göre işlem yapamaz; dolayısıyla pratikte alan adınız hiç DMARC kaydı yokmuş gibi değerlendirilir ve serbestçe taklit edilebilir.",
+      "fix": "<code>p=</code> değerini düzeltin. Nereden başlayacağınızdan emin değilseniz, bir <code>rua=</code> adresiyle birlikte <code>p=none</code> yayımlayın, birkaç hafta raporları inceleyin, sonra sıkılaştırın.",
+      "fixCode": "; Yalnızca izleme, güvenli başlangıç noktası:\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; Tam uygulama:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "porkbun-forward": {
+      "msg": "Porkbun yönlendirmesi DKIM'i desteklemiyor — yönlendirilen posta hedefte sıklıkla başarısız olur.",
+      "what": "Porkbun'ın e-posta yönlendirmesi gelen iletileri başka bir adrese aktarır, ancak onları DKIM ile imzalamaz. Yönlendirilen ileti hedefe ulaştığında DKIM'den geçemez (imza yoktur veya yönlendirme sırasında bozulmuştur) ve SPF'den de geçemeyebilir (ileti sizin sunucularınızdan değil, Porkbun'ın sunucularından yeniden gönderilmiştir). Bu, yüksek oranda spam klasörüne teslime yol açar ve DNS tarafında bir çözümü yoktur — yönlendirme mimarisinin temel bir sınırlamasıdır.",
+      "fix": "Güvenilir e-posta için DKIM imzalamayı destekleyen gerçek bir barındırılan e-posta hizmetine geçin. Düşük maliyetli birkaç seçenek mevcuttur.",
+      "fixCode": "; Porkbun yönlendirmesine iyi alternatifler:\n;\n; Google Workspace — tam DKIM desteği\n; Microsoft 365 — tam DKIM desteği\n; Fastmail — tam DKIM desteği\n; Proton Mail for Business — tam DKIM desteği\n;\n; DKIM'li basit catch-all yönlendirme için:\n; ImprovMX (ücretsiz katman) veya Forward Email (ücretsiz, açık kaynak)"
+    },
+    "spf-over-limit": {
+      "msg": "SPF 10 DNS sorgu sınırını aşıyor (~{0} bulundu) — meşru posta SPF'den geçemeyecek.",
+      "what": "SPF, değerlendirme sırasında en fazla 10 DNS sorgusuna izin verir — her <code>include:</code>, <code>mx</code>, <code>a</code>, <code>exists</code> ve <code>redirect</code> mekanizması bu sınıra dahildir. Kaydınız bu sınırı aşıyor. Alıcı bir sunucu 11. sorguya ulaştığında, SPF belirtimi ona \"permerror\" döndürmesini şart koşar ve alıcılar bunu SPF başarısızlığı sayar. Alan adınızdan çıkan meşru posta SPF'den geçemez.",
+      "fix": "Kullanılmayan göndericileri kaldırarak ya da SPF kaydınızı \"düzleştirerek\" — <code>include:</code> girdilerini çözümlenmiş IP adresleriyle değiştirip alt sorguları ortadan kaldırarak — sorgu sayınızı azaltın.",
+      "fixCode": "; Önce (çok fazla include: sorgusu):\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:mailchimp.com include:amazonses.com -all\"\n\n; Düzleştirdikten sonra (gerçek IP'lerinizi almak için bir araç kullanın):\n; Araçlar: MXToolbox SPF Analyzer, AutoSPF, dmarcian\n\"v=spf1 ip4:209.85.220.0/22 ip4:167.89.0.0/17 ip4:199.255.192.0/22 -all\""
+    },
+    "spf-near-limit": {
+      "msg": "SPF 10 sorgu sınırına yaklaşıyor (~{0} sayıldı) — daha fazla gönderici eklemek kaydı bozabilir.",
+      "what": "SPF kaydınız 10 sorgu sınırına yaklaşıyor. Daha fazla e-posta gönderim hizmeti eklemek ya da mevcut bir sağlayıcının SPF altyapısını değiştirmesi sizi sınırın üzerine çıkarabilir — bu da meşru e-postaların hiçbir uyarı olmadan SPF kimlik doğrulamasından geçememesine yol açar.",
+      "fix": "SPF kaydınızı gözden geçirin ve artık kullanmadığınız hizmetleri kaldırın. Mevcut göndericilerin hepsine gerçekten ihtiyacınız varsa, sorgu derinliğini azaltmak için düzleştirmeyi değerlendirin.",
+      "fixCode": "; Gözden geçirme: bunlardan hangilerini hâlâ kullanıyorsunuz?\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:... -all\"\n;\n; Kullanılmayan include kayıtlarını kaldırın ya da şu araçlarla düzleştirin:\n; AutoSPF (autospf.com), dmarcian veya MXToolbox"
+    },
+    "spf-cycle": {
+      "msg": "{0} üzerinden geçen bir SPF include/redirect döngüsü tespit edildi; SPF değerlendirmesi permerror döndürebilir."
+    },
+    "spf-indeterminate": {
+      "msg": "Kayıt makro, aşırı derinlik veya geçersiz bir dahil edilmiş politika kullandığı için toplam SPF sorgu sayısı belirsiz."
+    },
+    "spf-large-subnet": {
+      "msg": "SPF geniş IP aralıklarını yetkilendiriyor: {0} — o alanın tamamını denetlediğinizi doğrulayın.",
+      "what": "<code>ip4:</code> veya <code>ip6:</code> bloğu içindeki her adres, alan adınız adına posta gönderebilir ve bu bloklar geniştir: bir IPv4 <code>/24</code> bloğu 256 adres, bir <code>/16</code> 65.536 adres, bir IPv6 <code>/48</code> veya daha kısası ise saha ölçeğinden İSS ölçeğine varan bir tahsistir. Aralık sizinse bunda sakınca yoktur — pek çok büyük kuruluş kendi ağ bloklarını bu şekilde yayımlar. Aralık paylaşımlı bir barındırıcıya ya da diğer müşterilerini denetlemediğiniz bir sağlayıcıya aitse sorun başlar; çünkü o komşuların her biri sizin adınıza SPF'den geçebilir. Bu denetim yalnızca boyutu bildirir; bloğun kime ait olduğunu söyleyemez, dolayısıyla karar sizindir.",
+      "fix": "Listelenen her aralığın gerçekte kime ait olduğunu kontrol edin. Kendi tahsisinizse değişiklik gerekmez. Paylaşımlı bir platforma aitse, geniş bloğu belirli gönderim adresleriyle ya da sağlayıcının kendi <code>include:</code> kaydıyla değiştirin — böylece listeyi sağlayıcı yönetir ve siz onun tüm altyapısını yetkilendirmemiş olursunuz.",
+      "fixCode": "; Geniş — 256 adresteki her sunucu sizin adınıza gönderebilir:\n\"v=spf1 ip4:203.0.113.0/24 -all\"\n\n; Dar — yalnızca gerçekten gönderim yapan sunucular:\n\"v=spf1 ip4:203.0.113.10 ip4:203.0.113.11 -all\"\n\n; Ya da listeyi sağlayıcı yönetsin:\n\"v=spf1 include:_spf.provider.example -all\""
+    },
+    "spf-medium-subnet": {
+      "msg": "SPF orta büyüklükte IP aralıklarını yetkilendiriyor: {0} — her aralığın size ait olduğunu doğrulamakta fayda var."
+    },
+    "spf-redundant-mechanism": {
+      "msg": "{0} mekanizması yalnızca {1} tarafından zaten yetkilendirilmiş adreslere çözümleniyor — kaldırmak SPF sorgu sayınızı {2} değerinden {3} değerine düşürür.",
+      "what": "SPF en fazla 10 DNS sorgusuna izin verir ve <code>a</code> ile <code>mx</code> mekanizmalarının her biri bir sorgu harcar. Bu mekanizmanın çözümlendiği her adres — hem IPv4 hem IPv6 genelinde — zaten aynı kayda yazılmış bir <code>ip4:</code> veya <code>ip6:</code> bloğunun içindedir; dolayısıyla sorgu, hâlihazırda sahip olmadığınız hiçbir yetki kazandırmaz. Kaldırmak, sizin adınıza hangi sunucuların gönderebileceği konusunda hiçbir şeyi değiştirmez ve üst sınıra karşı bir sorgu geri kazandırır.",
+      "fix": "Mekanizmayı SPF kaydınızdan silin. Arkasındaki sunucular ileride yeni adresler alırsa yeniden kontrol edin; çünkü o zaman bloğun onları da kapsaması gerekir.",
+      "fixCode": "; Önce — mx, bloğun zaten kapsadığı adresleri yetkilendirmek için bir sorgu harcıyor:\n\"v=spf1 mx ip4:203.0.113.0/28 include:_spf.provider.example -all\"\n\n; Sonra — aynı göndericiler yetkili, bir sorgu daha az:\n\"v=spf1 ip4:203.0.113.0/28 include:_spf.provider.example -all\""
+    },
+    "spf-redundant-mechanism-nocount": {
+      "msg": "{0} mekanizması yalnızca {1} tarafından zaten yetkilendirilmiş adreslere çözümleniyor — kaldırmak 10 SPF DNS sorgusundan birini serbest bırakır."
+    },
+    "spf-partial-coverage": {
+      "msg": "{2} mekanizmasının arkasındaki {1} adresten {0} tanesi zaten ip4:/ip6: bloklarınız tarafından kapsanıyor — mekanizmayı koruyun, geri kalanı hâlâ yetkilendiriyor."
+    },
+    "dnssec-bogus": {
+      "msg": "DNSSEC doğrulaması hatalı (bogus) görünüyor: kontrol devre dışı bırakıldığında yanıt alınabilmesine rağmen doğrulama başarısız oldu."
+    },
+    "dnssec-indeterminate": {
+      "msg": "Doğrulama sorgusu başarısız olduğu için DNSSEC durumu belirlenemedi. İmzasız olarak puanlandı. Denetimi yeniden çalıştırın — bu genellikle geçici bir çözümleyici sorunudur. Kayıt kuruluşunuzda veya DNS sağlayıcınızda imzalı olduğunu doğruladığınız bir alan adında tekrarlanıyorsa, alan adını, kayıt kuruluşunuzu/DNS sağlayıcınızı ve DNSSEC'in etkin olduğunu gösteren bir ekran görüntüsünü ekleyerek GitHub'da bir sorun kaydı açın."
+    },
+    "mta-sts-invalid": {
+      "msg": "MTA-STS TXT kaydı hatalı biçimlendirilmiş veya zorunlu id= etiketi eksik."
+    },
+    "mta-sts-policy-unverified": {
+      "msg": "MTA-STS TXT kaydı geçerli, ancak çoğu politika sunucusu kaynaklar arası okumaya izin vermediğinden yalnızca tarayıcıda çalışan bu denetim HTTPS politika dosyasını doğrulayamıyor."
+    },
+    "tls-rpt-invalid": {
+      "msg": "TLS-RPT kaydı hatalı biçimlendirilmiş veya geçerli bir rua= hedefi yok."
+    },
+    "bimi-invalid": {
+      "msg": "BIMI kaydı hatalı biçimlendirilmiş veya geçerli bir HTTPS logo adresi içermiyor."
+    },
+    "dmarc-version-missing": {
+      "msg": "DMARC kaydı v=DMARC1 ile başlamıyor — alıcılar kaydı tamamen yok saymak zorundadır.",
+      "what": "RFC 9989 §5.4, <code>v=</code> etiketinin kayıttaki ilk etiket olmasını şart koşar. Bu etiket olmayan bir kayıt, içinde başka ne olursa olsun, hiç DMARC kaydı değildir. Alıcı sunucular kaydı atar ve alan adınızı DMARC politikası yokmuş gibi değerlendirir; dolayısıyla kayıt size özü olmayan bir koruma görüntüsü verir.",
+      "fix": "Kaydı, <code>v=DMARC1;</code> ile başlayıp ardından politikanızın geleceği şekilde yeniden yazın.",
+      "fixCode": "; Yanlış — sürüm etiketi yok:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-not-first": {
+      "msg": "v=DMARC1 mevcut ama ilk etiket değil — alıcılar kaydın tamamını yok saymak zorundadır.",
+      "what": "RFC 9989 §5.4, <code>v=</code> etiketinin listede yalnızca bir yerde bulunmasının değil, ilk etiket olmasının ZORUNLU olduğunu söyler. Diğer etiketlerin sırası serbesttir; bu da bir kayıt elle düzenlendiğinde ya da bir betikle oluşturulduğunda hatayı kolaylaştırır. Belirtime uyan bir alıcı ayrıştırmayı durdurur ve alan adını korumasız kabul eder.",
+      "fix": "<code>v=DMARC1;</code> etiketini kaydın en başına taşıyın. Başka hiçbir şeyi değiştirmeniz gerekmez.",
+      "fixCode": "; Yanlış — v= ilk sırada değil:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-bad-value": {
+      "msg": "DMARC sürüm değeri tam olarak \"DMARC1\" değil — değer büyük/küçük harfe duyarlıdır ve kayıt yok sayılır.",
+      "what": "Bir DMARC kaydındaki neredeyse her değer büyük/küçük harfe duyarsızdır, ancak RFC 9989 §5.4 <code>v=</code> etiketini istisna kılar: kabul edilen tek yazım, büyük harflerle <code>DMARC1</code>'dir. <code>v=dmarc1</code> veya <code>v=DMARC2</code> kaydın tamamının yok sayılmasına yol açar. DNS panelleri girişte değerleri sık sık küçük harfe çevirdiğinden, bu yaygın bir kopyala-yapıştır kurbanıdır.",
+      "fix": "Değeri tam olarak <code>DMARC1</code> yapın ve ardından DNS panelinizin gerçekte ne kaydettiğini yeniden kontrol edin.",
+      "fixCode": "; Yanlış — küçük harf:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-duplicate-tags": {
+      "msg": "DMARC kaydı aynı etiketi tekrarlıyor ({0}) — kayıt hatalı biçimlendirilmiş ve yok sayılabilir.",
+      "what": "Bir DMARC kaydı her etiketi en fazla bir kez içerebilir. Sizinki {0} etiketini tekrarlıyor. Belirtim, değerler arasında seçim yapmak için bir kural vermez; dolayısıyla davranış alıcıya bağlıdır: kimi ilkini, kimi sonuncusunu alır, kimi kaydı tamamen atar. Yapılandırdığınızı sandığınız koruma ne olursa olsun, ona güvenemezsiniz.",
+      "fix": "Yinelenen etiketleri silin; her biri tam olarak bir kez görünsün. <code>rua=</code> için iki değer amaçlandıysa bunları virgülle ayrılmış tek bir listede birleştirin.",
+      "fixCode": "; Yanlış — p= iki kez:\n_dmarc    TXT    \"v=DMARC1; p=none; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-test-mode": {
+      "msg": "DMARC test modunda (t=y) — p={0} politikanız yayımlandı ama uygulanmıyor.",
+      "what": "<code>t=</code> etiketi RFC 9989 ile gelen bir yeniliktir ve DMARC'ı kademeli olarak devreye almanın desteklenen yolu olarak <code>pct=</code> etiketinin yerini alır. <code>t=y</code>, alıcılara alan adı sahibinin hâlâ değerlendirme yaptığını ve politikanın <em>uygulanmaması</em> gerektiğini söyler. Toplu raporlar gelmeye devam eder ki modun amacı da budur — ancak taklit koruması açısından <code>p=reject; t=y</code> sizi tam olarak <code>p=none</code> kadar korur. Yalnızca <code>p=</code> okuyan panolar bu alan adını tam olarak uygulanıyor gösterecektir.",
+      "fix": "Toplu raporlarınız hiçbir meşru göndericinin başarısız olmadığını gösterdiğinde, yayımlanan politikayı gerçek bir politikaya dönüştürmek için <code>t=y</code> etiketini kaldırın (ya da <code>t=n</code> yapın).",
+      "fixCode": "; Test — politika yayımlandı, uygulanmıyor:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Canlı — t= etiketini tamamen kaldırın (varsayılan n'dir):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-t": {
+      "msg": "DMARC t= değeri y veya n değil — alıcılar etiketi ya da kaydın tamamını yok sayabilir.",
+      "what": "RFC 9989, test modu etiketi için tam olarak iki değer tanımlar: <code>y</code> ve <code>n</code>; varsayılan <code>n</code>'dir. Bunların dışındaki her şey sözdizimi hatasıdır. Alıcıya göre ya varsayılan davranışı görürsünüz ya da kayıt hatalı biçimlendirilmiş sayılarak reddedilir — dışarıdan hangisi olduğunu anlayamazsınız.",
+      "fix": "Test sırasında <code>t=y</code>, canlıda <code>t=n</code> kullanın ya da <code>n</code> varsayılan olduğu için etiketi tamamen kaldırın.",
+      "fixCode": "; Hatalı etiketi kaldırın — varsayılan n'dir:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-rua-invalid": {
+      "msg": "DMARC rua= hedefi kullanılamaz durumda ({0}) — toplu raporlar teslim edilemez.",
+      "what": "Rapor hedefleri DMARC URI'si olmalıdır: <code>mailto:</code> adresleri ve isteğe bağlı olarak <code>!10m</code> gibi bir boyut sınırı. <code>mailto:</code> öneki olmayan çıplak bir adres, hatalı biçimlendirilmiş bir adres veya alıcıların desteklemediği bir şema, hepsi aynı sonucu doğurur — rapor gelmez. DMARC sessizce başarısız olduğu için, kullanılamaz bir <code>rua=</code>, kimsenin taklit etmediği bir alan adıyla birebir aynı görünür.",
+      "fix": "Hedefi tam bir <code>mailto:</code> URI'sine düzeltin. Birden fazla hedefi virgülle ayırın.",
+      "fixCode": "; Yanlış — mailto: şeması eksik:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=dmarc@yourdomain.com;\"\n\n; Doğru — bir veya daha fazla mailto: URI'si:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example!10m;\""
+    },
+    "dmarc-ruf-invalid": {
+      "msg": "DMARC ruf= hedefi kullanılamaz durumda ({0}) — hata raporları teslim edilemez.",
+      "what": "<code>ruf=</code> etiketi <code>rua=</code> ile aynı DMARC URI biçimini kullanır: isteğe bağlı bir <code>!</code> boyut sınırı ile birlikte <code>mailto:</code> adresleri. Sizinki ayrıştırılamıyor, dolayısıyla hiç hata raporu gelmeyecek. Hata raporlarının (RFC 9991) ileti içeriği taşıdığını ve görece az sayıda alıcı tarafından gönderildiğini unutmayın — bunları kaybetmek toplu raporları kaybetmekten daha az ciddidir, ama bozuk bir etiketi yine de düzeltmek ya da kaldırmak gerekir.",
+      "fix": "Hedefi tam bir <code>mailto:</code> URI'sine düzeltin ya da hata raporu toplamayı düşünmüyorsanız <code>ruf=</code> etiketini kaldırın.",
+      "fixCode": "; Doğru — tam bir mailto: URI'si:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-fo-without-ruf": {
+      "msg": "DMARC fo= ayarlanmış ama ruf= yok — alıcılar bunu yok saymak zorundadır.",
+      "what": "<code>fo=</code> etiketi hata raporlarının <em>ne zaman</em> üretileceğini denetler; bu nedenle RFC 9989, <code>ruf=</code> etiketi yokken içeriğinin yok sayılması gerektiğini belirtir. Yani etiket hiçbir şey yapmıyor. Bu genellikle bir noktada <code>ruf=</code> kaldırılırken <code>fo=</code> etiketinin geride bırakıldığı anlamına gelir; bu da hata raporlamasının hâlâ yapılandırılmış olduğu izlenimi verebilir.",
+      "fix": "Hata raporları istiyorsanız bir <code>ruf=</code> hedefi ekleyin; istemiyorsanız kaydın anlamıyla örtüşmesi için <code>fo=</code> etiketini kaldırın.",
+      "fixCode": "; Ya bir hedef ekleyin:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; Ya da işlevsiz etiketi kaldırın:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-fo": {
+      "msg": "DMARC fo= değeri 0, 1, d veya s dışında bir değer içeriyor.",
+      "what": "Hata raporlama seçenekleri etiketi, dört değerin iki nokta üst üste ile ayrılmış bir alt kümesini kabul eder: <code>0</code> (her şey başarısız olduğunda raporla), <code>1</code> (herhangi bir şey başarısız olduğunda raporla), <code>d</code> (DKIM başarısız) ve <code>s</code> (SPF başarısız). Bunların dışındaki her şey sözdizimi hatasıdır ve çoğu operatörün aslında istediği <code>fo=1</code>'dir — varsayılan <code>fo=0</code> yalnızca SPF ve DKIM birlikte başarısız olduğunda rapor eder.",
+      "fix": "Geçerli bir kombinasyon kullanın; en yaygını <code>fo=1</code>'dir.",
+      "fixCode": "; Herhangi bir mekanizma başarısız olduğunda rapor et:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; Birden fazla seçenek iki nokta üst üste ile ayrılır:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=d:s; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-external-reporting": {
+      "msg": "DMARC raporları dış bir alan adına ({0}) gidiyor — o alan adı bunları yetkilendirmezse raporlar atılır.",
+      "what": "Bir rapor hedefi kurumsal alan adınızın dışındaysa — bir DMARC sağlayıcısı, bir danışman, bir kardeş şirket — RFC 9990 §4.3, alıcı alan adının izin veren bir kayıt yayımlamasını şart koşar. Bu kayıt olmadan, belirtime uyan alıcılar o hedefe giden raporları sessizce atar. Yetkilendirme hedef bazında değerlendirilir; dolayısıyla yetkilendirilmemiş bir sağlayıcı DMARC kaydınızı bozmaz ve raporların diğer adreslerinize ulaşmasını engellemez; yalnızca o hedef susar. Bu denetim kaydı doğrulamadı — otomatik olarak sorgulanması için gelişmiş kontrolleri etkinleştirin.",
+      "fix": "Hedef alan adından, <code>&lt;alan-adiniz&gt;._report._dmarc.&lt;onlarin-alan-adi&gt;</code> biçiminde, alan adınız için bir yetkilendirme kaydı yayımlamasını isteyin.",
+      "fixCode": "; Kaydınız raporları bir sağlayıcıya gönderiyor:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; SAĞLAYICI bunu kendi bölgesinde yayımlamalıdır:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
+    },
+    "dmarc-bad-psd": {
+      "msg": "DMARC psd= değeri y, n veya u değil.",
+      "what": "<code>psd=</code> etiketi RFC 9989 ile gelen bir yeniliktir ve DNS Tree Walk mekanizmasına bu alan adının bir genel son ek alan adı olup olmadığını bildirir. Tam olarak üç değer kabul eder: <code>y</code>, <code>n</code> ve <code>u</code> (varsayılan; olağan keşfin geçerli olduğu anlamına gelir). Geçersiz bir değer, alıcıların politikanızı nasıl bulacağını denetleyen bir etikette sözdizimi hatası demektir.",
+      "fix": "Bir genel son ek (public suffix) işletmiyorsanız etiketi kaldırın — <code>u</code> varsayılandır ve neredeyse her sıradan alan adı için doğrudur.",
+      "fixCode": "; Sıradan alan adlarının psd= etiketine hiç ihtiyacı yoktur:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-psd-invalid": {
+      "msg": "DMARC psd=y bildiriyor, ancak bu alan adı bir genel son ek değil.",
+      "what": "<code>psd=y</code>, alıcılara bu adın bir genel son ek alan adı olduğunu söyler — <code>.gov.uk</code> gibi, altında birbiriyle ilgisiz kuruluşların kayıt yaptırdığı, kayıt kuruluşu düzeyinde bir ad. Alıcılar bir politika ararken DNS Tree Walk'un nerede duracağını değiştirir; dolayısıyla bunu sıradan bir kurumsal alan adında ayarlamak, alt alan adları için politikanızın yanlış keşfedilmesine yol açabilir. Bu neredeyse her zaman kopyalanmış bir örnekten kaynaklanan bir hatadır.",
+      "fix": "Public Suffix List'te yer alan bir genel son eki gerçekten işletmiyorsanız <code>psd=y</code> etiketini kaldırın.",
+      "fixCode": "; Etiketi kaldırın:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-removed-tags": {
+      "msg": "DMARC kaydı RFC 9989 tarafından kaldırılan etiketler içeriyor ({0}) — artık hiçbir işlevleri yok.",
+      "what": "RFC 9989, RFC 7489'dan devralınan birkaç etiketi kaldırdı. Güncel belirtimi uygulayan alıcılar bunları yok sayar. Kaydı bozmayacakları anlamında zararsızdırlar, ancak yanıltıcıdırlar: kaydı sonradan okuyan biri onların yürürlükte olduğunu varsayacaktır.",
+      "fix": "Kullanımdan kalkmış etiketleri silin. Rapor sıklığı ve biçimi artık DMARC kaydından yapılandırılamaz — toplu raporlamanın bugün nasıl çalıştığı için RFC 9990'a bakın.",
+      "fixCode": "; Kullanımdan kalkmış etiketler kaldırıldı:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-unknown-tags": {
+      "msg": "DMARC kaydı standardın parçası olmayan etiketler içeriyor ({0}).",
+      "what": "RFC 9989 şu tam etiket kümesini tanımlar: <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code> ve <code>t</code>. Bilinmeyen etiketler yok sayılmak ZORUNDADIR; dolayısıyla tehlikeli olmaktan çok işlevsizdirler — ama genellikle gerçek bir etiket adındaki bir yazım hatasıdır ve bu da amaçladığınız ayarın uygulanmadığı anlamına gelir. Yanlış yazılmış bir <code>rua</code> hem bilinmeyen bir etiket <em>hem de</em> eksik bir rapor hedefidir.",
+      "fix": "Tanınmayan her etiketi yazım hatasına karşı kontrol edin, ardından gerçekten gerekmeyen her şeyi kaldırın.",
+      "fixCode": "; Yazım hatası sessizce yok sayılır — bu kaydın rapor hedefi YOK:\n_dmarc    TXT    \"v=DMARC1; p=reject; rau=mailto:dmarc@yourdomain.com;\"\n\n; Düzeltilmiş hali:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-external-unauthorized": {
+      "msg": "{0} adresine giden DMARC raporları atılıyor — o alan adı raporlarınızı yetkilendirmemiş.",
+      "what": "Bir rapor hedefi kurumsal alan adınızın dışında kaldığında, RFC 9990 §4.3 alıcı alan adının izin veren bir kayıt yayımlamasını şart koşar. Baktık; kayıt orada değil. Bu nedenle belirtime uyan alıcılar {0} adresine giden her raporu atar: hiçbir şey hata vermez, hiçbir şey geri dönmez, yalnızca sandığınızdan daha az veri alırsınız — ki bunu \"kimse bizi taklit etmiyor\" sanmak çok kolaydır. Yetkilendirme hedef bazında kontrol edilir; dolayısıyla kaydınızdaki diğer adresler normal çalışmaya devam eder, yalnızca bu biri atılıyor.",
+      "fix": "{0} işletmecisinden alan adınız için bir yetkilendirme kaydı yayımlamasını isteyin. Çoğu raporlama sağlayıcısı bir alan adı eklediğinizde bunu otomatik yapar; bu nedenle kurulumu yeni yaptıysanız önce sağlayıcı panelini kontrol etmekte fayda var — kayıt, alan adı onların tarafında doğrulandıktan sonra görünüyor olabilir.",
+      "fixCode": "; HEDEF alan adı bunu kendi bölgesinde yayımlar\n; ve raporlarını kabul ettiği alan adını belirtir:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; Çok sayıda müşteriyi kabul eden sağlayıcılar genelde joker biçimi yayımlar:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
+    },
+    "dmarc-external-unverifiable": {
+      "msg": "{0} için rapor yetkilendirmesi doğrulanamadı — DNS sorgusu tamamlanmadı.",
+      "what": "Kurumsal alan adınızın dışına gönderilen raporların hedef tarafından yetkilendirilmesi gerekir; biz de bunu hedefe bir yetkilendirme kaydı sorarak kontrol ederiz. O sorgu başarısız oldu — zaman aşımı, SERVFAIL veya bir çözümleyici aksaklığı — bu yüzden kaydın var olup olmadığını size söyleyemiyoruz. Bu, yapılandırmanıza yönelik bir bulgu değil, bizim sonucumuzdaki bir boşluktur: bunu bir sorun olarak değil, bilinmeyen olarak değerlendirin ve harekete geçmeden önce denetimi yeniden çalıştırın.",
+      "fix": "Denetimi yeniden çalıştırın. Başarısız olmayı sürdürürse, kaydın orada olup olmadığını görmek için adı doğrudan sorgulayın.",
+      "fixCode": "; Yetkilendirme kaydını elle kontrol edin:\ndig +short TXT yourdomain.com._report._dmarc.{0}\n\n; Ve çoğu sağlayıcının yayımladığı joker biçimi:\ndig +short TXT \"*._report._dmarc.{0}\""
+    },
+    "checks-unverified": {
+      "msg": "Bazı kontroller tamamlanamadı ({0}) — kayıt yayımlanmamış gibi puanlanıyorlar.",
+      "what": "Bu alan adı için yapılan bir veya daha fazla DNS sorgusu kullanılabilir bir yanıt döndürmedi; bu genellikle çözümleyiciden gelen bir SERVFAIL veya zaman aşımıdır. Bu gerçekten bozuk bir ad sunucusu olabilir, ancak en az o kadar sık dakikalar içinde geçen anlık bir aksaklıktır. Denetimin geri kalanı normal şekilde tamamlandı ve doğrudur. Etkilenen kontroller sıfır puan alır; çünkü bu aracın arkasında duramayacağı bir not, yalnızca katı olan bir nottan daha değersizdir — dolayısıyla başarısız bir sorgu, yeniden çalıştırılana kadar size puan kaybettirir.",
+      "fix": "Önce denetimi yeniden çalıştırın — geçici bir arıza kendiliğinden düzelir ve puanlar geri gelir. Aynı kontroller başarısız olmaya devam ederse, ad sunucularınızın yanıt verip vermediğini görmek için etkilenen adları doğrudan sorgulayın. Var olmayan adlar için NXDOMAIN yerine SERVFAIL döndüren bir sunucu bu duruma tekrar tekrar yol açar.",
+      "fixCode": "; Ad sunucularınızın var olmaması gereken bir ada yanıt verip vermediğini kontrol edin.\n; Sağlıklı bir sunucu NXDOMAIN, bozuk bir sunucu SERVFAIL döndürür:\ndig +short does-not-exist-test.yourdomain.com\n\n; Çözümleyiciyi atlayarak yetkili sunucularınıza doğrudan sorun:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    }
+  },
+  "suggestion": {
+    "bimiEligible": "BIMI'ye uygun: DMARC uygulanıyor ve DKIM yapılandırılmış. Marka logonuzu Gmail ve Apple Mail'de göstermek için SVG logo adresinizi içeren bir default._bimi TXT kaydı ekleyin.",
+    "bimiPrereq": "BIMI (gelen kutusunda logo): p=quarantine veya p=reject seviyesinde DMARC ve DKIM gerektirir. Önce bunları yerine oturtun, sonra BIMI ekleyin.",
+    "mta-sts": "MTA-STS yapılandırılmamış. Bir _mta-sts TXT kaydı yayımlamak ve bir politika dosyası barındırmak, gelen posta teslimatında TLS'i zorunlu kılarak düşürme saldırılarını önler.",
+    "tls-rpt": "TLS-RPT (_smtp._tls TXT) yapılandırılmamış. MTA-STS'in bu tamamlayıcısı, TLS anlaşması başarısız olduğunda size rapor gönderir — eklemesi kolay, hiçbir olumsuz yanı yok.",
+    "caa": "CAA kaydı yok — herhangi bir sertifika makamı bu alan adı için SSL sertifikası verebilir. Yalnızca tercih ettiğiniz makamı (örn. Let's Encrypt, DigiCert) belirten CAA kayıtları ekleyin.",
+    "dnssec": "DNSSEC algılanmadı. DNS kayıtlarınızı imzalamak önbellek zehirlenmesini ve MX ele geçirmeyi önler. Cloudflare ve modern DNS sağlayıcılarının çoğu bunu tek tıkla etkinleştirir.",
+    "dmarc-pct-obsolete": "DMARC kaydınız hâlâ pct= kullanıyor. Mayıs 2026'da onaylanan RFC 9989 — DMARCbis — itibarıyla pct= artık desteklenen bir etiket değildir ve kaldırılmalıdır. Yeni standardı benimseyen alıcılar onu yok sayar; hâlâ RFC 7489 kullanan alıcılar saymaz — yani etiketi yerinde bırakmak, politikanızın uygulanmasının alıcıdan alıcıya değişmesi demektir. Aşamalı bir geçişe ihtiyacınız varsa t=y kullanın."
+  },
+  "learnMore": {
+    "badge": "E-posta güvenliği rehberi",
+    "close": "✕ Sekmeyi kapat",
+    "footer": "DNS ve E-posta Güvenliği Denetleyicisi tarafından oluşturuldu — veri saklanmaz, kayıt gerekmez",
+    "bimi": {
+      "title": "BIMI — Brand Indicators for Message Identification",
+      "tagline": "Logonuzu Gmail, Apple Mail ve Yahoo gelen kutularında gösterin.",
+      "sections": [
+        {
+          "h": "BIMI nedir?",
+          "body": "BIMI, kuruluşunuzun logosunun alıcının gelen kutusunda — gönderen adının yanında, e-posta daha açılmadan — doğrudan görünmesini sağlayan bir e-posta standardıdır. Gmail, Apple Mail, Yahoo Mail ve Fastmail tarafından desteklenir."
+        },
+        {
+          "h": "Neden önemli",
+          "body": "Logo görüntülenmesi anında görsel güven oluşturur. Alıcılar e-postanın gerçekten kuruluşunuzdan geldiğini bir bakışta görür; bu da açılma oranlarını artırır ve iletinizin kimlik avıyla karıştırılma olasılığını azaltır. BIMI ayrıca kimlik doğrulama yığınınızın tamamını (SPF + DKIM + DMARC) düzene sokmaya zorlayan bir işlev görür."
+        },
+        {
+          "h": "BIMI yayımlamadan önceki gereksinimler",
+          "body": "• DMARC <code>p=quarantine</code> veya <code>p=reject</code> olmalıdır — <code>p=none</code> yeterli değildir<br>• DKIM yapılandırılmış ve giden postayı etkin biçimde imzalıyor olmalıdır<br>• Herkese açık bir HTTPS adresinde barındırılan, <strong>Tiny PS</strong> biçiminde bir SVG logo<br>• (Gmail için) Mavi onay işareti için DigiCert veya Entrust'tan bir Verified Mark Certificate (VMC) gerekebilir"
+        },
+        {
+          "h": "Nasıl kurulur",
+          "body": "1. DMARC'ın uygulandığını doğrulayın (<code>p=quarantine</code> veya <code>p=reject</code>)<br>2. DKIM'in yapılandırıldığını ve imzaladığını doğrulayın<br>3. SVG logonuzu Tiny PS biçiminde oluşturun (Canva, Adobe Illustrator veya <a href=\"https://bimigroup.org/bimi-generator/\" target=\"_blank\" rel=\"noopener\">BIMI oluşturucusu</a> yardımcı olabilir)<br>4. SVG dosyasını herkese açık bir HTTPS adresinde barındırın — örn. <code>https://yourdomain.com/logo.svg</code><br>5. BIMI DNS kaydını ekleyin:",
+          "code": "default._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\""
+        },
+        {
+          "h": "Test etme",
+          "body": "Kaydınızı <a href=\"https://bimigroup.org/bimi-generator\" target=\"_blank\" rel=\"noopener\">bimigroup.org/bimi-generator</a> adresinde doğrulayın. Bir Gmail hesabına test e-postası gönderin ve logonuzun gelen kutusu avatarında görünüp görünmediğine bakın."
+        }
+      ]
+    },
+    "mta-sts": {
+      "title": "MTA-STS — Mail Transfer Agent Strict Transport Security",
+      "tagline": "Alan adınıza gelen tüm e-posta teslimatında TLS şifrelemesini zorunlu kılın.",
+      "sections": [
+        {
+          "h": "MTA-STS nedir?",
+          "body": "MTA-STS, alan adınıza e-posta gönderen herkesin TLS şifrelemesi kullanması ve posta sunucunuzun sertifikasını doğrulaması gerektiğini bildiren bir politika yayımlamanızı sağlayan bir standarttır (RFC 8461). Bu olmadan ağdaki saldırganlar \"düşürme saldırıları\" yapıp TLS'i kaldırarak yoldaki e-postayı okuyabilir."
+        },
+        {
+          "h": "Neden önemli",
+          "body": "Standart STARTTLS şifrelemesi fırsatçı biçimde anlaşılır — araya giren bir saldırgan STARTTLS teklifini sessizce kaldırıp düz metin teslimi zorlayabilir. MTA-STS bunu, politikanızı gönderen sunucuda önceden önbelleğe alarak çözer; böylece sunucu TLS'in zorunlu olduğunu bilir ve onsuz teslim etmeyi reddeder."
+        },
+        {
+          "h": "1. bölüm — DNS TXT kaydını yayımlayın",
+          "body": "Bu TXT kaydını DNS'inize ekleyin. Politika dosyasını her güncellediğinizde <code>id=</code> değerini değiştirin.",
+          "code": "_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\""
+        },
+        {
+          "h": "2. bölüm — politika dosyasını barındırın",
+          "body": "Politika dosyası alan adınızda tam olarak şu adreste barındırılmalıdır:<br><code>https://mta-sts.yourdomain.com/.well-known/mta-sts.txt</code><br><br>Örnek politika dosyası içeriği:",
+          "code": "version: STSv1\nmode: testing\nmx: mail.yourdomain.com\nmx: *.google.com\nmax_age: 604800",
+          "body2": "Engellemeden gözlemlemek için <code>mode: testing</code> ile başlayın. TLS-RPT raporlarını inceleyip hata olmadığını doğruladıktan sonra <code>mode: enforce</code> moduna geçin."
+        },
+        {
+          "h": "Test etme",
+          "body": "Politikanızı doğrulamak için <a href=\"https://www.checktls.com\" target=\"_blank\" rel=\"noopener\">CheckTLS.com</a> veya <a href=\"https://mxtoolbox.com/mta-sts.aspx\" target=\"_blank\" rel=\"noopener\">MXToolbox MTA-STS Check</a> aracını kullanın. Hata raporları almak için bunu TLS-RPT ile birlikte kullanın (TLS-RPT önerisine bakın)."
+        }
+      ]
+    },
+    "tls-rpt": {
+      "title": "TLS-RPT — SMTP TLS Reporting",
+      "tagline": "Alan adınıza teslim edilen e-postalarda TLS şifrelemesi başarısız olduğunda bildirim alın.",
+      "sections": [
+        {
+          "h": "TLS-RPT nedir?",
+          "body": "TLS-RPT (SMTP TLS Reporting, RFC 8460), gönderen posta sunucularına alan adınıza posta teslim ederken yaşanan TLS bağlantı hatalarıyla ilgili günlük raporları nereye e-postayla göndereceklerini bildiren tek bir DNS TXT kaydıdır. Bunu, TLS/şifreleme hataları için DMARC raporlaması gibi düşünün."
+        },
+        {
+          "h": "Neden önemli",
+          "body": "MTA-STS politikanız yanlış yapılandırılmışsa, posta sunucunuzun TLS sertifikasının süresi dolarsa ya da bir ağ sağlayıcısı şifrelemeyi kaldırıyorsa, TLS-RPT olmadan bunu asla öğrenemezsiniz. Görünmeyen teslimat hatalarını gelen kutunuzda harekete geçirilebilir raporlara dönüştürür — üstelik yayımlanması en kolay DNS kayıtlarından biridir."
+        },
+        {
+          "h": "Nasıl kurulur",
+          "body": "Tek bir TXT kaydı ekleyin — e-posta adresini izlediğiniz bir posta kutusuyla değiştirin:",
+          "code": "_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls-reports@yourdomain.com;\"",
+          "body2": "Raporlar her gün JSON biçimli ekler olarak gelir. Üçüncü taraf DMARC platformları (Postmark, Valimail, dmarcian) TLS-RPT raporlarını da DMARC verilerinizin yanında ayrıştırıp görselleştirir."
+        },
+        {
+          "h": "Raporlar size ne söyler",
+          "body": "Her günlük rapor şunları gösterir: hangi gönderen sunucular alan adınıza posta teslim etmeye çalıştı, TLS anlaşması başarılı mı oldu yoksa başarısız mı, ve başarısızlığın özel nedeni nedir — süresi dolmuş sertifika, politika uyuşmazlığı, desteklenmeyen TLS sürümü vb. MTA-STS'i ilk kez test modunda devreye aldığınızda vazgeçilmez bir görünürlük sağlar."
+        }
+      ]
+    },
+    "caa": {
+      "title": "CAA — Certification Authority Authorization",
+      "tagline": "Alan adınız için hangi sertifika makamlarının SSL/TLS sertifikası verebileceğini denetleyin.",
+      "sections": [
+        {
+          "h": "CAA nedir?",
+          "body": "CAA (Certification Authority Authorization) DNS kayıtları, alan adınız için hangi Sertifika Makamlarının (CA) SSL/TLS sertifikası verebileceğini belirtmenizi sağlar. CAA kayıtları olmadan, dünyadaki yüzlerce güvenilir CA'dan herhangi biri — sizin bilginiz veya onayınız olmadan — alan adınız için sertifika verebilir."
+        },
+        {
+          "h": "Neden önemli",
+          "body": "Geçmişte CA hataları veya ele geçirilmeleri yoluyla hatalı sertifika verilmesi yaşanmıştır. Alan adınız için hileyle verilmiş bir sertifika; sitenizi taklit etmek, HTTPS trafiğini araya girip okumak veya kilit simgesi gösteren kimlik avı sayfaları çalıştırmak için kullanılabilir. CAA kayıtları size sağlam bir uygulama katmanı verir: standardı destekleyen CA'lar sertifika vermeden önce CAA kayıtlarınızı kontrol etmek ve listede yoksalar talebi reddetmek zorundadır."
+        },
+        {
+          "h": "Nasıl kurulur",
+          "body": "Yetkili CA'larınızı belirten CAA kayıtları ekleyin. Normal sertifikalar için <code>issue</code>, joker karakterli sertifikalar için <code>issuewild</code> kullanın.",
+          "code": "; Yalnızca Let's Encrypt'e izin ver:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; Let's Encrypt ve DigiCert'e izin ver:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issue \"digicert.com\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; İsteğe bağlı — bir CA sertifika talebini reddettiğinde bildirim al:\n@    CAA    0 iodef \"mailto:ssl-alerts@yourdomain.com\""
+        },
+        {
+          "h": "CA'nızı bulma",
+          "body": "Mevcut sertifikanızı hangi CA'nın verdiğini görmek için sitenizde tarayıcının adres çubuğundaki kilide tıklayın. Yaygın tercihler: <strong>Let's Encrypt</strong> (ücretsiz, otomatik), <strong>DigiCert</strong>, <strong>Sectigo</strong>, <strong>GlobalSign</strong>. Sertifika verme işini genellikle barındırma sağlayıcınız veya Cloudflare yönetir — listelenecek doğru CA ana bilgisayar adı için belgelerine bakın."
+        }
+      ]
+    },
+    "dnssec": {
+      "title": "DNSSEC — Domain Name System Security Extensions",
+      "tagline": "Kurcalamayı ve ele geçirmeyi önlemek için DNS kayıtlarınızı kriptografik olarak imzalayın.",
+      "sections": [
+        {
+          "h": "DNSSEC nedir?",
+          "body": "DNSSEC, DNS kayıtlarınıza kriptografik imzalar ekler. Bir çözümleyici DNSSEC ile imzalanmış bir bölgeyi sorguladığında, yanıtın meşru bölge sahibi tarafından imzalandığını ve yolda değiştirilmediğini doğrulayabilir. DNSSEC olmadan, DNS yanıtlarını araya girip ele geçirebilen ya da zehirleyebilen bir saldırgan trafiğinizi sessizce herhangi bir yere yönlendirebilir."
+        },
+        {
+          "h": "Neden önemli",
+          "body": "DNS önbellek zehirlenmesi saldırıları, ziyaretçileri gerçek sitenizden kötü amaçlı bir siteye yönlendirebilir, MX kayıtlarınızı ele geçirerek e-postanızı araya girip alabilir ya da SPF/DKIM/DMARC sorgularınızı bozabilir — üstelik sunucunuza hiç dokunmadan. DNSSEC, DNS yanıtlarını kriptografik olarak doğrulanabilir kılar; böylece bu saldırılar başarısız olur."
+        },
+        {
+          "h": "Nasıl etkinleştirilir",
+          "body": "DNSSEC, DNS sağlayıcınızda etkinleştirilir — imzalama anahtarlarını o yönetir. Adımlar sağlayıcıya göre değişir:",
+          "code": "Cloudflare:  DNS sekmesi → DNSSEC → Etkinleştir (DS kaydını otomatik ekler)\nGoDaddy:     DNS → DNSSEC → DNSSEC'i etkinleştir\nRoute 53:    Barındırılan bölge → DNSSEC imzalama → Etkinleştir\nPorkbun:     DNS → DNSSEC → Etkinleştir\nName.com:    DNS → DNSSEC → İmzalamayı etkinleştir",
+          "body2": "DNS sağlayıcınızda etkinleştirdikten sonra, size verdikleri DS (Delegation Signer) kayıt değerlerini kopyalayın ve alan adı <strong>kayıt kuruluşunuzda</strong> ekleyin. Kayıt kuruluşundaki DS kaydı, kök DNS'ten bölgenize uzanan güven zincirini tamamlayan şeydir."
+        },
+        {
+          "h": "Kritik uyarılar",
+          "body": "⚠ <strong>DNS sağlayıcınızı değiştirirseniz</strong>, önce DNSSEC'i devre dışı bırakın, tüm kayıtları taşıyın, sonra yeniden etkinleştirin. Bu sırayı izlememek dünya çapında DNS arızalarına yol açar.<br><br>⚠ <strong>Kayıt kuruluşundaki DS kaydı, DNS sağlayıcınızın verdiği değerlerle birebir eşleşmelidir.</strong> Uyuşmazlık, alan adınızın tamamı için DNS çözümlemesini bozar."
+        },
+        {
+          "h": "Test etme",
+          "body": "DNSSEC güven zincirinizi <a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a> adresinde doğrulayın ya da <a href=\"https://dnsviz.net\" target=\"_blank\" rel=\"noopener\">dnsviz.net</a> adresinde görselleştirin. Geçerli bir zincir, kökten TLD'ye ve alan adınıza kadar her düzeyde yeşil görünür."
+        }
+      ]
+    },
+    "dmarc-rfc9989": {
+      "title": "RFC 9989 — DMARC'ta neler değişti",
+      "tagline": "DMARCbis Mayıs 2026'da onaylandı. İşte neyi kaldırdığı, neyi eklediği ve sizin neyi değiştirmeniz gerektiği.",
+      "sections": [
+        {
+          "h": "DMARC artık bir standart",
+          "body": "İlk on yılında DMARC, <em>Informational</em> nitelikte bir belge olan RFC 7489'du — yaygın biçimde kullanılıyordu ama hiçbir zaman resmen standartlaştırılmamıştı. Mayıs 2026'da IETF yerine geçen belge setini yayımladı: RFC 9989 (çekirdek protokol), RFC 9990 (toplu raporlama) ve RFC 9991 (hata raporlama). Bunlar birlikte RFC 7489 ve RFC 9091'i yürürlükten kaldırır ve DMARC'ı standartlar yolunda Proposed Standard seviyesine yükseltir. Raporlamanın kendi belgelerine ayrılması, rapor biçimlerinin artık çekirdek belirtimi yeniden açmadan gelişebileceği anlamına gelir."
+        },
+        {
+          "h": "pct= kaldırıldı",
+          "body": "<code>pct=</code> etiketi, politikanızı başarısız postanın yalnızca bir yüzdesine uygulamanıza izin veriyordu. Devreye alma yardımcısı olarak tasarlanmıştı, ancak pratikte öngörülemez sonuçlar üretti — alıcılar örneklemeyi farklı uyguladı ve bir iletinin kaderi onu hangi sunucunun işlediğine bağlı kaldı. RFC 9989 etiketi tamamen kaldırır. Yeni belirtimi uygulayan alıcılar onu yok sayar.",
+          "body2": "Geçiş dönemindeki püf noktası: hâlâ RFC 7489 çalıştıran alıcılar <code>pct=</code> etiketine uymayı sürdürüyor. Yani <code>pct=25</code> içeren bir kayıt artık bazı alıcılar tarafından tam olarak uygulanıyor, bazıları tarafından dörtte bire indiriliyor ve bu dağılımı bilmenizin hiçbir yolu yok. Bu, iki davranışın tek başına olmasından daha kötü bir konumdur; etiketi kaldırmanın, tüm alıcılar geçişini tamamlamadan önce bile doğru hamle olmasının nedeni budur."
+        },
+        {
+          "h": "Aşamalı geçişte yerini t= alıyor",
+          "body": "RFC 9989 bir test modu etiketi ekliyor. <code>t=y</code>, alıcılara hâlâ değerlendirme yaptığınızı ve politikanızın <em>uygulanmaması</em> gerektiğini söyler — bu sırada toplu raporlar normal biçimde akmayı sürdürür. <code>pct=</code> etiketinin hiçbir zaman olmadığı kadar nettir: ya politika uygulanıyordur ya da uygulanmıyordur.",
+          "code": "; 1. adım — hedef politikanızı test modunda yayımlayın:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; 2. adım — raporlar meşru postanın başarısız olmadığını gösterince t= etiketini kaldırın:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"",
+          "body2": "<code>p=reject; t=y</code> ayarının size taklide karşı tam olarak <code>p=none</code> kadar koruma sağladığını unutmayın — yani hiç. Test modu geçilecek bir aşamadır, kalınacak bir yer değil. Yalnızca <code>p=</code> okuyan her pano böyle bir alan adını tam olarak uygulanıyor gösterir."
+        },
+        {
+          "h": "Etiket kümesinin tamamı",
+          "body": "RFC 9989 tam olarak on bir etiket tanımlar: <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code> ve <code>t</code>. Bunların dışındaki her şey — <code>pct</code>, <code>rf</code> ve <code>ri</code> dahil — alıcılar tarafından yok sayılmalıdır. Bilinmeyen etiketlerin sessizce atıldığını unutmayın; yani <code>rua=</code> yerine <code>rau=</code> gibi bir yazım hatası, hiçbir yerde hata görünmeden rapor hedefinize mal olur.",
+          "body2": "Diğer iki kural sanılandan daha katıdır. <code>v=</code> <em>ilk</em> etiket olmalıdır ve değeri büyük/küçük harfe duyarlıdır — yalnızca <code>DMARC1</code> kabul edilir; dolayısıyla <code>v=dmarc1</code> kaydın tamamının yok sayılmasına yol açar."
+        },
+        {
+          "h": "Dış bir alan adına raporlama",
+          "body": "<code>rua=</code> veya <code>ruf=</code> hedefiniz kurumsal alan adınızın dışındaysa — bir DMARC sağlayıcısı, bir danışman, bir kardeş şirket — alıcı alan adının bunu yetkilendiren bir kayıt yayımlaması gerekir. Bu kayıt olmadan, belirtime uyan alıcılar raporlarınızı sessizce atar. Hiçbir şey geri dönmez, hiçbir şey hata vermez; yalnızca görmeniz gerekenden daha az veri görürsünüz.",
+          "code": "; Kaydınız raporları bir sağlayıcıya gönderiyor:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; SAĞLAYICI bunu kendi bölgesinde yayımlamalıdır:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\"",
+          "body2": "Yerleşik sağlayıcıların çoğu bunu otomatik yayımlar, ancak yeni eklenen bir rapor hedefinde hiç veri görünmediğinde olağan açıklama budur."
+        },
+        {
+          "h": "Şimdi ne yapmalı",
+          "body": "DMARC kaydınızdan <code>pct=</code> etiketini kaldırın. Devreye alma sürecinin ortasındaysanız ve buna dayanıyorsanız, bunun yerine hedef politikanızı <code>t=y</code> ile yayımlayın, hiçbir meşru gönderici başarısız olmayana dek toplu raporlarınızı izleyin, sonra <code>t=</code> etiketini kaldırın. Kaydı düzenlerken <code>v=DMARC1</code> etiketinin ilk sırada ve doğru büyük harflerle olduğunu, her etiket adının doğru yazıldığını ve her dış rapor hedefinin sizi yetkilendirdiğini de kontrol edin."
+        }
+      ]
+    }
+  },
+  "score": {
+    "label": "Güvenlik puanı",
+    "outOf": "{0} / {1}",
+    "unproven": "{0} / {1} — doğrulanamayan kontroller sıfır puan aldı: {2}. Bu puanları nasıl geri kazanacağınızı görmek için bu satırı açın.",
+    "parkedNote": "Park edilmiş alan adı — yalnızca SPF, DMARC, DNSSEC ve CAA üzerinden puanlandı",
+    "pillar": {
+      "dmarc": "DMARC",
+      "spf": "SPF",
+      "dkim": "DKIM",
+      "dnssec": "DNSSEC",
+      "caa": "CAA",
+      "mtaSts": "MTA-STS",
+      "bimi": "BIMI",
+      "tlsRpt": "TLS-RPT"
+    },
+    "dmarcParts": {
+      "label": "DMARC dağılımı",
+      "policy": "Politika (p=)",
+      "subdomain": "Alt alan adı kapsamı",
+      "rua": "Toplu raporlar (rua=)",
+      "alignment": "Katı hizalama",
+      "ruf": "Adli raporlar (ruf=)",
+      "uris": "Rapor hedefleri"
+    }
+  }
+}

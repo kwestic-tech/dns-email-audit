@@ -98,6 +98,10 @@
     "dmarc": "DMARC 레코드",
     "dkim": "DKIM 셀렉터",
     "verifications": "소유권 검증 (TXT)",
+    "wildcardApexTitle": "ℹ 와일드카드 TXT 레코드",
+    "wildcardApexText": "와일드카드 TXT 레코드는 한 레이블 깊이의 정의되지 않은 하위 도메인 질의에 응답합니다. 이 도메인에서는 DKIM 선택자 조회에 도달하지 않으며, 여기의 다른 검사는 모두 버전 접두사와 대조하므로 영향을 받는 것이 없습니다. 존재하지 않는 하위 도메인에서 온 메일이 실제 SPF 정책에 부딪히도록 이를 의도적으로 게시하는 도메인도 있습니다.",
+    "wildcardDkimTitle": "⚠ 와일드카드 TXT가 DKIM에 도달",
+    "wildcardDkimText": "와일드카드 TXT 레코드가 _domainkey 아래의 질의에 응답하므로, 존재하지 않는 DKIM 선택자는 아무것도 반환하지 않는 대신 와일드카드 값을 반환합니다. 게시한 선택자는 여전히 해석되지만 선택자의 부재를 확인할 수 없으므로, DKIM 적용 범위는 채점되지 않고 알 수 없음으로 보고됩니다.",
     "status": "상태",
     "none": "없음",
     "na": "해당 없음",
@@ -111,7 +115,8 @@
   },
   "stat": {
     "domains": "총 도메인",
-    "haveEmail": "이메일 설정됨"
+    "haveEmail": "이메일 설정됨",
+    "wildcardDkim": "⚠ 와일드카드가 DKIM에 도달"
   },
   "badge": {
     "notRegistered": "미등록 / NXDOMAIN",
@@ -134,7 +139,8 @@
     "noWebPresence": "웹사이트 없음",
     "cnameLoop": "⚠ CNAME 루프",
     "cloudflareProxied": "Cloudflare (프록시 적용됨)",
-    "porkbunForwarding": "Porkbun 전달"
+    "porkbunForwarding": "Porkbun 전달",
+    "dnsError": "⚠ 조회 실패"
   },
   "spf": {
     "missing": "✗ 누락됨",
@@ -157,7 +163,8 @@
     "invalid": "⚠ 유효하지 않은 p=",
     "pctSuffix": "({0}%)",
     "permerror": "🔴 중복 레코드",
-    "inheritedFrom": "{0}에서 상속됨"
+    "inheritedFrom": "{0}에서 상속됨",
+    "testMode": "⚠ {0} (테스트 모드, 미적용)"
   },
   "dkim": {
     "uncommon": "비표준 설정 ({0})",
@@ -243,7 +250,7 @@
       "DKIM 셀렉터",
       "DMARC 상태",
       "DMARC 정책",
-      "DMARC Test Mode (t=)",
+      "DMARC 테스트 모드 (t=)",
       "DMARC sp",
       "DMARC np",
       "DMARC pct",
@@ -270,6 +277,18 @@
     "note": "DNS & 이메일 보안 진단 도구를 통해 로컬에서 생성된 정적 보고서입니다. 진단 결과는 Kwestic으로 전송되거나 저장되지 않았으며, DNS 조회 이름은 Cloudflare의 리졸버로 전송되었습니다."
   },
   "issue": {
+    "wildcard-txt-apex": {
+      "msg": "와일드카드 TXT 레코드가 정의되지 않은 하위 도메인에 응답하지만 DKIM 조회에는 도달하지 않습니다. 여기의 검사에는 영향이 없습니다.",
+      "what": "와일드카드 TXT 레코드(<code>* IN TXT \"...\"</code>)는 DNS 서버가 한 레이블 깊이의 <em>모든</em> 하위 도메인 질의에 응답하게 만듭니다. 정의한 적 없는 이름에도 응답합니다. 그 깊이에서 한 번, 그리고 DKIM 선택자가 위치하는 <code>_domainkey</code> 아래에서 다시 한 번 조사했습니다. 더 깊은 이름에는 도달하지 않았으므로 이 도메인의 DKIM 탐색은 영향을 받지 않습니다. 여기의 다른 모든 검사는 먼저 버전 접두사 — <code>v=DMARC1</code>, <code>v=STSv1</code>, <code>v=BIMI1</code>, <code>v=spf1</code> — 와 대조하므로, 와일드카드 문자열은 정책으로 오인되기 전에 폐기됩니다.",
+      "fix": "조치할 것이 없습니다. 존재하지 않는 하위 도메인을 사칭하는 메일이 정책 없음이 아니라 실제 정책에 부딪히도록, 와일드카드 SPF 리디렉트를 의도적으로 게시하는 도메인도 있습니다. 그런 의도라면 그대로 두시고, 다른 설정의 잔재라면 제거하십시오.",
+      "fixCode": "; 두 조회를 직접 재현해 보십시오. 중요한 것은 두 번째입니다:\ndig +short TXT \"*.yourdomain.com\"\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com"
+    },
+    "wildcard-txt-dkim": {
+      "msg": "와일드카드 TXT 레코드가 DKIM 선택자 조회에 응답하므로, 없는 선택자와 게시된 선택자를 구별할 수 없습니다. DKIM은 알 수 없음으로 보고됩니다.",
+      "what": "여기서는 와일드카드 TXT 레코드가 DKIM 선택자가 위치하는 <code>_domainkey</code> 아래의 질의에 응답합니다. 게시한 적 없는 선택자를 조회한 검증자는 「레코드 없음」 대신 와일드카드 값을 받습니다. 실제로 게시한 선택자는 여전히 올바르게 해석되고 검증되므로 서명된 메일이 깨지지는 않습니다. 깨지는 것은 부정 응답입니다. 검증자도 이 감사도 없는 선택자와 합성된 선택자를 구별할 수 없으므로, DKIM 적용 범위는 있음이나 없음이 아니라 알 수 없음으로 채점됩니다.",
+      "fix": "와일드카드가 <code>_domainkey</code>를 덮지 못하도록 범위를 좁히십시오. 필요한 하위 도메인으로 한정하거나 빈 <code>_domainkey</code> 노드를 게시하는 방법이 있습니다. RFC 4592 2.2.1절에 따르면 와일드카드는 기존 노드 아래에서는 합성하지 않지만 모든 네임서버가 이를 지키지는 않습니다. 변경한 뒤에는 아래 dig 명령으로 확인하십시오.",
+      "fixCode": "; 와일드카드가 DKIM 선택자 깊이까지 도달하는지 확인합니다:\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com\n\n; 와일드카드 범위를 좁힌 뒤에는 같은 질의가 아무것도 반환하지 않아야 합니다."
+    },
     "dns-loop": {
       "msg": "www CNAME 체인에 순환 루프가 포함되어 있습니다 — 웹사이트 주소를 해석할 수 없습니다.",
       "what": "진단 도구가 <code>www</code> CNAME 체인을 추적하는 동안 이미 방문했던 호스트 이름에 다시 접근했습니다. 이로 인해 DNS 해석 순환 루프가 발생하여 방문자가 최종 A 또는 AAAA 주소를 얻을 수 없게 됩니다.",
@@ -366,6 +385,12 @@
       "fix": "DKIM 설정은 사용하는 이메일 서비스의 관리 콘솔에서 진행합니다. 서비스 제공업체가 공개키/개인키 쌍을 생성하고 DNS에 게시할 TXT 레코드를 제공합니다. 직접 키를 생성할 필요는 없습니다.",
       "fixCode": "; Google Workspace: 관리자 → 앱 → Google Workspace → Gmail\n;   → 이메일 인증 → 새 레코드 생성 → TXT 레코드 복사\n;\n; Microsoft 365: 관리자 → 설정 → 도메인 → 도메인 선택\n;   → DNS 레코드 → DKIM 활성화\n;\n; TXT 레코드 형태 예시:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
+    "dkim-unverified": {
+      "msg": "테스트된 DKIM 선택자를 찾지 못했습니다. {0} DKIM이 구성되지 않은 것과 동일하게 채점됩니다. DKIM 선택자를 알고 계신다면 「추가 DKIM 선택자」에 입력하고 감사를 다시 실행하여 점수에 반영하십시오."
+    },
+    "dkim-not-checked": {
+      "msg": "이번 실행에서는 DKIM을 확인하지 않았습니다. DKIM이 구성되지 않은 것과 동일하게 채점됩니다. DKIM을 채점에 반영하려면 「DKIM 선택자 확인」을 활성화한 뒤 다시 실행하십시오."
+    },
     "implicit-mx": {
       "msg": "MX 레코드가 게시되지 않았습니다. SMTP가 암묵적 MX로서 이 도메인의 A/AAAA 주소로 되돌아갈 수 있으며, 이는 취약하고 의도하지 않은 결과를 초래할 수 있습니다."
     },
@@ -447,8 +472,32 @@
     "spf-indeterminate": {
       "msg": "레코드가 매크로를 사용하거나 깊이가 너무 깊거나 무효한 정책을 포함하고 있어 총 SPF 조회 횟수를 산출할 수 없습니다."
     },
+    "spf-large-subnet": {
+      "msg": "SPF가 넓은 IP 대역을 승인합니다: {0} — 해당 주소 공간 전체를 관리하고 계신지 확인하십시오.",
+      "what": "<code>ip4:</code> 또는 <code>ip6:</code> 블록 안의 모든 주소가 귀하의 도메인 명의로 메일을 보낼 수 있으며, 이 블록들은 넓습니다. IPv4의 <code>/24</code>는 256개 주소, <code>/16</code>은 65,536개이고, IPv6의 <code>/48</code> 이하는 사업장에서 ISP 규모에 이르는 할당입니다. 그 대역이 귀하의 것이라면 문제가 없습니다. 많은 대규모 조직이 자사 네트워크 블록을 이런 방식으로 게시합니다. 문제가 되는 것은 그 대역이 공유 호스팅 업체나, 다른 고객을 귀하가 통제할 수 없는 공급업체의 것일 때입니다. 그 경우 이웃 고객 누구나 귀하 명의로 SPF를 통과할 수 있습니다. 이 감사는 대역의 크기만 보고할 뿐 소유자까지는 알 수 없으므로, 판단은 귀하의 몫입니다.",
+      "fix": "나열된 각 대역을 실제로 누가 소유하는지 확인하십시오. 귀하에게 할당된 대역이라면 변경할 필요가 없습니다. 공유 플랫폼의 대역이라면 넓은 블록을 실제 발송 주소로 바꾸거나 공급업체 자체의 <code>include:</code>로 교체하십시오. 그러면 공급업체가 목록을 관리하고, 귀하가 그들의 전체 인프라를 승인하지 않아도 됩니다.",
+      "fixCode": "; 넓음 — 256개 주소의 어느 호스트든 귀하 명의로 발송할 수 있습니다:\n\"v=spf1 ip4:203.0.113.0/24 -all\"\n\n; 좁음 — 실제로 발송하는 호스트만 허용합니다:\n\"v=spf1 ip4:203.0.113.10 ip4:203.0.113.11 -all\"\n\n; 또는 공급업체가 목록을 관리하게 합니다:\n\"v=spf1 include:_spf.provider.example -all\""
+    },
+    "spf-medium-subnet": {
+      "msg": "SPF가 중간 규모의 IP 대역을 승인합니다: {0} — 각 대역이 귀하의 것인지 확인해 보시는 것이 좋습니다."
+    },
+    "spf-redundant-mechanism": {
+      "msg": "{0} 메커니즘은 {1}이(가) 이미 승인한 주소로만 해석됩니다. 제거하면 SPF 조회 횟수가 {2}에서 {3}(으)로 줄어듭니다.",
+      "what": "SPF는 최대 10회의 DNS 조회를 허용하며, <code>a</code>와 <code>mx</code> 메커니즘은 각각 한 번씩 소비합니다. 이 메커니즘이 해석하는 모든 주소는 IPv4와 IPv6를 통틀어 같은 레코드에 작성된 <code>ip4:</code> 또는 <code>ip6:</code> 블록에 이미 들어 있습니다. 즉 이 조회는 이미 가지고 있는 것 외에 어떤 승인도 더해 주지 않습니다. 제거해도 귀하 명의로 발송할 수 있는 서버는 전혀 달라지지 않으며, 상한까지의 조회 한 번을 돌려받게 됩니다.",
+      "fix": "이 메커니즘을 SPF 레코드에서 삭제하십시오. 이후 그 뒤의 호스트에 새 주소가 할당되면 블록이 그것도 포함해야 하므로, 그때 다시 확인하십시오.",
+      "fixCode": "; 변경 전 — mx가 블록이 이미 포함하는 주소를 승인하는 데 조회 한 번을 소비합니다:\n\"v=spf1 mx ip4:203.0.113.0/28 include:_spf.provider.example -all\"\n\n; 변경 후 — 승인되는 발신자는 같고 조회는 한 번 줄어듭니다:\n\"v=spf1 ip4:203.0.113.0/28 include:_spf.provider.example -all\""
+    },
+    "spf-redundant-mechanism-nocount": {
+      "msg": "{0} 메커니즘은 {1}이(가) 이미 승인한 주소로만 해석됩니다. 제거하면 SPF의 DNS 조회 10회 중 한 번이 확보됩니다."
+    },
+    "spf-partial-coverage": {
+      "msg": "{2} 메커니즘 뒤에 있는 {1}개 주소 중 {0}개는 이미 ip4:/ip6: 블록에 포함되어 있습니다. 나머지는 여전히 이 메커니즘이 승인하므로 그대로 두십시오."
+    },
     "dnssec-bogus": {
       "msg": "DNSSEC 검증이 위조(bogus)로 나타납니다: 검사를 비활성화했을 때는 응답을 얻을 수 있지만 검증에는 실패했습니다."
+    },
+    "dnssec-indeterminate": {
+      "msg": "검증 질의가 실패하여 DNSSEC 상태를 판단할 수 없었습니다. 서명되지 않은 것으로 채점했습니다. 감사를 다시 실행하십시오. 대개 일시적인 리졸버 문제입니다. 등록기관이나 DNS 공급업체에서 서명되었음을 확인한 도메인에서 계속 발생한다면, 도메인, 등록기관 또는 DNS 공급업체, DNSSEC이 활성화된 것을 보여 주는 스크린샷을 첨부하여 GitHub 이슈를 등록해 주십시오."
     },
     "mta-sts-invalid": {
       "msg": "MTA-STS TXT 레코드 형식이 잘못되었거나 필수 id= 태그가 누락되었습니다."
@@ -461,6 +510,114 @@
     },
     "bimi-invalid": {
       "msg": "BIMI 레코드 형식이 잘못되었거나 유효한 HTTPS 로고 URL을 포함하고 있지 않습니다."
+    },
+    "dmarc-version-missing": {
+      "msg": "DMARC 레코드가 v=DMARC1로 시작하지 않습니다. 수신자는 이를 전부 무시해야 합니다.",
+      "what": "RFC 9989 §5.4은 <code>v=</code> 태그가 레코드의 첫 번째 태그여야 한다고 요구합니다. 이것이 없는 레코드는 그 안에 무엇이 들어 있든 DMARC 레코드가 아닙니다. 수신 서버는 이를 폐기하고 해당 도메인에 DMARC 정책이 없는 것으로 취급합니다. 결국 이 레코드는 실체 없는 보호의 겉모습만 제공하는 셈입니다.",
+      "fix": "레코드가 <code>v=DMARC1;</code>로 시작하고 그 뒤에 정책이 오도록 다시 작성하십시오.",
+      "fixCode": "; 잘못된 예 — 버전 태그가 없습니다:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 올바른 예:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-not-first": {
+      "msg": "v=DMARC1이 있지만 첫 번째 태그가 아닙니다. 수신자는 레코드 전체를 무시해야 합니다.",
+      "what": "RFC 9989 §5.4은 <code>v=</code>가 어딘가에 존재하기만 해서는 안 되고 목록의 첫 번째 태그여야 한다고 규정합니다. 그 외 태그 순서는 자유롭기 때문에, 레코드를 손으로 편집하거나 스크립트로 조립할 때 실수하기 쉽습니다. 사양을 따르는 수신자는 구문 분석을 중단하고 해당 도메인을 보호되지 않은 것으로 취급합니다.",
+      "fix": "<code>v=DMARC1;</code>을 레코드 맨 앞으로 옮기십시오. 그 밖에는 바꿀 것이 없습니다.",
+      "fixCode": "; 잘못된 예 — v=가 맨 앞이 아닙니다:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; 올바른 예:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-bad-value": {
+      "msg": "DMARC 버전 값이 정확히 「DMARC1」이 아닙니다. 이 값은 대소문자를 구분하므로 레코드가 무시됩니다.",
+      "what": "DMARC 레코드의 거의 모든 값은 대소문자를 구분하지 않지만, RFC 9989 §5.4은 <code>v=</code>를 예외로 둡니다. 허용되는 표기는 대문자 <code>DMARC1</code>뿐입니다. <code>v=dmarc1</code>이나 <code>v=DMARC2</code>는 레코드 전체가 무시되게 합니다. DNS 관리 화면이 입력값을 소문자로 바꾸는 경우가 많아 복사·붙여넣기 과정에서 흔히 발생하는 문제입니다.",
+      "fix": "값을 정확히 <code>DMARC1</code>로 설정한 뒤, DNS 관리 화면에 실제로 무엇이 저장되었는지 다시 확인하십시오.",
+      "fixCode": "; 잘못된 예 — 소문자:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; 올바른 예:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-duplicate-tags": {
+      "msg": "DMARC 레코드에 같은 태그가 반복됩니다 ({0}). 레코드 형식이 잘못되어 무시될 수 있습니다.",
+      "what": "DMARC 레코드에서는 각 태그를 최대 한 번만 사용할 수 있습니다. 현재 레코드에는 {0}이(가) 반복됩니다. 사양은 값들 사이에서 무엇을 선택할지 규칙을 정하지 않았으므로 동작은 수신자에 따라 달라집니다. 첫 번째 값을 취하는 곳, 마지막 값을 취하는 곳, 레코드 자체를 폐기하는 곳이 있습니다. 어떤 보호를 구성했다고 생각하시든 그것에 의존할 수 없습니다.",
+      "fix": "중복된 태그를 삭제하여 각 태그가 정확히 한 번만 나타나도록 하십시오. <code>rua=</code>에 두 개의 값을 의도하셨다면 쉼표로 구분한 하나의 목록으로 합치십시오.",
+      "fixCode": "; 잘못된 예 — p=가 두 번:\n_dmarc    TXT    \"v=DMARC1; p=none; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 올바른 예:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-test-mode": {
+      "msg": "DMARC가 테스트 모드(t=y)입니다. p={0} 정책이 게시되었으나 적용되지 않습니다.",
+      "what": "<code>t=</code> 태그는 RFC 9989에서 새로 도입되었으며, DMARC를 단계적으로 적용하는 지원되는 방법으로 <code>pct=</code>를 대체합니다. <code>t=y</code>는 도메인 소유자가 아직 검토 중이며 정책을 적용해서는 <em>안 된다</em>는 것을 수신자에게 알립니다. 집계 보고서는 계속 도착하며, 그것이 이 모드의 목적입니다. 다만 사칭 방지 측면에서 <code>p=reject; t=y</code>의 보호 수준은 <code>p=none</code>과 정확히 같습니다. <code>p=</code>만 읽는 대시보드는 이런 도메인을 완전히 적용된 것으로 표시합니다.",
+      "fix": "집계 보고서에서 정상적인 발신자가 더 이상 실패하지 않으면 <code>t=y</code>를 제거하거나 <code>t=n</code>으로 설정하여, 게시된 정책을 실제 정책으로 전환하십시오.",
+      "fixCode": "; 테스트 중 — 정책은 게시되었으나 적용되지 않음:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; 운영 — t=를 완전히 제거합니다(기본값은 n):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-t": {
+      "msg": "DMARC의 t= 값이 y도 n도 아닙니다. 수신자가 해당 태그나 레코드 전체를 무시할 수 있습니다.",
+      "what": "RFC 9989은 테스트 모드 태그에 대해 정확히 두 가지 값, <code>y</code>와 <code>n</code>을 정의하며 기본값은 <code>n</code>입니다. 그 외의 값은 모두 구문 오류입니다. 수신자에 따라 기본 동작이 적용될 수도 있고 레코드가 잘못된 형식으로 거부될 수도 있는데, 외부에서는 어느 쪽인지 알 수 없습니다.",
+      "fix": "테스트 중에는 <code>t=y</code>, 운영 중에는 <code>t=n</code>으로 설정하거나, <code>n</code>이 기본값이므로 태그를 통째로 제거하십시오.",
+      "fixCode": "; 잘못된 형식의 태그를 제거합니다. n이 기본값입니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-rua-invalid": {
+      "msg": "DMARC의 rua= 대상을 사용할 수 없습니다 ({0}). 집계 보고서를 전달할 수 없습니다.",
+      "what": "보고서 대상은 DMARC URI여야 합니다. 즉 <code>mailto:</code> 주소이며, 뒤에 <code>!10m</code> 같은 크기 제한을 선택적으로 붙일 수 있습니다. <code>mailto:</code> 접두사가 없는 맨 주소, 형식이 잘못된 주소, 수신자가 지원하지 않는 스킴은 모두 같은 결과를 낳습니다 — 보고서가 오지 않습니다. DMARC는 조용히 실패하므로, 사용할 수 없는 <code>rua=</code>는 아무도 사칭하지 않는 도메인과 똑같아 보입니다.",
+      "fix": "대상을 완전한 <code>mailto:</code> URI로 수정하십시오. 여러 대상은 쉼표로 구분합니다.",
+      "fixCode": "; 잘못된 예 — mailto: 스킴이 없습니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=dmarc@yourdomain.com;\"\n\n; 올바른 예 — 하나 이상의 mailto: URI:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example!10m;\""
+    },
+    "dmarc-ruf-invalid": {
+      "msg": "DMARC의 ruf= 대상을 사용할 수 없습니다 ({0}). 실패 보고서를 전달할 수 없습니다.",
+      "what": "<code>ruf=</code> 태그는 <code>rua=</code>와 동일한 DMARC URI 형식을 사용합니다. 즉 <code>mailto:</code> 주소와 선택적인 <code>!</code> 크기 제한입니다. 현재 값은 구문 분석되지 않으므로 실패 보고서가 도착하지 않습니다. 실패 보고서(RFC 9991)는 메시지 내용을 포함하며 이를 보내는 수신자는 비교적 적습니다. 이를 잃는 것은 집계 보고서를 잃는 것보다 덜 심각하지만, 망가진 태그는 그래도 고치거나 제거할 가치가 있습니다.",
+      "fix": "대상을 완전한 <code>mailto:</code> URI로 수정하거나, 실패 보고서를 수집할 의사가 없다면 <code>ruf=</code>를 제거하십시오.",
+      "fixCode": "; 올바른 예 — 완전한 mailto: URI:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-fo-without-ruf": {
+      "msg": "DMARC의 fo=가 설정되어 있으나 ruf=가 없습니다. 수신자는 이를 무시해야 합니다.",
+      "what": "<code>fo=</code> 태그는 실패 보고서를 <em>언제</em> 생성할지 제어하므로, RFC 9989은 <code>ruf=</code> 태그가 없을 때 그 내용을 무시해야 한다고 규정합니다. 즉 이 태그는 아무 일도 하지 않고 있습니다. 대개는 어느 시점에 <code>ruf=</code>가 제거되고 <code>fo=</code>만 남은 경우로, 실패 보고가 여전히 구성되어 있다는 인상을 줄 수 있습니다.",
+      "fix": "실패 보고서를 원하신다면 <code>ruf=</code> 대상을 추가하고, 그렇지 않다면 <code>fo=</code>를 제거하여 레코드가 실제 의미대로 읽히게 하십시오.",
+      "fixCode": "; 대상을 추가하거나:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; 효력 없는 태그를 제거합니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-fo": {
+      "msg": "DMARC의 fo=에 0, 1, d, s가 아닌 값이 들어 있습니다.",
+      "what": "실패 보고 옵션 태그는 네 가지 값을 콜론으로 구분한 부분집합을 허용합니다. <code>0</code>(모두 실패했을 때 보고), <code>1</code>(하나라도 실패했을 때 보고), <code>d</code>(DKIM 실패), <code>s</code>(SPF 실패)입니다. 그 외의 값은 모두 구문 오류입니다. 대부분의 운영자가 실제로 원하는 값은 <code>fo=1</code>이며, 기본값인 <code>fo=0</code>은 SPF와 DKIM이 모두 실패했을 때만 보고합니다.",
+      "fix": "유효한 조합을 사용하십시오. 가장 일반적인 값은 <code>fo=1</code>입니다.",
+      "fixCode": "; 어떤 메커니즘이든 실패할 때마다 보고:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; 여러 옵션은 콜론으로 구분합니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=d:s; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-external-reporting": {
+      "msg": "DMARC 보고서가 외부 도메인({0})으로 전송됩니다. 해당 도메인이 승인하지 않으면 보고서는 폐기됩니다.",
+      "what": "보고서 수신 대상이 조직 도메인 밖에 있는 경우 — DMARC 공급업체, 컨설턴트, 계열사 등 — RFC 9990 §4.3은 수신 도메인이 권한을 부여하는 레코드를 게시하도록 요구합니다. 그것이 없으면 사양을 준수하는 수신자는 해당 대상으로 향하는 보고서를 조용히 폐기합니다. 승인은 대상별로 평가되므로, 승인되지 않은 공급업체가 있어도 DMARC 레코드가 손상되거나 다른 주소로 가는 보고서가 막히지는 않습니다. 그 대상 하나만 조용해질 뿐입니다. 이번 감사에서는 해당 레코드를 확인하지 않았습니다. 자동으로 조회하게 하려면 고급 검사를 활성화하십시오.",
+      "fix": "대상 도메인에 <code>&lt;귀하의-도메인&gt;._report._dmarc.&lt;상대-도메인&gt;</code> 형식으로 귀하의 도메인에 대한 승인 레코드를 게시하도록 요청하십시오.",
+      "fixCode": "; 귀하의 레코드는 공급업체로 보고서를 보냅니다:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; 공급업체가 자신의 존에 다음을 게시해야 합니다:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
+    },
+    "dmarc-bad-psd": {
+      "msg": "DMARC의 psd= 값이 y, n, u 중 어느 것도 아닙니다.",
+      "what": "<code>psd=</code> 태그는 RFC 9989에서 새로 도입되었으며, 이 도메인이 공개 접미사 도메인인지 여부를 DNS Tree Walk에 알려 줍니다. 허용되는 값은 정확히 세 가지, <code>y</code>, <code>n</code>, <code>u</code>(기본값으로, 일반적인 탐색이 적용됨을 의미)입니다. 잘못된 값은 수신자가 정책을 찾는 방식을 제어하는 태그에서 발생한 구문 오류입니다.",
+      "fix": "공개 접미사를 운영하는 것이 아니라면 이 태그를 제거하십시오. <code>u</code>가 기본값이며 사실상 모든 일반 도메인에 적합합니다.",
+      "fixCode": "; 일반 도메인에는 psd=가 전혀 필요하지 않습니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-psd-invalid": {
+      "msg": "DMARC가 psd=y를 선언했지만 이 도메인은 공개 접미사가 아닙니다.",
+      "what": "<code>psd=y</code>는 이 이름이 공개 접미사 도메인 — <code>.gov.uk</code>처럼 서로 무관한 조직들이 그 아래에 등록하는 레지스트리 수준의 이름 — 임을 수신자에게 알립니다. 수신자가 정책을 찾을 때 DNS Tree Walk가 멈추는 지점을 바꾸므로, 일반적인 조직 도메인에 이를 설정하면 하위 도메인에 대한 정책이 잘못 탐색될 수 있습니다. 거의 언제나 예제를 그대로 복사해서 생기는 실수입니다.",
+      "fix": "Public Suffix List에 등재된 공개 접미사를 실제로 운영하는 것이 아니라면 <code>psd=y</code>를 제거하십시오.",
+      "fixCode": "; 태그를 제거합니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-removed-tags": {
+      "msg": "DMARC 레코드에 RFC 9989에서 제거된 태그가 있습니다 ({0}). 이제 아무 기능도 하지 않습니다.",
+      "what": "RFC 9989은 RFC 7489에서 이어져 온 여러 태그를 제거했습니다. 현행 사양을 구현한 수신자는 이를 무시합니다. 레코드를 망가뜨리지는 않는다는 점에서 무해하지만 오해를 부릅니다. 나중에 레코드를 읽는 사람은 그것이 유효하다고 여길 것이기 때문입니다.",
+      "fix": "더 이상 사용되지 않는 태그를 삭제하십시오. 보고 주기와 형식은 이제 DMARC 레코드에서 설정할 수 없습니다. 현재 집계 보고가 동작하는 방식은 RFC 9990을 참조하십시오.",
+      "fixCode": "; 구식 태그를 제거했습니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-unknown-tags": {
+      "msg": "DMARC 레코드에 표준에 속하지 않는 태그가 있습니다 ({0}).",
+      "what": "RFC 9989이 정의하는 전체 태그 집합은 다음과 같습니다. <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code>, <code>t</code>. 알 수 없는 태그는 반드시 무시되어야 하므로 위험하다기보다 효력이 없을 뿐입니다. 다만 대개는 실제 태그 이름의 오타이며, 이는 의도한 설정이 적용되지 않았다는 뜻입니다. 철자가 틀린 <code>rua</code>는 알 수 없는 태그인 <em>동시에</em> 누락된 보고서 대상이기도 합니다.",
+      "fix": "인식되지 않은 태그마다 오타가 있는지 확인한 뒤, 정말로 필요 없는 것은 제거하십시오.",
+      "fixCode": "; 오타는 조용히 무시됩니다. 이 레코드에는 보고서 대상이 없습니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; rau=mailto:dmarc@yourdomain.com;\"\n\n; 수정 후:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-external-unauthorized": {
+      "msg": "{0}(으)로 향하는 DMARC 보고서가 폐기되고 있습니다. 해당 도메인이 귀하의 보고서를 승인하지 않았습니다.",
+      "what": "보고서 수신 대상이 조직 도메인 밖에 있는 경우, RFC 9990 §4.3은 수신 도메인이 권한을 부여하는 레코드를 게시하도록 요구합니다. 확인해 보았으나 존재하지 않았습니다. 따라서 사양을 준수하는 수신자는 {0}(으)로 향하는 모든 보고서를 폐기합니다. 오류도 나지 않고 반송도 되지 않으며, 단지 생각보다 적은 데이터를 받게 될 뿐인데, 이는 「아무도 우리를 사칭하지 않는다」로 오해하기 쉽습니다. 승인은 대상별로 확인되므로 레코드의 다른 주소들은 정상적으로 작동합니다. 폐기되는 것은 이 대상 하나뿐입니다.",
+      "fix": "{0}의 운영자에게 귀하의 도메인에 대한 승인 레코드를 게시하도록 요청하십시오. 대부분의 보고 공급업체는 도메인을 추가할 때 이를 자동으로 처리하므로, 방금 설정하셨다면 먼저 공급업체 대시보드를 확인해 보실 만합니다. 상대 측에서 도메인 검증이 끝난 뒤에야 레코드가 나타나는 경우가 있습니다.",
+      "fixCode": "; 대상 도메인이 자신의 존에 다음을 게시하며,\n; 보고서를 수락할 도메인을 명시합니다:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; 다수의 고객을 받는 공급업체는 보통 와일드카드 형식을 게시합니다:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
+    },
+    "dmarc-external-unverifiable": {
+      "msg": "{0}에 대한 보고서 승인을 확인할 수 없었습니다. DNS 조회가 완료되지 않았습니다.",
+      "what": "조직 도메인 밖으로 전송되는 보고서는 대상의 승인이 필요하며, 저희는 대상에 승인 레코드를 질의하여 이를 확인합니다. 이번에는 그 질의가 실패했습니다. 시간 초과, SERVFAIL 또는 리졸버 문제 때문이며, 따라서 레코드가 존재하는지 여부를 말씀드릴 수 없습니다. 이는 저희 결과의 공백이지 귀하의 구성에 대한 지적이 아닙니다. 문제가 아니라 「알 수 없음」으로 간주하시고, 조치하기 전에 감사를 다시 실행하십시오.",
+      "fix": "감사를 다시 실행하십시오. 계속 실패한다면 해당 이름을 직접 조회하여 레코드가 있는지 확인하십시오.",
+      "fixCode": "; 승인 레코드를 직접 확인합니다:\ndig +short TXT yourdomain.com._report._dmarc.{0}\n\n; 대부분의 공급업체가 게시하는 와일드카드 형식도 확인합니다:\ndig +short TXT \"*._report._dmarc.{0}\""
+    },
+    "checks-unverified": {
+      "msg": "일부 검사를 완료하지 못했습니다 ({0}). 해당 레코드가 게시되지 않은 것과 동일하게 채점됩니다.",
+      "what": "이 도메인에 대한 하나 이상의 DNS 조회가 사용 가능한 응답을 반환하지 않았습니다. 대개 리졸버의 SERVFAIL 또는 시간 초과입니다. 실제로 네임서버가 고장 난 경우일 수도 있지만, 그만큼 자주 몇 분 안에 해소되는 일시적인 문제이기도 합니다. 감사의 나머지 부분은 정상적으로 완료되었으며 정확합니다. 해당 검사는 0점으로 채점됩니다. 이 도구가 근거를 댈 수 없는 평가는 단지 엄격하기만 한 평가보다 가치가 낮기 때문입니다. 따라서 조회 실패는 다시 실행하기 전까지 실제로 점수 손실로 이어집니다.",
+      "fix": "먼저 감사를 다시 실행하십시오. 일시적인 장애라면 저절로 해소되고 점수도 돌아옵니다. 같은 검사가 계속 실패한다면 해당 이름을 직접 조회하여 네임서버가 응답하는지 확인하십시오. 존재하지 않는 이름에 대해 NXDOMAIN 대신 SERVFAIL을 반환하는 서버에서는 이 문제가 반복해서 발생합니다.",
+      "fixCode": "; 존재하지 않아야 할 이름에 네임서버가 응답하는지 확인합니다.\n; 정상 서버는 NXDOMAIN을, 문제가 있는 서버는 SERVFAIL을 반환합니다:\ndig +short does-not-exist-test.yourdomain.com\n\n; 리졸버를 거치지 않고 권한 있는 서버에 직접 질의합니다:\ndig @ns1.yourprovider.com www.yourdomain.com A"
     }
   },
   "suggestion": {
@@ -469,7 +626,8 @@
     "mta-sts": "MTA-STS가 설정되지 않았습니다. _mta-sts TXT 레코드를 게시하고 정책 파일을 호스팅하면 수신 메일에 TLS 암호화를 강제하여 다운그레이드 공격을 예방할 수 있습니다.",
     "tls-rpt": "TLS-RPT (_smtp._tls TXT)가 설정되지 않았습니다. MTA-STS의 보완 기능으로, TLS 협상이 실패했을 때 보고서를 받아볼 수 있습니다 — 단점 없이 쉽게 추가 가능합니다.",
     "caa": "CAA 레코드가 없습니다 — 어떠한 인증기관(CA)이라도 이 도메인에 대한 SSL 인증서를 발급할 수 있습니다. 신뢰하는 CA(예: Let's Encrypt, DigiCert)만 지정한 CAA 레코드를 추가하세요.",
-    "dnssec": "DNSSEC이 감지되지 않았습니다. DNS 레코드에 암호화 서명을 하면 캐시 포이즈닝 및 MX 하이재킹을 방지할 수 있습니다. Cloudflare 및 최신 DNS 제공업체는 클릭 한 번으로 이를 활성화할 수 있습니다."
+    "dnssec": "DNSSEC이 감지되지 않았습니다. DNS 레코드에 암호화 서명을 하면 캐시 포이즈닝 및 MX 하이재킹을 방지할 수 있습니다. Cloudflare 및 최신 DNS 제공업체는 클릭 한 번으로 이를 활성화할 수 있습니다.",
+    "dmarc-pct-obsolete": "DMARC 레코드에서 아직 pct=를 사용하고 있습니다. 2026년 5월에 승인된 RFC 9989(DMARCbis) 이후 pct=는 더 이상 지원되는 태그가 아니므로 제거해야 합니다. 새 표준을 채택한 수신자는 이를 무시하지만 아직 RFC 7489을 쓰는 수신자는 무시하지 않습니다. 따라서 그대로 두면 정책 적용 수준이 수신자마다 달라집니다. 단계적 적용이 필요하다면 t=y를 사용하십시오."
   },
   "learnMore": {
     "badge": "이메일 보안 가이드",
@@ -605,11 +763,48 @@
           "body": "<a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a>에서 DNSSEC 신뢰 체인을 검증하거나 <a href=\"https://dnsviz.net\" target=\"_blank\" rel=\"noopener\">dnsviz.net</a>에서 시각적으로 확인하세요. 정상적인 신뢰 체인은 루트 → TLD → 도메인까지 모든 단계에서 초록색으로 표시됩니다."
         }
       ]
+    },
+    "dmarc-rfc9989": {
+      "title": "RFC 9989 — DMARC의 변경 사항",
+      "tagline": "DMARCbis는 2026년 5월에 승인되었습니다. 무엇이 사라지고 무엇이 추가되었으며 무엇을 바꿔야 하는지 정리했습니다.",
+      "sections": [
+        {
+          "h": "DMARC은 이제 표준입니다",
+          "body": "첫 10년 동안 DMARC는 RFC 7489, 즉 <em>정보 제공용</em> 문서였습니다. 널리 배포되었지만 공식적으로 표준화된 적은 없었습니다. 2026년 5월 IETF는 이를 대체하는 문서 묶음을 발표했습니다. RFC 9989(핵심 프로토콜), RFC 9990(집계 보고), RFC 9991(실패 보고)입니다. 이들은 함께 RFC 7489과 RFC 9091을 폐기하고 DMARC를 표준화 트랙의 Proposed Standard로 격상했습니다. 보고를 별도 문서로 분리한 덕분에, 이제 핵심 사양을 다시 열지 않고도 보고 형식을 발전시킬 수 있습니다."
+        },
+        {
+          "h": "pct=는 제거되었습니다",
+          "body": "<code>pct=</code> 태그는 실패한 메일 중 일정 비율에만 정책을 적용할 수 있게 해 주었습니다. 단계적 적용을 돕기 위한 것이었지만 실제로는 예측할 수 없는 결과를 낳았습니다. 수신자마다 표본 추출 방식이 달랐고, 어떤 메시지의 운명이 마침 어느 서버가 처리했는지에 달리게 되었기 때문입니다. RFC 9989은 이 태그를 완전히 제거했습니다. 새 사양을 구현한 수신자는 이를 무시합니다.",
+          "body2": "전환기의 함정은 아직 RFC 7489로 동작하는 수신자가 <code>pct=</code>를 계속 존중한다는 점입니다. 따라서 <code>pct=25</code>인 레코드는 어떤 수신자에게는 전부 적용되고 다른 수신자에게는 4분의 1로 제한되며, 그 비율을 알 방법이 없습니다. 이는 두 동작 중 어느 하나만 있을 때보다 나쁜 상황이며, 모든 수신자가 이전을 마치기 전이라도 태그를 제거하는 것이 옳은 이유입니다."
+        },
+        {
+          "h": "단계적 적용은 t=가 대신합니다",
+          "body": "RFC 9989은 테스트 모드 태그를 추가했습니다. <code>t=y</code>는 아직 검토 중이며 정책을 적용해서는 <em>안 된다</em>는 것을 수신자에게 알리고, 그동안 집계 보고서는 평소대로 계속 도착합니다. <code>pct=</code>가 끝내 갖지 못했던 명확함이 여기에 있습니다. 정책은 적용되거나 적용되지 않거나 둘 중 하나입니다.",
+          "code": "; 1단계 — 목표 정책을 테스트 모드로 게시합니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; 2단계 — 정상 메일이 실패하지 않음을 보고서로 확인하면 t=를 제거합니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"",
+          "body2": "<code>p=reject; t=y</code>의 사칭 방지 효과는 <code>p=none</code>과 정확히 같다는 점, 즉 전혀 없다는 점에 유의하십시오. 테스트 모드는 거쳐 가는 단계이지 머무는 곳이 아닙니다. <code>p=</code>만 읽는 대시보드는 그런 도메인을 완전히 적용된 것으로 보고합니다."
+        },
+        {
+          "h": "전체 태그 목록",
+          "body": "RFC 9989이 정의하는 태그는 정확히 열한 개입니다. <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code>, <code>t</code>. <code>pct</code>, <code>rf</code>, <code>ri</code>를 포함한 그 밖의 모든 것은 수신자가 무시해야 합니다. 알 수 없는 태그는 조용히 폐기되므로, <code>rua=</code> 대신 <code>rau=</code>와 같은 오타를 내면 어디에도 오류가 나타나지 않은 채 보고서 대상을 잃게 됩니다.",
+          "body2": "다른 두 규칙은 생각보다 엄격합니다. <code>v=</code>는 <em>첫 번째</em> 태그여야 하며 그 값은 대소문자를 구분합니다. 허용되는 값은 <code>DMARC1</code>뿐이므로 <code>v=dmarc1</code>은 레코드 전체가 무시되게 합니다."
+        },
+        {
+          "h": "외부 도메인으로 보고서 보내기",
+          "body": "<code>rua=</code> 또는 <code>ruf=</code> 대상이 조직 도메인 밖에 있다면 — DMARC 공급업체, 컨설턴트, 계열사 등 — 수신 도메인이 이를 승인하는 레코드를 게시해야 합니다. 그 레코드가 없으면 사양을 준수하는 수신자는 보고서를 조용히 폐기합니다. 반송도 오류도 없고, 단지 받아야 할 것보다 적은 데이터를 보게 될 뿐입니다.",
+          "code": "; 귀하의 레코드는 공급업체로 보고서를 보냅니다:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; 공급업체가 자신의 존에 다음을 게시해야 합니다:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\"",
+          "body2": "자리 잡은 공급업체 대부분은 이를 자동으로 게시하지만, 새로 추가한 보고서 대상에 데이터가 나타나지 않을 때의 통상적인 원인이 바로 이것입니다."
+        },
+        {
+          "h": "지금 해야 할 일",
+          "body": "DMARC 레코드에서 <code>pct=</code>를 제거하십시오. 단계적 적용 중이어서 이에 의존하고 계셨다면, 대신 목표 정책을 <code>t=y</code>와 함께 게시하고, 정상 발신자가 더 이상 실패하지 않을 때까지 집계 보고서를 지켜본 뒤 <code>t=</code>를 제거하십시오. 레코드를 편집하는 김에 <code>v=DMARC1</code>이 맨 앞에 있고 대문자 표기가 올바른지, 모든 태그 이름의 철자가 맞는지, 외부 보고서 대상이 귀하를 승인했는지도 확인하십시오."
+        }
+      ]
     }
   },
   "score": {
     "label": "보안 점수",
     "outOf": "{0} / {1}",
+    "unproven": "{0} / {1} — 확인할 수 없었던 검사는 0점으로 처리했습니다: {2}. 이 행을 열면 그 점수를 회복하는 방법을 확인하실 수 있습니다.",
     "parkedNote": "파킹 도메인 — SPF, DMARC, DNSSEC 및 CAA만으로 점수 산정",
     "pillar": {
       "dmarc": "DMARC",
@@ -627,7 +822,8 @@
       "subdomain": "서브도메인 적용 범위",
       "rua": "종합 보고서 (rua=)",
       "alignment": "엄격한 얼라인먼트",
-      "ruf": "포렌식 보고서 (ruf=)"
+      "ruf": "포렌식 보고서 (ruf=)",
+      "uris": "보고서 대상"
     }
   }
 }

@@ -98,6 +98,10 @@
     "dmarc": "Record DMARC",
     "dkim": "Selettori DKIM",
     "verifications": "Verifiche (TXT)",
+    "wildcardApexTitle": "ℹ Record TXT con wildcard",
+    "wildcardApexText": "Un record TXT con wildcard risponde alle query per sottodomini non definiti profonde un'etichetta. Su questo dominio non arriva alle ricerche dei selettori DKIM, e ogni altro controllo qui presente confronta un prefisso di versione, quindi nulla ne è influenzato. Alcuni domini pubblicano questo deliberatamente, così che la posta proveniente da sottodomini inventati incontri una policy SPF reale.",
+    "wildcardDkimTitle": "⚠ La wildcard TXT arriva a DKIM",
+    "wildcardDkimText": "Un record TXT con wildcard risponde alle query sotto _domainkey, quindi un selettore DKIM inesistente restituisce il valore della wildcard invece di nulla. I selettori che pubblica continuano a risolversi, ma l'assenza di un selettore non può essere confermata, quindi la copertura DKIM viene riportata come sconosciuta anziché valutata.",
     "status": "Stato",
     "none": "Nessuno",
     "na": "N/D",
@@ -111,7 +115,8 @@
   },
   "stat": {
     "domains": "Domini",
-    "haveEmail": "Con E-mail"
+    "haveEmail": "Con E-mail",
+    "wildcardDkim": "⚠ Wildcard su DKIM"
   },
   "badge": {
     "notRegistered": "Non registrato / NXDOMAIN",
@@ -134,7 +139,8 @@
     "noWebPresence": "Nessuna presenza web",
     "cnameLoop": "⚠ Loop CNAME",
     "cloudflareProxied": "Cloudflare (proxato)",
-    "porkbunForwarding": "Inoltro Porkbun"
+    "porkbunForwarding": "Inoltro Porkbun",
+    "dnsError": "⚠ Ricerca fallita"
   },
   "spf": {
     "missing": "✗ Mancante",
@@ -157,7 +163,8 @@
     "invalid": "⚠ p= non valido",
     "pctSuffix": "({0}%)",
     "permerror": "🔴 Record multipli",
-    "inheritedFrom": "Ereditato da {0}"
+    "inheritedFrom": "Ereditato da {0}",
+    "testMode": "⚠ {0} (modalità test, non applicata)"
   },
   "dkim": {
     "uncommon": "Insolito ({0})",
@@ -243,7 +250,7 @@
       "Selettori DKIM",
       "Stato DMARC",
       "Politica DMARC",
-      "DMARC Test Mode (t=)",
+      "Modalità test DMARC (t=)",
       "DMARC sp",
       "DMARC np",
       "DMARC pct",
@@ -270,6 +277,18 @@
     "note": "Report statico generato localmente. I dati non sono stati inviati a Kwestic o salvati dall'app."
   },
   "issue": {
+    "wildcard-txt-apex": {
+      "msg": "Un record TXT con wildcard risponde ai sottodomini non definiti, ma non arriva alle ricerche DKIM. Nessun effetto sui controlli qui presenti.",
+      "what": "Un record TXT con wildcard (<code>* IN TXT \"...\"</code>) fa sì che il suo server DNS risponda a <em>qualsiasi</em> query di sottodominio profonda un'etichetta, anche per nomi che non ha mai definito. È stato sondato a quella profondità e di nuovo sotto <code>_domainkey</code>, dove risiedono i selettori DKIM. Non ha raggiunto il nome più profondo, quindi la ricerca DKIM su questo dominio non è influenzata. Ogni altro controllo qui presente confronta prima un prefisso di versione — <code>v=DMARC1</code>, <code>v=STSv1</code>, <code>v=BIMI1</code>, <code>v=spf1</code> — quindi una stringa wildcard viene scartata prima di poter essere scambiata per una policy.",
+      "fix": "Nessun intervento necessario. Alcuni domini pubblicano di proposito un redirect SPF con wildcard, così che la posta che dichiara di provenire da un sottodominio inventato incontri una policy reale invece di non trovarne alcuna. La mantenga se l'intento è questo; la rimuova se è un residuo di qualcos'altro.",
+      "fixCode": "; Riproduca lei stesso entrambe le prove — la seconda è quella che conta:\ndig +short TXT \"*.yourdomain.com\"\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com"
+    },
+    "wildcard-txt-dkim": {
+      "msg": "Un record TXT con wildcard risponde alle ricerche dei selettori DKIM, quindi i selettori mancanti non si distinguono da quelli pubblicati. DKIM viene riportato come sconosciuto.",
+      "what": "Qui un record TXT con wildcard risponde alle query sotto <code>_domainkey</code>, dove risiedono i selettori DKIM. Un verificatore che cerca un selettore che lei non ha mai pubblicato riceve il valore della wildcard invece di «nessun record trovato». I selettori che pubblica continuano a risolversi correttamente e a essere verificati, quindi questo non compromette la posta firmata. Ciò che compromette è la risposta negativa: né un verificatore né questo audit possono distinguere un selettore assente da uno sintetizzato, quindi la copertura DKIM viene valutata come sconosciuta anziché come presente o mancante.",
+      "fix": "Restringa la wildcard in modo che non possa coprire <code>_domainkey</code>, limitandola ai sottodomini che ne hanno bisogno oppure pubblicando un nodo <code>_domainkey</code> vuoto. Secondo RFC 4592 sezione 2.2.1 una wildcard non sintetizza sotto un nodo esistente, anche se non tutti i name server lo rispettano: verifichi con il comando dig qui sotto dopo ogni modifica.",
+      "fixCode": "; Confermi che la wildcard arriva alla profondità dei selettori DKIM:\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com\n\n; Dopo aver ristretto la wildcard, la stessa query non dovrebbe restituire nulla."
+    },
     "dns-loop": {
       "msg": "La catena CNAME di www contiene un ciclo — impossibile risolvere il sito web.",
       "what": "Rilevato un loop infinito nella risoluzione CNAME del sottodominio www.",
@@ -366,6 +385,12 @@
       "fix": "Genera la chiave DKIM dalla console del tuo servizio di posta e pubblicala nel DNS.",
       "fixCode": "google._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
+    "dkim-unverified": {
+      "msg": "Non è stato trovato alcun selettore DKIM testato. {0} Valutato come se DKIM non fosse configurato. Se conosce il suo selettore DKIM, lo aggiunga in «Selettori DKIM aggiuntivi» e ripeta l'audit per vederlo riconosciuto."
+    },
+    "dkim-not-checked": {
+      "msg": "DKIM non è stato controllato in questa esecuzione. Valutato come se DKIM non fosse configurato. Attivi «Controlla i selettori DKIM» e ripeta l'esecuzione per essere valutato su DKIM."
+    },
     "implicit-mx": {
       "msg": "Nessun record MX pubblicato. Il server SMTP potrebbe usare l'indirizzo A/AAAA come MX implicito."
     },
@@ -447,8 +472,32 @@
     "spf-indeterminate": {
       "msg": "Il totale delle ricerche SPF non è determinabile."
     },
+    "spf-large-subnet": {
+      "msg": "SPF autorizza ampi intervalli di IP: {0} — confermi di controllare tutto quello spazio.",
+      "what": "Ogni indirizzo all'interno di un blocco <code>ip4:</code> o <code>ip6:</code> può inviare posta a nome del suo dominio, e questi blocchi sono ampi: un <code>/24</code> IPv4 sono 256 indirizzi, un <code>/16</code> sono 65.536, e un <code>/48</code> IPv6 o più corto è un'assegnazione della scala di una sede o di un ISP. Va benissimo quando l'intervallo è suo: moltissime grandi organizzazioni pubblicano così i propri blocchi di rete. Smette di andare bene quando l'intervallo appartiene a un hosting condiviso o a un fornitore i cui altri clienti lei non controlla, perché a quel punto ognuno di quei vicini può superare SPF a suo nome. Questo audit segnala solo la dimensione; non può dirle di chi sia il blocco, quindi la valutazione spetta a lei.",
+      "fix": "Verifichi a chi appartiene davvero ciascun intervallo elencato. Se è una sua assegnazione, non serve alcuna modifica. Se appartiene a una piattaforma condivisa, sostituisca il blocco ampio con gli indirizzi di invio specifici, oppure con l'<code>include:</code> del fornitore stesso: così è il fornitore a mantenere l'elenco e lei non autorizza tutto il suo parco.",
+      "fixCode": "; Ampio — ogni host tra 256 indirizzi può inviare a suo nome:\n\"v=spf1 ip4:203.0.113.0/24 -all\"\n\n; Ristretto — solo gli host che inviano davvero:\n\"v=spf1 ip4:203.0.113.10 ip4:203.0.113.11 -all\"\n\n; Oppure lasci che sia il fornitore a mantenere l'elenco:\n\"v=spf1 include:_spf.provider.example -all\""
+    },
+    "spf-medium-subnet": {
+      "msg": "SPF autorizza intervalli di IP di medie dimensioni: {0} — vale la pena confermare che ogni intervallo sia suo."
+    },
+    "spf-redundant-mechanism": {
+      "msg": "Il meccanismo {0} si risolve solo in indirizzi che {1} autorizza già — rimuoverlo porta il conteggio delle query SPF da {2} a {3}.",
+      "what": "SPF consente un massimo di 10 query DNS, e i meccanismi <code>a</code> e <code>mx</code> ne spendono una ciascuno. Ogni indirizzo in cui questo meccanismo si risolve — sia su IPv4 sia su IPv6 — si trova già dentro un blocco <code>ip4:</code> o <code>ip6:</code> scritto nello stesso record, quindi la query non compra alcuna autorizzazione che lei non abbia già. Rimuoverlo non cambia nulla riguardo a quali server possono inviare a suo nome, e le restituisce una query rispetto al limite.",
+      "fix": "Elimini il meccanismo dal suo record SPF. Ricontrolli in seguito se gli host che vi stanno dietro ricevono nuovi indirizzi, perché a quel punto il blocco dovrebbe coprire anche quelli.",
+      "fixCode": "; Prima — mx spende una query per autorizzare indirizzi che il blocco copre già:\n\"v=spf1 mx ip4:203.0.113.0/28 include:_spf.provider.example -all\"\n\n; Dopo — stessi mittenti autorizzati, una query in meno:\n\"v=spf1 ip4:203.0.113.0/28 include:_spf.provider.example -all\""
+    },
+    "spf-redundant-mechanism-nocount": {
+      "msg": "Il meccanismo {0} si risolve solo in indirizzi che {1} autorizza già — rimuoverlo libera una delle 10 query DNS di SPF."
+    },
+    "spf-partial-coverage": {
+      "msg": "{0} dei {1} indirizzi dietro il meccanismo {2} sono già coperti dai suoi blocchi ip4:/ip6: — mantenga il meccanismo, autorizza comunque i restanti."
+    },
     "dnssec-bogus": {
       "msg": "La validazione DNSSEC risulta non valida (bogus)."
+    },
+    "dnssec-indeterminate": {
+      "msg": "Non è stato possibile determinare lo stato DNSSEC perché la query di validazione è fallita. Valutato come non firmato. Ripeta l'audit: di solito è un problema temporaneo del resolver. Se continua a succedere su un dominio che ha confermato essere firmato presso il suo registrar o provider DNS, apra una issue su GitHub indicando il dominio, il registrar o provider DNS e uno screenshot che mostri DNSSEC attivo."
     },
     "mta-sts-invalid": {
       "msg": "Il record TXT MTA-STS è errato o manca il tag id=."
@@ -461,6 +510,114 @@
     },
     "bimi-invalid": {
       "msg": "Il record BIMI è malformato o non contiene un URL di logo HTTPS valido."
+    },
+    "dmarc-version-missing": {
+      "msg": "Il record DMARC non inizia con v=DMARC1 — i destinatari devono ignorarlo del tutto.",
+      "what": "RFC 9989 §5.4 richiede che il tag <code>v=</code> sia il primo del record. Un record che ne è privo non è affatto un record DMARC, qualunque altra cosa contenga. I server riceventi lo scartano e trattano il suo dominio come privo di policy DMARC, quindi il record le dà l'apparenza della protezione senza la sostanza.",
+      "fix": "Riscriva il record in modo che inizi con <code>v=DMARC1;</code> seguito dalla sua policy.",
+      "fixCode": "; Sbagliato — nessun tag di versione:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Corretto:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-not-first": {
+      "msg": "v=DMARC1 è presente ma non è il primo tag — i destinatari devono ignorare l'intero record.",
+      "what": "RFC 9989 §5.4 stabilisce che <code>v=</code> DEVE essere il primo tag dell'elenco, non semplicemente presente da qualche parte. Per il resto l'ordine dei tag è libero, il che rende facile sbagliare quando un record viene modificato a mano o assemblato da uno script. Un destinatario che rispetta la specifica interrompe l'analisi e tratta il dominio come non protetto.",
+      "fix": "Sposti <code>v=DMARC1;</code> all'inizio del record. Non serve cambiare nient'altro.",
+      "fixCode": "; Sbagliato — v= non è il primo:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; Corretto:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-bad-value": {
+      "msg": "Il valore di versione DMARC non è esattamente «DMARC1» — il valore distingue maiuscole e minuscole e il record viene ignorato.",
+      "what": "Quasi ogni valore in un record DMARC non distingue maiuscole e minuscole, ma RFC 9989 §5.4 fa di <code>v=</code> l'eccezione: l'unica grafia accettata è <code>DMARC1</code>, in maiuscolo. <code>v=dmarc1</code> o <code>v=DMARC2</code> fa ignorare l'intero record. È una vittima frequente del copia-incolla, perché i pannelli DNS spesso convertono i valori in minuscolo al momento dell'inserimento.",
+      "fix": "Imposti il valore esattamente su <code>DMARC1</code> e poi ricontrolli che cosa abbia effettivamente memorizzato il suo pannello DNS.",
+      "fixCode": "; Sbagliato — in minuscolo:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; Corretto:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-duplicate-tags": {
+      "msg": "Il record DMARC ripete lo stesso tag ({0}) — il record è malformato e potrebbe essere ignorato.",
+      "what": "Un record DMARC può contenere ciascun tag al massimo una volta. Il suo ripete {0}. La specifica non fornisce alcuna regola per scegliere tra i valori, quindi il comportamento dipende dal destinatario: alcuni prendono il primo, altri l'ultimo, altri scartano del tutto il record. Qualunque protezione pensi di aver configurato, non può farci affidamento.",
+      "fix": "Elimini i tag duplicati in modo che ciascuno compaia esattamente una volta. Se per <code>rua=</code> erano previsti due valori, li unisca in un unico elenco separato da virgole.",
+      "fixCode": "; Sbagliato — p= due volte:\n_dmarc    TXT    \"v=DMARC1; p=none; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Corretto:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-test-mode": {
+      "msg": "DMARC è in modalità test (t=y) — la sua policy p={0} è pubblicata ma non applicata.",
+      "what": "Il tag <code>t=</code> è nuovo in RFC 9989 e sostituisce <code>pct=</code> come modo supportato per introdurre DMARC gradualmente. <code>t=y</code> comunica ai destinatari che il titolare del dominio sta ancora valutando e che la policy <em>non</em> deve essere applicata. I report aggregati continuano ad arrivare, che è lo scopo di questa modalità — ma ai fini della falsificazione <code>p=reject; t=y</code> la protegge esattamente quanto <code>p=none</code>. I cruscotti che leggono solo <code>p=</code> mostreranno questo dominio come pienamente applicato.",
+      "fix": "Quando i suoi report aggregati non mostrano più mittenti legittimi che falliscono, rimuova <code>t=y</code> (o imposti <code>t=n</code>) per trasformare la policy pubblicata in una policy reale.",
+      "fixCode": "; Test — policy pubblicata, non applicata:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Produzione — rimuova del tutto t= (il valore predefinito è n):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-t": {
+      "msg": "Il valore DMARC t= non è y né n — i destinatari potrebbero ignorare il tag o l'intero record.",
+      "what": "RFC 9989 definisce esattamente due valori per il tag di modalità test: <code>y</code> e <code>n</code>, con <code>n</code> come predefinito. Qualsiasi altra cosa è un errore di sintassi. A seconda del destinatario può ottenere il comportamento predefinito, oppure il record può essere rifiutato come malformato: dall'esterno non è possibile capire quale dei due.",
+      "fix": "Imposti <code>t=y</code> durante i test, <code>t=n</code> in produzione, oppure rimuova del tutto il tag, dato che <code>n</code> è il valore predefinito.",
+      "fixCode": "; Rimuova il tag malformato: n è il valore predefinito:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-rua-invalid": {
+      "msg": "La destinazione DMARC rua= è inutilizzabile ({0}) — i report aggregati non possono essere recapitati.",
+      "what": "Le destinazioni dei report devono essere URI DMARC: indirizzi <code>mailto:</code>, facoltativamente seguiti da un limite di dimensione come <code>!10m</code>. Un indirizzo nudo senza prefisso <code>mailto:</code>, un indirizzo malformato o uno schema non supportato dai destinatari producono tutti lo stesso esito: nessun report. Poiché DMARC fallisce in silenzio, un <code>rua=</code> inutilizzabile appare identico a un dominio che nessuno sta falsificando.",
+      "fix": "Corregga la destinazione in un URI <code>mailto:</code> completo. Separi più destinazioni con virgole.",
+      "fixCode": "; Sbagliato — manca lo schema mailto::\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=dmarc@yourdomain.com;\"\n\n; Corretto — uno o più URI mailto::\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example!10m;\""
+    },
+    "dmarc-ruf-invalid": {
+      "msg": "La destinazione DMARC ruf= è inutilizzabile ({0}) — i report di fallimento non possono essere recapitati.",
+      "what": "Il tag <code>ruf=</code> usa lo stesso formato di URI DMARC di <code>rua=</code>: indirizzi <code>mailto:</code> con un limite di dimensione <code>!</code> facoltativo. Il suo non viene interpretato, quindi non arriverà alcun report di fallimento. Noti che i report di fallimento (RFC 9991) contengono il contenuto dei messaggi e vengono inviati da relativamente pochi destinatari: perderli è meno grave che perdere i report aggregati, ma un tag rotto vale comunque la pena di correggerlo o rimuoverlo.",
+      "fix": "Corregga la destinazione in un URI <code>mailto:</code> completo, oppure rimuova <code>ruf=</code> se non intende raccogliere report di fallimento.",
+      "fixCode": "; Corretto — un URI mailto: completo:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-fo-without-ruf": {
+      "msg": "DMARC fo= è impostato ma non c'è alcun ruf= — i destinatari devono ignorarlo.",
+      "what": "Il tag <code>fo=</code> controlla <em>quando</em> vengono generati i report di fallimento, quindi RFC 9989 stabilisce che il suo contenuto vada ignorato in assenza di un tag <code>ruf=</code>. Il tag non sta facendo nulla. Di solito significa che a un certo punto è stato rimosso un <code>ruf=</code> lasciando indietro <code>fo=</code>, il che può dare l'impressione che la segnalazione dei fallimenti sia ancora configurata.",
+      "fix": "Aggiunga una destinazione <code>ruf=</code> se desidera i report di fallimento, oppure rimuova <code>fo=</code> perché il record dica ciò che intende.",
+      "fixCode": "; Oppure aggiunga una destinazione:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; Oppure elimini il tag inerte:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-fo": {
+      "msg": "DMARC fo= contiene un valore che non è 0, 1, d o s.",
+      "what": "Il tag delle opzioni di segnalazione dei fallimenti accetta un sottoinsieme separato da due punti di quattro valori: <code>0</code> (segnala quando fallisce tutto), <code>1</code> (segnala quando fallisce qualsiasi cosa), <code>d</code> (DKIM fallito) e <code>s</code> (SPF fallito). Qualsiasi altra cosa è un errore di sintassi, e <code>fo=1</code> è ciò che la maggior parte degli operatori desidera davvero: il valore predefinito <code>fo=0</code> segnala solo quando falliscono sia SPF sia DKIM.",
+      "fix": "Usi una combinazione valida, più comunemente <code>fo=1</code>.",
+      "fixCode": "; Segnala ogni volta che un meccanismo fallisce:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; Più opzioni si separano con i due punti:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=d:s; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-external-reporting": {
+      "msg": "I report DMARC vanno a un dominio esterno ({0}) — quel dominio deve autorizzarli, altrimenti i report vengono scartati.",
+      "what": "Quando una destinazione dei report si trova fuori dal suo dominio organizzativo — un fornitore DMARC, un consulente, una società consociata — RFC 9990 §4.3 richiede che il dominio ricevente pubblichi un record che concede il permesso. Senza di esso, i destinatari conformi scartano silenziosamente i report diretti a quella destinazione. L'autorizzazione viene valutata per singola destinazione, quindi un fornitore non autorizzato non compromette il suo record DMARC né impedisce ai report di raggiungere gli altri indirizzi; semplicemente quella destinazione resta muta. Questo audit non ha verificato il record: attivi i controlli avanzati per farlo consultare automaticamente.",
+      "fix": "Chieda al dominio di destinazione di pubblicare un record di autorizzazione per il suo dominio, nella forma <code>&lt;suo-dominio&gt;._report._dmarc.&lt;loro-dominio&gt;</code>.",
+      "fixCode": "; Il suo record invia i report a un fornitore:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; Il FORNITORE deve pubblicare questo nella propria zona:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
+    },
+    "dmarc-bad-psd": {
+      "msg": "Il valore DMARC psd= non è y, n o u.",
+      "what": "Il tag <code>psd=</code> è nuovo in RFC 9989 e indica al DNS Tree Walk se questo dominio è un Public Suffix Domain. Accetta esattamente tre valori: <code>y</code>, <code>n</code> e <code>u</code> (il predefinito, che significa che si applica la ricerca normale). Un valore non valido è un errore di sintassi in un tag che controlla il modo in cui i destinatari individuano la sua policy.",
+      "fix": "Rimuova il tag a meno che non gestisca un suffisso pubblico: <code>u</code> è il valore predefinito ed è corretto praticamente per ogni dominio ordinario.",
+      "fixCode": "; I domini ordinari non hanno affatto bisogno di psd=:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-psd-invalid": {
+      "msg": "DMARC dichiara psd=y ma questo dominio non è un suffisso pubblico.",
+      "what": "<code>psd=y</code> comunica ai destinatari che questo nome è un Public Suffix Domain — un nome a livello di registry come <code>.gov.uk</code>, sotto il quale si registrano organizzazioni non collegate tra loro. Cambia il punto in cui si ferma il DNS Tree Walk quando i destinatari cercano una policy, quindi impostarlo su un normale dominio organizzativo può far individuare in modo errato la sua policy per i sottodomini. È quasi sempre un errore dovuto alla copia di un esempio.",
+      "fix": "Rimuova <code>psd=y</code> a meno che non gestisca davvero un suffisso pubblico elencato nella Public Suffix List.",
+      "fixCode": "; Rimuova il tag:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-removed-tags": {
+      "msg": "Il record DMARC contiene tag rimossi da RFC 9989 ({0}) — non fanno più nulla.",
+      "what": "RFC 9989 ha rimosso diversi tag ereditati da RFC 7489. I destinatari che implementano la specifica attuale li ignorano. Sono innocui nel senso che non comprometteranno il record, ma sono fuorvianti: chiunque legga il record in seguito darà per scontato che siano in vigore.",
+      "fix": "Elimini i tag obsoleti. La cadenza e il formato dei report non sono più configurabili dal record DMARC: veda RFC 9990 per il funzionamento attuale della reportistica aggregata.",
+      "fixCode": "; Tag obsoleti rimossi:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-unknown-tags": {
+      "msg": "Il record DMARC contiene tag che non fanno parte dello standard ({0}).",
+      "what": "RFC 9989 definisce questo insieme completo di tag: <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code> e <code>t</code>. I tag sconosciuti DEVONO essere ignorati, quindi sono inerti più che pericolosi — ma di solito sono un errore di battitura in un nome di tag reale, il che significa che l'impostazione desiderata non viene applicata. Un <code>rua</code> scritto male è un tag sconosciuto <em>e</em> una destinazione dei report mancante.",
+      "fix": "Controlli se ogni tag non riconosciuto sia un errore di battitura, poi rimuova tutto ciò che davvero non serve.",
+      "fixCode": "; Un errore di battitura viene ignorato in silenzio: questo record NON ha alcuna destinazione dei report:\n_dmarc    TXT    \"v=DMARC1; p=reject; rau=mailto:dmarc@yourdomain.com;\"\n\n; Corretto:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-external-unauthorized": {
+      "msg": "I report DMARC diretti a {0} vengono scartati — quel dominio non ha autorizzato i suoi report.",
+      "what": "Quando una destinazione dei report si trova fuori dal suo dominio organizzativo, RFC 9990 §4.3 richiede che il dominio ricevente pubblichi un record che concede il permesso. Abbiamo controllato: non c'è. I destinatari conformi scartano quindi ogni report diretto a {0}: nulla va in errore e nulla torna indietro, semplicemente riceve meno dati di quanti creda — cosa che si scambia facilmente per «nessuno ci sta falsificando». L'autorizzazione viene verificata per singola destinazione, quindi gli altri indirizzi del suo record continuano a funzionare normalmente; viene scartato solo questo.",
+      "fix": "Chieda al gestore di {0} di pubblicare un record di autorizzazione per il suo dominio. La maggior parte dei fornitori di report lo fa automaticamente quando si aggiunge un dominio, quindi se ha appena effettuato la configurazione conviene controllare prima il pannello del fornitore: il record potrebbe comparire solo dopo la verifica del dominio dalla loro parte.",
+      "fixCode": "; Il dominio di DESTINAZIONE pubblica questo nella propria zona,\n; indicando il dominio di cui accetta i report:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; I fornitori con molti clienti di solito pubblicano invece la forma con wildcard:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
+    },
+    "dmarc-external-unverifiable": {
+      "msg": "Non è stato possibile verificare l'autorizzazione dei report per {0} — la query DNS non si è completata.",
+      "what": "I report inviati fuori dal suo dominio organizzativo devono essere autorizzati dalla destinazione, e lo verifichiamo interrogando la destinazione per un record di autorizzazione. Quella query è fallita — un timeout, un SERVFAIL o un contrattempo del resolver — quindi non possiamo dirle se il record esista. È una lacuna nel nostro risultato, non un rilievo contro la sua configurazione: lo consideri sconosciuto anziché un problema, e ripeta l'audit prima di intervenire.",
+      "fix": "Ripeta l'audit. Se continua a fallire, interroghi direttamente il nome per vedere se il record è presente.",
+      "fixCode": "; Controlli a mano il record di autorizzazione:\ndig +short TXT yourdomain.com._report._dmarc.{0}\n\n; E la forma con wildcard che pubblica la maggior parte dei fornitori:\ndig +short TXT \"*._report._dmarc.{0}\""
+    },
+    "checks-unverified": {
+      "msg": "Alcuni controlli non è stato possibile completarli ({0}) — vengono valutati come se il record non fosse pubblicato.",
+      "what": "Una o più query DNS per questo dominio non hanno restituito una risposta utilizzabile, di solito un SERVFAIL o un timeout del resolver. Può trattarsi di un name server realmente guasto, ma altrettanto spesso è un contrattempo temporaneo che si risolve in pochi minuti. Il resto dell'audit si è concluso normalmente ed è accurato. I controlli interessati vengono valutati zero, perché un voto per cui questo strumento non può garantire vale meno di un voto semplicemente severo: una query fallita le costa punti finché non viene ripetuta.",
+      "fix": "Per prima cosa ripeta l'audit: un guasto temporaneo si risolve da solo e i punti tornano. Se gli stessi controlli continuano a fallire, interroghi direttamente i nomi interessati per vedere se i suoi name server rispondono. Un server che restituisce SERVFAIL invece di NXDOMAIN per nomi inesistenti farà scattare ripetutamente questo avviso.",
+      "fixCode": "; Verifichi se i suoi name server rispondono a un nome che non dovrebbe esistere.\n; Un server sano restituisce NXDOMAIN, uno guasto restituisce SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Interroghi direttamente i server autoritativi, bypassando il resolver:\ndig @ns1.yourprovider.com www.yourdomain.com A"
     }
   },
   "suggestion": {
@@ -469,7 +626,8 @@
     "mta-sts": "MTA-STS non configurato. Protegge le e-mail in entrata imponendo la cifratura TLS.",
     "tls-rpt": "TLS-RPT non configurado. Ti invia report in caso di fallimento della cifratura TLS.",
     "caa": "Nessun record CAA — qualsiasi CA può emettere certificati SSL per questo dominio.",
-    "dnssec": "DNSSEC non rilevato. Firma i record DNS per prevenire l'avvelenamento della cache."
+    "dnssec": "DNSSEC non rilevato. Firma i record DNS per prevenire l'avvelenamento della cache.",
+    "dmarc-pct-obsolete": "Il suo record DMARC usa ancora pct=. A partire da RFC 9989 — DMARCbis, ratificato nel maggio 2026 — pct= non è più un tag supportato e andrebbe rimosso. I destinatari che hanno adottato il nuovo standard lo ignorano; quelli ancora su RFC 7489 no, quindi lasciarlo significa che l'applicazione della policy varia da un destinatario all'altro. Usi t=y se le serve un'introduzione graduale."
   },
   "learnMore": {
     "badge": "Guida alla sicurezza e-mail",
@@ -605,11 +763,48 @@
           "body": "Controlla la catena di fiducia su <a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a>."
         }
       ]
+    },
+    "dmarc-rfc9989": {
+      "title": "RFC 9989 — Che cosa è cambiato in DMARC",
+      "tagline": "DMARCbis è stato ratificato nel maggio 2026. Ecco che cosa ha rimosso, che cosa ha aggiunto e che cosa deve cambiare.",
+      "sections": [
+        {
+          "h": "DMARC è ora uno standard",
+          "body": "Per il suo primo decennio DMARC è stato RFC 7489, un documento <em>Informational</em> — ampiamente adottato ma mai formalmente standardizzato. Nel maggio 2026 l'IETF ha pubblicato l'insieme che lo sostituisce: RFC 9989 (il protocollo di base), RFC 9990 (reportistica aggregata) e RFC 9991 (reportistica dei fallimenti). Insieme rendono obsoleti RFC 7489 e RFC 9091 e promuovono DMARC a Proposed Standard sul percorso degli standard. Separare la reportistica in documenti propri significa che i formati dei report possono ora evolvere senza riaprire la specifica di base."
+        },
+        {
+          "h": "pct= è stato rimosso",
+          "body": "Il tag <code>pct=</code> permetteva di applicare la policy solo a una percentuale della posta che falliva. Era pensato come aiuto all'introduzione graduale, ma nella pratica produceva risultati imprevedibili: i destinatari implementavano il campionamento in modo diverso e la sorte di un messaggio dipendeva da quale server capitava di gestirlo. RFC 9989 rimuove del tutto il tag. I destinatari che implementano la nuova specifica lo ignorano.",
+          "body2": "Il problema durante la transizione: i destinatari ancora su RFC 7489 continuano a rispettare <code>pct=</code>. Un record con <code>pct=25</code> viene quindi ora applicato per intero da alcuni destinatari e limitato a un quarto da altri, e lei non ha modo di conoscere le proporzioni. È una posizione peggiore di entrambi i comportamenti presi singolarmente, ed è per questo che rimuovere il tag è la mossa giusta ancor prima che tutti i destinatari abbiano migrato."
+        },
+        {
+          "h": "t= lo sostituisce per l'introduzione graduale",
+          "body": "RFC 9989 aggiunge un tag di modalità test. <code>t=y</code> comunica ai destinatari che lei sta ancora valutando e che la sua policy <em>non</em> deve essere applicata, mentre i report aggregati continuano ad arrivare normalmente. È inequivocabile in un modo in cui <code>pct=</code> non lo è mai stato: o la policy viene applicata o non viene applicata.",
+          "code": "; Passo 1 — pubblichi la policy di destinazione in modalità test:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Passo 2 — quando i report non mostrano più posta legittima che fallisce, tolga t=:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"",
+          "body2": "Tenga presente che <code>p=reject; t=y</code> le offre esattamente la stessa protezione dalla falsificazione di <code>p=none</code>, cioè nessuna. La modalità test è una tappa da attraversare, non un punto d'arrivo. Qualsiasi cruscotto che legga solo <code>p=</code> segnalerà un dominio così come pienamente applicato."
+        },
+        {
+          "h": "L'insieme completo dei tag",
+          "body": "RFC 9989 definisce esattamente undici tag: <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code> e <code>t</code>. Tutto il resto — compresi <code>pct</code>, <code>rf</code> e <code>ri</code> — deve essere ignorato dai destinatari. Noti che i tag sconosciuti vengono scartati in silenzio, quindi un errore di battitura come <code>rau=</code> invece di <code>rua=</code> le costa la destinazione dei report senza che compaia alcun errore da nessuna parte.",
+          "body2": "Altre due regole sono più severe di quanto ci si aspetti. <code>v=</code> deve essere il <em>primo</em> tag, e il suo valore distingue maiuscole e minuscole: è accettato solo <code>DMARC1</code>, quindi <code>v=dmarc1</code> fa ignorare l'intero record."
+        },
+        {
+          "h": "Inviare i report a un dominio esterno",
+          "body": "Se la sua destinazione <code>rua=</code> o <code>ruf=</code> è fuori dal suo dominio organizzativo — un fornitore DMARC, un consulente, una società consociata — il dominio ricevente deve pubblicare un record che la autorizzi. Senza quel record, i destinatari conformi scartano i suoi report in silenzio. Nulla torna indietro e nulla va in errore; semplicemente vede meno dati di quanti dovrebbe.",
+          "code": "; Il suo record invia i report a un fornitore:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; Il FORNITORE deve pubblicare questo nella propria zona:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\"",
+          "body2": "La maggior parte dei fornitori affermati lo pubblica automaticamente, ma è la spiegazione consueta quando una destinazione dei report appena aggiunta non mostra dati."
+        },
+        {
+          "h": "Che cosa fare adesso",
+          "body": "Rimuova <code>pct=</code> dal suo record DMARC. Se era a metà dell'introduzione graduale e ci faceva affidamento, pubblichi invece la policy di destinazione con <code>t=y</code>, osservi i report aggregati finché nessun mittente legittimo fallisce, poi rimuova <code>t=</code>. Già che modifica il record, controlli che <code>v=DMARC1</code> sia il primo e correttamente in maiuscolo, che ogni nome di tag sia scritto giusto e che ogni destinazione esterna dei report l'abbia autorizzata."
+        }
+      ]
     }
   },
   "score": {
     "label": "Punteggio di sicurezza",
     "outOf": "{0} / {1}",
+    "unproven": "{0} / {1} — i controlli che non è stato possibile verificare hanno totalizzato zero: {2}. Apra questa riga per vedere come recuperare quei punti.",
     "parkedNote": "Dominio inutilizzato — Valutato solo su SPF, DMARC, DNSSEC e CAA",
     "pillar": {
       "dmarc": "DMARC",
@@ -627,7 +822,8 @@
       "subdomain": "Copertura sottodomini",
       "rua": "Report aggregati (rua=)",
       "alignment": "Allineamento stretto",
-      "ruf": "Report forensi (ruf=)"
+      "ruf": "Report forensi (ruf=)",
+      "uris": "Destinazioni dei report"
     }
   }
 }

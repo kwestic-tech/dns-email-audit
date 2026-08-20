@@ -1,0 +1,829 @@
+{
+  "meta": {
+    "code": "id",
+    "name": "Indonesian",
+    "nativeName": "Bahasa Indonesia",
+    "dir": "ltr"
+  },
+  "doc": {
+    "title": "Audit Keamanan DNS & Surel — Pemeriksa SPF, DKIM, DMARC & DNSSEC Gratis",
+    "description": "Alat audit keamanan DNS dan surel gratis berbasis peramban. Periksa SPF, DKIM, DMARC, BIMI, MTA-STS, CAA, dan DNSSEC untuk hingga 200 domain sekaligus. Tanpa pendaftaran, tanpa penyimpanan data — semuanya berjalan di peramban Anda."
+  },
+  "topbar": {
+    "title": "Audit DNS & Surel",
+    "subtitle": "· gratis · tanpa pendaftaran · tanpa data dikirim ke Kwestic",
+    "langTitle": "Bahasa"
+  },
+  "btn": {
+    "howItWorks": "📖 Cara kerjanya",
+    "exportCsv": "⬇ Ekspor CSV",
+    "exportHtml": "⬇ Ekspor laporan",
+    "runAudit": "🔎 Jalankan audit",
+    "auditRunning": "Mengaudit…",
+    "cancelAudit": "Batalkan audit",
+    "uploadFile": "📄 Unggah berkas .txt",
+    "loadExamples": "Muat contoh",
+    "clearResults": "🗑 Bersihkan hasil",
+    "learnMore": "Pelajari lebih lanjut →"
+  },
+  "input": {
+    "heading": "Masukkan domain untuk diaudit",
+    "desc": "Satu domain per baris, atau unggah berkas .txt. Hingga 200 domain sekaligus.",
+    "placeholder": "example.com\nmycompany.org\nanother-domain.net"
+  },
+  "opt": {
+    "dkim": "Periksa selektor DKIM",
+    "dkimComprehensive": "Pemindaian DKIM menyeluruh (maks. 5 domain)",
+    "dkimComprehensiveTitle": "Memakai seluruh 1.677 selektor persis yang telah diverifikasi dari katalog; dibatasi lima domain per proses",
+    "www": "Deteksi hosting situs web",
+    "wildcard": "Deteksi data TXT wildcard",
+    "dkimSelectors": "Selektor DKIM tambahan",
+    "footer": "DNS lewat Cloudflare DoH · Tanpa penyimpanan data · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privasi</a>"
+  },
+  "help": {
+    "title": "Cara kerjanya:",
+    "body": "Berjalan di peramban Anda melalui <a href=\"https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/\" target=\"_blank\" rel=\"noopener\">API DNS-over-HTTPS Cloudflare</a>. Tidak ada data yang dikirim ke Kwestic atau disimpan oleh aplikasi ini; nama kueri DNS dikirim langsung ke Cloudflare dan tunduk pada kebijakan privasi Cloudflare. Yang diperiksa: NS, MX, SPF, selektor DKIM sesuai penyedia atau menyeluruh, DMARC, BIMI, MTA-STS, TLS-RPT, CAA, DNSSEC, dan kedalaman kueri SPF. Tidak ada cookie yang disetel; satu-satunya hal yang ditulis ke peramban Anda adalah preferensi bahasa, yang tidak pernah keluar dari perangkat Anda dan tidak kedaluwarsa dengan sendirinya — lihat <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privasi</a> untuk detailnya."
+  },
+  "netbanner": {
+    "title": "⚠️ Akses jaringan diblokir — kueri DNS tidak dapat menjangkau internet dari sini",
+    "body": "Aplikasi ini memakai API DNS-over-HTTPS <code>cloudflare-dns.com</code>, yang diblokir ketika halaman berjalan di dalam iframe bersandbox (mis. panel pratinjau bawaan asisten AI). Untuk memakai alat audit ini, sajikan foldernya lewat HTTP atau hosting di layanan situs statis gratis mana pun:<br><br>• <strong>Paling cepat:</strong> seret folder proyek ke <a href=\"https://app.netlify.com/drop\" target=\"_blank\" rel=\"noopener\">app.netlify.com/drop</a> → URL aktif dalam ~60 detik.<br>• <strong>Domain sendiri:</strong> deploy gratis ke <a href=\"https://pages.cloudflare.com\" target=\"_blank\" rel=\"noopener\">Cloudflare Pages</a> atau <a href=\"https://pages.github.com\" target=\"_blank\" rel=\"noopener\">GitHub Pages</a>.<br>• <strong>Secara lokal:</strong> jalankan <code>npx serve</code> (atau <code>python3 -m http.server</code>) di dalam folder proyek."
+  },
+  "progress": {
+    "heading": "Mengueri data DNS…",
+    "querying": "Mengueri {0}…",
+    "error": "Kesalahan pada {0}: {1}",
+    "cancelled": "Dibatalkan oleh pengguna",
+    "cancelledDomain": "{0} dibatalkan"
+  },
+  "search": {
+    "placeholder": "🔎 Saring domain…"
+  },
+  "th": {
+    "domain": "Domain",
+    "grade": "Nilai",
+    "dns": "Penyedia DNS",
+    "email": "Penyedia surel",
+    "spf": "SPF",
+    "dkim": "DKIM",
+    "dmarc": "DMARC",
+    "advanced": "Lanjutan",
+    "hosting": "Hosting"
+  },
+  "filter": {
+    "all": "Semua domain",
+    "warn": "⚠️ Ada peringatan",
+    "crit": "🔴 Ada masalah",
+    "noEmail": "Tanpa surel",
+    "noDmarc": "Tanpa DMARC",
+    "noDkim": "Tanpa DKIM",
+    "noSpf": "Tanpa SPF",
+    "hasBimi": "Punya BIMI",
+    "noCaa": "Tanpa CAA",
+    "noDnssec": "Tanpa DNSSEC"
+  },
+  "empty": {
+    "text": "Tidak ada domain yang cocok dengan filter Anda."
+  },
+  "footer": {
+    "text": "DNS-over-HTTPS melalui <a href=\"https://cloudflare-dns.com\" target=\"_blank\" rel=\"noopener\">Cloudflare</a> &bull; Tidak ada data yang dikirim ke Kwestic atau disimpan oleh aplikasi ini &bull; Nama kueri dikirim ke Cloudflare &bull; Gratis digunakan &amp; di-hosting sendiri &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privasi</a> &bull; <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/SECURITY.md\" target=\"_blank\" rel=\"noopener\">Keamanan</a>"
+  },
+  "labels": {
+    "issues": "Masalah",
+    "suggestions": "💡 Rekomendasi",
+    "advanced": "Keamanan lanjutan",
+    "nameservers": "Server nama",
+    "mx": "Data MX",
+    "spf": "Data SPF",
+    "spfLookups": "Pencarian DNS",
+    "dmarc": "Data DMARC",
+    "dkim": "Selektor DKIM",
+    "verifications": "Verifikasi (TXT)",
+    "wildcardApexTitle": "ℹ Data TXT wildcard",
+    "wildcardApexText": "Data TXT wildcard menjawab kueri untuk subdomain yang tidak didefinisikan sedalam satu label. Ia tidak mencapai pencarian selektor DKIM pada domain ini, dan setiap pemeriksaan lain di sini mencocokkan awalan versi, jadi tidak ada yang terpengaruh. Sebagian domain memublikasikan ini dengan sengaja agar surel dari subdomain karangan bertemu kebijakan SPF yang nyata.",
+    "wildcardDkimTitle": "⚠ TXT wildcard mencapai DKIM",
+    "wildcardDkimText": "Data TXT wildcard menjawab kueri di bawah _domainkey, sehingga selektor DKIM yang tidak ada mengembalikan nilai wildcard alih-alih tidak ada apa-apa. Selektor yang Anda publikasikan tetap teresolusi, tetapi ketiadaan sebuah selektor tidak dapat dipastikan, sehingga cakupan DKIM dilaporkan sebagai tidak diketahui alih-alih dinilai.",
+    "status": "Status",
+    "none": "Tidak ada",
+    "na": "T/A",
+    "dash": "—"
+  },
+  "showme": {
+    "open": "Tampilkan ▾",
+    "close": "Tampilkan ▴",
+    "whatItIs": "Apa ini",
+    "whatItNeeds": "Seharusnya bagaimana"
+  },
+  "stat": {
+    "domains": "Domain",
+    "haveEmail": "Punya surel",
+    "wildcardDkim": "⚠ Wildcard menutupi DKIM"
+  },
+  "badge": {
+    "notRegistered": "Tidak terdaftar / NXDOMAIN",
+    "noEmail": "✗ Tanpa surel",
+    "noDkim": "✗ Tidak ada",
+    "dkimUnverified": "? Tidak ada kunci domain pada selektor yang diuji",
+    "dkimUncommon": "⚠ Tidak lazim ({0})",
+    "notChecked": "Tidak diperiksa",
+    "auditError": "Audit tidak konklusif",
+    "cancelled": "Dibatalkan"
+  },
+  "provider": {
+    "unknown": "Tidak diketahui",
+    "custom": "Kustom",
+    "customUnknown": "Kustom/Tidak diketahui",
+    "selfHosted": "Hosting sendiri",
+    "none": "Tidak ada",
+    "nullMx": "MX kosong (surel dinonaktifkan)",
+    "implicitMx": "MX implisit (tanpa data MX)",
+    "noWebPresence": "Tanpa kehadiran web",
+    "cnameLoop": "⚠ Perulangan CNAME",
+    "cloudflareProxied": "Cloudflare (melalui proxy)",
+    "porkbunForwarding": "Penerusan Porkbun",
+    "dnsError": "⚠ Pencarian gagal"
+  },
+  "spf": {
+    "missing": "✗ Tidak ada",
+    "issues": "⚠ Masalah",
+    "hardfail": "✓ -all",
+    "softfail": "~ ~all",
+    "present": "✓ Ada",
+    "meterOver": "{0}/10 🔴 MELAMPAUI BATAS",
+    "meterNear": "{0}/10 ⚠ Mendekati batas",
+    "meterOk": "{0}/10 ✓",
+    "meterSuffix": "pencarian DNS",
+    "permerror": "🔴 Permerror"
+  },
+  "dmarc": {
+    "missing": "✗ Tidak ada",
+    "reject": "✓ reject",
+    "quarantine": "✓ quarantine",
+    "none": "⚠ none (hanya pemantauan)",
+    "set": "✓ Disetel",
+    "invalid": "⚠ p= tidak valid",
+    "pctSuffix": "({0}%)",
+    "permerror": "🔴 Beberapa data",
+    "inheritedFrom": "Diwarisi dari {0}",
+    "testMode": "⚠ {0} (mode uji, tidak diterapkan)"
+  },
+  "dkim": {
+    "uncommon": "Tidak lazim ({0})",
+    "noDomainKeyFound": "Kunci domain tidak ditemukan ({0})",
+    "txtRecord": "Data TXT",
+    "cnameTarget": "Target CNAME",
+    "noteWildcard": "Bug TXT wildcard mungkin mengganggu hasil",
+    "noteNotFound": "Tidak ditemukan kunci DKIM aktif di antara {0} selektor yang diuji.",
+    "noteNotFoundWithErrors": "Tidak ditemukan kunci DKIM aktif di antara {0} pemeriksaan selektor yang selesai; {1} kueri DNS gagal."
+  },
+  "adv": {
+    "configured": "✓ Dikonfigurasi",
+    "unverified": "TXT valid; kebijakan belum diverifikasi",
+    "notConfigured": "Belum dikonfigurasi",
+    "tip": {
+      "bimiOn": "Data: {0}",
+      "bimiOff": "Belum dikonfigurasi — tampilkan logo Anda di Gmail dan Apple Mail",
+      "mtaStsOn": "Dikonfigurasi — TLS diwajibkan pada pengiriman masuk",
+      "mtaStsUnverified": "Data TXT valid, tetapi audit yang hanya berjalan di peramban ini tidak memverifikasi berkas kebijakan HTTPS",
+      "mtaStsOff": "Belum dikonfigurasi — publikasikan data TXT _mta-sts untuk mewajibkan TLS pada surel masuk",
+      "tlsRptOn": "Dikonfigurasi — laporan kegagalan TLS aktif",
+      "tlsRptOff": "Belum dikonfigurasi — pelengkap MTA-STS; publikasikan data TXT _smtp._tls",
+      "caaOn": "Ditemukan di {0}: {1}",
+      "caaOff": "Tidak ditemukan — tambahkan data CAA untuk membatasi otoritas sertifikat mana yang boleh menerbitkan sertifikat bagi domain ini",
+      "dnssecOn": "Flag AD aktif — respons DNS diverifikasi secara kriptografis",
+      "dnssecOff": "Tidak terdeteksi — aktifkan DNSSEC di penyedia DNS Anda untuk mencegah peracunan cache",
+      "bimiDup": "Beberapa data — BIMI diabaikan, logo tidak akan tampil",
+      "mtaStsDup": "Beberapa data — pengirim memperlakukan domain ini seolah tidak punya kebijakan MTA-STS",
+      "tlsRptDup": "Beberapa data — pengirim memperlakukan domain ini seolah tidak menerapkan TLS-RPT"
+    },
+    "duplicated": "⚠ Beberapa data"
+  },
+  "rows": {
+    "count": {
+      "one": "{0} domain",
+      "other": "{0} domain"
+    },
+    "showing": "Menampilkan {0} dari {1}",
+    "critical": {
+      "one": "{0} kritis",
+      "other": "{0} kritis"
+    },
+    "warning": {
+      "one": "{0} peringatan",
+      "other": "{0} peringatan"
+    },
+    "suggestion": {
+      "one": "{0} saran",
+      "other": "{0} saran"
+    }
+  },
+  "toast": {
+    "noDomains": "Tempel setidaknya satu nama domain.",
+    "tooMany": "Maksimum 200 domain per proses.",
+    "tooManyComprehensiveDkim": "Pemindaian DKIM menyeluruh dibatasi {0} domain per proses.",
+    "csvExported": "CSV diekspor",
+    "htmlExported": "Laporan HTML diekspor",
+    "htmlExportFailed": "Tidak dapat membuat laporan mandiri — sajikan aplikasi lewat HTTP lalu coba lagi.",
+    "fileLoaded": "{0} dimuat",
+    "fileTooLarge": "Berkas terlalu besar. Ukuran unggahan maksimum adalah 1 MB.",
+    "examplesLoaded": "Contoh dimuat — klik Jalankan audit",
+    "auditDone": {
+      "one": "✅ Audit selesai — {0} domain dianalisis",
+      "other": "✅ Audit selesai — {0} domain dianalisis"
+    },
+    "auditCancelled": "Audit dibatalkan",
+    "langChanged": "Bahasa diubah",
+    "langFailed": "Tidak dapat memuat bahasa itu — tetap memakai bahasa Inggris."
+  },
+  "csv": {
+    "unknown": "Tidak diketahui",
+    "txtOnly": "TXT valid; kebijakan HTTPS belum diverifikasi",
+    "headers": [
+      "Domain",
+      "Terdaftar",
+      "Nilai",
+      "Skor",
+      "Penyedia DNS",
+      "Penyedia surel",
+      "Status SPF",
+      "Data SPF",
+      "DKIM ditemukan",
+      "Selektor DKIM",
+      "Status DMARC",
+      "Kebijakan DMARC",
+      "Mode uji DMARC (t=)",
+      "DMARC sp",
+      "DMARC np",
+      "DMARC pct",
+      "DMARC adkim",
+      "DMARC aspf",
+      "DMARC RUA",
+      "DMARC RUF",
+      "BIMI",
+      "MTA-STS",
+      "TLS-RPT",
+      "CAA",
+      "DNSSEC",
+      "Kueri SPF",
+      "Masalah",
+      "Saran"
+    ],
+    "yes": "Ya",
+    "no": "Tidak",
+    "yesAt": "Ya ({0})"
+  },
+  "report": {
+    "title": "Laporan Audit Keamanan DNS & Surel",
+    "generated": "Dibuat {0} · {1} domain",
+    "note": "Laporan statis yang dibuat secara lokal oleh Audit Keamanan DNS & Surel. Hasil audit tidak dikirim ke Kwestic maupun disimpan oleh aplikasi; nama kueri DNS dikirim ke resolver Cloudflare."
+  },
+  "issue": {
+    "wildcard-txt-apex": {
+      "msg": "Sebuah data TXT wildcard menjawab subdomain yang tidak didefinisikan, tetapi tidak mencapai pencarian DKIM. Tidak berpengaruh pada pemeriksaan di sini.",
+      "what": "Data TXT wildcard (<code>* IN TXT \"...\"</code>) membuat server DNS Anda menjawab <em>setiap</em> kueri subdomain sedalam satu label, bahkan nama yang tidak pernah Anda definisikan. Ia diuji pada kedalaman itu dan sekali lagi di bawah <code>_domainkey</code>, tempat selektor DKIM berada. Ia tidak mencapai nama yang lebih dalam, jadi penemuan DKIM pada domain ini tidak terpengaruh. Setiap pemeriksaan lain di sini mencocokkan awalan versi terlebih dahulu — <code>v=DMARC1</code>, <code>v=STSv1</code>, <code>v=BIMI1</code>, <code>v=spf1</code> — sehingga string wildcard dibuang sebelum bisa dikira sebagai kebijakan.",
+      "fix": "Tidak perlu tindakan. Sebagian domain sengaja memublikasikan pengalihan SPF wildcard, supaya surel yang mengaku berasal dari subdomain karangan bertemu kebijakan yang nyata alih-alih tidak menemukan apa pun. Pertahankan jika itu memang maksudnya; hapus jika itu sisa dari hal lain.",
+      "fixCode": "; Ulangi sendiri kedua penyelidikan ini — yang kedua yang penting:\ndig +short TXT \"*.yourdomain.com\"\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com"
+    },
+    "wildcard-txt-dkim": {
+      "msg": "Sebuah data TXT wildcard menjawab pencarian selektor DKIM, sehingga selektor yang tidak ada tidak dapat dibedakan dari yang dipublikasikan. DKIM dilaporkan sebagai tidak diketahui.",
+      "what": "Di sini sebuah data TXT wildcard menjawab kueri di bawah <code>_domainkey</code>, tempat selektor DKIM berada. Verifikator yang mencari selektor yang tidak pernah Anda publikasikan akan menerima nilai wildcard alih-alih \"tidak ada data ditemukan\". Selektor yang memang Anda publikasikan tetap teresolusi dengan benar dan tetap terverifikasi, jadi ini tidak merusak surel bertanda tangan. Yang rusak adalah jawaban negatifnya: baik verifikator maupun audit ini tidak dapat membedakan selektor yang tidak ada dari yang dibentuk otomatis, sehingga cakupan DKIM dinilai sebagai tidak diketahui alih-alih ada atau tidak ada.",
+      "fix": "Persempit wildcard-nya agar tidak bisa mencakup <code>_domainkey</code>, entah dengan membatasinya pada subdomain yang memerlukannya atau dengan memublikasikan simpul <code>_domainkey</code> kosong. Menurut RFC 4592 bagian 2.2.1, wildcard tidak membentuk nama di bawah simpul yang sudah ada, meski tidak semua server nama mematuhinya — verifikasi dengan perintah dig di bawah setelah melakukan perubahan apa pun.",
+      "fixCode": "; Pastikan wildcard mencapai kedalaman selektor DKIM:\ndig +short TXT nonexistent-selector-zzz9._domainkey.yourdomain.com\n\n; Setelah wildcard dipersempit, kueri yang sama seharusnya tidak mengembalikan apa pun."
+    },
+    "dns-loop": {
+      "msg": "Rantai CNAME www memuat siklus — nama situs web tidak dapat diselesaikan.",
+      "what": "Alat audit menelusuri rantai CNAME <code>www</code> dan menemukan nama host yang sudah pernah dikunjunginya. Itu menciptakan siklus resolusi DNS, sehingga pengunjung tidak dapat memperoleh alamat A atau AAAA final.",
+      "fix": "Ganti CNAME yang berputar dengan data A yang menunjuk langsung ke alamat IP server Anda, atau CNAME yang menunjuk ke nama domain penyedia hosting Anda.",
+      "fixCode": "; Opsi 1 — tunjuk langsung ke IP server Anda:\nwww    A      203.0.113.10\n\n; Opsi 2 — tunjuk ke domain penyedia hosting Anda:\nwww    CNAME  yoursite.netlify.app"
+    },
+    "no-mx": {
+      "msg": "Tidak ada data MX. Tambahkan MX kosong (0 .) + SPF -all + DMARC p=reject untuk memblokir pemalsuan domain parkir.",
+      "what": "Domain ini tidak punya data MX, artinya tidak ada server surel yang dikonfigurasi untuk menerima surel baginya. Domain parkir atau tak terpakai tanpa penyiapan surel adalah sasaran empuk pemalsuan — penyerang mengirim surel phishing \"dari\" domain Anda karena tidak ada apa pun di DNS yang menghentikan mereka.",
+      "fix": "Untuk domain yang tidak akan pernah mengirim atau menerima surel, publikasikan MX kosong (yang secara eksplisit menyatakan \"tidak ada surel diterima di sini\") ditambah kebijakan SPF dan DMARC yang memblokir.",
+      "fixCode": "; MX kosong — memberi tahu pengirim bahwa domain ini tidak menerima surel:\n@    MX     0 .\n\n; SPF — blokir semua pengirim:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — tolak semua surel palsu:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
+    },
+    "spf-multiple-records": {
+      "msg": "Ditemukan beberapa data SPF — SPF gagal permanen (permerror) untuk semua surel dari domain ini.",
+      "what": "RFC 7208 §4.5 mengizinkan tepat satu data TXT <code>v=spf1</code> per domain. Ketika penerima menemukan dua, ia mengembalikan <code>permerror</code> dan berhenti — ia tidak menggabungkannya dan tidak memilih yang lebih ketat. Efek praktisnya lebih buruk daripada tidak punya SPF sama sekali: data Anda tampak benar di panel DNS, tetapi setiap pesan dari domain Anda gagal autentikasi SPF. Ini biasanya terjadi ketika layanan surel kedua ditambahkan dan membuat datanya sendiri alih-alih menyunting yang sudah ada.",
+      "fix": "Gabungkan datanya menjadi satu. Ambil setiap mekanisme <code>include:</code>, <code>ip4:</code>, dan <code>ip6:</code> dari semua data, taruh dalam satu data <code>v=spf1</code>, lalu hapus sisanya. Perhatikan batas 10 pencarian saat menggabungkan — menggabungkan data adalah cara umum untuk melampauinya.",
+      "fixCode": "; Sebelum — dua data, SPF gagal untuk semuanya:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Sesudah — satu data dengan kedua pengirim:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "dmarc-multiple-records": {
+      "msg": "Ditemukan beberapa data DMARC di _dmarc — DMARC sama sekali tidak diterapkan, domain bisa dipalsukan.",
+      "what": "RFC 7489 §6.6.3 mengharuskan tepat satu data DMARC. Penerima membuang apa pun yang tidak memiliki tag <code>v=DMARC1</code>, dan jika tersisa lebih dari satu, penemuan kebijakan dihentikan dan DMARC tidak diterapkan pada pesan. Kebijakan Anda — seketat apa pun — diabaikan sepenuhnya, sehingga domain dapat dipalsukan meski tampak terlindungi. Anda juga berhenti menerima laporan agregat, yang menghilangkan sinyal yang seharusnya memberi tahu bahwa ada yang tidak beres.",
+      "fix": "Hapus semua data TXT di <code>_dmarc</code> kecuali satu. Jika data duplikatnya menyebut alamat laporan yang berbeda, simpan satu data dan cantumkan kedua alamat dalam satu tag <code>rua=</code>, dipisahkan koma.",
+      "fixCode": "; Sebelum — dua data di _dmarc, DMARC diabaikan:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Sesudah — satu data, dua tujuan laporan:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+    },
+    "mta-sts-multiple-records": {
+      "msg": "Ditemukan beberapa data MTA-STS — pengirim memperlakukan domain Anda seolah tidak punya kebijakan MTA-STS, sehingga TLS pada surel masuk tidak diwajibkan.",
+      "what": "RFC 8461 §3.1 menyatakannya secara tegas: data yang tidak diawali <code>v=STSv1;</code> dibuang, dan jika sisanya tidak tepat satu, pengirim <strong>HARUS</strong> menganggap domain tersebut tidak punya kebijakan MTA-STS. Berkas kebijakan Anda tidak pernah diambil. Surel masuk kembali ke STARTTLS oportunistik, yang bisa dilucuti penyerang di jalur jaringan — persis serangan penurunan versi yang seharusnya dicegah MTA-STS. Kontrolnya tidak aktif meski tampak sudah dikonfigurasi.",
+      "fix": "Hapus data TXT berlebih di <code>_mta-sts</code> sehingga tersisa tepat satu. Setelah itu naikkan nilai <code>id=</code> agar server pengirim menyegarkan kebijakan yang tersimpan alih-alih menunggu TTL lama habis.",
+      "fixCode": "; Sebelum — dua data, MTA-STS diabaikan sepenuhnya:\n_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\"\n_mta-sts    TXT    \"v=STSv1; id=20240615000000Z;\"\n\n; Sesudah — satu data, id dinaikkan untuk memaksa penyegaran:\n_mta-sts    TXT    \"v=STSv1; id=20260817000000Z;\""
+    },
+    "tls-rpt-multiple-records": {
+      "msg": "Ditemukan beberapa data TLS-RPT — pengirim memperlakukan domain Anda seolah tidak menerapkan TLS-RPT, sehingga tidak ada laporan yang dikirim.",
+      "what": "RFC 8460 §3 menyatakan bahwa jika jumlah data <code>v=TLSRPTv1;</code> tidak tepat satu, pengirim <strong>HARUS</strong> menganggap domain tersebut tidak menerapkan TLS-RPT. Tidak ada laporan yang dibuat untuk tujuan mana pun, termasuk alamat pada data pertama. Ini paling terasa ketika dipasangkan dengan MTA-STS: TLS-RPT adalah cara Anda mengetahui bahwa sebuah kebijakan salah konfigurasi atau sebuah sertifikat sudah kedaluwarsa, jadi data yang rusak membuat kegagalan itu terjadi tanpa terlihat.",
+      "fix": "Hapus data berlebih di <code>_smtp._tls</code>. Jika Anda butuh laporan di lebih dari satu alamat, cantumkan semuanya dalam satu tag <code>rua=</code> yang dipisahkan koma.",
+      "fixCode": "; Sebelum — dua data, tidak ada laporan yang dikirim sama sekali:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com;\"\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:soc@vendor.example;\"\n\n; Sesudah — satu data, dua tujuan:\n_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls@yourdomain.com,mailto:soc@vendor.example;\""
+    },
+    "bimi-multiple-records": {
+      "msg": "Ditemukan beberapa data BIMI — pemrosesan BIMI berhenti, sehingga logo Anda tidak akan tampil.",
+      "what": "Spesifikasi BIMI (Assertion Record Discovery) mencerminkan DMARC: data tanpa tag <code>v=BIMI1</code> dibuang, dan jika sisanya lebih dari satu data, penemuan dihentikan dan BIMI tidak diproses. Logo Anda tidak akan muncul di Gmail, Apple Mail, atau Yahoo, dan karena kegagalan BIMI berlangsung diam-diam, tidak ada yang menunjukkan penyebabnya — termasuk jika Anda sudah membayar Verified Mark Certificate.",
+      "fix": "Hapus data TXT berlebih di <code>default._bimi</code> sehingga tersisa tepat satu.",
+      "fixCode": "; Sebelum — dua data, BIMI tidak pernah dievaluasi:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\"\ndefault._bimi    TXT    \"v=BIMI1; l=https://cdn.example/old-logo.svg;\"\n\n; Sesudah — satu data:\ndefault._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg; a=https://yourdomain.com/vmc.pem;\""
+    },
+    "dkim-multiple-records": {
+      "msg": "Beberapa data kunci DKIM pada selektor: {0} — verifikasi tanda tangan menjadi tidak terdefinisi dan bisa gagal.",
+      "what": "RFC 6376 §3.6.2.2 mengharuskan data kunci unik untuk satu selektor: \"jika ada beberapa data dalam satu RRset, hasilnya tidak terdefinisi.\" Setiap verifikator menyelesaikannya secara berbeda — ada yang mengambil data pertama, ada yang terakhir, ada yang langsung gagal. Hasilnya adalah kegagalan DKIM yang muncul sesekali, berbeda-beda menurut penerima, dan menyulitkan diagnosis, karena pesan yang sama lolos di satu penyedia dan gagal di penyedia lain. Ini paling sering terjadi setelah rotasi kunci ketika data lama tidak pernah dihapus.",
+      "fix": "Hapus data kunci yang usang sehingga tersisa tepat satu per selektor. Jika Anda sedang melakukan rotasi dan benar-benar butuh dua kunci aktif, gunakan dua selektor berbeda — untuk itulah selektor ada — bukan dua data di bawah satu nama.",
+      "fixCode": "; Sebelum — dua kunci pada selektor yang sama, perilaku tidak terdefinisi:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...OLD\"\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\n\n; Sesudah — satu kunci per selektor; rotasi lewat selektor kedua:\ngoogle._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEW\"\ns2._domainkey         TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBg...NEXT\""
+    },
+    "spf-missing": {
+      "msg": "Tidak ada data SPF — autentikasi pengirim tidak mungkin dilakukan.",
+      "what": "SPF (Sender Policy Framework) adalah data DNS yang mencantumkan server surel mana yang berwenang mengirim surel dari domain Anda. Tanpa itu, server mana pun di dunia bisa mengirim surel yang mengaku berasal dari Anda, dan server surel penerima tidak punya cara memverifikasi keabsahannya.",
+      "fix": "Tambahkan data TXT di akar domain Anda yang mencantumkan pengirim surel yang berwenang. Mulai dengan ~all (softfail) saat menguji, lalu perketat ke -all setelah dipastikan.",
+      "fixCode": "; Untuk Google Workspace:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; Untuk Microsoft 365:\n@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\"\n\n; Untuk domain parkir/tak terpakai:\n@    TXT    \"v=spf1 -all\""
+    },
+    "spf-softfail": {
+      "msg": "SPF: ~all softfail — perketat menjadi -all.",
+      "what": "Data SPF Anda diakhiri <code>~all</code> (tilde-all), yang dikenal sebagai \"soft fail\". Ini menandakan bahwa surel dari server yang tidak terdaftar <em>kemungkinan</em> tidak berwenang — tetapi itu sekadar petunjuk. Sebagian besar server penerima tetap mengirimkan pesannya, mungkin sambil menandainya sebagai spam. Perlindungannya terhadap pemalsuan hanya sebagian.",
+      "fix": "Setelah Anda memastikan data SPF mencantumkan semua sumber pengiriman sah Anda, perketat dari <code>~all</code> menjadi <code>-all</code> (hard fail). Ini memberi tahu penerima untuk langsung menolak surel dari server mana pun yang tidak ada di daftar Anda.",
+      "fixCode": "; Ubah dari:\n@    TXT    \"v=spf1 include:_spf.google.com ~all\"\n\n; Menjadi:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-all-permit": {
+      "msg": "SPF: +all mengizinkan semua orang — tidak aman.",
+      "what": "Data SPF Anda diakhiri <code>+all</code>, yang memberi wewenang kepada <em>setiap server di internet</em> untuk mengirim surel atas nama domain Anda. Ini sepenuhnya menggagalkan tujuan SPF — setara dengan tidak punya SPF sama sekali, dan hampir pasti merupakan salah konfigurasi.",
+      "fix": "Ganti <code>+all</code> dengan <code>-all</code> (hard fail) untuk menolak pengirim yang tidak berwenang.",
+      "fixCode": "; Hapus +all, ganti dengan -all:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-neutral": {
+      "msg": "SPF: ?all netral — tanpa perlindungan.",
+      "what": "Data SPF Anda diakhiri <code>?all</code> (tanda tanya all), yang merupakan hasil \"netral\" — SPF tidak mengambil sikap soal apakah server yang tidak terdaftar berwenang atau tidak. Server surel penerima memperlakukan ini sama seperti tidak ada data SPF sama sekali, jadi perlindungannya terhadap pemalsuan nol.",
+      "fix": "Ganti <code>?all</code> dengan <code>-all</code> (hard fail) untuk memblokir pengirim yang tidak berwenang.",
+      "fixCode": "; Ubah dari:\n@    TXT    \"v=spf1 include:_spf.google.com ?all\"\n\n; Menjadi:\n@    TXT    \"v=spf1 include:_spf.google.com -all\""
+    },
+    "spf-missing-google": {
+      "msg": "SPF: include Google Workspace tidak ada.",
+      "what": "Domain Anda memakai Google Workspace untuk surel, tetapi data SPF Anda tidak menyertakan server surel Google (<code>_spf.google.com</code>). Server pengirim Google tidak diberi wewenang dalam kebijakan SPF Anda, sehingga surel keluar yang sah dari kotak surat Google Workspace Anda bisa gagal pemeriksaan SPF dan mendarat di folder spam penerima.",
+      "fix": "Tambahkan include SPF Google ke data TXT Anda.",
+      "fixCode": "; Tambahkan include Google:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n\n; Jika Anda juga memakai pengirim lain:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
+    },
+    "spf-missing-icloud": {
+      "msg": "SPF: include iCloud tidak ada.",
+      "what": "Domain Anda tampaknya memakai Apple iCloud Mail (Domain Kustom iCloud+), tetapi data SPF Anda tidak memberi wewenang pada server pengirim Apple. Surel yang dikirim lewat iCloud bisa ditolak atau ditandai sebagai spam oleh penerima karena data SPF Anda tidak menjamin server Apple.",
+      "fix": "Tambahkan include SPF Apple ke data Anda.",
+      "fixCode": "@    TXT    \"v=spf1 include:icloud.com -all\""
+    },
+    "spf-missing-microsoft": {
+      "msg": "SPF: include Microsoft 365 tidak ada.",
+      "what": "Domain Anda memakai Microsoft 365 untuk surel, tetapi data SPF Anda tidak menyertakan server pengirim Microsoft (<code>spf.protection.outlook.com</code>). Surel keluar dari kotak surat Microsoft 365 Anda bisa gagal pemeriksaan SPF di server penerima dan diperlakukan sebagai spam atau ditolak.",
+      "fix": "Tambahkan include SPF Microsoft ke data TXT Anda.",
+      "fixCode": "@    TXT    \"v=spf1 include:spf.protection.outlook.com -all\""
+    },
+    "dkim-missing": {
+      "msg": "DKIM belum dikonfigurasi. {0}",
+      "what": "DKIM (DomainKeys Identified Mail) menyematkan tanda tangan kriptografis pada setiap surel keluar, sehingga penerima dapat memverifikasi bahwa pesan itu benar-benar berasal dari domain Anda dan tidak diubah dalam perjalanan. Tanpa DKIM, surel Anda lebih mungkin ditandai sebagai spam, dan domain Anda lebih rentan dipalsukan. DKIM juga wajib ada sebelum Anda dapat menegakkan DMARC.",
+      "fix": "Penyiapan DKIM dilakukan di konsol admin penyedia surel Anda — mereka membuat pasangan kunci publik/privat dan memberi Anda data TXT untuk dipublikasikan di DNS. Anda tidak membuat kuncinya sendiri.",
+      "fixCode": "; Google Workspace: Admin → Apps → Google Workspace → Gmail\n;   → Autentikasi surel → Buat kunci → salin data TXT-nya\n;\n; Microsoft 365: Admin → Setelan → Domain → pilih domain\n;   → Data DNS → aktifkan DKIM\n;\n; Data TXT-nya akan tampak seperti ini:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
+    },
+    "dkim-unverified": {
+      "msg": "Tidak ditemukan selektor DKIM yang diuji. {0} Dinilai seolah DKIM belum dikonfigurasi. Jika Anda tahu selektor DKIM Anda, tambahkan di \"Selektor DKIM tambahan\" lalu jalankan ulang audit agar diperhitungkan."
+    },
+    "dkim-not-checked": {
+      "msg": "DKIM tidak diperiksa pada proses ini. Dinilai seolah DKIM belum dikonfigurasi. Aktifkan \"Periksa selektor DKIM\" lalu jalankan ulang agar DKIM ikut dinilai."
+    },
+    "implicit-mx": {
+      "msg": "Tidak ada data MX yang dipublikasikan. SMTP mungkin memakai alamat A/AAAA domain ini sebagai MX implisit, yang rapuh dan sering kali tidak disengaja."
+    },
+    "dmarc-missing": {
+      "msg": "Tidak ada data DMARC — domain bisa dipalsukan bebas tanpa penegakan kebijakan apa pun.",
+      "what": "DMARC (Domain-based Message Authentication, Reporting &amp; Conformance) adalah kebijakan yang memberi tahu server surel penerima apa yang harus dilakukan ketika sebuah surel gagal SPF atau DKIM — dikarantina, ditolak, atau diloloskan. Tanpa data DMARC, bahkan penyiapan SPF + DKIM yang sempurna pun tidak mencegah orang memalsukan domain Anda pada alamat \"Dari:\" yang terlihat.",
+      "fix": "Mulailah dengan kebijakan pemantauan saja (<code>p=none</code>) untuk mengumpulkan laporan tanpa memblokir surel, lalu perketat kebijakannya setelah meninjau datanya.",
+      "fixCode": "; Langkah 1 — hanya pemantauan (titik awal yang aman):\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; Langkah 2 — quarantine (menandai surel yang gagal sebagai spam):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; Langkah 3 — reject (memblokir sepenuhnya surel yang gagal):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-none": {
+      "msg": "DMARC p=none hanya pemantauan. Naikkan ke p=quarantine lalu p=reject.",
+      "what": "Data DMARC Anda disetel ke <code>p=none</code>, yaitu mode pemantauan saja. Mode ini menginstruksikan server penerima untuk mengumpulkan data dan mengirimi Anda laporan, tetapi <em>tidak mengambil tindakan</em> atas surel yang gagal — pesan palsu tetap terkirim. <code>p=none</code> adalah alat diagnostik yang dimaksudkan sebagai langkah awal sementara, bukan konfigurasi akhir.",
+      "fix": "Tinjau laporan agregat DMARC Anda (rua=) untuk memastikan semua sumber surel sah Anda lolos. Setelah yakin, naikkan kebijakannya ke quarantine, lalu reject.",
+      "fixCode": "; Langkah 1 — quarantine (mengirim surel yang gagal ke spam):\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; Langkah 2 — reject (memblokir sepenuhnya surel yang gagal):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-quarantine": {
+      "msg": "DMARC p=quarantine mengirim surel palsu ke spam tetapi tetap mengirimkannya. Kondisi akhirnya adalah p=reject.",
+      "what": "Kebijakan DMARC Anda adalah <code>p=quarantine</code>, yang merupakan penegakan sungguhan — surel yang gagal autentikasi diarahkan ke folder spam alih-alih kotak masuk. Namun surel itu tetap <em>terkirim</em>. Pesan phishing meyakinkan yang menyamar sebagai domain Anda tetap berada satu klik saja, di folder yang memang orang periksa, dan sebagian penerima menerapkan karantina secara tidak konsisten. <code>p=reject</code> menginstruksikan server penerima untuk menolak pesan itu langsung, sehingga tidak pernah sampai ke penerima.",
+      "fix": "Tinjau laporan agregat DMARC Anda (<code>rua=</code>) selama beberapa minggu dan pastikan setiap sumber pengiriman yang sah lolos penyelarasan SPF atau DKIM. Setelah tidak ada surel asli yang gagal, ubah kebijakannya menjadi <code>p=reject</code>. Jika ingin langkah hati-hati lebih dulu, publikasikan <code>p=reject; t=y</code> — mode uji RFC 9989 menjaga laporan tetap mengalir sementara penerima menahan penegakan — lalu hapus <code>t=y</code>. Jangan bertahap dengan <code>pct=</code>: RFC 9989 sudah menghapusnya, sehingga sekarang perilakunya berbeda-beda dari satu penerima ke penerima lain.",
+      "fixCode": "; Kebijakan saat ini — surel yang gagal masuk ke spam:\n_dmarc    TXT    \"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\"\n\n; Langkah hati-hati opsional — publikasikan reject, penerima belum menerapkannya:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Kondisi akhir — tolak semua surel yang gagal:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-no-rua": {
+      "msg": "DMARC tidak punya alamat rua= — Anda tidak akan menerima laporan agregat.",
+      "what": "Data DMARC Anda tidak menyertakan tag <code>rua=</code>. Inilah alamat surel tempat ISP dan penyedia surel mengirim laporan agregat yang menunjukkan siapa saja yang mengirim surel dari domain Anda dan apakah surel itu lolos autentikasi. Tanpa itu, Anda tidak punya visibilitas atas lalu lintas surel Anda — Anda tidak akan tahu jika ada yang rusak atau jika ada yang memalsukan domain Anda.",
+      "fix": "Tambahkan alamat <code>rua=</code> ke data DMARC Anda. Bisa kotak surat mana pun yang Anda pantau.",
+      "fixCode": "; Tambahkan rua= ke data DMARC Anda yang sudah ada:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc-reports@yourdomain.com;\""
+    },
+    "dmarc-weak-sp": {
+      "msg": "Kebijakan DMARC untuk subdomain adalah sp={0} sementara domainnya sendiri p={1} — subdomain kurang terlindungi.",
+      "what": "Data Anda menyetel <code>sp={0}</code>, yang secara eksplisit menimpa kebijakan untuk subdomain. Tanpa tag itu, subdomain akan otomatis mewarisi kebijakan <code>p={1}</code> Anda yang lebih ketat. Sebagaimana tertulis sekarang, penyerang dapat memalsukan <code>apapun.domainanda.com</code> dan mendapat perlakuan yang lebih longgar — padahal penerima jarang mencermati bagian subdomain pada alamat pengirim. Pemalsuan subdomain adalah teknik phishing yang umum justru karena kebijakan organisasi sering berhenti di domain utama.",
+      "fix": "Kecuali Anda punya alasan khusus untuk memperlakukan subdomain secara berbeda — misalnya platform pemasaran yang mengirim dari subdomain yang belum terautentikasi penuh — hapus tag <code>sp=</code> agar subdomain mewarisi kebijakan utama Anda, atau naikkan agar setara.",
+      "fixCode": "; Paling sederhana — hapus sp= agar subdomain mewarisi p:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Atau setel eksplisit agar setara:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-weak-np": {
+      "msg": "Kebijakan DMARC untuk subdomain tak ada adalah np={0} sementara domainnya p={1} — subdomain yang tidak dipakai kurang terlindungi.",
+      "what": "Tag <code>np=</code> (RFC 9091) menetapkan kebijakan untuk subdomain yang sama sekali tidak ada di DNS. Milik Anda adalah <code>np={0}</code>, lebih lemah daripada <code>p={1}</code> Anda. Subdomain yang tidak ada adalah sasaran favorit penyerang — tidak ada surel sah yang terganggu, jadi tidak ada yang menyadarinya, dan alamat seperti <code>billing.yourdomain.com</code> tampak sangat masuk akal bagi penerima.",
+      "fix": "Setel <code>np=reject</code>. Tidak ada pengirim sah yang mengirim dari subdomain yang tidak ada, jadi ini salah satu dari sedikit perubahan DMARC yang praktis tanpa risiko keterkiriman.",
+      "fixCode": "; Tolak surel dari subdomain yang tidak ada:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-partial-pct": {
+      "msg": "DMARC pct={0} — penerima yang masih memakai RFC 7489 menerapkan kebijakan Anda hanya pada {0}% surel yang gagal, dan mengirim {1}% sisanya secara normal.",
+      "what": "Tag <code>pct=</code> dihapus pada RFC 9989, tetapi penerima yang belum bermigrasi terus menghormatinya. Pada <code>pct={0}</code>, penerima tersebut menerapkan kebijakan Anda pada {0}% pesan yang gagal autentikasi dan beralih ke tindakan yang lebih lunak untuk {1}% sisanya, sehingga pesan palsu punya peluang sekitar {1} dari 100 untuk lolos tanpa disentuh. Penerima yang mengikuti spesifikasi baru mengabaikan tag itu dan menegakkan sepenuhnya — artinya penegakan Anda saat ini tidak konsisten di seluruh internet, dan itu posisi yang lebih buruk daripada salah satu setelan itu sendiri.",
+      "fix": "Periksa laporan agregat Anda untuk memastikan tidak ada pengirim sah yang gagal, lalu hapus <code>pct=</code> sepenuhnya. Gunakan <code>t=y</code> jika Anda masih memerlukan peluncuran bertahap.",
+      "fixCode": "; Hapus pct= — bawaannya 100:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Atau nyatakan secara eksplisit:\n_dmarc    TXT    \"v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-pct": {
+      "msg": "Nilai DMARC pct= bukan angka valid antara 0 dan 100 — penerima lama mungkin menolak seluruh datanya.",
+      "what": "Tag <code>pct=</code> dihapus pada RFC 9989, sehingga penerima yang mengikuti spesifikasi terkini mengabaikannya apa pun isinya. Penerima yang masih menerapkan RFC 7489 mensyaratkan bilangan bulat 0 sampai 100, dan sebagian memperlakukan nilai yang salah format sebagai alasan untuk membuang seluruh data DMARC — membuat domain Anda tanpa perlindungan tepat di penerima-penerima itu. Langkah amannya sama saja untuk kedua kasus.",
+      "fix": "Hapus tag ini. Tag ini tidak lagi punya makna yang terdefinisi, dan menghapusnya menyelesaikan kedua perilaku sekaligus.",
+      "fixCode": "; Hapus pct= yang salah format sepenuhnya:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-invalid-policy": {
+      "msg": "Nilai DMARC p= bukan none, quarantine, atau reject — datanya salah format dan tidak memberi perlindungan.",
+      "what": "Tag <code>p=</code> harus persis <code>none</code>, <code>quarantine</code>, atau <code>reject</code>. Milik Anda berisi sesuatu yang lain — salah ketik, karakter nyasar, atau nilai yang tidak didukung. Server penerima tidak bisa bertindak berdasarkan kebijakan yang tidak dikenalinya, jadi dalam praktiknya domain Anda diperlakukan seolah tidak punya data DMARC sama sekali, dan bebas dipalsukan.",
+      "fix": "Perbaiki nilai <code>p=</code>. Jika Anda ragu harus mulai dari mana, publikasikan <code>p=none</code> dengan alamat <code>rua=</code>, tinjau laporannya selama beberapa minggu, lalu perketat.",
+      "fixCode": "; Hanya pemantauan, titik awal yang aman:\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com;\"\n\n; Penegakan penuh:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "porkbun-forward": {
+      "msg": "Penerusan Porkbun tidak mendukung DKIM — surel yang diteruskan sering gagal di tujuan.",
+      "what": "Penerusan surel Porkbun meneruskan pesan masuk ke alamat lain tetapi tidak menandatanganinya dengan DKIM. Ketika pesan yang diteruskan tiba di tujuan, pesan itu gagal DKIM (tanda tangannya hilang atau rusak akibat penerusan) dan bisa juga gagal SPF (pesan dikirim ulang dari server Porkbun, bukan server Anda). Ini menyebabkan tingkat pengiriman ke spam yang tinggi dan tidak ada perbaikan di sisi DNS — ini keterbatasan mendasar arsitektur penerusan.",
+      "fix": "Untuk surel yang andal, beralihlah ke layanan surel terkelola sungguhan yang mendukung penandatanganan DKIM. Ada beberapa pilihan berbiaya rendah.",
+      "fixCode": "; Alternatif yang baik untuk penerusan Porkbun:\n;\n; Google Workspace — dukungan DKIM penuh\n; Microsoft 365 — dukungan DKIM penuh\n; Fastmail — dukungan DKIM penuh\n; Proton Mail for Business — dukungan DKIM penuh\n;\n; Untuk penerusan catch-all sederhana dengan DKIM:\n; ImprovMX (paket gratis) atau Forward Email (gratis, sumber terbuka)"
+    },
+    "spf-over-limit": {
+      "msg": "SPF melampaui batas 10 pencarian DNS (ditemukan ~{0}) — surel sah akan gagal SPF.",
+      "what": "SPF mengizinkan maksimum 10 pencarian DNS selama evaluasi — setiap mekanisme <code>include:</code>, <code>mx</code>, <code>a</code>, <code>exists</code>, dan <code>redirect</code> dihitung ke dalam batas ini. Data Anda melampauinya. Ketika server penerima mencapai pencarian ke-11, spesifikasi SPF mewajibkannya mengembalikan \"permerror\", yang diperlakukan penerima sebagai kegagalan SPF. Surel sah dari domain Anda gagal SPF.",
+      "fix": "Kurangi jumlah pencarian dengan menghapus pengirim yang tidak terpakai atau dengan \"mendatarkan\" data SPF Anda — mengganti entri <code>include:</code> dengan alamat IP hasil resolusinya, sehingga menghilangkan sub-pencarian.",
+      "fixCode": "; Sebelum (terlalu banyak pencarian include:):\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:mailchimp.com include:amazonses.com -all\"\n\n; Setelah didatarkan (pakai alat untuk mendapatkan IP Anda yang sebenarnya):\n; Alat: MXToolbox SPF Analyzer, AutoSPF, dmarcian\n\"v=spf1 ip4:209.85.220.0/22 ip4:167.89.0.0/17 ip4:199.255.192.0/22 -all\""
+    },
+    "spf-near-limit": {
+      "msg": "SPF mendekati batas 10 pencarian (~{0} terhitung) — menambah pengirim lagi bisa merusaknya.",
+      "what": "Data SPF Anda mendekati batas 10 pencarian. Menambah layanan pengiriman surel lagi, atau jika penyedia yang ada mengubah infrastruktur SPF mereka, bisa membuat Anda melampaui batas — menyebabkan surel sah gagal autentikasi SPF tanpa peringatan apa pun.",
+      "fix": "Tinjau data SPF Anda dan hapus layanan yang tidak lagi Anda pakai. Jika Anda memang membutuhkan semua pengirim saat ini, pertimbangkan pendataran (flattening) untuk mengurangi kedalaman pencarian.",
+      "fixCode": "; Tinjau: mana di antara ini yang masih Anda pakai?\n\"v=spf1 include:_spf.google.com include:sendgrid.net include:... -all\"\n;\n; Hapus include yang tidak terpakai, atau datarkan dengan alat seperti:\n; AutoSPF (autospf.com), dmarcian, atau MXToolbox"
+    },
+    "spf-cycle": {
+      "msg": "Terdeteksi siklus include/redirect SPF melalui {0}; evaluasi SPF dapat mengembalikan permerror."
+    },
+    "spf-indeterminate": {
+      "msg": "Total pencarian SPF tidak dapat ditentukan karena datanya memakai makro, kedalaman berlebihan, atau kebijakan sertaan yang tidak valid."
+    },
+    "spf-large-subnet": {
+      "msg": "SPF memberi wewenang pada rentang IP yang besar: {0} — pastikan Anda mengendalikan seluruh ruang alamat itu.",
+      "what": "Setiap alamat di dalam blok <code>ip4:</code> atau <code>ip6:</code> boleh mengirim surel sebagai domain Anda, dan blok-blok ini besar: satu <code>/24</code> IPv4 berarti 256 alamat, <code>/16</code> berarti 65.536, dan <code>/48</code> IPv6 atau yang lebih pendek adalah alokasi berskala lokasi hingga ISP. Itu tidak masalah bila rentangnya milik Anda — banyak organisasi besar memublikasikan blok jaringan mereka sendiri seperti ini. Menjadi masalah ketika rentang itu milik hosting bersama atau penyedia yang pelanggan lainnya tidak Anda kendalikan, karena setiap tetangga itu lalu bisa lolos SPF sebagai Anda. Audit ini hanya melaporkan ukurannya; ia tidak bisa memberi tahu siapa pemilik bloknya, jadi penilaiannya ada pada Anda.",
+      "fix": "Periksa siapa sebenarnya pemilik tiap rentang yang tercantum. Jika itu alokasi Anda sendiri, tidak perlu diubah. Jika milik platform bersama, ganti blok yang luas itu dengan alamat pengirim yang spesifik, atau dengan <code>include:</code> milik penyedia — dengan begitu penyedia yang memelihara daftarnya dan Anda tidak memberi wewenang pada seluruh infrastruktur mereka.",
+      "fixCode": "; Luas — setiap host di antara 256 alamat bisa mengirim atas nama Anda:\n\"v=spf1 ip4:203.0.113.0/24 -all\"\n\n; Sempit — hanya host yang benar-benar mengirim:\n\"v=spf1 ip4:203.0.113.10 ip4:203.0.113.11 -all\"\n\n; Atau biarkan penyedia yang memelihara daftarnya:\n\"v=spf1 include:_spf.provider.example -all\""
+    },
+    "spf-medium-subnet": {
+      "msg": "SPF memberi wewenang pada rentang IP berukuran menengah: {0} — sebaiknya pastikan tiap rentang memang milik Anda."
+    },
+    "spf-redundant-mechanism": {
+      "msg": "Mekanisme {0} hanya menghasilkan alamat yang sudah diberi wewenang oleh {1} — menghapusnya menurunkan jumlah pencarian SPF Anda dari {2} menjadi {3}.",
+      "what": "SPF mengizinkan maksimum 10 pencarian DNS, dan mekanisme <code>a</code> serta <code>mx</code> masing-masing menghabiskan satu. Setiap alamat yang dihasilkan mekanisme ini — baik IPv4 maupun IPv6 — sudah berada di dalam blok <code>ip4:</code> atau <code>ip6:</code> yang tertulis pada data yang sama, jadi pencarian itu tidak membeli wewenang apa pun yang belum Anda miliki. Menghapusnya tidak mengubah apa pun tentang server mana yang boleh mengirim atas nama Anda, dan mengembalikan satu jatah pencarian.",
+      "fix": "Hapus mekanisme itu dari data SPF Anda. Periksa lagi nanti jika host di baliknya mendapat alamat baru, karena bloknya kemudian perlu mencakup alamat-alamat itu juga.",
+      "fixCode": "; Sebelum — mx menghabiskan satu pencarian untuk alamat yang sudah dicakup blok:\n\"v=spf1 mx ip4:203.0.113.0/28 include:_spf.provider.example -all\"\n\n; Sesudah — pengirim yang sama tetap berwenang, hemat satu pencarian:\n\"v=spf1 ip4:203.0.113.0/28 include:_spf.provider.example -all\""
+    },
+    "spf-redundant-mechanism-nocount": {
+      "msg": "Mekanisme {0} hanya menghasilkan alamat yang sudah diberi wewenang oleh {1} — menghapusnya membebaskan satu dari 10 pencarian DNS SPF."
+    },
+    "spf-partial-coverage": {
+      "msg": "{0} dari {1} alamat di balik mekanisme {2} sudah tercakup oleh blok ip4:/ip6: Anda — pertahankan mekanismenya, ia masih memberi wewenang pada sisanya."
+    },
+    "dnssec-bogus": {
+      "msg": "Validasi DNSSEC tampak bermasalah (bogus): validasi gagal padahal jawabannya tersedia ketika pemeriksaan dinonaktifkan."
+    },
+    "dnssec-indeterminate": {
+      "msg": "Status DNSSEC tidak dapat ditentukan karena kueri validasi gagal. Dinilai sebagai tidak ditandatangani. Jalankan ulang audit — ini biasanya masalah resolver yang sementara. Jika terus terjadi pada domain yang sudah Anda pastikan ditandatangani di registrar atau penyedia DNS Anda, buka issue di GitHub dengan menyertakan domainnya, registrar/penyedia DNS Anda, dan tangkapan layar yang menunjukkan DNSSEC aktif."
+    },
+    "mta-sts-invalid": {
+      "msg": "Data TXT MTA-STS salah format atau tidak memuat tag id= yang wajib."
+    },
+    "mta-sts-policy-unverified": {
+      "msg": "Data TXT MTA-STS valid, tetapi audit yang hanya berjalan di peramban ini tidak dapat memverifikasi berkas kebijakan HTTPS karena sebagian besar host kebijakan tidak mengizinkan pembacaan lintas asal."
+    },
+    "tls-rpt-invalid": {
+      "msg": "Data TLS-RPT salah format atau tidak punya tujuan rua= yang valid."
+    },
+    "bimi-invalid": {
+      "msg": "Data BIMI salah format atau tidak memuat URL logo HTTPS yang valid."
+    },
+    "dmarc-version-missing": {
+      "msg": "Data DMARC tidak diawali v=DMARC1 — penerima wajib mengabaikannya sepenuhnya.",
+      "what": "RFC 9989 §5.4 mensyaratkan tag <code>v=</code> menjadi tag pertama dalam data. Data tanpa tag itu sama sekali bukan data DMARC, apa pun isinya yang lain. Server penerima membuangnya dan memperlakukan domain Anda seolah tidak punya kebijakan DMARC, sehingga datanya memberi Anda tampilan perlindungan tanpa isinya.",
+      "fix": "Tulis ulang datanya sehingga diawali <code>v=DMARC1;</code> lalu diikuti kebijakan Anda.",
+      "fixCode": "; Salah — tanpa tag versi:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Benar:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-not-first": {
+      "msg": "v=DMARC1 ada tetapi bukan tag pertama — penerima wajib mengabaikan seluruh datanya.",
+      "what": "RFC 9989 §5.4 menyatakan <code>v=</code> HARUS menjadi tag pertama dalam daftar, bukan sekadar ada di suatu tempat. Urutan tag lainnya bebas, sehingga hal ini mudah keliru saat data disunting manual atau dirakit oleh skrip. Penerima yang mengikuti spesifikasi berhenti mengurai dan memperlakukan domain sebagai tidak terlindungi.",
+      "fix": "Pindahkan <code>v=DMARC1;</code> ke bagian paling depan data. Tidak ada lagi yang perlu diubah.",
+      "fixCode": "; Salah — v= tidak berada di awal:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; Benar:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-version-bad-value": {
+      "msg": "Nilai versi DMARC tidak persis \"DMARC1\" — nilainya membedakan huruf besar-kecil dan datanya diabaikan.",
+      "what": "Hampir semua nilai dalam data DMARC tidak membedakan huruf besar-kecil, tetapi RFC 9989 §5.4 menjadikan <code>v=</code> sebagai pengecualian: satu-satunya ejaan yang diterima adalah <code>DMARC1</code>, dengan huruf kapital. <code>v=dmarc1</code> atau <code>v=DMARC2</code> menyebabkan seluruh datanya diabaikan. Ini korban umum salin-tempel karena panel DNS sering mengubah nilai menjadi huruf kecil saat dimasukkan.",
+      "fix": "Setel nilainya persis menjadi <code>DMARC1</code> lalu periksa lagi apa yang sebenarnya disimpan panel DNS Anda.",
+      "fixCode": "; Salah — huruf kecil:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; Benar:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-duplicate-tags": {
+      "msg": "Data DMARC mengulang tag yang sama ({0}) — datanya salah format dan bisa diabaikan.",
+      "what": "Satu data DMARC hanya boleh memuat tiap tag paling banyak sekali. Milik Anda mengulang {0}. Spesifikasinya tidak memberi aturan untuk memilih di antara nilai-nilai itu, jadi perilakunya bergantung pada penerima: ada yang mengambil yang pertama, ada yang terakhir, ada yang membuang datanya sama sekali. Perlindungan apa pun yang Anda kira sudah dikonfigurasi, Anda tidak bisa mengandalkannya.",
+      "fix": "Hapus tag yang berulang sehingga masing-masing muncul tepat sekali. Jika Anda memang bermaksud memberi dua nilai untuk <code>rua=</code>, gabungkan menjadi satu daftar yang dipisahkan koma.",
+      "fixCode": "; Salah — p= dua kali:\n_dmarc    TXT    \"v=DMARC1; p=none; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Benar:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-test-mode": {
+      "msg": "DMARC dalam mode uji (t=y) — kebijakan p={0} Anda dipublikasikan tetapi tidak diterapkan.",
+      "what": "Tag <code>t=</code> merupakan hal baru di RFC 9989 dan menggantikan <code>pct=</code> sebagai cara resmi meluncurkan DMARC secara bertahap. <code>t=y</code> memberi tahu penerima bahwa pemilik domain masih mengevaluasi dan kebijakan itu <em>tidak</em> boleh ditegakkan. Laporan agregat tetap berdatangan, dan itulah tujuan mode ini — tetapi untuk urusan pemalsuan, <code>p=reject; t=y</code> melindungi Anda persis sebesar <code>p=none</code>. Dasbor yang hanya membaca <code>p=</code> akan menampilkan domain ini sebagai sudah ditegakkan penuh.",
+      "fix": "Begitu laporan agregat Anda menunjukkan tidak ada pengirim sah yang gagal, hapus <code>t=y</code> (atau setel <code>t=n</code>) agar kebijakan yang dipublikasikan menjadi kebijakan sungguhan.",
+      "fixCode": "; Pengujian — kebijakan dipublikasikan, tidak diterapkan:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Produksi — hapus t= sepenuhnya (bawaannya n):\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-t": {
+      "msg": "Nilai DMARC t= bukan y atau n — penerima mungkin mengabaikan tag atau seluruh datanya.",
+      "what": "RFC 9989 mendefinisikan tepat dua nilai untuk tag mode uji: <code>y</code> dan <code>n</code>, dengan <code>n</code> sebagai bawaan. Selain itu adalah kesalahan sintaksis. Tergantung penerimanya, Anda bisa mendapat perilaku bawaan, atau datanya ditolak karena dianggap salah format — dan dari luar Anda tidak bisa tahu yang mana.",
+      "fix": "Setel <code>t=y</code> saat pengujian, <code>t=n</code> saat produksi, atau hapus tag ini sepenuhnya karena <code>n</code> adalah nilai bawaan.",
+      "fixCode": "; Hapus tag yang salah format — n adalah nilai bawaan:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-rua-invalid": {
+      "msg": "Tujuan DMARC rua= tidak dapat dipakai ({0}) — laporan agregat tidak dapat dikirimkan.",
+      "what": "Tujuan laporan harus berupa URI DMARC: alamat <code>mailto:</code>, secara opsional diikuti batas ukuran seperti <code>!10m</code>. Alamat polos tanpa awalan <code>mailto:</code>, alamat yang salah format, atau skema yang tidak didukung penerima semuanya menghasilkan hal yang sama — tidak ada laporan. Karena DMARC gagal secara diam-diam, <code>rua=</code> yang tidak dapat dipakai tampak persis seperti domain yang memang tidak dipalsukan siapa pun.",
+      "fix": "Perbaiki tujuannya menjadi URI <code>mailto:</code> yang lengkap. Pisahkan beberapa tujuan dengan koma.",
+      "fixCode": "; Salah — skema mailto: tidak ada:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=dmarc@yourdomain.com;\"\n\n; Benar — satu atau beberapa URI mailto::\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example!10m;\""
+    },
+    "dmarc-ruf-invalid": {
+      "msg": "Tujuan DMARC ruf= tidak dapat dipakai ({0}) — laporan kegagalan tidak dapat dikirimkan.",
+      "what": "Tag <code>ruf=</code> memakai format URI DMARC yang sama dengan <code>rua=</code>: alamat <code>mailto:</code> dengan batas ukuran <code>!</code> opsional. Milik Anda tidak dapat diurai, jadi tidak akan ada laporan kegagalan yang datang. Perlu dicatat, laporan kegagalan (RFC 9991) memuat isi pesan dan dikirim oleh relatif sedikit penerima — kehilangannya tidak seberat kehilangan laporan agregat, tetapi tag yang rusak tetap layak diperbaiki atau dihapus.",
+      "fix": "Perbaiki tujuannya menjadi URI <code>mailto:</code> yang lengkap, atau hapus <code>ruf=</code> jika Anda tidak berniat mengumpulkan laporan kegagalan.",
+      "fixCode": "; Benar — URI mailto: yang lengkap:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-fo-without-ruf": {
+      "msg": "DMARC fo= disetel tetapi tidak ada ruf= — penerima wajib mengabaikannya.",
+      "what": "Tag <code>fo=</code> mengatur <em>kapan</em> laporan kegagalan dibuat, sehingga RFC 9989 menyatakan isinya harus diabaikan bila tidak ada tag <code>ruf=</code>. Tag itu tidak melakukan apa pun. Biasanya ini berarti <code>ruf=</code> pernah dihapus dan <code>fo=</code> tertinggal, yang bisa memberi kesan bahwa pelaporan kegagalan masih dikonfigurasi.",
+      "fix": "Tambahkan tujuan <code>ruf=</code> jika Anda menginginkan laporan kegagalan, atau hapus <code>fo=</code> agar datanya menyatakan apa yang sebenarnya berlaku.",
+      "fixCode": "; Tambahkan sebuah tujuan:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; Atau buang tag yang tidak berfungsi:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-fo": {
+      "msg": "DMARC fo= memuat nilai yang bukan 0, 1, d, atau s.",
+      "what": "Tag opsi pelaporan kegagalan menerima subhimpunan empat nilai yang dipisahkan titik dua: <code>0</code> (laporkan bila semuanya gagal), <code>1</code> (laporkan bila ada yang gagal), <code>d</code> (DKIM gagal), dan <code>s</code> (SPF gagal). Selain itu adalah kesalahan sintaksis, dan <code>fo=1</code> adalah yang sebenarnya diinginkan sebagian besar operator — nilai bawaan <code>fo=0</code> hanya melapor ketika SPF dan DKIM sama-sama gagal.",
+      "fix": "Gunakan kombinasi yang valid, paling umum <code>fo=1</code>.",
+      "fixCode": "; Laporkan setiap kali ada mekanisme yang gagal:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=1; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\"\n\n; Beberapa opsi dipisahkan dengan titik dua:\n_dmarc    TXT    \"v=DMARC1; p=reject; fo=d:s; rua=mailto:dmarc@yourdomain.com; ruf=mailto:forensics@yourdomain.com;\""
+    },
+    "dmarc-external-reporting": {
+      "msg": "Laporan DMARC dikirim ke domain luar ({0}) — domain itu harus mengotorisasinya atau laporannya dibuang.",
+      "what": "Ketika tujuan laporan berada di luar domain organisasi Anda — vendor DMARC, konsultan, perusahaan afiliasi — RFC 9990 §4.3 mengharuskan domain penerima mempublikasikan data yang memberi izin. Tanpa itu, penerima yang patuh spesifikasi membuang diam-diam laporan yang ditujukan ke alamat tersebut. Otorisasi dinilai per tujuan, jadi vendor yang tidak terotorisasi tidak merusak data DMARC Anda maupun menghentikan laporan ke alamat-alamat lain; hanya tujuan yang satu itu yang menjadi senyap. Audit ini tidak memverifikasi datanya — aktifkan pemeriksaan lanjutan agar dicari secara otomatis.",
+      "fix": "Minta domain tujuan mempublikasikan data otorisasi untuk domain Anda, dalam bentuk <code>&lt;domain-anda&gt;._report._dmarc.&lt;domain-mereka&gt;</code>.",
+      "fixCode": "; Data Anda mengirim laporan ke sebuah vendor:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; VENDOR harus mempublikasikan ini di zona mereka:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
+    },
+    "dmarc-bad-psd": {
+      "msg": "Nilai DMARC psd= bukan y, n, atau u.",
+      "what": "Tag <code>psd=</code> merupakan hal baru di RFC 9989 dan memberi tahu DNS Tree Walk apakah domain ini merupakan Public Suffix Domain. Tag ini menerima tepat tiga nilai: <code>y</code>, <code>n</code>, dan <code>u</code> (bawaan, artinya penemuan normal berlaku). Nilai yang tidak valid adalah kesalahan sintaksis pada tag yang mengatur cara penerima menemukan kebijakan Anda.",
+      "fix": "Hapus tag ini kecuali Anda mengoperasikan sebuah public suffix — <code>u</code> adalah nilai bawaan dan tepat untuk hampir semua domain biasa.",
+      "fixCode": "; Domain biasa sama sekali tidak memerlukan psd=:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-psd-invalid": {
+      "msg": "DMARC menyatakan psd=y tetapi domain ini bukan public suffix.",
+      "what": "<code>psd=y</code> memberi tahu penerima bahwa nama ini adalah Public Suffix Domain — nama setingkat registri seperti <code>.gov.uk</code> yang di bawahnya organisasi-organisasi tak berkaitan melakukan pendaftaran. Ini mengubah di mana DNS Tree Walk berhenti ketika penerima mencari kebijakan, sehingga menyetelnya pada domain organisasi biasa dapat menyebabkan kebijakan Anda ditemukan secara keliru untuk subdomain. Ini hampir selalu kesalahan akibat menyalin contoh.",
+      "fix": "Hapus <code>psd=y</code> kecuali Anda benar-benar mengoperasikan public suffix yang terdaftar di Public Suffix List.",
+      "fixCode": "; Hapus tag ini:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-removed-tags": {
+      "msg": "Data DMARC memuat tag yang dihapus oleh RFC 9989 ({0}) — tag itu tidak lagi berfungsi.",
+      "what": "RFC 9989 menghapus beberapa tag warisan RFC 7489. Penerima yang menerapkan spesifikasi terkini mengabaikannya. Tag itu tidak berbahaya dalam arti tidak akan merusak datanya, tetapi menyesatkan: siapa pun yang membaca datanya nanti akan mengira tag itu masih berlaku.",
+      "fix": "Hapus tag yang sudah usang. Frekuensi dan format laporan tidak lagi dapat dikonfigurasi dari data DMARC — lihat RFC 9990 untuk mengetahui cara kerja pelaporan agregat sekarang.",
+      "fixCode": "; Tag usang dihapus:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-unknown-tags": {
+      "msg": "Data DMARC memuat tag yang bukan bagian dari standar ({0}).",
+      "what": "RFC 9989 mendefinisikan himpunan tag lengkap ini: <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code>, dan <code>t</code>. Tag yang tidak dikenal HARUS diabaikan, jadi sifatnya tidak berbahaya melainkan tidak berfungsi — tetapi biasanya itu salah ketik dari nama tag yang sesungguhnya, yang berarti setelan yang Anda maksudkan tidak diterapkan. <code>rua</code> yang salah eja adalah tag tak dikenal <em>sekaligus</em> tujuan laporan yang hilang.",
+      "fix": "Periksa setiap tag yang tidak dikenali untuk kemungkinan salah ketik, lalu hapus apa pun yang memang tidak diperlukan.",
+      "fixCode": "; Salah ketik diabaikan diam-diam — data ini TIDAK punya tujuan laporan:\n_dmarc    TXT    \"v=DMARC1; p=reject; rau=mailto:dmarc@yourdomain.com;\"\n\n; Setelah diperbaiki:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-external-unauthorized": {
+      "msg": "Laporan DMARC ke {0} sedang dibuang — domain tersebut belum mengotorisasi laporan Anda.",
+      "what": "Ketika tujuan laporan berada di luar domain organisasi Anda, RFC 9990 §4.3 mengharuskan domain penerima mempublikasikan data yang memberi izin. Kami sudah mencari, dan data itu tidak ada. Karena itu penerima yang patuh spesifikasi membuang setiap laporan yang ditujukan ke {0}: tidak ada yang error dan tidak ada yang terpental, Anda hanya menerima data lebih sedikit daripada yang Anda kira — dan itu mudah disalahartikan sebagai \"tidak ada yang memalsukan kami\". Otorisasi diperiksa per tujuan, jadi alamat lain di data Anda tetap berfungsi normal; hanya yang satu ini yang dibuang.",
+      "fix": "Minta pengelola {0} mempublikasikan data otorisasi untuk domain Anda. Sebagian besar vendor pelaporan melakukannya otomatis saat Anda menambahkan domain, jadi jika Anda baru saja menyiapkannya, ada baiknya memeriksa dasbor vendor lebih dulu — datanya mungkin baru muncul setelah domain terverifikasi di sisi mereka.",
+      "fixCode": "; Domain TUJUAN mempublikasikan ini di zonanya sendiri,\n; menyebutkan domain yang laporannya ia terima:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; Vendor yang menerima banyak pelanggan biasanya mempublikasikan bentuk wildcard:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
+    },
+    "dmarc-external-unverifiable": {
+      "msg": "Tidak dapat memverifikasi otorisasi laporan untuk {0} — pencarian DNS tidak selesai.",
+      "what": "Laporan yang dikirim ke luar domain organisasi Anda memerlukan otorisasi dari pihak tujuan, dan kami memeriksanya dengan menanyakan data otorisasi ke tujuan tersebut. Kueri itu gagal — waktu habis, SERVFAIL, atau gangguan resolver — sehingga kami tidak dapat memberi tahu apakah datanya ada. Ini celah pada hasil kami, bukan temuan terhadap konfigurasi Anda: anggap sebagai tidak diketahui, bukan sebagai masalah, dan jalankan ulang audit sebelum mengambil tindakan.",
+      "fix": "Jalankan ulang audit. Jika terus gagal, kueri nama tersebut secara langsung untuk melihat apakah datanya ada.",
+      "fixCode": "; Periksa data otorisasi secara manual:\ndig +short TXT yourdomain.com._report._dmarc.{0}\n\n; Dan bentuk wildcard yang dipublikasikan sebagian besar vendor:\ndig +short TXT \"*._report._dmarc.{0}\""
+    },
+    "checks-unverified": {
+      "msg": "Sebagian pemeriksaan tidak dapat diselesaikan ({0}) — pemeriksaan itu dinilai seolah datanya tidak dipublikasikan.",
+      "what": "Satu atau beberapa pencarian DNS untuk domain ini tidak mengembalikan jawaban yang dapat dipakai, biasanya SERVFAIL atau waktu habis dari resolver. Itu bisa saja server nama yang benar-benar bermasalah, tetapi sama seringnya merupakan gangguan sesaat yang pulih dalam hitungan menit. Sisa audit selesai secara normal dan hasilnya akurat. Pemeriksaan yang terdampak dinilai nol, karena nilai yang tidak bisa dipertanggungjawabkan oleh alat ini lebih rendah nilainya daripada nilai yang sekadar ketat — jadi pencarian yang gagal memang mengurangi poin Anda sampai dijalankan ulang.",
+      "fix": "Jalankan ulang audit terlebih dahulu — kegagalan sementara akan pulih sendiri dan poinnya kembali. Jika pemeriksaan yang sama terus gagal, kueri langsung nama yang terdampak untuk melihat apakah server nama Anda menjawabnya. Server yang mengembalikan SERVFAIL alih-alih NXDOMAIN untuk nama yang tidak ada akan memicu ini berulang kali.",
+      "fixCode": "; Periksa apakah server nama Anda menjawab nama yang seharusnya tidak ada.\n; Server yang sehat mengembalikan NXDOMAIN; yang bermasalah mengembalikan SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Tanyakan langsung ke server otoritatif Anda, melewati resolver:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    }
+  },
+  "suggestion": {
+    "bimiEligible": "Memenuhi syarat BIMI: DMARC sudah ditegakkan dan DKIM sudah dikonfigurasi. Tambahkan data TXT default._bimi berisi URL logo SVG Anda untuk menampilkan logo merek Anda di Gmail & Apple Mail.",
+    "bimiPrereq": "BIMI (logo di kotak masuk): memerlukan DMARC pada p=quarantine atau p=reject + DKIM. Beresi keduanya lebih dulu, baru tambahkan BIMI.",
+    "mta-sts": "MTA-STS belum dikonfigurasi. Memublikasikan data TXT _mta-sts dan meng-hosting berkas kebijakan akan mewajibkan TLS pada pengiriman surel masuk, sehingga mencegah serangan penurunan versi.",
+    "tls-rpt": "TLS-RPT (_smtp._tls TXT) belum dikonfigurasi. Pelengkap MTA-STS ini mengirimi Anda laporan ketika negosiasi TLS gagal — mudah ditambahkan, tanpa kerugian sama sekali.",
+    "caa": "Tidak ada data CAA — otoritas sertifikat mana pun dapat menerbitkan sertifikat SSL untuk domain ini. Tambahkan data CAA yang menyebutkan hanya CA pilihan Anda (mis. Let's Encrypt, DigiCert).",
+    "dnssec": "DNSSEC tidak terdeteksi. Menandatangani data DNS Anda mencegah peracunan cache dan pembajakan MX. Cloudflare dan sebagian besar penyedia DNS modern mengaktifkannya dengan satu klik.",
+    "dmarc-pct-obsolete": "Data DMARC Anda masih memakai pct=. Sejak RFC 9989 — DMARCbis, disahkan Mei 2026 — pct= bukan lagi tag yang didukung dan sebaiknya dihapus. Penerima yang sudah mengadopsi standar baru mengabaikannya; penerima yang masih memakai RFC 7489 tidak — jadi membiarkannya berarti penegakan kebijakan Anda berbeda-beda dari satu penerima ke penerima lain. Gunakan t=y jika Anda membutuhkan peluncuran bertahap."
+  },
+  "learnMore": {
+    "badge": "Panduan keamanan surel",
+    "close": "✕ Tutup tab",
+    "footer": "Dibuat oleh Audit Keamanan DNS & Surel — tanpa penyimpanan data, tanpa perlu mendaftar",
+    "bimi": {
+      "title": "BIMI — Brand Indicators for Message Identification",
+      "tagline": "Tampilkan logo Anda di kotak masuk Gmail, Apple Mail, dan Yahoo.",
+      "sections": [
+        {
+          "h": "Apa itu BIMI?",
+          "body": "BIMI adalah standar surel yang membuat logo organisasi Anda tampil langsung di kotak masuk penerima — di sebelah nama pengirim, bahkan sebelum surelnya dibuka. Standar ini didukung Gmail, Apple Mail, Yahoo Mail, dan Fastmail."
+        },
+        {
+          "h": "Mengapa ini penting",
+          "body": "Tampilnya logo membangun kepercayaan visual seketika. Penerima langsung melihat bahwa surel itu benar-benar dari organisasi Anda, yang meningkatkan tingkat pembukaan dan mengurangi kemungkinan surel Anda dikira phishing. BIMI juga berperan sebagai pendorong agar seluruh rangkaian autentikasi Anda (SPF + DKIM + DMARC) benar-benar beres."
+        },
+        {
+          "h": "Syarat sebelum Anda dapat memublikasikan BIMI",
+          "body": "• DMARC harus berada di <code>p=quarantine</code> atau <code>p=reject</code> — <code>p=none</code> tidak memenuhi syarat<br>• DKIM harus dikonfigurasi dan aktif menandatangani surel keluar<br>• Logo SVG dalam format <strong>Tiny PS</strong> yang di-hosting pada URL HTTPS publik<br>• (Untuk Gmail) Verified Mark Certificate (VMC) dari DigiCert atau Entrust mungkin diperlukan untuk tanda centang biru"
+        },
+        {
+          "h": "Cara menyiapkannya",
+          "body": "1. Pastikan DMARC sudah ditegakkan (<code>p=quarantine</code> atau <code>p=reject</code>)<br>2. Pastikan DKIM dikonfigurasi dan menandatangani<br>3. Buat logo SVG Anda dalam format Tiny PS (Canva, Adobe Illustrator, atau <a href=\"https://bimigroup.org/bimi-generator/\" target=\"_blank\" rel=\"noopener\">generator BIMI</a> bisa membantu)<br>4. Hosting berkas SVG itu pada URL HTTPS publik — mis. <code>https://yourdomain.com/logo.svg</code><br>5. Tambahkan data DNS BIMI:",
+          "code": "default._bimi    TXT    \"v=BIMI1; l=https://yourdomain.com/logo.svg;\""
+        },
+        {
+          "h": "Pengujian",
+          "body": "Validasi data Anda di <a href=\"https://bimigroup.org/bimi-generator\" target=\"_blank\" rel=\"noopener\">bimigroup.org/bimi-generator</a>. Kirim surel uji ke akun Gmail dan perhatikan apakah logo Anda muncul sebagai avatar di kotak masuk."
+        }
+      ]
+    },
+    "mta-sts": {
+      "title": "MTA-STS — Mail Transfer Agent Strict Transport Security",
+      "tagline": "Wajibkan enkripsi TLS pada semua pengiriman surel masuk ke domain Anda.",
+      "sections": [
+        {
+          "h": "Apa itu MTA-STS?",
+          "body": "MTA-STS adalah standar (RFC 8461) yang memungkinkan Anda memublikasikan kebijakan yang menyatakan bahwa siapa pun yang mengirim surel ke domain Anda harus memakai enkripsi TLS dan harus memverifikasi sertifikat server surel Anda. Tanpa itu, penyerang di jaringan dapat melakukan \"serangan penurunan versi\", melucuti TLS dan membaca surel dalam perjalanan."
+        },
+        {
+          "h": "Mengapa ini penting",
+          "body": "Enkripsi STARTTLS standar dinegosiasikan secara oportunistik — penyerang di tengah jalur dapat diam-diam menghapus tawaran STARTTLS dan memaksa pengiriman teks polos. MTA-STS memperbaikinya dengan menyimpan kebijakan Anda di server pengirim terlebih dahulu, sehingga server itu tahu TLS diwajibkan dan menolak mengirim tanpanya."
+        },
+        {
+          "h": "Bagian 1 — Publikasikan data TXT DNS",
+          "body": "Tambahkan data TXT ini ke DNS Anda. Ubah nilai <code>id=</code> setiap kali Anda memperbarui berkas kebijakannya.",
+          "code": "_mta-sts    TXT    \"v=STSv1; id=20240101000000Z;\""
+        },
+        {
+          "h": "Bagian 2 — Hosting berkas kebijakannya",
+          "body": "Berkas kebijakan harus di-hosting persis pada URL ini di domain Anda:<br><code>https://mta-sts.yourdomain.com/.well-known/mta-sts.txt</code><br><br>Contoh isi berkas kebijakan:",
+          "code": "version: STSv1\nmode: testing\nmx: mail.yourdomain.com\nmx: *.google.com\nmax_age: 604800",
+          "body2": "Mulai dengan <code>mode: testing</code> untuk mengamati tanpa memblokir. Setelah meninjau laporan TLS-RPT dan memastikan tidak ada kegagalan, beralihlah ke <code>mode: enforce</code>."
+        },
+        {
+          "h": "Pengujian",
+          "body": "Gunakan <a href=\"https://www.checktls.com\" target=\"_blank\" rel=\"noopener\">CheckTLS.com</a> atau <a href=\"https://mxtoolbox.com/mta-sts.aspx\" target=\"_blank\" rel=\"noopener\">MXToolbox MTA-STS Check</a> untuk memvalidasi kebijakan Anda. Padukan dengan TLS-RPT agar menerima laporan kegagalan (lihat rekomendasi TLS-RPT)."
+        }
+      ]
+    },
+    "tls-rpt": {
+      "title": "TLS-RPT — SMTP TLS Reporting",
+      "tagline": "Dapatkan pemberitahuan ketika enkripsi TLS gagal pada surel yang dikirim ke domain Anda.",
+      "sections": [
+        {
+          "h": "Apa itu TLS-RPT?",
+          "body": "TLS-RPT (SMTP TLS Reporting, RFC 8460) adalah satu data DNS TXT yang memberi tahu server surel pengirim ke mana harus mengirimkan laporan harian tentang kegagalan koneksi TLS saat mengirim surel ke domain Anda. Anggap saja seperti pelaporan DMARC, tetapi untuk kegagalan TLS/enkripsi."
+        },
+        {
+          "h": "Mengapa ini penting",
+          "body": "Jika kebijakan MTA-STS Anda salah konfigurasi, sertifikat TLS server surel Anda kedaluwarsa, atau penyedia jaringan melucuti enkripsi, Anda tidak akan pernah tahu tanpa TLS-RPT. Ia mengubah kegagalan pengiriman yang tak terlihat menjadi laporan yang bisa ditindaklanjuti di kotak masuk Anda — dan ini salah satu data DNS termudah untuk dipublikasikan."
+        },
+        {
+          "h": "Cara menyiapkannya",
+          "body": "Tambahkan satu data TXT — ganti alamat surelnya dengan kotak surat yang Anda pantau:",
+          "code": "_smtp._tls    TXT    \"v=TLSRPTv1; rua=mailto:tls-reports@yourdomain.com;\"",
+          "body2": "Laporan datang setiap hari sebagai lampiran berformat JSON. Platform DMARC pihak ketiga (Postmark, Valimail, dmarcian) juga mengurai dan memvisualisasikan laporan TLS-RPT bersama data DMARC Anda."
+        },
+        {
+          "h": "Apa yang laporan itu beri tahu",
+          "body": "Setiap laporan harian menunjukkan: server pengirim mana yang mencoba mengirim surel ke domain Anda, apakah negosiasi TLS berhasil atau gagal, dan alasan kegagalannya secara spesifik — sertifikat kedaluwarsa, kebijakan tidak cocok, versi TLS tidak didukung, dan sebagainya. Visibilitas ini penting sekali saat Anda pertama kali menerapkan MTA-STS dalam mode uji."
+        }
+      ]
+    },
+    "caa": {
+      "title": "CAA — Certification Authority Authorization",
+      "tagline": "Kendalikan otoritas sertifikat mana yang boleh menerbitkan sertifikat SSL/TLS untuk domain Anda.",
+      "sections": [
+        {
+          "h": "Apa itu CAA?",
+          "body": "Data DNS CAA (Certification Authority Authorization) memungkinkan Anda menentukan Otoritas Sertifikat (CA) mana yang boleh menerbitkan sertifikat SSL/TLS untuk domain Anda. Tanpa data CAA, salah satu dari ratusan CA tepercaya di seluruh dunia dapat menerbitkan sertifikat untuk domain Anda — tanpa sepengetahuan atau persetujuan Anda."
+        },
+        {
+          "h": "Mengapa ini penting",
+          "body": "Penerbitan sertifikat yang keliru pernah terjadi karena kesalahan atau pembobolan CA. Sertifikat yang diterbitkan secara curang untuk domain Anda dapat dipakai untuk menyamar sebagai situs Anda, menyadap lalu lintas HTTPS, atau menjalankan halaman phishing yang menampilkan gembok. Data CAA memberi Anda lapisan penegakan yang tegas: CA yang mendukung standar ini wajib memeriksa data CAA Anda sebelum menerbitkan, dan menolak permintaan jika mereka tidak tercantum."
+        },
+        {
+          "h": "Cara menyiapkannya",
+          "body": "Tambahkan data CAA yang menyebutkan CA yang Anda beri wewenang. Gunakan <code>issue</code> untuk sertifikat biasa dan <code>issuewild</code> untuk sertifikat wildcard.",
+          "code": "; Izinkan hanya Let's Encrypt:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; Izinkan Let's Encrypt dan DigiCert:\n@    CAA    0 issue \"letsencrypt.org\"\n@    CAA    0 issue \"digicert.com\"\n@    CAA    0 issuewild \"letsencrypt.org\"\n\n; Opsional — terima laporan saat sebuah CA menolak penerbitan:\n@    CAA    0 iodef \"mailto:ssl-alerts@yourdomain.com\""
+        },
+        {
+          "h": "Menemukan CA Anda",
+          "body": "Klik gembok di bilah alamat peramban pada situs Anda untuk melihat CA mana yang menerbitkan sertifikat Anda saat ini. Pilihan umum: <strong>Let's Encrypt</strong> (gratis, otomatis), <strong>DigiCert</strong>, <strong>Sectigo</strong>, <strong>GlobalSign</strong>. Penyedia hosting Anda atau Cloudflare biasanya mengelola penerbitan sertifikat — periksa dokumentasi mereka untuk nama host CA yang benar untuk dicantumkan."
+        }
+      ]
+    },
+    "dnssec": {
+      "title": "DNSSEC — Domain Name System Security Extensions",
+      "tagline": "Tandatangani data DNS Anda secara kriptografis untuk mencegah pengubahan dan pembajakan.",
+      "sections": [
+        {
+          "h": "Apa itu DNSSEC?",
+          "body": "DNSSEC menambahkan tanda tangan kriptografis pada data DNS Anda. Ketika sebuah resolver mengueri zona yang ditandatangani DNSSEC, ia dapat memverifikasi bahwa responsnya ditandatangani oleh pemilik zona yang sah dan tidak diubah dalam perjalanan. Tanpa DNSSEC, penyerang yang dapat menyadap atau meracuni respons DNS bisa diam-diam mengalihkan lalu lintas Anda ke mana saja."
+        },
+        {
+          "h": "Mengapa ini penting",
+          "body": "Serangan peracunan cache DNS dapat mengalihkan pengunjung dari situs asli Anda ke situs berbahaya, menyadap surel dengan membajak data MX Anda, atau merusak pencarian SPF/DKIM/DMARC Anda — semuanya tanpa menyentuh server Anda. DNSSEC membuat respons DNS dapat diverifikasi secara kriptografis sehingga serangan-serangan itu gagal."
+        },
+        {
+          "h": "Cara mengaktifkannya",
+          "body": "DNSSEC diaktifkan di penyedia DNS Anda — merekalah yang mengelola kunci penandatanganan. Langkahnya berbeda-beda menurut penyedia:",
+          "code": "Cloudflare:  tab DNS → DNSSEC → Aktifkan (menambahkan data DS otomatis)\nGoDaddy:     DNS → DNSSEC → Aktifkan DNSSEC\nRoute 53:    Zona terkelola → penandatanganan DNSSEC → Aktifkan\nPorkbun:     DNS → DNSSEC → Aktifkan\nName.com:    DNS → DNSSEC → Aktifkan penandatanganan",
+          "body2": "Setelah mengaktifkannya di penyedia DNS Anda, salin nilai data DS (Delegation Signer) yang mereka berikan dan tambahkan di <strong>registrar</strong> domain Anda. Data DS di registrar itulah yang melengkapi rantai kepercayaan dari akar DNS hingga zona Anda."
+        },
+        {
+          "h": "Peringatan penting",
+          "body": "⚠ <strong>Jika Anda berganti penyedia DNS</strong>, nonaktifkan DNSSEC lebih dulu, migrasikan semua datanya, lalu aktifkan kembali. Tidak mengikuti urutan ini menyebabkan kegagalan DNS di seluruh dunia.<br><br>⚠ <strong>Data DS di registrar harus sama persis</strong> dengan nilai yang diberikan penyedia DNS Anda. Ketidakcocokan akan merusak resolusi DNS untuk seluruh domain Anda."
+        },
+        {
+          "h": "Pengujian",
+          "body": "Verifikasi rantai kepercayaan DNSSEC Anda di <a href=\"https://dnssec-analyzer.verisignlabs.com\" target=\"_blank\" rel=\"noopener\">dnssec-analyzer.verisignlabs.com</a> atau visualisasikan di <a href=\"https://dnsviz.net\" target=\"_blank\" rel=\"noopener\">dnsviz.net</a>. Rantai yang valid tampak hijau di setiap tingkat, dari akar → TLD → domain Anda."
+        }
+      ]
+    },
+    "dmarc-rfc9989": {
+      "title": "RFC 9989 — Apa yang berubah pada DMARC",
+      "tagline": "DMARCbis disahkan pada Mei 2026. Inilah apa yang dihapus, apa yang ditambahkan, dan apa yang perlu Anda ubah.",
+      "sections": [
+        {
+          "h": "DMARC kini menjadi standar",
+          "body": "Selama satu dekade pertamanya, DMARC berupa RFC 7489, sebuah dokumen <em>Informational</em> — banyak diterapkan tetapi tidak pernah distandarkan secara resmi. Pada Mei 2026 IETF menerbitkan rangkaian penggantinya: RFC 9989 (protokol inti), RFC 9990 (pelaporan agregat), dan RFC 9991 (pelaporan kegagalan). Bersama-sama ketiganya menggantikan RFC 7489 dan RFC 9091, serta menaikkan DMARC menjadi Proposed Standard pada jalur standar. Memisahkan pelaporan ke dokumennya sendiri berarti format laporan kini dapat berkembang tanpa membuka kembali spesifikasi inti."
+        },
+        {
+          "h": "pct= telah dihapus",
+          "body": "Tag <code>pct=</code> memungkinkan Anda menerapkan kebijakan hanya pada sebagian persentase surel yang gagal. Tag ini dimaksudkan sebagai alat bantu peluncuran, tetapi dalam praktiknya menghasilkan hasil yang tidak terduga — penerima menerapkan pengambilan sampel secara berbeda, dan nasib sebuah pesan bergantung pada server mana yang kebetulan menanganinya. RFC 9989 menghapus tag itu sepenuhnya. Penerima yang menerapkan spesifikasi baru mengabaikannya.",
+          "body2": "Jebakannya selama masa transisi: penerima yang masih menjalankan RFC 7489 terus menghormati <code>pct=</code>. Jadi data dengan <code>pct=25</code> kini ditegakkan penuh oleh sebagian penerima dan dibatasi menjadi seperempat oleh sebagian lain, dan Anda tidak punya cara mengetahui perbandingannya. Itu posisi yang lebih buruk daripada salah satu perilaku itu sendiri, dan karena itulah menghapus tag tersebut adalah langkah yang tepat bahkan sebelum semua penerima bermigrasi."
+        },
+        {
+          "h": "t= menggantikannya untuk peluncuran bertahap",
+          "body": "RFC 9989 menambahkan tag mode uji. <code>t=y</code> memberi tahu penerima bahwa Anda masih mengevaluasi dan kebijakan Anda <em>tidak</em> boleh diterapkan — sementara laporan agregat tetap mengalir normal. Tag ini tidak ambigu, tidak seperti <code>pct=</code>: kebijakan itu ditegakkan atau tidak, titik.",
+          "code": "; Langkah 1 — publikasikan kebijakan target Anda dalam mode uji:\n_dmarc    TXT    \"v=DMARC1; p=reject; t=y; rua=mailto:dmarc@yourdomain.com;\"\n\n; Langkah 2 — setelah laporan menunjukkan tidak ada surel sah yang gagal, hapus t=:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"",
+          "body2": "Perlu diketahui bahwa <code>p=reject; t=y</code> memberi Anda perlindungan pemalsuan persis sebesar <code>p=none</code> — yaitu nol. Mode uji adalah tahap untuk dilewati, bukan tempat untuk berhenti. Dasbor mana pun yang hanya membaca <code>p=</code> akan melaporkan domain semacam itu sebagai sudah ditegakkan penuh."
+        },
+        {
+          "h": "Himpunan tag yang lengkap",
+          "body": "RFC 9989 mendefinisikan tepat sebelas tag: <code>v</code>, <code>p</code>, <code>sp</code>, <code>np</code>, <code>adkim</code>, <code>aspf</code>, <code>fo</code>, <code>rua</code>, <code>ruf</code>, <code>psd</code>, dan <code>t</code>. Selain itu — termasuk <code>pct</code>, <code>rf</code>, dan <code>ri</code> — harus diabaikan penerima. Perhatikan bahwa tag yang tidak dikenal dibuang diam-diam, jadi salah ketik seperti <code>rau=</code> alih-alih <code>rua=</code> membuat Anda kehilangan tujuan laporan tanpa muncul error di mana pun.",
+          "body2": "Dua aturan lain lebih ketat daripada dugaan orang. <code>v=</code> harus menjadi tag <em>pertama</em>, dan nilainya membedakan huruf besar-kecil — hanya <code>DMARC1</code> yang diterima, sehingga <code>v=dmarc1</code> menyebabkan seluruh datanya diabaikan."
+        },
+        {
+          "h": "Pelaporan ke domain luar",
+          "body": "Jika tujuan <code>rua=</code> atau <code>ruf=</code> Anda berada di luar domain organisasi Anda — vendor DMARC, konsultan, perusahaan afiliasi — domain penerima harus memublikasikan data yang mengotorisasinya. Tanpa data itu, penerima yang patuh spesifikasi membuang laporan Anda diam-diam. Tidak ada yang terpental dan tidak ada yang error; Anda sekadar melihat data lebih sedikit daripada seharusnya.",
+          "code": "; Data Anda mengirim laporan ke sebuah vendor:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; VENDOR harus memublikasikan ini di zona mereka sendiri:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\"",
+          "body2": "Sebagian besar vendor mapan memublikasikannya secara otomatis, tetapi inilah penjelasan yang biasa ketika tujuan laporan yang baru ditambahkan tidak menampilkan data apa pun."
+        },
+        {
+          "h": "Apa yang harus dilakukan sekarang",
+          "body": "Hapus <code>pct=</code> dari data DMARC Anda. Jika Anda sedang di tengah peluncuran dan mengandalkannya, publikasikan kebijakan target Anda dengan <code>t=y</code> sebagai gantinya, pantau laporan agregat Anda sampai tidak ada pengirim sah yang gagal, lalu hapus <code>t=</code>. Selagi menyunting datanya, periksa juga bahwa <code>v=DMARC1</code> berada di awal dan huruf kapitalnya benar, setiap nama tag dieja dengan tepat, dan setiap tujuan laporan eksternal telah mengotorisasi Anda."
+        }
+      ]
+    }
+  },
+  "score": {
+    "label": "Skor keamanan",
+    "outOf": "{0} / {1}",
+    "unproven": "{0} / {1} — pemeriksaan yang tidak dapat diverifikasi mendapat nilai nol: {2}. Buka baris ini untuk melihat cara memulihkan poin tersebut.",
+    "parkedNote": "Domain parkir — dinilai hanya pada SPF, DMARC, DNSSEC, dan CAA",
+    "pillar": {
+      "dmarc": "DMARC",
+      "spf": "SPF",
+      "dkim": "DKIM",
+      "dnssec": "DNSSEC",
+      "caa": "CAA",
+      "mtaSts": "MTA-STS",
+      "bimi": "BIMI",
+      "tlsRpt": "TLS-RPT"
+    },
+    "dmarcParts": {
+      "label": "Rincian DMARC",
+      "policy": "Kebijakan (p=)",
+      "subdomain": "Cakupan subdomain",
+      "rua": "Laporan agregat (rua=)",
+      "alignment": "Penyelarasan ketat",
+      "ruf": "Laporan forensik (ruf=)",
+      "uris": "Tujuan laporan"
+    }
+  }
+}

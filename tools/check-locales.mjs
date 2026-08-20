@@ -8,18 +8,25 @@
  *   • missing keys (fall back to English at runtime — reported as a warning)
  *   • unknown keys (typos or leftovers from a renamed key — warning)
  *   • {0}, {1}, … placeholder mismatches (these break the UI — error)
+ *   • unbalanced inline markup, e.g. a <code> with no </code> (error)
+ *   • per-key translation state, from locales/translation-status.json
+ *     (initial / translated / reviewed / final, plus stale — warning)
  *   • js/locales-en.js is in sync with locales/en.json (error)
  *
  * Exit code is non-zero only for real errors, so translations can land while
  * still incomplete.  Run:  npm test
+ *
+ * `--strict` additionally fails on any key still in state `initial` — an
+ * untranslated English placeholder.  That is the pre-PR gate (`npm run
+ * locale:gate`), not the default, so a contributor sending a partial
+ * translation is never blocked by it.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
+import { flatten, placeholders, balancedTags, isExtraPluralForm, loadStatus, SUB_STALE, root, localesDir } from './lib/locale-utils.mjs';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const localesDir = join(root, 'locales');
+const strict = process.argv.includes('--strict');
 
 let errors = 0;
 let warnings = 0;
@@ -36,24 +43,6 @@ function readJSON(path) {
   }
 }
 
-/** Flatten a nested bundle into dotted paths → string values. */
-function flatten(node, prefix = '', out = {}) {
-  if (typeof node === 'string') { out[prefix] = node; return out; }
-  if (Array.isArray(node)) {
-    node.forEach((v, i) => flatten(v, prefix ? `${prefix}.${i}` : String(i), out));
-    return out;
-  }
-  if (node && typeof node === 'object') {
-    for (const [k, v] of Object.entries(node)) {
-      if (k.startsWith('$')) continue; // $comment and friends
-      flatten(v, prefix ? `${prefix}.${k}` : k, out);
-    }
-  }
-  return out;
-}
-
-const placeholders = (s) => (s.match(/\{\d+\}/g) || []).sort().join(',');
-
 // ── Load the reference bundle ────────────────────────────────────────────
 const en = readJSON(join(localesDir, 'en.json'));
 if (!en) process.exit(1);
@@ -65,8 +54,11 @@ console.log(`Reference: locales/en.json — ${enKeys.length} keys\n`);
 // ── Registry consistency ─────────────────────────────────────────────────
 const index = readJSON(join(localesDir, 'index.json'));
 const registered = index ? index.locales.map(l => l.code) : [];
+// index.json is the registry and pending-translations.json is the translation
+// manifest — neither is a locale bundle, so neither is compared against en.json.
+const NOT_A_BUNDLE = ['index.json', 'translation-status.json'];
 const onDisk = readdirSync(localesDir)
-  .filter(f => f.endsWith('.json') && f !== 'index.json')
+  .filter(f => f.endsWith('.json') && !NOT_A_BUNDLE.includes(f))
   .map(f => f.replace(/\.json$/, ''));
 
 console.log('locales/index.json');
@@ -77,6 +69,11 @@ onDisk.filter(c => !registered.includes(c))
 if (!errors) console.log('  ✓ registry and files agree');
 console.log('');
 
+// Per-key translation state, maintained by `npm run locale:sync`.  Without
+// it a locale reads as 100% complete the moment English placeholders land,
+// which is precisely the blind spot this file exists to close.
+const status = loadStatus();
+
 // ── Per-locale comparison ────────────────────────────────────────────────
 for (const code of onDisk.filter(c => c !== 'en').sort()) {
   const bundle = readJSON(join(localesDir, `${code}.json`));
@@ -85,8 +82,21 @@ for (const code of onDisk.filter(c => c !== 'en').sort()) {
   const keys = Object.keys(flat).filter(k => !k.startsWith('meta.'));
 
   const missing = enKeys.filter(k => !(k in flat));
-  const unknown = keys.filter(k => !(k in enFlat));
+  // Extra CLDR plural forms (pl needs few/many, ar zero/two) are expected,
+  // not stale — js/i18n.js resolves them through Intl.PluralRules.
+  const unknown = keys.filter(k => !(k in enFlat) && !isExtraPluralForm(k, enFlat));
   const mismatched = keys.filter(k => k in enFlat && placeholders(flat[k]) !== placeholders(enFlat[k]));
+  // Tag *counts* may legitimately differ between languages; unclosed tags may not.
+  const unbalanced = keys.filter(k => !balancedTags(flat[k]));
+
+  const entries = status.locales?.[code] || {};
+  const tally = { initial: 0, translated: 0, reviewed: 0, final: 0, stale: 0 };
+  for (const k of enKeys) {
+    const e = entries[k];
+    if (!e) { tally.initial++; continue; }
+    tally[e.state] = (tally[e.state] || 0) + 1;
+    if (e.subState === SUB_STALE) tally.stale++;
+  }
 
   const done = enKeys.length - missing.length;
   const pct = Math.round((done / enKeys.length) * 100);
@@ -94,9 +104,18 @@ for (const code of onDisk.filter(c => c !== 'en').sort()) {
 
   mismatched.forEach(k =>
     fail(`${k}: placeholders differ (en has "${placeholders(enFlat[k]) || 'none'}", ${code} has "${placeholders(flat[k]) || 'none'}")`));
+  unbalanced.forEach(k => fail(`${k}: inline markup is not balanced — an unclosed tag will break the page`));
   unknown.forEach(k => warn(`${k}: not present in en.json — typo or stale key?`));
   if (missing.length) warn(`${missing.length} key(s) missing — these fall back to English`);
-  if (!mismatched.length && !unknown.length && !missing.length) console.log('  ✓ complete');
+  const breakdown = ['initial', 'translated', 'reviewed', 'final']
+    .filter(st => tally[st]).map(st => `${tally[st]} ${st}`).join(', ');
+  if (breakdown) console.log(`  state: ${breakdown}`);
+  if (tally.initial) {
+    const msg = `${tally.initial} key(s) still in state "initial" (untranslated English placeholder) — run \`npm run locale:todo\``;
+    strict ? fail(msg) : warn(msg);
+  }
+  if (tally.stale) warn(`${tally.stale} translation(s) flagged stale — English changed underneath them`);
+  if (!mismatched.length && !unbalanced.length && !unknown.length && !missing.length && !tally.initial && !tally.stale) console.log('  ✓ complete');
   console.log('');
 }
 
