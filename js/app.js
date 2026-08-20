@@ -82,13 +82,12 @@
     if (!score || !score.breakdown) return '';
 
     var rows = score.breakdown.pillars.map(function (p) {
-      var unknown = p.pts === null || p.unknown;
-      var ratio = unknown ? 0 : p.max ? p.pts / p.max : 0;
+      var ratio = p.max ? p.pts / p.max : 0;
       var color = ratio >= 1 ? 'var(--ok)' : ratio > 0 ? 'var(--warn)' : '#cbd5e1';
       return '<div class="sb-row">' +
         '<span class="sb-label">' + esc(t('score.pillar.' + p.key)) + '</span>' +
         '<span class="sb-track"><span class="sb-fill" style="width:' + Math.round(ratio * 100) + '%;background:' + color + ';"></span></span>' +
-        '<span class="sb-val">' + (unknown ? '?' : num(p.pts)) + '<small>/' + p.max + '</small></span>' +
+        '<span class="sb-val">' + num(p.pts) + '<small>/' + p.max + '</small></span>' +
         '</div>';
     }).join('');
 
@@ -105,7 +104,7 @@
     return '<div class="score-block">' +
       '<div class="score-head">' +
       '<span class="score-total ' + score.cls + '">' + num(score.pts) +
-      (score.uncertain ? '<small>–' + num(score.maxPossible) + '/' + score.max + '</small>' : '<small>/' + score.max + '</small>') + '</span>' +
+      '<small>/' + score.max + '</small></span>' +
       '<span class="issues-section-label">' + esc(t('score.label')) + '</span>' +
       (score.parked ? '<span class="score-note">' + esc(t('score.parkedNote')) + '</span>' : '') +
       '</div>' +
@@ -391,16 +390,28 @@
     tr.dataset.bimi = r.advanced && r.advanced.bimi && r.advanced.bimi.present ? 'yes' : 'no';
     tr.dataset.caa = r.advanced && r.advanced.caa && r.advanced.caa.found ? 'yes' : 'no';
     tr.dataset.dnssec = r.advanced && r.advanced.dnssec && r.advanced.dnssec.signed ? 'yes' : 'no';
-    tr.dataset.grade = r.score.gradeMin || r.score.grade;
+    tr.dataset.grade = r.score.grade;
     var hasCrit = r.issues.some(function (i) { return i.sev === 'crit'; });
     var hasWarn = r.issues.some(function (i) { return i.sev === 'warn'; });
     tr.dataset.overall = hasCrit ? 'crit' : hasWarn ? 'warn' : 'ok';
 
+    // A grade standing on a check that could not be verified is marked in the
+    // cell itself. The reason is already in the detail panel, but nobody
+    // expands 200 rows to find it.
+    var unproven = r.score.unproven || [];
+    tr.dataset.unproven = unproven.length ? 'yes' : 'no';
+    var gradeCls = 'score ' + r.score.cls + (unproven.length ? ' score-unproven' : '');
+    var gradeTitle = unproven.length
+      ? t('score.unproven', num(r.score.pts), r.score.max,
+        unproven.map(function (k) { return t('score.pillar.' + k); }).join(', '))
+      : t('score.outOf', num(r.score.pts), r.score.max);
+    var gradeText = esc(r.score.grade) + (unproven.length ? '<span class="score-star">*</span>' : '');
+
     tr.innerHTML =
       '<td><button class="expand-toggle" data-detail-id="' + detailId + '">▶</button></td>' +
       '<td class="domain-cell">' + esc(r.domain) + '<span style="margin-left:5px;font-size:11px;">' + issueTag + '</span></td>' +
-      '<td data-label="' + esc(t('th.grade')) + '" style="text-align:center"><span class="score ' + r.score.cls + '" title="' +
-      esc(r.score.uncertain ? t('score.range', num(r.score.pts), num(r.score.maxPossible)) : t('score.outOf', num(r.score.pts), r.score.max)) + '">' + esc(r.score.grade) + '</span></td>' +
+      '<td data-label="' + esc(t('th.grade')) + '" style="text-align:center"><span class="' + gradeCls + '" title="' +
+      esc(gradeTitle) + '">' + gradeText + '</span></td>' +
       '<td data-label="' + esc(t('th.dns')) + '">' + dnsB + '</td>' +
       '<td data-label="' + esc(t('th.email')) + '">' + emailB + '</td>' +
       '<td data-label="' + esc(t('th.spf')) + '">' + spfB + '</td>' +

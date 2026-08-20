@@ -196,6 +196,14 @@ td.domain-cell { font-weight: 700; font-size: 12.5px; white-space: nowrap; }
 .score-d         { background:#fff7ed;         color:#ea580c;     border-color:#fdba74; }
 .score-f         { background:var(--crit-bg); color:var(--crit); border-color:var(--crit); }
 
+/* A grade resting on a check this audit could not verify. The tier colour is
+   deliberately kept — the grade is the real grade, not a warning — and only the
+   border is broken, so the marker reads as "incomplete evidence" rather than
+   "worse result". The asterisk carries the same meaning for anyone who cannot
+   distinguish the border treatment. */
+.score-unproven  { border-style: dashed; }
+.score-unproven .score-star { font-size: .78em; font-weight: 700; opacity: .75; margin-left: 1px; }
+
 /* ── Expand row ── */
 .expand-toggle { background: none; border: none; cursor: pointer; color: var(--ink3); font-size: 13px; padding: 2px 4px; border-radius: 4px; transition: color .1s, background .1s; }
 .expand-toggle:hover { background: var(--surface3); color: var(--ink2); }

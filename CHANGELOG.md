@@ -24,10 +24,11 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   delete a complete email-security audit. Across a 200-domain run that is close
   to certain to hit someone. Optional checks now degrade to a stated unknown
   and the audit completes.
-- **Unverified controls are scored as unknown rather than zero.** CAA, MTA-STS,
-  BIMI, TLS-RPT and the SPF lookup count now feed the existing grade-range
-  mechanism when their lookup fails, so a resolver problem can no longer lower
-  a grade by being counted as a missing record.
+- **A failed optional lookup is named instead of passed over.** CAA, MTA-STS,
+  BIMI, TLS-RPT and the SPF lookup count each record whether their lookup
+  actually answered, and any that did not are listed in the results by name so
+  a re-run can settle them. They are scored as unconfigured — see the grading
+  change below.
 - **A failed wildcard probe is no longer read as "no wildcard".** Each depth
   stays explicitly false until its own probe answers.
 - **The wildcard TXT check no longer fails domains it cannot be harming.** The
@@ -68,15 +69,40 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Grades are always a single letter — the floor–ceiling range is gone.** An
+  unverifiable control used to be left unscored, which produced a two-letter
+  grade like `C–B`, or `B–A+` in the worst case observed. Across a 40-domain
+  live sample, 9 domains (22.5%) displayed one. A range reads as an error
+  rather than a result and told nobody what to do next. Unproven controls now
+  score zero, exactly like the parked-domain rubric has always scored them, and
+  `grade`, `pts` and `cls` are the only score fields the UI reads
+  (`gradeMin`, `gradeMax`, `maxPossible` and `uncertain` are removed).
+- **A grade resting on an unverified check is marked in the results table.**
+  The circle is drawn with a dashed border in its own tier colour and the
+  letter carries an asterisk — `B*` rather than `B` — so a recoverable check is
+  visible while scanning a 200-domain table, without expanding a row. The
+  marker is display-only: `pts`, `grade` and `cls` are untouched, and the score
+  object carries a new `unproven` array naming the pillars behind it. It covers
+  DKIM (sampled or not checked), indeterminate DNSSEC, and any failed CAA,
+  MTA-STS, BIMI or TLS-RPT lookup. It deliberately does not read as a warning:
+  the tier colour is kept, because the grade is the real grade.
+- **Every unproven control now states what it cost and how to recover it.**
+  Because uncertainty is no longer free, `dkim-unverified` and
+  `dnssec-indeterminate` are warnings rather than notes: the first names the
+  **Additional DKIM selectors** field, the second asks for a re-run first and
+  then gives the evidence a GitHub issue needs. `checks-unverified` likewise
+  warns and says a re-run recovers the points. A new `dkim-not-checked` note
+  covers the domain audited with DKIM checking switched off, which would
+  otherwise have dropped 15 points in silence.
 - **A wildcard TXT record no longer scores an instant F.** Even where the
   wildcard genuinely does cover `_domainkey` — `netflix.com` is the one case in
   the survey where it does — F=0 was the wrong answer. A poisoned `_domainkey`
   makes DKIM *absence* unverifiable; it leaves SPF, DMARC, DNSSEC and CAA
   perfectly measurable, and selectors that are published still resolve and
   still verify. DKIM now routes into the existing confidence machinery
-  (`sampled` confidence, `noteWildcard`, unknown pillar, grade range) and the
-  remaining pillars stand on their own, which is how every other uncertainty in
-  this project is already handled.
+  (`sampled` confidence, `noteWildcard`, `dkim-unverified`) and the remaining
+  pillars stand on their own, which is how every other uncertainty in this
+  project is already handled.
 - **The two wildcard depths are reported separately.** A wildcard only the apex
   probe sees is an informational finding with no score effect
   (`wildcard-txt-apex`); one that reaches `_domainkey` is a warning

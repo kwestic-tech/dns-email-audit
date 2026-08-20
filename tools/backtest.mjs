@@ -109,10 +109,7 @@ const scored = results.filter(r => !r.error && !r.unregistered && r.score);
 const BASE_ORDER = ['A++', 'A+', 'A', 'B', 'C', 'D', 'F'];
 
 function gradeSort(a, b) {
-  const [aLow, aHigh = aLow] = a.split('–');
-  const [bLow, bHigh = bLow] = b.split('–');
-  return BASE_ORDER.indexOf(aLow) - BASE_ORDER.indexOf(bLow)
-    || BASE_ORDER.indexOf(aHigh) - BASE_ORDER.indexOf(bHigh);
+  return BASE_ORDER.indexOf(a) - BASE_ORDER.indexOf(b);
 }
 
 if (asJson) {
@@ -121,7 +118,6 @@ if (asJson) {
     thresholds: D.GRADE_THRESHOLDS,
     domains: scored.map(r => ({
       domain: r.domain, grade: r.score.grade, pts: r.score.pts,
-      maxPossible: r.score.maxPossible ?? r.score.pts,
       dmarc: r.dmarcStatus.policy, sp: r.dmarcStatus.effectiveSp,
       np: r.dmarcStatus.effectiveNp, pct: r.dmarcStatus.pct,
       dnssec: !!r.advanced?.dnssec?.signed,

@@ -1107,10 +1107,21 @@
       var failedCount = (dkimStatus.failedSelectors || []).length;
       issues.push({
         key: dkimStatus.confidence === 'sampled' ? 'dkim-unverified' : 'dkim-missing',
-        sev: dkimStatus.confidence === 'sampled' ? 'info' : 'warn',
+        // An unfound selector now costs the full DKIM weight, so it is a
+        // warning either way — 'info' was only defensible while the sampled
+        // case went unscored.
+        sev: 'warn',
         noteKey: dkimStatus.note,
         noteArgs: [testedCount - failedCount, failedCount],
       });
+    }
+
+    // Turning off "Check DKIM selectors" is a deliberate opt-out, so the guard
+    // above correctly refuses to call it a missing record. But the pillar still
+    // scores zero, and 15 points vanishing with nothing said about them is
+    // worse than the grade range this replaced. Name the trade instead.
+    if (dkimStatus.confidence === 'not-checked' && emailProvider !== '@none' && emailProvider !== '@null-mx' && emailProvider !== '@porkbun-forwarding') {
+      issues.push({ key: 'dkim-not-checked', sev: 'info' });
     }
     if (dmarcStatus.status === 'permerror') issues.push({ key: 'dmarc-multiple-records', sev: 'crit' });
     else if (dmarcStatus.status === 'missing') issues.push({ key: 'dmarc-missing', sev: 'warn' });
@@ -1252,11 +1263,13 @@
     if (advanced?.spfLookups?.cycles?.length) issues.push({ key: 'spf-cycle', sev: 'crit', args: [advanced.spfLookups.cycles.join(', ')] });
     if (advanced?.spfLookups?.indeterminate) issues.push({ key: 'spf-indeterminate', sev: 'info' });
     if (advanced?.dnssec?.state === 'bogus') issues.push({ key: 'dnssec-bogus', sev: 'crit' });
-    else if (advanced?.dnssec?.state === 'indeterminate') issues.push({ key: 'dnssec-indeterminate', sev: 'info' });
+    else if (advanced?.dnssec?.state === 'indeterminate') issues.push({ key: 'dnssec-indeterminate', sev: 'warn' });
 
     // Name the checks that could not be completed. An audit that quietly omits
     // a control looks identical to one where the control is fine, so the gap
-    // has to be stated rather than left to the reader to notice.
+    // has to be stated rather than left to the reader to notice. These now
+    // score zero rather than sitting outside the grade, which is why this is a
+    // warning: points were actually lost, and a re-run is what recovers them.
     var unverified = [];
     if (advanced?.caa?.unknown) unverified.push('CAA');
     if (advanced?.mtaSts?.unknown) unverified.push('MTA-STS');
@@ -1265,7 +1278,7 @@
     if (advanced?.spfLookups?.unknown) unverified.push('SPF');
     if (hosting === '@dns-error') unverified.push('Website');
     if (unverified.length) {
-      issues.push({ key: 'checks-unverified', sev: 'info', args: [unverified.join(', ')] });
+      issues.push({ key: 'checks-unverified', sev: 'warn', args: [unverified.join(', ')] });
     }
 
     return issues;
@@ -1311,14 +1324,37 @@
 
   /* ── Scoring ────────────────────────────────────────────────────────── */
 
+  /**
+   * Pillars that scored zero because this audit could not verify them, rather
+   * than because the control is genuinely absent.
+   *
+   * This changes no score. The zero stands, the grade is a single letter, and
+   * `pts` is unaffected — it exists so the UI can mark the grade as resting on
+   * a check that a re-run or an extra selector could still settle. Without it
+   * that fact lives only inside the expanded detail panel, which nobody opens
+   * across a 200-domain table.
+   *
+   * SPF is deliberately absent: an unknown lookup *count* does not zero the SPF
+   * pillar (see calcSpfScore), so there is no lost point to recover there.
+   */
+  function unprovenPillars(dkimStatus, advanced) {
+    var out = [];
+    if (dkimStatus && !dkimStatus.found &&
+      (dkimStatus.confidence === 'sampled' || dkimStatus.confidence === 'not-checked')) out.push('dkim');
+    if (advanced && advanced.dnssec && advanced.dnssec.state === 'indeterminate') out.push('dnssec');
+    if (advanced && advanced.caa && advanced.caa.unknown) out.push('caa');
+    if (advanced && advanced.mtaSts && advanced.mtaSts.unknown) out.push('mtaSts');
+    if (advanced && advanced.bimi && advanced.bimi.unknown) out.push('bimi');
+    if (advanced && advanced.tlsRpt && advanced.tlsRpt.unknown) out.push('tlsRpt');
+    return out;
+  }
+
   function calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced }) {
     // A wildcard TXT record no longer scores an instant F. The furthest it can
     // reach is DKIM discovery, and SPF, DMARC, DNSSEC and CAA stay perfectly
-    // measurable underneath it. A poisoned _domainkey makes DKIM unknown, which
-    // the DKIM pillar below already reports as an unscored grade range — the
-    // same treatment every other unknown gets here.
+    // measurable underneath it. A poisoned _domainkey leaves DKIM unproven,
+    // which scores zero like every other unproven control here.
     var dnssecSigned = !!(advanced && advanced.dnssec && advanced.dnssec.signed);
-    var dnssecUnknown = !!(advanced && advanced.dnssec && advanced.dnssec.state === 'indeterminate');
     var dmarc = calcDmarcScore(dmarcStatus);
 
     // ── Parked / no-email domain ────────────────────────────────────────
@@ -1344,47 +1380,46 @@
       ];
       var parkedPts = parkedPillars.reduce(function (sum, p) { return sum + p.pts; }, 0);
       var parkedGrade = gradeFor(parkedPts, dnssecSigned);
+      var parkedKeys = parkedPillars.map(function (p) { return p.key; });
 
       return {
         grade: parkedGrade.grade, cls: parkedGrade.cls,
         pts: parkedPts, max: 100, parked: true,
+        // DKIM is not a parked pillar, so an unproven DKIM check cannot mark a
+        // parked grade — there were no points to lose.
+        unproven: unprovenPillars(dkimStatus, advanced).filter(function (k) { return parkedKeys.indexOf(k) !== -1; }),
         breakdown: { pillars: parkedPillars, dmarc: dmarc.parts },
       };
     }
 
     // ── Active email domain ─────────────────────────────────────────────
-    var dkimUnknown = !!(dkimStatus && !dkimStatus.found && (dkimStatus.confidence === 'sampled' || dkimStatus.confidence === 'not-checked'));
-    // A check whose lookup failed is scored as unknown, never as zero. Zero
-    // would report a resolver problem as a missing control and quietly lower
-    // someone's grade for our own failed query.
-    var caaUnknown = !!(advanced && advanced.caa && advanced.caa.unknown);
-    var mtaStsUnknown = !!(advanced && advanced.mtaSts && advanced.mtaSts.unknown);
-    var bimiUnknown = !!(advanced && advanced.bimi && advanced.bimi.unknown);
-    var tlsRptUnknown = !!(advanced && advanced.tlsRpt && advanced.tlsRpt.unknown);
-
+    // A control this audit could not prove scores zero, exactly like a control
+    // that is genuinely absent. The alternative — leaving it unscored and
+    // reporting a floor–ceiling grade range — reads as an error rather than a
+    // result, and the two-letter grade told nobody what to do next. The cost of
+    // that honesty is that a failed lookup now costs real points, so every
+    // unproven control has an issue attached saying so and how to fix it:
+    // 'dkim-unverified', 'dkim-not-checked', 'dnssec-indeterminate' and
+    // 'checks-unverified' in buildIssues().
     var pillars = [
       { key: 'dmarc', pts: dmarc.pts, max: WEIGHTS.dmarc },
       { key: 'spf', pts: calcSpfScore(spfStatus, advanced), max: WEIGHTS.spf },
-      { key: 'dkim', pts: dkimStatus && dkimStatus.found ? WEIGHTS.dkim : dkimUnknown ? null : 0, max: WEIGHTS.dkim, unknown: dkimUnknown },
-      { key: 'dnssec', pts: dnssecSigned ? WEIGHTS.dnssec : dnssecUnknown ? null : 0, max: WEIGHTS.dnssec, unknown: dnssecUnknown },
-      { key: 'caa', pts: caaUnknown ? null : (advanced && advanced.caa && advanced.caa.found) ? WEIGHTS.caa : 0, max: WEIGHTS.caa, unknown: caaUnknown },
-      { key: 'mtaSts', pts: mtaStsUnknown ? null :
-        (advanced && advanced.mtaSts && advanced.mtaSts.present && advanced.mtaSts.policyVerified !== false) ? WEIGHTS.mtaSts :
-          (advanced && advanced.mtaSts && advanced.mtaSts.present) ? WEIGHTS.mtaSts / 2 : 0, max: WEIGHTS.mtaSts, unknown: mtaStsUnknown },
-      { key: 'bimi', pts: bimiUnknown ? null : (advanced && advanced.bimi && advanced.bimi.present) ? WEIGHTS.bimi : 0, max: WEIGHTS.bimi, unknown: bimiUnknown },
-      { key: 'tlsRpt', pts: tlsRptUnknown ? null : (advanced && advanced.tlsRpt && advanced.tlsRpt.present) ? WEIGHTS.tlsRpt : 0, max: WEIGHTS.tlsRpt, unknown: tlsRptUnknown },
+      { key: 'dkim', pts: dkimStatus && dkimStatus.found ? WEIGHTS.dkim : 0, max: WEIGHTS.dkim },
+      { key: 'dnssec', pts: dnssecSigned ? WEIGHTS.dnssec : 0, max: WEIGHTS.dnssec },
+      { key: 'caa', pts: (advanced && advanced.caa && advanced.caa.found) ? WEIGHTS.caa : 0, max: WEIGHTS.caa },
+      { key: 'mtaSts', pts: (advanced && advanced.mtaSts && advanced.mtaSts.present && advanced.mtaSts.policyVerified !== false) ? WEIGHTS.mtaSts :
+        (advanced && advanced.mtaSts && advanced.mtaSts.present) ? WEIGHTS.mtaSts / 2 : 0, max: WEIGHTS.mtaSts },
+      { key: 'bimi', pts: (advanced && advanced.bimi && advanced.bimi.present) ? WEIGHTS.bimi : 0, max: WEIGHTS.bimi },
+      { key: 'tlsRpt', pts: (advanced && advanced.tlsRpt && advanced.tlsRpt.present) ? WEIGHTS.tlsRpt : 0, max: WEIGHTS.tlsRpt },
     ];
 
     var pts = pillars.reduce(function (sum, p) { return sum + (p.pts || 0); }, 0);
-    var unknownPoints = pillars.reduce(function (sum, p) { return sum + (p.unknown ? p.max : 0); }, 0);
-    var maxPossible = Math.min(100, pts + unknownPoints);
     var graded = gradeFor(pts, dnssecSigned);
-    var upper = gradeFor(maxPossible, dnssecSigned || dnssecUnknown);
-    var displayGrade = graded.grade === upper.grade ? graded.grade : graded.grade + '–' + upper.grade;
 
     return {
-      grade: displayGrade, gradeMin: graded.grade, gradeMax: upper.grade, cls: graded.cls,
-      pts: pts, maxPossible: maxPossible, max: 100, uncertain: unknownPoints > 0, parked: false,
+      grade: graded.grade, cls: graded.cls,
+      pts: pts, max: 100, parked: false,
+      unproven: unprovenPillars(dkimStatus, advanced),
       breakdown: { pillars: pillars, dmarc: dmarc.parts },
     };
   }

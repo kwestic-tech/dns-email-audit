@@ -366,9 +366,6 @@
       "fix": "La configuration DKIM s'effectue dans la console d'administration de votre fournisseur de messagerie qui vous fournira l'enregistrement TXT à publier dans votre DNS.",
       "fixCode": "; Google Workspace: Admin → Apps → Google Workspace → Gmail\n;   → Authentifier les e-mails → Générer un enregistrement → copier le TXT\n;\n; Microsoft 365: Admin → Paramètres → Domaines → sélectionner le domaine\n;   → Enregistrements DNS → Activer DKIM\n;\n; Exemple d'enregistrement TXT :\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
-    "dkim-unverified": {
-      "msg": "Aucun sélecteur DKIM testé n'a été trouvé. {0} Cela ne prouve pas l'absence de DKIM ; fournissez un sélecteur ou collez-en un depuis l'en-tête DKIM-Signature."
-    },
     "implicit-mx": {
       "msg": "Aucun enregistrement MX n'est publié. Le serveur SMTP peut utiliser l'adresse A/AAAA du domaine comme MX implicite, ce qui est fragile et souvent involontaire."
     },
@@ -452,9 +449,6 @@
     },
     "dnssec-bogus": {
       "msg": "La validation DNSSEC semble incorrecte (bogus) : la vérification a échoué bien que la réponse soit disponible sans contrôle."
-    },
-    "dnssec-indeterminate": {
-      "msg": "Le statut DNSSEC n'a pas pu être déterminé en raison de l'échec de la requête de validation."
     },
     "mta-sts-invalid": {
       "msg": "L'enregistrement TXT MTA-STS est malformé ou la balise id= obligatoire est manquante."
@@ -616,7 +610,6 @@
   "score": {
     "label": "Score de sécurité",
     "outOf": "{0} / {1}",
-    "range": "Plage de score confirmée : {0}–{1} / 100 ; les tests indéterminés ne sont pas comptés comme échecs",
     "parkedNote": "Domaine inactif — évalué uniquement sur SPF, DMARC, DNSSEC et CAA",
     "pillar": {
       "dmarc": "DMARC",

@@ -367,7 +367,10 @@
       "fixCode": "; Google Workspace: Admin → Apps → Google Workspace → Gmail\n;   → Autenticar correo → Generar clave → copiar el registro TXT\n;\n; Microsoft 365: Admin → Configuración → Dominios → seleccionar dominio\n;   → Registros DNS → habilitar DKIM\n;\n; El registro TXT se verá algo como:\ngoogle._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIj...\""
     },
     "dkim-unverified": {
-      "msg": "No se encontró ningún selector DKIM probado. {0} Esto no prueba que DKIM esté ausente; proporciona un selector o pega uno de un encabezado DKIM-Signature."
+      "msg": "No se encontró ningún selector DKIM probado. {0} Se puntúa como si DKIM no estuviera configurado. Si conoces tu selector DKIM, añádelo en \"Selectores DKIM adicionales\" y vuelve a ejecutar la auditoría para que se tenga en cuenta."
+    },
+    "dkim-not-checked": {
+      "msg": "DKIM no se comprobó en esta ejecución. Se puntúa como si DKIM no estuviera configurado. Activa \"Comprobar selectores DKIM\" y vuelve a ejecutar la auditoría para que DKIM se puntúe."
     },
     "implicit-mx": {
       "msg": "No hay ningún registro MX publicado. SMTP puede recurrir a la dirección A/AAAA de este dominio como un MX implícito, lo cual es frágil y a menudo no deseado."
@@ -454,7 +457,7 @@
       "msg": "La validación DNSSEC parece falsa (bogus): la validación falló aunque la respuesta está disponible cuando la comprobación está deshabilitada."
     },
     "dnssec-indeterminate": {
-      "msg": "El estado de DNSSEC no se pudo determinar porque la consulta de validación falló. No se puntuó como no firmado."
+      "msg": "El estado de DNSSEC no se pudo determinar porque la consulta de validación falló. Se puntúa como no firmado. Vuelve a ejecutar la auditoría: suele ser un problema transitorio del resolutor. Si sigue ocurriendo en un dominio que has confirmado que está firmado en tu registrador o proveedor de DNS, abre una incidencia en GitHub con el dominio, tu registrador/proveedor de DNS y una captura de pantalla que muestre DNSSEC activado."
     },
     "mta-sts-invalid": {
       "msg": "El registro TXT de MTA-STS está mal formado o le falta la etiqueta id= requerida."
@@ -616,7 +619,7 @@
   "score": {
     "label": "Puntuación de seguridad",
     "outOf": "{0} / {1}",
-    "range": "Rango de puntuación confirmado: {0}–{1} / 100; las comprobaciones desconocidas no se puntúan como fallos",
+    "unproven": "{0} / {1} — las comprobaciones que no se pudieron verificar puntuaron cero: {2}. Abre esta fila para ver cómo recuperar esos puntos.",
     "parkedNote": "Dominio estacionado — puntuado solo en SPF, DMARC, DNSSEC y CAA",
     "pillar": {
       "dmarc": "DMARC",
