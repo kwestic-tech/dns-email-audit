@@ -137,7 +137,8 @@
     "noWebPresence": "No web presence",
     "cnameLoop": "⚠ CNAME Loop",
     "cloudflareProxied": "Cloudflare (proxied)",
-    "porkbunForwarding": "Porkbun Forwarding"
+    "porkbunForwarding": "Porkbun Forwarding",
+    "dnsError": "⚠ Lookup failed"
   },
   "spf": {
     "missing": "✗ Missing",
@@ -169,8 +170,8 @@
     "txtRecord": "TXT record",
     "cnameTarget": "CNAME target",
     "noteWildcard": "Wildcard TXT bug may be interfering",
-    "noteNotFound": "No active DKIM key found among {0} tested selectors",
-    "noteNotFoundWithErrors": "No active DKIM key found among {0} completed selector checks; {1} DNS queries failed"
+    "noteNotFound": "No active DKIM key found among {0} tested selectors.",
+    "noteNotFoundWithErrors": "No active DKIM key found among {0} completed selector checks; {1} DNS queries failed."
   },
   "adv": {
     "configured": "✓ Configured",
@@ -579,6 +580,12 @@
       "what": "Reports sent outside your organizational domain need the destination to authorize them, and we check that by querying the destination for an authorization record. That query failed — a timeout, a SERVFAIL, or a resolver hiccup — so we cannot tell you whether the record exists. This is a gap in our result, not a finding against your configuration: treat it as unknown rather than as a problem, and re-run the audit before acting on it.",
       "fix": "Re-run the audit. If it keeps failing, query the name directly to see whether the record is there.",
       "fixCode": "; Check the authorization record by hand:\ndig +short TXT yourdomain.com._report._dmarc.{0}\n\n; And the wildcard form most vendors publish:\ndig +short TXT \"*._report._dmarc.{0}\""
+    },
+    "checks-unverified": {
+      "msg": "Some checks could not be completed ({0}) — these are shown as unknown, not as failures.",
+      "what": "One or more DNS lookups for this domain did not return a usable answer, usually a SERVFAIL or a timeout from the resolver. That can be a genuinely broken nameserver, but it is just as often a transient hiccup that clears within minutes. The rest of the audit completed normally and is accurate. The affected checks are reported as unknown and excluded from the score rather than counted as zero, which is why the grade may be shown as a range — scoring an unanswered query as a missing record would lower your grade for our failure, not yours.",
+      "fix": "Re-run the audit. If the same checks keep failing, query the affected names directly to see whether your nameservers answer them. A server that returns SERVFAIL instead of NXDOMAIN for names that do not exist will trip this repeatedly.",
+      "fixCode": "; Check whether your nameservers answer a name that should not exist.\n; A healthy server returns NXDOMAIN; a broken one returns SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Ask your authoritative servers directly, bypassing the resolver:\ndig @ns1.yourprovider.com www.yourdomain.com A"
     }
   },
   "suggestion": {

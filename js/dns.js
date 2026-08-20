@@ -137,6 +137,33 @@
     return result;
   }
 
+  /**
+   * Run an optional enrichment check, turning a DNS failure into a stated
+   * "unknown" instead of an exception.
+   *
+   * Everything behind opts.www / opts.wildcard / opts.advanced is enrichment:
+   * the domain's actual email-security posture is already established by the
+   * core NS/MX/TXT lookups. Before this existed, a transient SERVFAIL on any
+   * one of them threw, and the throw discarded the entire audit — SPF, DKIM,
+   * DMARC and all — for a domain whose real records had resolved perfectly.
+   * Across a 200-domain run that is close to guaranteed to happen to someone.
+   *
+   * A resolver hiccup must degrade one check, never delete the result. What it
+   * must NOT do is quietly become a passing or failing verdict, so every
+   * fallback here marks itself unknown and the scorer treats it as unscored
+   * rather than as zero.
+   *
+   * Cancellation is re-thrown: an aborted audit is not an unknown result.
+   */
+  async function optionalCheck(run, fallback) {
+    try {
+      return await run();
+    } catch (error) {
+      if (error && error.name === 'AbortError') throw error;
+      return typeof fallback === 'function' ? fallback(error) : fallback;
+    }
+  }
+
   function requireUsable(result, name, type) {
     if (result.kind === 'success' || result.kind === 'nodata' || result.kind === 'nxdomain') return result;
     throw dnsError(result.kind, name, type, result.httpStatus ? 'HTTP ' + result.httpStatus : '');
@@ -1021,7 +1048,16 @@
       adv.caa?.found,
       adv.dnssec?.signed,
     ];
-    return { done: checks.filter(Boolean).length, total: 5 };
+    // A check whose lookup failed is neither done nor outstanding, so it comes
+    // out of the denominator rather than counting against the domain.
+    const unknown = [
+      adv.bimi?.unknown,
+      adv.mtaSts?.unknown,
+      adv.tlsRpt?.unknown,
+      adv.caa?.unknown,
+      adv.dnssec?.state === 'indeterminate',
+    ].filter(Boolean).length;
+    return { done: checks.filter(Boolean).length, total: 5 - unknown, unknown: unknown };
   }
 
   /* ── Issues & suggestions ───────────────────────────────────────────── */
@@ -1051,9 +1087,16 @@
     }
 
     if (!dkimStatus.found && dkimStatus.confidence !== 'not-checked' && emailProvider !== '@none' && emailProvider !== '@null-mx' && emailProvider !== '@porkbun-forwarding') {
+      // The note strings take the completed and failed selector counts. Carry
+      // them on the issue: without them the renderer emits the raw "{0}"/"{1}"
+      // placeholders, and a failed lookup now makes that note far more common.
+      var testedCount = (dkimStatus.testedSelectors || []).length;
+      var failedCount = (dkimStatus.failedSelectors || []).length;
       issues.push({
         key: dkimStatus.confidence === 'sampled' ? 'dkim-unverified' : 'dkim-missing',
-        sev: dkimStatus.confidence === 'sampled' ? 'info' : 'warn', noteKey: dkimStatus.note,
+        sev: dkimStatus.confidence === 'sampled' ? 'info' : 'warn',
+        noteKey: dkimStatus.note,
+        noteArgs: [testedCount - failedCount, failedCount],
       });
     }
     if (dmarcStatus.status === 'permerror') issues.push({ key: 'dmarc-multiple-records', sev: 'crit' });
@@ -1198,6 +1241,20 @@
     if (advanced?.dnssec?.state === 'bogus') issues.push({ key: 'dnssec-bogus', sev: 'crit' });
     else if (advanced?.dnssec?.state === 'indeterminate') issues.push({ key: 'dnssec-indeterminate', sev: 'info' });
 
+    // Name the checks that could not be completed. An audit that quietly omits
+    // a control looks identical to one where the control is fine, so the gap
+    // has to be stated rather than left to the reader to notice.
+    var unverified = [];
+    if (advanced?.caa?.unknown) unverified.push('CAA');
+    if (advanced?.mtaSts?.unknown) unverified.push('MTA-STS');
+    if (advanced?.tlsRpt?.unknown) unverified.push('TLS-RPT');
+    if (advanced?.bimi?.unknown) unverified.push('BIMI');
+    if (advanced?.spfLookups?.unknown) unverified.push('SPF');
+    if (hosting === '@dns-error') unverified.push('Website');
+    if (unverified.length) {
+      issues.push({ key: 'checks-unverified', sev: 'info', args: [unverified.join(', ')] });
+    }
+
     return issues;
   }
 
@@ -1219,17 +1276,22 @@
     const hasEmail = emailProvider !== '@none' && emailProvider !== '@null-mx';
     const dmarcEnforced = dmarcStatus.status === 'ok' && (dmarcStatus.policy === 'quarantine' || dmarcStatus.policy === 'reject');
 
-    if (advanced.bimi?.multiple) { /* duplicate already raised as an issue */ }
+    // Every tip below says "you do not have this — add it". None of them may
+    // fire on a check whose lookup failed, because we do not know whether the
+    // record is there. Telling someone to publish a record they already have
+    // is worse than saying nothing.
+    if (advanced.bimi?.unknown) { /* not verified — cannot advise */ }
+    else if (advanced.bimi?.multiple) { /* duplicate already raised as an issue */ }
     else if (!advanced.bimi?.present && dmarcEnforced && dkimStatus.found) tips.push({ key: 'bimiEligible', guide: 'bimi' });
     else if (!advanced.bimi?.present && hasEmail) tips.push({ key: 'bimiPrereq', guide: 'bimi' });
 
     // Skip the "not configured" tip when the record exists but is duplicated —
     // buildIssues already raises the duplicate, and telling someone to publish
     // a record they already have twice is actively confusing.
-    if (!advanced.mtaSts?.present && !advanced.mtaSts?.multiple && hasEmail) tips.push({ key: 'mta-sts', guide: 'mta-sts' });
-    if (!advanced.tlsRpt?.present && !advanced.tlsRpt?.multiple && hasEmail) tips.push({ key: 'tls-rpt', guide: 'tls-rpt' });
-    if (!advanced.caa?.found) tips.push({ key: 'caa', guide: 'caa' });
-    if (!advanced.dnssec?.signed) tips.push({ key: 'dnssec', guide: 'dnssec' });
+    if (!advanced.mtaSts?.unknown && !advanced.mtaSts?.present && !advanced.mtaSts?.multiple && hasEmail) tips.push({ key: 'mta-sts', guide: 'mta-sts' });
+    if (!advanced.tlsRpt?.unknown && !advanced.tlsRpt?.present && !advanced.tlsRpt?.multiple && hasEmail) tips.push({ key: 'tls-rpt', guide: 'tls-rpt' });
+    if (!advanced.caa?.unknown && !advanced.caa?.found) tips.push({ key: 'caa', guide: 'caa' });
+    if (advanced.dnssec?.state !== 'indeterminate' && !advanced.dnssec?.signed) tips.push({ key: 'dnssec', guide: 'dnssec' });
 
     return tips;
   }
@@ -1280,16 +1342,25 @@
 
     // ── Active email domain ─────────────────────────────────────────────
     var dkimUnknown = !!(dkimStatus && !dkimStatus.found && (dkimStatus.confidence === 'sampled' || dkimStatus.confidence === 'not-checked'));
+    // A check whose lookup failed is scored as unknown, never as zero. Zero
+    // would report a resolver problem as a missing control and quietly lower
+    // someone's grade for our own failed query.
+    var caaUnknown = !!(advanced && advanced.caa && advanced.caa.unknown);
+    var mtaStsUnknown = !!(advanced && advanced.mtaSts && advanced.mtaSts.unknown);
+    var bimiUnknown = !!(advanced && advanced.bimi && advanced.bimi.unknown);
+    var tlsRptUnknown = !!(advanced && advanced.tlsRpt && advanced.tlsRpt.unknown);
+
     var pillars = [
       { key: 'dmarc', pts: dmarc.pts, max: WEIGHTS.dmarc },
       { key: 'spf', pts: calcSpfScore(spfStatus, advanced), max: WEIGHTS.spf },
       { key: 'dkim', pts: dkimStatus && dkimStatus.found ? WEIGHTS.dkim : dkimUnknown ? null : 0, max: WEIGHTS.dkim, unknown: dkimUnknown },
       { key: 'dnssec', pts: dnssecSigned ? WEIGHTS.dnssec : dnssecUnknown ? null : 0, max: WEIGHTS.dnssec, unknown: dnssecUnknown },
-      { key: 'caa', pts: (advanced && advanced.caa && advanced.caa.found) ? WEIGHTS.caa : 0, max: WEIGHTS.caa },
-      { key: 'mtaSts', pts: (advanced && advanced.mtaSts && advanced.mtaSts.present && advanced.mtaSts.policyVerified !== false) ? WEIGHTS.mtaSts :
-        (advanced && advanced.mtaSts && advanced.mtaSts.present) ? WEIGHTS.mtaSts / 2 : 0, max: WEIGHTS.mtaSts },
-      { key: 'bimi', pts: (advanced && advanced.bimi && advanced.bimi.present) ? WEIGHTS.bimi : 0, max: WEIGHTS.bimi },
-      { key: 'tlsRpt', pts: (advanced && advanced.tlsRpt && advanced.tlsRpt.present) ? WEIGHTS.tlsRpt : 0, max: WEIGHTS.tlsRpt },
+      { key: 'caa', pts: caaUnknown ? null : (advanced && advanced.caa && advanced.caa.found) ? WEIGHTS.caa : 0, max: WEIGHTS.caa, unknown: caaUnknown },
+      { key: 'mtaSts', pts: mtaStsUnknown ? null :
+        (advanced && advanced.mtaSts && advanced.mtaSts.present && advanced.mtaSts.policyVerified !== false) ? WEIGHTS.mtaSts :
+          (advanced && advanced.mtaSts && advanced.mtaSts.present) ? WEIGHTS.mtaSts / 2 : 0, max: WEIGHTS.mtaSts, unknown: mtaStsUnknown },
+      { key: 'bimi', pts: bimiUnknown ? null : (advanced && advanced.bimi && advanced.bimi.present) ? WEIGHTS.bimi : 0, max: WEIGHTS.bimi, unknown: bimiUnknown },
+      { key: 'tlsRpt', pts: tlsRptUnknown ? null : (advanced && advanced.tlsRpt && advanced.tlsRpt.present) ? WEIGHTS.tlsRpt : 0, max: WEIGHTS.tlsRpt, unknown: tlsRptUnknown },
     ];
 
     var pts = pillars.reduce(function (sum, p) { return sum + (p.pts || 0); }, 0);
@@ -1363,10 +1434,15 @@
       dmarcStatus.cls = dmarcStatus.status === 'ok' ? 'ok' : 'warn';
     }
 
+    // A failed wildcard probe must not read as "no wildcard": that answer feeds
+    // an instant-F verdict, so an unverified probe stays explicitly unknown.
     let wildcardBug = false;
+    let wildcardChecked = false;
     if (opts.wildcard) {
-      const testSub = await dohQuery(`_wildcardtest99xyz.${d}`, 'TXT', queryOpts);
-      wildcardBug = testSub.length > 0;
+      const testSub = await optionalCheck(
+        () => dohQuery(`_wildcardtest99xyz.${d}`, 'TXT', queryOpts), null);
+      wildcardChecked = testSub !== null;
+      wildcardBug = wildcardChecked && testSub.length > 0;
     }
 
     let dkimStatus = { found: false, selectors: [], testedSelectors: [], confidence: 'not-checked', note: '' };
@@ -1376,21 +1452,33 @@
 
     let hosting = '@dash';
     if (opts.www) {
-      const website = await resolveWebsite(d, queryOpts);
-      hosting = website.loop ? '@cname-loop' : detectHosting(website.addresses, website.chain, d);
+      const website = await optionalCheck(
+        () => resolveWebsite(d, queryOpts),
+        error => ({ loop: false, chain: [], addresses: [], error: (error && error.kind) || 'dns-error' })
+      );
+      hosting = website.error ? '@dns-error'
+        : website.loop ? '@cname-loop'
+          : detectHosting(website.addresses, website.chain, d);
     }
 
     // ── Advanced checks ──
     let advanced = { bimi: null, mtaSts: null, tlsRpt: null, caa: null, dnssec: null, spfLookups: null, reportAuth: null };
     if (opts.advanced) {
+      // Every entry is wrapped independently. Promise.all rejects on the first
+      // failure, so without this one unlucky lookup would take the other six
+      // down with it and abort the audit.
       const [bimiTxt, mtaStsTxt, tlsRptTxt, caaResult, dnssecResult, spfLookups, reportAuth] = await Promise.all([
-        dohQuery(`default._bimi.${d}`, 'TXT', queryOpts),
-        dohQuery(`_mta-sts.${d}`, 'TXT', queryOpts),
-        dohQuery(`_smtp._tls.${d}`, 'TXT', queryOpts),
-        checkCAA(d, queryOpts),
+        optionalCheck(() => dohQuery(`default._bimi.${d}`, 'TXT', queryOpts), null),
+        optionalCheck(() => dohQuery(`_mta-sts.${d}`, 'TXT', queryOpts), null),
+        optionalCheck(() => dohQuery(`_smtp._tls.${d}`, 'TXT', queryOpts), null),
+        optionalCheck(() => checkCAA(d, queryOpts),
+          error => ({ found: false, records: [], atDomain: null, unknown: true, error: (error && error.kind) || 'dns-error' })),
         checkDNSSEC(d, queryOpts),
-        spfRecord ? countSpfLookups(spfRecord, d, queryOpts) : Promise.resolve({ count: 0, warning: false, error: false, voidLookups: 0, cycles: [], indeterminate: false }),
-        checkExternalReportAuth(dmarcAtDomain, findExternalReportDestinations(dmarcStatus, dmarcAtDomain), queryOpts),
+        spfRecord
+          ? optionalCheck(() => countSpfLookups(spfRecord, d, queryOpts),
+            error => ({ count: 0, warning: false, error: false, voidLookups: 0, cycles: [], indeterminate: true, unknown: true, queryError: (error && error.kind) || 'dns-error' }))
+          : Promise.resolve({ count: 0, warning: false, error: false, voidLookups: 0, cycles: [], indeterminate: false }),
+        optionalCheck(() => checkExternalReportAuth(dmarcAtDomain, findExternalReportDestinations(dmarcStatus, dmarcAtDomain), queryOpts), []),
       ]);
 
       // All three specs say the same thing: filter to the versioned records,
@@ -1398,9 +1486,12 @@
       // the feature at all (RFC 8461 §3.1, RFC 8460 §3, BIMI draft §7.2).
       // So `present` is false when duplicated — the operator believes the
       // control is active when it is not, which is worth saying out loud.
-      const bimiMatches = bimiTxt.filter(v => startsWithCI(v, 'v=BIMI1'));
-      const mtaMatches = mtaStsTxt.filter(v => startsWithCI(v, 'v=STSv1'));
-      const tlsMatches = tlsRptTxt.filter(v => startsWithCI(v, 'v=TLSRPTv1'));
+      // A null here is a lookup that failed, not a domain without the record.
+      // `unknown` carries that distinction through to scoring and the UI so an
+      // unverified control is never presented as an absent one.
+      const bimiMatches = bimiTxt ? bimiTxt.filter(v => startsWithCI(v, 'v=BIMI1')) : [];
+      const mtaMatches = mtaStsTxt ? mtaStsTxt.filter(v => startsWithCI(v, 'v=STSv1')) : [];
+      const tlsMatches = tlsRptTxt ? tlsRptTxt.filter(v => startsWithCI(v, 'v=TLSRPTv1')) : [];
 
       const bimiRecord = bimiMatches[0] || '';
       const mtaRecord = mtaMatches[0] || '';
@@ -1410,9 +1501,9 @@
       const tlsValidation = validateTlsRptRecord(tlsRecord);
 
       advanced = {
-        bimi: { present: bimiMatches.length === 1 && bimiValidation.valid, advertised: bimiMatches.length === 1, record: bimiRecord, validation: bimiValidation, multiple: bimiMatches.length > 1 },
-        mtaSts: { present: mtaMatches.length === 1 && mtaValidation.valid, advertised: mtaMatches.length === 1, policyVerified: false, record: mtaRecord, validation: mtaValidation, multiple: mtaMatches.length > 1 },
-        tlsRpt: { present: tlsMatches.length === 1 && tlsValidation.valid, advertised: tlsMatches.length === 1, record: tlsRecord, validation: tlsValidation, multiple: tlsMatches.length > 1 },
+        bimi: { present: bimiMatches.length === 1 && bimiValidation.valid, advertised: bimiMatches.length === 1, record: bimiRecord, validation: bimiValidation, multiple: bimiMatches.length > 1, unknown: bimiTxt === null },
+        mtaSts: { present: mtaMatches.length === 1 && mtaValidation.valid, advertised: mtaMatches.length === 1, policyVerified: false, record: mtaRecord, validation: mtaValidation, multiple: mtaMatches.length > 1, unknown: mtaStsTxt === null },
+        tlsRpt: { present: tlsMatches.length === 1 && tlsValidation.valid, advertised: tlsMatches.length === 1, record: tlsRecord, validation: tlsValidation, multiple: tlsMatches.length > 1, unknown: tlsRptTxt === null },
         caa: caaResult,
         dnssec: dnssecResult,
         spfLookups,
@@ -1456,6 +1547,7 @@
     parseDmarcUriList,
     findExternalReportDestinations,
     checkExternalReportAuth,
+    optionalCheck,
     startsWithCI,
     countSpfLookups,
     parseSpfTerms,

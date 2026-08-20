@@ -89,7 +89,18 @@ The auditor preserves that uncertainty:
 - confirmed missing or invalid controls score accordingly;
 - inconclusive DKIM or DNSSEC checks produce minimum and maximum scores and, when
   necessary, a grade range such as `C–B`;
-- disabling DKIM reports **Not checked** instead of silently penalizing it.
+- disabling DKIM reports **Not checked** instead of silently penalizing it;
+- a check whose DNS lookup fails outright is treated the same way. A SERVFAIL or
+  timeout on CAA, MTA-STS, TLS-RPT, BIMI, the SPF lookup count or website hosting
+  leaves that one check unknown and the rest of the audit intact, and the
+  affected checks are named in the results.
+
+Only the core `NS`, `MX`, `TXT` and `_dmarc` lookups are fail-closed. Without
+them there is nothing to audit, so the domain is reported as an error rather
+than scored on partial data. Everything else degrades. A transient resolver
+failure on an optional check must never discard a complete, valid audit — nor
+be recorded as a missing record, which would lower a grade for our failed query
+rather than the domain's configuration.
 
 ## How grading works
 

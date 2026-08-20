@@ -14,6 +14,47 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A failed optional DNS lookup no longer discards the whole audit.** Every
+  check behind `www`, `wildcard` and the advanced set threw on SERVFAIL, and
+  because nothing caught the throw the entire result was dropped — SPF, DKIM,
+  DMARC, MX and all — for a domain whose core records had resolved perfectly.
+  A transient resolver failure on website-hosting detection was enough to
+  delete a complete email-security audit. Across a 200-domain run that is close
+  to certain to hit someone. Optional checks now degrade to a stated unknown
+  and the audit completes.
+- **Unverified controls are scored as unknown rather than zero.** CAA, MTA-STS,
+  BIMI, TLS-RPT and the SPF lookup count now feed the existing grade-range
+  mechanism when their lookup fails, so a resolver problem can no longer lower
+  a grade by being counted as a missing record.
+- **A failed wildcard probe is no longer read as "no wildcard".** That answer
+  feeds an instant-F verdict, so an unverified probe stays explicitly unknown.
+- **No "you have not configured this" advice for checks that never ran.**
+  The CAA, MTA-STS, TLS-RPT, BIMI and DNSSEC recommendations are suppressed
+  when the corresponding lookup did not complete.
+- **DKIM issue notes interpolate their counts.** `dkim-unverified` and
+  `dkim-missing` rendered the literal `{0}` and `{1}` placeholders because the
+  selector counts were never passed to the renderer. This note becomes far more
+  common once failed lookups stop aborting the audit.
+
+### Added
+
+- A `checks-unverified` finding naming exactly which checks could not be
+  completed, so a gap in the audit is stated rather than silently omitted.
+- A `@dns-error` hosting state ("Lookup failed") distinct from a domain that
+  genuinely has no web presence.
+- `optionalCheck()`, the single wrapper all optional checks route through. It
+  converts a DNS failure into a declared fallback and deliberately re-throws
+  `AbortError`, so cancelling an audit is never mistaken for an unknown result.
+- 32 new assertions, including a simulated resolver in which only the core
+  records answer and every optional lookup returns SERVFAIL.
+
+### Unchanged
+
+- Core lookups stay fail-closed. With no usable NS response there is nothing to
+  audit, and reporting a failure remains better than inventing a result.
+
 ### Changed
 
 - **DMARC is now evaluated against RFC 9989 (DMARCbis, May 2026)** instead of
