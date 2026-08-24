@@ -117,7 +117,7 @@
     "hygieneTitle": "レコードの健全性",
     "hygiene": {
       "bidiOverride": "双方向制御文字。ホスト名の見た目を逆順にすることがあります",
-      "zeroWidth": "ゼロ幅文字。表示時には見えません",
+      "zeroWidth": "不可視文字またはゼロ幅文字。表示されません",
       "controlChar": "制御文字",
       "loneSurrogate": "不正な UTF-8。U+FFFD として表示されます",
       "punycode": "Punycode (xn--) 名。公開されているとおりに表示されます"

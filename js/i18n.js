@@ -124,7 +124,22 @@
   // A conservative shape for a tag. Anything not matching exactly is not a tag
   // as far as this tokenizer is concerned.
   var TAG_RE = /^<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:\s+[a-zA-Z][a-zA-Z0-9-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s">]+))?)*)\s*(\/?)>/;
-  var HREF_RE = /(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s">]+))/i;
+  // Walks the attribute string one attribute at a time rather than scanning it
+  // for `href=`. A scan picks the href out of ANOTHER attribute's value —
+  // `<a title=" href=https://evil.example " href="https://good.example">` — so
+  // attribute extraction has to be a parse, not a substring search.
+  var ATTR_RE = /([a-zA-Z][a-zA-Z0-9-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s">]+)))?/g;
+
+  function attrValue(attrs, wanted) {
+    ATTR_RE.lastIndex = 0;
+    var m;
+    while ((m = ATTR_RE.exec(attrs))) {
+      if (m[0] === '') { ATTR_RE.lastIndex++; continue; }
+      if (m[1].toLowerCase() !== wanted) continue;
+      return m[2] !== undefined ? m[2] : m[3] !== undefined ? m[3] : m[4] !== undefined ? m[4] : '';
+    }
+    return null;
+  }
 
   var NAMED_ENTITIES = {
     amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
@@ -201,10 +216,7 @@
 
       var el = document.createElement(tag.toLowerCase());
       if (tag === 'A') {
-        var href = HREF_RE.exec(attrs);
-        var url = href
-          ? (href[1] !== undefined ? href[1] : href[2] !== undefined ? href[2] : href[3])
-          : '';
+        var url = attrValue(attrs, 'href') || '';
         // Every other attribute is discarded, so no event handler, style or
         // target can arrive from a locale file.
         var decodedUrl = decodeEntities(url || '');

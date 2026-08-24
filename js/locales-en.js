@@ -124,7 +124,7 @@ window.__I18N_EN__ = {
     "hygieneTitle": "Record hygiene",
     "hygiene": {
       "bidiOverride": "Bidirectional control characters, which can visually reverse a hostname",
-      "zeroWidth": "Zero-width characters, which are invisible when rendered",
+      "zeroWidth": "Invisible or zero-width characters, which do not render",
       "controlChar": "Control characters",
       "loneSurrogate": "Invalid UTF-8, shown as U+FFFD",
       "punycode": "Punycode (xn--) name, shown exactly as published"

@@ -117,7 +117,7 @@
     "hygieneTitle": "레코드 건전성",
     "hygiene": {
       "bidiOverride": "양방향 제어 문자로, 호스트 이름을 시각적으로 뒤집을 수 있습니다",
-      "zeroWidth": "너비가 없는 문자로, 화면에 표시되지 않습니다",
+      "zeroWidth": "화면에 표시되지 않는 비가시 문자 또는 너비가 없는 문자",
       "controlChar": "제어 문자",
       "loneSurrogate": "잘못된 UTF-8, U+FFFD로 표시됨",
       "punycode": "Punycode (xn--) 이름, 게시된 그대로 표시됨"

@@ -117,7 +117,7 @@
     "hygieneTitle": "Hygiène de l'enregistrement",
     "hygiene": {
       "bidiOverride": "Caractères de contrôle bidirectionnel, qui peuvent inverser visuellement un nom d'hôte",
-      "zeroWidth": "Caractères de largeur nulle, invisibles à l'affichage",
+      "zeroWidth": "Caractères invisibles ou de largeur nulle, qui ne s'affichent pas",
       "controlChar": "Caractères de contrôle",
       "loneSurrogate": "UTF-8 non valide, affiché sous la forme U+FFFD",
       "punycode": "Nom Punycode (xn--), affiché exactement tel qu'il est publié"

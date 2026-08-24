@@ -117,7 +117,7 @@
     "hygieneTitle": "记录卫生状况",
     "hygiene": {
       "bidiOverride": "双向控制字符，可能在视觉上反转主机名",
-      "zeroWidth": "零宽字符，渲染后不可见",
+      "zeroWidth": "不可见字符或零宽字符，不会被渲染",
       "controlChar": "控制字符",
       "loneSurrogate": "无效的 UTF-8，显示为 U+FFFD",
       "punycode": "Punycode (xn--) 名称，按发布原样显示"

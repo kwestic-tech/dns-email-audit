@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.1 (Final, amended during implementation) |
+| Spec version | 1.2 (Final, amended during implementation) |
 | Target release | 0.2.3 |
 | Status | Final — approved for implementation |
 | Depends on | Nothing. This is the first release after 0.2.2. |
@@ -259,6 +259,26 @@ tool whose job is to show you what a domain published. Replacing achieves both:
 the character is genuinely gone from the text run, so no reordering survives, and
 the marker sits where it was, so the reader can see it.
 
+**Amended at 1.2 — membership is a category test, not an enumeration.** The 1.0
+table listed specific code points, and an enumeration drifts behind Unicode:
+review found U+00AD (soft hyphen), U+2060 (word joiner), U+061C (Arabic letter
+mark), U+2028/U+2029 (line and paragraph separators), the Hangul fillers
+U+115F/U+1160/U+3164/U+FFA0 and the U+E0000 tag block all passing through
+unmarked, while this rule is stated as a general property. Membership is
+therefore the union of `\p{Cf}`, `\p{Zl}`, `\p{Zp}`, the four Hangul fillers and
+the C0/C1 controls. The named table survives only to give the common ones a
+readable sentinel; anything else is named by code point, as the control
+characters already were.
+
+**Amended at 1.2 — an attribute is displayed output.** The 1.0 text reasoned
+entirely about text nodes, on the argument that a text node cannot be markup.
+That is true, and it is not the whole rule: `advFullDots()` puts a BIMI record
+and a CAA record into `data-tip`, which `css/style.css` paints with
+`content: attr(data-tip)`. An override there reorders the tooltip exactly as it
+would reorder a table cell. Sentinel substitution therefore applies to `title`
+and `data-*` values as well, through `R.sentinelText()`, which returns the
+substituted value as a plain string for attribute use.
+
 CSS alone cannot achieve this. `unicode-bidi: isolate` prevents a value from
 reordering its *neighbours*, not its own contents, so an override embedded in an
 SPF `include:` host still reverses the rest of that value inside its own element.
@@ -414,6 +434,18 @@ level as well as the tree level, and string assertions need no DOM:
   for `<script`, `<iframe`, `<object` and `<embed`. All must be absent: an
   element can only exist if its `<` was not escaped.
 
+  **Amended at 1.2 — the scan is structural.** The 1.1 amendment below moved
+  these two patterns from the whole string to the tag regions, which fixed the
+  text-node false positive and missed the attribute one: a browser does not
+  escape `<` inside a quoted attribute value at all, so `data-tip` can
+  legitimately contain `<img src=x onerror=…>` as data, and `/<[^>]*>/g`
+  mis-splits on it besides. The export test now tokenizes tags with a
+  quote-aware scanner and asserts on **attribute names** (none may begin with
+  `on`) and on **URL-bearing attribute values** (no `href`/`src`/`action` whose
+  scheme, after entity decoding, is `javascript:`). Both suites gained a
+  fixture with `advanced` populated, so the one code path that puts DNS data in
+  an attribute is actually exercised — under 1.1 it was covered by neither.
+
   **Amended at 1.1.** ` on\w+\s*=` and `javascript:` are scanned against the
   **tag regions** of the output (`/<[^>]*>/g`), not the whole string. Escaping
   a value neutralizes `<` and `>` but leaves the substring ` onerror=` intact
@@ -528,3 +560,4 @@ condition `docs/specs/README.md` sets for `1.0 (Final)`.
 | 0.3 | 2026-08-20 | Revised after Gemini review. Document builders now construct DOM trees and serialize, which removes the last escape helper and empties the markup-sink allowlist; exported report regains its own CSP. Enforcement moved from a grep to a shim setter trap with an assignment-only scan as backup. Truncation raised to 1024 per value. Invisible-character handling changed from stripping to visible sentinel substitution, correcting the reviewer's `unicode-bidi: isolate` proposal, which does not neutralize reordering within an element. Added `tools/export.test.mjs`. Resolved the five remaining open questions; added two. |
 | 1.0 | 2026-08-24 | Final. Resolved the last two open questions: `OQ-SEC-11` (raw bytes stay in the CSV data column, a separate appended `record_hygiene` column names what was found) and `OQ-SEC-12` (record-hygiene observations stay display annotations in 0.2.3, deferred to `findings-and-remediation` (0.6.0)). No change to Design, Scope, Non-goals, Testing or Acceptance criteria beyond the `record_hygiene` CSV column those resolutions add. Approved for implementation. |
 | 1.1 | 2026-08-24 | Amended during implementation, per the "amend rather than quietly diverge" rule in `docs/specs/README.md`. Two defects in the 1.0 text: (a) §3 kept the `<template>` parse, which is an `innerHTML` assignment in `js/i18n.js` that §5 and acceptance criterion 2 forbid with an empty allowlist — replaced by a fail-closed tokenizer that builds nodes, so no markup sink remains under `js/`; (b) the export scan for ` on\w+\s*=` and `javascript:` was specified against the whole output string, which false-positives on the spec's own attribute-breakout fixture because escaping `<` leaves ` onerror=` intact in the text node — now scanned against tag regions only. Added the `<style>` raw-text serialization rule the export builder depends on, and the `tools/check-locales.mjs` tag-allowlist check promised by §3. No change to Scope, Non-goals, or the acceptance criteria themselves. |
+| 1.2 | 2026-08-24 | Amended after code review, which found the malformed-record half of the release complete for values rendered as text and absent for values rendered into an attribute. Four changes: (a) sentinel substitution now applies to `title` and `data-*` values, not only text nodes — `data-tip` is painted by `content: attr(data-tip)` and carries BIMI and CAA record text; (b) the invisible-character set became a Unicode category test (`\p{Cf}`/`\p{Zl}`/`\p{Zp}` plus the Hangul fillers), since the 1.0 enumeration missed the soft hyphen, word joiner, Arabic letter mark, line/paragraph separators, Hangul fillers and tag characters; (c) the export scan became a quote-aware structural check on attribute names and URL schemes, and both suites gained an `advanced`-populated fixture that exercises the attribute path; (d) `normalize()` was rewritten as an index walk after review showed the regex form left every second lone low surrogate in a run intact. Also fixed: punycode detected mid-value rather than only at a label boundary, a published U+FFFD no longer reported as invalid UTF-8, `src` given the same `https:`-only test as `href`, and the DOM shim`s attribute escaping matched to the HTML serialization algorithm. No change to Scope, Non-goals, or the acceptance criteria. |

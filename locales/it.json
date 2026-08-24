@@ -117,7 +117,7 @@
     "hygieneTitle": "Igiene del record",
     "hygiene": {
       "bidiOverride": "Caratteri di controllo bidirezionale, che possono invertire visivamente un nome host",
-      "zeroWidth": "Caratteri a larghezza zero, invisibili una volta visualizzati",
+      "zeroWidth": "Caratteri invisibili o a larghezza zero, che non vengono visualizzati",
       "controlChar": "Caratteri di controllo",
       "loneSurrogate": "UTF-8 non valido, mostrato come U+FFFD",
       "punycode": "Nome Punycode (xn--), mostrato esattamente come pubblicato"

@@ -117,7 +117,7 @@
     "hygieneTitle": "Kayıt hijyeni",
     "hygiene": {
       "bidiOverride": "Bir ana makine adını görsel olarak ters çevirebilen çift yönlü denetim karakterleri",
-      "zeroWidth": "Görüntülendiğinde görünmeyen sıfır genişlikli karakterler",
+      "zeroWidth": "Görüntülenmeyen, görünmez veya sıfır genişlikli karakterler",
       "controlChar": "Denetim karakterleri",
       "loneSurrogate": "Geçersiz UTF-8, U+FFFD olarak gösteriliyor",
       "punycode": "Punycode (xn--) adı, yayımlandığı biçimde gösteriliyor"

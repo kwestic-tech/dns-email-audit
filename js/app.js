@@ -720,8 +720,12 @@
     if (!rest) return;
     var open = rest.style.display !== 'none';
     rest.style.display = open ? 'none' : 'inline';
+    // The count comes from the value as published, recorded when the control
+    // was built. Recomputing it from `rest.textContent` would count sentinel
+    // markers instead — ‹RLO› is five characters standing for one — so the
+    // number would change every time the reader collapsed the value.
     btn.textContent = open
-      ? t('render.showMore', String(rest.textContent.length))
+      ? t('render.showMore', btn.dataset.rvCount || '0')
       : t('render.showLess');
   }
 

@@ -117,7 +117,7 @@
     "hygieneTitle": "Eintragshygiene",
     "hygiene": {
       "bidiOverride": "Bidirektionale Steuerzeichen, die einen Hostnamen visuell umkehren können",
-      "zeroWidth": "Zeichen ohne Breite, die bei der Darstellung unsichtbar sind",
+      "zeroWidth": "Unsichtbare Zeichen oder Zeichen ohne Breite, die nicht dargestellt werden",
       "controlChar": "Steuerzeichen",
       "loneSurrogate": "Ungültiges UTF-8, dargestellt als U+FFFD",
       "punycode": "Punycode-Name (xn--), genau wie veröffentlicht dargestellt"

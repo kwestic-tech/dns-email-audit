@@ -117,7 +117,7 @@
     "hygieneTitle": "Kebersihan data",
     "hygiene": {
       "bidiOverride": "Karakter kontrol dua arah, yang dapat membalik tampilan nama host",
-      "zeroWidth": "Karakter tanpa lebar, yang tidak terlihat saat ditampilkan",
+      "zeroWidth": "Karakter tak terlihat atau tanpa lebar, yang tidak ditampilkan",
       "controlChar": "Karakter kontrol",
       "loneSurrogate": "UTF-8 tidak valid, ditampilkan sebagai U+FFFD",
       "punycode": "Nama Punycode (xn--), ditampilkan persis seperti yang dipublikasikan"

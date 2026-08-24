@@ -117,7 +117,7 @@
     "hygieneTitle": "紀錄衛生狀況",
     "hygiene": {
       "bidiOverride": "雙向控制字元，可能在視覺上反轉主機名稱",
-      "zeroWidth": "零寬字元，算繪後不可見",
+      "zeroWidth": "不可見字元或零寬字元，不會被算繪",
       "controlChar": "控制字元",
       "loneSurrogate": "無效的 UTF-8，顯示為 U+FFFD",
       "punycode": "Punycode (xn--) 名稱，按發布原樣顯示"

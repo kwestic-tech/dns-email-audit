@@ -117,7 +117,7 @@
     "hygieneTitle": "Higiene del registro",
     "hygiene": {
       "bidiOverride": "Caracteres de control bidireccional, que pueden invertir visualmente un nombre de host",
-      "zeroWidth": "Caracteres de ancho cero, invisibles al representarse",
+      "zeroWidth": "Caracteres invisibles o de ancho cero, que no se representan",
       "controlChar": "Caracteres de control",
       "loneSurrogate": "UTF-8 no válido, mostrado como U+FFFD",
       "punycode": "Nombre Punycode (xn--), mostrado exactamente como se publicó"

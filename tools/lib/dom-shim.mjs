@@ -67,11 +67,16 @@ function escapeText(value) {
     .replace(/>/g, '&gt;');
 }
 
+// Attribute values escape ONLY `&`, `"` and U+00A0, per the HTML fragment
+// serialization algorithm. A browser leaves `<` and `>` alone inside a quoted
+// value, and escaping them here would make the export tests assert on bytes no
+// browser produces — which matters, because `data-tip` is a real attribute
+// that carries DNS-derived text. A raw `<` inside a quoted value is still just
+// data when the document is reparsed.
 function escapeAttr(value) {
   return String(value)
     .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+    .replace(/\u00A0/g, '&nbsp;')
     .replace(/"/g, '&quot;');
 }
 

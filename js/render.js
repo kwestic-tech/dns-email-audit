@@ -59,22 +59,35 @@
 
   /* ── Invisible-character handling (spec §4) ─────────────────────────── */
 
-  // Named directional controls. These are the characters that reorder text
-  // around them, which is the one malformation in section 4 that is a genuine
-  // output-integrity attack rather than a display nuisance.
+  // Named directional controls. These reorder the text around them, which is
+  // the one malformation in section 4 that is a genuine output-integrity
+  // attack rather than a display nuisance.
   var BIDI_NAMES = {
     0x202A: 'LRE', 0x202B: 'RLE', 0x202C: 'PDF', 0x202D: 'LRO', 0x202E: 'RLO',
     0x2066: 'LRI', 0x2067: 'RLI', 0x2068: 'FSI', 0x2069: 'PDI',
-    0x200E: 'LRM', 0x200F: 'RLM',
+    0x200E: 'LRM', 0x200F: 'RLM', 0x061C: 'ALM',
   };
 
-  // Characters that occupy no width, so two values differing only by one of
-  // these render identically.
-  var ZERO_WIDTH_NAMES = {
+  // Short names for the invisible characters worth naming. Anything else that
+  // matches the category test below still gets a sentinel, spelled by code
+  // point.
+  var INVISIBLE_NAMES = {
     0x200B: 'ZWSP', 0x200C: 'ZWNJ', 0x200D: 'ZWJ', 0xFEFF: 'BOM',
+    0x00AD: 'SHY', 0x2060: 'WJ',
+    0x2028: 'LS', 0x2029: 'PS',
+    0x115F: 'HCF', 0x1160: 'HJF', 0x3164: 'HF', 0xFFA0: 'HWHF',
   };
 
-  function hex4(code) {
+  // A hand-written table drifts behind Unicode, so the membership test is a
+  // category test: Cf (format) covers the bidi controls, the zero-width set,
+  // the soft hyphen, the word joiner and the U+E0000 tag block in one class;
+  // Zl/Zp are the line and paragraph separators. The Hangul fillers are Lo
+  // rather than Cf but render as nothing, and are the classic domain-spoofing
+  // glyph, so they are named explicitly.
+  var FORMAT_RE = /[\p{Cf}\p{Zl}\p{Zp}]/u;
+  var HANGUL_FILLERS = [0x115F, 0x1160, 0x3164, 0xFFA0];
+
+  function hex(code) {
     var s = code.toString(16).toUpperCase();
     while (s.length < 4) s = '0' + s;
     return s;
@@ -88,26 +101,66 @@
   }
 
   /**
+   * Classify one code point, or return null when it is ordinary text. Script
+   * characters are never classified — a domain legitimately publishing Arabic
+   * or Hebrew reorders correctly on its own and needs no intervention.
+   */
+  function classify(code) {
+    if (BIDI_NAMES[code]) return { name: BIDI_NAMES[code], hygiene: 'bidi-override' };
+    if (isControl(code)) return { name: 'U+' + hex(code), hygiene: 'control-char' };
+    // A line or paragraph separator breaks the structure of a rendered value,
+    // which is a control problem rather than a width problem.
+    if (code === 0x2028 || code === 0x2029) {
+      return { name: INVISIBLE_NAMES[code], hygiene: 'control-char' };
+    }
+    if (INVISIBLE_NAMES[code] || HANGUL_FILLERS.indexOf(code) !== -1
+        || FORMAT_RE.test(String.fromCodePoint(code))) {
+      return { name: INVISIBLE_NAMES[code] || 'U+' + hex(code), hygiene: 'zero-width' };
+    }
+    return null;
+  }
+
+  /**
    * Replace lone surrogates with U+FFFD. `JSON.parse` on a DoH response can
    * produce them, and so can the raw-chunk fallback in js/dns.js; normalizing
    * here means both paths render the same string.
+   *
+   * Written as an index walk rather than a regex on purpose: a regex needs a
+   * lookbehind to spot a lone LOW surrogate, and a consuming alternative
+   * silently skips every second one in a run (`\uDC00\uDC00` left the second
+   * intact). Lookbehind is also newer than the browsers this file supports.
+   * Well-formed pairs — every emoji and every other astral character — are
+   * copied through untouched.
    */
   function normalize(value) {
-    return String(value === undefined || value === null ? '' : value)
-      .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '�')
-      .replace(/(^|[^\uD800-\uDBFF])([\uDC00-\uDFFF])/g, function (m, before) {
-        return before + '�';
-      });
+    var str = String(value === undefined || value === null ? '' : value);
+    var out = '';
+    for (var i = 0; i < str.length; i++) {
+      var code = str.charCodeAt(i);
+      if (code >= 0xD800 && code <= 0xDBFF) {
+        var next = str.charCodeAt(i + 1);
+        if (next >= 0xDC00 && next <= 0xDFFF) { out += str[i] + str[i + 1]; i++; }
+        else out += '�';
+      } else if (code >= 0xDC00 && code <= 0xDFFF) {
+        out += '�';
+      } else {
+        out += str[i];
+      }
+    }
+    return out;
   }
 
   /**
    * Split a value into runs of ordinary text and invisible characters that
-   * need a sentinel. Returns [{ kind: 'text'|'sentinel', text, hygiene }].
-   * Script characters are never touched — a domain legitimately publishing
-   * Arabic or Hebrew reorders correctly on its own and needs no intervention.
+   * need a sentinel. Returns [{ kind: 'text'|'sentinel'|'noted', text, hygiene }].
    */
   function segment(value) {
-    var str = normalize(value);
+    var raw = String(value === undefined || value === null ? '' : value);
+    var str = normalize(raw);
+    // Only report a lone surrogate when WE substituted one. A record that
+    // published U+FFFD itself is not malformed UTF-8, and saying so would be a
+    // false positive.
+    var substituted = str !== raw;
     var out = [];
     var buffer = '';
 
@@ -115,29 +168,34 @@
       if (buffer) { out.push({ kind: 'text', text: buffer }); buffer = ''; }
     }
 
-    for (var i = 0; i < str.length; i++) {
-      var ch = str[i];
-      var code = str.charCodeAt(i);
-      var name = null;
-      var hygiene = null;
-
-      if (BIDI_NAMES[code]) { name = BIDI_NAMES[code]; hygiene = 'bidi-override'; }
-      else if (ZERO_WIDTH_NAMES[code]) { name = ZERO_WIDTH_NAMES[code]; hygiene = 'zero-width'; }
-      else if (isControl(code)) { name = 'U+' + hex4(code); hygiene = 'control-char'; }
-      else if (code === 0xFFFD) { hygiene = 'lone-surrogate'; }
-
-      if (name) {
+    // Iterating the string yields whole code points, so an astral character is
+    // classified once rather than as two surrogate halves.
+    var chars = Array.from(str);
+    for (var i = 0; i < chars.length; i++) {
+      var ch = chars[i];
+      var found = classify(ch.codePointAt(0));
+      if (found) {
         flush();
-        out.push({ kind: 'sentinel', text: '‹' + name + '›', hygiene: hygiene });
+        out.push({ kind: 'sentinel', text: '‹' + found.name + '›', hygiene: found.hygiene });
       } else {
         buffer += ch;
-        // U+FFFD is a visible character already, so it is recorded as a
-        // hygiene observation without a sentinel standing in for it.
-        if (hygiene) out.push({ kind: 'noted', hygiene: hygiene });
       }
     }
     flush();
+    if (substituted) out.push({ kind: 'noted', hygiene: 'lone-surrogate' });
     return out;
+  }
+
+  /**
+   * The value with every sentinel substituted, as a plain string. Used where
+   * the destination is an attribute rather than a text node — a tooltip is
+   * still displayed output, so an override inside one reorders exactly as it
+   * would in a cell.
+   */
+  function sentinelText(value) {
+    return segment(value).map(function (part) {
+      return part.kind === 'noted' ? '' : part.text;
+    }).join('');
   }
 
   /**
@@ -151,7 +209,9 @@
     segment(value).forEach(function (part) {
       if (part.hygiene && seen.indexOf(part.hygiene) === -1) seen.push(part.hygiene);
     });
-    if (/(^|\.)xn--/i.test(String(value || ''))) {
+    // Anywhere in the value, not just at a label boundary: an `include:` host
+    // is the position that matters and it is never at the start.
+    if (/(^|[^a-z0-9])xn--/i.test(String(value || ''))) {
       if (seen.indexOf('punycode') === -1) seen.push('punycode');
     }
     return seen;
@@ -222,17 +282,26 @@
         }
         if (key === 'textContent') { node.textContent = normalize(value); return; }
         if (key === 'className') { node.setAttribute('class', String(value)); return; }
-        if (key === 'title') { node.setAttribute('title', normalize(value)); return; }
+        // `title` and `data-tip` are painted by the browser (the latter via
+        // `content: attr(data-tip)` in css/style.css), so they are displayed
+        // output and get the same sentinel substitution a cell does. Internal
+        // values contain no invisible characters, so this is a no-op for them.
+        if (key === 'title') { node.setAttribute('title', sentinelText(value)); return; }
         if (key === 'dataset') {
           Object.keys(value).forEach(function (d) {
             if (value[d] === null || value[d] === undefined) return;
-            node.dataset[d] = String(value[d]);
+            node.dataset[d] = sentinelText(value[d]);
           });
           return;
         }
         if (key === 'style') {
           // Style values are literals from this codebase, never DNS-derived.
-          if (typeof value === 'string') node.setAttribute('style', value);
+          // Cheap guard so that stays true by construction rather than by
+          // reviewing every call site.
+          if (typeof value === 'string') {
+            if (/[<>"']|url\s*\(|expression/i.test(value)) refuse('style value is not a literal');
+            node.setAttribute('style', value);
+          }
           else Object.keys(value).forEach(function (prop) { node.style.setProperty(prop, String(value[prop])); });
           return;
         }
@@ -242,8 +311,14 @@
           if (/^https:\/\//i.test(String(value))) node.setAttribute('href', String(value));
           return;
         }
+        if (key === 'src') {
+          // Same rule as href. Nothing passes DNS data to src today; the
+          // asymmetry would be an invitation.
+          if (/^https:\/\//i.test(String(value))) node.setAttribute('src', String(value));
+          return;
+        }
         if (!attrAllowed(key)) refuse('attribute "' + key + '" is not on the allowlist');
-        node.setAttribute(key, normalize(value));
+        node.setAttribute(key, sentinelText(value));
       });
 
       appendAll(node, children);
@@ -286,7 +361,9 @@
         wrap.appendChild(el('button', {
           className: 'rv-more',
           type: 'button',
-          dataset: { rvMore: '1' },
+          // Length of the value as published, so the label stays stable no
+          // matter how many sentinels the remainder contains.
+          dataset: { rvMore: '1', rvCount: String(tail.length) },
         }, t('render.showMore', String(tail.length))));
       }
 
@@ -329,7 +406,7 @@
       var sep = o.sep === undefined ? 'br' : o.sep;
       items.slice(0, cap).forEach(function (item, i) {
         if (i) out.appendChild(sep === 'br' ? el('br') : text(sep));
-        out.appendChild(value(item, { max: o.max }));
+        out.appendChild(value(item, { max: o.max, none: o.none }));
       });
 
       if (items.length > cap) {
@@ -365,6 +442,7 @@
     api.text = text;
     api.rich = rich;
     api.value = value;
+    api.sentinelText = sentinelText;
     api.list = list;
     api.host = host;
     api.hygieneNote = hygieneNote;
@@ -381,6 +459,7 @@
   R.for = function (ownerDoc) { return factory(function () { return ownerDoc; }); };
 
   // Exposed so js/app.js and the tests share one definition of each rule.
+  R.sentinelText = sentinelText;
   R.hygiene = hygiene;
   R.hygieneOf = hygieneOf;
   R.segment = segment;

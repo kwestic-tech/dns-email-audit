@@ -117,7 +117,7 @@
     "hygieneTitle": "Higiena rekordu",
     "hygiene": {
       "bidiOverride": "Dwukierunkowe znaki sterujące, które mogą wizualnie odwrócić nazwę hosta",
-      "zeroWidth": "Znaki o zerowej szerokości, niewidoczne podczas wyświetlania",
+      "zeroWidth": "Znaki niewidoczne lub o zerowej szerokości, które nie są wyświetlane",
       "controlChar": "Znaki sterujące",
       "loneSurrogate": "Nieprawidłowy UTF-8, wyświetlany jako U+FFFD",
       "punycode": "Nazwa Punycode (xn--), wyświetlana dokładnie tak, jak opublikowano"
