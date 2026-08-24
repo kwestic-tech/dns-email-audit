@@ -119,9 +119,11 @@ at `v0.2.2` is identical here, verified by diffing `node tools/backtest.mjs
   so a long session auditing several batches retained every answer it had ever
   seen. It is now capped at 4,096 entries with least-recently-used eviction.
 
-- **`README.md` claimed 174 assertions.** `CONTRIBUTING.md` gains a
-  release-checklist line so the figure is read from a test run at each cut
-  rather than typed from memory.
+- **`README.md` claimed 174 assertions.** `CONTRIBUTING.md` gains two
+  release-checklist entries: read the figure out of a test run at each cut
+  rather than typing it from memory, and re-check `CHANGELOG.md`, the pull
+  request description and `README.md` on every push to an open pull request —
+  adding a commit updates none of them, and nothing fails when they go stale.
 
 ### Security
 
