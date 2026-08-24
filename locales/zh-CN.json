@@ -120,7 +120,8 @@
       "zeroWidth": "不可见字符或零宽字符，不会被渲染",
       "controlChar": "控制字符",
       "loneSurrogate": "无效的 UTF-8，显示为 U+FFFD",
-      "punycode": "Punycode (xn--) 名称，按发布原样显示"
+      "punycode": "Punycode (xn--) 名称，按发布原样显示",
+      "formulaLeading": "以电子表格会作为公式执行的字符开头；已在 CSV 导出中中和"
     }
   },
   "showme": {

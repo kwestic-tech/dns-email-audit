@@ -120,7 +120,8 @@
       "zeroWidth": "Caratteri invisibili o a larghezza zero, che non vengono visualizzati",
       "controlChar": "Caratteri di controllo",
       "loneSurrogate": "UTF-8 non valido, mostrato come U+FFFD",
-      "punycode": "Nome Punycode (xn--), mostrato esattamente come pubblicato"
+      "punycode": "Nome Punycode (xn--), mostrato esattamente come pubblicato",
+      "formulaLeading": "Inizia con un carattere che un foglio di calcolo esegue come formula; neutralizzato nell'esportazione CSV"
     }
   },
   "showme": {

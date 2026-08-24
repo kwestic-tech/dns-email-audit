@@ -280,7 +280,7 @@ JSON files from disk, so translated interfaces require HTTP.
 | --- | --- |
 | `npm start` | Start the dependency-free development server on port 8080. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Run locale validation plus 814 parser, protocol, scoring, rendering, export and CSP assertions. |
+| `npm test` | Run locale validation plus 972 parser, protocol, scoring, rendering, export and CSP assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `js/locales-en.js` after editing `locales/en.json`. |
@@ -380,12 +380,23 @@ keeping audit logic independent from translation work.
   DOM and a static scan in `npm test`. Translated rich text is tokenized
   against a twelve-tag allowlist, and anything outside it is rendered as
   literal text rather than markup.
-- Records that render deceptively are shown, not hidden. Bidirectional
-  overrides, zero-width and control characters are replaced in the display by
-  a visible marker naming the code point (`‹RLO›`, `‹ZWSP›`, `‹U+0007›`), so
-  the character cannot reorder the text and the reader can still see that it
-  was published. Exports keep the published bytes and name what was found in a
-  separate column.
+- Records that render deceptively are shown, not hidden. Every character
+  Unicode marks `Default_Ignorable` — bidirectional overrides, zero-width and
+  invisible characters — plus C0/C1 controls is replaced in the display by a
+  visible marker naming the code point (`‹RLO›`, `‹ZWSP›`, `‹U+0007›`), so the
+  character cannot reorder the text and the reader can still see that it was
+  published. Variation selectors and script-format characters are exempt, so
+  emoji and Arabic, Syriac and Egyptian text render normally. The HTML report
+  and the CSV keep the published bytes and name what was found in a separate
+  `Record Hygiene` column.
+- **The CSV export is spreadsheet-safe.** A domain controls its own record text,
+  and a cell beginning `=`, `+`, `-`, `@`, or a tab/newline is executed as a
+  formula when a CSV is opened in Excel or Google Sheets — RFC 4180 quoting does
+  not prevent this. Any such cell is prefixed with an apostrophe, which
+  spreadsheets treat as literal text and do not display, and the row is marked
+  `formula-leading` in the `Record Hygiene` column. If you need the bytes
+  exactly as published, read them from the HTML report or the results table
+  rather than the CSV.
 - Uploaded domain files are processed locally and limited to 1 MB.
 - Generated HTML reports are self-contained and contain no executable scripts.
 

@@ -41,7 +41,10 @@ This is a fully client-side, no-backend application. In-scope examples:
   in `js/i18n.js`
 - A malformed record that renders deceptively — a bidirectional override,
   zero-width or control character that reaches the display without its
-  sentinel marker, in the interface or in either export
+  sentinel marker, in the interface or in either export, including inside an
+  issue message, a tooltip or any other interpolated text
+- A CSV cell that a spreadsheet executes as a formula despite the
+  neutralization in the export path
 - Content-Security-Policy bypasses
 - Any path that causes the app to send data somewhere other than
   Cloudflare's DoH endpoint

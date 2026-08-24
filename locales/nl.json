@@ -120,7 +120,8 @@
       "zeroWidth": "Onzichtbare tekens of tekens zonder breedte, die niet worden weergegeven",
       "controlChar": "Stuurtekens",
       "loneSurrogate": "Ongeldige UTF-8, weergegeven als U+FFFD",
-      "punycode": "Punycode-naam (xn--), precies weergegeven zoals gepubliceerd"
+      "punycode": "Punycode-naam (xn--), precies weergegeven zoals gepubliceerd",
+      "formulaLeading": "Begint met een teken dat een spreadsheet als formule uitvoert; geneutraliseerd in de CSV-export"
     }
   },
   "showme": {

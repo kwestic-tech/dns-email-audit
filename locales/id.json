@@ -120,7 +120,8 @@
       "zeroWidth": "Karakter tak terlihat atau tanpa lebar, yang tidak ditampilkan",
       "controlChar": "Karakter kontrol",
       "loneSurrogate": "UTF-8 tidak valid, ditampilkan sebagai U+FFFD",
-      "punycode": "Nama Punycode (xn--), ditampilkan persis seperti yang dipublikasikan"
+      "punycode": "Nama Punycode (xn--), ditampilkan persis seperti yang dipublikasikan",
+      "formulaLeading": "Diawali karakter yang dijalankan lembar sebar sebagai rumus; dinetralkan pada ekspor CSV"
     }
   },
   "showme": {

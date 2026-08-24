@@ -120,7 +120,8 @@
       "zeroWidth": "Unsichtbare Zeichen oder Zeichen ohne Breite, die nicht dargestellt werden",
       "controlChar": "Steuerzeichen",
       "loneSurrogate": "Ungültiges UTF-8, dargestellt als U+FFFD",
-      "punycode": "Punycode-Name (xn--), genau wie veröffentlicht dargestellt"
+      "punycode": "Punycode-Name (xn--), genau wie veröffentlicht dargestellt",
+      "formulaLeading": "Beginnt mit einem Zeichen, das eine Tabellenkalkulation als Formel ausführt; im CSV-Export neutralisiert"
     }
   },
   "showme": {

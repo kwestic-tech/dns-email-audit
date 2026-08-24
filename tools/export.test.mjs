@@ -342,6 +342,133 @@ eq('quotes in a value are doubled, not dropped',
   APP.toCsvText([['a"b']]), '"a""b"');
 eq('the CSV has one line per row', csvText.split('\n').length, 2);
 
+/* ── 8. Codex review 1 — CSV formula injection ───────────────────────── */
+section('8. Formula-leading cells are neutralized in the CSV');
+
+// RFC 4180 quoting does not stop this: the quotes are stripped before the cell
+// is evaluated, so a domain that publishes `=cmd|...` gets a live formula in
+// anyone's spreadsheet. The .csv extension and the "Export CSV" button invite
+// exactly that, so spreadsheet safety wins over byte fidelity here.
+const cellOf = (value) => {
+  const line = APP.toCsvText([[value]]);
+  return line.slice(1, -1).replace(/""/g, '"');
+};
+
+const FORMULA_LEADS = {
+  'equals': '=1+1',
+  'plus': '+1+1',
+  'minus': '-1+1',
+  'at': '@SUM(A1)',
+  'tab': '\t=1+1',
+  'carriage return': '\r=1+1',
+  'line feed': '\n=1+1',
+  'leading space then equals': '   =1+1',
+  'leading quote then equals': '"=1+1',
+  'full-width equals': '＝1+1',
+  'full-width plus': '＋1',
+  'full-width at': '＠1',
+  'the DDE payload': '=cmd|\' /C calc\'!A0',
+};
+for (const [name, value] of Object.entries(FORMULA_LEADS)) {
+  const cell = cellOf(value);
+  eq(`${name}: is neutralized`, cell.charAt(0), "'");
+  eq(`${name}: the original value is still readable`, cell.slice(1), value);
+  eq(`${name}: no longer starts with a formula character`,
+    R.isFormulaLeading(cell.slice(1)) && !cell.startsWith("'"), false);
+}
+
+// Ordinary cells — including ones with embedded formula characters — must be
+// byte-identical. Over-neutralizing would corrupt every SPF record.
+const UNTOUCHED = [
+  'v=spf1 include:_spf.example.com -all',
+  'v=DMARC1; p=reject; rua=mailto:a@b.example',
+  'example.com', 'A++', '0', '10 mx.example.com',
+  '0 issue "ca.example"', 'a=b', 'x+y', 'name@example.com',
+  'Yes', 'No', '—', 'Ärger', '日本語のテキスト',
+];
+for (const value of UNTOUCHED) {
+  eq(`unchanged: ${JSON.stringify(value)}`, cellOf(value), value);
+}
+
+// RFC 4180 transport still works after neutralization.
+eq('a quote is still doubled', APP.toCsvText([['a"b']]), '"a""b"');
+eq('a comma still round-trips', cellOf('a,b'), 'a,b');
+eq('an embedded newline still round-trips', cellOf('a\nb'), 'a\nb');
+eq('a neutralized cell is still quoted',
+  APP.toCsvText([['=1']]).charAt(0), '"');
+
+// Column alignment must survive the new column and the neutralization.
+const formulaRow = {
+  domain: 'evil.example', ns: [], mx: [], verifications: [],
+  spfRecord: '=cmd|\' /C calc\'!A0', dmarcRecord: '',
+  issues: [], suggestions: [],
+  spfStatus: { status: 'permerror' },
+  dmarcStatus: { status: 'missing', policy: '', pct: 100, adkim: 'r', aspf: 'r', rua: false, ruf: false, testMode: false, sp: '', np: '' },
+  dkimStatus: { found: false, confidence: 'checked', selectors: [], missingSelectors: [] },
+  dnsProvider: 'Cloudflare', emailProvider: '@none', advanced: null,
+  score: { grade: 'F', pts: 0 },
+};
+const fRows = APP.buildCsvRows([formulaRow]);
+const fText = APP.toCsvText(fRows);
+const fLines = fText.split('\n');
+eq('header and data column counts match',
+  fLines[0].split('","').length, fLines[1].split('","').length);
+eq('the row array still holds the published bytes',
+  fRows[1][7], '=cmd|\' /C calc\'!A0');
+eq('the serialized cell is neutralized',
+  fLines[1].split('","')[7].charAt(0), "'");
+eq('the hygiene column reports it',
+  fRows[1][fRows[1].length - 1].includes('formula-leading'), true);
+eq('a clean row reports no formula hygiene',
+  APP.buildCsvRows([Object.assign({}, formulaRow, { spfRecord: 'v=spf1 -all' })])[1].slice(-1)[0],
+  '');
+
+/* ── 9. Codex review 1 — issue messages in the exported report ───────── */
+section('9. Sentinelled issue messages survive into the HTML report');
+
+const issueRow = {
+  domain: 'evil.example', ns: [], mx: ['mx.example'], verifications: [],
+  spfRecord: 'v=spf1 -all', dmarcRecord: 'v=DMARC1; p=none',
+  issues: [{ key: 'dmarc-rua-invalid', sev: 'warn', args: ['mailto:x@safe.‮evil​z'] }],
+  suggestions: [],
+  spfStatus: { status: 'permerror', cls: 'crit' },
+  dmarcStatus: { status: 'missing', cls: 'crit', policy: '', pct: 100, adkim: 'r', aspf: 'r', rua: false, ruf: false, testMode: false, sp: '', np: '' },
+  dkimStatus: { found: false, confidence: 'checked', selectors: [], missingSelectors: [] },
+  dnsProvider: 'Cloudflare', emailProvider: '@none', hosting: '@unknown',
+  advScore: 0, advanced: null,
+  score: { grade: 'F', pts: 0, max: 100, cls: 'score-f', breakdown: null, unproven: [] },
+};
+const tbody = document.createElement('tbody');
+tbody.id = 'tableBody';
+document.body.appendChild(tbody);
+APP.appendRow(issueRow);
+
+const issueContent = document.createDocumentFragment();
+Array.from(document.getElementById('tableBody').childNodes).forEach(n => issueContent.appendChild(n));
+const issueReport = APP.buildReportDocument({
+  lang: 'en', css: '', title: 'T', generated: 'g', note: 'n', content: issueContent,
+});
+assertInert('a report carrying a hostile issue message', issueReport);
+eq('the exported report carries no raw override', issueReport.includes('‮'), false);
+eq('the exported report carries no raw zero-width', issueReport.includes('​'), false);
+eq('the exported report shows the sentinel', issueReport.includes('‹RLO›'), true);
+
+/* ── 10. Codex review 1 — astral characters through the export ───────── */
+section('10. An astral character at the display cap survives export');
+
+const astral = 'A'.repeat(R.MAX_VALUE_CHARS - 1) + '\u{1F600}' + 'Z';
+const astralReport = APP.buildReportDocument({
+  lang: 'en', css: '', title: 'T', generated: 'g', note: 'n',
+  content: (() => {
+    const f = document.createDocumentFragment();
+    f.appendChild(R.el('div', null, R.value(astral)));
+    return f;
+  })(),
+});
+eq('the emoji survives serialization', astralReport.includes('\u{1F600}'), true);
+eq('no replacement character was introduced', astralReport.includes('�'), false);
+assertInert('a report containing an astral boundary value', astralReport);
+
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);

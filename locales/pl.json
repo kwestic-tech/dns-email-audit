@@ -120,7 +120,8 @@
       "zeroWidth": "Znaki niewidoczne lub o zerowej szerokości, które nie są wyświetlane",
       "controlChar": "Znaki sterujące",
       "loneSurrogate": "Nieprawidłowy UTF-8, wyświetlany jako U+FFFD",
-      "punycode": "Nazwa Punycode (xn--), wyświetlana dokładnie tak, jak opublikowano"
+      "punycode": "Nazwa Punycode (xn--), wyświetlana dokładnie tak, jak opublikowano",
+      "formulaLeading": "Zaczyna się znakiem, który arkusz kalkulacyjny wykonuje jako formułę; zneutralizowany w eksporcie CSV"
     }
   },
   "showme": {

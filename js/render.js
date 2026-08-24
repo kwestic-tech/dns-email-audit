@@ -57,6 +57,13 @@
 
   function refuse(message) { throw new Error('[render] ' + message); }
 
+  // Shared by both style forms. `url(` would fetch, `expression` is legacy IE
+  // script, and quotes or angle brackets mean the value was built rather than
+  // written as a literal.
+  function styleGuard(value) {
+    if (/[<>"']|url\s*\(|expression/i.test(value)) refuse('style value is not a literal');
+  }
+
   /* ── Invisible-character handling (spec §4) ─────────────────────────── */
 
   // Named directional controls. These reorder the text around them, which is
@@ -76,31 +83,53 @@
     0x00AD: 'SHY', 0x2060: 'WJ',
     0x2028: 'LS', 0x2029: 'PS',
     0x115F: 'HCF', 0x1160: 'HJF', 0x3164: 'HF', 0xFFA0: 'HWHF',
+    0x034F: 'CGJ', 0x17B4: 'KIVAQ', 0x17B5: 'KIVAA', 0x180E: 'MVS',
   };
 
-  // A hand-written table drifts behind Unicode, so the membership test is a
-  // category test: Cf (format) covers the bidi controls, the zero-width set,
-  // the soft hyphen, the word joiner and the U+E0000 tag block in one class;
-  // Zl/Zp are the line and paragraph separators. The Hangul fillers are Lo
-  // rather than Cf but render as nothing, and are the classic domain-spoofing
-  // glyph, so they are named explicitly.
-  var FORMAT_RE = /[\p{Cf}\p{Zl}\p{Zp}]/u;
-  var HANGUL_FILLERS = [0x115F, 0x1160, 0x3164, 0xFFA0];
+  // MEMBERSHIP POLICY (spec §4, decided at 1.3 — "security/audit-first").
+  //
+  // `\p{Cf}` was the wrong set in both directions. It is not complete — it
+  // misses U+034F, U+17B4/U+17B5 and U+180B–U+180F, all of which render as
+  // nothing — and it is not safe, because it includes characters that are
+  // genuine running text in their script (Arabic number signs, end-of-ayah
+  // marks, Kaithi and Egyptian format controls).
+  //
+  // `Default_Ignorable_Code_Point` is the property Unicode defines for exactly
+  // this question: characters a conforming renderer may show as nothing. It
+  // covers every member of the old set except the line and paragraph
+  // separators, and — verified against this runtime — it excludes the Arabic,
+  // Syriac, Kaithi and Egyptian script-format characters outright, so those no
+  // longer need an exception list at all.
+  //
+  // Three families ARE default-ignorable but are legitimate content, and are
+  // exempted by range below. Everything else that is default-ignorable gets a
+  // sentinel.
+  var IGNORABLE_RE = /[\p{Default_Ignorable_Code_Point}]/u;
 
-  // Cf is a slightly wider net than this release wants. A handful of its
-  // members are genuine parts of running text in their script — the Arabic
-  // number signs prefix a numeral, the end-of-ayah marks punctuate Qur'anic
-  // text, the Syriac abbreviation mark is an abbreviation mark — and marking
-  // those would break the spec's own promise to "substitute only the
-  // directional control characters and the invisible set, never script
-  // characters". They are excluded by name.
-  var SCRIPT_FORMAT = [
-    0x0600, 0x0601, 0x0602, 0x0603, 0x0604, 0x0605,  // Arabic number signs
-    0x06DD,                                           // Arabic end of ayah
-    0x070F,                                           // Syriac abbreviation mark
-    0x08E2,                                           // Arabic disputed end of ayah
-    0x110BD, 0x110CD,                                 // Kaithi number signs
+  // Zl and Zp are not default-ignorable, but a line or paragraph separator
+  // still breaks the structure of a rendered value, so they are handled as
+  // controls.
+  var SEPARATORS = [0x2028, 0x2029];
+
+  // Exempt: default-ignorable, but meaningful.
+  //   • Variation selectors choose a glyph form — every emoji presentation
+  //     sequence carries one, and marking them would put a sentinel inside
+  //     ordinary emoji.
+  //   • Musical and shorthand format controls are the notation's own layout,
+  //     the same argument that keeps Arabic end-of-ayah unmarked.
+  var EXEMPT_RANGES = [
+    [0xFE00, 0xFE0F],    // variation selectors 1–16
+    [0xE0100, 0xE01EF],  // variation selectors supplement
+    [0x1BCA0, 0x1BCA3],  // shorthand format controls
+    [0x1D173, 0x1D17A],  // musical notation format controls
   ];
+
+  function isExempt(code) {
+    for (var i = 0; i < EXEMPT_RANGES.length; i++) {
+      if (code >= EXEMPT_RANGES[i][0] && code <= EXEMPT_RANGES[i][1]) return true;
+    }
+    return false;
+  }
 
   function hex(code) {
     var s = code.toString(16).toUpperCase();
@@ -125,12 +154,11 @@
     if (isControl(code)) return { name: 'U+' + hex(code), hygiene: 'control-char' };
     // A line or paragraph separator breaks the structure of a rendered value,
     // which is a control problem rather than a width problem.
-    if (code === 0x2028 || code === 0x2029) {
+    if (SEPARATORS.indexOf(code) !== -1) {
       return { name: INVISIBLE_NAMES[code], hygiene: 'control-char' };
     }
-    if (SCRIPT_FORMAT.indexOf(code) !== -1) return null;
-    if (INVISIBLE_NAMES[code] || HANGUL_FILLERS.indexOf(code) !== -1
-        || FORMAT_RE.test(String.fromCodePoint(code))) {
+    if (isExempt(code)) return null;
+    if (IGNORABLE_RE.test(String.fromCodePoint(code))) {
       return { name: INVISIBLE_NAMES[code] || 'U+' + hex(code), hygiene: 'zero-width' };
     }
     return null;
@@ -230,7 +258,22 @@
     if (/(^|[^a-z0-9])xn--/i.test(String(value || ''))) {
       if (seen.indexOf('punycode') === -1) seen.push('punycode');
     }
+    if (isFormulaLeading(value)) {
+      if (seen.indexOf('formula-leading') === -1) seen.push('formula-leading');
+    }
     return seen;
+  }
+
+  /**
+   * True when a spreadsheet would treat this value as a formula rather than
+   * text. Excel and Sheets look past leading whitespace and quoting, so the
+   * test is on the first *effective* character. The full-width forms matter in
+   * CJK spreadsheet locales.
+   */
+  var FORMULA_LEAD_RE = /^[\s'"]*[=+\-@\t\r\n\uFF1D\uFF0B\uFF0D\uFF20]/;
+
+  function isFormulaLeading(value) {
+    return FORMULA_LEAD_RE.test(String(value === undefined || value === null ? '' : value));
   }
 
   /** Hygiene tokens for a whole result row, for the CSV column. */
@@ -312,13 +355,23 @@
         }
         if (key === 'style') {
           // Style values are literals from this codebase, never DNS-derived.
-          // Cheap guard so that stays true by construction rather than by
-          // reviewing every call site.
+          // BOTH forms are guarded: the object branch previously called
+          // setProperty with no validation at all, so the "literals only"
+          // claim was true of the string form only. CSP is not the renderer's
+          // validation mechanism — the exported report carries a different
+          // policy, and R.el exists to make unsafe construction hard by
+          // default.
           if (typeof value === 'string') {
-            if (/[<>"']|url\s*\(|expression/i.test(value)) refuse('style value is not a literal');
+            styleGuard(value);
             node.setAttribute('style', value);
+          } else {
+            Object.keys(value).forEach(function (prop) {
+              if (!/^[a-z][a-z-]*$/.test(prop)) refuse('style property "' + prop + '" is not a plain name');
+              var v = String(value[prop]);
+              styleGuard(v);
+              node.style.setProperty(prop, v);
+            });
           }
-          else Object.keys(value).forEach(function (prop) { node.style.setProperty(prop, String(value[prop])); });
           return;
         }
         if (key === 'href') {
@@ -357,9 +410,18 @@
         return out;
       }
 
+      // Split on CODE POINTS, not UTF-16 indexes. `str.slice(1024)` through an
+      // astral character hands the high surrogate to the head and the low
+      // surrogate to the tail; each is then normalized separately and the
+      // character is destroyed — an emoji at the boundary became "\uFFFD\uFFFD".
+      // The cap and the disclosure count are both in code points, which is also
+      // what "characters" means to the reader.
       var max = o.max || MAX_VALUE_CHARS;
-      var head = str.length > max ? str.slice(0, max) : str;
-      var tail = str.length > max ? str.slice(max) : '';
+      var points = Array.from(str);
+      var over = points.length > max;
+      var head = over ? points.slice(0, max).join('') : str;
+      var tail = over ? points.slice(max).join('') : '';
+      var tailCount = over ? points.length - max : 0;
 
       // unicode-bidi: isolate on the container stops this value reordering its
       // neighbours. It cannot stop an override reordering the value's own
@@ -379,8 +441,8 @@
           type: 'button',
           // Length of the value as published, so the label stays stable no
           // matter how many sentinels the remainder contains.
-          dataset: { rvMore: '1', rvCount: String(tail.length) },
-        }, t('render.showMore', String(tail.length))));
+          dataset: { rvMore: '1', rvCount: String(tailCount) },
+        }, t('render.showMore', String(tailCount))));
       }
 
       out.appendChild(wrap);
@@ -476,6 +538,7 @@
 
   // Exposed so js/app.js and the tests share one definition of each rule.
   R.sentinelText = sentinelText;
+  R.isFormulaLeading = isFormulaLeading;
   R.hygiene = hygiene;
   R.hygieneOf = hygieneOf;
   R.segment = segment;

@@ -120,7 +120,8 @@
       "zeroWidth": "不可視文字またはゼロ幅文字。表示されません",
       "controlChar": "制御文字",
       "loneSurrogate": "不正な UTF-8。U+FFFD として表示されます",
-      "punycode": "Punycode (xn--) 名。公開されているとおりに表示されます"
+      "punycode": "Punycode (xn--) 名。公開されているとおりに表示されます",
+      "formulaLeading": "表計算ソフトが数式として実行する文字で始まります。CSV エクスポートでは無効化されます"
     }
   },
   "showme": {

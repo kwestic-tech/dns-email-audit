@@ -120,7 +120,8 @@
       "zeroWidth": "不可見字元或零寬字元，不會被算繪",
       "controlChar": "控制字元",
       "loneSurrogate": "無效的 UTF-8，顯示為 U+FFFD",
-      "punycode": "Punycode (xn--) 名稱，按發布原樣顯示"
+      "punycode": "Punycode (xn--) 名稱，按發布原樣顯示",
+      "formulaLeading": "以試算表會當作公式執行的字元開頭；已在 CSV 匯出中中和"
     }
   },
   "showme": {

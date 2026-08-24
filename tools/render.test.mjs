@@ -424,6 +424,203 @@ eq('an ordinary style literal is accepted',
   R.el('div', { style: 'width:50%;color:var(--ok);' }).getAttribute('style'),
   'width:50%;color:var(--ok);');
 
+/* ── 12. Codex review 1 — DNS-derived interpolation arguments ────────── */
+section('12. DNS-derived interpolation arguments are sentinelled');
+
+// The record itself was already sentinelled, but the issue MESSAGE beside it
+// interpolated the same DNS value straight into the translated sentence, so an
+// override stayed live in the most important explanatory text on the page.
+const hostileIssue = {
+  key: 'dmarc-rua-invalid', sev: 'warn',
+  args: ['mailto:x@safe.‮evil​z'],
+};
+
+const shown = APP.issueMessage(hostileIssue);
+eq('the message carries no raw override', shown.includes('‮'), false);
+eq('the message carries no raw zero-width', shown.includes('​'), false);
+eq('the override is sentinelled', shown.includes('‹RLO›'), true);
+eq('the zero-width is sentinelled', shown.includes('‹ZWSP›'), true);
+// The translator's own sentence must survive intact — substitution is applied
+// to the ARGUMENT before translation, not to the finished string.
+eq('the surrounding translation still renders',
+  shown.includes('DMARC') && shown.length > 40, true);
+
+// An ordinary argument must be untouched.
+eq('an ordinary argument is unchanged',
+  APP.issueMessage({ key: 'dmarc-rua-invalid', sev: 'warn', args: ['mailto:ok@example.com'] })
+    .includes('mailto:ok@example.com'), true);
+
+// tDns is the boundary helper the other argument-bearing call sites use.
+eq('tDns substitutes in an argument',
+  APP.tDns('dmarc.inheritedFrom', 'evil‮.example').includes('‹RLO›'), true);
+eq('tDns leaves an ordinary argument alone',
+  APP.tDns('dmarc.inheritedFrom', 'parent.example').includes('parent.example'), true);
+
+// End to end through a real row.
+const hostileRow = {
+  domain: 'evil.example', ns: [], mx: ['mx.example'], verifications: [],
+  spfRecord: 'v=spf1 -all', dmarcRecord: 'v=DMARC1; p=none',
+  issues: [hostileIssue], suggestions: [],
+  spfStatus: { status: 'permerror', cls: 'crit' },
+  dmarcStatus: { status: 'missing', cls: 'crit', policy: '', pct: 100, adkim: 'r', aspf: 'r', rua: false, ruf: false, testMode: false, sp: '', np: '' },
+  dkimStatus: { found: false, confidence: 'checked', selectors: [], missingSelectors: [] },
+  dnsProvider: 'Cloudflare', emailProvider: '@none', hosting: '@unknown',
+  advScore: 0, advanced: null,
+  score: { grade: 'F', pts: 0, max: 100, cls: 'score-f', breakdown: null, unproven: [] },
+};
+const rowDoc = document.createElement('tbody');
+rowDoc.id = 'tableBody';
+document.body.appendChild(rowDoc);
+APP.appendRow(hostileRow);
+const rowText = textOf(document.getElementById('tableBody'));
+eq('the rendered row contains no raw override', rowText.includes('‮'), false);
+eq('the rendered row shows the sentinel', rowText.includes('‹RLO›'), true);
+
+/* ── 13. Codex review 1 — the display cap splits code points ─────────── */
+section('13. The display cap never splits an astral character');
+
+const CAP = R.MAX_VALUE_CHARS;
+
+// The rendered value's own text, without the disclosure control's label —
+// `textContent` would otherwise append "Show N more characters" to every
+// truncated value and no comparison against the input could ever hold.
+const valueText = (node) => {
+  elements(node).filter(e => e.classList.contains('rv-more')).forEach(e => e.remove());
+  return textOf(node);
+};
+
+// A LONE surrogate, not either half of a valid pair. `/[\uD800-\uDFFF]/`
+// matches both halves of every emoji, so it cannot express this.
+const hasLoneSurrogate = (str) => {
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    if (c >= 0xD800 && c <= 0xDBFF) {
+      const n = str.charCodeAt(i + 1);
+      if (!(n >= 0xDC00 && n <= 0xDFFF)) return true;
+      i++;
+    } else if (c >= 0xDC00 && c <= 0xDFFF) {
+      return true;
+    }
+  }
+  return false;
+};
+
+// Guard the guard: it must accept valid pairs and reject broken ones.
+eq('hasLoneSurrogate accepts a valid astral pair', hasLoneSurrogate('a\u{1F600}b'), false);
+eq('hasLoneSurrogate rejects a lone high surrogate', hasLoneSurrogate('a\uD800b'), true);
+eq('hasLoneSurrogate rejects a lone low surrogate', hasLoneSurrogate('a\uDC00b'), true);
+const astralCases = {
+  'just before the boundary': 'A'.repeat(CAP - 1) + '\u{1F600}' + 'Z'.repeat(10),
+  'straddling the boundary': 'A'.repeat(CAP - 1) + '\u{1F600}' + 'Z',
+  'just after the boundary': 'A'.repeat(CAP) + '\u{1F600}' + 'Z',
+  'consecutive emoji at the boundary':
+    'A'.repeat(CAP - 2) + '\u{1F600}\u{1F601}\u{1F602}' + 'Z',
+  'all emoji': '\u{1F600}'.repeat(CAP + 20),
+};
+for (const [name, input] of Object.entries(astralCases)) {
+  const out = valueText(R.value(input));
+  eq(`${name}: no U+FFFD appears`, out.includes('�'), false);
+  eq(`${name}: no lone surrogate survives`, hasLoneSurrogate(out), false);
+  // Disclosure recombines to exactly the input: head + hidden remainder.
+  eq(`${name}: head plus remainder is the whole value`, out, input);
+}
+
+// The disclosure count is in code points, matching what the label calls
+// characters — not UTF-16 units, which would double-count every emoji.
+const counted = R.value('\u{1F600}'.repeat(CAP + 7));
+const moreBtn = elements(counted).find(e => e.classList.contains('rv-more'));
+eq('the disclosure count is in code points', moreBtn.dataset.rvCount, '7');
+
+/* ── 14. Codex review 1 — the invisible-character policy ─────────────── */
+section('14. Default_Ignorable is the membership test');
+
+// Previously missed by the \p{Cf} approximation. All render as nothing.
+const nowCovered = {
+  'U+034F combining grapheme joiner': '͏',
+  'U+17B4 khmer vowel inherent aq': '឴',
+  'U+17B5 khmer vowel inherent aa': '឵',
+  'U+180B mongolian free variation 1': '᠋',
+  'U+180D mongolian free variation 3': '᠍',
+};
+for (const [name, ch] of Object.entries(nowCovered)) {
+  eq(`${name} is sentinelled`, textOf(R.value('a' + ch + 'b')).includes('‹'), true);
+  eq(`${name} is reported as hygiene`, R.hygiene('a' + ch + 'b'), ['zero-width']);
+  eq(`${name} does not survive raw`, textOf(R.value('a' + ch + 'b')).includes(ch), false);
+}
+
+// Previously over-marked by \p{Cf}: these are genuine running text in their
+// script and must stay unmarked. They are not Default_Ignorable at all.
+const scriptContent = {
+  'U+0600 arabic number sign': '؀',
+  'U+0605 arabic number mark above': '؅',
+  'U+06DD arabic end of ayah': '۝',
+  'U+070F syriac abbreviation mark': '܏',
+  'U+0890 arabic pound mark': '࢐',
+  'U+0891 arabic piastre mark': '࢑',
+  'U+110BD kaithi number sign': '\u{110BD}',
+  'U+13430 egyptian format control': '\u{13430}',
+};
+for (const [name, ch] of Object.entries(scriptContent)) {
+  eq(`${name} is left alone`, textOf(R.value('a' + ch + 'b')).includes('‹'), false);
+  eq(`${name} produces no hygiene token`, R.hygiene('a' + ch + 'b'), []);
+}
+
+// Exempted by range: default-ignorable, but meaningful content.
+const exempted = {
+  'U+FE0F variation selector-16': '️',
+  'U+FE00 variation selector-1': '︀',
+  'U+E0100 variation selector supplement': '\u{E0100}',
+  'U+1D173 musical format control': '\u{1D173}',
+  'U+1BCA0 shorthand format control': '\u{1BCA0}',
+};
+for (const [name, ch] of Object.entries(exempted)) {
+  eq(`${name} is exempt`, textOf(R.value('a' + ch + 'b')).includes('‹'), false);
+  eq(`${name} produces no hygiene token`, R.hygiene('a' + ch + 'b'), []);
+}
+
+// An emoji presentation sequence must survive whole — this is why the
+// variation selectors are exempt.
+eq('an emoji presentation sequence is untouched',
+  textOf(R.value('warning ⚠️ here')), 'warning ⚠️ here');
+eq('a ZWJ emoji family is still marked, by prior decision',
+  textOf(R.value('\u{1F468}‍\u{1F469}‍\u{1F467}')).includes('‹ZWJ›'), true);
+
+// The tag block stays covered.
+eq('a language tag character is sentinelled',
+  textOf(R.value('a\u{E0001}b')).includes('‹'), true);
+
+/* ── 15. Codex review 1 — object-form styles ─────────────────────────── */
+section('15. Object-form styles get the same guard as string form');
+
+ok('object form rejects url()',
+  threw(() => R.el('div', { style: { background: 'url(https://evil.example/pixel)' } })));
+ok('object form rejects URL() in any case',
+  threw(() => R.el('div', { style: { background: 'URL(https://evil.example/x)' } })));
+ok('object form rejects expression()',
+  threw(() => R.el('div', { style: { width: 'expression(alert(1))' } })));
+ok('object form rejects a quote breakout',
+  threw(() => R.el('div', { style: { width: '1px" onload="alert(1)' } })));
+ok('object form rejects markup characters',
+  threw(() => R.el('div', { style: { width: '<script>' } })));
+ok('object form rejects a non-plain property name',
+  threw(() => R.el('div', { style: { 'background:url(x);color': 'red' } })));
+ok('object form rejects a custom property',
+  threw(() => R.el('div', { style: { '--x': 'url(https://evil.example)' } })));
+
+// Everything legitimately used today must still work.
+eq('display:none still works',
+  R.el('span', { style: { display: 'none' } }).style.getPropertyValue('display'), 'none');
+eq('a multi-property literal still works',
+  R.el('div', { style: { width: '50%', background: 'var(--ok)' } }).style.cssText,
+  'width:50%;background:var(--ok)');
+eq('the string form still works',
+  R.el('div', { style: 'width:50%;color:var(--ok);' }).getAttribute('style'),
+  'width:50%;color:var(--ok);');
+
+// The truncated-value remainder uses object form, so this is a live path.
+eq('the hidden remainder is still built',
+  elements(R.value('A'.repeat(2000))).some(e => e.classList.contains('rv-rest')), true);
+
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);

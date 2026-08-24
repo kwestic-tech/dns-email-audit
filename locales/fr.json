@@ -120,7 +120,8 @@
       "zeroWidth": "Caractères invisibles ou de largeur nulle, qui ne s'affichent pas",
       "controlChar": "Caractères de contrôle",
       "loneSurrogate": "UTF-8 non valide, affiché sous la forme U+FFFD",
-      "punycode": "Nom Punycode (xn--), affiché exactement tel qu'il est publié"
+      "punycode": "Nom Punycode (xn--), affiché exactement tel qu'il est publié",
+      "formulaLeading": "Commence par un caractère qu'un tableur exécute comme une formule ; neutralisé dans l'export CSV"
     }
   },
   "showme": {

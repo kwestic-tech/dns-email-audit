@@ -72,7 +72,7 @@
     // t=y (RFC 9989): name the published policy AND the fact that it is not
     // being applied. Showing plain "none" here would hide the operator's
     // intent; showing plain "reject" would overstate their protection.
-    if (dmarcStatus.testMode && dmarcStatus.policy) return t('dmarc.testMode', dmarcStatus.policy);
+    if (dmarcStatus.testMode && dmarcStatus.policy) return tDns('dmarc.testMode', dmarcStatus.policy);
     if (dmarcStatus.status === 'warn') return t('dmarc.none');
     var suffix = '';
     if (dmarcStatus.pct < 100) suffix = ' ' + t('dmarc.pctSuffix', dmarcStatus.pct);
@@ -138,9 +138,39 @@
     ]);
   }
 
-  function issueMessage(issue) {
-    var args = issue.args ? issue.args.slice() : [];
-    if (issue.noteKey) args = [t.apply(null, ['dkim.' + issue.noteKey].concat(issue.noteArgs || []))];
+  /* ── The DNS/locale boundary ─────────────────────────────────────────
+     Sentinel substitution belongs on the DNS-derived ARGUMENTS, before
+     translation — not on the finished sentence. The translator's own text may
+     legitimately use formatting characters; the interpolated argument is the
+     untrusted half. Applying it to the completed string would rewrite both.
+
+     Without this, an override inside an issue argument stayed live in the most
+     important explanatory text on the page: the record itself rendered as
+     `‹RLO›` while the message beside it still reordered.
+     ──────────────────────────────────────────────────────────────────── */
+
+  function dnsArgs(args) {
+    return (args || []).map(function (a) {
+      return typeof a === 'string' ? R.sentinelText(a) : a;
+    });
+  }
+
+  /** `t()` for messages whose arguments come from DNS. */
+  function tDns(key) {
+    return t.apply(null, [key].concat(dnsArgs(Array.prototype.slice.call(arguments, 1))));
+  }
+
+  /**
+   * `sentinel` defaults to true (the interface). The CSV passes false: its
+   * data columns carry the published bytes, and the `record_hygiene` column
+   * is what warns the reader (OQ-SEC-11).
+   */
+  function issueMessage(issue, sentinel) {
+    var safe = sentinel === false ? function (x) { return x || []; } : dnsArgs;
+    var args = issue.args ? safe(issue.args.slice()) : [];
+    if (issue.noteKey) {
+      args = [t.apply(null, ['dkim.' + issue.noteKey].concat(safe(issue.noteArgs || [])))];
+    }
     return t.apply(null, ['issue.' + issue.key + '.msg'].concat(args));
   }
 
@@ -430,7 +460,8 @@
         R.el('td', { className: 'domain-cell' }, R.host(r.domain)),
         R.el('td', { colspan: '8' }, [
           badge(t(r.cancelled ? 'badge.cancelled' : 'badge.auditError'), r.cancelled ? 'muted' : 'crit'),
-          R.el('span', { style: 'margin-left:8px;color:var(--ink3);font-size:12px' }, r.message || ''),
+          R.el('span', { style: 'margin-left:8px;color:var(--ink3);font-size:12px' },
+            R.sentinelText(r.message || '')),
         ]),
       ]);
       tbody.appendChild(etr);
@@ -468,7 +499,7 @@
           ? badge('✓ ' + recognizedDkim.map(function (s) { return s.sel; }).join(', '), 'ok')
           : null,
         uncommonDkim.map(function (s) {
-          return R.frag([R.text(' '), badge(t('badge.dkimUncommon', s.queryName), 'warn')]);
+          return R.frag([R.text(' '), badge(tDns('badge.dkimUncommon', s.queryName), 'warn')]);
         }),
       ])
       : r.dkimStatus.confidence === 'sampled'
@@ -552,8 +583,10 @@
     // ── Detail row ──
     var dkimDetails = (r.dkimStatus.selectors || []).map(function (s) {
       return R.el('div', { className: 'dkim-record' }, [
-        R.el('strong', null, s.uncommon ? t('dkim.uncommon', s.queryName) : s.sel + ' — ' + s.queryName),
-        s.viaSpf ? R.frag([R.text(' '), R.el('span', { className: 'dkim-via-spf' }, t('dkim.viaSpf', s.viaSpf))]) : null,
+        R.el('strong', null, s.uncommon
+          ? tDns('dkim.uncommon', s.queryName)
+          : R.sentinelText(s.sel + ' — ' + s.queryName)),
+        s.viaSpf ? R.frag([R.text(' '), R.el('span', { className: 'dkim-via-spf' }, tDns('dkim.viaSpf', s.viaSpf))]) : null,
         s.cname
           ? R.el('div', null, [
             R.el('span', null, t('dkim.cnameTarget') + ':'),
@@ -570,7 +603,7 @@
     });
     (r.dkimStatus.missingSelectors || []).forEach(function (s) {
       dkimDetails.push(R.el('div', { className: 'dkim-record dkim-record-missing' }, [
-        R.el('strong', null, t('dkim.noDomainKeyFound', s.queryName)),
+        R.el('strong', null, tDns('dkim.noDomainKeyFound', s.queryName)),
         s.cname
           ? R.el('div', null, [
             R.el('span', null, t('dkim.cnameTarget') + ':'),
@@ -672,7 +705,7 @@
           detailItem(t('labels.dmarc'), R.frag([
             R.value(r.dmarcRecord),
             r.dmarcAtDomain && r.dmarcAtDomain !== r.domain
-              ? R.frag([R.el('br'), R.el('small', null, t('dmarc.inheritedFrom', r.dmarcAtDomain))])
+              ? R.frag([R.el('br'), R.el('small', null, tDns('dmarc.inheritedFrom', r.dmarcAtDomain))])
               : null,
           ])),
           detailItem(t('labels.dkim'), R.frag(dkimDetails)),
@@ -986,7 +1019,7 @@
         r.advanced?.caa?.found ? t('csv.yesAt', r.advanced.caa.atDomain) : no,
         r.advanced?.dnssec?.signed ? yes : r.advanced?.dnssec?.state || no,
         r.advanced?.spfLookups?.count ?? '',
-        r.issues.map(issueMessage).join(' | '),
+        r.issues.map(function (i) { return issueMessage(i, false); }).join(' | '),
         (r.suggestions || []).map(function (s) { return t('suggestion.' + s.key); }).join(' | '),
         // Appended last, per the positional-header rule above.
         R.hygieneOf(rowHygieneValues(r)).join(' '),
@@ -996,9 +1029,34 @@
     return [cols].concat(data);
   }
 
+  /**
+   * Neutralize a cell a spreadsheet would execute as a formula.
+   *
+   * A domain controls its SPF, DMARC, DKIM, BIMI and CAA record text, so a
+   * value beginning `=`, `+`, `-`, `@`, or a tab/CR/LF becomes an active
+   * formula when the downloaded file is opened in Excel or Sheets. RFC 4180
+   * quoting does not prevent that — the quotes are stripped before the cell is
+   * evaluated.
+   *
+   * The file is named `.csv` and the button says "Export CSV", which invites
+   * exactly that. Spreadsheet safety therefore wins over byte fidelity here,
+   * reversing this release's earlier deferral; the change is disclosed by the
+   * `formula-leading` token in the `record_hygiene` column rather than applied
+   * silently. A leading apostrophe is the standard neutralizer and is not
+   * displayed by the spreadsheet.
+   */
+  function neutralizeCsvCell(value) {
+    var text = String(value === undefined || value === null ? '' : value);
+    return R.isFormulaLeading(text) ? "'" + text : text;
+  }
+
   function toCsvText(rows) {
     return rows.map(function (row) {
-      return row.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
+      return row.map(function (c) {
+        // Neutralize first, quote second: the quoting is RFC 4180 transport,
+        // the neutralization is about what the spreadsheet does after parsing.
+        return '"' + neutralizeCsvCell(c).replace(/"/g, '""') + '"';
+      }).join(',');
     }).join('\n');
   }
 
@@ -1232,6 +1290,9 @@
     buildReportDocument: buildReportDocument,
     buildCsvRows: buildCsvRows,
     toCsvText: toCsvText,
+    neutralizeCsvCell: neutralizeCsvCell,
+    issueMessage: issueMessage,
+    tDns: tDns,
     rowHygieneValues: rowHygieneValues,
     scoreBlock: scoreBlock,
     advMiniDots: advMiniDots,

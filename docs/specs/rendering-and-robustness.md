@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.2 (Final, amended during implementation) |
+| Spec version | 1.3 (Final, amended after external review) |
 | Target release | 0.2.3 |
 | Status | Final — approved for implementation |
 | Depends on | Nothing. This is the first release after 0.2.2. |
@@ -259,7 +259,30 @@ tool whose job is to show you what a domain published. Replacing achieves both:
 the character is genuinely gone from the text run, so no reordering survives, and
 the marker sits where it was, so the reader can see it.
 
-**Amended at 1.2 — membership is a category test, not an enumeration.** The 1.0
+**Amended at 1.3 — the category is `Default_Ignorable_Code_Point`, not `Cf`.**
+External review established that `\p{Cf}` was wrong in *both* directions. It is
+not complete: U+034F COMBINING GRAPHEME JOINER, U+17B4/U+17B5 KHMER VOWEL
+INHERENT, and U+180B–U+180F all render as nothing and were passing through
+unmarked. It is also not safe: it includes characters that are genuine running
+text in their script — the Arabic number signs U+0600–U+0605, the end-of-ayah
+marks, the Kaithi and Egyptian format controls — which 1.2 had to exclude by
+hand precisely because `Cf` over-reached.
+
+`Default_Ignorable_Code_Point` is the property Unicode defines for this exact
+question: a character a conforming renderer may show as nothing. Verified
+against the shipping runtime, it covers every member of the old set except the
+line and paragraph separators (kept explicitly, and treated as controls), and it
+excludes the Arabic, Syriac, Kaithi and Egyptian script-format characters
+outright — so the hand-written exception list 1.2 needed disappears.
+
+Three families are default-ignorable but are legitimate content and are exempt
+by range: variation selectors U+FE00–U+FE0F and U+E0100–U+E01EF (every emoji
+presentation sequence carries one), shorthand format controls U+1BCA0–U+1BCA3,
+and musical notation format controls U+1D173–U+1D17A. U+200D ZWJ remains marked
+by the prior decision, so an emoji family renders with visible `‹ZWJ›` markers —
+deliberate for an audit tool.
+
+**Superseded at 1.3 — the 1.2 wording, kept for the record.** The 1.0
 table listed specific code points, and an enumeration drifts behind Unicode:
 review found U+00AD (soft hyphen), U+2060 (word joiner), U+061C (Arabic letter
 mark), U+2028/U+2029 (line and paragraph separators), the Hangul fillers
@@ -291,7 +314,7 @@ report and behind the disclosure control.
 
 | Class | Today | Proposed |
 | --- | --- | --- |
-| **Oversized TXT** (a 40 KB DKIM or SPF value) | Rendered whole into a table cell | Display the first 1024 characters, then a disclosure control that reveals the rest. 1024 clears a 4096-bit RSA DKIM key, which runs to roughly 760 characters with its tags; the 512 in the 0.2 draft would have truncated a legitimate key. |
+| **Oversized TXT** (a 40 KB DKIM or SPF value) | Rendered whole into a table cell | Display the first 1024 characters — **code points, not UTF-16 units** (amended at 1.3: slicing by index split an astral character across the boundary and destroyed it, an emoji at 1024 becoming `U+FFFD U+FFFD`) — then a disclosure control that reveals the rest. 1024 clears a 4096-bit RSA DKIM key, which runs to roughly 760 characters with its tags; the 512 in the 0.2 draft would have truncated a legitimate key. |
 | **Large RRset** (400 MX records, 200 TXT strings at one name) | `r.mx.join('\n')` renders all of them | Render the first 20 with a count of the remainder. This cap and the 1024-character cap are independent and both apply. Analysis reads everything; only display is capped. |
 | **Bidirectional overrides** (U+202A–202E, U+2066–2069, U+200E, U+200F) | Passed through to the DOM | Sentinel substitution per the rule above, plus `unicode-bidi: isolate` on the container, plus a record-hygiene note. This is the malformation that is a genuine output-integrity attack: an override inside an SPF `include:` host visually reverses the name, so a reader checks the wrong domain while the escaping was entirely correct. |
 | **C0 and C1 control characters** | May pass through `cleanAnswerData()` | Sentinel substitution naming the code point, and a record-hygiene note. |
@@ -575,6 +598,38 @@ condition `docs/specs/README.md` sets for `1.0 (Final)`.
 | OQ-SEC-11 | Do sentinels appear in the CSV export, or only in the interface and the HTML report? | Raw characters stay in the CSV data column; a separate `record_hygiene` column names what was found (e.g. `bidi-override`). The CSV is the machine-readable export people pipe into other tools, so rewriting a cell's bytes to a sentinel string breaks programmatic parsing, while the new column still warns a human who opens it in a spreadsheet. Consistent with this spec's own "display caps never reach the data" rule: the interface is annotated and capped, the export stays faithful. The column is **appended, never inserted**, per the positional-header backfill rule at [`js/app.js:744`](../../js/app.js). The interface and the HTML report keep the visible sentinels of section 4. | 1.0 |
 | OQ-SEC-12 | Do record-hygiene observations become findings, or stay display annotations? | They stay display annotations in 0.2.3, explicitly deferred to [findings-and-remediation](findings-and-remediation.md) (0.6.0). This release's non-goals rule out a scoring change and any edit to `js/dns.js` for grading purposes; promoting a hygiene observation to a finding would require a severity and so smuggle a scope change into a release whose entire point is rendering correctness. 0.6.0 is where severity is modelled properly. | 1.0 |
 
+## Reopened questions
+
+**`OQ-SEC-11` (CSV fidelity) — partially reversed at 1.3.** The 1.0 resolution
+kept the CSV byte-faithful and put the warning in a separate `record_hygiene`
+column. That still governs *invisible characters*: the data columns carry the
+published bytes and the hygiene column names what they contained.
+
+It does **not** survive contact with spreadsheet formula execution. A cell whose
+first effective character is `=`, `+`, `-`, `@`, tab, CR or LF is executed as a
+formula by Excel and Sheets, and RFC 4180 quoting does not prevent it — the
+quotes are stripped before the cell is evaluated. A domain controls its SPF,
+DMARC, DKIM, BIMI and CAA record text, so a downloaded audit CSV can carry an
+active formula. This release deferred that to 0.6.0 on fidelity grounds;
+external review objected that the `.csv` extension and the "Export CSV" control
+invite spreadsheet use, and that a hygiene column is evidence rather than
+mitigation. Approved for reversal 2026-08-24.
+
+Resolution: **neutralize and flag.** Every exported cell whose first effective
+character is formula-significant (including the full-width forms `＝ ＋ － ＠`
+used in CJK spreadsheet locales) is prefixed with an apostrophe in the
+serialization path, which spreadsheets treat as "this is text" and do not
+display. A `formula-leading` token is added to `record_hygiene` so the change is
+disclosed rather than silent. Neutralization happens in `toCsvText()`, after the
+row is built and before RFC 4180 quoting, so translated labels and any future
+column get the same treatment. The row objects themselves are unchanged, and the
+interface and HTML report are unaffected.
+
+The fidelity principle is not abandoned, only scoped: it applies to what a
+record *contained*, not to a leading character whose only effect is to make a
+spreadsheet execute it. A genuinely byte-faithful machine export belongs in a
+separate, explicitly-named raw format in a later release.
+
 ## Revision history
 
 | Version | Date | Change |
@@ -585,3 +640,4 @@ condition `docs/specs/README.md` sets for `1.0 (Final)`.
 | 1.0 | 2026-08-24 | Final. Resolved the last two open questions: `OQ-SEC-11` (raw bytes stay in the CSV data column, a separate appended `record_hygiene` column names what was found) and `OQ-SEC-12` (record-hygiene observations stay display annotations in 0.2.3, deferred to `findings-and-remediation` (0.6.0)). No change to Design, Scope, Non-goals, Testing or Acceptance criteria beyond the `record_hygiene` CSV column those resolutions add. Approved for implementation. |
 | 1.1 | 2026-08-24 | Amended during implementation, per the "amend rather than quietly diverge" rule in `docs/specs/README.md`. Two defects in the 1.0 text: (a) §3 kept the `<template>` parse, which is an `innerHTML` assignment in `js/i18n.js` that §5 and acceptance criterion 2 forbid with an empty allowlist — replaced by a fail-closed tokenizer that builds nodes, so no markup sink remains under `js/`; (b) the export scan for ` on\w+\s*=` and `javascript:` was specified against the whole output string, which false-positives on the spec's own attribute-breakout fixture because escaping `<` leaves ` onerror=` intact in the text node — now scanned against tag regions only. Added the `<style>` raw-text serialization rule the export builder depends on, and the `tools/check-locales.mjs` tag-allowlist check promised by §3. No change to Scope, Non-goals, or the acceptance criteria themselves. |
 | 1.2 | 2026-08-24 | Amended after code review, which found the malformed-record half of the release complete for values rendered as text and absent for values rendered into an attribute. Four changes: (a) sentinel substitution now applies to `title` and `data-*` values, not only text nodes — `data-tip` is painted by `content: attr(data-tip)` and carries BIMI and CAA record text; (b) the invisible-character set became a Unicode category test (`\p{Cf}`/`\p{Zl}`/`\p{Zp}` plus the Hangul fillers), since the 1.0 enumeration missed the soft hyphen, word joiner, Arabic letter mark, line/paragraph separators, Hangul fillers and tag characters; (c) the export scan became a quote-aware structural check on attribute names and URL schemes, and both suites gained an `advanced`-populated fixture that exercises the attribute path; (d) `normalize()` was rewritten as an index walk after review showed the regex form left every second lone low surrogate in a run intact. Also fixed: punycode detected mid-value rather than only at a label boundary, a published U+FFFD no longer reported as invalid UTF-8, `src` given the same `https:`-only test as `href`, and the DOM shim's attribute escaping matched to the HTML serialization algorithm. No change to Scope, Non-goals, or the acceptance criteria. |
+| 1.3 | 2026-08-24 | Amended after external review (Codex), which found five defects. Two required product decisions, both approved by Ian: (a) `OQ-SEC-11` partially reversed — the CSV now neutralizes formula-leading cells and flags them with a `formula-leading` hygiene token, because RFC 4180 quoting does not stop Excel and Sheets executing a cell beginning `=`, `+`, `-` or `@`, and the `.csv` label invites spreadsheet use (see Reopened questions); (b) the invisible-character membership test moved from `\p{Cf}` to `\p{Default_Ignorable_Code_Point}`, which is both more complete (U+034F, U+17B4/B5, U+180B–U+180F were passing through) and safer (the Arabic, Syriac, Kaithi and Egyptian script-format characters are not default-ignorable at all, so 1.2's hand-written exception list is gone), with variation selectors, shorthand and musical format controls exempt by range. Three correctness fixes: DNS-derived interpolation arguments are sentinel-substituted before translation, so an override in an issue message no longer stays live; the display cap splits on code points rather than UTF-16 indexes, which was destroying an astral character at the boundary; and object-form `style` values get the same literals-only guard the string form already had. No change to Scope, Non-goals, or the acceptance criteria. |

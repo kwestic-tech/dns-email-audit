@@ -120,7 +120,8 @@
       "zeroWidth": "Görüntülenmeyen, görünmez veya sıfır genişlikli karakterler",
       "controlChar": "Denetim karakterleri",
       "loneSurrogate": "Geçersiz UTF-8, U+FFFD olarak gösteriliyor",
-      "punycode": "Punycode (xn--) adı, yayımlandığı biçimde gösteriliyor"
+      "punycode": "Punycode (xn--) adı, yayımlandığı biçimde gösteriliyor",
+      "formulaLeading": "Hesap tablosunun formül olarak çalıştırdığı bir karakterle başlıyor; CSV dışa aktarımında etkisiz hâle getirildi"
     }
   },
   "showme": {
