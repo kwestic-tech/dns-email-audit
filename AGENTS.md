@@ -137,3 +137,58 @@ detected on the next run. Never hand-edit `translation-status.json`.
   `check-locales.mjs` will fail on `js/locales-en.js` being out of sync.
 - Never edit while on `main`; branch first.
 - `tmp/` is scratch and git-ignored.
+
+## PR description change log
+
+A pull request description is a living document, not a frozen snapshot taken at
+open time. When a PR goes through external review — Codex, Gemini, or a human —
+the original description stays intact. Updates are **appended, never
+overwritten**.
+
+**On opening a PR:** write the description as normal (what changed, why, how it
+was tested). It lives in `pr-description.md`, untracked and listed in
+`.git/info/exclude`, structured like
+[PR #4](https://github.com/kwestic-tech/dns-email-audit/pull/4).
+
+**After any review round that produces new commits:** append a dated entry below
+a `---` separator.
+
+```
+## Update — YYYY-MM-DD
+**Reviewed by:** [Codex / Gemini / Ian]
+
+- **Addressed:** [finding] — fixed in [commit sha]
+- **Declined:** [finding] — [one-line reason]
+- **Verified against codebase:** [yes/no, and note any reviewer claim that did
+  not hold up]
+```
+
+**Rules**
+
+- **Never edit or delete the original description text. Append only.** A reader
+  coming to the PR later must be able to see what the submission originally
+  claimed as well as what it claims now. If a review reverses a decision, the
+  original reasoning stays visible and the update says it was reversed — the
+  same instinct as the Revision history tables in `docs/specs/`.
+- **Every declined finding needs a reason**, even a short one. This mirrors the
+  Resolved-questions discipline in [`docs/specs/README.md`](docs/specs/README.md):
+  the reasoning survives for whoever later wonders why an obvious-looking
+  suggestion was not taken.
+- **Verify before folding in.** An external reviewer's finding is a claim, not a
+  fact. Reproduce it against the real code — grep the referenced function, run
+  the case — before changing anything. Reviewers in this project have cited
+  functions and paths that do not exist. Only confirmed points get fixed, and a
+  claim that did not hold up is recorded as such rather than silently ignored.
+- **Editing the description is its own step**, independent of pushing commits.
+  Pushing updates the diff and touches nothing else:
+
+  ```bash
+  gh pr edit <number> --body-file pr-description.md
+  ```
+
+- **Resolve the review threads you acted on**; reply and leave open the ones you
+  deliberately did not, with the one-line reason from the update entry.
+
+Adding a commit updates none of the release artifacts. See the pull-request
+checklist in [`CONTRIBUTING.md`](CONTRIBUTING.md) for the three that go stale
+silently — `CHANGELOG.md`, this description, and `README.md`.

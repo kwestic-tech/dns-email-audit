@@ -166,20 +166,10 @@ injection was *"not addressed here"* while a later commit on the same branch
 neutralized it — the description contradicted the diff a reviewer was reading.
 The assertion count in the same body was two revisions behind.
 
-The PR description lives in `pr-description.md` (untracked, listed in
-`.git/info/exclude`), structured like
-[PR #4](https://github.com/kwestic-tech/dns-email-audit/pull/4): `## Summary`,
-`## What changed` with `###` subsections, `## Why`, `## Testing` ending in a
-`Results:` list of real measured numbers, `## Known limitation`, and the
-`gh pr create` invocation. Edit that file and push the body with:
-
-```bash
-gh pr edit <number> --body-file pr-description.md
-```
-
-If a review reverses a decision, say so in the body rather than quietly deleting
-the old reasoning — the point of the description is that a reviewer can follow
-how the change reached its current shape.
+How to update the description — including the rule that review rounds are
+**appended, never overwritten** — is in
+[`AGENTS.md`](AGENTS.md#pr-description-change-log). Do not restate it here; that
+section is the authority for both humans and agents.
 
 Please also confirm `index.html` still opens correctly straight from disk (`file://`) in English.
 
