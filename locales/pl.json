@@ -173,6 +173,7 @@
   },
   "dmarc": {
     "missing": "✗ Brak",
+    "unverified": "⚠ Niezweryfikowane",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none (monitorowanie)",
@@ -565,20 +566,20 @@
       "msg": "Rekord BIMI jest nieprawidłowo sformułowany albo nie zawiera prawidłowego adresu HTTPS z logo."
     },
     "dmarc-version-missing": {
-      "msg": "Rekord DMARC nie zaczyna się od v=DMARC1 — odbiorcy muszą go całkowicie zignorować.",
-      "what": "RFC 9989 §5.4 wymaga, aby znacznik <code>v=</code> był pierwszym znacznikiem w rekordzie. Rekord bez niego w ogóle nie jest rekordem DMARC, cokolwiek innego by zawierał. Serwery odbiorcze odrzucają go i traktują Twoją domenę tak, jakby nie miała polityki DMARC, więc rekord daje Ci pozór ochrony bez żadnej treści.",
+      "msg": "Rekord DMARC w {0} nie zaczyna się od v=DMARC1 — odbiorcy muszą go całkowicie zignorować.",
+      "what": "RFC 9989 §4.7 wymaga, aby znacznik <code>v=</code> był pierwszym znacznikiem w rekordzie. Rekord bez niego w ogóle nie jest rekordem DMARC, cokolwiek innego by zawierał. Serwery odbiorcze odrzucają go i traktują Twoją domenę tak, jakby nie miała polityki DMARC, więc rekord daje Ci pozór ochrony bez żadnej treści.",
       "fix": "Przepisz rekord tak, aby zaczynał się od <code>v=DMARC1;</code>, po którym następuje Twoja polityka.",
       "fixCode": "; Źle — brak znacznika wersji:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Dobrze:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-not-first": {
-      "msg": "Znacznik v=DMARC1 jest obecny, ale nie jest pierwszy — odbiorcy muszą zignorować cały rekord.",
-      "what": "RFC 9989 §5.4 mówi, że <code>v=</code> MUSI być pierwszym znacznikiem na liście, a nie jedynie występować gdziekolwiek. Kolejność pozostałych znaczników jest dowolna, przez co łatwo o pomyłkę przy ręcznej edycji rekordu albo składaniu go skryptem. Odbiorca zgodny ze specyfikacją przerywa analizę i traktuje domenę jako niechronioną.",
+      "msg": "v=DMARC1 występuje w {0}, ale nie jest pierwszym znacznikiem — odbiorcy muszą zignorować cały rekord.",
+      "what": "RFC 9989 §4.7 mówi, że <code>v=</code> MUSI być pierwszym znacznikiem na liście, a nie jedynie występować gdziekolwiek. Kolejność pozostałych znaczników jest dowolna, przez co łatwo o pomyłkę przy ręcznej edycji rekordu albo składaniu go skryptem. Odbiorca zgodny ze specyfikacją przerywa analizę i traktuje domenę jako niechronioną.",
       "fix": "Przenieś <code>v=DMARC1;</code> na początek rekordu. Nic więcej nie musi się zmieniać.",
       "fixCode": "; Źle — v= nie jest pierwsze:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; Dobrze:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-bad-value": {
-      "msg": "Wartość wersji DMARC nie brzmi dokładnie „DMARC1” — wartość rozróżnia wielkość liter, a rekord jest ignorowany.",
-      "what": "Niemal wszystkie wartości w rekordzie DMARC nie rozróżniają wielkości liter, ale RFC 9989 §5.4 czyni z <code>v=</code> wyjątek: jedyny akceptowany zapis to <code>DMARC1</code>, wielkimi literami. <code>v=dmarc1</code> albo <code>v=DMARC2</code> powoduje zignorowanie całego rekordu. To częsta ofiara kopiowania i wklejania, bo panele DNS przy wprowadzaniu często zamieniają wartości na małe litery.",
+      "msg": "Wartość wersji DMARC w {0} nie jest dokładnie „DMARC1” — wartość rozróżnia wielkość liter, a rekord zostaje zignorowany.",
+      "what": "Niemal wszystkie wartości w rekordzie DMARC nie rozróżniają wielkości liter, ale RFC 9989 §4.7 czyni z <code>v=</code> wyjątek: jedyny akceptowany zapis to <code>DMARC1</code>, wielkimi literami. <code>v=dmarc1</code> albo <code>v=DMARC2</code> powoduje zignorowanie całego rekordu. To częsta ofiara kopiowania i wklejania, bo panele DNS przy wprowadzaniu często zamieniają wartości na małe litery.",
       "fix": "Ustaw wartość dokładnie na <code>DMARC1</code> i sprawdź potem, co faktycznie zapisał Twój panel DNS.",
       "fixCode": "; Źle — małe litery:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; Dobrze:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
@@ -626,7 +627,7 @@
     },
     "dmarc-external-reporting": {
       "msg": "Raporty DMARC trafiają do zewnętrznej domeny ({0}) — ta domena musi je autoryzować, inaczej raporty są odrzucane.",
-      "what": "Gdy adres docelowy raportów znajduje się poza Twoją domeną organizacyjną — dostawca usług DMARC, konsultant, spółka siostrzana — RFC 9990 §4.3 wymaga, aby domena odbiorcza opublikowała rekord udzielający zgody. Bez niego odbiorcy zgodni ze specyfikacją bezgłośnie odrzucają raporty kierowane pod ten adres. Autoryzacja jest oceniana osobno dla każdego adresu, więc nieautoryzowany dostawca nie psuje Twojego rekordu DMARC ani nie wstrzymuje raportów do pozostałych adresów; milknie tylko ten jeden. Ten audyt nie zweryfikował rekordu — włącz sprawdzenia zaawansowane, aby był sprawdzany automatycznie.",
+      "what": "Gdy adres docelowy raportów znajduje się poza Twoją domeną organizacyjną — dostawca usług DMARC, konsultant, spółka siostrzana — RFC 9990 §4 wymaga, aby domena odbiorcza opublikowała rekord udzielający zgody. Bez niego odbiorcy zgodni ze specyfikacją bezgłośnie odrzucają raporty kierowane pod ten adres. Autoryzacja jest oceniana osobno dla każdego adresu, więc nieautoryzowany dostawca nie psuje Twojego rekordu DMARC ani nie wstrzymuje raportów do pozostałych adresów; milknie tylko ten jeden. Ten audyt nie zweryfikował rekordu — włącz sprawdzenia zaawansowane, aby był sprawdzany automatycznie.",
       "fix": "Poproś domenę docelową o opublikowanie rekordu autoryzacji dla Twojej domeny, w postaci <code>&lt;twoja-domena&gt;._report._dmarc.&lt;ich-domena&gt;</code>.",
       "fixCode": "; Twój rekord wysyła raporty do dostawcy zewnętrznego:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; DOSTAWCA musi opublikować to w swojej strefie:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
     },
@@ -656,7 +657,7 @@
     },
     "dmarc-external-unauthorized": {
       "msg": "Raporty DMARC kierowane do {0} są odrzucane — ta domena nie autoryzowała Twoich raportów.",
-      "what": "Gdy adres docelowy raportów znajduje się poza Twoją domeną organizacyjną, RFC 9990 §4.3 wymaga, aby domena odbiorcza opublikowała rekord udzielający zgody. Sprawdziliśmy — nie ma go. Odbiorcy zgodni ze specyfikacją odrzucają zatem każdy raport kierowany do {0}: nic nie zgłasza błędu i nic nie wraca, po prostu dostajesz mniej danych, niż Ci się wydaje — co łatwo pomylić z „nikt się pod nas nie podszywa”. Autoryzacja jest sprawdzana osobno dla każdego adresu, więc pozostałe adresy w Twoim rekordzie działają normalnie; odrzucany jest tylko ten jeden.",
+      "what": "Gdy adres docelowy raportów znajduje się poza Twoją domeną organizacyjną, RFC 9990 §4 wymaga, aby domena odbiorcza opublikowała rekord udzielający zgody. Sprawdziliśmy — nie ma go. Odbiorcy zgodni ze specyfikacją odrzucają zatem każdy raport kierowany do {0}: nic nie zgłasza błędu i nic nie wraca, po prostu dostajesz mniej danych, niż Ci się wydaje — co łatwo pomylić z „nikt się pod nas nie podszywa”. Autoryzacja jest sprawdzana osobno dla każdego adresu, więc pozostałe adresy w Twoim rekordzie działają normalnie; odrzucany jest tylko ten jeden.",
       "fix": "Poproś operatora {0} o opublikowanie rekordu autoryzacji dla Twojej domeny. Większość dostawców raportowania robi to automatycznie przy dodaniu domeny, więc jeśli konfiguracja jest świeża, warto najpierw zajrzeć do panelu dostawcy — rekord może pojawić się dopiero po zweryfikowaniu domeny po ich stronie.",
       "fixCode": "; Domena DOCELOWA publikuje to we własnej strefie,\n; wskazując domenę, której raporty przyjmuje:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; Dostawcy obsługujący wielu klientów publikują zwykle postać wieloznaczną:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
     },
@@ -686,25 +687,25 @@
     },
     "dmarc-bad-sp": {
       "msg": "sp= ma wartość „{0}”, która nie jest wartością zasady — poddomeny wracają zamiast tego do p=.",
-      "what": "RFC 9989 §5.4 dopuszcza dokładnie trzy wartości dla <code>sp=</code>: <code>none</code>, <code>quarantine</code> i <code>reject</code>. Cokolwiek innego nie jest zasadą, więc odbiorcy ignorują ten znacznik, a poddomeny dziedziczą <code>p=</code>. Może to być surowsze lub słabsze, niż było zamierzone, a rekord czyta się tak, jakby obowiązywała świadoma zasada dla poddomen, choć żadnej nie ma.",
+      "what": "RFC 9989 §4.7 dopuszcza dokładnie trzy wartości dla <code>sp=</code>: <code>none</code>, <code>quarantine</code> i <code>reject</code>. Cokolwiek innego nie jest zasadą, więc odbiorcy ignorują ten znacznik, a poddomeny dziedziczą <code>p=</code>. Może to być surowsze lub słabsze, niż było zamierzone, a rekord czyta się tak, jakby obowiązywała świadoma zasada dla poddomen, choć żadnej nie ma.",
       "fix": "Proszę poprawić wartość albo całkiem usunąć <code>sp=</code>, jeśli dziedziczenie <code>p=</code> przez poddomeny jest w porządku.",
       "fixCode": "; Źle — literówka, po cichu ignorowana:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; Dobrze:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
     },
     "dmarc-bad-np": {
       "msg": "np= ma wartość „{0}”, która nie jest wartością zasady — nieistniejące poddomeny wracają zamiast tego do sp= lub p=.",
-      "what": "RFC 9989 §5.4 dopuszcza dokładnie trzy wartości dla <code>np=</code>: <code>none</code>, <code>quarantine</code> i <code>reject</code>. Cokolwiek innego jest ignorowane, a zasada dla nazw, które nie istnieją, wraca przez <code>sp=</code> do <code>p=</code>. Nieistniejące poddomeny najtaniej podszyć się pod atakującemu, więc znacznik, który wygląda na ustawiony, a nie jest, warto poprawić.",
+      "what": "RFC 9989 §4.7 dopuszcza dokładnie trzy wartości dla <code>np=</code>: <code>none</code>, <code>quarantine</code> i <code>reject</code>. Cokolwiek innego jest ignorowane, a zasada dla nazw, które nie istnieją, wraca przez <code>sp=</code> do <code>p=</code>. Nieistniejące poddomeny najtaniej podszyć się pod atakującemu, więc znacznik, który wygląda na ustawiony, a nie jest, warto poprawić.",
       "fix": "Proszę poprawić wartość albo usunąć <code>np=</code> i świadomie pozwolić zadziałać łańcuchowi zapasowemu.",
       "fixCode": "; Źle — to nie jest wartość zasady:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; Dobrze:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
     },
     "dmarc-bad-adkim": {
       "msg": "adkim= ma wartość „{0}” — jedyne dopuszczalne to r i s, więc dopasowanie DKIM pozostaje swobodne.",
-      "what": "RFC 9989 §5.4 definiuje dwa tryby dopasowania DKIM i dwa zapisy: <code>r</code> dla swobodnego i <code>s</code> dla ścisłego. Wartość taka jak <code>strict</code> czy <code>1</code> nie jest rozpoznawana, a odbiorcy wracają do swobodnego. Rekord czyta się jak ścisły dla tego, kto go napisał, a w praktyce zachowuje się jak swobodny — najgorsze z obu światów: poddomena Pana/Pani domeny organizacyjnej może przejść dopasowanie, choć sądził(a) Pan/Pani, że zdoła to tylko dokładna zgodność.",
+      "what": "RFC 9989 §4.7 definiuje dwa tryby dopasowania DKIM i dwa zapisy: <code>r</code> dla swobodnego i <code>s</code> dla ścisłego. Wartość taka jak <code>strict</code> czy <code>1</code> nie jest rozpoznawana, a odbiorcy wracają do swobodnego. Rekord czyta się jak ścisły dla tego, kto go napisał, a w praktyce zachowuje się jak swobodny — najgorsze z obu światów: poddomena Pana/Pani domeny organizacyjnej może przejść dopasowanie, choć sądził(a) Pan/Pani, że zdoła to tylko dokładna zgodność.",
       "fix": "Proszę użyć <code>adkim=s</code> dla ścisłego dopasowania albo usunąć znacznik, aby jawnie zadeklarować swobodne.",
       "fixCode": "; Źle — zapisane słownie, więc ignorowane:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; Dobrze:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
     },
     "dmarc-bad-aspf": {
       "msg": "aspf= ma wartość „{0}” — jedyne dopuszczalne to r i s, więc dopasowanie SPF pozostaje swobodne.",
-      "what": "RFC 9989 §5.4 definiuje dwa tryby dopasowania SPF i dwa zapisy: <code>r</code> dla swobodnego i <code>s</code> dla ścisłego. Nierozpoznana wartość jest ignorowana, a odbiorcy wracają do swobodnego, więc rekord deklaruje surowość, której nie ma. Przy swobodnym dopasowaniu dowolna poddomena Pana/Pani domeny organizacyjnej może spełnić część SPF pozytywnego wyniku DMARC.",
+      "what": "RFC 9989 §4.7 definiuje dwa tryby dopasowania SPF i dwa zapisy: <code>r</code> dla swobodnego i <code>s</code> dla ścisłego. Nierozpoznana wartość jest ignorowana, a odbiorcy wracają do swobodnego, więc rekord deklaruje surowość, której nie ma. Przy swobodnym dopasowaniu dowolna poddomena Pana/Pani domeny organizacyjnej może spełnić część SPF pozytywnego wyniku DMARC.",
       "fix": "Proszę użyć <code>aspf=s</code> dla ścisłego dopasowania albo usunąć znacznik, aby jawnie zadeklarować swobodne.",
       "fixCode": "; Źle — zapisane słownie, więc ignorowane:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; Dobrze:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
     },
@@ -713,6 +714,18 @@
       "what": "RFC 9989 §4.10.1 dzieli odziedziczoną zasadę na dwie gałęzie: znacznik <code>sp=</code> obowiązuje <em>\"if the Author Domain exists\"</em>, a <code>np=</code> obowiązuje <em>\"if the Author Domain does not exist\"</em>. Istnienie to kwestia DNS — dodatek A.4 do RFC 9989 stwierdza, że jeśli istnieje jakikolwiek rekord dla nazwy, to nazwa istnieje — a ta nazwa się rozwiązała, więc rządzi gałąź <code>sp=</code>. To informacja: nic nie jest źle skonfigurowane. Znajduje się tutaj, ponieważ w przeciwnym razie zgłoszona zasada wyglądałaby na niezgodną z rekordem, który można przeczytać.",
       "fix": "Nie trzeba nic zmieniać. Jeśli ta surowsza zasada miała obowiązywać także rzeczywiste poddomeny, proszę ustawić <code>sp=</code> na tę samą wartość co <code>np=</code>.",
       "fixCode": "; np= obejmuje nazwy, które nie istnieją; sp= obejmuje te, które istnieją:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
+    },
+    "dmarc-unverified": {
+      "msg": "Nie udało się sprawdzić DMARC — zapytanie DNS nie powiodło się ({0}). To nie to samo co brak rekordu DMARC.",
+      "what": "Wykrycie zasady DMARC zgodnie z RFC 9989 oznacza wspinanie się od tej nazwy w stronę domeny najwyższego poziomu, a jedno z tych zapytań nie powiodło się zamiast odpowiedzieć. Nieudane zapytanie nie dowodzi braku rekordu: zasada może być opublikowana i całkowicie sprawna. Ten audyt nie będzie zgadywał w żadną stronę, więc wynik DMARC zostaje wstrzymany, a ocena oznaczona jako oparta na kontroli, która się nie zakończyła. Błędy resolwera tego rodzaju są zwykle przejściowe.",
+      "fix": "Proszę uruchomić audyt ponownie. Jeśli dla tej domeny nadal się nie powiedzie, proszę odpytać <code>_dmarc</code> bezpośrednio przez drugi resolwer, aby ustalić, czy nazwa faktycznie jest nieosiągalna, czy to nasze zapytanie miało pecha.",
+      "fixCode": "; Proszę sprawdzić samodzielnie, z powłoki:\ndig +short TXT _dmarc.yourdomain.com\ndig +short TXT _dmarc.yourdomain.com @1.1.1.1\ndig +short TXT _dmarc.yourdomain.com @8.8.8.8"
+    },
+    "dmarc-at-apex-ignored": {
+      "msg": "Zabłąkany rekord DMARC leży na samej domenie obok tego pod _dmarc — żaden odbiorca go nie czyta, a Pana/Pani rzeczywista zasada w {0} pozostaje nienaruszona.",
+      "what": "Zasada DMARC znajduje się pod <code>_dmarc.yourdomain.com</code>; odbiorcy odpytują tę nazwę i żadną inną. W zestawie TXT samej domeny znajduje się drugi ciąg <code>v=DMARC1</code>, na który żaden odbiorca nigdy nie spojrzy. Rzeczywista zasada to ta znaleziona w {0} i obowiązuje normalnie — to więc bałagan, a nie zagrożenie. Zwykle oznacza to, że stara kopia została po przeniesieniu rekordu pod właściwą nazwę.",
+      "fix": "Proszę usunąć ciąg <code>v=DMARC1</code> z rekordów TXT samej domeny. Ten pod <code>_dmarc</code> proszę zostawić dokładnie tak, jak jest.",
+      "fixCode": "; To usunąć — nic tego nie czyta:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; To zachować — to jest Pana/Pani zasada:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     }
   },
   "suggestion": {

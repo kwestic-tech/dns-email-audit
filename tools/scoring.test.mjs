@@ -62,7 +62,7 @@ eq('negative clamped',   D.analyzeDmarc('v=DMARC1; p=reject; pct=-10').pct, 0);
 eq('pct=0 kept',         D.analyzeDmarc('v=DMARC1; p=reject; pct=0').pct, 0);
 
 /* ── 3. sp/np inheritance ────────────────────────────────────────────── */
-section('3. Subdomain policy inheritance (RFC 9989 §5.4)');
+section('3. Subdomain policy inheritance (RFC 9989 §4.7)');
 
 const inh = D.analyzeDmarc('v=DMARC1; p=reject');
 eq('absent sp inherits p',       inh.effectiveSp, 'reject');
@@ -785,7 +785,7 @@ eq('internal → no issue',
   keys('v=DMARC1; p=reject; rua=mailto:d@example.com', 'example.com').includes('dmarc-external-reporting'), false);
 
 // Mixed internal + external is the common real-world shape (a vendor address
-// alongside your own mailbox). RFC 9990 §4.3 evaluates authorization per URI,
+// alongside your own mailbox). RFC 9990 §4 evaluates authorization per URI,
 // so only the external one is ever at risk — the record itself stays valid.
 const mixed = 'v=DMARC1; p=reject; rua=mailto:a@vendor.com,mailto:b@example.com';
 eq('mixed record is still valid',      dm(mixed).status, 'ok');
@@ -793,7 +793,7 @@ eq('mixed record scores normally',     dscore(mixed), 25);
 eq('only the outside address is flagged',
   ext(mixed, 'example.com'), ['vendor.com']);
 
-// ── Verdict-driven findings (RFC 9990 §4.3)
+// ── Verdict-driven findings (RFC 9990 §4)
 const withAuth = states => Object.assign({}, full, {
   reportAuth: states.map(([destination, state]) => ({ destination, state })),
 });
@@ -867,8 +867,8 @@ const emitted = new Set([
 eq('no issue key is missing a translation',
   [...emitted].filter(k => !(k in enIssues)).sort(), []);
 
-/* ── 23. External report authorization lookup (RFC 9990 §4.3) ────────── */
-section('23. External report authorization lookup (RFC 9990 §4.3)');
+/* ── 23. External report authorization lookup (RFC 9990 §4) ────────── */
+section('23. External report authorization lookup (RFC 9990 §4)');
 
 // Mirrors the real Cloudflare setup: an exact per-domain record at the vendor,
 // a vendor publishing the wildcard form, a vendor with nothing, a vendor whose
@@ -901,7 +901,7 @@ eq('query name is the RFC form',     byDest['exact-vendor.com'].queryName,
 eq('wildcard record authorizes',     byDest['wildcard-vendor.com'].state, 'authorized');
 eq('wildcard match is reported',     byDest['wildcard-vendor.com'].via, 'wildcard');
 eq('no record → unauthorized',       byDest['silent-vendor.com'].state, 'unauthorized');
-// RFC 9989 §5.4 applies here too: v= must come first, so this does not qualify.
+// RFC 9989 §4.7 applies here too: v= must come first, so this does not qualify.
 eq('v= not first → unauthorized',    byDest['malformed-vendor.com'].state, 'unauthorized');
 eq('malformed record is distinguished', byDest['malformed-vendor.com'].malformed, true);
 // A SERVFAIL is missing evidence, not evidence of a missing record.
@@ -1652,6 +1652,39 @@ eq('psd=n names the org domain',     psdN.organizationalDomain, 'org.example');
 eq('psd=n leaves no psd boundary',   psdN.psdBoundary, null);
 eq('psd=u does not terminate',
   (await walk('sub.u.example', { '_dmarc.u.example TXT': txt('v=DMARC1; p=reject; psd=u') })).terminated, 'root');
+// §4.10 steps 2 and 6 name only `n` and `y`. Anything else — including a value
+// that is not in the tag's vocabulary at all — must NOT stop the walk.
+const psdJunk = await walk('x.junk.example', {
+  '_dmarc.junk.example TXT': txt('v=DMARC1; p=reject; psd=maybe'),
+  '_dmarc.example TXT': txt('v=DMARC1; p=none'),
+});
+eq('an unrecognised psd= value does not terminate', psdJunk.terminated, 'root');
+eq('an unrecognised psd= value lets the walk reach the TLD',
+  psdJunk.steps.slice(-1)[0].queryName, '_dmarc.example');
+
+// §4.10.2 rule 2 excludes "the one for the domain where the Tree Walk started",
+// so a psd=y on the audited name itself falls through to rule 3.
+const psdSelf = await walk('self.example', {
+  '_dmarc.self.example TXT': txt('v=DMARC1; p=reject; psd=y'),
+});
+eq('psd=y at the start still terminates the walk', psdSelf.terminated, 'psd-y');
+eq('psd=y at the start is excluded from rule 2, so rule 3 applies',
+  psdSelf.organizationalDomain, 'self.example');
+
+// oneLabelBelow() takes labels from the SUBJECT rather than from the walk's
+// query list, which is what lets it name a domain that carries no record — and,
+// where the shortening rule skipped that depth, one that was never queried at
+// all. §4.10.2 requires neither.
+const psdDeep = await walk('a.b.c.d.e.f.g.h.i.j.k.example.com', {
+  '_dmarc.example.com TXT': txt('v=DMARC1; p=none; psd=y'),
+});
+eq('a psd=y boundary reached after shortening is honoured', psdDeep.terminated, 'psd-y');
+eq('the org domain is one label below it in the SUBJECT path',
+  psdDeep.organizationalDomain, 'k.example.com');
+eq('and that org domain carries no record of its own',
+  psdDeep.steps.filter(s => s.queryName === '_dmarc.k.example.com')[0].selected, false);
+eq('the PSD’s record applies because the org domain published none',
+  psdDeep.applied.foundAt, 'example.com');
 
 // ── Duplicates: discarded, walk continues (§4.10 step 2) ──────────────
 const dupOnly = await walk('dup.example', {
@@ -1661,8 +1694,13 @@ eq('duplicates are discarded',            dupOnly.applied, null);
 eq('duplicates are not a termination',    dupOnly.terminated, 'root');
 eq('duplicates are recorded as evidence',
   dupOnly.observed.filter(o => o.why === 'multiple-at-step').length, 1);
-eq('duplicates: status is missing, not permerror',
-  D.analyzeDmarc(dupOnly.applied ? dupOnly.applied.record : '', false).status, 'missing');
+// Asserted on the WALK's own output, not on analyzeDmarc('') — the latter is
+// tautological once `applied` is known null, and would pass with discoverDmarc
+// deleted entirely.
+eq('duplicates: nothing is selected at that step',
+  dupOnly.steps.filter(s => s.selected).length, 0);
+eq('duplicates: the step still reports both records',
+  dupOnly.steps[0].dmarcCount, 2);
 
 const dupInherit = await walk('sub.dupup.example', {
   '_dmarc.sub.dupup.example TXT': [...txt('v=DMARC1; p=reject'), ...txt('v=DMARC1; p=none')],
@@ -1738,14 +1776,12 @@ eq('the author domain’s own record is never inherited', sfOwn.applied.inherite
 eq('an errored walk falls back to the audited name as org domain',
   sfOwn.organizationalDomain, 'own.sferr.example');
 
-eq('terminated never reports query-limit',
-  ['psd-y', 'psd-n', 'root', 'error'].includes(deep.terminated), true);
-
 // ── Nothing published anywhere ────────────────────────────────────────
 const none = await walk('none.example', {});
 eq('no record anywhere → root',    none.terminated, 'root');
 eq('no record anywhere → null',    none.applied, null);
-eq('no record anywhere → status missing', D.analyzeDmarc('', false).status, 'missing');
+eq('no record anywhere → every step is a miss',
+  none.steps.every(s => !s.selected && s.dmarcCount === 0), true);
 eq('no record anywhere → org domain is the audited name',
   none.organizationalDomain, 'none.example');
 
@@ -1776,7 +1812,25 @@ const diagKeys = D.buildIssues({
 eq('a misplaced version produces a specific diagnosis, not "missing"',
   diagKeys.includes('dmarc-version-not-first'), true);
 eq('a misplaced version is critical',
+  D.buildIssues({
+    emailProvider: 'Custom', spfStatus: spf('ok'), dkimStatus: { found: true },
+    dmarcStatus: D.analyzeDmarc('', false), dmarcDiscovery: notFirst, dmarcExistence: 'yes',
+    hosting: 'Custom', advanced: full, domain: 'nf.example',
+  }).filter(i => i.key === 'dmarc-version-not-first')[0].sev, 'crit');
+// 'missing' is raised alongside it, and should be: no readable record exists,
+// so the domain really is unprotected. The diagnosis explains WHY, it does not
+// replace the verdict. Acceptance criterion 3 asks for a specific diagnosis
+// rather than only "missing", which is what this pair asserts.
+eq('and "missing" still stands, because no receiver can read the record',
   diagKeys.includes('dmarc-missing'), true);
+// The diagnosis names the DNS name the broken record is at — the walk visits
+// up to eight names and the defect may be at a parent the operator cannot edit.
+eq('the diagnosis names where the broken record is',
+  D.buildIssues({
+    emailProvider: 'Custom', spfStatus: spf('ok'), dkimStatus: { found: true },
+    dmarcStatus: D.analyzeDmarc('', false), dmarcDiscovery: notFirst, dmarcExistence: 'yes',
+    hosting: 'Custom', advanced: full, domain: 'nf.example',
+  }).filter(i => i.key === 'dmarc-version-not-first')[0].args, ['_dmarc.nf.example']);
 
 // ── Domain existence and np= (§3.2.13, Appendix A.4) ──────────────────
 const npRecord = D.analyzeDmarc('v=DMARC1; p=reject; sp=quarantine; np=none');
@@ -1820,6 +1874,15 @@ eq('a sibling subdomain reuses the cached upper steps', secondCalls, 1);
 eq('the cached walk still finds the policy', second.applied.foundAt, 'shared.cachetld');
 eq('both siblings agree on the org domain',
   first.organizationalDomain === second.organizationalDomain, true);
+
+// The guarantee is over every walk in this section, not one of them.
+eq('terminated is only ever one of the four defined values',
+  [deep, own, oneUp, several, both, twoUp, psdAuthor, psdDkim, psdBelow, psdN,
+    dupOnly, dupInherit, servfail, sfAbove, sfOwn, none, notFirst, badCase]
+    .every(w => ['psd-y', 'psd-n', 'root', 'error'].includes(w.terminated)), true);
+eq('a non-error walk always yields a non-null applied or an empty collection',
+  [own, oneUp, several, both, twoUp, psdAuthor, psdDkim, psdBelow, psdN]
+    .every(w => w.terminated === 'error' ? w.applied === null : true), true);
 
 /* ── 29. External report authorization (RFC 9990 §4) ─────────────────── */
 section('29. External report authorization after the Tree Walk (RFC 9990 §4)');
@@ -1888,7 +1951,7 @@ sandbox.fetch = dohFixture({
   '_dmarc.policy.example TXT': txt('v=DMARC1; p=reject; rua=mailto:r@vendor.example'),
   'vendor.example._report._dmarc.vendor.example TXT': 'nxdomain',
 });
-const inherited = await D.discoverDmarc('sub.policy.example', { retries: 0 });
+const inherited = await D.discoverDmarc('sub.policy.example', { retries: 0, noCache: true });
 eq('authorization is asked of the policy domain', inherited.applied.foundAt, 'policy.example');
 sandbox.fetch = dohFixture({
   'policy.example._report._dmarc.vendor.example TXT': txt('v=DMARC1'),
@@ -2018,6 +2081,92 @@ eq('no NS query is issued for existence beyond the first',
   sandbox.fetch.callsFor('NS').length, 1);
 eq('the walk is visible as evidence',             e2e.dmarcDiscovery.steps.length, 3);
 eq('the walk terminated at the root',             e2e.dmarcDiscovery.terminated, 'root');
+
+// The gap a 1,130-assertion suite still had: section 28 tested discoverDmarc in
+// isolation and section 32 tested only the happy path, so nothing asserted what
+// analyzeDomain DOES with an errored walk. A transient failure on any of up to
+// eight queries must never be reported as an absent record.
+sandbox.fetch = dohFixture({
+  'flap.example NS': ns('ns1.flap.example.'),
+  'flap.example MX': mx('10 mail.flap.example.'),
+  'flap.example TXT': txt('v=spf1 -all'),
+  'flap.example A': a('203.0.113.9'),
+  'flap.example AAAA': 'nodata',
+  '_dmarc.flap.example TXT': 'servfail',
+});
+const flap = await D.analyzeDomain('flap.example', { dkim: false, retries: 0 });
+eq('an errored walk is reported as unknown, not missing', flap.dmarcStatus.status, 'unknown');
+eq('an unknown DMARC control does not wear the absent class', flap.dmarcStatus.cls, 'warn');
+eq('the finding says the lookup failed, not that the record is absent',
+  flap.issues.map(i => i.key).includes('dmarc-unverified'), true);
+eq('an unknown control is never reported as missing',
+  flap.issues.map(i => i.key).includes('dmarc-missing'), false);
+eq('the finding names the failure kind',
+  flap.issues.filter(i => i.key === 'dmarc-unverified')[0].args, ['servfail']);
+eq('the DMARC pillar is marked unproven', flap.score.unproven.includes('dmarc'), true);
+eq('an unproven DMARC pillar still scores zero',
+  flap.score.breakdown.pillars.find(p => p.key === 'dmarc').pts, 0);
+eq('the walk still reports how it failed', flap.dmarcDiscovery.terminated, 'error');
+
+// The Author Domain's own record survives, so this is NOT the unknown path.
+sandbox.fetch = dohFixture({
+  'own.example NS': ns('ns1.own.example.'),
+  'own.example MX': mx('10 mail.own.example.'),
+  'own.example TXT': txt('v=spf1 -all'),
+  'own.example A': a('203.0.113.9'),
+  'own.example AAAA': 'nodata',
+  '_dmarc.own.example TXT': txt('v=DMARC1; p=reject; rua=mailto:d@own.example'),
+  '_dmarc.example TXT': 'servfail',
+});
+const ownErr = await D.analyzeDomain('own.example', { dkim: false, retries: 0 });
+eq('an error above the domain’s own record is not unknown', ownErr.dmarcStatus.status, 'ok');
+eq('the domain’s own policy still governs', ownErr.dmarcStatus.policy, 'reject');
+eq('and the pillar is not marked unproven', ownErr.score.unproven.includes('dmarc'), false);
+
+// A stray apex record ALONGSIDE a working policy is untidy, not critical — the
+// same "must not lie" rule the duplicate finding follows.
+sandbox.fetch = dohFixture({
+  'apexok.example NS': ns('ns1.apexok.example.'),
+  'apexok.example MX': mx('10 mail.apexok.example.'),
+  'apexok.example TXT': [...txt('v=spf1 -all'), ...txt('v=DMARC1; p=reject')],
+  'apexok.example A': a('203.0.113.9'),
+  'apexok.example AAAA': 'nodata',
+  '_dmarc.apexok.example TXT': txt('v=DMARC1; p=reject; rua=mailto:d@apexok.example'),
+});
+const apexOk = await D.analyzeDomain('apexok.example', { dkim: false, retries: 0 });
+const apexOkKeys = apexOk.issues.map(i => i.key);
+eq('a working policy alongside an apex stray is not critical',
+  apexOkKeys.includes('dmarc-at-apex'), false);
+eq('it is reported as an ignored leftover instead',
+  apexOkKeys.includes('dmarc-at-apex-ignored'), true);
+eq('the leftover finding names the governing policy',
+  apexOk.issues.filter(i => i.key === 'dmarc-at-apex-ignored')[0].args, ['apexok.example']);
+eq('and the real policy is untouched', apexOk.dmarcStatus.policy, 'reject');
+
+// With nothing under _dmarc, the apex record IS the whole story and stays critical.
+sandbox.fetch = dohFixture({
+  'apexbad.example NS': ns('ns1.apexbad.example.'),
+  'apexbad.example MX': mx('10 mail.apexbad.example.'),
+  'apexbad.example TXT': [...txt('v=spf1 -all'), ...txt('v=DMARC1; p=reject')],
+  'apexbad.example A': a('203.0.113.9'),
+  'apexbad.example AAAA': 'nodata',
+});
+const apexBad = await D.analyzeDomain('apexbad.example', { dkim: false, retries: 0 });
+eq('an apex record with nothing under _dmarc stays critical',
+  apexBad.issues.filter(i => i.key === 'dmarc-at-apex')[0].sev, 'crit');
+
+// `v=DMARC1x` is rejected on the authorization side; it must be diagnosed here too.
+eq('v=DMARC1x is diagnosed rather than silently absent',
+  D.diagnoseDmarcRecord('v=DMARC1x; p=reject'), 'version-bad-case');
+eq('v=spf1 is still not a DMARC diagnosis', D.diagnoseDmarcRecord('v=spf1 -all'), null);
+
+// RFC 9990 §4 step 4: an over-long constructed name cannot be determined.
+sandbox.fetch = dohFixture({});
+const longHost = ('a'.repeat(60) + '.').repeat(4) + 'example.com';
+const tooLong = (await D.checkExternalReportAuth('src.example', [longHost], { retries: 0 }))[0];
+eq('an over-long authorization name is undeterminable, not unauthorized',
+  tooLong.state, 'unverifiable');
+eq('and says why', tooLong.error, 'name-too-long');
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

@@ -574,7 +574,7 @@
     return { found: true, selectors: found, missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, confidence: 'observed', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: '' };
   }
 
-  // Valid policy values per RFC 9989 §5.4, ordered weakest → strongest.
+  // Valid policy values per RFC 9989 §4.7, ordered weakest → strongest.
   var POLICY_RANK = { none: 0, quarantine: 1, reject: 2 };
 
   /* ── RFC 9989 tag vocabulary ─────────────────────────────────────────────
@@ -593,7 +593,7 @@
   var DMARC_FO_VALUES = ['0', '1', 'd', 's'];
 
   /**
-   * Parse a DMARC record into its tags (RFC 9989 §5.4).
+   * Parse a DMARC record into its tags (RFC 9989 §4.7).
    *
    * Two things this has to get right that a naive regex does not:
    *
@@ -625,7 +625,7 @@
   }
 
   /**
-   * RFC 9989 §5.4: `v` MUST be the first tag, and its value is case sensitive
+   * RFC 9989 §4.7: `v` MUST be the first tag, and its value is case sensitive
    * with `DMARC1` the only accepted spelling. A record that fails either test
    * "MUST be ignored" in its entirety — so this is a hard failure, not a nit.
    * We still parse the rest of the record afterwards so the report can say
@@ -642,7 +642,7 @@
   /**
    * Parse a `rua=`/`ruf=` value into its individual destinations.
    *
-   * RFC 9989 §5.4 defines a comma-separated list of DMARC URIs, each with an
+   * RFC 9989 §4.7 defines a comma-separated list of DMARC URIs, each with an
    * optional `!` size-limit suffix (digits plus an optional k/m/g/t unit).
    * A literal `!` inside a URI must be percent-encoded, so the LAST `!` is
    * unambiguously the delimiter.
@@ -714,12 +714,12 @@
     var spState = tagState(rawSp, sp);
     var npState = tagState(rawNp, np);
 
-    // Inheritance chain per RFC 9989 §5.4. Note that sp/np apply only to
+    // Inheritance chain per RFC 9989 §4.7. Note that sp/np apply only to
     // subdomains of the Organizational Domain, never to the domain itself.
     var effectiveSp = sp || policy;
     var effectiveNp = np || sp || policy;
 
-    // ── t= (RFC 9989 §5.4, new) ──
+    // ── t= (RFC 9989 §4.7, new) ──
     // Test mode. `t=y` tells receivers the owner is still evaluating and the
     // policy should NOT be applied. Reports keep flowing. This is bis's
     // replacement for ramping with pct=, and it means `p=reject; t=y` gives
@@ -728,14 +728,14 @@
     var tValid = rawT === null || /^[yn]$/i.test(String(rawT).trim());
     var testMode = String(rawT || 'n').trim().toLowerCase() === 'y';
 
-    // ── psd= (RFC 9989 §5.4, new) ──
+    // ── psd= (RFC 9989 §4.7, new) ──
     // Marks a Public Suffix Domain so the Tree Walk knows where to stop.
     // Default is 'u' (unknown — use normal discovery), NOT 'n'.
     var rawPsd = tag('psd');
     var psdValid = rawPsd === null || /^[ynu]$/i.test(String(rawPsd).trim());
     var psd = String(rawPsd || 'u').trim().toLowerCase();
 
-    // ── fo= (RFC 9989 §5.4) ──
+    // ── fo= (RFC 9989 §4.7) ──
     // Colon-separated subset of 0/1/d/s. Its content MUST be ignored when no
     // ruf= is present, which makes fo-without-ruf a silent no-op worth naming.
     var rawFo = tag('fo');
@@ -757,7 +757,7 @@
       else { pct = Math.max(0, Math.min(100, parsed)); pctValid = parsed >= 0 && parsed <= 100; }
     }
 
-    // RFC 9989 §5.4 defines exactly two alignment modes, `r` and `s`. Anything
+    // RFC 9989 §4.7 defines exactly two alignment modes, `r` and `s`. Anything
     // else used to become `r` silently, which is the correct RECEIVER
     // behaviour and a poor auditor one: `adkim=strict` reads as strict to the
     // person who wrote it and relaxes alignment in practice. Keep the receiver
@@ -827,10 +827,14 @@
     };
   }
 
-  /** Shared shape for the two "there is nothing to analyse" outcomes. */
+  /** Shared shape for the "there is nothing to analyse" outcomes. */
   function emptyDmarcStatus(status) {
     return {
-      status: status, cls: 'crit', policy: '', effectivePolicy: '',
+      // 'unknown' is not a failed control, it is an unexamined one: the walk
+      // hit a transient DNS error and the record could not be read. It must
+      // never wear the same red as a domain that genuinely published nothing.
+      status: status, cls: status === 'unknown' ? 'warn' : 'crit',
+      policy: '', effectivePolicy: '',
       rua: false, ruf: false,
       ruaUris: parseDmarcUriList(''), rufUris: parseDmarcUriList(''),
       sp: null, np: null, effectiveSp: null, effectiveNp: null,
@@ -892,6 +896,14 @@
    * A destination that already equals the policy domain's Organizational
    * Domain is settled by string comparison and never walked.
    */
+  // A record's rua=/ruf= list is written by whoever controls the domain being
+  // audited, and parseDmarcUriList() caps nothing — so without a bound here the
+  // query count for one domain is set by a third party's record content. Twenty
+  // distinct destinations would be 160 queries. Destinations past the cap fall
+  // back to their bare name, which per findExternalReportDestinations() can only
+  // make one look external: a "verify this" notice rather than a silent pass.
+  var MAX_WALKED_REPORT_DESTINATIONS = 10;
+
   async function resolveDestinationOrgDomains(dmarcStatus, policyDomain, policyOrgDomain, queryOpts) {
     var orgDomains = new Map();
     orgDomains.set(policyDomain, policyOrgDomain);
@@ -903,7 +915,7 @@
       .forEach(function (dest) {
         if (!dest || seen.has(dest)) return;
         seen.add(dest);
-        candidates.push(dest);
+        if (candidates.length < MAX_WALKED_REPORT_DESTINATIONS) candidates.push(dest);
       });
     await Promise.all(candidates.map(async function (dest) {
       var discovery = await optionalCheck(function () { return discoverDmarc(dest, queryOpts); }, null);
@@ -919,7 +931,7 @@
   /**
    * Verify that each external report destination has authorized this domain.
    *
-   * RFC 9990 §4.3: when a destination's organizational domain differs from the
+   * RFC 9990 §4: when a destination's organizational domain differs from the
    * policy domain's, the receiver queries
    *
    *   <policy-domain>._report._dmarc.<destination-host>
@@ -976,6 +988,17 @@
     return Promise.all(unique.map(async function (host) {
       var exact = policyDomain + '._report._dmarc.' + host;
       var wildcard = '*._report._dmarc.' + host;
+      // RFC 9990 §4 step 4: "If the length of the constructed name exceed DNS
+      // limits, a positive determination of the external reporting relationship
+      // cannot be made; stop." Cannot-determine and not-authorized are
+      // different facts, and this release cares about that distinction
+      // everywhere else.
+      if (exact.length > 253) {
+        return {
+          destination: host, state: 'unverifiable', via: null, queryName: exact,
+          record: '', error: 'name-too-long',
+        };
+      }
       try {
         var exactResult = await lookup(exact);
         if (exactResult.authorized.length) {
@@ -1099,9 +1122,17 @@
     if (version.valid) return null;
     var vTag = parseDmarcTag(txt, 'v');
     if (vTag !== null) {
-      if (String(vTag).toLowerCase() !== 'dmarc1') return null;   // v=spf1 and friends
-      if (vTag !== 'DMARC1') return 'version-bad-case';
-      return version.reason === 'not-first' ? 'version-not-first' : null;
+      var value = String(vTag);
+      if (value.toLowerCase() === 'dmarc1') {
+        if (value !== 'DMARC1') return 'version-bad-case';
+        return version.reason === 'not-first' ? 'version-not-first' : null;
+      }
+      // `v=DMARC1x` and `v=DMARC2`: a version tag that is not this version.
+      // checkExternalReportAuth() rejects exactly this spelling on the
+      // authorization side, so leaving it undiagnosed here — rendering as a
+      // bare "no DMARC record" — was the inconsistent half.
+      if (/^dmarc/i.test(value) && parseDmarcTag(txt, 'p') !== null) return 'version-bad-case';
+      return null;                                 // v=spf1 and friends
     }
     // No v= at all. Only call it a DMARC record if it looks like one.
     return parseDmarcTag(txt, 'p') !== null ? 'version-absent' : null;
@@ -1883,7 +1914,8 @@
     var parts = { policy: 0, subdomain: 0, rua: 0, alignment: 0, ruf: 0, uris: 0 };
     // 'present' = a record receivers cannot act on (bad v=, unrecognised p=,
     // duplicate tags). Worth no more than having no record at all.
-    if (!d || d.status === 'missing' || d.status === 'present' || d.status === 'permerror') {
+    if (!d || d.status === 'missing' || d.status === 'present'
+      || d.status === 'permerror' || d.status === 'unknown') {
       return { pts: 0, parts: parts };
     }
 
@@ -2046,7 +2078,12 @@
           args: [duplicates[0].queryName, dmarcDiscovery.applied.foundAt, dmarcStatus.effectivePolicy || dmarcStatus.policy],
         });
     }
-    if (dmarcStatus.status === 'permerror' && !duplicates.length) issues.push({ key: 'dmarc-multiple-records', sev: 'crit', args: ['_dmarc.' + domain] });
+    if (dmarcStatus.status === 'unknown') {
+      issues.push({
+        key: 'dmarc-unverified', sev: 'warn',
+        args: [(dmarcDiscovery && dmarcDiscovery.error) || 'dns-error'],
+      });
+    } else if (dmarcStatus.status === 'permerror' && !duplicates.length) issues.push({ key: 'dmarc-multiple-records', sev: 'crit', args: ['_dmarc.' + domain] });
     else if (dmarcStatus.status === 'missing' && !duplicates.length) issues.push({ key: 'dmarc-missing', sev: 'warn' });
 
     /* A misplaced or miscased v= tag is now diagnosed as misplaced rather than
@@ -2054,15 +2091,33 @@
        genuinely is not one a receiver will read — they change the message from
        "you have no DMARC record" to "you have a DMARC record that no receiver
        will read, and here is why". */
+    var governed = !!(dmarcDiscovery && dmarcDiscovery.applied);
     var DIAGNOSIS_KEYS = {
       'version-not-first': 'dmarc-version-not-first',
       'version-bad-case': 'dmarc-version-bad-value',
       'version-absent': 'dmarc-version-missing',
-      'at-apex-not-underscore': 'dmarc-at-apex',
     };
     Object.keys(DIAGNOSIS_KEYS).forEach(function (why) {
-      if (observedWhere(why).length) issues.push({ key: DIAGNOSIS_KEYS[why], sev: 'crit' });
+      var hits = observedWhere(why);
+      // Name the DNS name the broken record is actually at. The walk visits up
+      // to eight names, so the defect may well be at a parent the operator does
+      // not control, and an unlocated "your record is malformed" sends them
+      // looking in the wrong zone.
+      if (hits.length) issues.push({ key: DIAGNOSIS_KEYS[why], sev: 'crit', args: [hits[0].queryName] });
     });
+
+    /* A record on the apex is only critical when it is the operator's ONLY
+       DMARC record. Alongside a working `_dmarc` record it is a leftover copy —
+       untidy, not dangerous — and the critical text asserting that "the domain
+       is treated as having no DMARC policy at all" would simply be false. Same
+       rule as the duplicate finding above: the message must never claim no
+       policy applies when one does. */
+    var apex = observedWhere('at-apex-not-underscore');
+    if (apex.length) {
+      issues.push(governed
+        ? { key: 'dmarc-at-apex-ignored', sev: 'info', args: [dmarcDiscovery.applied.foundAt] }
+        : { key: 'dmarc-at-apex', sev: 'crit' });
+    }
     if (dmarcStatus.status === 'warn' && dmarcStatus.policy === 'none') issues.push({ key: 'dmarc-none', sev: 'warn' });
     // p=quarantine is real enforcement, so this is a nudge rather than a defect —
     // reject is the end state, and nothing else surfaces that gap.
@@ -2089,7 +2144,7 @@
        ───────────────────────────────────────────────────────────────────── */
 
     // v= absent, not first, or not exactly 'DMARC1' → the whole record MUST be
-    // ignored (RFC 9989 §5.4). Since the Tree Walk's strict pass is
+    // ignored (RFC 9989 §4.7). Since the Tree Walk's strict pass is
     // validateDmarcVersion() itself, no record with a bad v= is ever applied,
     // so that case now arrives through the diagnosis block above instead. What
     // is left here is a record receivers WILL read and cannot act on.
@@ -2152,7 +2207,7 @@
     if (dmarcStatus.foValid === false) issues.push({ key: 'dmarc-bad-fo', sev: 'warn' });
 
     /* Reports sent outside the organizational domain need the destination to
-       authorize them (RFC 9990 §4.3), or conformant receivers drop them
+       authorize them (RFC 9990 §4), or conformant receivers drop them
        silently. Authorization is per URI, so this reports per destination —
        one unauthorized vendor does not invalidate the record or stop reports
        reaching the other destinations.
@@ -2326,8 +2381,12 @@
    * SPF is deliberately absent: an unknown lookup *count* does not zero the SPF
    * pillar (see calcSpfScore), so there is no lost point to recover there.
    */
-  function unprovenPillars(dkimStatus, advanced) {
+  function unprovenPillars(dkimStatus, advanced, dmarcStatus) {
     var out = [];
+    // A DMARC pillar zeroed because the walk could not complete is unproven,
+    // not absent. Without this the grade rests on a check that never ran and
+    // says so nowhere — the exact gap 'dkim-unverified' exists to close.
+    if (dmarcStatus && dmarcStatus.status === 'unknown') out.push('dmarc');
     if (dkimStatus && !dkimStatus.found &&
       (dkimStatus.confidence === 'sampled' || dkimStatus.confidence === 'not-checked')) out.push('dkim');
     if (advanced && advanced.dnssec && advanced.dnssec.state === 'indeterminate') out.push('dnssec');
@@ -2376,7 +2435,7 @@
         pts: parkedPts, max: 100, parked: true,
         // DKIM is not a parked pillar, so an unproven DKIM check cannot mark a
         // parked grade — there were no points to lose.
-        unproven: unprovenPillars(dkimStatus, advanced).filter(function (k) { return parkedKeys.indexOf(k) !== -1; }),
+        unproven: unprovenPillars(dkimStatus, advanced, dmarcStatus).filter(function (k) { return parkedKeys.indexOf(k) !== -1; }),
         breakdown: { pillars: parkedPillars, dmarc: dmarc.parts },
       };
     }
@@ -2408,7 +2467,7 @@
     return {
       grade: graded.grade, cls: graded.cls,
       pts: pts, max: 100, parked: false,
-      unproven: unprovenPillars(dkimStatus, advanced),
+      unproven: unprovenPillars(dkimStatus, advanced, dmarcStatus),
       breakdown: { pillars: pillars, dmarc: dmarc.parts },
     };
   }
@@ -2464,13 +2523,27 @@
     // applies; the duplicate survives as `observed[]` evidence and buildIssues
     // raises it from there, still critical. `multiple` therefore stays false
     // here — passing true would resurrect the permerror it replaces.
-    const dmarcStatus = applyInheritance(
-      analyzeDmarc(dmarcRecord, false), dmarcDiscovery, dmarcExistence
-    );
+    // A walk that ended in a transient DNS error examined nothing conclusive:
+    // the record could not be read, so the honest verdict is 'unknown'. Letting
+    // it fall through to analyzeDmarc('') would report 'missing' — telling the
+    // operator their domain is spoofable on the strength of our own failed
+    // lookup. This is optionalCheck()'s rule applied to the core path.
+    const dmarcUnverified = dmarcDiscovery.terminated === 'error' && !dmarcDiscovery.applied;
+    const dmarcStatus = dmarcUnverified
+      ? emptyDmarcStatus('unknown')
+      : applyInheritance(analyzeDmarc(dmarcRecord, false), dmarcDiscovery, dmarcExistence);
     // The externality test in RFC 9990 §4 is defined against Organizational
     // Domains, which now means walked ones on both sides.
+    // The walked map exists to answer RFC 9990 §4's externality test. Compare
+    // against the Organizational Domain of the name the policy was FOUND at,
+    // not the audited name's — under a PSD those differ, and pairing a policy
+    // domain with someone else's organizational domain records a relationship
+    // that does not hold.
+    const policyOrgDomain = dmarcDiscovery.applied && dmarcDiscovery.applied.inherited
+      ? (await optionalCheck(function () { return discoverDmarc(dmarcAtDomain, queryOpts); }, null) || {}).organizationalDomain || organizationalDomain
+      : organizationalDomain;
     const dmarcOrgDomains = await resolveDestinationOrgDomains(
-      dmarcStatus, dmarcAtDomain, organizationalDomain, queryOpts
+      dmarcStatus, dmarcAtDomain, policyOrgDomain, queryOpts
     );
     const externalReportDestinations = findExternalReportDestinations(dmarcStatus, dmarcAtDomain, dmarcOrgDomains);
 

@@ -173,6 +173,7 @@
   },
   "dmarc": {
     "missing": "✗ 缺少",
+    "unverified": "⚠ 未驗證",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none（僅監控）",
@@ -555,20 +556,20 @@
       "msg": "BIMI 紀錄格式錯誤或未包含有效的 HTTPS 標誌 URL。"
     },
     "dmarc-version-missing": {
-      "msg": "DMARC 記錄並未以 v=DMARC1 開頭——接收方必須完全忽略它。",
-      "what": "RFC 9989 §5.4 要求 <code>v=</code> 標籤必須是記錄中的第一個標籤。缺少它的記錄根本不是 DMARC 記錄，無論其中還寫了什麼。接收伺服器會丟棄它，並把您的網域當作沒有 DMARC 政策來處理——因此這筆記錄只給了您防護的表象，卻沒有任何實質。",
+      "msg": "{0} 上的 DMARC 記錄不是以 v=DMARC1 開頭 — 接收方必須完全忽略它。",
+      "what": "RFC 9989 §4.7 要求 <code>v=</code> 標籤必須是記錄中的第一個標籤。缺少它的記錄根本不是 DMARC 記錄，無論其中還寫了什麼。接收伺服器會丟棄它，並把您的網域當作沒有 DMARC 政策來處理——因此這筆記錄只給了您防護的表象，卻沒有任何實質。",
       "fix": "請重寫該記錄，讓它以 <code>v=DMARC1;</code> 開頭，後面再接您的政策。",
       "fixCode": "; 錯誤——沒有版本標籤：\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正確：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-not-first": {
-      "msg": "v=DMARC1 存在，但不是第一個標籤——接收方必須忽略整筆記錄。",
-      "what": "RFC 9989 §5.4 規定 <code>v=</code> 必須是清單中的第一個標籤，而不只是出現在某處即可。其餘標籤的順序是自由的，這使得手動編輯記錄或以指令碼組裝記錄時很容易出錯。遵循規範的接收方會停止解析，並把該網域當作未受保護來處理。",
+      "msg": "{0} 上有 v=DMARC1，但它不是第一個標籤 — 接收方必須忽略整筆記錄。",
+      "what": "RFC 9989 §4.7 規定 <code>v=</code> 必須是清單中的第一個標籤，而不只是出現在某處即可。其餘標籤的順序是自由的，這使得手動編輯記錄或以指令碼組裝記錄時很容易出錯。遵循規範的接收方會停止解析，並把該網域當作未受保護來處理。",
       "fix": "請把 <code>v=DMARC1;</code> 移到記錄最前面。其他部分不需要更動。",
       "fixCode": "; 錯誤——v= 不在最前面：\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正確：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-bad-value": {
-      "msg": "DMARC 版本值並非精確的「DMARC1」——這個值區分大小寫，記錄會被忽略。",
-      "what": "DMARC 記錄中幾乎所有的值都不區分大小寫，但 RFC 9989 §5.4 把 <code>v=</code> 訂為例外：唯一被接受的寫法是全大寫的 <code>DMARC1</code>。<code>v=dmarc1</code> 或 <code>v=DMARC2</code> 會導致整筆記錄被忽略。由於 DNS 控制台常在輸入時把值轉成小寫，這是複製貼上的常見受害者。",
+      "msg": "{0} 上的 DMARC 版本值不是嚴格的「DMARC1」 — 該值區分大小寫，這筆記錄會遭忽略。",
+      "what": "DMARC 記錄中幾乎所有的值都不區分大小寫，但 RFC 9989 §4.7 把 <code>v=</code> 訂為例外：唯一被接受的寫法是全大寫的 <code>DMARC1</code>。<code>v=dmarc1</code> 或 <code>v=DMARC2</code> 會導致整筆記錄被忽略。由於 DNS 控制台常在輸入時把值轉成小寫，這是複製貼上的常見受害者。",
       "fix": "請將該值精確設為 <code>DMARC1</code>，之後再確認您的 DNS 控制台實際儲存了什麼。",
       "fixCode": "; 錯誤——小寫：\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; 正確：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
@@ -616,7 +617,7 @@
     },
     "dmarc-external-reporting": {
       "msg": "DMARC 報告送往外部網域（{0}）——該網域必須授權，否則報告會被丟棄。",
-      "what": "當報告的接收位址位於您的組織網域之外時——例如 DMARC 服務供應商、顧問或關係企業——RFC 9990 §4.3 要求接收方網域發布一筆授予許可的記錄。少了它，遵循規範的接收方會靜默丟棄送往該位址的報告。授權是逐一位址判定的，因此未獲授權的供應商並不會破壞您的 DMARC 記錄，也不會阻斷送往其他位址的報告；只是那一個位址會就此沉默。本次稽核並未驗證該記錄——請啟用進階檢查，以便自動查詢。",
+      "what": "當報告的接收位址位於您的組織網域之外時——例如 DMARC 服務供應商、顧問或關係企業——RFC 9990 §4 要求接收方網域發布一筆授予許可的記錄。少了它，遵循規範的接收方會靜默丟棄送往該位址的報告。授權是逐一位址判定的，因此未獲授權的供應商並不會破壞您的 DMARC 記錄，也不會阻斷送往其他位址的報告；只是那一個位址會就此沉默。本次稽核並未驗證該記錄——請啟用進階檢查，以便自動查詢。",
       "fix": "請要求目的地網域以 <code>&lt;您的網域&gt;._report._dmarc.&lt;對方網域&gt;</code> 的形式，發布一筆針對您網域的授權記錄。",
       "fixCode": "; 您的記錄會把報告送往某個服務供應商：\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; 供應商必須在自己的區域中發布這筆記錄：\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
     },
@@ -646,7 +647,7 @@
     },
     "dmarc-external-unauthorized": {
       "msg": "送往 {0} 的 DMARC 報告正被丟棄——該網域尚未授權接收您的報告。",
-      "what": "當報告的接收位址位於您的組織網域之外時，RFC 9990 §4.3 要求接收方網域發布一筆授予許可的記錄。我們查過了，它並不存在。因此遵循規範的接收方會丟棄每一份送往 {0} 的報告：不會出錯，也不會退信，您只是拿到比預期更少的資料——而這很容易被誤解成「沒有人在冒用我們」。授權是逐一位址檢查的，因此您記錄中的其他位址仍可正常運作；被丟棄的只有這一個。",
+      "what": "當報告的接收位址位於您的組織網域之外時，RFC 9990 §4 要求接收方網域發布一筆授予許可的記錄。我們查過了，它並不存在。因此遵循規範的接收方會丟棄每一份送往 {0} 的報告：不會出錯，也不會退信，您只是拿到比預期更少的資料——而這很容易被誤解成「沒有人在冒用我們」。授權是逐一位址檢查的，因此您記錄中的其他位址仍可正常運作；被丟棄的只有這一個。",
       "fix": "請要求 {0} 的營運方發布一筆針對您網域的授權記錄。多數報告服務供應商會在您新增網域時自動處理，因此如果您才剛完成設定，不妨先查看供應商的控制台——該記錄可能要等網域在對方端通過驗證後才會出現。",
       "fixCode": "; 目的地網域在自己的區域中發布這筆記錄，\n; 並指明它接受哪個網域的報告：\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; 服務大量客戶的供應商通常改為發布萬用字元形式：\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
     },
@@ -676,25 +677,25 @@
     },
     "dmarc-bad-sp": {
       "msg": "sp= 被設為「{0}」，這不是一個政策值 — 子網域將改為回退到 p=。",
-      "what": "RFC 9989 §5.4 只允許 <code>sp=</code> 取三個值：<code>none</code>、<code>quarantine</code> 和 <code>reject</code>。其他任何取值都不是政策，因此接收方會忽略該標籤，子網域轉而繼承 <code>p=</code>。這可能比您本意更嚴格，也可能更寬鬆；而且這筆記錄讀起來像是刻意設定了子網域政策，實際上並沒有。",
+      "what": "RFC 9989 §4.7 只允許 <code>sp=</code> 取三個值：<code>none</code>、<code>quarantine</code> 和 <code>reject</code>。其他任何取值都不是政策，因此接收方會忽略該標籤，子網域轉而繼承 <code>p=</code>。這可能比您本意更嚴格，也可能更寬鬆；而且這筆記錄讀起來像是刻意設定了子網域政策，實際上並沒有。",
       "fix": "請更正該值；如果您接受子網域繼承 <code>p=</code>，也可以直接刪除 <code>sp=</code>。",
       "fixCode": "; 錯誤 — 拼字錯誤，遭悄悄忽略：\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; 正確：\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
     },
     "dmarc-bad-np": {
       "msg": "np= 被設為「{0}」，這不是一個政策值 — 不存在的子網域將改為回退到 sp= 或 p=。",
-      "what": "RFC 9989 §5.4 只允許 <code>np=</code> 取三個值：<code>none</code>、<code>quarantine</code> 和 <code>reject</code>。其他取值一律遭到忽略，針對不存在名稱的政策會經由 <code>sp=</code> 回退到 <code>p=</code>。不存在的子網域是攻擊者最容易冒充的目標，因此一個看似已設定、實則未設定的標籤值得更正。",
+      "what": "RFC 9989 §4.7 只允許 <code>np=</code> 取三個值：<code>none</code>、<code>quarantine</code> 和 <code>reject</code>。其他取值一律遭到忽略，針對不存在名稱的政策會經由 <code>sp=</code> 回退到 <code>p=</code>。不存在的子網域是攻擊者最容易冒充的目標，因此一個看似已設定、實則未設定的標籤值得更正。",
       "fix": "請更正該值，或者刪除 <code>np=</code>，讓回退鏈有意識地生效。",
       "fixCode": "; 錯誤 — 不是政策值：\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; 正確：\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
     },
     "dmarc-bad-adkim": {
       "msg": "adkim= 被設為「{0}」 — 有效值只有 r 和 s，因此 DKIM 對齊仍為寬鬆模式。",
-      "what": "RFC 9989 §5.4 定義了兩種 DKIM 對齊模式和兩種寫法：<code>r</code> 表示寬鬆，<code>s</code> 表示嚴格。像 <code>strict</code> 或 <code>1</code> 這樣的值無法辨識，接收方會回退到寬鬆模式。這筆記錄在書寫者看來是嚴格的，實際行為卻是寬鬆的，取了兩者之短：您以為只有完全相符才能通過的對齊檢查，您組織網域下的任意子網域都能通過。",
+      "what": "RFC 9989 §4.7 定義了兩種 DKIM 對齊模式和兩種寫法：<code>r</code> 表示寬鬆，<code>s</code> 表示嚴格。像 <code>strict</code> 或 <code>1</code> 這樣的值無法辨識，接收方會回退到寬鬆模式。這筆記錄在書寫者看來是嚴格的，實際行為卻是寬鬆的，取了兩者之短：您以為只有完全相符才能通過的對齊檢查，您組織網域下的任意子網域都能通過。",
       "fix": "嚴格對齊請使用 <code>adkim=s</code>，或刪除該標籤以明確表示採用寬鬆對齊。",
       "fixCode": "; 錯誤 — 拼成單字，因此遭忽略：\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; 正確：\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
     },
     "dmarc-bad-aspf": {
       "msg": "aspf= 被設為「{0}」 — 有效值只有 r 和 s，因此 SPF 對齊仍為寬鬆模式。",
-      "what": "RFC 9989 §5.4 定義了兩種 SPF 對齊模式和兩種寫法：<code>r</code> 表示寬鬆，<code>s</code> 表示嚴格。無法辨識的值會遭忽略，接收方回退到寬鬆模式，於是這筆記錄宣稱了它並不具備的嚴格性。在寬鬆對齊下，您組織網域下的任意子網域都能滿足 DMARC 通過所需的 SPF 那一半條件。",
+      "what": "RFC 9989 §4.7 定義了兩種 SPF 對齊模式和兩種寫法：<code>r</code> 表示寬鬆，<code>s</code> 表示嚴格。無法辨識的值會遭忽略，接收方回退到寬鬆模式，於是這筆記錄宣稱了它並不具備的嚴格性。在寬鬆對齊下，您組織網域下的任意子網域都能滿足 DMARC 通過所需的 SPF 那一半條件。",
       "fix": "嚴格對齊請使用 <code>aspf=s</code>，或刪除該標籤以明確表示採用寬鬆對齊。",
       "fixCode": "; 錯誤 — 拼成單字，因此遭忽略：\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; 正確：\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
     },
@@ -703,6 +704,18 @@
       "what": "RFC 9989 §4.10.1 把繼承來的政策一分為二：<code>sp=</code> 標籤在 <em>\"if the Author Domain exists\"</em> 時適用，<code>np=</code> 在 <em>\"if the Author Domain does not exist\"</em> 時適用。是否存在是一個 DNS 問題 — RFC 9989 附錄 A.4 指出，只要某個名稱存在任何記錄，該名稱即存在 — 而這個名稱已成功解析，所以管轄它的是 <code>sp=</code> 分支。這只是提示訊息：沒有任何設定錯誤。之所以列在這裡，是因為否則所回報的政策看起來會與您能讀到的記錄自相矛盾。",
       "fix": "無需變動。如果您希望這條更嚴格的政策同樣適用於真實存在的子網域，請把 <code>sp=</code> 設為與 <code>np=</code> 相同的值。",
       "fixCode": "; np= 適用於不存在的名稱；sp= 適用於存在的名稱：\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
+    },
+    "dmarc-unverified": {
+      "msg": "無法檢查 DMARC — 一次 DNS 查詢失敗（{0}）。這與沒有 DMARC 記錄並非同一回事。",
+      "what": "依 RFC 9989 探索 DMARC 政策，意謂從這個名稱沿 DNS 樹往頂層網域逐級查找，而其中一次查詢並未作答而是失敗了。查詢失敗並不能證明記錄缺失：政策可能已發布且完全正常。本次稽核不會朝任一方向臆測，因此保留 DMARC 分數，並將評等標記為建立在一項未能完成的檢查之上。這類解析器錯誤通常是暫時的。",
+      "fix": "請重新執行稽核。若該網域持續失敗，請以第二個解析器直接查詢 <code>_dmarc</code>，以判斷究竟是這個名稱確實無法連通，還是只是我們的查詢運氣不好。",
+      "fixCode": "; 在 shell 中自行檢查：\ndig +short TXT _dmarc.yourdomain.com\ndig +short TXT _dmarc.yourdomain.com @1.1.1.1\ndig +short TXT _dmarc.yourdomain.com @8.8.8.8"
+    },
+    "dmarc-at-apex-ignored": {
+      "msg": "除了 _dmarc 下的那筆，網域本身還留有一筆無用的 DMARC 記錄 — 沒有接收方會讀取它，您在 {0} 的真實政策不受影響。",
+      "what": "DMARC 政策位於 <code>_dmarc.yourdomain.com</code>；接收方只查詢那個名稱，別處一概不看。本網域自己的 TXT 集合中還有第二筆 <code>v=DMARC1</code> 字串，任何接收方都永遠不會去看它。您真正生效的政策是在 {0} 找到的那筆，一切照常 — 所以這只是不夠整潔，並不危險。這通常表示把記錄搬到正確名稱之後，舊的副本被遺留了下來。",
+      "fix": "請從網域本身的 TXT 記錄中刪除這筆 <code>v=DMARC1</code> 字串，<code>_dmarc</code> 下的那筆原樣保留。",
+      "fixCode": "; 刪除這筆 — 無人讀取：\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 保留這筆 — 這才是您的政策：\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     }
   },
   "suggestion": {

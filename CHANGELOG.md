@@ -57,6 +57,15 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A failed DMARC lookup is reported as unverified, not as missing.** The walk
+  issues up to eight queries where the old code issued one or two, so a
+  transient resolver failure is correspondingly more likely — and "we could not
+  check" and "you have no DMARC record" are very different things to tell
+  someone about their production domain. A walk that ends in a DNS error now
+  yields an `unknown` status with its own badge and finding, and the DMARC
+  pillar is marked as unproven rather than silently scored as absent. The score
+  is still zero, per the existing rule for controls this audit cannot prove.
+
 - **A misplaced or miscased DMARC record is diagnosed instead of reported as
   missing.** `p=reject; v=DMARC1` (version not first), `v=dmarc1; p=reject`
   (wrong case — the value is case-sensitive), a record with no `v=` at all, and
@@ -64,7 +73,11 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   produce a specific finding naming the actual problem. The last of these is
   common and previously indistinguishable from having no record: `zoom.us`
   publishes a complete, correct DMARC record where no receiver will ever read
-  it.
+  it. Where a working policy exists as well, the apex copy is reported as an
+  ignored leftover rather than a critical defect — the same rule the duplicate
+  finding follows, that a message must never claim no policy applies when one
+  does. Each diagnosis names the DNS name the broken record is actually at,
+  which matters now that the walk visits names the operator may not control.
 
 - **Discovery evidence in the interface and the export.** The DMARC detail line
   names the name the policy was found at and how many lookups it took, and the
@@ -87,6 +100,14 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `tools/backtest.mjs` now reports the DNS query fan-out of every run, so the
   figure `PRIVACY.md` publishes is measured rather than estimated.
+
+### Fixed
+
+- Corrected the RFC section cited in nine user-facing findings and nineteen code
+  comments. The `v=` tag rules are RFC 9989 **§4.7** (DMARC Policy Record
+  Format), not §5.4 (Policy Enforcement Considerations), and RFC 9990's
+  external-destination procedure is **§4**, which has no subsections. Five of
+  these citations predate this release.
 
 - `tools/lib/doh-fixture.mjs`, a programmable DoH resolver for the test sandbox.
   No production code gained a test seam: the sandbox's own `fetch` is replaced,

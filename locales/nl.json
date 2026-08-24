@@ -173,6 +173,7 @@
   },
   "dmarc": {
     "missing": "✗ Ontbreekt",
+    "unverified": "⚠ Niet geverifieerd",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none (alleen monitoring)",
@@ -555,20 +556,20 @@
       "msg": "Het BIMI-record is onjuist opgemaakt of bevat geen geldige HTTPS-logo-URL."
     },
     "dmarc-version-missing": {
-      "msg": "Het DMARC-record begint niet met v=DMARC1 — ontvangers moeten het volledig negeren.",
-      "what": "RFC 9989 §5.4 vereist dat de tag <code>v=</code> de eerste tag in het record is. Een record zonder die tag is helemaal geen DMARC-record, wat er verder ook in staat. Ontvangende servers verwerpen het en behandelen uw domein alsof het geen DMARC-beleid heeft, dus het record geeft u de schijn van bescherming zonder de inhoud ervan.",
+      "msg": "Het DMARC-record op {0} begint niet met v=DMARC1 — ontvangers moeten het volledig negeren.",
+      "what": "RFC 9989 §4.7 vereist dat de tag <code>v=</code> de eerste tag in het record is. Een record zonder die tag is helemaal geen DMARC-record, wat er verder ook in staat. Ontvangende servers verwerpen het en behandelen uw domein alsof het geen DMARC-beleid heeft, dus het record geeft u de schijn van bescherming zonder de inhoud ervan.",
       "fix": "Herschrijf het record zodat het begint met <code>v=DMARC1;</code>, gevolgd door uw beleid.",
       "fixCode": "; Fout — geen versietag:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-not-first": {
-      "msg": "v=DMARC1 is aanwezig maar is niet de eerste tag — ontvangers moeten het hele record negeren.",
-      "what": "RFC 9989 §5.4 stelt dat <code>v=</code> de eerste tag in de lijst MOET zijn, niet alleen ergens aanwezig. De volgorde van de overige tags is verder vrij, waardoor dit gemakkelijk misgaat wanneer een record met de hand wordt bewerkt of door een script wordt samengesteld. Een ontvanger die de specificatie volgt, stopt met parseren en behandelt het domein als onbeschermd.",
+      "msg": "v=DMARC1 staat op {0} maar is niet de eerste tag — ontvangers moeten het hele record negeren.",
+      "what": "RFC 9989 §4.7 stelt dat <code>v=</code> de eerste tag in de lijst MOET zijn, niet alleen ergens aanwezig. De volgorde van de overige tags is verder vrij, waardoor dit gemakkelijk misgaat wanneer een record met de hand wordt bewerkt of door een script wordt samengesteld. Een ontvanger die de specificatie volgt, stopt met parseren en behandelt het domein als onbeschermd.",
       "fix": "Verplaats <code>v=DMARC1;</code> naar het begin van het record. Verder hoeft er niets te veranderen.",
       "fixCode": "; Fout — v= staat niet vooraan:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-bad-value": {
-      "msg": "De DMARC-versiewaarde is niet exact \"DMARC1\" — de waarde is hoofdlettergevoelig en het record wordt genegeerd.",
-      "what": "Vrijwel elke waarde in een DMARC-record is niet hoofdlettergevoelig, maar RFC 9989 §5.4 maakt van <code>v=</code> de uitzondering: de enige geaccepteerde schrijfwijze is <code>DMARC1</code>, in hoofdletters. <code>v=dmarc1</code> of <code>v=DMARC2</code> zorgt ervoor dat het hele record wordt genegeerd. Dit is een veelvoorkomend slachtoffer van kopiëren en plakken, omdat DNS-panelen waarden bij invoer vaak omzetten naar kleine letters.",
+      "msg": "De DMARC-versiewaarde op {0} is niet exact \"DMARC1\" — de waarde is hoofdlettergevoelig en het record wordt genegeerd.",
+      "what": "Vrijwel elke waarde in een DMARC-record is niet hoofdlettergevoelig, maar RFC 9989 §4.7 maakt van <code>v=</code> de uitzondering: de enige geaccepteerde schrijfwijze is <code>DMARC1</code>, in hoofdletters. <code>v=dmarc1</code> of <code>v=DMARC2</code> zorgt ervoor dat het hele record wordt genegeerd. Dit is een veelvoorkomend slachtoffer van kopiëren en plakken, omdat DNS-panelen waarden bij invoer vaak omzetten naar kleine letters.",
       "fix": "Zet de waarde op exact <code>DMARC1</code> en controleer daarna wat uw DNS-paneel werkelijk heeft opgeslagen.",
       "fixCode": "; Fout — kleine letters:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
@@ -616,7 +617,7 @@
     },
     "dmarc-external-reporting": {
       "msg": "DMARC-rapporten gaan naar een extern domein ({0}) — dat domein moet ze autoriseren, anders worden de rapporten verworpen.",
-      "what": "Ligt een rapportbestemming buiten uw organisatiedomein — een DMARC-leverancier, een adviseur, een zusteronderneming — dan vereist RFC 9990 §4.3 dat het ontvangende domein een record publiceert dat toestemming verleent. Zonder dat record verwerpen specificatiegetrouwe ontvangers stilzwijgend de rapporten die voor die bestemming zijn bedoeld. Autorisatie wordt per bestemming beoordeeld, dus een niet-geautoriseerde leverancier maakt uw DMARC-record niet stuk en houdt rapporten naar uw andere adressen niet tegen; alleen die ene bestemming valt stil. Deze audit heeft het record niet geverifieerd — schakel de geavanceerde controles in zodat het automatisch wordt opgezocht.",
+      "what": "Ligt een rapportbestemming buiten uw organisatiedomein — een DMARC-leverancier, een adviseur, een zusteronderneming — dan vereist RFC 9990 §4 dat het ontvangende domein een record publiceert dat toestemming verleent. Zonder dat record verwerpen specificatiegetrouwe ontvangers stilzwijgend de rapporten die voor die bestemming zijn bedoeld. Autorisatie wordt per bestemming beoordeeld, dus een niet-geautoriseerde leverancier maakt uw DMARC-record niet stuk en houdt rapporten naar uw andere adressen niet tegen; alleen die ene bestemming valt stil. Deze audit heeft het record niet geverifieerd — schakel de geavanceerde controles in zodat het automatisch wordt opgezocht.",
       "fix": "Vraag het bestemmingsdomein een autorisatierecord voor uw domein te publiceren, in de vorm <code>&lt;uw-domein&gt;._report._dmarc.&lt;hun-domein&gt;</code>.",
       "fixCode": "; Uw record stuurt rapporten naar een leverancier:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; De LEVERANCIER moet dit in zijn zone publiceren:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
     },
@@ -646,7 +647,7 @@
     },
     "dmarc-external-unauthorized": {
       "msg": "DMARC-rapporten naar {0} worden verworpen — dat domein heeft uw rapporten niet geautoriseerd.",
-      "what": "Ligt een rapportbestemming buiten uw organisatiedomein, dan vereist RFC 9990 §4.3 dat het ontvangende domein een record publiceert dat toestemming verleent. We hebben gekeken en het staat er niet. Specificatiegetrouwe ontvangers verwerpen daarom elk rapport dat voor {0} bestemd is: er treedt geen fout op en er bounct niets, u krijgt eenvoudigweg minder gegevens dan u denkt — wat gemakkelijk wordt aangezien voor \"niemand doet zich voor als ons\". Autorisatie wordt per bestemming gecontroleerd, dus andere adressen in uw record blijven gewoon werken; alleen deze wordt verworpen.",
+      "what": "Ligt een rapportbestemming buiten uw organisatiedomein, dan vereist RFC 9990 §4 dat het ontvangende domein een record publiceert dat toestemming verleent. We hebben gekeken en het staat er niet. Specificatiegetrouwe ontvangers verwerpen daarom elk rapport dat voor {0} bestemd is: er treedt geen fout op en er bounct niets, u krijgt eenvoudigweg minder gegevens dan u denkt — wat gemakkelijk wordt aangezien voor \"niemand doet zich voor als ons\". Autorisatie wordt per bestemming gecontroleerd, dus andere adressen in uw record blijven gewoon werken; alleen deze wordt verworpen.",
       "fix": "Vraag de beheerder van {0} een autorisatierecord voor uw domein te publiceren. De meeste rapportageleveranciers doen dit automatisch zodra u een domein toevoegt, dus als u dit net hebt ingesteld, is het de moeite waard om eerst het dashboard van de leverancier te bekijken — het record verschijnt mogelijk pas nadat het domein aan hun kant is geverifieerd.",
       "fixCode": "; Het BESTEMMINGSdomein publiceert dit in zijn eigen zone\n; en noemt daarin het domein waarvan het rapporten accepteert:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; Leveranciers met veel klanten publiceren meestal de wildcardvorm:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
     },
@@ -676,25 +677,25 @@
     },
     "dmarc-bad-sp": {
       "msg": "sp= staat op \"{0}\", wat geen beleidswaarde is — subdomeinen vallen in plaats daarvan terug op p=.",
-      "what": "RFC 9989 §5.4 staat precies drie waarden toe voor <code>sp=</code>: <code>none</code>, <code>quarantine</code> en <code>reject</code>. Al het andere is geen beleid, dus ontvangers negeren de tag en subdomeinen erven <code>p=</code>. Dat kan strenger of zwakker zijn dan u bedoelde, en het record leest alsof er een bewust subdomeinbeleid geldt terwijl dat er niet is.",
+      "what": "RFC 9989 §4.7 staat precies drie waarden toe voor <code>sp=</code>: <code>none</code>, <code>quarantine</code> en <code>reject</code>. Al het andere is geen beleid, dus ontvangers negeren de tag en subdomeinen erven <code>p=</code>. Dat kan strenger of zwakker zijn dan u bedoelde, en het record leest alsof er een bewust subdomeinbeleid geldt terwijl dat er niet is.",
       "fix": "Corrigeer de waarde, of verwijder <code>sp=</code> helemaal als u het prima vindt dat subdomeinen <code>p=</code> erven.",
       "fixCode": "; Fout — typefout, stilletjes genegeerd:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
     },
     "dmarc-bad-np": {
       "msg": "np= staat op \"{0}\", wat geen beleidswaarde is — niet-bestaande subdomeinen vallen in plaats daarvan terug op sp= of p=.",
-      "what": "RFC 9989 §5.4 staat precies drie waarden toe voor <code>np=</code>: <code>none</code>, <code>quarantine</code> en <code>reject</code>. Al het andere wordt genegeerd, en het beleid voor namen die niet bestaan valt via <code>sp=</code> terug op <code>p=</code>. Niet-bestaande subdomeinen zijn het goedkoopst om te vervalsen, dus een tag die ingesteld lijkt maar het niet is, verdient correctie.",
+      "what": "RFC 9989 §4.7 staat precies drie waarden toe voor <code>np=</code>: <code>none</code>, <code>quarantine</code> en <code>reject</code>. Al het andere wordt genegeerd, en het beleid voor namen die niet bestaan valt via <code>sp=</code> terug op <code>p=</code>. Niet-bestaande subdomeinen zijn het goedkoopst om te vervalsen, dus een tag die ingesteld lijkt maar het niet is, verdient correctie.",
       "fix": "Corrigeer de waarde, of verwijder <code>np=</code> en laat de terugvalketen bewust gelden.",
       "fixCode": "; Fout — geen beleidswaarde:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
     },
     "dmarc-bad-adkim": {
       "msg": "adkim= staat op \"{0}\" — alleen r en s zijn geldig, dus de DKIM-uitlijning blijft soepel.",
-      "what": "RFC 9989 §5.4 definieert twee DKIM-uitlijningsmodi en twee schrijfwijzen: <code>r</code> voor soepel en <code>s</code> voor strikt. Een waarde als <code>strict</code> of <code>1</code> wordt niet herkend en ontvangers vallen terug op soepel. Het record leest als strikt voor wie het schreef, maar gedraagt zich in de praktijk als soepel — het slechtste van twee werelden: een subdomein van uw organisatiedomein kan de uitlijning halen terwijl u dacht dat alleen een exacte overeenkomst dat zou doen.",
+      "what": "RFC 9989 §4.7 definieert twee DKIM-uitlijningsmodi en twee schrijfwijzen: <code>r</code> voor soepel en <code>s</code> voor strikt. Een waarde als <code>strict</code> of <code>1</code> wordt niet herkend en ontvangers vallen terug op soepel. Het record leest als strikt voor wie het schreef, maar gedraagt zich in de praktijk als soepel — het slechtste van twee werelden: een subdomein van uw organisatiedomein kan de uitlijning halen terwijl u dacht dat alleen een exacte overeenkomst dat zou doen.",
       "fix": "Gebruik <code>adkim=s</code> voor strikte uitlijning, of verwijder de tag om soepele uitlijning expliciet vast te leggen.",
       "fixCode": "; Fout — voluit geschreven, dus genegeerd:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
     },
     "dmarc-bad-aspf": {
       "msg": "aspf= staat op \"{0}\" — alleen r en s zijn geldig, dus de SPF-uitlijning blijft soepel.",
-      "what": "RFC 9989 §5.4 definieert twee SPF-uitlijningsmodi en twee schrijfwijzen: <code>r</code> voor soepel en <code>s</code> voor strikt. Een niet-herkende waarde wordt genegeerd en ontvangers vallen terug op soepel, zodat het record een striktheid claimt die het niet heeft. Bij soepele uitlijning kan elk subdomein van uw organisatiedomein aan de SPF-helft van een geslaagde DMARC-controle voldoen.",
+      "what": "RFC 9989 §4.7 definieert twee SPF-uitlijningsmodi en twee schrijfwijzen: <code>r</code> voor soepel en <code>s</code> voor strikt. Een niet-herkende waarde wordt genegeerd en ontvangers vallen terug op soepel, zodat het record een striktheid claimt die het niet heeft. Bij soepele uitlijning kan elk subdomein van uw organisatiedomein aan de SPF-helft van een geslaagde DMARC-controle voldoen.",
       "fix": "Gebruik <code>aspf=s</code> voor strikte uitlijning, of verwijder de tag om soepele uitlijning expliciet vast te leggen.",
       "fixCode": "; Fout — voluit geschreven, dus genegeerd:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
     },
@@ -703,6 +704,18 @@
       "what": "RFC 9989 §4.10.1 splitst het geërfde beleid in tweeën: de tag <code>sp=</code> geldt <em>\"if the Author Domain exists\"</em> en <code>np=</code> geldt <em>\"if the Author Domain does not exist\"</em>. Bestaan is een DNS-vraag — bijlage A.4 van RFC 9989 stelt dat een naam bestaat zodra er enig record voor bestaat — en deze naam is opgelost, dus geldt de <code>sp=</code>-tak. Dit is informatief: er is niets verkeerd geconfigureerd. Het staat hier omdat het gemelde beleid anders in tegenspraak lijkt met het record dat u kunt lezen.",
       "fix": "Er hoeft niets te veranderen. Wilde u dat dit strengere beleid ook voor echte subdomeinen gold, zet <code>sp=</code> dan op dezelfde waarde als <code>np=</code>.",
       "fixCode": "; np= geldt voor namen die niet bestaan; sp= voor de namen die wel bestaan:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
+    },
+    "dmarc-unverified": {
+      "msg": "DMARC kon niet worden gecontroleerd — een DNS-opvraging mislukte ({0}). Dat is niet hetzelfde als géén DMARC-record hebben.",
+      "what": "Een DMARC-beleid opzoeken volgens RFC 9989 betekent vanaf deze naam omhoog klimmen richting het topleveldomein, en een van die opvragingen mislukte in plaats van te antwoorden. Een mislukte opvraging is geen bewijs van een ontbrekend record: het beleid kan gepubliceerd en volkomen gezond zijn. Deze audit gokt geen van beide kanten op, dus de DMARC-score wordt ingehouden en het cijfer wordt gemarkeerd als steunend op een controle die niet is afgerond. Resolverfouten van dit type zijn meestal tijdelijk.",
+      "fix": "Voer de audit opnieuw uit. Blijft het voor dit domein mislukken, bevraag <code>_dmarc</code> dan rechtstreeks via een tweede resolver om te zien of de naam werkelijk onbereikbaar is of dat onze opvraging simpelweg pech had.",
+      "fixCode": "; Controleer het zelf, vanuit een shell:\ndig +short TXT _dmarc.yourdomain.com\ndig +short TXT _dmarc.yourdomain.com @1.1.1.1\ndig +short TXT _dmarc.yourdomain.com @8.8.8.8"
+    },
+    "dmarc-at-apex-ignored": {
+      "msg": "Er staat een verdwaald DMARC-record op het domein zelf naast dat onder _dmarc — geen ontvanger leest het, en uw echte beleid op {0} blijft ongemoeid.",
+      "what": "Een DMARC-beleid hoort op <code>_dmarc.yourdomain.com</code>; ontvangers bevragen die naam en geen andere. In de eigen TXT-set van dit domein staat een tweede <code>v=DMARC1</code>-tekenreeks waar geen enkele ontvanger ooit naar kijkt. Uw werkelijke beleid is dat op {0} en het geldt gewoon — dit is dus slordig, niet gevaarlijk. Meestal is het een oudere kopie die bleef staan nadat het record naar de juiste naam was verplaatst.",
+      "fix": "Verwijder de <code>v=DMARC1</code>-tekenreeks uit de TXT-records van het domein zelf. Laat die onder <code>_dmarc</code> precies zoals hij is.",
+      "fixCode": "; Verwijder dit — niets leest het:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Behoud dit — dit is uw beleid:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     }
   },
   "suggestion": {

@@ -64,6 +64,10 @@
   }
 
   function dmarcLabel(dmarcStatus) {
+    // 'unknown' is a lookup that failed, not a record that is absent. It gets
+    // its own badge for the same reason 'dkim-unverified' does: presenting an
+    // unexamined control as a missing one is the worse error for an auditor.
+    if (dmarcStatus.status === 'unknown') return t('dmarc.unverified');
     if (dmarcStatus.status === 'permerror') return t('dmarc.permerror');
     if (dmarcStatus.status === 'missing') return t('dmarc.missing');
     // 'present' means receivers cannot act on the record — bad v=, unrecognised
@@ -488,7 +492,14 @@
         R.text(' · '),
         R.text(t('dmarc.terminated.' + d.terminated)),
       ]),
-      interesting ? null : R.el('button', { className: 'showme-btn', type: 'button' }, t('dmarc.showWalk')),
+      // The shared toggleShowMe() rewrites textContent to the generic
+      // open/close labels, which would silently replace this button's own
+      // wording after one click. Carry the labels on the element so the toggle
+      // can restore the right one.
+      interesting ? null : R.el('button', {
+        className: 'showme-btn', type: 'button',
+        dataset: { openLabel: t('dmarc.showWalk'), closeLabel: t('showme.close') },
+      }, t('dmarc.showWalk')),
       stepList,
     ]);
   }
@@ -610,7 +621,8 @@
       id: rowId,
       dataset: {
         domain: r.domain,
-        dmarc: r.dmarcStatus.status !== 'missing' ? 'yes' : 'no',
+        dmarc: r.dmarcStatus.status === 'unknown' ? 'unknown'
+          : r.dmarcStatus.status !== 'missing' ? 'yes' : 'no',
         dkim: r.dkimStatus.found ? 'yes'
           : (r.dkimStatus.confidence === 'sampled' || r.dkimStatus.confidence === 'not-checked') ? 'unknown' : 'no',
         spf: r.spfStatus.status !== 'missing' ? 'yes' : 'no',
@@ -813,7 +825,9 @@
     var content = btn.nextElementSibling;
     var open = content.style.display !== 'none' && content.style.display !== '';
     content.style.display = open ? 'none' : 'block';
-    btn.textContent = open ? t('showme.open') : t('showme.close');
+    btn.textContent = open
+      ? (btn.dataset.openLabel || t('showme.open'))
+      : (btn.dataset.closeLabel || t('showme.close'));
   }
 
   // The disclosure control for a truncated value (spec §4). Display caps never
@@ -861,7 +875,11 @@
       tile(count(function (r) { return r.emailProvider !== '@none' && r.emailProvider !== '@null-mx'; }), t('stat.haveEmail'), 'c-info', reg),
       tile(count(function (r) { return r.spfStatus && r.spfStatus.status !== 'missing'; }), 'SPF', 'c-ok', reg),
       tile(count(function (r) { return r.dkimStatus && r.dkimStatus.found; }), 'DKIM', 'c-ok', reg),
-      tile(count(function (r) { return r.dmarcStatus && r.dmarcStatus.status !== 'missing'; }), 'DMARC', 'c-ok', reg),
+      // An unverified DMARC control is counted as neither present nor absent —
+      // the tile states what was proven, and this one was not.
+      tile(count(function (r) {
+        return r.dmarcStatus && r.dmarcStatus.status !== 'missing' && r.dmarcStatus.status !== 'unknown';
+      }), 'DMARC', 'c-ok', reg),
       tile(count(function (r) { return r.advanced && r.advanced.bimi && r.advanced.bimi.present; }), 'BIMI', 'c-tip', reg),
       tile(count(function (r) { return r.advanced && r.advanced.mtaSts && r.advanced.mtaSts.present; }), 'MTA-STS', 'c-tip', reg),
       tile(count(function (r) { return r.advanced && r.advanced.tlsRpt && r.advanced.tlsRpt.present; }), 'TLS-RPT', 'c-tip', reg),

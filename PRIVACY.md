@@ -34,7 +34,10 @@ issues 46 queries.
 
 These are measured numbers, not estimates: `node tools/backtest.mjs` reports
 the fan-out of every run it makes, and the figures above were taken from a
-40-domain sample at release 0.3.0. Re-measure rather than trusting this
+40-domain sample at release 0.3.0. The previous text said 30 and 32; re-measuring
+at `v0.2.3` showed the `cloudflare.com` figure had been 42 for some time, so part
+of the rise you see here is a correction to a stale number rather than new
+traffic. The Tree Walk itself accounts for the rest. Re-measure rather than trusting this
 paragraph if you need the number to be exact for your own list — a domain with
 a long SPF `include:` chain or many DKIM selectors costs considerably more than
 one without.

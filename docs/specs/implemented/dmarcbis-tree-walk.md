@@ -201,6 +201,15 @@ Implementation constraints that are settled:
   unknown control must never be presented as an absent one. This holds even when
   a record was already collected at a lower step: a transient error means the
   higher names could not be examined, so the *highest* record is not knowable.
+
+  > **Amended at 1.2 — see [As implemented](#as-implemented) item 2.** The last
+  > sentence is too strong. It holds for an inherited policy and for the
+  > Organizational Domain, and it does **not** hold for a record found at the
+  > Author Domain itself, which RFC 9989 §4.10.1 settles on the first query
+  > before any walk begins. That record survives the error; `terminated` stays
+  > `error` and `organizationalDomain` still falls back to the audited name.
+  > As originally written, a slow `_dmarc.com` would have reported a healthy
+  > domain's own `p=reject` as unknown.
 - A step at which more than one valid record exists **discards them and
   continues**. RFC 9989 step 2: *"If multiple DMARC Policy Records are returned
   for a single target, they are all discarded."* The duplicate is recorded in
@@ -320,7 +329,7 @@ an English string.
 correct and needs three tightenings.
 
 First, the authorization record must have `v=DMARC1` as its **first** tag, which
-is what RFC 9990 §4.3 requires and what the comment at
+is what RFC 9990 §4 requires and what the comment at
 [`js/dns.js:815`](../../../js/dns.js) already states. The check uses
 `startsWithCI(r, 'v=DMARC1')`, which is correct for position but accepts
 `v=DMARC1x`. Route it through `validateDmarcVersion()` so one function owns the
@@ -449,10 +458,18 @@ discovery difference and listed in `CHANGELOG.md`.
 ## Acceptance criteria
 
 1. Every fixture above passes deterministically with no network access.
-2. `discovery.terminated` is never `error` with a non-null `applied`, and never
-   reports a value outside `psd-y` / `psd-n` / `root` / `error`. Finding a record
-   and encountering a duplicate are not termination reasons, and neither is
-   exhausting the query budget — that cannot happen.
+2. `discovery.terminated` never reports a value outside `psd-y` / `psd-n` /
+   `root` / `error`. Finding a record and encountering a duplicate are not
+   termination reasons, and neither is exhausting the query budget — that cannot
+   happen.
+
+   > **Amended at 1.2 — see [As implemented](#as-implemented) item 2.** This
+   > criterion originally also required that `terminated` is never `error` with
+   > a non-null `applied`. That requirement encoded the defect described above
+   > and is withdrawn. The narrower guarantee that replaces it: after an error,
+   > `applied` is non-null **only** for a record found at the audited name
+   > itself, with `labelsUp: 0` and `inherited: false`. A record collected at an
+   > ancestor never survives an error.
 3. A misplaced or miscased `v=DMARC1` produces a specific diagnosis, not
    "missing".
 4. `np=` is applied only when the audited name does not exist.
@@ -603,6 +620,44 @@ and reports per-domain fan-out on every run. It also carries the walk's
 provenance into `--json`, so a grade diff between two runs can be explained by
 naming the record that moved.
 
+**9. A failed walk is `unknown`, and every surface says so.** Found in internal
+review, and the most consequential defect in the release. `discoverDmarc()`
+reported `terminated: 'error'` correctly and nothing downstream consumed it, so
+`analyzeDomain()` fell through to `analyzeDmarc('')` and produced `missing` — the
+badge, the finding, the CSV, the summary tile and the filter all asserting
+absence on the strength of our own failed lookup. That is what section 2 of this
+spec forbids and what `optionalCheck()` exists to prevent, and it was a
+regression: at 0.2.3 the same failure threw and the domain showed as an error
+rather than as unprotected. The exposure had also grown, because the walk issues
+up to eight queries where the old code issued one or two. `analyzeDmarc()` gains
+an `unknown` status carrying `cls: 'warn'`, `unprovenPillars()` gains the DMARC
+pillar, and `dmarc-unverified` names the failure kind. The score stays zero, per
+the advisory-before-scoring rule for controls this audit cannot prove.
+
+**10. The apex diagnosis gets the duplicate finding's two-variant treatment.**
+Also internal review. `dmarc-at-apex` was raised as critical whenever a
+`v=DMARC1` string appeared in the apex TXT set, including when `_dmarc` held a
+perfectly good record — and its text asserts that "the domain is treated as
+having no DMARC policy at all", which in that state is false. `zoom.us` is a
+live example: it publishes both, and the release's headline new finding was
+firing as a false critical on it. `dmarc-at-apex-ignored` (info) names the
+governing policy; `dmarc-at-apex` (critical) is kept for when the apex copy is
+the only one. This is section 3's "must not lie" rule, which the spec stated for
+duplicates and should have stated generally.
+
+**11. Report-destination walks are capped at ten.** `parseDmarcUriList()` caps
+nothing, so the number of walks — and therefore the query count for one audit —
+was set by the audited domain's own record content. Twenty distinct destinations
+would have been 160 queries. Destinations past the cap fall back to their bare
+name, which per `findExternalReportDestinations()` can only make one look
+*external*, producing a "verify this" notice rather than a silent pass.
+
+**12. Nine user-facing RFC citations were wrong.** The `v=` rules are §4.7
+(DMARC Policy Record Format); §5.4 is Policy Enforcement Considerations. RFC
+9990's procedure is §4, which has no subsections. Five of the nine predate this
+release. `OQ-DMARC-01` makes the citation part of the deliverable, so they are
+corrected in the locale strings, in nineteen code comments, and in this document.
+
 ## Verification
 
 - `npm test` — 1,130 assertions, 0 failures (972 at `v0.2.3`).
@@ -632,5 +687,5 @@ naming the record that moved.
 | --- | --- | --- |
 | 0.1 | 2026-08-20 | Initial draft. |
 | 1.0 | 2026-08-24 | Final. Resolved all seven open questions. Two corrections came out of transcribing RFC 9989 §4.10 rather than trusting the draft: the label threshold is **eight**, not five (five was an early DMARCbis draft), and the walk selects the **highest** name carrying a record, not the first one found going up — first-match would report the wrong policy domain for exactly the delegated-subdomain case DMARCbis exists to serve. Consequent changes: `applied.foundAt`/`applied.labelsUp` keep their names and are defined as the location of the applied record, `policyDomain` is added as an alias, `organizationalDomain` stays separate and is the highest name with a record; duplicate records at a step are discarded and the walk continues rather than terminating as `multiple`, with the duplicate kept as diagnostic evidence and the critical finding raised from that evidence; and the `terminated` vocabulary now describes how the walk ended (`psd-y`, `psd-n`, `root`, `query-limit`, `error`) rather than what was found in it. `OQ-DMARC-05` was resolved against RFC 9990 §4 step 8, which is explicit where the draft called it ambiguous. Corrections contributed by external review (Codex). |
-| 1.2 | 2026-08-24 | Implemented. Two corrections came out of transcribing RFC 9989 against the code, both in the same direction as 1.0's: the spec's summary of the RFC was tidier than the RFC. The applied record is selected by §4.10.1's preference list (Author Domain, then Organizational Domain, then PSD) rather than by height alone — §4.10.1's closing note, *"PSD policy is not used for Organizational Domains that have published a DMARC Policy Record"*, decides the one case where the two readings differ. And a record found at the Author Domain survives a transient error higher in the walk, because §4.10.1 settles that record on the first query and performs the walk only "If no valid DMARC Policy Record is found by the first query"; as written, 1.1 would have reported a false "no policy" on a healthy domain whenever `_dmarc.com` was slow. See **As implemented** 1 and 2. |
+| 1.2 | 2026-08-25 | Implemented. Two corrections came out of transcribing RFC 9989 against the code, both in the same direction as 1.0's: the spec's summary of the RFC was tidier than the RFC. The applied record is selected by §4.10.1's preference list (Author Domain, then Organizational Domain, then PSD) rather than by height alone — §4.10.1's closing note, *"PSD policy is not used for Organizational Domains that have published a DMARC Policy Record"*, decides the one case where the two readings differ. And a record found at the Author Domain survives a transient error higher in the walk, because §4.10.1 settles that record on the first query and performs the walk only "If no valid DMARC Policy Record is found by the first query"; as written, 1.1 would have reported a false "no policy" on a healthy domain whenever `_dmarc.com` was slow. See **As implemented** 1 and 2. Internal review then found four more defects, recorded as **As implemented** 9–12; the first of them — a failed walk reported as a missing record — was a regression against 0.2.3 and against this spec's own section 2. |
 | 1.1 | 2026-08-24 | Consistency pass over the 1.0 text before implementation, after external review (Codex) found six places where 1.0 still contradicted its own resolutions. Removed the non-goal claiming the PSL stays for `findExternalReportDestinations()`, which `OQ-DMARC-04` had already moved to the Tree Walk. Rewrote section 6's duplicate-authorization rule, which still proposed a `multiple` state after `OQ-DMARC-05` resolved to "authorized when at least one record parses", and corrected the matching fixture. Replaced the testing section's `__setResolver`/transport-injection proposal with the resolved programmable sandbox `fetch` helper. Removed `query-limit` from `terminated`: the eight-query bound is achieved by the shortening rule and labels always run out exactly at the budget, so it is not a reachable outcome. Corrected `organizationalDomain` to RFC 9989 §4.10.2's three-rule selection — `psd=n` wins outright, `psd=y` puts the Organizational Domain one label below (a name that may carry no record), and only otherwise is it the fewest-labels record — with the initial target as the normative fallback, so the field is never null. Added the requirement that a duplicate finding never claims no policy applies when one does. |

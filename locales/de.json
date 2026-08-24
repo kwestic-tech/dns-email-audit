@@ -173,6 +173,7 @@
   },
   "dmarc": {
     "missing": "✗ Fehlt",
+    "unverified": "⚠ Nicht geprüft",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none (Überwachung)",
@@ -555,20 +556,20 @@
       "msg": "Der BIMI-Record ist fehlerhaft oder enthält keine gültige HTTPS-Logo-URL."
     },
     "dmarc-version-missing": {
-      "msg": "Der DMARC-Eintrag beginnt nicht mit v=DMARC1 — Empfänger müssen ihn vollständig ignorieren.",
-      "what": "RFC 9989 §5.4 verlangt, dass das Tag <code>v=</code> das erste Tag im Eintrag ist. Ein Eintrag ohne es ist überhaupt kein DMARC-Eintrag, was auch immer sonst darin steht. Empfangende Server verwerfen ihn und behandeln Ihre Domain, als hätte sie keine DMARC-Richtlinie — der Eintrag verschafft Ihnen also den Anschein von Schutz ohne dessen Substanz.",
+      "msg": "Der DMARC-Eintrag bei {0} beginnt nicht mit v=DMARC1 — Empfänger müssen ihn vollständig ignorieren.",
+      "what": "RFC 9989 §4.7 verlangt, dass das Tag <code>v=</code> das erste Tag im Eintrag ist. Ein Eintrag ohne es ist überhaupt kein DMARC-Eintrag, was auch immer sonst darin steht. Empfangende Server verwerfen ihn und behandeln Ihre Domain, als hätte sie keine DMARC-Richtlinie — der Eintrag verschafft Ihnen also den Anschein von Schutz ohne dessen Substanz.",
       "fix": "Schreiben Sie den Eintrag so um, dass er mit <code>v=DMARC1;</code> beginnt, gefolgt von Ihrer Richtlinie.",
       "fixCode": "; Falsch — kein Versions-Tag:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Richtig:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-not-first": {
-      "msg": "v=DMARC1 ist vorhanden, steht aber nicht an erster Stelle — Empfänger müssen den gesamten Eintrag ignorieren.",
-      "what": "RFC 9989 §5.4 verlangt, dass <code>v=</code> das erste Tag der Liste ist, nicht bloß irgendwo vorkommt. Die übrige Tag-Reihenfolge ist frei, was diesen Fehler leicht macht, wenn ein Eintrag von Hand bearbeitet oder per Skript zusammengesetzt wird. Ein Empfänger, der sich an die Spezifikation hält, bricht die Auswertung ab und behandelt die Domain als ungeschützt.",
+      "msg": "v=DMARC1 ist bei {0} vorhanden, aber nicht das erste Tag — Empfänger müssen den gesamten Eintrag ignorieren.",
+      "what": "RFC 9989 §4.7 verlangt, dass <code>v=</code> das erste Tag der Liste ist, nicht bloß irgendwo vorkommt. Die übrige Tag-Reihenfolge ist frei, was diesen Fehler leicht macht, wenn ein Eintrag von Hand bearbeitet oder per Skript zusammengesetzt wird. Ein Empfänger, der sich an die Spezifikation hält, bricht die Auswertung ab und behandelt die Domain als ungeschützt.",
       "fix": "Verschieben Sie <code>v=DMARC1;</code> an den Anfang des Eintrags. Sonst muss nichts geändert werden.",
       "fixCode": "; Falsch — v= steht nicht an erster Stelle:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; Richtig:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-bad-value": {
-      "msg": "Der DMARC-Versionswert lautet nicht exakt „DMARC1“ — der Wert unterscheidet Groß- und Kleinschreibung und der Eintrag wird ignoriert.",
-      "what": "Fast jeder Wert in einem DMARC-Eintrag ist unabhängig von Groß- und Kleinschreibung, doch RFC 9989 §5.4 macht <code>v=</code> zur Ausnahme: Die einzige zulässige Schreibweise ist <code>DMARC1</code>, in Großbuchstaben. <code>v=dmarc1</code> oder <code>v=DMARC2</code> führt dazu, dass der gesamte Eintrag ignoriert wird. Das ist ein häufiges Opfer von Kopieren und Einfügen, weil DNS-Panels Werte bei der Eingabe oft in Kleinbuchstaben umwandeln.",
+      "msg": "Der DMARC-Versionswert bei {0} ist nicht exakt \"DMARC1\" — der Wert unterscheidet Groß- und Kleinschreibung, und der Eintrag wird ignoriert.",
+      "what": "Fast jeder Wert in einem DMARC-Eintrag ist unabhängig von Groß- und Kleinschreibung, doch RFC 9989 §4.7 macht <code>v=</code> zur Ausnahme: Die einzige zulässige Schreibweise ist <code>DMARC1</code>, in Großbuchstaben. <code>v=dmarc1</code> oder <code>v=DMARC2</code> führt dazu, dass der gesamte Eintrag ignoriert wird. Das ist ein häufiges Opfer von Kopieren und Einfügen, weil DNS-Panels Werte bei der Eingabe oft in Kleinbuchstaben umwandeln.",
       "fix": "Setzen Sie den Wert auf exakt <code>DMARC1</code> und prüfen Sie anschließend nach, was Ihr DNS-Panel tatsächlich gespeichert hat.",
       "fixCode": "; Falsch — Kleinschreibung:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; Richtig:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
@@ -616,7 +617,7 @@
     },
     "dmarc-external-reporting": {
       "msg": "DMARC-Berichte gehen an eine fremde Domain ({0}) — diese Domain muss sie autorisieren, sonst werden die Berichte verworfen.",
-      "what": "Liegt ein Berichtsziel außerhalb Ihrer organisatorischen Domain — ein DMARC-Dienstleister, ein Berater, ein Schwesterunternehmen — verlangt RFC 9990 §4.3, dass die empfangende Domain einen Eintrag zur Erteilung der Erlaubnis veröffentlicht. Ohne ihn verwerfen konforme Empfänger die für dieses Ziel bestimmten Berichte stillschweigend. Die Autorisierung wird je Ziel geprüft, ein nicht autorisierter Dienstleister beschädigt also weder Ihren DMARC-Eintrag noch hält er Berichte von Ihren übrigen Adressen ab; nur dieses eine Ziel verstummt. Dieses Audit hat den Eintrag nicht überprüft — aktivieren Sie die erweiterten Prüfungen, damit er automatisch abgefragt wird.",
+      "what": "Liegt ein Berichtsziel außerhalb Ihrer organisatorischen Domain — ein DMARC-Dienstleister, ein Berater, ein Schwesterunternehmen — verlangt RFC 9990 §4, dass die empfangende Domain einen Eintrag zur Erteilung der Erlaubnis veröffentlicht. Ohne ihn verwerfen konforme Empfänger die für dieses Ziel bestimmten Berichte stillschweigend. Die Autorisierung wird je Ziel geprüft, ein nicht autorisierter Dienstleister beschädigt also weder Ihren DMARC-Eintrag noch hält er Berichte von Ihren übrigen Adressen ab; nur dieses eine Ziel verstummt. Dieses Audit hat den Eintrag nicht überprüft — aktivieren Sie die erweiterten Prüfungen, damit er automatisch abgefragt wird.",
       "fix": "Bitten Sie die Zieldomain, einen Autorisierungseintrag für Ihre Domain zu veröffentlichen, in der Form <code>&lt;ihre-domain&gt;._report._dmarc.&lt;deren-domain&gt;</code>.",
       "fixCode": "; Ihr Eintrag sendet Berichte an einen Dienstleister:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; Der DIENSTLEISTER muss dies in seiner Zone veröffentlichen:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
     },
@@ -646,7 +647,7 @@
     },
     "dmarc-external-unauthorized": {
       "msg": "DMARC-Berichte an {0} werden verworfen — diese Domain hat Ihre Berichte nicht autorisiert.",
-      "what": "Liegt ein Berichtsziel außerhalb Ihrer organisatorischen Domain, verlangt RFC 9990 §4.3, dass die empfangende Domain einen Eintrag zur Erteilung der Erlaubnis veröffentlicht. Wir haben nachgesehen: Er ist nicht vorhanden. Konforme Empfänger verwerfen daher jeden Bericht, der für {0} bestimmt ist. Nichts schlägt fehl, nichts kommt zurück — Sie erhalten schlicht weniger Daten, als Sie glauben, was leicht mit „uns fälscht niemand“ verwechselt wird. Die Autorisierung wird je Ziel geprüft, alle anderen Adressen in Ihrem Eintrag funktionieren also normal weiter; nur diese eine wird verworfen.",
+      "what": "Liegt ein Berichtsziel außerhalb Ihrer organisatorischen Domain, verlangt RFC 9990 §4, dass die empfangende Domain einen Eintrag zur Erteilung der Erlaubnis veröffentlicht. Wir haben nachgesehen: Er ist nicht vorhanden. Konforme Empfänger verwerfen daher jeden Bericht, der für {0} bestimmt ist. Nichts schlägt fehl, nichts kommt zurück — Sie erhalten schlicht weniger Daten, als Sie glauben, was leicht mit „uns fälscht niemand“ verwechselt wird. Die Autorisierung wird je Ziel geprüft, alle anderen Adressen in Ihrem Eintrag funktionieren also normal weiter; nur diese eine wird verworfen.",
       "fix": "Bitten Sie den Betreiber von {0}, einen Autorisierungseintrag für Ihre Domain zu veröffentlichen. Die meisten Berichtsdienstleister tun das automatisch, sobald Sie eine Domain hinzufügen — wenn Sie das gerade erst eingerichtet haben, lohnt sich also zuerst ein Blick ins Dienstleister-Dashboard: Der Eintrag erscheint unter Umständen erst, wenn die Domain auf deren Seite verifiziert ist.",
       "fixCode": "; Die ZIELdomain veröffentlicht dies in ihrer eigenen Zone\n; und benennt darin die Domain, deren Berichte sie annimmt:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; Dienstleister mit vielen Kunden veröffentlichen meist die Wildcard-Form:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
     },
@@ -676,25 +677,25 @@
     },
     "dmarc-bad-sp": {
       "msg": "sp= steht auf \"{0}\", was kein Richtlinienwert ist — Subdomains fallen stattdessen auf p= zurück.",
-      "what": "RFC 9989 §5.4 erlaubt für <code>sp=</code> genau drei Werte: <code>none</code>, <code>quarantine</code> und <code>reject</code>. Alles andere ist keine Richtlinie, also ignorieren Empfänger das Tag und Subdomains erben <code>p=</code>. Das kann strenger oder schwächer sein als beabsichtigt, und der Eintrag liest sich, als wäre eine bewusste Subdomain-Richtlinie in Kraft, obwohl es keine gibt.",
+      "what": "RFC 9989 §4.7 erlaubt für <code>sp=</code> genau drei Werte: <code>none</code>, <code>quarantine</code> und <code>reject</code>. Alles andere ist keine Richtlinie, also ignorieren Empfänger das Tag und Subdomains erben <code>p=</code>. Das kann strenger oder schwächer sein als beabsichtigt, und der Eintrag liest sich, als wäre eine bewusste Subdomain-Richtlinie in Kraft, obwohl es keine gibt.",
       "fix": "Korrigieren Sie den Wert, oder entfernen Sie <code>sp=</code> ganz, wenn Subdomains ruhig <code>p=</code> erben sollen.",
       "fixCode": "; Falsch — Tippfehler, wird stillschweigend ignoriert:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; Richtig:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
     },
     "dmarc-bad-np": {
       "msg": "np= steht auf \"{0}\", was kein Richtlinienwert ist — nicht existierende Subdomains fallen stattdessen auf sp= oder p= zurück.",
-      "what": "RFC 9989 §5.4 erlaubt für <code>np=</code> genau drei Werte: <code>none</code>, <code>quarantine</code> und <code>reject</code>. Alles andere wird ignoriert, und die Richtlinie für nicht existierende Namen fällt über <code>sp=</code> auf <code>p=</code> zurück. Nicht existierende Subdomains sind für Angreifer am billigsten zu fälschen, deshalb lohnt es sich, ein Tag zu korrigieren, das gesetzt aussieht und es nicht ist.",
+      "what": "RFC 9989 §4.7 erlaubt für <code>np=</code> genau drei Werte: <code>none</code>, <code>quarantine</code> und <code>reject</code>. Alles andere wird ignoriert, und die Richtlinie für nicht existierende Namen fällt über <code>sp=</code> auf <code>p=</code> zurück. Nicht existierende Subdomains sind für Angreifer am billigsten zu fälschen, deshalb lohnt es sich, ein Tag zu korrigieren, das gesetzt aussieht und es nicht ist.",
       "fix": "Korrigieren Sie den Wert, oder entfernen Sie <code>np=</code> und lassen Sie die Rückfallkette bewusst greifen.",
       "fixCode": "; Falsch — kein Richtlinienwert:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; Richtig:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
     },
     "dmarc-bad-adkim": {
       "msg": "adkim= steht auf \"{0}\" — zulässig sind nur r und s, daher bleibt die DKIM-Ausrichtung relaxed.",
-      "what": "RFC 9989 §5.4 definiert zwei DKIM-Ausrichtungsmodi und zwei Schreibweisen: <code>r</code> für relaxed und <code>s</code> für strict. Ein Wert wie <code>strict</code> oder <code>1</code> wird nicht erkannt, und Empfänger fallen auf relaxed zurück. Der Eintrag liest sich für den Verfasser als strikt, verhält sich in der Praxis aber als relaxed — das Schlechteste aus beiden Welten: Eine Subdomain Ihrer Organisationsdomain kann die Ausrichtung bestehen, obwohl Sie glaubten, nur eine exakte Übereinstimmung würde das schaffen.",
+      "what": "RFC 9989 §4.7 definiert zwei DKIM-Ausrichtungsmodi und zwei Schreibweisen: <code>r</code> für relaxed und <code>s</code> für strict. Ein Wert wie <code>strict</code> oder <code>1</code> wird nicht erkannt, und Empfänger fallen auf relaxed zurück. Der Eintrag liest sich für den Verfasser als strikt, verhält sich in der Praxis aber als relaxed — das Schlechteste aus beiden Welten: Eine Subdomain Ihrer Organisationsdomain kann die Ausrichtung bestehen, obwohl Sie glaubten, nur eine exakte Übereinstimmung würde das schaffen.",
       "fix": "Verwenden Sie <code>adkim=s</code> für strikte Ausrichtung, oder entfernen Sie das Tag, um relaxed ausdrücklich festzuhalten.",
       "fixCode": "; Falsch — ausgeschrieben, daher ignoriert:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; Richtig:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
     },
     "dmarc-bad-aspf": {
       "msg": "aspf= steht auf \"{0}\" — zulässig sind nur r und s, daher bleibt die SPF-Ausrichtung relaxed.",
-      "what": "RFC 9989 §5.4 definiert zwei SPF-Ausrichtungsmodi und zwei Schreibweisen: <code>r</code> für relaxed und <code>s</code> für strict. Ein nicht erkannter Wert wird ignoriert und Empfänger fallen auf relaxed zurück, sodass der Eintrag eine Strenge behauptet, die er nicht hat. Bei relaxed-Ausrichtung kann jede Subdomain Ihrer Organisationsdomain die SPF-Hälfte eines DMARC-Pass erfüllen.",
+      "what": "RFC 9989 §4.7 definiert zwei SPF-Ausrichtungsmodi und zwei Schreibweisen: <code>r</code> für relaxed und <code>s</code> für strict. Ein nicht erkannter Wert wird ignoriert und Empfänger fallen auf relaxed zurück, sodass der Eintrag eine Strenge behauptet, die er nicht hat. Bei relaxed-Ausrichtung kann jede Subdomain Ihrer Organisationsdomain die SPF-Hälfte eines DMARC-Pass erfüllen.",
       "fix": "Verwenden Sie <code>aspf=s</code> für strikte Ausrichtung, oder entfernen Sie das Tag, um relaxed ausdrücklich festzuhalten.",
       "fixCode": "; Falsch — ausgeschrieben, daher ignoriert:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; Richtig:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
     },
@@ -703,6 +704,18 @@
       "what": "RFC 9989 §4.10.1 teilt die geerbte Richtlinie in zwei Zweige: Das <code>sp=</code>-Tag gilt <em>\"if the Author Domain exists\"</em>, und <code>np=</code> gilt <em>\"if the Author Domain does not exist\"</em>. Existenz ist eine DNS-Frage — RFC 9989 Anhang A.4 hält fest, dass ein Name existiert, sobald irgendein Eintrag für ihn existiert — und dieser Name hat aufgelöst, also greift der <code>sp=</code>-Zweig. Dies ist ein Hinweis: Es ist nichts falsch konfiguriert. Er steht hier, weil die gemeldete Richtlinie sonst im Widerspruch zum lesbaren Eintrag zu stehen scheint.",
       "fix": "Keine Änderung nötig. Wenn diese strengere Richtlinie auch für echte Subdomains gelten soll, setzen Sie <code>sp=</code> auf denselben Wert wie <code>np=</code>.",
       "fixCode": "; np= gilt für Namen, die nicht existieren; sp= für die, die es tun:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
+    },
+    "dmarc-unverified": {
+      "msg": "DMARC konnte nicht geprüft werden — eine DNS-Abfrage schlug fehl ({0}). Das ist nicht dasselbe wie ein fehlender DMARC-Eintrag.",
+      "what": "Eine DMARC-Richtlinie nach RFC 9989 zu ermitteln bedeutet, von diesem Namen aus in Richtung Top-Level-Domain zu laufen, und eine dieser Abfragen schlug fehl, statt zu antworten. Eine fehlgeschlagene Abfrage ist kein Beleg für einen fehlenden Eintrag: Die Richtlinie kann veröffentlicht und völlig in Ordnung sein. Dieses Audit rät in keine der beiden Richtungen, also wird die DMARC-Wertung zurückgehalten und die Note als auf einer nicht abgeschlossenen Prüfung beruhend markiert. Solche Resolver-Fehler sind meist vorübergehend.",
+      "fix": "Führen Sie das Audit erneut aus. Schlägt es für diese Domain weiterhin fehl, fragen Sie <code>_dmarc</code> direkt über einen zweiten Resolver ab, um herauszufinden, ob der Name tatsächlich nicht erreichbar ist oder ob unsere Abfrage nur Pech hatte.",
+      "fixCode": "; Selbst prüfen, aus einer Shell:\ndig +short TXT _dmarc.yourdomain.com\ndig +short TXT _dmarc.yourdomain.com @1.1.1.1\ndig +short TXT _dmarc.yourdomain.com @8.8.8.8"
+    },
+    "dmarc-at-apex-ignored": {
+      "msg": "Ein verirrter DMARC-Eintrag liegt zusätzlich zu dem unter _dmarc auf der Domain selbst — kein Empfänger liest ihn, und Ihre eigentliche Richtlinie bei {0} bleibt unberührt.",
+      "what": "Eine DMARC-Richtlinie liegt bei <code>_dmarc.yourdomain.com</code>; Empfänger fragen diesen Namen ab und sonst keinen. Im TXT-Satz dieser Domain steht eine zweite <code>v=DMARC1</code>-Zeichenkette, die kein Empfänger je ansehen wird. Ihre tatsächliche Richtlinie ist die bei {0} gefundene, und sie gilt normal — das hier ist also unordentlich, nicht gefährlich. Meist ist es eine ältere Kopie, die nach dem Verschieben des Eintrags an den richtigen Namen liegen geblieben ist.",
+      "fix": "Löschen Sie die <code>v=DMARC1</code>-Zeichenkette aus den TXT-Einträgen der Domain selbst. Lassen Sie die unter <code>_dmarc</code> genau so, wie sie ist.",
+      "fixCode": "; Dies löschen — nichts liest es:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Dies behalten — das ist Ihre Richtlinie:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     }
   },
   "suggestion": {

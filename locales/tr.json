@@ -173,6 +173,7 @@
   },
   "dmarc": {
     "missing": "✗ Eksik",
+    "unverified": "⚠ Doğrulanmadı",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none (yalnızca izleme)",
@@ -555,20 +556,20 @@
       "msg": "BIMI kaydı hatalı biçimlendirilmiş veya geçerli bir HTTPS logo adresi içermiyor."
     },
     "dmarc-version-missing": {
-      "msg": "DMARC kaydı v=DMARC1 ile başlamıyor — alıcılar kaydı tamamen yok saymak zorundadır.",
-      "what": "RFC 9989 §5.4, <code>v=</code> etiketinin kayıttaki ilk etiket olmasını şart koşar. Bu etiket olmayan bir kayıt, içinde başka ne olursa olsun, hiç DMARC kaydı değildir. Alıcı sunucular kaydı atar ve alan adınızı DMARC politikası yokmuş gibi değerlendirir; dolayısıyla kayıt size özü olmayan bir koruma görüntüsü verir.",
+      "msg": "{0} adresindeki DMARC kaydı v=DMARC1 ile başlamıyor — alıcılar onu tümüyle yok saymalıdır.",
+      "what": "RFC 9989 §4.7, <code>v=</code> etiketinin kayıttaki ilk etiket olmasını şart koşar. Bu etiket olmayan bir kayıt, içinde başka ne olursa olsun, hiç DMARC kaydı değildir. Alıcı sunucular kaydı atar ve alan adınızı DMARC politikası yokmuş gibi değerlendirir; dolayısıyla kayıt size özü olmayan bir koruma görüntüsü verir.",
       "fix": "Kaydı, <code>v=DMARC1;</code> ile başlayıp ardından politikanızın geleceği şekilde yeniden yazın.",
       "fixCode": "; Yanlış — sürüm etiketi yok:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-not-first": {
-      "msg": "v=DMARC1 mevcut ama ilk etiket değil — alıcılar kaydın tamamını yok saymak zorundadır.",
-      "what": "RFC 9989 §5.4, <code>v=</code> etiketinin listede yalnızca bir yerde bulunmasının değil, ilk etiket olmasının ZORUNLU olduğunu söyler. Diğer etiketlerin sırası serbesttir; bu da bir kayıt elle düzenlendiğinde ya da bir betikle oluşturulduğunda hatayı kolaylaştırır. Belirtime uyan bir alıcı ayrıştırmayı durdurur ve alan adını korumasız kabul eder.",
+      "msg": "v=DMARC1 {0} adresinde var ama ilk etiket değil — alıcılar kaydın tamamını yok saymalıdır.",
+      "what": "RFC 9989 §4.7, <code>v=</code> etiketinin listede yalnızca bir yerde bulunmasının değil, ilk etiket olmasının ZORUNLU olduğunu söyler. Diğer etiketlerin sırası serbesttir; bu da bir kayıt elle düzenlendiğinde ya da bir betikle oluşturulduğunda hatayı kolaylaştırır. Belirtime uyan bir alıcı ayrıştırmayı durdurur ve alan adını korumasız kabul eder.",
       "fix": "<code>v=DMARC1;</code> etiketini kaydın en başına taşıyın. Başka hiçbir şeyi değiştirmeniz gerekmez.",
       "fixCode": "; Yanlış — v= ilk sırada değil:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-bad-value": {
-      "msg": "DMARC sürüm değeri tam olarak \"DMARC1\" değil — değer büyük/küçük harfe duyarlıdır ve kayıt yok sayılır.",
-      "what": "Bir DMARC kaydındaki neredeyse her değer büyük/küçük harfe duyarsızdır, ancak RFC 9989 §5.4 <code>v=</code> etiketini istisna kılar: kabul edilen tek yazım, büyük harflerle <code>DMARC1</code>'dir. <code>v=dmarc1</code> veya <code>v=DMARC2</code> kaydın tamamının yok sayılmasına yol açar. DNS panelleri girişte değerleri sık sık küçük harfe çevirdiğinden, bu yaygın bir kopyala-yapıştır kurbanıdır.",
+      "msg": "{0} adresindeki DMARC sürüm değeri tam olarak \"DMARC1\" değil — değer büyük/küçük harfe duyarlıdır ve kayıt yok sayılır.",
+      "what": "Bir DMARC kaydındaki neredeyse her değer büyük/küçük harfe duyarsızdır, ancak RFC 9989 §4.7 <code>v=</code> etiketini istisna kılar: kabul edilen tek yazım, büyük harflerle <code>DMARC1</code>'dir. <code>v=dmarc1</code> veya <code>v=DMARC2</code> kaydın tamamının yok sayılmasına yol açar. DNS panelleri girişte değerleri sık sık küçük harfe çevirdiğinden, bu yaygın bir kopyala-yapıştır kurbanıdır.",
       "fix": "Değeri tam olarak <code>DMARC1</code> yapın ve ardından DNS panelinizin gerçekte ne kaydettiğini yeniden kontrol edin.",
       "fixCode": "; Yanlış — küçük harf:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
@@ -616,7 +617,7 @@
     },
     "dmarc-external-reporting": {
       "msg": "DMARC raporları dış bir alan adına ({0}) gidiyor — o alan adı bunları yetkilendirmezse raporlar atılır.",
-      "what": "Bir rapor hedefi kurumsal alan adınızın dışındaysa — bir DMARC sağlayıcısı, bir danışman, bir kardeş şirket — RFC 9990 §4.3, alıcı alan adının izin veren bir kayıt yayımlamasını şart koşar. Bu kayıt olmadan, belirtime uyan alıcılar o hedefe giden raporları sessizce atar. Yetkilendirme hedef bazında değerlendirilir; dolayısıyla yetkilendirilmemiş bir sağlayıcı DMARC kaydınızı bozmaz ve raporların diğer adreslerinize ulaşmasını engellemez; yalnızca o hedef susar. Bu denetim kaydı doğrulamadı — otomatik olarak sorgulanması için gelişmiş kontrolleri etkinleştirin.",
+      "what": "Bir rapor hedefi kurumsal alan adınızın dışındaysa — bir DMARC sağlayıcısı, bir danışman, bir kardeş şirket — RFC 9990 §4, alıcı alan adının izin veren bir kayıt yayımlamasını şart koşar. Bu kayıt olmadan, belirtime uyan alıcılar o hedefe giden raporları sessizce atar. Yetkilendirme hedef bazında değerlendirilir; dolayısıyla yetkilendirilmemiş bir sağlayıcı DMARC kaydınızı bozmaz ve raporların diğer adreslerinize ulaşmasını engellemez; yalnızca o hedef susar. Bu denetim kaydı doğrulamadı — otomatik olarak sorgulanması için gelişmiş kontrolleri etkinleştirin.",
       "fix": "Hedef alan adından, <code>&lt;alan-adiniz&gt;._report._dmarc.&lt;onlarin-alan-adi&gt;</code> biçiminde, alan adınız için bir yetkilendirme kaydı yayımlamasını isteyin.",
       "fixCode": "; Kaydınız raporları bir sağlayıcıya gönderiyor:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; SAĞLAYICI bunu kendi bölgesinde yayımlamalıdır:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
     },
@@ -646,7 +647,7 @@
     },
     "dmarc-external-unauthorized": {
       "msg": "{0} adresine giden DMARC raporları atılıyor — o alan adı raporlarınızı yetkilendirmemiş.",
-      "what": "Bir rapor hedefi kurumsal alan adınızın dışında kaldığında, RFC 9990 §4.3 alıcı alan adının izin veren bir kayıt yayımlamasını şart koşar. Baktık; kayıt orada değil. Bu nedenle belirtime uyan alıcılar {0} adresine giden her raporu atar: hiçbir şey hata vermez, hiçbir şey geri dönmez, yalnızca sandığınızdan daha az veri alırsınız — ki bunu \"kimse bizi taklit etmiyor\" sanmak çok kolaydır. Yetkilendirme hedef bazında kontrol edilir; dolayısıyla kaydınızdaki diğer adresler normal çalışmaya devam eder, yalnızca bu biri atılıyor.",
+      "what": "Bir rapor hedefi kurumsal alan adınızın dışında kaldığında, RFC 9990 §4 alıcı alan adının izin veren bir kayıt yayımlamasını şart koşar. Baktık; kayıt orada değil. Bu nedenle belirtime uyan alıcılar {0} adresine giden her raporu atar: hiçbir şey hata vermez, hiçbir şey geri dönmez, yalnızca sandığınızdan daha az veri alırsınız — ki bunu \"kimse bizi taklit etmiyor\" sanmak çok kolaydır. Yetkilendirme hedef bazında kontrol edilir; dolayısıyla kaydınızdaki diğer adresler normal çalışmaya devam eder, yalnızca bu biri atılıyor.",
       "fix": "{0} işletmecisinden alan adınız için bir yetkilendirme kaydı yayımlamasını isteyin. Çoğu raporlama sağlayıcısı bir alan adı eklediğinizde bunu otomatik yapar; bu nedenle kurulumu yeni yaptıysanız önce sağlayıcı panelini kontrol etmekte fayda var — kayıt, alan adı onların tarafında doğrulandıktan sonra görünüyor olabilir.",
       "fixCode": "; HEDEF alan adı bunu kendi bölgesinde yayımlar\n; ve raporlarını kabul ettiği alan adını belirtir:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; Çok sayıda müşteriyi kabul eden sağlayıcılar genelde joker biçimi yayımlar:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
     },
@@ -676,25 +677,25 @@
     },
     "dmarc-bad-sp": {
       "msg": "sp= değeri \"{0}\" olarak ayarlanmış; bu bir ilke değeri değil — alt alan adları bunun yerine p= değerine döner.",
-      "what": "RFC 9989 §5.4, <code>sp=</code> için tam olarak üç değere izin verir: <code>none</code>, <code>quarantine</code> ve <code>reject</code>. Bunun dışındaki hiçbir şey ilke değildir; alıcılar etiketi yok sayar ve alt alan adları <code>p=</code> değerini devralır. Bu, amaçladığınızdan daha katı ya da daha gevşek olabilir ve kayıt, aslında olmadığı hâlde bilinçli bir alt alan adı ilkesi yürürlükteymiş gibi okunur.",
+      "what": "RFC 9989 §4.7, <code>sp=</code> için tam olarak üç değere izin verir: <code>none</code>, <code>quarantine</code> ve <code>reject</code>. Bunun dışındaki hiçbir şey ilke değildir; alıcılar etiketi yok sayar ve alt alan adları <code>p=</code> değerini devralır. Bu, amaçladığınızdan daha katı ya da daha gevşek olabilir ve kayıt, aslında olmadığı hâlde bilinçli bir alt alan adı ilkesi yürürlükteymiş gibi okunur.",
       "fix": "Değeri düzeltin ya da alt alan adlarının <code>p=</code> değerini devralmasında sakınca görmüyorsanız <code>sp=</code> etiketini tümüyle kaldırın.",
       "fixCode": "; Yanlış — yazım hatası, sessizce yok sayılır:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
     },
     "dmarc-bad-np": {
       "msg": "np= değeri \"{0}\" olarak ayarlanmış; bu bir ilke değeri değil — var olmayan alt alan adları bunun yerine sp= ya da p= değerine döner.",
-      "what": "RFC 9989 §5.4, <code>np=</code> için tam olarak üç değere izin verir: <code>none</code>, <code>quarantine</code> ve <code>reject</code>. Bunun dışındaki her şey yok sayılır ve var olmayan adlara ilişkin ilke <code>sp=</code> üzerinden <code>p=</code> değerine döner. Var olmayan alt alan adları bir saldırganın taklit etmesi en ucuz hedeftir; bu yüzden ayarlanmış görünen ama ayarlanmamış bir etiketi düzeltmeye değer.",
+      "what": "RFC 9989 §4.7, <code>np=</code> için tam olarak üç değere izin verir: <code>none</code>, <code>quarantine</code> ve <code>reject</code>. Bunun dışındaki her şey yok sayılır ve var olmayan adlara ilişkin ilke <code>sp=</code> üzerinden <code>p=</code> değerine döner. Var olmayan alt alan adları bir saldırganın taklit etmesi en ucuz hedeftir; bu yüzden ayarlanmış görünen ama ayarlanmamış bir etiketi düzeltmeye değer.",
       "fix": "Değeri düzeltin ya da <code>np=</code> etiketini kaldırıp geri dönüş zincirinin bilinçli olarak devreye girmesine izin verin.",
       "fixCode": "; Yanlış — ilke değeri değil:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
     },
     "dmarc-bad-adkim": {
       "msg": "adkim= değeri \"{0}\" olarak ayarlanmış — tek geçerli değerler r ve s olduğundan DKIM hizalaması gevşek kalır.",
-      "what": "RFC 9989 §5.4, iki DKIM hizalama kipi ve iki yazım tanımlar: gevşek için <code>r</code>, katı için <code>s</code>. <code>strict</code> ya da <code>1</code> gibi bir değer tanınmaz ve alıcılar gevşeğe döner. Kayıt, yazan kişiye katı görünürken uygulamada gevşek davranır; bu da iki dünyanın en kötüsüdür: yalnızca tam eşleşmenin başarabileceğini sandığınız hizalamayı, kurumsal alan adınızın herhangi bir alt alan adı geçebilir.",
+      "what": "RFC 9989 §4.7, iki DKIM hizalama kipi ve iki yazım tanımlar: gevşek için <code>r</code>, katı için <code>s</code>. <code>strict</code> ya da <code>1</code> gibi bir değer tanınmaz ve alıcılar gevşeğe döner. Kayıt, yazan kişiye katı görünürken uygulamada gevşek davranır; bu da iki dünyanın en kötüsüdür: yalnızca tam eşleşmenin başarabileceğini sandığınız hizalamayı, kurumsal alan adınızın herhangi bir alt alan adı geçebilir.",
       "fix": "Katı hizalama için <code>adkim=s</code> kullanın ya da gevşek hizalamayı açıkça belirtmek için etiketi kaldırın.",
       "fixCode": "; Yanlış — açık yazıldığı için yok sayılır:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
     },
     "dmarc-bad-aspf": {
       "msg": "aspf= değeri \"{0}\" olarak ayarlanmış — tek geçerli değerler r ve s olduğundan SPF hizalaması gevşek kalır.",
-      "what": "RFC 9989 §5.4, iki SPF hizalama kipi ve iki yazım tanımlar: gevşek için <code>r</code>, katı için <code>s</code>. Tanınmayan bir değer yok sayılır ve alıcılar gevşeğe döner; böylece kayıt sahip olmadığı bir katılığı iddia eder. Gevşek hizalamada, kurumsal alan adınızın herhangi bir alt alan adı bir DMARC başarısının SPF yarısını karşılayabilir.",
+      "what": "RFC 9989 §4.7, iki SPF hizalama kipi ve iki yazım tanımlar: gevşek için <code>r</code>, katı için <code>s</code>. Tanınmayan bir değer yok sayılır ve alıcılar gevşeğe döner; böylece kayıt sahip olmadığı bir katılığı iddia eder. Gevşek hizalamada, kurumsal alan adınızın herhangi bir alt alan adı bir DMARC başarısının SPF yarısını karşılayabilir.",
       "fix": "Katı hizalama için <code>aspf=s</code> kullanın ya da gevşek hizalamayı açıkça belirtmek için etiketi kaldırın.",
       "fixCode": "; Yanlış — açık yazıldığı için yok sayılır:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
     },
@@ -703,6 +704,18 @@
       "what": "RFC 9989 §4.10.1, devralınan ilkeyi ikiye ayırır: <code>sp=</code> etiketi <em>\"if the Author Domain exists\"</em> durumunda, <code>np=</code> ise <em>\"if the Author Domain does not exist\"</em> durumunda geçerlidir. Varlık bir DNS sorusudur — RFC 9989 Ek A.4, bir ad için herhangi bir kayıt varsa o adın var olduğunu belirtir — ve bu ad çözümlendi, dolayısıyla <code>sp=</code> dalı yönetir. Bu bilgilendirme amaçlıdır: yanlış yapılandırılmış bir şey yoktur. Burada yer almasının nedeni, aksi hâlde bildirilen ilkenin okuyabildiğiniz kayıtla tutarsız görünecek olmasıdır.",
       "fix": "Değişiklik gerekmiyor. Bu daha katı ilkenin gerçek alt alan adları için de geçerli olmasını istiyorsanız <code>sp=</code> değerini <code>np=</code> ile aynı yapın.",
       "fixCode": "; np= var olmayan adları kapsar; sp= var olanları kapsar:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
+    },
+    "dmarc-unverified": {
+      "msg": "DMARC denetlenemedi — bir DNS sorgusu başarısız oldu ({0}). Bu, DMARC kaydının bulunmamasıyla aynı şey değildir.",
+      "what": "RFC 9989 uyarınca bir DMARC ilkesini keşfetmek, bu addan üst düzey alan adına doğru yürümek demektir ve o sorgulardan biri yanıt vermek yerine başarısız oldu. Başarısız bir sorgu, kaydın eksik olduğunun kanıtı değildir: ilke yayımlanmış ve gayet sağlıklı olabilir. Bu denetim iki yönde de tahmin yürütmeyecek; bu yüzden DMARC puanı verilmiyor ve not, tamamlanamamış bir denetime dayandığı için işaretleniyor. Bu tür çözümleyici hataları genellikle geçicidir.",
+      "fix": "Denetimi yeniden çalıştırın. Bu alan adı için başarısız olmayı sürdürüyorsa, adın gerçekten erişilemez mi olduğunu yoksa yalnızca bizim sorgumuzun mu şanssız olduğunu anlamak için <code>_dmarc</code> adresini ikinci bir çözümleyiciyle doğrudan sorgulayın.",
+      "fixCode": "; Kendiniz denetleyin, bir kabuktan:\ndig +short TXT _dmarc.yourdomain.com\ndig +short TXT _dmarc.yourdomain.com @1.1.1.1\ndig +short TXT _dmarc.yourdomain.com @8.8.8.8"
+    },
+    "dmarc-at-apex-ignored": {
+      "msg": "_dmarc altındakine ek olarak alan adının kendisinde başıboş bir DMARC kaydı duruyor — hiçbir alıcı onu okumaz ve {0} adresindeki asıl ilkeniz etkilenmez.",
+      "what": "Bir DMARC ilkesi <code>_dmarc.yourdomain.com</code> adresinde bulunur; alıcılar yalnızca o adı sorgular, başkasını değil. Bu alan adının kendi TXT kümesinde, hiçbir alıcının asla bakmayacağı ikinci bir <code>v=DMARC1</code> dizesi var. Gerçek ilkeniz {0} adresinde bulunandır ve normal biçimde geçerlidir — yani bu tehlikeli değil, dağınık. Genellikle kayıt doğru ada taşındıktan sonra eski bir kopyanın geride kalmasından kaynaklanır.",
+      "fix": "<code>v=DMARC1</code> dizesini alan adının kendi TXT kayıtlarından silin. <code>_dmarc</code> altındakine hiç dokunmayın.",
+      "fixCode": "; Bunu silin — kimse okumuyor:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Bunu koruyun — ilkeniz bu:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     }
   },
   "suggestion": {

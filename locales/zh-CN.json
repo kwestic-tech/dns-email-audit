@@ -173,6 +173,7 @@
   },
   "dmarc": {
     "missing": "✗ 缺少",
+    "unverified": "⚠ 未验证",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none（仅监控）",
@@ -555,20 +556,20 @@
       "msg": "BIMI 记录格式错误或未包含有效的 HTTPS 标识 URL。"
     },
     "dmarc-version-missing": {
-      "msg": "DMARC 记录未以 v=DMARC1 开头——接收方必须完全忽略它。",
-      "what": "RFC 9989 §5.4 要求 <code>v=</code> 标签必须是记录中的第一个标签。缺少它的记录根本不是 DMARC 记录，无论其中还写了什么。接收服务器会丢弃它，并把您的域名当作没有 DMARC 策略来处理——因此这条记录只给了您防护的表象，却没有任何实质。",
+      "msg": "{0} 上的 DMARC 记录不是以 v=DMARC1 开头 — 接收方必须完全忽略它。",
+      "what": "RFC 9989 §4.7 要求 <code>v=</code> 标签必须是记录中的第一个标签。缺少它的记录根本不是 DMARC 记录，无论其中还写了什么。接收服务器会丢弃它，并把您的域名当作没有 DMARC 策略来处理——因此这条记录只给了您防护的表象，却没有任何实质。",
       "fix": "请重写该记录，使其以 <code>v=DMARC1;</code> 开头，后面再跟您的策略。",
       "fixCode": "; 错误——没有版本标签：\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-not-first": {
-      "msg": "v=DMARC1 存在，但不是第一个标签——接收方必须忽略整条记录。",
-      "what": "RFC 9989 §5.4 规定 <code>v=</code> 必须是列表中的第一个标签，而不只是出现在某处即可。其余标签的顺序是自由的，这使得手工编辑记录或用脚本拼装记录时很容易出错。遵循规范的接收方会停止解析，并把该域名当作未受保护来处理。",
+      "msg": "{0} 上存在 v=DMARC1，但它不是第一个标签 — 接收方必须忽略整条记录。",
+      "what": "RFC 9989 §4.7 规定 <code>v=</code> 必须是列表中的第一个标签，而不只是出现在某处即可。其余标签的顺序是自由的，这使得手工编辑记录或用脚本拼装记录时很容易出错。遵循规范的接收方会停止解析，并把该域名当作未受保护来处理。",
       "fix": "请把 <code>v=DMARC1;</code> 移到记录最前面。其他部分无需改动。",
       "fixCode": "; 错误——v= 不在最前：\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-bad-value": {
-      "msg": "DMARC 版本值并非精确的「DMARC1」——该值区分大小写，记录会被忽略。",
-      "what": "DMARC 记录中几乎所有的值都不区分大小写，但 RFC 9989 §5.4 把 <code>v=</code> 定为例外：唯一被接受的写法是全大写的 <code>DMARC1</code>。<code>v=dmarc1</code> 或 <code>v=DMARC2</code> 会导致整条记录被忽略。由于 DNS 控制台常在录入时把值转为小写，这是复制粘贴的常见受害者。",
+      "msg": "{0} 上的 DMARC 版本值不是严格的“DMARC1” — 该值区分大小写，这条记录会被忽略。",
+      "what": "DMARC 记录中几乎所有的值都不区分大小写，但 RFC 9989 §4.7 把 <code>v=</code> 定为例外：唯一被接受的写法是全大写的 <code>DMARC1</code>。<code>v=dmarc1</code> 或 <code>v=DMARC2</code> 会导致整条记录被忽略。由于 DNS 控制台常在录入时把值转为小写，这是复制粘贴的常见受害者。",
       "fix": "请将该值精确设为 <code>DMARC1</code>，随后再核对您的 DNS 控制台实际保存了什么。",
       "fixCode": "; 错误——小写：\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
@@ -616,7 +617,7 @@
     },
     "dmarc-external-reporting": {
       "msg": "DMARC 报告发往外部域名（{0}）——该域名必须授权，否则报告将被丢弃。",
-      "what": "当报告的接收地址位于您的组织域名之外时——例如 DMARC 服务商、顾问或兄弟公司——RFC 9990 §4.3 要求接收方域名发布一条授予许可的记录。没有它，遵循规范的接收方会静默丢弃发往该地址的报告。授权按地址逐一判定，因此未获授权的服务商不会破坏您的 DMARC 记录，也不会阻断发往其他地址的报告；只是那一个地址会归于沉默。本次审计未验证该记录——请启用高级检查以便自动查询。",
+      "what": "当报告的接收地址位于您的组织域名之外时——例如 DMARC 服务商、顾问或兄弟公司——RFC 9990 §4 要求接收方域名发布一条授予许可的记录。没有它，遵循规范的接收方会静默丢弃发往该地址的报告。授权按地址逐一判定，因此未获授权的服务商不会破坏您的 DMARC 记录，也不会阻断发往其他地址的报告；只是那一个地址会归于沉默。本次审计未验证该记录——请启用高级检查以便自动查询。",
       "fix": "请要求目标域名以 <code>&lt;您的域名&gt;._report._dmarc.&lt;对方域名&gt;</code> 的形式，发布一条针对您域名的授权记录。",
       "fixCode": "; 您的记录将报告发送给某个服务商：\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; 服务商必须在其区域中发布这条记录：\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
     },
@@ -646,7 +647,7 @@
     },
     "dmarc-external-unauthorized": {
       "msg": "发往 {0} 的 DMARC 报告正在被丢弃——该域名尚未授权接收您的报告。",
-      "what": "当报告的接收地址位于您的组织域名之外时，RFC 9990 §4.3 要求接收方域名发布一条授予许可的记录。我们查询过了，它并不存在。因此遵循规范的接收方会丢弃每一份发往 {0} 的报告：不会报错，也不会退信，您只是拿到了比预想更少的数据——而这很容易被误读成「没有人在冒用我们」。授权按地址逐一判定，因此您记录中的其他地址仍能正常工作；被丢弃的只有这一个。",
+      "what": "当报告的接收地址位于您的组织域名之外时，RFC 9990 §4 要求接收方域名发布一条授予许可的记录。我们查询过了，它并不存在。因此遵循规范的接收方会丢弃每一份发往 {0} 的报告：不会报错，也不会退信，您只是拿到了比预想更少的数据——而这很容易被误读成「没有人在冒用我们」。授权按地址逐一判定，因此您记录中的其他地址仍能正常工作；被丢弃的只有这一个。",
       "fix": "请要求 {0} 的运营方发布一条针对您域名的授权记录。多数报告服务商在您添加域名时会自动完成此项，因此如果您刚刚完成配置，不妨先查看服务商的控制台——该记录可能要等到域名在对方侧通过验证后才会出现。",
       "fixCode": "; 目标域名在自己的区域中发布这条记录，\n; 并写明它接受哪个域名的报告：\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; 面向大量客户的服务商通常改为发布通配符形式：\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
     },
@@ -676,25 +677,25 @@
     },
     "dmarc-bad-sp": {
       "msg": "sp= 被设为“{0}”，这不是一个策略值 — 子域将改为回退到 p=。",
-      "what": "RFC 9989 §5.4 只允许 <code>sp=</code> 取三个值：<code>none</code>、<code>quarantine</code> 和 <code>reject</code>。其他任何取值都不是策略，因此接收方会忽略该标签，子域转而继承 <code>p=</code>。这可能比您本意更严格，也可能更宽松；而且这条记录读起来像是有意设置了子域策略，实际上并没有。",
+      "what": "RFC 9989 §4.7 只允许 <code>sp=</code> 取三个值：<code>none</code>、<code>quarantine</code> 和 <code>reject</code>。其他任何取值都不是策略，因此接收方会忽略该标签，子域转而继承 <code>p=</code>。这可能比您本意更严格，也可能更宽松；而且这条记录读起来像是有意设置了子域策略，实际上并没有。",
       "fix": "请更正该值；如果您接受子域继承 <code>p=</code>，也可以直接删除 <code>sp=</code>。",
       "fixCode": "; 错误 — 拼写错误，被悄悄忽略：\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
     },
     "dmarc-bad-np": {
       "msg": "np= 被设为“{0}”，这不是一个策略值 — 不存在的子域将改为回退到 sp= 或 p=。",
-      "what": "RFC 9989 §5.4 只允许 <code>np=</code> 取三个值：<code>none</code>、<code>quarantine</code> 和 <code>reject</code>。其他取值一律被忽略，针对不存在名称的策略会经由 <code>sp=</code> 回退到 <code>p=</code>。不存在的子域是攻击者最容易冒充的目标，因此一个看似已设置、实则未设置的标签值得更正。",
+      "what": "RFC 9989 §4.7 只允许 <code>np=</code> 取三个值：<code>none</code>、<code>quarantine</code> 和 <code>reject</code>。其他取值一律被忽略，针对不存在名称的策略会经由 <code>sp=</code> 回退到 <code>p=</code>。不存在的子域是攻击者最容易冒充的目标，因此一个看似已设置、实则未设置的标签值得更正。",
       "fix": "请更正该值，或者删除 <code>np=</code>，让回退链有意识地生效。",
       "fixCode": "; 错误 — 不是策略值：\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
     },
     "dmarc-bad-adkim": {
       "msg": "adkim= 被设为“{0}” — 有效值只有 r 和 s，因此 DKIM 对齐仍为宽松模式。",
-      "what": "RFC 9989 §5.4 定义了两种 DKIM 对齐模式和两种写法：<code>r</code> 表示宽松，<code>s</code> 表示严格。像 <code>strict</code> 或 <code>1</code> 这样的值无法识别，接收方会回退到宽松模式。这条记录在书写者看来是严格的，实际行为却是宽松的，取了两者之短：您以为只有完全匹配才能通过的对齐检查，您组织域下的任意子域都能通过。",
+      "what": "RFC 9989 §4.7 定义了两种 DKIM 对齐模式和两种写法：<code>r</code> 表示宽松，<code>s</code> 表示严格。像 <code>strict</code> 或 <code>1</code> 这样的值无法识别，接收方会回退到宽松模式。这条记录在书写者看来是严格的，实际行为却是宽松的，取了两者之短：您以为只有完全匹配才能通过的对齐检查，您组织域下的任意子域都能通过。",
       "fix": "严格对齐请使用 <code>adkim=s</code>，或删除该标签以明确表示采用宽松对齐。",
       "fixCode": "; 错误 — 拼成单词，因此被忽略：\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
     },
     "dmarc-bad-aspf": {
       "msg": "aspf= 被设为“{0}” — 有效值只有 r 和 s，因此 SPF 对齐仍为宽松模式。",
-      "what": "RFC 9989 §5.4 定义了两种 SPF 对齐模式和两种写法：<code>r</code> 表示宽松，<code>s</code> 表示严格。无法识别的值会被忽略，接收方回退到宽松模式，于是这条记录宣称了它并不具备的严格性。在宽松对齐下，您组织域下的任意子域都能满足 DMARC 通过所需的 SPF 那一半条件。",
+      "what": "RFC 9989 §4.7 定义了两种 SPF 对齐模式和两种写法：<code>r</code> 表示宽松，<code>s</code> 表示严格。无法识别的值会被忽略，接收方回退到宽松模式，于是这条记录宣称了它并不具备的严格性。在宽松对齐下，您组织域下的任意子域都能满足 DMARC 通过所需的 SPF 那一半条件。",
       "fix": "严格对齐请使用 <code>aspf=s</code>，或删除该标签以明确表示采用宽松对齐。",
       "fixCode": "; 错误 — 拼成单词，因此被忽略：\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
     },
@@ -703,6 +704,18 @@
       "what": "RFC 9989 §4.10.1 把继承来的策略一分为二：<code>sp=</code> 标签在 <em>\"if the Author Domain exists\"</em> 时适用，<code>np=</code> 在 <em>\"if the Author Domain does not exist\"</em> 时适用。是否存在是一个 DNS 问题 — RFC 9989 附录 A.4 指出，只要某个名称存在任何记录，该名称即存在 — 而这个名称已成功解析，所以管辖它的是 <code>sp=</code> 分支。这只是提示信息：没有任何配置错误。之所以列在这里，是因为否则所报告的策略看起来会与您能读到的记录自相矛盾。",
       "fix": "无需改动。如果您希望这条更严格的策略同样适用于真实存在的子域，请把 <code>sp=</code> 设为与 <code>np=</code> 相同的值。",
       "fixCode": "; np= 适用于不存在的名称；sp= 适用于存在的名称：\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
+    },
+    "dmarc-unverified": {
+      "msg": "无法检查 DMARC — 一次 DNS 查询失败（{0}）。这与没有 DMARC 记录不是一回事。",
+      "what": "按 RFC 9989 探测 DMARC 策略，意味着从这个名称沿 DNS 树向顶级域方向逐级查找，而其中一次查询没有作答而是失败了。查询失败并不能证明记录缺失：策略可能已经发布且完全正常。本次审计不会朝任何一个方向猜测，因此 DMARC 得分予以保留，并把评级标记为建立在一项未能完成的检查之上。这类解析器错误通常是暂时的。",
+      "fix": "请重新运行审计。如果该域持续失败，请用第二个解析器直接查询 <code>_dmarc</code>，以判断究竟是这个名称确实不可达，还是仅仅我们的查询运气不好。",
+      "fixCode": "; 在 shell 中自行检查：\ndig +short TXT _dmarc.yourdomain.com\ndig +short TXT _dmarc.yourdomain.com @1.1.1.1\ndig +short TXT _dmarc.yourdomain.com @8.8.8.8"
+    },
+    "dmarc-at-apex-ignored": {
+      "msg": "除了 _dmarc 下的那条，域本身还留有一条无用的 DMARC 记录 — 没有接收方会读取它，您在 {0} 的真实策略不受影响。",
+      "what": "DMARC 策略位于 <code>_dmarc.yourdomain.com</code>；接收方只查询那个名称，别处一概不看。本域自己的 TXT 集合中还有第二条 <code>v=DMARC1</code> 字符串，任何接收方都永远不会去看它。您真正生效的策略是在 {0} 找到的那条，一切照常 — 所以这只是不够整洁，并不危险。这通常意味着把记录挪到正确名称之后，旧的副本被遗留了下来。",
+      "fix": "请从域本身的 TXT 记录中删除这条 <code>v=DMARC1</code> 字符串，<code>_dmarc</code> 下的那条原样保留。",
+      "fixCode": "; 删除这条 — 无人读取：\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 保留这条 — 这才是您的策略：\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     }
   },
   "suggestion": {
