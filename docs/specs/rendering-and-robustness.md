@@ -630,6 +630,27 @@ record *contained*, not to a leading character whose only effect is to make a
 spreadsheet execute it. A genuinely byte-faithful machine export belongs in a
 separate, explicitly-named raw format in a later release.
 
+**Known limit of the mitigation.** OWASP recognizes apostrophe-prefixing but
+notes that Excel may drop the prefix when a user re-saves the file as CSV from
+inside Excel, so reopening *that* file can re-expose the formula; it suggests a
+leading tab as more durable against Excel specifically, and states plainly that
+no single strategy is safe across every spreadsheet application. The apostrophe
+is kept deliberately:
+
+- the exposure it closes is the one that matters here — a user downloading this
+  file and opening it — and the re-save path requires the user to act on a file
+  that is already inert in front of them;
+- a tab is invisible, so the reader cannot see why a cell was altered, whereas
+  the apostrophe is visible in the formula bar and is what spreadsheet
+  documentation tells users to expect;
+- a leading tab is itself formula-significant input by this spec's own
+  detection rule, so prefixing with one would produce values `isFormulaLeading`
+  flags — the mitigation would fight the detector.
+
+The durable answer is not a better prefix. It is that `record_hygiene` names
+the affected row, so a reader is told rather than silently protected, and that
+byte-faithful consumption belongs in a raw export rather than in a `.csv`.
+
 ## Revision history
 
 | Version | Date | Change |

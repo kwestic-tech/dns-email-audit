@@ -380,23 +380,32 @@ keeping audit logic independent from translation work.
   DOM and a static scan in `npm test`. Translated rich text is tokenized
   against a twelve-tag allowlist, and anything outside it is rendered as
   literal text rather than markup.
-- Records that render deceptively are shown, not hidden. Every character
-  Unicode marks `Default_Ignorable` — bidirectional overrides, zero-width and
-  invisible characters — plus C0/C1 controls is replaced in the display by a
-  visible marker naming the code point (`‹RLO›`, `‹ZWSP›`, `‹U+0007›`), so the
-  character cannot reorder the text and the reader can still see that it was
-  published. Variation selectors and script-format characters are exempt, so
-  emoji and Arabic, Syriac and Egyptian text render normally. The HTML report
-  and the CSV keep the published bytes and name what was found in a separate
-  `Record Hygiene` column.
-- **The CSV export is spreadsheet-safe.** A domain controls its own record text,
-  and a cell beginning `=`, `+`, `-`, `@`, or a tab/newline is executed as a
-  formula when a CSV is opened in Excel or Google Sheets — RFC 4180 quoting does
-  not prevent this. Any such cell is prefixed with an apostrophe, which
-  spreadsheets treat as literal text and do not display, and the row is marked
-  `formula-leading` in the `Record Hygiene` column. If you need the bytes
-  exactly as published, read them from the HTML report or the results table
-  rather than the CSV.
+- Records that render deceptively are shown, not hidden. Characters Unicode
+  marks `Default_Ignorable` — bidirectional overrides, zero-width and invisible
+  characters — plus C0/C1 controls are replaced in the display by a visible
+  marker naming the code point (`‹RLO›`, `‹ZWSP›`, `‹U+0007›`), so the character
+  cannot reorder the text and the reader can still see that it was published.
+  Three families are deliberately exempt because they are legitimate content:
+  variation selectors, and shorthand and musical notation format controls.
+  Script-format characters such as the Arabic number signs are not
+  default-ignorable at all, so Arabic, Syriac and Egyptian text renders
+  normally. Both exports name what was found in a separate `Record Hygiene`
+  column, and neither substitutes a marker into the data.
+- **The CSV export is spreadsheet-safe, with one documented limit.** A domain
+  controls its own record text, and a cell beginning `=`, `+`, `-`, `@`, or a
+  tab/newline is executed as a formula when a CSV is opened in Excel or Google
+  Sheets — RFC 4180 quoting does not prevent this, because the quotes are
+  stripped before the cell is evaluated. Any such cell is prefixed with an
+  apostrophe, which spreadsheets treat as literal text and do not display, and
+  the row is marked `formula-leading` in the `Record Hygiene` column.
+
+  This is the only place the CSV departs from the published bytes; every other
+  character, including invisible ones, is exported exactly as received. The
+  prefix is a *display-time* mitigation: OWASP notes that Excel may drop it if
+  the file is re-saved as CSV from within Excel and then reopened, and that no
+  single escaping strategy is safe across every spreadsheet application. If you
+  need the bytes exactly as published, read the HTML report or the results
+  table rather than the CSV.
 - Uploaded domain files are processed locally and limited to 1 MB.
 - Generated HTML reports are self-contained and contain no executable scripts.
 

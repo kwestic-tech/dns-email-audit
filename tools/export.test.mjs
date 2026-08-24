@@ -373,8 +373,11 @@ for (const [name, value] of Object.entries(FORMULA_LEADS)) {
   const cell = cellOf(value);
   eq(`${name}: is neutralized`, cell.charAt(0), "'");
   eq(`${name}: the original value is still readable`, cell.slice(1), value);
-  eq(`${name}: no longer starts with a formula character`,
-    R.isFormulaLeading(cell.slice(1)) && !cell.startsWith("'"), false);
+  // Assert the property directly. An earlier form of this checked
+  // `R.isFormulaLeading(...) && !cell.startsWith("'")`, which is necessarily
+  // false once the prefix is applied and so passed no matter what the code did.
+  eq(`${name}: the serialized cell does not open with a formula character`,
+    /^[=+\-@\t\r\n\uFF1D\uFF0B\uFF0D\uFF20]/.test(cell), false);
 }
 
 // Ordinary cells — including ones with embedded formula characters — must be
