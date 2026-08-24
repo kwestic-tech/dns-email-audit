@@ -44,7 +44,7 @@ rationale, the dependency map, and the group-by-group execution plan.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [rendering-and-robustness](rendering-and-robustness.md) | 0.2.3 | 0.3 | Draft, revised after round 2 |
+| [rendering-and-robustness](rendering-and-robustness.md) | 0.2.3 | 1.0 | Final, in implementation |
 | [dmarcbis-tree-walk](dmarcbis-tree-walk.md) | 0.3.0 | 0.1 | Draft, awaiting review |
 | [dns-protocol-depth](dns-protocol-depth.md) | 0.4.0 | 0.1 | Draft, awaiting review |
 | [dnssec-evidence](dnssec-evidence.md) | 0.5.0 | 0.1 | Draft, awaiting review |

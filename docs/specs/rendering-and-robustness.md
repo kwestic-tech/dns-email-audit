@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.3 (Draft, revised after review round 2) |
+| Spec version | 1.0 (Final) |
 | Target release | 0.2.3 |
-| Status | Awaiting review |
+| Status | Final — approved for implementation |
 | Depends on | Nothing. This is the first release after 0.2.2. |
 | Blocks | Every later release extends the rendering path. |
 | Slug for open questions | `SEC` |
-| Last updated | 2026-08-20 |
+| Last updated | 2026-08-24 |
 
 ## Threat model for this release
 
@@ -456,26 +456,10 @@ export tests assert on real serialized strings rather than on the shim's model.
 
 ## Open questions
 
-**OQ-SEC-11: Do sentinels appear in the CSV export, or only in the interface and
-the HTML report?**
-The HTML report is a document someone reads, so a visible `‹RLO›` marker plainly
-belongs there. The CSV is closer to data, and a spreadsheet cell containing the
-raw override character will reorder in Excel exactly as it would in a browser,
-which is the same attack against a different reader. Against that, someone
-piping the CSV into a script wants the bytes as published. Options: sentinel in
-both; raw in CSV with a separate `record_hygiene` column naming what was found;
-or two CSV columns, displayed and raw. This draft prefers the second, because it
-keeps the data column faithful and still warns the reader.
-
-**OQ-SEC-12: Do record-hygiene observations become findings, or stay display
-annotations?**
-A record containing a bidirectional override is not a misconfiguration; it is
-either a mistake or an attack, and either way the domain owner should know. If it
-becomes a finding it needs a severity, which pulls it into
-[findings-and-remediation](findings-and-remediation.md) and eventually into a
-score. If it stays a display annotation it is visible but not reportable, and it
-will not appear in a 0.8.0 report comparison. This draft keeps them annotations
-in 0.2.3 and flags the question for 0.6.0 rather than deciding it here.
+None. `OQ-SEC-11` and `OQ-SEC-12` were the last two outstanding and were
+resolved on 2026-08-24; see **Resolved questions** below. Every numbered
+question raised against this spec now has a recorded verdict, which is the
+condition `docs/specs/README.md` sets for `1.0 (Final)`.
 
 ## Resolved questions
 
@@ -491,6 +475,8 @@ in 0.2.3 and flags the question for 0.6.0 rather than deciding it here.
 | OQ-SEC-08 | Display truncation threshold and unit? | 1024 characters, per value. A 4096-bit RSA DKIM key runs to roughly 760 characters with its tags, so 512 would truncate a legitimate key. The 20-record cap per cell is a separate, independent limit and both apply. | 0.3 |
 | OQ-SEC-09 | Strip bidirectional controls, or render them inert? | Neither. Replace each invisible character with a visible sentinel at its exact position. CSS cannot do this: `unicode-bidi: isolate` stops a value reordering its neighbours, not its own contents, so an override inside an SPF `include:` host still reverses that value. Substitution removes the character from the text run, which actually neutralizes it, while the marker keeps the technique visible. Isolation is applied to the container as well, since it is free. | 0.3 |
 | OQ-SEC-10 | Should the markup-sink check be a test or a lint? | A blocking test, and a runtime trap first. The shim defines `innerHTML` and `outerHTML` setters that throw, catching computed and destructured access a static pattern misses; an assignment-only scan backs it up for untested paths. The allowlist is empty, because section 1a makes both document builders construct trees and read `outerHTML` rather than write it. | 0.3 |
+| OQ-SEC-11 | Do sentinels appear in the CSV export, or only in the interface and the HTML report? | Raw characters stay in the CSV data column; a separate `record_hygiene` column names what was found (e.g. `bidi-override`). The CSV is the machine-readable export people pipe into other tools, so rewriting a cell's bytes to a sentinel string breaks programmatic parsing, while the new column still warns a human who opens it in a spreadsheet. Consistent with this spec's own "display caps never reach the data" rule: the interface is annotated and capped, the export stays faithful. The column is **appended, never inserted**, per the positional-header backfill rule at [`js/app.js:744`](../../js/app.js). The interface and the HTML report keep the visible sentinels of section 4. | 1.0 |
+| OQ-SEC-12 | Do record-hygiene observations become findings, or stay display annotations? | They stay display annotations in 0.2.3, explicitly deferred to [findings-and-remediation](findings-and-remediation.md) (0.6.0). This release's non-goals rule out a scoring change and any edit to `js/dns.js` for grading purposes; promoting a hygiene observation to a finding would require a severity and so smuggle a scope change into a release whose entire point is rendering correctness. 0.6.0 is where severity is modelled properly. | 1.0 |
 
 ## Revision history
 
@@ -499,3 +485,4 @@ in 0.2.3 and flags the question for 0.6.0 rather than deciding it here.
 | 0.1 | 2026-08-20 | Initial draft, framed as CSP and XSS hardening. |
 | 0.2 | 2026-08-20 | Rescoped after review. Threat model corrected: no session or stored data means the risk is output integrity, not compromise. Cut `style-src` removal, `frame-ancestors`, hosting migration, Trusted Types and the learn-more dialog. Promoted malformed-record handling to the centre of the release. Added the sequential-interpolation defect. Resolved five open questions; added three. Renamed from `security-boundary.md`. |
 | 0.3 | 2026-08-20 | Revised after Gemini review. Document builders now construct DOM trees and serialize, which removes the last escape helper and empties the markup-sink allowlist; exported report regains its own CSP. Enforcement moved from a grep to a shim setter trap with an assignment-only scan as backup. Truncation raised to 1024 per value. Invisible-character handling changed from stripping to visible sentinel substitution, correcting the reviewer's `unicode-bidi: isolate` proposal, which does not neutralize reordering within an element. Added `tools/export.test.mjs`. Resolved the five remaining open questions; added two. |
+| 1.0 | 2026-08-24 | Final. Resolved the last two open questions: `OQ-SEC-11` (raw bytes stay in the CSV data column, a separate appended `record_hygiene` column names what was found) and `OQ-SEC-12` (record-hygiene observations stay display annotations in 0.2.3, deferred to `findings-and-remediation` (0.6.0)). No change to Design, Scope, Non-goals, Testing or Acceptance criteria beyond the `record_hygiene` CSV column those resolutions add. Approved for implementation. |
