@@ -142,7 +142,17 @@ anytime, no coordination:  external-intelligence → Final ; excluded-requires-c
 
 ---
 
-## 2. Phase 1 — `rendering-and-robustness` (0.2.3) — **PILOT PHASE, cleared to start**
+## 2. Phase 1 — `rendering-and-robustness` (0.2.3) — **IMPLEMENTED, awaiting merge**
+
+> **Status, 2026-08-24:** implemented on branch `feat/rendering-and-robustness`.
+> Spec finalized at `1.0`, then amended to `1.2` during implementation (two
+> defects in the spec text, one gap found in code review — see its Revision
+> history). `npm test` 853 assertions / 0 failures, `npm run locale:gate`
+> 13/13, `node tools/backtest.mjs --sample --json` diffed against the v0.2.2
+> baseline shows zero grade or score movement across 40 domains. Not yet
+> merged, so Phase 2 (0.3.0) and Phase 3 (0.7.0) are not yet unblocked.
+> Remaining on completion: move the spec to `docs/specs/implemented/`, add its
+> **As implemented** section, and tag per `CONTRIBUTING.md`.
 
 **Why first:** everything else in this plan either directly depends on it
 (0.3.0, 0.7.0) or transitively does (everything downstream of those two).
