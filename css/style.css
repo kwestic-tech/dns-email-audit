@@ -332,3 +332,64 @@ td.domain-cell { font-weight: 700; font-size: 12.5px; white-space: nowrap; }
 /* Duplicated record: configured but silently inactive — neither pass nor absent. */
 .adv-dot.dot-dup { border-color: var(--warn-border); background: var(--warn-bg); color: var(--warn); }
 .adv-dot.dot-dup .dot-pip { background: var(--warn); }
+
+/* ── Rendered DNS values (spec 0.2.3 §4) ──────────────────────────────────
+   Isolation stops a value reordering its NEIGHBOURS. It cannot stop an
+   override reordering the value's own contents — that is what the sentinel
+   substitution in js/render.js does — but it is free and contains anything
+   residual. */
+.rv { unicode-bidi: isolate; }
+.rv-none { color: var(--ink3); font-style: italic; }
+
+/* A marker, not content: never let a sentinel be mistaken for published data. */
+.rv-sentinel {
+  unicode-bidi: isolate;
+  display: inline-block;
+  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  padding: 0 3px;
+  margin: 0 1px;
+  border-radius: 3px;
+  background: var(--crit-bg);
+  border: 1px solid var(--crit-border);
+  color: var(--crit);
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.rv-more {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.rv-more:hover { background: var(--surface3); }
+.rv-remainder { font-size: 11px; color: var(--ink3); font-style: italic; }
+
+.rv-hygiene {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--warn-border);
+  background: var(--warn-bg);
+  border-radius: var(--radius);
+}
+.rv-hygiene-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--warn);
+}
+.rv-hygiene-item { font-size: 11.5px; color: var(--ink2); }

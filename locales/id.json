@@ -107,6 +107,22 @@
     "na": "T/A",
     "dash": "—"
   },
+  "render": {
+    "showMore": "Tampilkan {0} karakter lagi",
+    "showLess": "Tampilkan lebih sedikit",
+    "moreRecords": {
+      "one": "{0} data lagi tidak ditampilkan",
+      "other": "{0} data lagi tidak ditampilkan"
+    },
+    "hygieneTitle": "Kebersihan data",
+    "hygiene": {
+      "bidiOverride": "Karakter kontrol dua arah, yang dapat membalik tampilan nama host",
+      "zeroWidth": "Karakter tanpa lebar, yang tidak terlihat saat ditampilkan",
+      "controlChar": "Karakter kontrol",
+      "loneSurrogate": "UTF-8 tidak valid, ditampilkan sebagai U+FFFD",
+      "punycode": "Nama Punycode (xn--), ditampilkan persis seperti yang dipublikasikan"
+    }
+  },
   "showme": {
     "open": "Tampilkan ▾",
     "close": "Tampilkan ▴",
@@ -266,7 +282,8 @@
       "DNSSEC",
       "Kueri SPF",
       "Masalah",
-      "Saran"
+      "Saran",
+      "Kebersihan data"
     ],
     "yes": "Ya",
     "no": "Tidak",

@@ -114,6 +114,22 @@ window.__I18N_EN__ = {
     "na": "N/A",
     "dash": "—"
   },
+  "render": {
+    "showMore": "Show {0} more characters",
+    "showLess": "Show less",
+    "moreRecords": {
+      "one": "{0} more record not shown",
+      "other": "{0} more records not shown"
+    },
+    "hygieneTitle": "Record hygiene",
+    "hygiene": {
+      "bidiOverride": "Bidirectional control characters, which can visually reverse a hostname",
+      "zeroWidth": "Zero-width characters, which are invisible when rendered",
+      "controlChar": "Control characters",
+      "loneSurrogate": "Invalid UTF-8, shown as U+FFFD",
+      "punycode": "Punycode (xn--) name, shown exactly as published"
+    }
+  },
   "showme": {
     "open": "Show me ▾",
     "close": "Show me ▴",
@@ -273,7 +289,8 @@ window.__I18N_EN__ = {
       "DNSSEC",
       "SPF Lookups",
       "Issues",
-      "Suggestions"
+      "Suggestions",
+      "Record Hygiene"
     ],
     "yes": "Yes",
     "no": "No",

@@ -51,11 +51,18 @@
     return fallback === undefined ? null : fallback;
   }
 
+  // One pass over the template, so a value substituted at {0} is never
+  // rescanned. The sequential version this replaced let an argument containing
+  // "{1}" pull the second argument into a position the translator never wrote,
+  // which becomes reachable the moment a DNS-derived name is the first
+  // argument. An index with no corresponding argument is left as written, so a
+  // locale file with a stray {3} is visibly wrong rather than silently
+  // "undefined".
   function interpolate(str, args) {
-    for (var i = 0; i < args.length; i++) {
-      str = str.split('{' + i + '}').join(String(args[i]));
-    }
-    return str;
+    return String(str).replace(/\{(\d+)\}/g, function (match, digits) {
+      var i = Number(digits);
+      return i < args.length ? String(args[i]) : match;
+    });
   }
 
   /**
@@ -93,27 +100,125 @@
     return value === null ? undefined : value;
   }
 
-  function sanitizeHTML(html) {
-    var template = document.createElement('template');
-    template.innerHTML = String(html || '');
-    var allowed = new Set(['A', 'BR', 'STRONG', 'CODE', 'EM', 'B', 'I', 'SMALL', 'UL', 'OL', 'LI', 'P']);
-    Array.from(template.content.querySelectorAll('*')).forEach(function (el) {
-      if (!allowed.has(el.tagName)) {
-        if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.tagName === 'IFRAME' || el.tagName === 'OBJECT') el.remove();
-        else el.replaceWith.apply(el, Array.from(el.childNodes));
-        return;
+  /* ── Rich text ──────────────────────────────────────────────────────
+     Locale strings may carry a dozen inline tags. Turning them into nodes is
+     the last string-to-markup step in the codebase, so it is a tokenizer that
+     BUILDS nodes rather than a parser that is handed a string: there is no
+     `innerHTML` assignment anywhere under js/, which is what makes the static
+     scan's empty allowlist an honest claim rather than a judgment call.
+
+     Fail-closed. Anything the tokenizer does not recognize as an allowlisted
+     tag — a `<script>`, a malformed `<`, a stray close tag — is emitted as
+     literal TEXT. It renders visibly as itself and serializes back to
+     `&lt;script&gt;`, which is both safe and honest: nothing is silently
+     dropped, matching the rule section 4 applies to invisible characters.
+
+     The input is our own locale file, and tools/check-locales.mjs fails the
+     build on any tag outside this allowlist, so the fail-closed branch is a
+     backstop rather than a routine path.
+     ──────────────────────────────────────────────────────────────────── */
+
+  var RICH_TAGS = new Set(['A', 'BR', 'STRONG', 'CODE', 'EM', 'B', 'I', 'SMALL', 'UL', 'OL', 'LI', 'P']);
+  var RICH_VOID = new Set(['BR']);
+
+  // A conservative shape for a tag. Anything not matching exactly is not a tag
+  // as far as this tokenizer is concerned.
+  var TAG_RE = /^<(\/?)([a-zA-Z][a-zA-Z0-9]*)((?:\s+[a-zA-Z][a-zA-Z0-9-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s">]+))?)*)\s*(\/?)>/;
+  var HREF_RE = /(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s">]+))/i;
+
+  var NAMED_ENTITIES = {
+    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  };
+
+  function decodeEntities(str) {
+    return String(str).replace(/&(#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g, function (match, body) {
+      if (body.charAt(0) === '#') {
+        var hex = body.charAt(1) === 'x' || body.charAt(1) === 'X';
+        var code = hex ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+        // Reject anything outside the scalar range, and surrogates, rather than
+        // letting String.fromCodePoint throw or emit a lone surrogate.
+        if (!isFinite(code) || code < 0 || code > 0x10FFFF) return match;
+        if (code >= 0xD800 && code <= 0xDFFF) return '�';
+        try { return String.fromCodePoint(code); } catch (e) { return match; }
       }
-      var originalHref = el.tagName === 'A' ? el.getAttribute('href') : null;
-      Array.from(el.attributes).forEach(function (attr) { el.removeAttribute(attr.name); });
-      if (el.tagName === 'A') {
-        if (/^https:\/\//i.test(originalHref || '')) {
-          el.setAttribute('href', originalHref);
+      var named = NAMED_ENTITIES[body.toLowerCase()];
+      return named === undefined ? match : named;
+    });
+  }
+
+  /**
+   * Tokenize a locale rich-text string into a DocumentFragment. Returns live
+   * nodes: nothing serializes a sanitized tree and reparses it, which is the
+   * shape mutation XSS exploits and which the previous
+   * `sanitizeHTML(html) → string` round trip had.
+   */
+  function sanitizeFragment(html) {
+    var src = String(html === undefined || html === null ? '' : html);
+    var root = document.createDocumentFragment();
+    var stack = [{ tag: null, node: root }];
+
+    function top() { return stack[stack.length - 1].node; }
+
+    function pushText(raw) {
+      if (!raw) return;
+      var decoded = decodeEntities(raw);
+      if (decoded) top().appendChild(document.createTextNode(decoded));
+    }
+
+    var i = 0;
+    while (i < src.length) {
+      var lt = src.indexOf('<', i);
+      if (lt === -1) { pushText(src.slice(i)); break; }
+      pushText(src.slice(i, lt));
+
+      var match = TAG_RE.exec(src.slice(lt));
+      if (!match) {
+        // Not a well-formed tag. The '<' is content.
+        pushText('<');
+        i = lt + 1;
+        continue;
+      }
+
+      var whole = match[0];
+      var closing = match[1] === '/';
+      var tag = match[2].toUpperCase();
+      var attrs = match[3] || '';
+      var selfClosed = match[4] === '/';
+      i = lt + whole.length;
+
+      if (!RICH_TAGS.has(tag)) { pushText(whole); continue; }
+
+      if (closing) {
+        var depth = -1;
+        for (var k = stack.length - 1; k > 0; k--) {
+          if (stack[k].tag === tag) { depth = k; break; }
+        }
+        // A close tag with no matching open is content, not a parse error.
+        if (depth === -1) pushText(whole);
+        else stack.length = depth;
+        continue;
+      }
+
+      var el = document.createElement(tag.toLowerCase());
+      if (tag === 'A') {
+        var href = HREF_RE.exec(attrs);
+        var url = href
+          ? (href[1] !== undefined ? href[1] : href[2] !== undefined ? href[2] : href[3])
+          : '';
+        // Every other attribute is discarded, so no event handler, style or
+        // target can arrive from a locale file.
+        var decodedUrl = decodeEntities(url || '');
+        if (/^https:\/\//i.test(decodedUrl)) {
+          el.setAttribute('href', decodedUrl);
           el.setAttribute('target', '_blank');
           el.setAttribute('rel', 'noopener noreferrer');
-        } else el.replaceWith(document.createTextNode(el.textContent));
+        }
       }
-    });
-    return template.innerHTML;
+      top().appendChild(el);
+      if (!selfClosed && !RICH_VOID.has(tag)) stack.push({ tag: tag, node: el });
+    }
+
+    return root;
   }
 
   /* ── Loading ────────────────────────────────────────────────────────── */
@@ -186,7 +291,7 @@
     var scope = root || document;
 
     scope.querySelectorAll('[data-i18n]').forEach(function (el) {
-      el.innerHTML = sanitizeHTML(t(el.dataset.i18n));
+      el.replaceChildren(sanitizeFragment(t(el.dataset.i18n)));
     });
     scope.querySelectorAll('[data-i18n-text]').forEach(function (el) {
       el.textContent = t(el.dataset.i18nText);
@@ -270,7 +375,7 @@
     t: t,
     tp: tp,
     tRaw: tRaw,
-    sanitizeHTML: sanitizeHTML,
+    sanitizeFragment: sanitizeFragment,
     init: init,
     setLang: setLang,
     onChange: onChange,

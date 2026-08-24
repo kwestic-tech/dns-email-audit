@@ -107,6 +107,22 @@
     "na": "該当なし",
     "dash": "—"
   },
+  "render": {
+    "showMore": "残り {0} 文字を表示",
+    "showLess": "表示を減らす",
+    "moreRecords": {
+      "one": "他 {0} 件のレコードは非表示です",
+      "other": "他 {0} 件のレコードは非表示です"
+    },
+    "hygieneTitle": "レコードの健全性",
+    "hygiene": {
+      "bidiOverride": "双方向制御文字。ホスト名の見た目を逆順にすることがあります",
+      "zeroWidth": "ゼロ幅文字。表示時には見えません",
+      "controlChar": "制御文字",
+      "loneSurrogate": "不正な UTF-8。U+FFFD として表示されます",
+      "punycode": "Punycode (xn--) 名。公開されているとおりに表示されます"
+    }
+  },
   "showme": {
     "open": "詳細を表示 ▾",
     "close": "詳細をたたむ ▴",
@@ -266,7 +282,8 @@
       "DNSSEC",
       "SPF 参照回数",
       "問題点",
-      "推奨事項"
+      "推奨事項",
+      "レコードの健全性"
     ],
     "yes": "はい",
     "no": "いいえ",

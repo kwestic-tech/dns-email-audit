@@ -107,6 +107,22 @@
     "na": "不适用",
     "dash": "—"
   },
+  "render": {
+    "showMore": "显示其余 {0} 个字符",
+    "showLess": "收起",
+    "moreRecords": {
+      "one": "另有 {0} 条记录未显示",
+      "other": "另有 {0} 条记录未显示"
+    },
+    "hygieneTitle": "记录卫生状况",
+    "hygiene": {
+      "bidiOverride": "双向控制字符，可能在视觉上反转主机名",
+      "zeroWidth": "零宽字符，渲染后不可见",
+      "controlChar": "控制字符",
+      "loneSurrogate": "无效的 UTF-8，显示为 U+FFFD",
+      "punycode": "Punycode (xn--) 名称，按发布原样显示"
+    }
+  },
   "showme": {
     "open": "显示详情 ▾",
     "close": "折叠详情 ▴",
@@ -266,7 +282,8 @@
       "DNSSEC",
       "SPF 查询次数",
       "问题",
-      "建议"
+      "建议",
+      "记录卫生状况"
     ],
     "yes": "是",
     "no": "否",

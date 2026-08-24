@@ -107,6 +107,22 @@
     "na": "N.v.t.",
     "dash": "—"
   },
+  "render": {
+    "showMore": "{0} tekens meer tonen",
+    "showLess": "Minder tonen",
+    "moreRecords": {
+      "one": "{0} record meer niet getoond",
+      "other": "{0} records meer niet getoond"
+    },
+    "hygieneTitle": "Recordhygiëne",
+    "hygiene": {
+      "bidiOverride": "Bidirectionele stuurtekens, die een hostnaam visueel kunnen omkeren",
+      "zeroWidth": "Tekens zonder breedte, die bij weergave onzichtbaar zijn",
+      "controlChar": "Stuurtekens",
+      "loneSurrogate": "Ongeldige UTF-8, weergegeven als U+FFFD",
+      "punycode": "Punycode-naam (xn--), precies weergegeven zoals gepubliceerd"
+    }
+  },
   "showme": {
     "open": "Toon mij ▾",
     "close": "Toon mij ▴",
@@ -266,7 +282,8 @@
       "DNSSEC",
       "SPF-lookups",
       "Problemen",
-      "Suggesties"
+      "Suggesties",
+      "Recordhygiëne"
     ],
     "yes": "Ja",
     "no": "Nee",
