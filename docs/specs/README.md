@@ -44,7 +44,7 @@ rationale, the dependency map, and the group-by-group execution plan.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [dmarcbis-tree-walk](dmarcbis-tree-walk.md) | 0.3.0 | 0.1 | Draft, awaiting review |
+| [dmarcbis-tree-walk](dmarcbis-tree-walk.md) | 0.3.0 | 1.0 | Final, in implementation |
 | [dns-protocol-depth](dns-protocol-depth.md) | 0.4.0 | 0.1 | Draft, awaiting review |
 | [dnssec-evidence](dnssec-evidence.md) | 0.5.0 | 0.1 | Draft, awaiting review |
 | [findings-and-remediation](findings-and-remediation.md) | 0.6.0 | 0.1 | Draft, awaiting review |

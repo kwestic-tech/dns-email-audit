@@ -353,6 +353,18 @@ quarterly actually wants. It also multiplies the interface complexity and the
 incomparability cases. This draft does two. Is a trend view a later release, or
 never?
 
+> **Note added 2026-08-24, from 0.3.0's spec review.** This question now has a
+> confirmed instance rather than a hypothetical one. `dmarcbis-tree-walk` (0.3.0)
+> reached `1.0 (Final)` with the Tree Walk replacing the PSL at both call sites,
+> and its own Resolved-questions section records that **scores will move with no
+> rubric change**: a domain whose policy is found at a different name than the
+> PSL chose scores differently, and a domain with duplicate records at one name
+> may now inherit a valid policy from higher in the tree where it previously
+> scored zero. `WEIGHTS`, `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` are untouched.
+> Whatever this question resolves to must therefore classify a 0.2.3 → 0.3.0
+> comparison correctly, and "the rubric is unchanged so the scores are
+> comparable" is demonstrably not sufficient.
+
 **OQ-CMP-06: What is `rubricVersion` when the rubric has not changed but
 discovery has?**
 0.3.0 changes DMARC discovery without touching the rubric, and scores move.
