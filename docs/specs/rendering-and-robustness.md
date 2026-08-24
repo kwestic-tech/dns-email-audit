@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.0 (Final) |
+| Spec version | 1.1 (Final, amended during implementation) |
 | Target release | 0.2.3 |
 | Status | Final — approved for implementation |
 | Depends on | Nothing. This is the first release after 0.2.2. |
@@ -205,9 +205,30 @@ silently wrong.
 ### 3. Rich text without the round trip
 
 `sanitizeHTML(html) → string` becomes `sanitizeFragment(html) → DocumentFragment`.
-The implementation keeps the existing `<template>` parse and allowlist walk and
-returns `template.content` instead of `template.innerHTML`. Nothing reparses a
-sanitized tree.
+Nothing reparses a sanitized tree.
+
+**Amended at 1.1.** The 1.0 text said to keep the existing `<template>` parse
+and return `template.content` instead of `template.innerHTML`. That cannot be
+built: `template.innerHTML = html` is an assignment to a markup sink in
+`js/i18n.js`, which section 5 puts inside the static scan and acceptance
+criterion 2 forbids outright, with an allowlist the same two places require to
+be empty. As specified, the implementation would have failed the test the spec
+itself mandates.
+
+Resolved by building nodes instead of parsing a string: `sanitizeFragment` is a
+small fail-closed tokenizer over the same twelve-tag allowlist. It recognizes
+an allowlisted tag, an `href` matching `^https://` on an `A`, and a fixed set
+of entities; **anything else — a `<script>`, a malformed `<`, a stray close
+tag — is emitted as literal text**, so it renders visibly as itself and
+serializes back to `&lt;script&gt;`. Nothing is silently dropped, which is the
+same rule section 4 applies to invisible characters, and the markup-sink
+allowlist stays honestly empty.
+
+The input is our own locale file and `tools/check-locales.mjs` now fails the
+build on any tag outside the allowlist (below), so the fail-closed branch is a
+backstop rather than a routine path. `tools/render.test.mjs` asserts the
+author-time allowlist and the runtime tokenizer agree tag for tag, so the two
+cannot drift.
 
 `applyTranslations()` at [`js/i18n.js:188`](../../js/i18n.js) changes from
 `el.innerHTML = sanitizeHTML(...)` to `el.replaceChildren(sanitizeFragment(...))`.
@@ -390,8 +411,20 @@ exported file leaves this project's control, so it is asserted at the string
 level as well as the tree level, and string assertions need no DOM:
 
 - Every fixture above is rendered, exported, and the resulting string is scanned
-  for `<script`, `<iframe`, `<object`, `<embed`, ` on\w+\s*=` and
-  `javascript:`. All must be absent.
+  for `<script`, `<iframe`, `<object` and `<embed`. All must be absent: an
+  element can only exist if its `<` was not escaped.
+
+  **Amended at 1.1.** ` on\w+\s*=` and `javascript:` are scanned against the
+  **tag regions** of the output (`/<[^>]*>/g`), not the whole string. Escaping
+  a value neutralizes `<` and `>` but leaves the substring ` onerror=` intact
+  inside the resulting text node, so a whole-string scan reports a false
+  positive on the spec's own attribute-breakout fixture
+  (`rua=mailto:"><img src=x onerror=alert(1)>@e.com`) — a record the tool is
+  required to display faithfully. The naive scan is therefore unsatisfiable
+  while also rendering the record, and the tag-region scan tests the property
+  that actually matters: no event handler and no `javascript:` URL exists as
+  markup. A fixture publishing `javascript:` additionally asserts it is shown
+  to the reader as text and never as an `href`.
 - The exported document contains the CSP meta tag from section 1a.
 - Round trip: the serialized string reparsed yields a tree with the same text
   content as the tree that produced it, confirming serialization is idempotent
@@ -401,6 +434,14 @@ level as well as the tree level, and string assertions need no DOM:
 - The sentinel substitution from section 4 survives into both exports, so a
   record containing an override is visibly marked in a report handed to a third
   party rather than silently reordered in their browser.
+
+`tools/export.test.mjs` additionally asserts the inlined stylesheet survives
+serialization byte for byte. `<style>` is a raw-text element, so its contents
+must **not** be entity-escaped — `css/style.css` contains both `&` and a `>`
+child combinator, and escaping either would silently break the exported
+report's layout. Conversely a `<` inside the CSS could open a tag, so every
+`<` is rewritten to the CSS escape `\3c `, which renders identically and
+leaves no character that can terminate the element early.
 
 `tools/csp.test.mjs`, dependency-free: no `nonce-` token in `script-src`, the
 JSON-LD hash matches, `connect-src` is exactly `'self' https://cloudflare-dns.com`,
@@ -486,3 +527,4 @@ condition `docs/specs/README.md` sets for `1.0 (Final)`.
 | 0.2 | 2026-08-20 | Rescoped after review. Threat model corrected: no session or stored data means the risk is output integrity, not compromise. Cut `style-src` removal, `frame-ancestors`, hosting migration, Trusted Types and the learn-more dialog. Promoted malformed-record handling to the centre of the release. Added the sequential-interpolation defect. Resolved five open questions; added three. Renamed from `security-boundary.md`. |
 | 0.3 | 2026-08-20 | Revised after Gemini review. Document builders now construct DOM trees and serialize, which removes the last escape helper and empties the markup-sink allowlist; exported report regains its own CSP. Enforcement moved from a grep to a shim setter trap with an assignment-only scan as backup. Truncation raised to 1024 per value. Invisible-character handling changed from stripping to visible sentinel substitution, correcting the reviewer's `unicode-bidi: isolate` proposal, which does not neutralize reordering within an element. Added `tools/export.test.mjs`. Resolved the five remaining open questions; added two. |
 | 1.0 | 2026-08-24 | Final. Resolved the last two open questions: `OQ-SEC-11` (raw bytes stay in the CSV data column, a separate appended `record_hygiene` column names what was found) and `OQ-SEC-12` (record-hygiene observations stay display annotations in 0.2.3, deferred to `findings-and-remediation` (0.6.0)). No change to Design, Scope, Non-goals, Testing or Acceptance criteria beyond the `record_hygiene` CSV column those resolutions add. Approved for implementation. |
+| 1.1 | 2026-08-24 | Amended during implementation, per the "amend rather than quietly diverge" rule in `docs/specs/README.md`. Two defects in the 1.0 text: (a) §3 kept the `<template>` parse, which is an `innerHTML` assignment in `js/i18n.js` that §5 and acceptance criterion 2 forbid with an empty allowlist — replaced by a fail-closed tokenizer that builds nodes, so no markup sink remains under `js/`; (b) the export scan for ` on\w+\s*=` and `javascript:` was specified against the whole output string, which false-positives on the spec's own attribute-breakout fixture because escaping `<` leaves ` onerror=` intact in the text node — now scanned against tag regions only. Added the `<style>` raw-text serialization rule the export builder depends on, and the `tools/check-locales.mjs` tag-allowlist check promised by §3. No change to Scope, Non-goals, or the acceptance criteria themselves. |

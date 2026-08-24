@@ -213,10 +213,13 @@
   }
 
   // <style> is a raw-text element, so its contents are not entity-escaped by
-  // any serializer. The stylesheet is ours, but a closing tag inside it would
-  // still end the element early, so it is neutralized rather than trusted.
+  // any serializer: a `</style>` inside the CSS would end the element early and
+  // everything after it would be parsed as markup. CSS has no legitimate use
+  // for '<' at all, so every one is rewritten to the CSS escape `\3c `, which
+  // renders identically and leaves no character that can open a tag. The
+  // stylesheet is ours either way; this costs nothing and removes the question.
   function styleElement(D, css) {
-    return D.el('style', null, String(css).replace(/<\/(style)/gi, '<\\/$1'));
+    return D.el('style', null, String(css).replace(/</g, '\\3c '));
   }
 
   // Structure and styling live here; every word comes from the locale file

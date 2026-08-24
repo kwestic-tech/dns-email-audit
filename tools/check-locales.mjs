@@ -9,6 +9,9 @@
  *   • unknown keys (typos or leftovers from a renamed key — warning)
  *   • {0}, {1}, … placeholder mismatches (these break the UI — error)
  *   • unbalanced inline markup, e.g. a <code> with no </code> (error)
+ *   • inline tags outside the rich-text allowlist (error) — js/i18n.js
+ *     renders anything else as literal text, so this closes the same gap
+ *     at author time, with no parser and no dependency
  *   • per-key translation state, from locales/translation-status.json
  *     (initial / translated / reviewed / final, plus stale — warning)
  *   • js/locales-en.js is in sync with locales/en.json (error)
@@ -24,7 +27,7 @@
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { flatten, placeholders, balancedTags, isExtraPluralForm, loadStatus, SUB_STALE, root, localesDir } from './lib/locale-utils.mjs';
+import { flatten, placeholders, balancedTags, disallowedTags, isExtraPluralForm, loadStatus, SUB_STALE, root, localesDir } from './lib/locale-utils.mjs';
 
 const strict = process.argv.includes('--strict');
 
@@ -50,6 +53,13 @@ const enFlat = flatten(en);
 const enKeys = Object.keys(enFlat).filter(k => !k.startsWith('meta.'));
 
 console.log(`Reference: locales/en.json — ${enKeys.length} keys\n`);
+
+// The rich-text allowlist applies to the source bundle too — English is where
+// a stray tag gets introduced first.
+for (const k of enKeys) {
+  const bad = disallowedTags(enFlat[k]);
+  if (bad.length) fail(`locales/en.json → ${k} uses <${bad.join('>, <')}>, which is not on the rich-text allowlist`);
+}
 
 // ── Registry consistency ─────────────────────────────────────────────────
 const index = readJSON(join(localesDir, 'index.json'));
@@ -88,6 +98,9 @@ for (const code of onDisk.filter(c => c !== 'en').sort()) {
   const mismatched = keys.filter(k => k in enFlat && placeholders(flat[k]) !== placeholders(enFlat[k]));
   // Tag *counts* may legitimately differ between languages; unclosed tags may not.
   const unbalanced = keys.filter(k => !balancedTags(flat[k]));
+  // Anything outside the allowlist renders as literal text rather than markup,
+  // which is safe but wrong — catch it here rather than in the interface.
+  const offAllowlist = keys.filter(k => disallowedTags(flat[k]).length);
 
   const entries = status.locales?.[code] || {};
   const tally = { initial: 0, translated: 0, reviewed: 0, final: 0, stale: 0 };
@@ -105,6 +118,7 @@ for (const code of onDisk.filter(c => c !== 'en').sort()) {
   mismatched.forEach(k =>
     fail(`${k}: placeholders differ (en has "${placeholders(enFlat[k]) || 'none'}", ${code} has "${placeholders(flat[k]) || 'none'}")`));
   unbalanced.forEach(k => fail(`${k}: inline markup is not balanced — an unclosed tag will break the page`));
+  offAllowlist.forEach(k => fail(`${k}: uses <${disallowedTags(flat[k]).join('>, <')}>, which is not on the rich-text allowlist`));
   unknown.forEach(k => warn(`${k}: not present in en.json — typo or stale key?`));
   if (missing.length) warn(`${missing.length} key(s) missing — these fall back to English`);
   const breakdown = ['initial', 'translated', 'reviewed', 'final']
@@ -115,7 +129,7 @@ for (const code of onDisk.filter(c => c !== 'en').sort()) {
     strict ? fail(msg) : warn(msg);
   }
   if (tally.stale) warn(`${tally.stale} translation(s) flagged stale — English changed underneath them`);
-  if (!mismatched.length && !unbalanced.length && !unknown.length && !missing.length && !tally.initial && !tally.stale) console.log('  ✓ complete');
+  if (!mismatched.length && !unbalanced.length && !offAllowlist.length && !unknown.length && !missing.length && !tally.initial && !tally.stale) console.log('  ✓ complete');
   console.log('');
 }
 

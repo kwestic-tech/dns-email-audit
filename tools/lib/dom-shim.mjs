@@ -143,6 +143,12 @@ class ShimNode {
     });
   }
 
+  addEventListener(type, handler) {
+    (this._listeners || (this._listeners = {}))[type] = handler;
+  }
+
+  removeEventListener() { /* nothing dispatches in the shim */ }
+
   /** Depth-first walk over every descendant, this node excluded. */
   * walk() {
     for (const child of this.childNodes) {
@@ -233,6 +239,22 @@ class ShimStyle {
   }
 }
 
+// The properties the app assigns as `el.style.foo = x`. Defined as accessors
+// so that idiom behaves the way it does in a browser instead of silently
+// writing a plain own-property the serializer would never see — which would
+// let a test pass while the real page did nothing.
+for (const prop of ['display', 'width', 'opacity', 'color', 'background']) {
+  Object.defineProperty(ShimStyle.prototype, prop, {
+    configurable: true,
+    enumerable: true,
+    get() { return this.getPropertyValue(prop); },
+    set(v) {
+      if (v === '' || v === null || v === undefined) this.removeProperty(prop);
+      else this.setProperty(prop, v);
+    },
+  });
+}
+
 class ShimElement extends ShimNode {
   constructor(tagName, ownerDocument) {
     super(1);
@@ -252,6 +274,25 @@ class ShimElement extends ShimNode {
     this.style._props.forEach((v, k) => copy.style.setProperty(k, v));
     return copy;
   }
+
+  /**
+   * Deliberately minimal: matches `.class` and `tag` only. The renderer needs
+   * no selector engine — tests walk the tree — but the disclosure control
+   * looks up `.rv-rest` on its own parent, so that one form is supported.
+   */
+  querySelectorAll(selector) {
+    const sel = String(selector).trim();
+    const matches = (el) => (sel.charAt(0) === '.'
+      ? el.classList.contains(sel.slice(1))
+      : el.localName === sel.toLowerCase());
+    const out = [];
+    for (const node of this.walk()) {
+      if (node.nodeType === 1 && matches(node)) out.push(node);
+    }
+    return out;
+  }
+
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
 
   /* ── Attributes ───────────────────────────────────────────────────── */
 
@@ -379,6 +420,17 @@ class ShimDocument {
   createTextNode(data) { return new ShimText(data); }
 
   createDocumentFragment() { return new ShimFragment(); }
+
+  addEventListener(type, handler) {
+    (this._listeners || (this._listeners = {}))[type] = handler;
+  }
+
+  removeEventListener() { /* nothing dispatches in the shim */ }
+
+  /** No selector engine: tests walk the tree. Present so load-time calls work. */
+  querySelectorAll() { return []; }
+
+  querySelector() { return null; }
 
   getElementById(id) { return this._byId.get(String(id)) || null; }
 

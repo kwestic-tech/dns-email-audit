@@ -278,7 +278,9 @@
       appendSegments(wrap, head);
 
       if (tail) {
-        var rest = el('span', { className: 'rv-rest', style: 'display:none' });
+        // Object form, so the property is readable and toggleable as
+        // `rest.style.display` by the disclosure control in js/app.js.
+        var rest = el('span', { className: 'rv-rest', style: { display: 'none' } });
         appendSegments(rest, tail);
         wrap.appendChild(rest);
         wrap.appendChild(el('button', {

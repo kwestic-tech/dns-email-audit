@@ -15,13 +15,33 @@ issue.
 Please include a description of the issue and its impact, steps to reproduce
 or a proof of concept, and the affected file(s) or commit if known.
 
+## Threat model
+
+There is no session, no credential, no stored user data and no privileged
+action here, so script execution on this origin yields an attacker nothing to
+steal — which means the failure that actually matters is **output integrity**:
+a domain owner being able to make this tool display a false result, suppress a
+finding, or render a record so that a reader draws the wrong conclusion.
+
+Deliberately not defended: clickjacking (there is no state and no destructive
+action to frame), and anything that requires an attacker who can already
+inject markup into the page, since at that point the remaining directives are
+not what saves you. Reports about those are welcome but will likely be closed
+as working as intended.
+
 ## Scope
 
 This is a fully client-side, no-backend application. In-scope examples:
 
-- XSS or HTML injection via the `sanitizeHTML` allowlist in `js/i18n.js`, or
-  via user-supplied domain names / DKIM selectors rendered into the results
-  table or exported reports
+- HTML injection or a markup sink reachable from DNS data — any path that gets
+  a DNS-derived value out of a text node and into markup, or any assignment to
+  `innerHTML` / `outerHTML` under `js/` that the static scan in `npm test`
+  missed
+- A rich-text string escaping the twelve-tag allowlist in `sanitizeFragment`
+  in `js/i18n.js`
+- A malformed record that renders deceptively — a bidirectional override,
+  zero-width or control character that reaches the display without its
+  sentinel marker, in the interface or in either export
 - Content-Security-Policy bypasses
 - Any path that causes the app to send data somewhere other than
   Cloudflare's DoH endpoint

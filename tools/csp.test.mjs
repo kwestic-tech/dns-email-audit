@@ -1,0 +1,137 @@
+#!/usr/bin/env node
+/**
+ * The Content-Security-Policy in index.html, and the markup-sink scan.
+ *
+ * Dependency-free: the digest is recomputed with node:crypto, so an edit to
+ * the structured-data block is self-correcting rather than silently drifting
+ * away from the policy that authorizes it.
+ */
+
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, relative } from 'node:path';
+
+const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
+const html = readFileSync(join(REPO, 'index.html'), 'utf8');
+
+let pass = 0, fail = 0;
+const eq = (label, actual, expected) => {
+  const a = JSON.stringify(actual), e = JSON.stringify(expected);
+  if (a === e) { pass++; return; }
+  fail++;
+  console.log(`  ✗ ${label}\n      expected ${e}\n      actual   ${a}`);
+};
+const section = s => console.log(`\n${s}\n${'─'.repeat(s.length)}`);
+
+const policyMatch = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/);
+const policy = policyMatch ? policyMatch[1] : '';
+const directives = Object.fromEntries(
+  policy.split(';').map(d => d.trim()).filter(Boolean)
+    .map(d => { const [name, ...rest] = d.split(/\s+/); return [name, rest.join(' ')]; })
+);
+
+/* ── 1. The directives this release fixes ────────────────────────────── */
+section('1. Policy directives');
+
+eq('a policy is present', policy.length > 0, true);
+
+// A fixed, published nonce authorizes any injected script bearing the same
+// attribute, so the policy claimed a control it did not have. A hash is the
+// same length and is true.
+eq('no nonce- token in script-src', /nonce-/.test(directives['script-src'] || ''), false);
+eq('no nonce attribute survives in the document', /nonce=/.test(html), false);
+eq('script-src carries a sha256 hash', /'sha256-[A-Za-z0-9+/]+={0,2}'/.test(directives['script-src'] || ''), true);
+
+// Nothing loads a remote image and nothing planned will. The only thing this
+// forbids is fetching an image from a host named in a stranger's record, which
+// would disclose the auditor's address to that host.
+eq('img-src is exactly self and data:', directives['img-src'], "'self' data:");
+
+// The single-destination privacy claim in PRIVACY.md rests on this line.
+eq('connect-src is exactly self and Cloudflare',
+  directives['connect-src'], "'self' https://cloudflare-dns.com");
+
+eq('object-src is none', directives['object-src'], "'none'");
+eq('base-uri is none', directives['base-uri'], "'none'");
+eq('form-action is none', directives['form-action'], "'none'");
+eq('default-src is self', directives['default-src'], "'self'");
+
+/* ── 2. The hash matches the block it authorizes ─────────────────────── */
+section('2. The JSON-LD hash matches');
+
+const inline = [...html.matchAll(/<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/g)];
+eq('there is exactly one inline script', inline.length, 1);
+
+const digest = createHash('sha256').update(inline[0][1], 'utf8').digest('base64');
+eq('the computed digest is authorized by the policy',
+  (directives['script-src'] || '').includes(`'sha256-${digest}'`), true);
+
+eq('the inline block is the structured data',
+  /application\/ld\+json/.test(inline[0][0]), true);
+eq('the structured data still parses', (() => {
+  try { JSON.parse(inline[0][1]); return true; } catch (e) { return false; }
+})(), true);
+
+/* ── 3. Every script the page loads is listed ────────────────────────── */
+section('3. Script loading');
+
+const srcs = [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map(m => m[1]);
+eq('js/render.js is loaded', srcs.includes('js/render.js'), true);
+eq('render.js loads after i18n.js', srcs.indexOf('js/render.js') > srcs.indexOf('js/i18n.js'), true);
+eq('render.js loads before app.js', srcs.indexOf('js/render.js') < srcs.indexOf('js/app.js'), true);
+eq('every script is same-origin', srcs.every(s => !/^https?:/i.test(s)), true);
+
+/* ── 4. The markup-sink scan ─────────────────────────────────────────── */
+section('4. Markup-sink scan (allowlist is empty)');
+
+// Assignment only. Reading `outerHTML` is how the two document builders
+// serialize, and is permitted; writing either property never is.
+const SINK = /\.(inner|outer)HTML\s*=[^=]/;
+const OTHER_SINKS = /insertAdjacentHTML|document\.write/;
+
+function jsFiles(dir) {
+  return readdirSync(dir).flatMap((name) => {
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) return jsFiles(full);
+    return name.endsWith('.js') ? [full] : [];
+  });
+}
+
+// The allowlist is EMPTY. That is what makes this check reliable: an empty
+// allowlist has no judgment calls in it. If a file needs adding here, the
+// design went wrong, not the check.
+const ALLOWLIST = [];
+eq('the allowlist is empty', ALLOWLIST.length, 0);
+
+const scanned = jsFiles(join(REPO, 'js')).sort();
+eq('the scan covers js/app.js', scanned.some(f => f.endsWith('app.js')), true);
+eq('the scan covers js/render.js', scanned.some(f => f.endsWith('render.js')), true);
+eq('the scan covers js/i18n.js', scanned.some(f => f.endsWith('i18n.js')), true);
+
+for (const file of scanned) {
+  const rel = relative(REPO, file);
+  const lines = readFileSync(file, 'utf8').split('\n');
+  const hits = [];
+  lines.forEach((line, i) => {
+    // Strip line comments before scanning: the files document the rule they
+    // enforce, and a comment naming `innerHTML` is not an assignment.
+    const code = line.replace(/\/\/.*$/, '').replace(/^\s*\*.*$/, '');
+    if (SINK.test(code) || OTHER_SINKS.test(code)) hits.push(`${rel}:${i + 1}: ${line.trim()}`);
+  });
+  eq(`${rel} assigns to no markup sink`, hits, []);
+}
+
+/* ── 5. The report's own policy ──────────────────────────────────────── */
+section('5. The exported report declares its own policy');
+
+const app = readFileSync(join(REPO, 'js', 'app.js'), 'utf8');
+eq('the report builder emits a CSP meta tag',
+  app.includes('Content-Security-Policy'), true);
+eq("the report's policy is default-src 'none'",
+  app.includes("default-src 'none'; style-src 'unsafe-inline'; img-src data:"), true);
+
+/* ── Summary ─────────────────────────────────────────────────────────── */
+console.log(`\n${'='.repeat(60)}`);
+console.log(`${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

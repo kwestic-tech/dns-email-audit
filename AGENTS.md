@@ -62,6 +62,12 @@ keep a failed patch cheap to redo.
   syntax is literal; the comments around it are prose and should be translated.
 - Error and status tokens that mirror protocol output — `Permerror`,
   `SERVFAIL`, `NXDOMAIN`, `NOERROR`
+- Record-hygiene sentinel markers — `‹RLO›`, `‹ZWSP›`, `‹U+0007›` and the rest.
+  They name Unicode code points, which are the same in every language, and a
+  translated marker would break the property that two auditors reading the
+  same record in different languages see the same evidence. They are generated
+  in `js/render.js` and never appear in a locale file; the surrounding
+  `render.hygiene.*` prose is ordinary translatable text.
 
 **Always preserve exactly:**
 
