@@ -151,6 +151,36 @@ run and update the figure in `README.md`'s command table from that output
 rather than typing it from memory — it drifted from 174 to 489 unnoticed once
 already.
 
+**Every time you push to an open pull request, re-check these three.** Adding a
+commit does not update them, and nothing fails if they go stale — a reviewer
+simply reads something untrue:
+
+| | Why it goes stale |
+| --- | --- |
+| `CHANGELOG.md` | The `## [Unreleased]` section is written once and then forgotten. Later commits on the same branch — review fixes especially — change what the release actually does. |
+| The PR description | GitHub keeps the body you opened the PR with. If a review makes you reverse a decision, the body still argues the old one. |
+| `README.md` | The assertion count moves whenever tests are added, and behaviour statements go stale when a review changes behaviour. |
+
+The failure mode is not hypothetical. On PR #18 the body stated that CSV formula
+injection was *"not addressed here"* while a later commit on the same branch
+neutralized it — the description contradicted the diff a reviewer was reading.
+The assertion count in the same body was two revisions behind.
+
+The PR description lives in `pr-description.md` (untracked, listed in
+`.git/info/exclude`), structured like
+[PR #4](https://github.com/kwestic-tech/dns-email-audit/pull/4): `## Summary`,
+`## What changed` with `###` subsections, `## Why`, `## Testing` ending in a
+`Results:` list of real measured numbers, `## Known limitation`, and the
+`gh pr create` invocation. Edit that file and push the body with:
+
+```bash
+gh pr edit <number> --body-file pr-description.md
+```
+
+If a review reverses a decision, say so in the body rather than quietly deleting
+the old reasoning — the point of the description is that a reviewer can follow
+how the change reached its current shape.
+
 Please also confirm `index.html` still opens correctly straight from disk (`file://`) in English.
 
 ---
