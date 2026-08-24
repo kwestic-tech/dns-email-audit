@@ -147,7 +147,7 @@ anytime, no coordination:  external-intelligence → Final ; excluded-requires-c
 > **Status, 2026-08-24:** implemented on branch `feat/rendering-and-robustness`.
 > Spec finalized at `1.0`, then amended to `1.2` during implementation (two
 > defects in the spec text, one gap found in code review — see its Revision
-> history). `npm test` 853 assertions / 0 failures, `npm run locale:gate`
+> history). `npm test` 814 assertions / 0 failures, `npm run locale:gate`
 > 13/13, `node tools/backtest.mjs --sample --json` diffed against the v0.2.2
 > baseline shows zero grade or score movement across 40 domains. Not yet
 > merged, so Phase 2 (0.3.0) and Phase 3 (0.7.0) are not yet unblocked.

@@ -341,9 +341,17 @@ static pattern would miss entirely. The `outerHTML` getter works normally, since
 section 1a makes reading it the supported way to serialize a document.
 
 A static check backs it up for code paths no test reaches. `npm test` scans
-`js/app.js`, `js/render.js` and `js/i18n.js` for **assignment only**,
-`/\.(inner|outer)HTML\s*=[^=]/`, plus any use of `insertAdjacentHTML` or
-`document.write`, and fails on any hit. The allowlist is **empty**, which is what
+every file under `js/` for **assignment only** — plain or compound — plus any
+use of `insertAdjacentHTML` or `document.write`, and fails on any hit.
+
+**Amended at 1.2.** The pattern was specified as `/\.(inner|outer)HTML\s*=[^=]/`,
+which misses `el.innerHTML += x`: the exact form this release removes from
+`log()`, where it made the progress log quadratic. A scan that cannot catch a
+regression to the defect it was written for is not a scan. The pattern now
+admits an optional compound operator before the `=`, and uses `=(?!=)` so that
+`==` and `===` (reads, not writes) stay excluded. `tools/csp.test.mjs` asserts
+the pattern against ten positive and negative cases before trusting it over the
+source tree, so the check is itself checked. The allowlist is **empty**, which is what
 makes the check reliable: an empty allowlist has no judgment calls in it, and the
 0.2 draft's two entries were exactly where a reviewer would have to trust rather
 than verify.
@@ -519,6 +527,22 @@ result object.
 right-to-left script in a TXT value would see markers appear. Mitigation:
 substitute only the directional *control* characters and the invisible set, never
 script characters, which reorder correctly on their own and need no intervention.
+The `\p{Cf}` membership test added at 1.2 is a slightly wider net than that
+promise, so the handful of its members that are genuine running text in their
+script — the Arabic number signs U+0600–U+0605, the end-of-ayah marks U+06DD and
+U+08E2, the Syriac abbreviation mark U+070F, and the Kaithi number signs — are
+excluded by name in `js/render.js`, and `tools/render.test.mjs` asserts they stay
+unmarked while an invisible character in the same string still gets its sentinel.
+
+**The CSV is a display surface too, and formula injection is not addressed
+here.** `OQ-SEC-11` made the CSV an explicit surface of this release, and a cell
+beginning `=`, `+`, `-` or `@` is executed as a formula by Excel and Sheets — the
+same class of problem as the bidirectional override, aimed at a different
+reader. It is deliberately **not** fixed in 0.2.3: the release's own rule is that
+the export stays byte-faithful to what was published, and neutralizing a leading
+`=` changes the bytes. Recorded here rather than left as a verbal note so that
+[findings-and-remediation](findings-and-remediation.md) (0.6.0), which owns
+severity, can decide between a warning column and an opt-in sanitized export.
 A record hygiene note says which characters were found, so the change is
 disclosed rather than silent.
 
@@ -560,4 +584,4 @@ condition `docs/specs/README.md` sets for `1.0 (Final)`.
 | 0.3 | 2026-08-20 | Revised after Gemini review. Document builders now construct DOM trees and serialize, which removes the last escape helper and empties the markup-sink allowlist; exported report regains its own CSP. Enforcement moved from a grep to a shim setter trap with an assignment-only scan as backup. Truncation raised to 1024 per value. Invisible-character handling changed from stripping to visible sentinel substitution, correcting the reviewer's `unicode-bidi: isolate` proposal, which does not neutralize reordering within an element. Added `tools/export.test.mjs`. Resolved the five remaining open questions; added two. |
 | 1.0 | 2026-08-24 | Final. Resolved the last two open questions: `OQ-SEC-11` (raw bytes stay in the CSV data column, a separate appended `record_hygiene` column names what was found) and `OQ-SEC-12` (record-hygiene observations stay display annotations in 0.2.3, deferred to `findings-and-remediation` (0.6.0)). No change to Design, Scope, Non-goals, Testing or Acceptance criteria beyond the `record_hygiene` CSV column those resolutions add. Approved for implementation. |
 | 1.1 | 2026-08-24 | Amended during implementation, per the "amend rather than quietly diverge" rule in `docs/specs/README.md`. Two defects in the 1.0 text: (a) §3 kept the `<template>` parse, which is an `innerHTML` assignment in `js/i18n.js` that §5 and acceptance criterion 2 forbid with an empty allowlist — replaced by a fail-closed tokenizer that builds nodes, so no markup sink remains under `js/`; (b) the export scan for ` on\w+\s*=` and `javascript:` was specified against the whole output string, which false-positives on the spec's own attribute-breakout fixture because escaping `<` leaves ` onerror=` intact in the text node — now scanned against tag regions only. Added the `<style>` raw-text serialization rule the export builder depends on, and the `tools/check-locales.mjs` tag-allowlist check promised by §3. No change to Scope, Non-goals, or the acceptance criteria themselves. |
-| 1.2 | 2026-08-24 | Amended after code review, which found the malformed-record half of the release complete for values rendered as text and absent for values rendered into an attribute. Four changes: (a) sentinel substitution now applies to `title` and `data-*` values, not only text nodes — `data-tip` is painted by `content: attr(data-tip)` and carries BIMI and CAA record text; (b) the invisible-character set became a Unicode category test (`\p{Cf}`/`\p{Zl}`/`\p{Zp}` plus the Hangul fillers), since the 1.0 enumeration missed the soft hyphen, word joiner, Arabic letter mark, line/paragraph separators, Hangul fillers and tag characters; (c) the export scan became a quote-aware structural check on attribute names and URL schemes, and both suites gained an `advanced`-populated fixture that exercises the attribute path; (d) `normalize()` was rewritten as an index walk after review showed the regex form left every second lone low surrogate in a run intact. Also fixed: punycode detected mid-value rather than only at a label boundary, a published U+FFFD no longer reported as invalid UTF-8, `src` given the same `https:`-only test as `href`, and the DOM shim`s attribute escaping matched to the HTML serialization algorithm. No change to Scope, Non-goals, or the acceptance criteria. |
+| 1.2 | 2026-08-24 | Amended after code review, which found the malformed-record half of the release complete for values rendered as text and absent for values rendered into an attribute. Four changes: (a) sentinel substitution now applies to `title` and `data-*` values, not only text nodes — `data-tip` is painted by `content: attr(data-tip)` and carries BIMI and CAA record text; (b) the invisible-character set became a Unicode category test (`\p{Cf}`/`\p{Zl}`/`\p{Zp}` plus the Hangul fillers), since the 1.0 enumeration missed the soft hyphen, word joiner, Arabic letter mark, line/paragraph separators, Hangul fillers and tag characters; (c) the export scan became a quote-aware structural check on attribute names and URL schemes, and both suites gained an `advanced`-populated fixture that exercises the attribute path; (d) `normalize()` was rewritten as an index walk after review showed the regex form left every second lone low surrogate in a run intact. Also fixed: punycode detected mid-value rather than only at a label boundary, a published U+FFFD no longer reported as invalid UTF-8, `src` given the same `https:`-only test as `href`, and the DOM shim's attribute escaping matched to the HTML serialization algorithm. No change to Scope, Non-goals, or the acceptance criteria. |

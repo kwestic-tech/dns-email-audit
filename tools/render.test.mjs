@@ -117,6 +117,20 @@ eq('no lone surrogate survives', /[\uD800-\uDFFF]/.test(textOf(surrogate)), fals
 // Hebrew or Arabic reorders correctly on its own.
 eq('Hebrew text is not marked', textOf(R.value('v=spf1 include:דוגמה.example')).includes('‹'), false);
 eq('Arabic text is not marked', textOf(R.value('مثال.example')).includes('‹'), false);
+// The previous assertion used a string containing no format characters at all,
+// so it did not actually protect the property it names. These do: every one is
+// Cf, and every one is genuine script content rather than an invisible.
+eq('an Arabic number sign is not marked',
+  textOf(R.value('\u0600123.example')).includes('‹'), false);
+eq('an Arabic end of ayah is not marked',
+  textOf(R.value('a\u06DDb')).includes('‹'), false);
+eq('a Syriac abbreviation mark is not marked',
+  textOf(R.value('a\u070Fb')).includes('‹'), false);
+eq('script format characters produce no hygiene note',
+  R.hygiene('\u0600123 a\u06DDb a\u070Fb'), []);
+// …while the invisible members of the same category still are.
+eq('a word joiner in the same string IS marked',
+  textOf(R.value('\u0600123\u2060x')).includes('‹WJ›'), true);
 
 /* ── 3. Display caps, and the data behind them ───────────────────────── */
 section('3. Display caps never reach the data');

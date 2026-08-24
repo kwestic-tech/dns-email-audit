@@ -87,6 +87,21 @@
   var FORMAT_RE = /[\p{Cf}\p{Zl}\p{Zp}]/u;
   var HANGUL_FILLERS = [0x115F, 0x1160, 0x3164, 0xFFA0];
 
+  // Cf is a slightly wider net than this release wants. A handful of its
+  // members are genuine parts of running text in their script — the Arabic
+  // number signs prefix a numeral, the end-of-ayah marks punctuate Qur'anic
+  // text, the Syriac abbreviation mark is an abbreviation mark — and marking
+  // those would break the spec's own promise to "substitute only the
+  // directional control characters and the invisible set, never script
+  // characters". They are excluded by name.
+  var SCRIPT_FORMAT = [
+    0x0600, 0x0601, 0x0602, 0x0603, 0x0604, 0x0605,  // Arabic number signs
+    0x06DD,                                           // Arabic end of ayah
+    0x070F,                                           // Syriac abbreviation mark
+    0x08E2,                                           // Arabic disputed end of ayah
+    0x110BD, 0x110CD,                                 // Kaithi number signs
+  ];
+
   function hex(code) {
     var s = code.toString(16).toUpperCase();
     while (s.length < 4) s = '0' + s;
@@ -113,6 +128,7 @@
     if (code === 0x2028 || code === 0x2029) {
       return { name: INVISIBLE_NAMES[code], hygiene: 'control-char' };
     }
+    if (SCRIPT_FORMAT.indexOf(code) !== -1) return null;
     if (INVISIBLE_NAMES[code] || HANGUL_FILLERS.indexOf(code) !== -1
         || FORMAT_RE.test(String.fromCodePoint(code))) {
       return { name: INVISIBLE_NAMES[code] || 'U+' + hex(code), hygiene: 'zero-width' };

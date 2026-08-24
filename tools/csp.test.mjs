@@ -87,8 +87,29 @@ section('4. Markup-sink scan (allowlist is empty)');
 
 // Assignment only. Reading `outerHTML` is how the two document builders
 // serialize, and is permitted; writing either property never is.
-const SINK = /\.(inner|outer)HTML\s*=[^=]/;
+//
+// Compound assignment counts. The spec's original pattern was
+// `/\.(inner|outer)HTML\s*=[^=]/`, which misses `el.innerHTML += x` — the
+// exact form this release removed from `log()`, where it made the progress log
+// quadratic. A scan that cannot catch a regression to the thing it was written
+// for is not a scan. `=(?!=)` keeps `===` and `==` (reads, not writes) out.
+const SINK = /\.(inner|outer)HTML\s*(?:\*\*|<<|>>>?|&&|\|\||\?\?|[+\-*/%&|^])?=(?!=)/;
 const OTHER_SINKS = /insertAdjacentHTML|document\.write/;
+
+// The scan is load-bearing, so prove it catches what it claims to before
+// trusting it over the source tree.
+const SINK_CASES = [
+  ['el.innerHTML = x', true],
+  ['el.innerHTML += x', true],
+  ['el.outerHTML+=x', true],
+  ['node.innerHTML   =   y', true],
+  ['el.innerHTML ||= x', true],
+  ['el.innerHTML ??= x', true],
+  ['if (el.innerHTML === x)', false],
+  ['if (el.innerHTML == x)', false],
+  ['var s = el.outerHTML;', false],
+  ['return doc.documentElement.outerHTML', false],
+];
 
 function jsFiles(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -103,6 +124,10 @@ function jsFiles(dir) {
 // design went wrong, not the check.
 const ALLOWLIST = [];
 eq('the allowlist is empty', ALLOWLIST.length, 0);
+
+SINK_CASES.forEach(([code, shouldMatch]) => {
+  eq(`the scan ${shouldMatch ? 'catches' : 'ignores'} \`${code}\``, SINK.test(code), shouldMatch);
+});
 
 const scanned = jsFiles(join(REPO, 'js')).sort();
 eq('the scan covers js/app.js', scanned.some(f => f.endsWith('app.js')), true);

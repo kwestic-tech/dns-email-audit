@@ -27,14 +27,20 @@ const section = s => console.log(`\n${s}\n${'─'.repeat(s.length)}`);
 
 /* ── The scan every exported document must survive ───────────────────── */
 
-// An element can only exist if its `<` was NOT escaped, so these are scanned
-// against the whole string.
-const FORBIDDEN_ELEMENTS = [
-  ['a script element', /<script/i],
-  ['an iframe', /<iframe/i],
-  ['an object element', /<object/i],
-  ['an embed element', /<embed/i],
-];
+// There is deliberately NO whole-string `/<script/i` scan here.
+//
+// It was the third instance of the same false-positive class this spec has
+// been amended for twice. Once `escapeAttr` was corrected to match the HTML
+// serialization algorithm — a browser does not escape `<` inside a quoted
+// attribute value — a BIMI record whose text contains `<script` puts a raw
+// `<script` into the export as inert attribute DATA:
+//
+//   data-tip="Record: v=BIMI1; l=<script>alert(1)</script>"
+//
+// A whole-string scan calls that document unsafe when it is not. The
+// structural check below covers real elements completely and correctly, by
+// tokenizing, so scanning the raw string as well adds nothing but a landmine
+// for whoever writes the next fixture.
 
 // An event handler and a javascript: URL are only dangerous as MARKUP — an
 // attribute NAME beginning with "on", or a URL-bearing attribute VALUE whose
@@ -105,9 +111,6 @@ function schemeOf(value) {
 }
 
 function assertInert(label, html) {
-  for (const [what, re] of FORBIDDEN_ELEMENTS) {
-    eq(`${label}: no ${what}`, re.test(html), false);
-  }
   const tags = parseTags(html);
   eq(`${label}: no event-handler attribute`,
     tags.flatMap(t => t.attrs).filter(([name]) => /^on/.test(name)).map(([n]) => n), []);
@@ -159,6 +162,30 @@ for (const [name, value] of Object.entries(FIXTURES)) {
     eq(`${name}: but never as an href`, /href\s*=\s*"?javascript:/i.test(html), false);
   }
 }
+
+// The case that retired the string scan: `<script` as attribute DATA is inert,
+// and must not be reported as a script element.
+section('1b. A tag name inside an attribute value is data, not an element');
+
+const scriptInAttr = APP.buildReportDocument({
+  lang: 'en', css: '', title: 'T', generated: 'g', note: 'n',
+  content: (() => {
+    const f = document.createDocumentFragment();
+    f.appendChild(APP.advFullDots({
+      bimi: { present: true, record: 'v=BIMI1; l=<script>alert(1)</script>' },
+      mtaSts: { present: false }, tlsRpt: { present: false },
+      caa: { found: false }, dnssec: { signed: false },
+    }));
+    return f;
+  })(),
+});
+assertInert('script text in an attribute', scriptInAttr);
+eq('the record text is still shown to the reader',
+  scriptInAttr.includes('l=<script>alert(1)'), true);
+eq('but it produced no script element',
+  parseTags(scriptInAttr).some(t => t.tag === 'script'), false);
+eq('a naive whole-string scan would have called this unsafe',
+  /<script/i.test(scriptInAttr), true);
 
 /* ── 2. The exported report carries its own policy ───────────────────── */
 section('2. The exported report carries its own CSP');
