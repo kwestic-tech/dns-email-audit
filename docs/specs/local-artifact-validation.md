@@ -5,7 +5,7 @@
 | Spec version | 0.1 (Draft) |
 | Target release | 0.7.0 |
 | Status | Awaiting review |
-| Depends on | [rendering-and-robustness](rendering-and-robustness.md), whose rendering boundary this release relies on absolutely |
+| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), whose rendering boundary this release relies on absolutely |
 | Blocks | Nothing |
 | Slug for open questions | `ART` |
 | Last updated | 2026-08-20 |

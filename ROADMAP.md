@@ -67,7 +67,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 
 | # | Workstream | State after 0.2.2 | Lands in |
 | --- | --- | --- | --- |
-| 1 | Rendering correctness and robustness | Partial, and rescoped. The original framing was CSP and XSS hardening; a static site with no session or stored data has no compromise to defend, so the work that survives is output integrity. Untrusted DNS values reach `innerHTML`, placeholder interpolation is re-entrant, and malformed records have no decided display behavior. | [0.2.3](docs/specs/rendering-and-robustness.md) |
+| 1 | Rendering correctness and robustness | **Done, and rescoped along the way.** The original framing was CSP and XSS hardening; a static site with no session or stored data has no compromise to defend, so the work that survived is output integrity. Shipped in 0.2.3: no markup sink remains under `js/`, interpolation is single-pass, and every class of malformed record has a decided, tested display behavior. | [0.2.3](docs/specs/implemented/rendering-and-robustness.md), released |
 | 2 | RFC 9989 DMARC | Partial. Full bis tag vocabulary, `t=`, `psd=`, inheritance, URI parsing and external report authorization are implemented. Tree Walk discovery is not. | [0.3.0](docs/specs/dmarcbis-tree-walk.md) |
 | 3 | Anomaly and remediation engine | Not started. Findings are a flat list of localized strings with no severity model, dependencies, or ordering. | [0.6.0](docs/specs/findings-and-remediation.md) |
 | 4 | DKIM, MX, CAA and DANE depth | Foundation improved. Selector discovery is better. Key strength, structured CAA, MX health and TLSA analysis are absent. | [0.4.0](docs/specs/dns-protocol-depth.md) |
@@ -92,9 +92,9 @@ session, no stored user data and no privileged action has no compromise worth
 defending, so the thing being protected is the accuracy of what the tool
 displays.
 
-### 0.2.3: Rendering correctness and malformed-record robustness
+### 0.2.3: Rendering correctness and malformed-record robustness — released
 
-Spec: [`docs/specs/rendering-and-robustness.md`](docs/specs/rendering-and-robustness.md)
+Spec: [`docs/specs/implemented/rendering-and-robustness.md`](docs/specs/implemented/rendering-and-robustness.md)
 
 Replaces HTML string construction in `js/app.js` with DOM node building, fixes
 re-entrant placeholder interpolation in `js/i18n.js`, returns a fragment from the

@@ -5,7 +5,7 @@
 | Spec version | 0.1 (Draft) |
 | Target release | 0.4.0 |
 | Status | Awaiting review |
-| Depends on | [rendering-and-robustness](rendering-and-robustness.md) for rendering, [dmarcbis-tree-walk](dmarcbis-tree-walk.md) for the fixture-resolver test harness |
+| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md) for rendering, [dmarcbis-tree-walk](dmarcbis-tree-walk.md) for the fixture-resolver test harness |
 | Blocks | [dnssec-evidence](dnssec-evidence.md), which qualifies the DANE conclusions this release produces |
 | Slug for open questions | `DEPTH` |
 | Last updated | 2026-08-20 |

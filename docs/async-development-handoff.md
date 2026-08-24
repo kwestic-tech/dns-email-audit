@@ -142,17 +142,21 @@ anytime, no coordination:  external-intelligence → Final ; excluded-requires-c
 
 ---
 
-## 2. Phase 1 — `rendering-and-robustness` (0.2.3) — **IMPLEMENTED, awaiting merge**
+## 2. Phase 1 — `rendering-and-robustness` (0.2.3) — **RELEASED**
 
-> **Status, 2026-08-24:** implemented on branch `feat/rendering-and-robustness`.
-> Spec finalized at `1.0`, then amended to `1.3` (defects in the spec text
-> found during implementation, in internal code review, and in external review
-> by Codex — see its Revision history). `npm test` 972 assertions / 0 failures, `npm run locale:gate`
-> 13/13, `node tools/backtest.mjs --sample --json` diffed against the v0.2.2
-> baseline shows zero grade or score movement across 40 domains. Not yet
-> merged, so Phase 2 (0.3.0) and Phase 3 (0.7.0) are not yet unblocked.
-> Remaining on completion: move the spec to `docs/specs/implemented/`, add its
-> **As implemented** section, and tag per `CONTRIBUTING.md`.
+> **Status, 2026-08-24: released as `v0.2.3`.** Merged via
+> [PR #18](https://github.com/kwestic-tech/dns-email-audit/pull/18) (squashed to
+> `6bf8bda`). Spec finalized at `1.0`, then amended to `1.3` — defects in the
+> spec's own text found during implementation, in internal review, and in
+> external review by Codex; each recorded in its Revision history. `npm test`
+> 972 assertions / 0 failures, `npm run locale:gate` 13/13,
+> `node tools/backtest.mjs --sample --json` diffed against the v0.2.2 baseline
+> shows zero grade or score movement across 40 domains. The spec has moved to
+> [`docs/specs/implemented/`](specs/implemented/rendering-and-robustness.md)
+> with its **As implemented** section.
+>
+> **Phase 2 (0.3.0) and Phase 3 (0.7.0) are now unblocked** and may run in
+> parallel.
 
 **Why first:** everything else in this plan either directly depends on it
 (0.3.0, 0.7.0) or transitively does (everything downstream of those two).
