@@ -107,6 +107,23 @@
     "na": "Nd.",
     "dash": "—"
   },
+  "render": {
+    "showMore": "Pokaż o {0} znaków więcej",
+    "showLess": "Pokaż mniej",
+    "moreRecords": {
+      "one": "{0} rekord więcej nie jest wyświetlany",
+      "other": "{0} rekordów więcej nie jest wyświetlanych"
+    },
+    "hygieneTitle": "Higiena rekordu",
+    "hygiene": {
+      "bidiOverride": "Dwukierunkowe znaki sterujące, które mogą wizualnie odwrócić nazwę hosta",
+      "zeroWidth": "Znaki niewidoczne lub o zerowej szerokości, które nie są wyświetlane",
+      "controlChar": "Znaki sterujące",
+      "loneSurrogate": "Nieprawidłowy UTF-8, wyświetlany jako U+FFFD",
+      "punycode": "Nazwa Punycode (xn--), wyświetlana dokładnie tak, jak opublikowano",
+      "formulaLeading": "Zaczyna się znakiem, który arkusz kalkulacyjny wykonuje jako formułę; zneutralizowany w eksporcie CSV"
+    }
+  },
   "showme": {
     "open": "Pokaż ▾",
     "close": "Pokaż ▴",
@@ -276,7 +293,8 @@
       "DNSSEC",
       "Zapytania SPF",
       "Problemy",
-      "Sugestie"
+      "Sugestie",
+      "Higiena rekordu"
     ],
     "yes": "Tak",
     "no": "Nie",

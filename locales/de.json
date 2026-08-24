@@ -107,6 +107,23 @@
     "na": "N/V",
     "dash": "—"
   },
+  "render": {
+    "showMore": "{0} weitere Zeichen anzeigen",
+    "showLess": "Weniger anzeigen",
+    "moreRecords": {
+      "one": "{0} weiterer Eintrag nicht angezeigt",
+      "other": "{0} weitere Einträge nicht angezeigt"
+    },
+    "hygieneTitle": "Eintragshygiene",
+    "hygiene": {
+      "bidiOverride": "Bidirektionale Steuerzeichen, die einen Hostnamen visuell umkehren können",
+      "zeroWidth": "Unsichtbare Zeichen oder Zeichen ohne Breite, die nicht dargestellt werden",
+      "controlChar": "Steuerzeichen",
+      "loneSurrogate": "Ungültiges UTF-8, dargestellt als U+FFFD",
+      "punycode": "Punycode-Name (xn--), genau wie veröffentlicht dargestellt",
+      "formulaLeading": "Beginnt mit einem Zeichen, das eine Tabellenkalkulation als Formel ausführt; im CSV-Export neutralisiert"
+    }
+  },
   "showme": {
     "open": "Details anzeigen ▾",
     "close": "Details verbergen ▴",
@@ -266,7 +283,8 @@
       "DNSSEC",
       "SPF-Abfragen",
       "Probleme",
-      "Empfehlungen"
+      "Empfehlungen",
+      "Eintragshygiene"
     ],
     "yes": "Ja",
     "no": "Nein",

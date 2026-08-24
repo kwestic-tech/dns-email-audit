@@ -98,6 +98,28 @@ export const tags = (s) => (s.match(/<\/?[a-z][a-z0-9]*>/gi) || []).sort().join(
 const VOID_TAGS = new Set(['br', 'hr', 'img', 'input', 'wbr']);
 
 /**
+ * The tags js/i18n.js `sanitizeFragment` builds nodes for.  Anything else in a
+ * locale string is emitted as literal text at runtime — safe, but almost
+ * certainly not what the translator meant, so it is caught here at author time
+ * rather than shipping as visible angle brackets.
+ *
+ * Keep in step with RICH_TAGS in js/i18n.js.
+ */
+export const RICH_TAG_ALLOWLIST = new Set([
+  'a', 'br', 'strong', 'code', 'em', 'b', 'i', 'small', 'ul', 'ol', 'li', 'p',
+]);
+
+/** Every tag name in `str` that is not on the rich-text allowlist. */
+export function disallowedTags(str) {
+  const found = [];
+  for (const m of String(str).matchAll(/<\/?([a-z][a-z0-9]*)\b[^>]*?\/?>/gi)) {
+    const name = m[1].toLowerCase();
+    if (!RICH_TAG_ALLOWLIST.has(name) && !found.includes(name)) found.push(name);
+  }
+  return found;
+}
+
+/**
  * True when every inline tag is closed, in order.  This is the real
  * correctness test: unbalanced markup escapes into the surrounding DOM and
  * breaks the page, whereas a differing tag *count* only reads slightly

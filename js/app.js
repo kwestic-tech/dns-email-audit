@@ -4,6 +4,14 @@
    All user-facing text comes from the i18n layer (js/i18n.js → locales/*.json).
    The audit logic lives in js/dns.js and speaks only in stable tokens; this
    file is where tokens become words.
+
+   Nothing here builds markup from strings. Every rendered value goes through
+   js/render.js (`R.el`, `R.text`, `R.value`), so a DNS-derived string can only
+   land in a text node or an allowlisted attribute. There is deliberately no
+   escape helper in this file: leaving one available would invite a new
+   concatenation site, and the whole point of 0.2.3 is that no such site can
+   exist. The two document builders construct a detached tree and read
+   `outerHTML` once — reading is permitted, writing never is.
    ────────────────────────────────────────────────────────────────────────── */
 
 (function (global) {
@@ -64,7 +72,7 @@
     // t=y (RFC 9989): name the published policy AND the fact that it is not
     // being applied. Showing plain "none" here would hide the operator's
     // intent; showing plain "reject" would overstate their protection.
-    if (dmarcStatus.testMode && dmarcStatus.policy) return t('dmarc.testMode', dmarcStatus.policy);
+    if (dmarcStatus.testMode && dmarcStatus.policy) return tDns('dmarc.testMode', dmarcStatus.policy);
     if (dmarcStatus.status === 'warn') return t('dmarc.none');
     var suffix = '';
     if (dmarcStatus.pct < 100) suffix = ' ' + t('dmarc.pctSuffix', dmarcStatus.pct);
@@ -78,18 +86,26 @@
   // Trim trailing zeros so 1.5 shows as "1.5" and 6.0 as "6".
   function num(n) { return String(Math.round(n * 10) / 10); }
 
-  function scoreBlockHtml(score) {
-    if (!score || !score.breakdown) return '';
+  function scoreBlock(score) {
+    if (!score || !score.breakdown) return null;
 
     var rows = score.breakdown.pillars.map(function (p) {
       var ratio = p.max ? p.pts / p.max : 0;
       var color = ratio >= 1 ? 'var(--ok)' : ratio > 0 ? 'var(--warn)' : '#cbd5e1';
-      return '<div class="sb-row">' +
-        '<span class="sb-label">' + esc(t('score.pillar.' + p.key)) + '</span>' +
-        '<span class="sb-track"><span class="sb-fill" style="width:' + Math.round(ratio * 100) + '%;background:' + color + ';"></span></span>' +
-        '<span class="sb-val">' + num(p.pts) + '<small>/' + p.max + '</small></span>' +
-        '</div>';
-    }).join('');
+      return R.el('div', { className: 'sb-row' }, [
+        R.el('span', { className: 'sb-label' }, t('score.pillar.' + p.key)),
+        R.el('span', { className: 'sb-track' }, [
+          R.el('span', {
+            className: 'sb-fill',
+            style: 'width:' + Math.round(ratio * 100) + '%;background:' + color + ';',
+          }),
+        ]),
+        R.el('span', { className: 'sb-val' }, [
+          R.text(num(p.pts)),
+          R.el('small', null, '/' + p.max),
+        ]),
+      ]);
+    });
 
     var parts = score.breakdown.dmarc || {};
     var partOrder = ['policy', 'subdomain', 'rua', 'alignment', 'ruf', 'uris'];
@@ -97,27 +113,64 @@
       .filter(function (k) { return parts[k] !== undefined; })
       .map(function (k) {
         var zero = !parts[k];
-        return '<span class="sb-part' + (zero ? ' sb-part-zero' : '') + '">' +
-          esc(t('score.dmarcParts.' + k)) + ' <strong>' + num(parts[k]) + '</strong></span>';
-      }).join('');
+        return R.el('span', { className: 'sb-part' + (zero ? ' sb-part-zero' : '') }, [
+          R.text(t('score.dmarcParts.' + k) + ' '),
+          R.el('strong', null, num(parts[k])),
+        ]);
+      });
 
-    return '<div class="score-block">' +
-      '<div class="score-head">' +
-      '<span class="score-total ' + score.cls + '">' + num(score.pts) +
-      '<small>/' + score.max + '</small></span>' +
-      '<span class="issues-section-label">' + esc(t('score.label')) + '</span>' +
-      (score.parked ? '<span class="score-note">' + esc(t('score.parkedNote')) + '</span>' : '') +
-      '</div>' +
-      '<div class="sb-rows">' + rows + '</div>' +
-      (dmarcParts
-        ? '<div class="sb-dmarc"><span class="sb-dmarc-label">' + esc(t('score.dmarcParts.label')) + '</span>' + dmarcParts + '</div>'
-        : '') +
-      '</div>';
+    return R.el('div', { className: 'score-block' }, [
+      R.el('div', { className: 'score-head' }, [
+        R.el('span', { className: 'score-total ' + score.cls }, [
+          R.text(num(score.pts)),
+          R.el('small', null, '/' + score.max),
+        ]),
+        R.el('span', { className: 'issues-section-label' }, t('score.label')),
+        score.parked ? R.el('span', { className: 'score-note' }, t('score.parkedNote')) : null,
+      ]),
+      R.el('div', { className: 'sb-rows' }, rows),
+      dmarcParts.length
+        ? R.el('div', { className: 'sb-dmarc' }, [
+          R.el('span', { className: 'sb-dmarc-label' }, t('score.dmarcParts.label')),
+          dmarcParts,
+        ])
+        : null,
+    ]);
   }
 
-  function issueMessage(issue) {
-    var args = issue.args ? issue.args.slice() : [];
-    if (issue.noteKey) args = [t.apply(null, ['dkim.' + issue.noteKey].concat(issue.noteArgs || []))];
+  /* ── The DNS/locale boundary ─────────────────────────────────────────
+     Sentinel substitution belongs on the DNS-derived ARGUMENTS, before
+     translation — not on the finished sentence. The translator's own text may
+     legitimately use formatting characters; the interpolated argument is the
+     untrusted half. Applying it to the completed string would rewrite both.
+
+     Without this, an override inside an issue argument stayed live in the most
+     important explanatory text on the page: the record itself rendered as
+     `‹RLO›` while the message beside it still reordered.
+     ──────────────────────────────────────────────────────────────────── */
+
+  function dnsArgs(args) {
+    return (args || []).map(function (a) {
+      return typeof a === 'string' ? R.sentinelText(a) : a;
+    });
+  }
+
+  /** `t()` for messages whose arguments come from DNS. */
+  function tDns(key) {
+    return t.apply(null, [key].concat(dnsArgs(Array.prototype.slice.call(arguments, 1))));
+  }
+
+  /**
+   * `sentinel` defaults to true (the interface). The CSV passes false: its
+   * data columns carry the published bytes, and the `record_hygiene` column
+   * is what warns the reader (OQ-SEC-11).
+   */
+  function issueMessage(issue, sentinel) {
+    var safe = sentinel === false ? function (x) { return x || []; } : dnsArgs;
+    var args = issue.args ? safe(issue.args.slice()) : [];
+    if (issue.noteKey) {
+      args = [t.apply(null, ['dkim.' + issue.noteKey].concat(safe(issue.noteArgs || [])))];
+    }
     return t.apply(null, ['issue.' + issue.key + '.msg'].concat(args));
   }
 
@@ -125,20 +178,13 @@
 
   function $(id) { return document.getElementById(id); }
 
-  function esc(s) {
-    return String(s === undefined || s === null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  function badge(text, cls) {
+    return R.el('span', { className: 'badge badge-' + cls }, text);
   }
 
-  function rich(s) { return i18n.sanitizeHTML(s); }
-
-  function badge(text, cls) { return '<span class="badge badge-' + cls + '">' + esc(text) + '</span>'; }
-
   function emailBadge(provider) {
-    var noEmail = provider === '@none' || provider === '@null-mx';
     var cls = provider === '@none' ? 'crit' : provider === '@null-mx' ? 'ok' : provider === '@implicit-mx' ? 'warn' : provider === '@porkbun-forwarding' ? 'warn' : 'info';
-    return badge(noEmail ? label(provider) : label(provider), cls);
+    return badge(label(provider), cls);
   }
 
   function hostCls(h) {
@@ -153,9 +199,13 @@
     setTimeout(function () { el.classList.remove('show'); }, 3000);
   }
 
+  // One appended span per line. The previous `el.innerHTML +=` serialized and
+  // reparsed the whole log on every append, which a 200-domain run does at
+  // least 200 times against a growing document.
   function log(msg, cls) {
     var el = $('progressLog');
-    el.innerHTML += '<span class="log-' + (cls || 'info') + '">' + esc(msg) + '</span>\n';
+    el.appendChild(R.el('span', { className: 'log-' + (cls || 'info') }, msg));
+    el.appendChild(R.text('\n'));
     el.scrollTop = el.scrollHeight;
   }
 
@@ -180,7 +230,27 @@
     });
   }
 
-  /* ── Learn more pages ───────────────────────────────────────────────── */
+  /* ── Document builders ──────────────────────────────────────────────
+     Both build a tree in a detached document and serialize once. That is what
+     lets `esc()` be deleted: there is no string being concatenated for an
+     escape helper to protect. Serializing a node-built tree is safe by
+     construction — a text node containing `<script>` serializes to
+     `&lt;script&gt;` and reparses back to the same text node.
+     ──────────────────────────────────────────────────────────────────── */
+
+  function serializeDocument(doc) {
+    return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+  }
+
+  // <style> is a raw-text element, so its contents are not entity-escaped by
+  // any serializer: a `</style>` inside the CSS would end the element early and
+  // everything after it would be parsed as markup. CSS has no legitimate use
+  // for '<' at all, so every one is rewritten to the CSS escape `\3c `, which
+  // renders identically and leaves no character that can open a tag. The
+  // stylesheet is ours either way; this costs nothing and removes the question.
+  function styleElement(D, css) {
+    return D.el('style', null, String(css).replace(/</g, '\\3c '));
+  }
 
   // Structure and styling live here; every word comes from the locale file
   // under learnMore.<key>.
@@ -192,23 +262,8 @@
     'dnssec': '#d97706',
   };
 
-  function buildLearnMorePage(key) {
-    var data = tRaw('learnMore.' + key);
-    if (!data) return null;
-    var color = GUIDE_COLORS[key] || '#2563eb';
-
-    var sectionHtml = (data.sections || []).map(function (s) {
-      var html = '<section><h2>' + esc(s.h) + '</h2><p>' + rich(s.body) + '</p>';
-      if (s.code) html += '<pre><code>' + esc(s.code) + '</code></pre>';
-      if (s.body2) html += '<p>' + rich(s.body2) + '</p>';
-      return html + '</section>';
-    }).join('');
-
-    return '<!DOCTYPE html>\n<html lang="' + i18n.lang + '">\n<head>\n' +
-      '<meta charset="UTF-8">\n' +
-      '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
-      '<title>' + esc(data.title) + '</title>\n<style>\n' +
-      "*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}\n" +
+  function guideCss(color) {
+    return '*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}\n' +
       "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#111827;line-height:1.7;font-size:15px}\n" +
       '.hero{background:linear-gradient(135deg,' + color + '22,' + color + '08);border-bottom:1px solid ' + color + '33;padding:48px 32px 40px;text-align:center}\n' +
       '.hero h1{font-size:28px;font-weight:800;color:#111827;margin-bottom:8px}\n' +
@@ -225,13 +280,47 @@
       '.back{display:inline-flex;align-items:center;gap:6px;margin-bottom:32px;color:#6b7280;font-size:14px;cursor:pointer;background:none;border:none;padding:0}\n' +
       '.back:hover{color:#111827}\n' +
       'footer{text-align:center;padding:24px;font-size:13px;color:#9ca3af}\n' +
-      '@media(max-width:600px){.hero{padding:32px 20px 28px}.hero h1{font-size:22px}section{padding:20px 18px}main{padding:24px 12px 60px}}\n' +
-      '</style>\n</head>\n<body>\n' +
-      '<div class="hero">\n  <div class="tag">' + esc(t('learnMore.badge')) + '</div>\n' +
-      '  <h1>' + esc(data.title) + '</h1>\n  <p>' + esc(data.tagline) + '</p>\n</div>\n' +
-      '<main>\n  <span class="back">' + esc(t('learnMore.close')) + '</span>\n  ' +
-      sectionHtml + '\n</main>\n' +
-      '<footer>' + esc(t('learnMore.footer')) + '</footer>\n</body>\n</html>';
+      '@media(max-width:600px){.hero{padding:32px 20px 28px}.hero h1{font-size:22px}section{padding:20px 18px}main{padding:24px 12px 60px}}\n';
+  }
+
+  function buildLearnMorePage(key) {
+    var data = tRaw('learnMore.' + key);
+    if (!data) return null;
+    var color = GUIDE_COLORS[key] || '#2563eb';
+
+    var doc = document.implementation.createHTMLDocument('');
+    var D = R.for(doc);
+
+    doc.documentElement.setAttribute('lang', i18n.lang);
+    doc.head.appendChild(D.el('meta', { charset: 'UTF-8' }));
+    doc.head.appendChild(D.el('meta', {
+      name: 'viewport', content: 'width=device-width, initial-scale=1.0',
+    }));
+    doc.head.appendChild(D.el('title', null, data.title));
+    doc.head.appendChild(styleElement(D, guideCss(color)));
+
+    doc.body.appendChild(D.el('div', { className: 'hero' }, [
+      D.el('div', { className: 'tag' }, t('learnMore.badge')),
+      D.el('h1', null, data.title),
+      D.el('p', null, data.tagline),
+    ]));
+
+    var main = D.el('main', null, [
+      D.el('span', { className: 'back' }, t('learnMore.close')),
+    ]);
+    (data.sections || []).forEach(function (s) {
+      var section = D.el('section', null, [
+        D.el('h2', null, s.h),
+        D.el('p', null, D.rich(s.body)),
+      ]);
+      if (s.code) section.appendChild(D.el('pre', null, [D.el('code', null, s.code)]));
+      if (s.body2) section.appendChild(D.el('p', null, D.rich(s.body2)));
+      main.appendChild(section);
+    });
+    doc.body.appendChild(main);
+    doc.body.appendChild(D.el('footer', null, t('learnMore.footer')));
+
+    return serializeDocument(doc);
   }
 
   function openLearnMore(key) {
@@ -245,7 +334,7 @@
   /* ── Row rendering ──────────────────────────────────────────────────── */
 
   function advMiniDots(adv) {
-    if (!adv) return t('labels.dash');
+    if (!adv) return R.text(t('labels.dash'));
     var items = [
       { key: 'BIMI', ok: adv.bimi && adv.bimi.present, dup: adv.bimi && adv.bimi.multiple },
       { key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.policyVerified, partial: adv.mtaSts && adv.mtaSts.present, dup: adv.mtaSts && adv.mtaSts.multiple },
@@ -259,12 +348,16 @@
       // operator can tell "never set up" from "set up twice, silently off".
       var state = i.ok ? t('adv.configured') : i.partial ? t('adv.unverified') : i.dup ? t('adv.duplicated') : t('adv.notConfigured');
       var color = i.ok ? 'var(--ok)' : (i.partial || i.dup) ? 'var(--warn)' : '#cbd5e1';
-      return '<span title="' + i.key + ': ' + esc(state) +
-        '" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
-        color + ';margin-right:2px;"></span>';
-    }).join('');
-    return '<span style="display:inline-flex;align-items:center;gap:4px;">' + dots +
-      '<span style="font-size:10px;color:var(--ink3);margin-left:2px;">' + done + '/5</span></span>';
+      return R.el('span', {
+        title: i.key + ': ' + state,
+        style: 'display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
+          color + ';margin-right:2px;',
+      });
+    });
+    return R.el('span', { style: 'display:inline-flex;align-items:center;gap:4px;' }, [
+      dots,
+      R.el('span', { style: 'font-size:10px;color:var(--ink3);margin-left:2px;' }, done + '/5'),
+    ]);
   }
 
   function advFullDots(adv) {
@@ -298,23 +391,62 @@
       },
     ];
     var dots = items.map(function (i) {
-      return '<span class="adv-dot ' + (i.ok ? 'dot-ok' : (i.partial || i.dup) ? 'dot-dup' : 'dot-miss') + '" data-tip="' + esc(i.tip) + '">' +
-        '<span class="dot-pip"></span>' + i.key + '</span>';
-    }).join('');
-    return '<div class="adv-strip"><div class="adv-strip-label">' + esc(t('labels.advanced')) +
-      '</div><div class="adv-dots">' + dots + '</div></div>';
+      return R.el('span', {
+        className: 'adv-dot ' + (i.ok ? 'dot-ok' : (i.partial || i.dup) ? 'dot-dup' : 'dot-miss'),
+        dataset: { tip: i.tip },
+      }, [R.el('span', { className: 'dot-pip' }), R.text(i.key)]);
+    });
+    return R.el('div', { className: 'adv-strip' }, [
+      R.el('div', { className: 'adv-strip-label' }, t('labels.advanced')),
+      R.el('div', { className: 'adv-dots' }, dots),
+    ]);
   }
 
-  function spfMeterHtml(spfLookups) {
+  function spfMeter(spfLookups) {
     var count = spfLookups.count;
     var pct = Math.min(100, (count / 10) * 100);
     var color = spfLookups.error ? 'var(--crit)' : spfLookups.warning ? 'var(--warn)' : 'var(--ok)';
     var text = spfLookups.error ? t('spf.meterOver', count)
       : spfLookups.warning ? t('spf.meterNear', count)
         : t('spf.meterOk', count);
-    return '<div class="spf-meter" style="margin-top:6px;">' +
-      '<div class="spf-meter-bar"><div class="spf-meter-fill" style="width:' + pct + '%;background:' + color + ';"></div></div>' +
-      '<span class="spf-meter-label" style="color:' + color + ';">' + esc(text + ' ' + t('spf.meterSuffix')) + '</span></div>';
+    return R.el('div', { className: 'spf-meter', style: 'margin-top:6px;' }, [
+      R.el('div', { className: 'spf-meter-bar' }, [
+        R.el('div', {
+          className: 'spf-meter-fill',
+          style: 'width:' + pct + '%;background:' + color + ';',
+        }),
+      ]),
+      R.el('span', {
+        className: 'spf-meter-label',
+        style: 'color:' + color + ';',
+      }, text + ' ' + t('spf.meterSuffix')),
+    ]);
+  }
+
+  function detailItem(labelText, valueNode, opts) {
+    var o = opts || {};
+    return R.el('div', { className: 'detail-item', style: o.style }, [
+      R.el('div', { className: 'di-label', style: o.labelStyle }, labelText),
+      R.el('div', { className: 'di-value', style: o.valueStyle }, valueNode),
+    ]);
+  }
+
+  /**
+   * Every DNS-derived string on a row, for the CSV's `record_hygiene` column
+   * (OQ-SEC-11). The CSV's data columns keep the published bytes; this names
+   * what those bytes contained.
+   */
+  function rowHygieneValues(r) {
+    var values = [r.domain, r.spfRecord, r.dmarcRecord]
+      .concat(r.ns || [], r.mx || [], r.verifications || []);
+    (r.dkimStatus && r.dkimStatus.selectors || []).forEach(function (s) {
+      values.push(s.value, s.cname, s.queryName);
+    });
+    if (r.advanced) {
+      if (r.advanced.bimi) values.push(r.advanced.bimi.record);
+      if (r.advanced.caa) values = values.concat(r.advanced.caa.records || []);
+    }
+    return values.filter(function (v) { return typeof v === 'string' && v; });
   }
 
   function appendRow(r) {
@@ -323,29 +455,37 @@
     var detailId = 'det-' + r.domain.replace(/\W/g, '-');
 
     if (r.error) {
-      var etr = document.createElement('tr');
-      etr.id = rowId;
-      etr.dataset.domain = r.domain;
-      etr.dataset.overall = 'error';
-      etr.innerHTML = '<td></td><td class="domain-cell">' + esc(r.domain) + '</td>' +
-        '<td colspan="8">' + badge(t(r.cancelled ? 'badge.cancelled' : 'badge.auditError'), r.cancelled ? 'muted' : 'crit') +
-        '<span style="margin-left:8px;color:var(--ink3);font-size:12px">' + esc(r.message || '') + '</span></td>';
+      var etr = R.el('tr', { id: rowId, dataset: { domain: r.domain, overall: 'error' } }, [
+        R.el('td'),
+        R.el('td', { className: 'domain-cell' }, R.host(r.domain)),
+        R.el('td', { colspan: '8' }, [
+          badge(t(r.cancelled ? 'badge.cancelled' : 'badge.auditError'), r.cancelled ? 'muted' : 'crit'),
+          R.el('span', { style: 'margin-left:8px;color:var(--ink3);font-size:12px' },
+            R.sentinelText(r.message || '')),
+        ]),
+      ]);
       tbody.appendChild(etr);
       return;
     }
 
     // Unregistered domain — muted row, no detail, no metrics
     if (r.unregistered) {
-      var utr = document.createElement('tr');
-      utr.id = rowId;
-      utr.dataset.domain = r.domain;
-      utr.dataset.overall = 'unregistered';
-      utr.style.opacity = '0.55';
-      utr.innerHTML =
-        '<td></td>' +
-        '<td class="domain-cell" style="color:var(--ink3);font-style:italic">' + esc(r.domain) + '</td>' +
-        '<td data-label="' + esc(t('labels.status')) + '" colspan="8" style="color:var(--ink3);font-size:12px;">' +
-        badge(t('badge.notRegistered'), 'muted') + '</td>';
+      var utr = R.el('tr', {
+        id: rowId,
+        dataset: { domain: r.domain, overall: 'unregistered' },
+        style: 'opacity:0.55',
+      }, [
+        R.el('td'),
+        R.el('td', {
+          className: 'domain-cell',
+          style: 'color:var(--ink3);font-style:italic',
+        }, R.host(r.domain)),
+        R.el('td', {
+          colspan: '8',
+          dataset: { label: t('labels.status') },
+          style: 'color:var(--ink3);font-size:12px;',
+        }, badge(t('badge.notRegistered'), 'muted')),
+      ]);
       tbody.appendChild(utr);
       return;
     }
@@ -354,10 +494,14 @@
     var recognizedDkim = (r.dkimStatus.selectors || []).filter(function (s) { return !s.uncommon; });
     var uncommonDkim = (r.dkimStatus.selectors || []).filter(function (s) { return s.uncommon; });
     var dkimB = r.dkimStatus.found
-      ? [
-        recognizedDkim.length ? badge('✓ ' + recognizedDkim.map(function (s) { return s.sel; }).join(', '), 'ok') : '',
-        uncommonDkim.map(function (s) { return badge(t('badge.dkimUncommon', s.queryName), 'warn'); }).join(' '),
-      ].join(' ')
+      ? R.frag([
+        recognizedDkim.length
+          ? badge('✓ ' + recognizedDkim.map(function (s) { return s.sel; }).join(', '), 'ok')
+          : null,
+        uncommonDkim.map(function (s) {
+          return R.frag([R.text(' '), badge(tDns('badge.dkimUncommon', s.queryName), 'warn')]);
+        }),
+      ])
       : r.dkimStatus.confidence === 'sampled'
         ? badge(t('badge.dkimUnverified'), 'warn')
         : badge(t('badge.notChecked'), 'muted');
@@ -368,160 +512,225 @@
 
     var advCell = r.advScore
       ? advMiniDots(r.advanced)
-      : '<span style="color:var(--ink3);font-size:11px;">' + esc(t('labels.dash')) + '</span>';
+      : R.el('span', { style: 'color:var(--ink3);font-size:11px;' }, t('labels.dash'));
 
     var critCount = r.issues.filter(function (i) { return i.sev === 'crit'; }).length;
     var warnCount = r.issues.filter(function (i) { return i.sev === 'warn'; }).length;
     var tipCount = (r.suggestions || []).length;
-    var issueTag = [
-      critCount ? '<span title="' + esc(tp('rows.critical', critCount)) + '">🔴</span>' : '',
-      warnCount ? '<span title="' + esc(tp('rows.warning', warnCount)) + '">🟡</span>' : '',
-      tipCount ? '<span title="' + esc(tp('rows.suggestion', tipCount)) + '">💡</span>' : '',
-    ].join('');
-
-    var tr = document.createElement('tr');
-    tr.id = rowId;
-    tr.dataset.domain = r.domain;
-    tr.dataset.dmarc = r.dmarcStatus.status !== 'missing' ? 'yes' : 'no';
-    tr.dataset.dkim = r.dkimStatus.found ? 'yes' :
-      (r.dkimStatus.confidence === 'sampled' || r.dkimStatus.confidence === 'not-checked') ? 'unknown' : 'no';
-    tr.dataset.spf = r.spfStatus.status !== 'missing' ? 'yes' : 'no';
-    tr.dataset.email = r.emailProvider !== '@none' && r.emailProvider !== '@null-mx' ? 'yes' : 'no';
-    tr.dataset.bimi = r.advanced && r.advanced.bimi && r.advanced.bimi.present ? 'yes' : 'no';
-    tr.dataset.caa = r.advanced && r.advanced.caa && r.advanced.caa.found ? 'yes' : 'no';
-    tr.dataset.dnssec = r.advanced && r.advanced.dnssec && r.advanced.dnssec.signed ? 'yes' : 'no';
-    tr.dataset.grade = r.score.grade;
-    var hasCrit = r.issues.some(function (i) { return i.sev === 'crit'; });
-    var hasWarn = r.issues.some(function (i) { return i.sev === 'warn'; });
-    tr.dataset.overall = hasCrit ? 'crit' : hasWarn ? 'warn' : 'ok';
+    var issueTag = R.frag([
+      critCount ? R.el('span', { title: tp('rows.critical', critCount) }, '🔴') : null,
+      warnCount ? R.el('span', { title: tp('rows.warning', warnCount) }, '🟡') : null,
+      tipCount ? R.el('span', { title: tp('rows.suggestion', tipCount) }, '💡') : null,
+    ]);
 
     // A grade standing on a check that could not be verified is marked in the
     // cell itself. The reason is already in the detail panel, but nobody
     // expands 200 rows to find it.
     var unproven = r.score.unproven || [];
-    tr.dataset.unproven = unproven.length ? 'yes' : 'no';
     var gradeCls = 'score ' + r.score.cls + (unproven.length ? ' score-unproven' : '');
     var gradeTitle = unproven.length
       ? t('score.unproven', num(r.score.pts), r.score.max,
         unproven.map(function (k) { return t('score.pillar.' + k); }).join(', '))
       : t('score.outOf', num(r.score.pts), r.score.max);
-    var gradeText = esc(r.score.grade) + (unproven.length ? '<span class="score-star">*</span>' : '');
 
-    tr.innerHTML =
-      '<td><button class="expand-toggle" data-detail-id="' + detailId + '">▶</button></td>' +
-      '<td class="domain-cell">' + esc(r.domain) + '<span style="margin-left:5px;font-size:11px;">' + issueTag + '</span></td>' +
-      '<td data-label="' + esc(t('th.grade')) + '" style="text-align:center"><span class="' + gradeCls + '" title="' +
-      esc(gradeTitle) + '">' + gradeText + '</span></td>' +
-      '<td data-label="' + esc(t('th.dns')) + '">' + dnsB + '</td>' +
-      '<td data-label="' + esc(t('th.email')) + '">' + emailB + '</td>' +
-      '<td data-label="' + esc(t('th.spf')) + '">' + spfB + '</td>' +
-      '<td data-label="' + esc(t('th.dkim')) + '">' + dkimB + '</td>' +
-      '<td data-label="' + esc(t('th.dmarc')) + '">' + dmarcB + '</td>' +
-      '<td data-label="' + esc(t('th.advanced')) + '">' + advCell + '</td>' +
-      '<td data-label="' + esc(t('th.hosting')) + '">' + hostB + '</td>';
+    var hasCrit = r.issues.some(function (i) { return i.sev === 'crit'; });
+    var hasWarn = r.issues.some(function (i) { return i.sev === 'warn'; });
+
+    var tr = R.el('tr', {
+      id: rowId,
+      dataset: {
+        domain: r.domain,
+        dmarc: r.dmarcStatus.status !== 'missing' ? 'yes' : 'no',
+        dkim: r.dkimStatus.found ? 'yes'
+          : (r.dkimStatus.confidence === 'sampled' || r.dkimStatus.confidence === 'not-checked') ? 'unknown' : 'no',
+        spf: r.spfStatus.status !== 'missing' ? 'yes' : 'no',
+        email: r.emailProvider !== '@none' && r.emailProvider !== '@null-mx' ? 'yes' : 'no',
+        bimi: r.advanced && r.advanced.bimi && r.advanced.bimi.present ? 'yes' : 'no',
+        caa: r.advanced && r.advanced.caa && r.advanced.caa.found ? 'yes' : 'no',
+        dnssec: r.advanced && r.advanced.dnssec && r.advanced.dnssec.signed ? 'yes' : 'no',
+        grade: r.score.grade,
+        unproven: unproven.length ? 'yes' : 'no',
+        overall: hasCrit ? 'crit' : hasWarn ? 'warn' : 'ok',
+      },
+    }, [
+      R.el('td', null, [
+        R.el('button', {
+          className: 'expand-toggle',
+          type: 'button',
+          dataset: { detailId: detailId },
+        }, '▶'),
+      ]),
+      R.el('td', { className: 'domain-cell' }, [
+        R.host(r.domain),
+        R.el('span', { style: 'margin-left:5px;font-size:11px;' }, issueTag),
+      ]),
+      R.el('td', { dataset: { label: t('th.grade') }, style: 'text-align:center' }, [
+        R.el('span', { className: gradeCls, title: gradeTitle }, [
+          R.text(r.score.grade),
+          unproven.length ? R.el('span', { className: 'score-star' }, '*') : null,
+        ]),
+      ]),
+      R.el('td', { dataset: { label: t('th.dns') } }, dnsB),
+      R.el('td', { dataset: { label: t('th.email') } }, emailB),
+      R.el('td', { dataset: { label: t('th.spf') } }, spfB),
+      R.el('td', { dataset: { label: t('th.dkim') } }, dkimB),
+      R.el('td', { dataset: { label: t('th.dmarc') } }, dmarcB),
+      R.el('td', { dataset: { label: t('th.advanced') } }, advCell),
+      R.el('td', { dataset: { label: t('th.hosting') } }, hostB),
+    ]);
     tbody.appendChild(tr);
 
     // ── Detail row ──
     var dkimDetails = (r.dkimStatus.selectors || []).map(function (s) {
-      return '<div class="dkim-record">' +
-        '<strong>' + (s.uncommon ? esc(t('dkim.uncommon', s.queryName)) : esc(s.sel + ' — ' + s.queryName)) + '</strong>' +
-        (s.viaSpf ? ' <span class="dkim-via-spf">' + esc(t('dkim.viaSpf', s.viaSpf)) + '</span>' : '') +
-        (s.cname ? '<div><span>' + esc(t('dkim.cnameTarget')) + ':</span> <code>' + esc(s.cname) + '</code></div>' : '') +
-        '<div><span>' + esc(t('dkim.txtRecord')) + ':</span> <code class="dkim-record-data">' + esc(s.value) + '</code></div>' +
-        '</div>';
+      return R.el('div', { className: 'dkim-record' }, [
+        R.el('strong', null, s.uncommon
+          ? tDns('dkim.uncommon', s.queryName)
+          : R.sentinelText(s.sel + ' — ' + s.queryName)),
+        s.viaSpf ? R.frag([R.text(' '), R.el('span', { className: 'dkim-via-spf' }, tDns('dkim.viaSpf', s.viaSpf))]) : null,
+        s.cname
+          ? R.el('div', null, [
+            R.el('span', null, t('dkim.cnameTarget') + ':'),
+            R.text(' '),
+            R.el('code', null, R.host(s.cname)),
+          ])
+          : null,
+        R.el('div', null, [
+          R.el('span', null, t('dkim.txtRecord') + ':'),
+          R.text(' '),
+          R.el('code', { className: 'dkim-record-data' }, R.value(s.value)),
+        ]),
+      ]);
     });
     (r.dkimStatus.missingSelectors || []).forEach(function (s) {
-      dkimDetails.push('<div class="dkim-record dkim-record-missing"><strong>' +
-        esc(t('dkim.noDomainKeyFound', s.queryName)) + '</strong>' +
-        (s.cname ? '<div><span>' + esc(t('dkim.cnameTarget')) + ':</span> <code>' + esc(s.cname) + '</code></div>' : '') +
-        '</div>');
+      dkimDetails.push(R.el('div', { className: 'dkim-record dkim-record-missing' }, [
+        R.el('strong', null, tDns('dkim.noDomainKeyFound', s.queryName)),
+        s.cname
+          ? R.el('div', null, [
+            R.el('span', null, t('dkim.cnameTarget') + ':'),
+            R.text(' '),
+            R.el('code', null, R.host(s.cname)),
+          ])
+          : null,
+      ]));
     });
     if (!dkimDetails.length && r.dkimStatus.note) {
-      dkimDetails.push(esc(t(
+      dkimDetails.push(R.text(t(
         'dkim.' + r.dkimStatus.note,
         (r.dkimStatus.testedSelectors || []).length - (r.dkimStatus.failedSelectors || []).length,
         (r.dkimStatus.failedSelectors || []).length
       )));
     }
-    var dkimDetail = dkimDetails.join('');
 
-    var spfLookupHtml = (r.advanced && r.advanced.spfLookups && r.spfRecord)
-      ? spfMeterHtml(r.advanced.spfLookups) : '';
-    var advDotsHtml = r.advanced ? advFullDots(r.advanced) : '';
+    var spfMeterNode = (r.advanced && r.advanced.spfLookups && r.spfRecord)
+      ? spfMeter(r.advanced.spfLookups) : null;
 
-    var issueHtml = r.issues.map(function (i) {
+    var issueNodes = r.issues.map(function (i) {
       var what = tRaw('issue.' + i.key + '.what');
       var fix = tRaw('issue.' + i.key + '.fix');
       var fixCode = tRaw('issue.' + i.key + '.fixCode');
-      var showMeHtml = what
-        ? '<div class="showme-wrap">' +
-          '<button class="showme-btn">' + esc(t('showme.open')) + '</button>' +
-          '<div class="showme-content">' +
-          '<div class="showme-lbl">' + esc(t('showme.whatItIs')) + '</div>' +
-          '<div class="showme-text">' + rich(what) + '</div>' +
-          '<div class="showme-lbl">' + esc(t('showme.whatItNeeds')) + '</div>' +
-          '<div class="showme-text">' + rich(fix || '') +
-          (fixCode ? '<div class="showme-code">' + esc(fixCode) + '</div>' : '') +
-          '</div></div></div>'
-        : '';
-      return '<div class="issue"><span class="icon">' +
-        (i.sev === 'crit' ? '🔴' : i.sev === 'warn' ? '⚠️' : 'ℹ️') + '</span>' +
-        '<div class="issue-body"><span class="msg">' + esc(issueMessage(i)) + '</span>' + showMeHtml + '</div></div>';
-    }).join('');
+      var showMe = what
+        ? R.el('div', { className: 'showme-wrap' }, [
+          R.el('button', { className: 'showme-btn', type: 'button' }, t('showme.open')),
+          R.el('div', { className: 'showme-content' }, [
+            R.el('div', { className: 'showme-lbl' }, t('showme.whatItIs')),
+            R.el('div', { className: 'showme-text' }, R.rich(what)),
+            R.el('div', { className: 'showme-lbl' }, t('showme.whatItNeeds')),
+            R.el('div', { className: 'showme-text' }, [
+              R.rich(fix || ''),
+              fixCode ? R.el('div', { className: 'showme-code' }, fixCode) : null,
+            ]),
+          ]),
+        ])
+        : null;
+      return R.el('div', { className: 'issue' }, [
+        R.el('span', { className: 'icon' }, i.sev === 'crit' ? '🔴' : i.sev === 'warn' ? '⚠️' : 'ℹ️'),
+        R.el('div', { className: 'issue-body' }, [
+          R.el('span', { className: 'msg' }, issueMessage(i)),
+          showMe,
+        ]),
+      ]);
+    });
 
-    var suggestHtml = (r.suggestions && r.suggestions.length)
-      ? '<hr class="suggestions-sep"><div class="issues-section-label">' + esc(t('labels.suggestions')) + '</div>' +
+    var suggestNodes = (r.suggestions && r.suggestions.length)
+      ? R.frag([
+        R.el('hr', { className: 'suggestions-sep' }),
+        R.el('div', { className: 'issues-section-label' }, t('labels.suggestions')),
         r.suggestions.map(function (s) {
           var guide = s.guide && tRaw('learnMore.' + s.guide);
-          return '<div class="issue tip"><span class="icon">💡</span><div class="issue-body">' +
-            '<span class="msg">' + esc(t('suggestion.' + s.key)) + '</span>' +
-            (guide ? '<button class="learnmore-btn" data-guide="' + esc(s.guide) + '">' + esc(t('btn.learnMore')) + '</button>' : '') +
-            '</div></div>';
-        }).join('')
-      : '';
+          return R.el('div', { className: 'issue tip' }, [
+            R.el('span', { className: 'icon' }, '💡'),
+            R.el('div', { className: 'issue-body' }, [
+              R.el('span', { className: 'msg' }, t('suggestion.' + s.key)),
+              guide
+                ? R.el('button', {
+                  className: 'learnmore-btn',
+                  type: 'button',
+                  dataset: { guide: s.guide },
+                }, t('btn.learnMore'))
+                : null,
+            ]),
+          ]);
+        }),
+      ])
+      : null;
 
-    var dtr = document.createElement('tr');
-    dtr.id = detailId;
-    dtr.className = 'detail-row';
-    dtr.innerHTML =
-      '<td colspan="11"><div class="detail-grid">' +
-      detailItem(t('labels.nameservers'), esc(r.ns.join(', ') || t('labels.na'))) +
-      detailItem(t('labels.mx'), esc(r.mx.join('\n') || t('labels.none'))) +
-      detailItem(
-        t('labels.spf') + (spfLookupHtml ? ' · ' + t('labels.spfLookups') : ''),
-        esc(r.spfRecord || t('labels.none')) + spfLookupHtml
-      ) +
-      detailItem(t('labels.dmarc'), esc(r.dmarcRecord || t('labels.none')) +
-        (r.dmarcAtDomain && r.dmarcAtDomain !== r.domain ? '<br><small>' + esc(t('dmarc.inheritedFrom', r.dmarcAtDomain)) + '</small>' : '')) +
-      detailItem(t('labels.dkim'), dkimDetail) +
-      detailItem(t('labels.verifications'), r.verifications.length
-        ? r.verifications.map(esc).join('<br>')
-        : t('labels.dash')) +
-      (r.wildcardDkim || r.wildcardApex
-        ? (function () {
-            // The two depths get different colours because they mean different
-            // things: one degrades DKIM discovery, the other is usually a
-            // deliberate anti-spoofing measure and costs nothing.
-            var colour = r.wildcardDkim ? 'var(--warn)' : 'var(--info)';
-            var suffix = r.wildcardDkim ? 'Dkim' : 'Apex';
-            return '<div class="detail-item" style="grid-column:1/-1">' +
-              '<div class="di-label" style="color:' + colour + '">' + esc(t('labels.wildcard' + suffix + 'Title')) + '</div>' +
-              '<div class="di-value" style="color:' + colour + '">' + esc(t('labels.wildcard' + suffix + 'Text')) + '</div></div>';
-          }())
-        : '') +
-      '</div>' + scoreBlockHtml(r.score) + advDotsHtml +
-      (issueHtml || suggestHtml
-        ? '<div class="issues-block">' +
-          (issueHtml ? '<div class="issues-section-label">' + esc(t('labels.issues')) + '</div>' + issueHtml : '') +
-          suggestHtml + '</div>'
-        : '') +
-      '</td>';
+    var wildcardNote = null;
+    if (r.wildcardDkim || r.wildcardApex) {
+      // The two depths get different colours because they mean different
+      // things: one degrades DKIM discovery, the other is usually a deliberate
+      // anti-spoofing measure and costs nothing.
+      var colour = r.wildcardDkim ? 'var(--warn)' : 'var(--info)';
+      var suffix = r.wildcardDkim ? 'Dkim' : 'Apex';
+      wildcardNote = detailItem(
+        t('labels.wildcard' + suffix + 'Title'),
+        R.text(t('labels.wildcard' + suffix + 'Text')),
+        { style: 'grid-column:1/-1', labelStyle: 'color:' + colour, valueStyle: 'color:' + colour }
+      );
+    }
+
+    var hygieneNote = R.hygieneNote(rowHygieneValues(r));
+
+    var dtr = R.el('tr', { id: detailId, className: 'detail-row' }, [
+      R.el('td', { colspan: '11' }, [
+        R.el('div', { className: 'detail-grid' }, [
+          // Separators match 0.2.2 exactly: this release changes how values are
+          // BUILT, not how they look. Only the 20-record cap and the sentinel
+          // substitution are new.
+          detailItem(t('labels.nameservers'), R.list(r.ns, { sep: ', ', none: t('labels.na') })),
+          detailItem(t('labels.mx'), R.list(r.mx, { sep: '\n' })),
+          detailItem(
+            t('labels.spf') + (spfMeterNode ? ' · ' + t('labels.spfLookups') : ''),
+            R.frag([R.value(r.spfRecord), spfMeterNode])
+          ),
+          detailItem(t('labels.dmarc'), R.frag([
+            R.value(r.dmarcRecord),
+            r.dmarcAtDomain && r.dmarcAtDomain !== r.domain
+              ? R.frag([R.el('br'), R.el('small', null, tDns('dmarc.inheritedFrom', r.dmarcAtDomain))])
+              : null,
+          ])),
+          detailItem(t('labels.dkim'), R.frag(dkimDetails)),
+          detailItem(t('labels.verifications'), r.verifications.length
+            ? R.list(r.verifications, { sep: 'br' })
+            : R.text(t('labels.dash'))),
+          wildcardNote,
+        ]),
+        hygieneNote,
+        scoreBlock(r.score),
+        r.advanced ? advFullDots(r.advanced) : null,
+        (issueNodes.length || suggestNodes)
+          ? R.el('div', { className: 'issues-block' }, [
+            issueNodes.length
+              ? R.frag([
+                R.el('div', { className: 'issues-section-label' }, t('labels.issues')),
+                issueNodes,
+              ])
+              : null,
+            suggestNodes,
+          ])
+          : null,
+      ]),
+    ]);
     tbody.appendChild(dtr);
-  }
-
-  function detailItem(labelText, valueHtml) {
-    return '<div class="detail-item"><div class="di-label">' + esc(labelText) +
-      '</div><div class="di-value">' + valueHtml + '</div></div>';
   }
 
   function toggleDetail(id, btn) {
@@ -536,13 +745,36 @@
     btn.textContent = open ? t('showme.open') : t('showme.close');
   }
 
+  // The disclosure control for a truncated value (spec §4). Display caps never
+  // reach the data: the remainder was rendered into the DOM all along, just
+  // hidden, and both exports carry the full value regardless.
+  function toggleValueRest(btn) {
+    var rest = btn.parentNode.querySelector('.rv-rest');
+    if (!rest) return;
+    var open = rest.style.display !== 'none';
+    rest.style.display = open ? 'none' : 'inline';
+    // The count comes from the value as published, recorded when the control
+    // was built. Recomputing it from `rest.textContent` would count sentinel
+    // markers instead — ‹RLO› is five characters standing for one — so the
+    // number would change every time the reader collapsed the value.
+    btn.textContent = open
+      ? t('render.showMore', btn.dataset.rvCount || '0')
+      : t('render.showLess');
+  }
+
   /* ── Summary, filter, sort ──────────────────────────────────────────── */
 
   function tile(n, lbl, cls, denom) {
-    var numHtml = (denom !== undefined && denom !== null && denom !== n)
-      ? n + '<small style="font-size:17px;font-weight:500;opacity:.5"> (' + denom + ')</small>'
-      : n;
-    return '<div class="stat-tile"><div class="num ' + cls + '">' + numHtml + '</div><div class="lbl">' + esc(lbl) + '</div></div>';
+    var numNode = (denom !== undefined && denom !== null && denom !== n)
+      ? R.frag([
+        R.text(String(n)),
+        R.el('small', { style: 'font-size:17px;font-weight:500;opacity:.5' }, ' (' + denom + ')'),
+      ])
+      : R.text(String(n));
+    return R.el('div', { className: 'stat-tile' }, [
+      R.el('div', { className: 'num ' + cls }, numNode),
+      R.el('div', { className: 'lbl' }, lbl),
+    ]);
   }
 
   function renderSummary() {
@@ -552,20 +784,20 @@
     var tot = submitted.length;
     function count(fn) { return all.filter(fn).length; }
 
-    $('statsGrid').innerHTML =
-      tile(reg, t('stat.domains'), 'c-muted', reg < tot ? tot : null) +
-      tile(count(function (r) { return r.emailProvider !== '@none' && r.emailProvider !== '@null-mx'; }), t('stat.haveEmail'), 'c-info', reg) +
-      tile(count(function (r) { return r.spfStatus && r.spfStatus.status !== 'missing'; }), 'SPF', 'c-ok', reg) +
-      tile(count(function (r) { return r.dkimStatus && r.dkimStatus.found; }), 'DKIM', 'c-ok', reg) +
-      tile(count(function (r) { return r.dmarcStatus && r.dmarcStatus.status !== 'missing'; }), 'DMARC', 'c-ok', reg) +
-      tile(count(function (r) { return r.advanced && r.advanced.bimi && r.advanced.bimi.present; }), 'BIMI', 'c-tip', reg) +
-      tile(count(function (r) { return r.advanced && r.advanced.mtaSts && r.advanced.mtaSts.present; }), 'MTA-STS', 'c-tip', reg) +
-      tile(count(function (r) { return r.advanced && r.advanced.tlsRpt && r.advanced.tlsRpt.present; }), 'TLS-RPT', 'c-tip', reg) +
-      tile(count(function (r) { return r.advanced && r.advanced.caa && r.advanced.caa.found; }), 'CAA', 'c-tip', reg) +
-      tile(count(function (r) { return r.advanced && r.advanced.dnssec && r.advanced.dnssec.signed; }), 'DNSSEC', 'c-tip', reg) +
-      (count(function (r) { return r.wildcardDkim; })
-        ? tile(count(function (r) { return r.wildcardDkim; }), t('stat.wildcardDkim'), 'c-warn')
-        : '');
+    var wildcardCount = count(function (r) { return r.wildcardDkim; });
+    $('statsGrid').replaceChildren(R.frag([
+      tile(reg, t('stat.domains'), 'c-muted', reg < tot ? tot : null),
+      tile(count(function (r) { return r.emailProvider !== '@none' && r.emailProvider !== '@null-mx'; }), t('stat.haveEmail'), 'c-info', reg),
+      tile(count(function (r) { return r.spfStatus && r.spfStatus.status !== 'missing'; }), 'SPF', 'c-ok', reg),
+      tile(count(function (r) { return r.dkimStatus && r.dkimStatus.found; }), 'DKIM', 'c-ok', reg),
+      tile(count(function (r) { return r.dmarcStatus && r.dmarcStatus.status !== 'missing'; }), 'DMARC', 'c-ok', reg),
+      tile(count(function (r) { return r.advanced && r.advanced.bimi && r.advanced.bimi.present; }), 'BIMI', 'c-tip', reg),
+      tile(count(function (r) { return r.advanced && r.advanced.mtaSts && r.advanced.mtaSts.present; }), 'MTA-STS', 'c-tip', reg),
+      tile(count(function (r) { return r.advanced && r.advanced.tlsRpt && r.advanced.tlsRpt.present; }), 'TLS-RPT', 'c-tip', reg),
+      tile(count(function (r) { return r.advanced && r.advanced.caa && r.advanced.caa.found; }), 'CAA', 'c-tip', reg),
+      tile(count(function (r) { return r.advanced && r.advanced.dnssec && r.advanced.dnssec.signed; }), 'DNSSEC', 'c-tip', reg),
+      wildcardCount ? tile(wildcardCount, t('stat.wildcardDkim'), 'c-warn') : null,
+    ]));
   }
 
   function filterTable() {
@@ -671,13 +903,16 @@
     results = new Array(domains.length);
     $('auditBtn').disabled = true;
     $('cancelBtn').style.display = '';
-    $('auditBtn').innerHTML = '<span class="spinner"></span> ' + esc(t('btn.auditRunning'));
+    $('auditBtn').replaceChildren(R.frag([
+      R.el('span', { className: 'spinner' }),
+      R.text(' ' + t('btn.auditRunning')),
+    ]));
     ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = 'none'; });
     ['summarySection', 'resultsSection', 'emptyState'].forEach(function (id) { $(id).style.display = 'none'; });
     $('resultsToolbar').style.display = 'none';
     $('progressSection').style.display = 'block';
-    $('tableBody').innerHTML = '';
-    $('progressLog').innerHTML = '';
+    $('tableBody').replaceChildren();
+    $('progressLog').replaceChildren();
     $('progressFill').style.width = '0%';
     $('progressCounts').textContent = '0 / ' + domains.length;
 
@@ -705,11 +940,11 @@
     auditController = null;
     $('auditBtn').disabled = false;
     $('cancelBtn').style.display = 'none';
-    $('auditBtn').innerHTML = esc(t('btn.runAudit'));
+    $('auditBtn').textContent = t('btn.runAudit');
     ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = ''; });
     setTimeout(function () { $('progressSection').style.display = 'none'; }, 1200);
 
-    $('tableBody').innerHTML = '';
+    $('tableBody').replaceChildren();
     results.filter(Boolean).forEach(appendRow);
     renderSummary();
     $('summarySection').style.display = 'block';
@@ -734,7 +969,17 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
-  function exportCSV() {
+  /**
+   * Build the CSV rows. Split out from exportCSV so the export tests can
+   * assert on the data without a DOM or a download.
+   *
+   * OQ-SEC-11: the data columns carry the published bytes exactly as received.
+   * Rewriting a cell to a sentinel string would break anyone piping this into
+   * a script, so the warning goes in its own `record_hygiene` column instead.
+   * That column is APPENDED, never inserted, because `csv.headers` is
+   * positional and a locale that predates it would otherwise misalign.
+   */
+  function buildCsvRows(rows) {
     var yes = t('csv.yes');
     var no = t('csv.no');
     var unknown = t('csv.unknown');
@@ -746,7 +991,7 @@
     var localeCols = tRaw('csv.headers') || [];
     var cols = (enCols.length ? enCols : localeCols).map(function (h, i) { return localeCols[i] || h; });
 
-    var rows = results.filter(function (r) { return !r.error; }).map(function (r) {
+    var data = rows.filter(function (r) { return !r.error; }).map(function (r) {
       if (r.unregistered) {
         return [r.domain, no].concat(new Array(cols.length - 2).fill(''));
       }
@@ -774,17 +1019,49 @@
         r.advanced?.caa?.found ? t('csv.yesAt', r.advanced.caa.atDomain) : no,
         r.advanced?.dnssec?.signed ? yes : r.advanced?.dnssec?.state || no,
         r.advanced?.spfLookups?.count ?? '',
-        r.issues.map(issueMessage).join(' | '),
+        r.issues.map(function (i) { return issueMessage(i, false); }).join(' | '),
         (r.suggestions || []).map(function (s) { return t('suggestion.' + s.key); }).join(' | '),
+        // Appended last, per the positional-header rule above.
+        R.hygieneOf(rowHygieneValues(r)).join(' '),
       ];
     });
 
-    var csv = [cols].concat(rows)
-      .map(function (row) {
-        return row.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
-      })
-      .join('\n');
+    return [cols].concat(data);
+  }
 
+  /**
+   * Neutralize a cell a spreadsheet would execute as a formula.
+   *
+   * A domain controls its SPF, DMARC, DKIM, BIMI and CAA record text, so a
+   * value beginning `=`, `+`, `-`, `@`, or a tab/CR/LF becomes an active
+   * formula when the downloaded file is opened in Excel or Sheets. RFC 4180
+   * quoting does not prevent that — the quotes are stripped before the cell is
+   * evaluated.
+   *
+   * The file is named `.csv` and the button says "Export CSV", which invites
+   * exactly that. Spreadsheet safety therefore wins over byte fidelity here,
+   * reversing this release's earlier deferral; the change is disclosed by the
+   * `formula-leading` token in the `record_hygiene` column rather than applied
+   * silently. A leading apostrophe is the standard neutralizer and is not
+   * displayed by the spreadsheet.
+   */
+  function neutralizeCsvCell(value) {
+    var text = String(value === undefined || value === null ? '' : value);
+    return R.isFormulaLeading(text) ? "'" + text : text;
+  }
+
+  function toCsvText(rows) {
+    return rows.map(function (row) {
+      return row.map(function (c) {
+        // Neutralize first, quote second: the quoting is RFC 4180 transport,
+        // the neutralization is about what the spreadsheet does after parsing.
+        return '"' + neutralizeCsvCell(c).replace(/"/g, '""') + '"';
+      }).join(',');
+    }).join('\n');
+  }
+
+  function exportCSV() {
+    var csv = toCsvText(buildCsvRows(results));
     // BOM keeps Excel happy with UTF-8 (accents, CJK) on Windows.
     dl('dns-email-audit.csv', 'text/csv;charset=utf-8', '﻿' + csv);
     showToast(t('toast.csvExported'));
@@ -808,6 +1085,55 @@
     } catch (e) { return ''; }
   }
 
+  /**
+   * Build the exported report as a detached tree and serialize once.
+   *
+   * Split from exportHTML so the export tests can drive it with synthetic
+   * nodes rather than a live page. `opts.content` are already-built nodes to
+   * adopt into the report document.
+   */
+  function buildReportDocument(opts) {
+    var doc = document.implementation.createHTMLDocument('');
+    var D = R.for(doc);
+
+    doc.documentElement.setAttribute('lang', opts.lang || 'en');
+    doc.head.appendChild(D.el('meta', { charset: 'UTF-8' }));
+    doc.head.appendChild(D.el('meta', {
+      name: 'viewport', content: 'width=device-width, initial-scale=1.0',
+    }));
+    // This file leaves the project's control the moment someone emails it, so
+    // it carries its own policy. 'unsafe-inline' for styles is acceptable here
+    // and only here: the report inlines the stylesheet by necessity and
+    // contains no script at all.
+    doc.head.appendChild(D.el('meta', {
+      'http-equiv': 'Content-Security-Policy',
+      content: "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+    }));
+    doc.head.appendChild(D.el('title', null, opts.title));
+    doc.head.appendChild(styleElement(D, (opts.css || '') +
+      '\n/* static report overrides */\n' +
+      '.detail-row{display:table-row!important}.showme-content{display:block!important}\n' +
+      '.rv-rest{display:inline!important}.rv-more{display:none!important}\n' +
+      'thead th{cursor:default}\n'));
+
+    var page = D.el('div', { className: 'page' }, [
+      D.el('h1', { style: 'font-size:20px;margin-bottom:4px' }, opts.title),
+      D.el('p', { style: 'font-size:12px;color:var(--ink3);margin-bottom:20px' }, opts.generated),
+    ]);
+
+    if (opts.stats) {
+      page.appendChild(D.el('div', {
+        id: 'summarySection',
+        style: 'display:block;margin-bottom:24px',
+      }, [D.el('div', { className: 'stats-grid' }, opts.stats)]));
+    }
+    if (opts.content) page.appendChild(opts.content);
+    page.appendChild(D.el('div', { className: 'app-footer' }, opts.note));
+
+    doc.body.appendChild(page);
+    return serializeDocument(doc);
+  }
+
   async function exportHTML() {
     var css = await getStylesheetText();
     if (!css) { showToast(t('toast.htmlExportFailed')); return; }
@@ -819,25 +1145,30 @@
       el.style.display = '';
     });
     table.querySelectorAll('tr').forEach(function (el) { el.classList.remove('hidden'); });
-    table.querySelectorAll('.expand-toggle, .showme-btn, .learnmore-btn').forEach(function (el) { el.remove(); });
+    table.querySelectorAll('.expand-toggle, .showme-btn, .learnmore-btn, .rv-more').forEach(function (el) { el.remove(); });
     table.querySelectorAll('.showme-content').forEach(function (el) { el.style.display = 'block'; });
+    // Display caps never reach the data: the truncated remainder is revealed
+    // in the exported report rather than dropped from it.
+    table.querySelectorAll('.rv-rest').forEach(function (el) { el.style.display = 'inline'; });
 
     var generated = new Date().toLocaleString(i18n.lang);
     var counted = results.filter(function (r) { return !r.error; }).length;
 
-    var html = '<!DOCTYPE html>\n<html lang="' + i18n.lang + '">\n<head>\n<meta charset="UTF-8">\n' +
-      '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
-      '<title>' + esc(t('report.title')) + '</title>\n<style>\n' + css +
-      '\n/* static report overrides */\n' +
-      '.detail-row{display:table-row!important}.showme-content{display:block!important}\n' +
-      'thead th{cursor:default}\n</style>\n</head>\n<body>\n' +
-      '<div class="page">\n<h1 style="font-size:20px;margin-bottom:4px">' + esc(t('report.title')) + '</h1>\n' +
-      '<p style="font-size:12px;color:var(--ink3);margin-bottom:20px">' +
-      esc(t('report.generated', generated, counted)) + '</p>\n' +
-      '<div id="summarySection" style="display:block;margin-bottom:24px"><div class="stats-grid">' +
-      $('statsGrid').innerHTML + '</div></div>\n' +
-      table.innerHTML +
-      '\n<div class="app-footer">' + esc(t('report.note')) + '</div>\n</div>\n</body>\n</html>';
+    var content = document.createDocumentFragment();
+    Array.from(table.childNodes).forEach(function (n) { content.appendChild(n); });
+
+    var stats = document.createDocumentFragment();
+    Array.from($('statsGrid').cloneNode(true).childNodes).forEach(function (n) { stats.appendChild(n); });
+
+    var html = buildReportDocument({
+      lang: i18n.lang,
+      css: css,
+      title: t('report.title'),
+      generated: t('report.generated', generated, counted),
+      note: t('report.note'),
+      stats: stats,
+      content: content,
+    });
 
     dl('dns-email-audit-report.html', 'text/html', html);
     showToast(t('toast.htmlExported'));
@@ -868,7 +1199,7 @@
   function clearAll() {
     results = [];
     $('domainInput').value = '';
-    $('tableBody').innerHTML = '';
+    $('tableBody').replaceChildren();
     ['summarySection', 'resultsSection', 'emptyState'].forEach(function (id) { $(id).style.display = 'none'; });
     $('resultsToolbar').style.display = 'none';
     ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = 'none'; });
@@ -895,7 +1226,7 @@
   // Re-render results in the new language whenever it changes.
   i18n.onChange(function () {
     if (!results.length) return;
-    $('tableBody').innerHTML = '';
+    $('tableBody').replaceChildren();
     results.filter(function (r) { return !r.error; }).forEach(appendRow);
     renderSummary();
     filterTable();
@@ -922,6 +1253,8 @@
       if (expand) { toggleDetail(expand.dataset.detailId, expand); return; }
       var show = event.target.closest('.showme-btn');
       if (show) { toggleShowMe(show); return; }
+      var more = event.target.closest('.rv-more');
+      if (more) { toggleValueRest(more); return; }
       var learn = event.target.closest('.learnmore-btn');
       if (learn) openLearnMore(learn.dataset.guide);
     });
@@ -948,4 +1281,26 @@
   global.toggleDetail = toggleDetail;
   global.toggleShowMe = toggleShowMe;
   global.openLearnMore = openLearnMore;
+
+  // Exposed for tools/render.test.mjs and tools/export.test.mjs, which drive
+  // these directly rather than through a live page.
+  global.__APP_TEST__ = {
+    appendRow: appendRow,
+    buildLearnMorePage: buildLearnMorePage,
+    buildReportDocument: buildReportDocument,
+    buildCsvRows: buildCsvRows,
+    toCsvText: toCsvText,
+    neutralizeCsvCell: neutralizeCsvCell,
+    issueMessage: issueMessage,
+    tDns: tDns,
+    rowHygieneValues: rowHygieneValues,
+    scoreBlock: scoreBlock,
+    advMiniDots: advMiniDots,
+    advFullDots: advFullDots,
+    spfMeter: spfMeter,
+    tile: tile,
+    badge: badge,
+    detailItem: detailItem,
+    log: log,
+  };
 })(window);

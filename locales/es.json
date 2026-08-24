@@ -107,6 +107,23 @@
     "na": "N/D",
     "dash": "—"
   },
+  "render": {
+    "showMore": "Mostrar {0} caracteres más",
+    "showLess": "Mostrar menos",
+    "moreRecords": {
+      "one": "{0} registro más no mostrado",
+      "other": "{0} registros más no mostrados"
+    },
+    "hygieneTitle": "Higiene del registro",
+    "hygiene": {
+      "bidiOverride": "Caracteres de control bidireccional, que pueden invertir visualmente un nombre de host",
+      "zeroWidth": "Caracteres invisibles o de ancho cero, que no se representan",
+      "controlChar": "Caracteres de control",
+      "loneSurrogate": "UTF-8 no válido, mostrado como U+FFFD",
+      "punycode": "Nombre Punycode (xn--), mostrado exactamente como se publicó",
+      "formulaLeading": "Empieza por un carácter que una hoja de cálculo ejecuta como fórmula; neutralizado en la exportación CSV"
+    }
+  },
   "showme": {
     "open": "Mostrar ▾",
     "close": "Ocultar ▴",
@@ -266,7 +283,8 @@
       "DNSSEC",
       "Búsquedas SPF",
       "Problemas",
-      "Sugerencias"
+      "Sugerencias",
+      "Higiene del registro"
     ],
     "yes": "Sí",
     "no": "No",

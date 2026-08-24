@@ -280,8 +280,9 @@ JSON files from disk, so translated interfaces require HTTP.
 | --- | --- |
 | `npm start` | Start the dependency-free development server on port 8080. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Run locale validation plus 174 parser, protocol, and scoring assertions. |
+| `npm test` | Run locale validation plus 972 parser, protocol, scoring, rendering, export and CSP assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
+| `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `js/locales-en.js` after editing `locales/en.json`. |
 | `npm run build` | Build the allowlisted static deployment into `_site/`. |
 | `npm run update:psl` | Refresh the vendored Mozilla Public Suffix List snapshot. |
@@ -373,8 +374,38 @@ keeping audit logic independent from translation work.
 - A restrictive Content Security Policy allows same-origin runtime assets,
   limits external connections to Cloudflare DNS-over-HTTPS, and restricts
   scripts, frames, objects, forms, and referrer data.
-- DNS-derived output is escaped, and translated rich HTML is sanitized through
-  an allowlist before rendering.
+- DNS-derived output is inserted as text nodes and never parsed as markup. No
+  file under `js/` assigns to `innerHTML` or `outerHTML`; the allowlist for
+  that rule is empty and enforced by both a runtime setter trap in the test
+  DOM and a static scan in `npm test`. Translated rich text is tokenized
+  against a twelve-tag allowlist, and anything outside it is rendered as
+  literal text rather than markup.
+- Records that render deceptively are shown, not hidden. Characters Unicode
+  marks `Default_Ignorable` — bidirectional overrides, zero-width and invisible
+  characters — plus C0/C1 controls are replaced in the display by a visible
+  marker naming the code point (`‹RLO›`, `‹ZWSP›`, `‹U+0007›`), so the character
+  cannot reorder the text and the reader can still see that it was published.
+  Three families are deliberately exempt because they are legitimate content:
+  variation selectors, and shorthand and musical notation format controls.
+  Script-format characters such as the Arabic number signs are not
+  default-ignorable at all, so Arabic, Syriac and Egyptian text renders
+  normally. Both exports name what was found in a separate `Record Hygiene`
+  column, and neither substitutes a marker into the data.
+- **The CSV export is spreadsheet-safe, with one documented limit.** A domain
+  controls its own record text, and a cell beginning `=`, `+`, `-`, `@`, or a
+  tab/newline is executed as a formula when a CSV is opened in Excel or Google
+  Sheets — RFC 4180 quoting does not prevent this, because the quotes are
+  stripped before the cell is evaluated. Any such cell is prefixed with an
+  apostrophe, which spreadsheets treat as literal text and do not display, and
+  the row is marked `formula-leading` in the `Record Hygiene` column.
+
+  This is the only place the CSV departs from the published bytes; every other
+  character, including invisible ones, is exported exactly as received. The
+  prefix is a *display-time* mitigation: OWASP notes that Excel may drop it if
+  the file is re-saved as CSV from within Excel and then reopened, and that no
+  single escaping strategy is safe across every spreadsheet application. If you
+  need the bytes exactly as published, read the HTML report or the results
+  table rather than the CSV.
 - Uploaded domain files are processed locally and limited to 1 MB.
 - Generated HTML reports are self-contained and contain no executable scripts.
 

@@ -62,7 +62,30 @@
   var DOH_TIMEOUT_MS = 8000;
   var DOH_RETRIES = 1;
   var MAX_DOH_CONCURRENCY = 16;
+  // Bounded, least-recently-used. The Map previously grew for the lifetime of
+  // the page, so a long session auditing several batches retained every answer
+  // it had ever seen. 4096 comfortably holds a full 200-domain run (including
+  // comprehensive DKIM) while staying a fixed ceiling rather than a leak.
+  var MAX_DOH_CACHE_ENTRIES = 4096;
   var dohCache = new Map();
+
+  function dohCacheGet(key) {
+    if (!dohCache.has(key)) return undefined;
+    // Re-insert to move the entry to the most-recently-used end. Map preserves
+    // insertion order, so the oldest key is always the first one.
+    var value = dohCache.get(key);
+    dohCache.delete(key);
+    dohCache.set(key, value);
+    return value;
+  }
+
+  function dohCacheSet(key, value) {
+    if (dohCache.has(key)) dohCache.delete(key);
+    dohCache.set(key, value);
+    while (dohCache.size > MAX_DOH_CACHE_ENTRIES) {
+      dohCache.delete(dohCache.keys().next().value);
+    }
+  }
   var activeDoh = 0;
   var dohWaiters = [];
 
@@ -147,7 +170,10 @@
   async function dohFetch(name, type, opts = {}) {
     const normalizedName = String(name || '').toLowerCase().replace(/\.$/, '');
     const key = [normalizedName, type, opts.dnssec ? 1 : 0, opts.checkingDisabled ? 1 : 0].join('|');
-    if (!opts.noCache && dohCache.has(key)) return dohCache.get(key);
+    if (!opts.noCache) {
+      var cached = dohCacheGet(key);
+      if (cached !== undefined) return cached;
+    }
     var result;
     var retries = opts.retries ?? DOH_RETRIES;
     for (var attempt = 0; attempt <= retries; attempt++) {
@@ -155,7 +181,7 @@
       if (result.kind === 'success' || result.kind === 'nodata' || result.kind === 'nxdomain' || result.kind === 'cancelled') break;
       if (attempt < retries) await new Promise(function (resolve) { setTimeout(resolve, 150 * (attempt + 1)); });
     }
-    if (!opts.noCache && result && (result.kind === 'success' || result.kind === 'nodata' || result.kind === 'nxdomain')) dohCache.set(key, result);
+    if (!opts.noCache && result && (result.kind === 'success' || result.kind === 'nodata' || result.kind === 'nxdomain')) dohCacheSet(key, result);
     return result;
   }
 
@@ -198,6 +224,13 @@
     var re = /"((?:\\.|[^"\\])*)"/g;
     var match;
     while ((match = re.exec(value))) {
+      // Confirmed divergence (spec 0.2.3 §4): the success path decodes \uXXXX
+      // escapes, the fallback keeps the chunk verbatim, so a malformed escape
+      // renders as its literal source text rather than as a decoded character.
+      // That is the honest reading of an undecodable chunk and it is left
+      // alone deliberately — changing it would change parsed record values.
+      // Any lone surrogate JSON.parse does emit is normalized to U+FFFD at
+      // display time by js/render.js, not here, so grades are unaffected.
       try { chunks.push(JSON.parse('"' + match[1] + '"')); }
       catch (e) { chunks.push(match[1]); }
     }

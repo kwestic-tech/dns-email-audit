@@ -203,3 +203,32 @@ implementing pull request references it by name.
 Every spec ends with numbered open questions. Those are the decisions that are
 genuinely unsettled, and they are the primary input to review. See
 [`docs/specs/README.md`](docs/specs/README.md) for the review process.
+
+## Addendum: build order for the automated async development pipeline (2026-08-24)
+
+The release sequence above (0.2.3 through 0.8.0) states why the work is
+*shipped* in that order — grade stability, protocol claims already made, a
+findings engine that wants stable inputs. It is kept exactly as written and
+still governs version numbers and release notes.
+
+It is **not** the order an automated agentic build pipeline uses to pick up
+work. That pipeline follows a separate priority ranking, graded on end-user
+usefulness first and build-dependency structure second, worked out in
+`claude/spec-evaluation-results.md` (in the Kwestic project) and turned into an
+execution plan in
+[`docs/async-development-handoff.md`](docs/async-development-handoff.md).
+
+The short version: `findings-and-remediation` (0.6.0) is the single
+highest-value spec for the tool's stated non-expert-owner audience, but it is
+also the most downstream in the dependency graph — it consumes the output
+shapes of `dmarcbis-tree-walk`, `dns-protocol-depth`, and `dnssec-evidence`.
+So the *value* ranking and the *build* ranking disagree, and
+`docs/async-development-handoff.md` is the document that reconciles them into
+an actual sequence, including which specs can be developed in parallel
+(`local-artifact-validation` alongside the 0.3.0→0.4.0→0.5.0 chain) and which
+cannot.
+
+Nothing about this addendum changes what any spec says, what release number it
+targets, or the naming rule above. It changes only the order in which specs
+are reviewed to `1.0 (Final)` and implemented. Update this addendum, not the
+sequence above, if the build-priority ranking changes.

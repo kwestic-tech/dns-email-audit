@@ -14,7 +14,133 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+Becomes `0.2.3` at the release cut. No grade or score changes: a grade computed
+at `v0.2.2` is identical here, verified by diffing `node tools/backtest.mjs
+--json` across the two.
+
+### Changed
+
+- **The interface is built from DOM nodes instead of HTML strings.** Every
+  rendered cell, badge, score block and detail row is now constructed with
+  `createElement`/`textContent` through a new `js/render.js`, and the escape
+  helper `esc()` is deleted rather than kept — leaving one available invites the
+  next concatenation site. Both document builders (the learn-more guides and the
+  exported HTML report) construct a detached tree and serialize once, which
+  establishes the rule the release enforces: reading `outerHTML` is permitted,
+  writing `innerHTML` or `outerHTML` never is. Nothing under `js/` assigns to
+  either, and the allowlist for that rule is empty, enforced by a runtime setter
+  trap in the test DOM and a static scan in `npm test`.
+
+  The visible output is unchanged. Record separators, spacing and every cell's
+  appearance match 0.2.2 exactly; only how they are built changed.
+
+- **The progress log no longer rebuilds on every line.** `log()` appended with
+  `el.innerHTML +=`, which serialized and reparsed the whole log on each of a
+  200-domain run's 200-plus appends. It now appends one node.
+
+- **The CSV export is spreadsheet-safe.** A domain controls its own record text,
+  and a cell beginning `=`, `+`, `-`, `@`, or a tab/newline is executed as a
+  formula when a CSV is opened in Excel or Google Sheets — RFC 4180 quoting does
+  not prevent this, because the quotes are stripped before the cell is
+  evaluated. Any such cell is now prefixed with an apostrophe, which
+  spreadsheets treat as literal text and do not display, and the row is marked
+  `formula-leading` in the new `Record Hygiene` column.
+
+  This is the only place the CSV departs from the published bytes; every other
+  character, including invisible ones, is exported exactly as received. The
+  prefix is a display-time mitigation: OWASP notes Excel may drop it if the file
+  is re-saved as CSV from inside Excel and reopened, and that no single strategy
+  is safe across every spreadsheet application. Read the HTML report or the
+  results table if you need the bytes exactly as published.
+
+### Added
+
+- **Malformed records are shown, not silently rendered.** A record can be
+  hostile in the *display* sense without being hostile in the execution sense: a
+  bidirectional override inside an SPF `include:` host visually reverses the
+  hostname, so a reader checks the wrong domain while the escaping was entirely
+  correct. Every character Unicode marks `Default_Ignorable`, plus C0/C1
+  controls, is now replaced at its exact position by a visible marker naming the
+  code point — `‹RLO›`, `‹ZWSP›`, `‹U+0007›`. The character is genuinely gone
+  from the text run, so no reordering survives, and the marker sits where it was,
+  so the technique stays visible. Stripping would have neutralized the attack
+  while hiding it.
+
+  Variation selectors, and shorthand and musical notation format controls, are
+  exempt as legitimate content, so emoji render normally. Script-format
+  characters such as the Arabic number signs are not default-ignorable at all,
+  so Arabic, Syriac and Egyptian text is untouched.
+
+- **Display caps that never reach the data.** A value is painted up to 1,024
+  characters — code points, so an emoji at the boundary is not split — with a
+  disclosure control revealing the rest; a record list is painted 20 deep with a
+  counted remainder. 1,024 clears a 4096-bit RSA DKIM key with headroom. The
+  full value stays in the result object, in the CSV and in the HTML report.
+
+- **A `Record Hygiene` column in the CSV**, appended rather than inserted so a
+  locale predating it cannot misalign. It names what a record contained —
+  `bidi-override`, `zero-width`, `control-char`, `lone-surrogate`, `punycode`,
+  `formula-leading` — while the data columns keep the published bytes.
+
+- **The exported HTML report carries its own Content-Security-Policy**
+  (`default-src 'none'; style-src 'unsafe-inline'; img-src data:`). That file
+  leaves this project's control the moment someone emails it.
+
+- **Four dependency-free test suites and a DOM shim.** `tools/lib/dom-shim.mjs`
+  implements only what the render path uses, with `innerHTML`/`outerHTML`
+  setters that throw — catching computed and destructured assignment a static
+  pattern misses. `npm test` now runs 972 assertions, up from 489, across
+  scoring, interpolation, rendering, export and CSP.
+
+### Fixed
+
+- **Placeholder interpolation was sequential.** `interpolate()` replaced `{0}`,
+  then rescanned the result for `{1}`, so a value substituted at `{0}` that
+  itself contained `{1}` pulled the second argument into a position the
+  translator never wrote. Nothing reachable exploited it, because every current
+  message takes an internal value first — but the next two releases both add
+  messages whose first argument is a DNS-derived name. It is now a single pass,
+  and an index with no corresponding argument is left as written rather than
+  becoming `undefined`.
+
+- **Sanitized rich text round-tripped through a string.** The locale sanitizer
+  parsed into a `<template>`, walked it, then returned `innerHTML` for the
+  caller to reparse — serializing a sanitized tree and reparsing it is the shape
+  mutation XSS exploits. It is now a fail-closed tokenizer that builds nodes
+  directly; anything outside the twelve-tag allowlist is emitted as literal
+  text, and `npm run check` fails the build on any such tag in a locale file.
+
+- **`esc()` did not escape single quotes.** Correct only because every generated
+  attribute happened to use double quotes — a property maintained by habit
+  across twenty-odd concatenation sites rather than by construction. The helper
+  is gone.
+
+- **The DNS-over-HTTPS cache grew without bound** for the lifetime of the page,
+  so a long session auditing several batches retained every answer it had ever
+  seen. It is now capped at 4,096 entries with least-recently-used eviction.
+
+- **`README.md` claimed 174 assertions.** `CONTRIBUTING.md` gains two
+  release-checklist entries: read the figure out of a test run at each cut
+  rather than typing it from memory, and re-check `CHANGELOG.md`, the pull
+  request description and `README.md` on every push to an open pull request —
+  adding a commit updates none of them, and nothing fails when they go stale.
+  `AGENTS.md` gains the matching convention for the description itself: review
+  rounds are appended below a `---` separator with what was addressed, what was
+  declined and why, and whether each reviewer claim held up against the code —
+  never overwritten, so what a pull request originally claimed stays legible.
+
+### Security
+
+- `img-src` narrowed to `'self' data:`. The only thing this forbids is fetching
+  an image from a host named in a stranger's record, which would disclose the
+  auditor's address to that host.
+- The fixed, published `nonce-dns-audit-static` is replaced by a SHA-256 hash of
+  the structured-data block. A nonce whose value is published authorizes any
+  injected script bearing the same attribute, so the policy claimed a control it
+  did not have. `tools/csp.test.mjs` recomputes the digest, so a future edit to
+  that block is self-correcting.
+- `connect-src` is unchanged at `'self' https://cloudflare-dns.com`, and there
+  is still no persistence beyond the single `dns-email-audit-lang` key.
 
 ## [0.2.2] — 2026-08-20
 

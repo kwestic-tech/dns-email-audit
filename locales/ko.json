@@ -107,6 +107,23 @@
     "na": "해당 없음",
     "dash": "—"
   },
+  "render": {
+    "showMore": "{0}자 더 보기",
+    "showLess": "간략히 보기",
+    "moreRecords": {
+      "one": "레코드 {0}개가 더 있지만 표시되지 않음",
+      "other": "레코드 {0}개가 더 있지만 표시되지 않음"
+    },
+    "hygieneTitle": "레코드 건전성",
+    "hygiene": {
+      "bidiOverride": "양방향 제어 문자로, 호스트 이름을 시각적으로 뒤집을 수 있습니다",
+      "zeroWidth": "화면에 표시되지 않는 비가시 문자 또는 너비가 없는 문자",
+      "controlChar": "제어 문자",
+      "loneSurrogate": "잘못된 UTF-8, U+FFFD로 표시됨",
+      "punycode": "Punycode (xn--) 이름, 게시된 그대로 표시됨",
+      "formulaLeading": "스프레드시트가 수식으로 실행하는 문자로 시작합니다. CSV 내보내기에서 무력화됨"
+    }
+  },
   "showme": {
     "open": "상세 보기 ▾",
     "close": "상세 접기 ▴",
@@ -266,7 +283,8 @@
       "DNSSEC",
       "SPF 조회 횟수",
       "문제점",
-      "권장 사항"
+      "권장 사항",
+      "레코드 건전성"
     ],
     "yes": "예",
     "no": "아니요",

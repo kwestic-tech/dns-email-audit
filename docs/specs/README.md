@@ -31,9 +31,20 @@ diverged from.
 
 ## Planned
 
+`Target release` below is a version-numbering anchor, kept per the naming rule
+in this document — it is not a build-order commitment. **As of 2026-08-24,
+the actual implementation order for the automated async build pipeline
+follows the priority groups in
+[`docs/async-development-handoff.md`](../async-development-handoff.md)**,
+derived from an end-user-usefulness evaluation
+(`claude/spec-evaluation-results.md` in the project) rather than from release
+sequence. Release numbers are unaffected; only the order specs are picked up
+for review and implementation changed. See that document for the full
+rationale, the dependency map, and the group-by-group execution plan.
+
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [rendering-and-robustness](rendering-and-robustness.md) | 0.2.3 | 0.3 | Draft, revised after round 2 |
+| [rendering-and-robustness](rendering-and-robustness.md) | 0.2.3 | 1.2 | Final, implemented — awaiting release |
 | [dmarcbis-tree-walk](dmarcbis-tree-walk.md) | 0.3.0 | 0.1 | Draft, awaiting review |
 | [dns-protocol-depth](dns-protocol-depth.md) | 0.4.0 | 0.1 | Draft, awaiting review |
 | [dnssec-evidence](dnssec-evidence.md) | 0.5.0 | 0.1 | Draft, awaiting review |
@@ -41,6 +52,18 @@ diverged from.
 | [local-artifact-validation](local-artifact-validation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
 | [report-comparison](report-comparison.md) | 0.8.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.1 | Draft, decision pending |
+
+## Excluded — requires a companion app
+
+Capabilities that do not fit the static, session-free, zero-persistence
+architecture this project commits to, regardless of privacy considerations.
+Distinct from [external-intelligence](external-intelligence.md), which
+excludes capabilities for what they would disclose rather than for what the
+architecture cannot provide.
+
+| Spec | Status |
+| --- | --- |
+| [excluded-requires-companion-app](excluded-requires-companion-app.md) | 0.1, recorded exclusion |
 
 ## Implemented
 

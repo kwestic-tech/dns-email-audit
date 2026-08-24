@@ -116,10 +116,18 @@ If you **add** a key, other locales simply fall back to English until translated
 The layout is deliberately boring — plain scripts, no bundler, no framework, no dependencies at runtime. Please keep it that way; it's what lets the app be forked, self-hosted and read end-to-end in one sitting.
 
 ```
-js/i18n.js   translation loader — rarely needs changing
+js/i18n.js   translation loader and rich-text tokenizer
+js/render.js DOM node factory — the only way anything reaches the page
 js/dns.js    DoH queries, detection, analysis, scoring
 js/app.js    rendering, orchestration, exports
 ```
+
+**The second hard rule: nothing under `js/` assigns to `innerHTML` or
+`outerHTML`.** Build nodes with `R.el` / `R.text` / `R.value` from
+`js/render.js` instead, and put every DNS-derived value through `R.value()` so
+it gets the malformed-record handling. Reading `outerHTML` to serialize a
+document you just built is fine; writing either property is not. `npm test`
+scans for it and the allowlist is empty, so there is no exception to request.
 
 **The one hard rule: no user-facing English in `js/dns.js`.** It returns stable tokens (`'@none'`, `'spf-missing'`, `'noteWildcard'`); `js/app.js` maps them to text through `t()`. If you add a new issue, provider or status, add the token in `dns.js`, the mapping in `app.js`, and the wording in `locales/en.json`.
 
@@ -132,10 +140,36 @@ Common, welcome additions:
 Before opening a PR:
 
 ```bash
-npm run check      # locale integrity
+npm test           # locale integrity plus every assertion suite
+npm run locale:gate  # must report 13/13 before the PR opens
 npm start          # then click through: run an audit, expand a row,
                    # switch language, export CSV and the HTML report
 ```
+
+**When cutting a release**, read the assertion count out of the `npm test`
+run and update the figure in `README.md`'s command table from that output
+rather than typing it from memory — it drifted from 174 to 489 unnoticed once
+already.
+
+**Every time you push to an open pull request, re-check these three.** Adding a
+commit does not update them, and nothing fails if they go stale — a reviewer
+simply reads something untrue:
+
+| | Why it goes stale |
+| --- | --- |
+| `CHANGELOG.md` | The `## [Unreleased]` section is written once and then forgotten. Later commits on the same branch — review fixes especially — change what the release actually does. |
+| The PR description | GitHub keeps the body you opened the PR with. If a review makes you reverse a decision, the body still argues the old one. |
+| `README.md` | The assertion count moves whenever tests are added, and behaviour statements go stale when a review changes behaviour. |
+
+The failure mode is not hypothetical. On PR #18 the body stated that CSV formula
+injection was *"not addressed here"* while a later commit on the same branch
+neutralized it — the description contradicted the diff a reviewer was reading.
+The assertion count in the same body was two revisions behind.
+
+How to update the description — including the rule that review rounds are
+**appended, never overwritten** — is in
+[`AGENTS.md`](AGENTS.md#pr-description-change-log). Do not restate it here; that
+section is the authority for both humans and agents.
 
 Please also confirm `index.html` still opens correctly straight from disk (`file://`) in English.
 

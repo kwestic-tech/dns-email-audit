@@ -107,6 +107,23 @@
     "na": "不適用",
     "dash": "—"
   },
+  "render": {
+    "showMore": "顯示其餘 {0} 個字元",
+    "showLess": "收合",
+    "moreRecords": {
+      "one": "另有 {0} 筆紀錄未顯示",
+      "other": "另有 {0} 筆紀錄未顯示"
+    },
+    "hygieneTitle": "紀錄衛生狀況",
+    "hygiene": {
+      "bidiOverride": "雙向控制字元，可能在視覺上反轉主機名稱",
+      "zeroWidth": "不可見字元或零寬字元，不會被算繪",
+      "controlChar": "控制字元",
+      "loneSurrogate": "無效的 UTF-8，顯示為 U+FFFD",
+      "punycode": "Punycode (xn--) 名稱，按發布原樣顯示",
+      "formulaLeading": "以試算表會當作公式執行的字元開頭；已在 CSV 匯出中中和"
+    }
+  },
   "showme": {
     "open": "顯示細節 ▾",
     "close": "隱藏細節 ▴",
@@ -266,7 +283,8 @@
       "DNSSEC",
       "SPF 查詢次數",
       "問題",
-      "建議"
+      "建議",
+      "紀錄衛生狀況"
     ],
     "yes": "是",
     "no": "否",
