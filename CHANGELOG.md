@@ -124,6 +124,10 @@ at `v0.2.2` is identical here, verified by diffing `node tools/backtest.mjs
   rather than typing it from memory, and re-check `CHANGELOG.md`, the pull
   request description and `README.md` on every push to an open pull request —
   adding a commit updates none of them, and nothing fails when they go stale.
+  `AGENTS.md` gains the matching convention for the description itself: review
+  rounds are appended below a `---` separator with what was addressed, what was
+  declined and why, and whether each reviewer claim held up against the code —
+  never overwritten, so what a pull request originally claimed stays legible.
 
 ### Security
 
