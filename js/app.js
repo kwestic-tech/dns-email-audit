@@ -660,8 +660,11 @@
     var dtr = R.el('tr', { id: detailId, className: 'detail-row' }, [
       R.el('td', { colspan: '11' }, [
         R.el('div', { className: 'detail-grid' }, [
-          detailItem(t('labels.nameservers'), R.list(r.ns, { none: t('labels.na') })),
-          detailItem(t('labels.mx'), R.list(r.mx)),
+          // Separators match 0.2.2 exactly: this release changes how values are
+          // BUILT, not how they look. Only the 20-record cap and the sentinel
+          // substitution are new.
+          detailItem(t('labels.nameservers'), R.list(r.ns, { sep: ', ', none: t('labels.na') })),
+          detailItem(t('labels.mx'), R.list(r.mx, { sep: '\n' })),
           detailItem(
             t('labels.spf') + (spfMeterNode ? ' · ' + t('labels.spfLookups') : ''),
             R.frag([R.value(r.spfRecord), spfMeterNode])
@@ -674,7 +677,7 @@
           ])),
           detailItem(t('labels.dkim'), R.frag(dkimDetails)),
           detailItem(t('labels.verifications'), r.verifications.length
-            ? R.list(r.verifications)
+            ? R.list(r.verifications, { sep: 'br' })
             : R.text(t('labels.dash'))),
           wildcardNote,
         ]),

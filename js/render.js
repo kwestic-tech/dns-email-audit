@@ -321,9 +321,14 @@
         return out;
       }
 
+      // The separator is the caller's, so this release does not change how any
+      // existing cell looks: nameservers stayed comma-separated, MX kept its
+      // newline, verifications kept their line breaks. Only the per-record
+      // capping and sentinel substitution are new.
       var cap = o.cap || MAX_RECORDS_SHOWN;
+      var sep = o.sep === undefined ? 'br' : o.sep;
       items.slice(0, cap).forEach(function (item, i) {
-        if (i) out.appendChild(el('br'));
+        if (i) out.appendChild(sep === 'br' ? el('br') : text(sep));
         out.appendChild(value(item, { max: o.max }));
       });
 
