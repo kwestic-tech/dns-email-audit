@@ -699,8 +699,20 @@
 
     var rawPolicy = tag('p');
     var policy = normalizePolicy(rawPolicy) || 'none';
-    var sp = normalizePolicy(tag('sp'));
-    var np = normalizePolicy(tag('np'));
+    var rawSp = tag('sp');
+    var rawNp = tag('np');
+    var sp = normalizePolicy(rawSp);
+    var np = normalizePolicy(rawNp);
+
+    // "Absent, so it inherits" and "present but not a policy value" are
+    // different problems with different fixes, and normalizePolicy() collapses
+    // both to null. Keep the distinction so the finding can name the value the
+    // operator actually wrote instead of reporting a tag they did not omit.
+    var tagState = function (raw, normalized) {
+      return raw === null ? 'absent' : normalized === null ? 'invalid' : 'valid';
+    };
+    var spState = tagState(rawSp, sp);
+    var npState = tagState(rawNp, np);
 
     // Inheritance chain per RFC 9989 §5.4. Note that sp/np apply only to
     // subdomains of the Organizational Domain, never to the domain itself.
@@ -745,8 +757,22 @@
       else { pct = Math.max(0, Math.min(100, parsed)); pctValid = parsed >= 0 && parsed <= 100; }
     }
 
-    var adkim = (String(tag('adkim') || 'r').toLowerCase() === 's') ? 's' : 'r';
-    var aspf = (String(tag('aspf') || 'r').toLowerCase() === 's') ? 's' : 'r';
+    // RFC 9989 §5.4 defines exactly two alignment modes, `r` and `s`. Anything
+    // else used to become `r` silently, which is the correct RECEIVER
+    // behaviour and a poor auditor one: `adkim=strict` reads as strict to the
+    // person who wrote it and relaxes alignment in practice. Keep the receiver
+    // behaviour, report the divergence.
+    var alignmentState = function (raw) {
+      if (raw === null) return 'absent';
+      var value = String(raw).trim().toLowerCase();
+      return value === 's' ? 's' : value === 'r' ? 'r' : 'invalid';
+    };
+    var rawAdkim = tag('adkim');
+    var rawAspf = tag('aspf');
+    var adkimState = alignmentState(rawAdkim);
+    var aspfState = alignmentState(rawAspf);
+    var adkim = adkimState === 's' ? 's' : 'r';
+    var aspf = aspfState === 's' ? 's' : 'r';
 
     var ruaUris = parseDmarcUriList(tag('rua'));
     var rufUris = parseDmarcUriList(tag('ruf'));
@@ -782,6 +808,10 @@
       status: status,
       cls: status === 'ok' ? 'ok' : 'warn',
       policy: policy, sp: sp, np: np,
+      policyRaw: rawPolicy, spRaw: rawSp, npRaw: rawNp,
+      spState: spState, npState: npState,
+      adkimState: adkimState, aspfState: aspfState,
+      adkimRaw: rawAdkim, aspfRaw: rawAspf,
       effectivePolicy: effectivePolicy,
       effectiveSp: effectiveSp, effectiveNp: effectiveNp,
       pct: pct, pctValid: pctValid, pctPresent: rawPct !== null,
@@ -806,6 +836,10 @@
       sp: null, np: null, effectiveSp: null, effectiveNp: null,
       pct: 100, pctValid: true, pctPresent: false,
       adkim: 'r', aspf: 'r', enforcing: false,
+      policyRaw: null, spRaw: null, npRaw: null,
+      spState: 'absent', npState: 'absent',
+      adkimState: 'absent', aspfState: 'absent',
+      adkimRaw: null, aspfRaw: null,
       fo: '0', foValid: true, foPresent: false,
       testMode: false, tValid: true,
       psd: 'u', psdValid: true, psdPresent: false,
@@ -823,9 +857,18 @@
    * silence and assumes everything is fine. Kept separate from analyzeDmarc so
    * that function stays pure and domain-agnostic.
    */
-  function findExternalReportDestinations(dmarcStatus, domain) {
-    if (!dmarcStatus || !domain) return [];
-    var org = getOrganizationalDomain(domain) || domain;
+  function findExternalReportDestinations(dmarcStatus, policyDomain, orgDomains) {
+    if (!dmarcStatus || !policyDomain) return [];
+    // RFC 9990 §4 defines the externality test against the ORGANIZATIONAL
+    // DOMAIN on both sides, which after this release means the Tree Walk
+    // result rather than the Public Suffix List. `orgDomains` carries the
+    // walked answers; an absent entry falls back to the name itself, which is
+    // the §4.10.2 fallback and never the PSL.
+    var lookup = function (name) {
+      var found = orgDomains && (typeof orgDomains.get === 'function' ? orgDomains.get(name) : orgDomains[name]);
+      return found || name;
+    };
+    var org = lookup(policyDomain);
     var seen = new Set();
     return []
       .concat(dmarcStatus.ruaUris ? dmarcStatus.ruaUris.domains : [])
@@ -833,8 +876,44 @@
       .filter(function (dest) {
         if (!dest || seen.has(dest)) return false;
         seen.add(dest);
-        return dest !== org && (getOrganizationalDomain(dest) || dest) !== org;
+        return dest !== org && lookup(dest) !== org;
       });
+  }
+
+  /**
+   * Resolve the Organizational Domain of every candidate report destination
+   * with a Tree Walk, so the externality test in RFC 9990 §4 is answered by
+   * DNS rather than by the vendored Public Suffix List.
+   *
+   * This is the query cost `OQ-DMARC-04` accepted knowingly: the externality
+   * test now walks the destination's tree as well as the audited domain's. The
+   * dohFetch() cache absorbs most of it across a run, because report
+   * destinations repeat heavily (a few reporting vendors serve most domains).
+   * A destination that already equals the policy domain's Organizational
+   * Domain is settled by string comparison and never walked.
+   */
+  async function resolveDestinationOrgDomains(dmarcStatus, policyDomain, policyOrgDomain, queryOpts) {
+    var orgDomains = new Map();
+    orgDomains.set(policyDomain, policyOrgDomain);
+    var candidates = [];
+    var seen = new Set([policyOrgDomain]);
+    []
+      .concat(dmarcStatus && dmarcStatus.ruaUris ? dmarcStatus.ruaUris.domains : [])
+      .concat(dmarcStatus && dmarcStatus.rufUris ? dmarcStatus.rufUris.domains : [])
+      .forEach(function (dest) {
+        if (!dest || seen.has(dest)) return;
+        seen.add(dest);
+        candidates.push(dest);
+      });
+    await Promise.all(candidates.map(async function (dest) {
+      var discovery = await optionalCheck(function () { return discoverDmarc(dest, queryOpts); }, null);
+      // A walk that failed leaves the destination's Organizational Domain
+      // unknown. Falling back to the name itself keeps the comparison honest:
+      // it can only ever make the destination look external, which produces a
+      // "verify this" notice rather than a silent pass.
+      orgDomains.set(dest, (discovery && discovery.organizationalDomain) || dest);
+    }));
+    return orgDomains;
   }
 
   /**
@@ -867,33 +946,469 @@
       if (host && !seen.has(host)) { seen.add(host); unique.push(host); }
     });
 
+    // RFC 9990 §4 step 6: "the 'v=DMARC1' tag is mandatory and MUST appear
+    // first in the list. Discard any that do not pass this test."
+    // validateDmarcVersion() owns that rule for policy records already, and a
+    // startsWith() check does not: it accepts `v=DMARC1x`, which is not the
+    // current version and authorizes nothing.
+    var parses = function (record) { return validateDmarcVersion(record).valid; };
+
+    // Step 8, verbatim: "If at least one TXT resource record remains in the
+    // set after parsing, then the external reporting arrangement was
+    // authorized by the Report Consumer."
+    //
+    // This is PERMISSIVE, and deliberately the opposite of the DMARC policy
+    // duplicate rule in discoverDmarc(), where RFC 9989 §4.10 step 2 discards
+    // every record when more than one is returned. The two questions are asked
+    // at different names, for different purposes, by different RFCs, and they
+    // answer them differently. Do not "fix" either one to match the other.
+    async function lookup(queryName) {
+      var response = await dohFetch(queryName, 'TXT', queryOpts);
+      if (response.kind === 'cancelled') throw dnsError('cancelled', queryName, 'TXT');
+      if (response.kind !== 'success' && response.kind !== 'nodata' && response.kind !== 'nxdomain') {
+        throw dnsError(response.kind, queryName, 'TXT', response.httpStatus ? 'HTTP ' + response.httpStatus : '');
+      }
+      var records = response.answers.filter(function (a) { return a.type === 16; })
+        .map(function (a) { return cleanAnswerData(a.data, 'TXT'); });
+      return { kind: response.kind, records: records, authorized: records.filter(parses) };
+    }
+
     return Promise.all(unique.map(async function (host) {
       var exact = policyDomain + '._report._dmarc.' + host;
       var wildcard = '*._report._dmarc.' + host;
       try {
-        var records = await dohQuery(exact, 'TXT', queryOpts);
-        var match = records.filter(function (r) { return startsWithCI(r, 'v=DMARC1'); });
-        if (match.length) {
-          return { destination: host, state: 'authorized', via: 'exact', queryName: exact, record: match[0] };
+        var exactResult = await lookup(exact);
+        if (exactResult.authorized.length) {
+          return {
+            destination: host, state: 'authorized', via: 'exact', queryName: exact,
+            record: exactResult.authorized[0], recordCount: exactResult.authorized.length,
+            exactKind: exactResult.kind,
+          };
         }
-        var wildcardRecords = await dohQuery(wildcard, 'TXT', queryOpts);
-        var wildcardMatch = wildcardRecords.filter(function (r) { return startsWithCI(r, 'v=DMARC1'); });
-        if (wildcardMatch.length) {
-          return { destination: host, state: 'authorized', via: 'wildcard', queryName: wildcard, record: wildcardMatch[0] };
+        var wildcardResult = await lookup(wildcard);
+        if (wildcardResult.authorized.length) {
+          return {
+            destination: host, state: 'authorized', via: 'wildcard', queryName: wildcard,
+            record: wildcardResult.authorized[0], recordCount: wildcardResult.authorized.length,
+            exactKind: exactResult.kind,
+          };
         }
-        // A TXT record that exists but does not open with v=DMARC1 does not
-        // authorize anything — worth distinguishing from nothing at all,
-        // because it usually means a truncated or hand-mangled record.
-        var malformed = records.length || wildcardRecords.length;
+        // A TXT record that exists but does not parse authorizes nothing —
+        // worth distinguishing from nothing at all, because it usually means a
+        // truncated or hand-mangled record.
+        //
+        // The response kind is kept because the two misses mean different
+        // things to the operator: NXDOMAIN at the exact name with the record
+        // on the wildcard is ordinary vendor practice, while NOERROR carrying
+        // unrelated TXT data usually means the record went to the wrong name.
+        var malformed = exactResult.records.length || wildcardResult.records.length;
         return {
           destination: host, state: 'unauthorized', via: null, queryName: exact,
-          record: malformed ? (records[0] || wildcardRecords[0]) : '', malformed: !!malformed,
+          record: malformed ? (exactResult.records[0] || wildcardResult.records[0]) : '',
+          malformed: !!malformed,
+          exactKind: exactResult.kind, wildcardKind: wildcardResult.kind,
         };
       } catch (e) {
         if (e && e.name === 'AbortError') throw e;
         return { destination: host, state: 'unverifiable', via: null, queryName: exact, record: '', error: e && e.kind };
       }
     }));
+  }
+
+  /* ── RFC 9989 DNS Tree Walk ──────────────────────────────────────────────
+     Discovery only. No parsing, no scoring, no English. The walk locates the
+     record; analyzeDmarc() interprets it and calcDmarcScore() grades it.
+
+     The parameters below are transcribed from the published RFC 9989 text
+     (rfc-editor.org, May 2026, obsoletes 7489/9091), not reconstructed from
+     memory or another implementation. §4.10, verbatim:
+
+       "To guard against such abuse of the DNS, a shortcut is built into the
+        process so that Author Domains with more than eight labels do not
+        result in more than eight DNS queries."
+
+       3. Break the subject DNS domain name into a set of ordered labels.
+          Assign the count of labels to "x", and number the labels from right
+          to left [...]
+       4. If x < 8, remove the left-most (highest-numbered) label from the
+          subject domain.  If x >= 8, remove the left-most (highest-numbered)
+          labels from the subject domain until 7 labels remain.  The resulting
+          DNS domain name is the new target for the next lookup.
+       7. Determine the target for the next query by removing the left-most
+          label from the target of the previous query.  Repeat steps 5, 6, and
+          7 until the process stops or there are no more labels remaining.
+
+     So the budget is eight queries, and it is reached by SHORTENING rather
+     than by aborting: a thirteen-label name is cut to seven labels after the
+     first query and then walks one label at a time, so it lands on the TLD on
+     query eight exactly. There is deliberately no 'query-limit' termination
+     state, because running out of queries before running out of labels cannot
+     happen. §4.10's own worked example ends at "_dmarc.com".
+     ───────────────────────────────────────────────────────────────────────── */
+
+  var DMARC_WALK_SHORTCUT_AT = 8;   // RFC 9989 §4.10 step 4: "If x >= 8"
+  var DMARC_WALK_SHORTEN_TO = 7;    // RFC 9989 §4.10 step 4: "until 7 labels remain"
+
+  function domainLabels(name) {
+    return String(name || '').toLowerCase().replace(/\.$/, '').split('.').filter(Boolean);
+  }
+
+  /**
+   * The ordered list of subject names a Tree Walk queries, per §4.10 steps
+   * 3, 4 and 7. Exported for testing because the label arithmetic is the part
+   * of this release most likely to be subtly wrong.
+   */
+  function dmarcWalkTargets(domain) {
+    var labels = domainLabels(domain);
+    if (!labels.length) return [];
+    var targets = [labels.join('.')];
+    // Step 4. The first reduction is the only one that may remove more than
+    // one label; every reduction after it is step 7's single label.
+    var next = labels.length >= DMARC_WALK_SHORTCUT_AT
+      ? labels.slice(labels.length - DMARC_WALK_SHORTEN_TO)
+      : labels.slice(1);
+    while (next.length) {
+      targets.push(next.join('.'));
+      next = next.slice(1);
+    }
+    return targets;
+  }
+
+  /**
+   * Is this TXT string a DMARC Policy Record for selection purposes?
+   *
+   * RFC 9989 §4.10 steps 2 and 6: "Records that do not start with a 'v' tag
+   * that identifies the current version of DMARC are discarded." The tag NAME
+   * is case-insensitive and the VALUE is not, which is exactly what
+   * validateDmarcVersion() already encodes — routing through it keeps one
+   * function owning the rule rather than two spellings of it drifting apart.
+   */
+  function isDmarcPolicyRecord(txt) {
+    return validateDmarcVersion(txt).valid;
+  }
+
+  /**
+   * Explain a TXT string that failed the strict pass but was probably meant
+   * to be a DMARC record. Diagnosis only: nothing here ever becomes a policy.
+   *
+   * The point is the difference between "you have no DMARC record" and "you
+   * have a DMARC record that no receiver will read, and here is why".
+   */
+  function diagnoseDmarcRecord(txt) {
+    var version = validateDmarcVersion(txt);
+    if (version.valid) return null;
+    var vTag = parseDmarcTag(txt, 'v');
+    if (vTag !== null) {
+      if (String(vTag).toLowerCase() !== 'dmarc1') return null;   // v=spf1 and friends
+      if (vTag !== 'DMARC1') return 'version-bad-case';
+      return version.reason === 'not-first' ? 'version-not-first' : null;
+    }
+    // No v= at all. Only call it a DMARC record if it looks like one.
+    return parseDmarcTag(txt, 'p') !== null ? 'version-absent' : null;
+  }
+
+  /** The name one label below `ancestor`, taken from `subject`'s own labels. */
+  function oneLabelBelow(subject, ancestor) {
+    var subjectLabels = domainLabels(subject);
+    var depth = domainLabels(ancestor).length + 1;
+    if (depth > subjectLabels.length) return null;
+    return subjectLabels.slice(subjectLabels.length - depth).join('.');
+  }
+
+  /**
+   * RFC 9989 §4.10 Tree Walk: discover the DMARC Policy Record that applies to
+   * `domain`, and the Organizational Domain, without consulting a Public
+   * Suffix List.
+   *
+   * Two things this must not get wrong, both of which an earlier draft did:
+   *
+   *  - The walk does NOT stop at the first record it finds. Steps 2 and 6 stop
+   *    early only when a single surviving record carries "psd=n" or "psd=y".
+   *    A plain valid record is collected and the walk continues. Stopping at
+   *    the first match reports the wrong policy domain for exactly the
+   *    delegated-subdomain case DMARCbis exists to serve.
+   *  - Duplicate records at one name are DISCARDED and the walk CONTINUES
+   *    (step 2: "If multiple DMARC Policy Records are returned for a single
+   *    target, they are all discarded"). A duplicate is evidence, not a
+   *    termination reason, and a record higher in the tree still applies.
+   *
+   * `opts.apexTxt` is the audited name's own TXT set, which analyzeDomain
+   * already holds. It costs no query and catches the common case of a record
+   * published at the apex instead of under _dmarc.
+   */
+  async function discoverDmarc(domain, queryOpts, opts) {
+    var subject = domainLabels(domain).join('.');
+    var targets = dmarcWalkTargets(subject);
+    var steps = [];
+    var observed = [];
+    var collected = [];
+    var terminated = 'root';
+    var psdBoundary = null;
+    var error = null;
+
+    // Costs nothing: the caller already has this TXT set.
+    ((opts && opts.apexTxt) || []).forEach(function (txt) {
+      if (isDmarcPolicyRecord(txt)) {
+        observed.push({ queryName: subject, record: txt, why: 'at-apex-not-underscore' });
+      }
+    });
+
+    for (var i = 0; i < targets.length; i++) {
+      var target = targets[i];
+      var queryName = '_dmarc.' + target;
+      var response = await dohFetch(queryName, 'TXT', queryOpts);
+
+      if (response.kind === 'cancelled') throw dnsError('cancelled', queryName, 'TXT');
+      if (response.kind !== 'success' && response.kind !== 'nodata' && response.kind !== 'nxdomain') {
+        // A failed lookup is not a missing record. Even with a record already
+        // collected lower down, the names above could not be examined, so the
+        // HIGHEST record — which is what selection needs — is not knowable.
+        // optionalCheck()'s rule applies: an unknown control is never an
+        // absent one.
+        steps.push({ queryName: queryName, kind: response.kind, txtCount: 0, dmarcCount: 0, selected: false });
+        terminated = 'error';
+        error = response.kind;
+        break;
+      }
+
+      var txts = response.answers.filter(function (a) { return a.type === 16; })
+        .map(function (a) { return cleanAnswerData(a.data, 'TXT'); });
+      var records = txts.filter(isDmarcPolicyRecord);
+      var step = {
+        queryName: queryName, kind: response.kind,
+        txtCount: txts.length, dmarcCount: records.length, selected: false,
+      };
+      steps.push(step);
+
+      if (records.length > 1) {
+        // Discarded, but recorded: every receiver ignores both, which is a
+        // real misconfiguration even when a policy higher up still governs.
+        observed.push({ queryName: queryName, record: records[0], why: 'multiple-at-step' });
+        continue;
+      }
+
+      if (!records.length) {
+        txts.forEach(function (txt) {
+          var why = diagnoseDmarcRecord(txt);
+          if (why) observed.push({ queryName: queryName, record: txt, why: why });
+        });
+        continue;
+      }
+
+      var record = records[0];
+      var rawPsd = parseDmarcTag(record, 'psd');
+      var psd = rawPsd === null ? 'u' : String(rawPsd).trim().toLowerCase();
+      step.selected = true;
+      collected.push({
+        name: target, record: record, psd: psd,
+        labelsUp: domainLabels(subject).length - domainLabels(target).length,
+      });
+
+      // Steps 2 and 6: "If a single record remains and it contains a 'psd=n'
+      // or 'psd=y' tag, stop." Anything else, including the default psd=u,
+      // continues the walk.
+      if (psd === 'y') { terminated = 'psd-y'; psdBoundary = target; break; }
+      if (psd === 'n') { terminated = 'psd-n'; break; }
+    }
+
+    var result = {
+      applied: null,
+      policyDomain: null,
+      organizationalDomain: subject,
+      psdBoundary: psdBoundary,
+      steps: steps,
+      terminated: terminated,
+      queries: steps.length,
+      observed: observed,
+      error: error,
+    };
+    // A transient error leaves the upper tree unexamined, so the HIGHEST record
+    // is not knowable and neither is the Organizational Domain. Report the
+    // audited name as the Organizational Domain per §4.10.2's fallback rather
+    // than guessing from a partial walk.
+    //
+    // One record survives that, and only one: the Author Domain's own. RFC
+    // 9989 §4.10.1 settles it on the first query, before any walk happens —
+    // "Policy discovery first starts with a query for a valid DMARC Policy
+    // Record at the name created by prepending the label '_dmarc' to the
+    // Author Domain [...] If a valid DMARC Policy Record is found there, then
+    // this is the DMARC Policy Record to be applied to the message" — and the
+    // walk is performed only "If no valid DMARC Policy Record is found by the
+    // first query". Nothing found higher up can displace it, so a SERVFAIL at
+    // _dmarc.com cannot turn a domain's own p=reject into an unknown.
+    if (terminated === 'error') {
+      var ownRecord = collected.filter(function (e) { return e.name === subject; })[0];
+      if (ownRecord) {
+        result.applied = {
+          record: ownRecord.record, foundAt: ownRecord.name,
+          labelsUp: 0, inherited: false,
+        };
+        result.policyDomain = ownRecord.name;
+      }
+      return result;
+    }
+
+    result.organizationalDomain = selectOrganizationalDomain(subject, collected);
+    var applied = selectAppliedRecord(subject, collected, result.organizationalDomain);
+    if (applied) {
+      result.applied = {
+        record: applied.record,
+        foundAt: applied.name,
+        labelsUp: applied.labelsUp,
+        inherited: applied.name !== subject,
+      };
+      result.policyDomain = applied.name;
+    }
+    return result;
+  }
+
+  /**
+   * RFC 9989 §4.10.2, verbatim:
+   *
+   *   "For each Tree Walk that retrieved valid DMARC Policy Records, select
+   *    the Organizational Domain from the domains for which valid DMARC Policy
+   *    Records were retrieved from the longest to the shortest:
+   *    1. If a valid DMARC Policy Record contains the 'psd' tag set to 'n'
+   *       ('psd=n'), this is the Organizational Domain [...]
+   *    2. If a valid DMARC Policy Record, other than the one for the domain
+   *       where the Tree Walk started, contains the 'psd' tag set to 'y'
+   *       ('psd=y'), the Organizational Domain is the domain one label below
+   *       this one in the DNS hierarchy [...]
+   *    3. Otherwise, select the DMARC Policy Record found at the name with the
+   *       fewest number of labels. [...]
+   *    If this process does not determine the Organizational Domain, then the
+   *    initial target domain is the Organizational Domain."
+   *
+   * Only rule 3 is "the highest name carrying a record". Under rule 2 the
+   * Organizational Domain may carry no DMARC record at all — which is the
+   * whole point of psd=, and is why this is not the same value as
+   * `applied.foundAt`. The closing sentence is why this never returns null.
+   */
+  function selectOrganizationalDomain(subject, collected) {
+    for (var i = 0; i < collected.length; i++) {
+      var entry = collected[i];
+      if (entry.psd === 'n') return entry.name;
+      if (entry.psd === 'y' && entry.name !== subject) {
+        return oneLabelBelow(subject, entry.name) || subject;
+      }
+    }
+    if (collected.length) {
+      return collected.reduce(function (best, entry) {
+        return domainLabels(entry.name).length < domainLabels(best.name).length ? entry : best;
+      }).name;
+    }
+    return subject;
+  }
+
+  /**
+   * RFC 9989 §4.10.1: "The DMARC Policy Record to be applied to an email
+   * message will be the record found at any of the following locations, listed
+   * from highest preference to lowest: the Author Domain; the Organizational
+   * Domain of the Author Domain; the PSD of the Author Domain."
+   *
+   * The preference list is why this is not simply "the highest name carrying a
+   * record". §4.10.1's closing note is explicit:
+   *
+   *   "Note: PSD policy is not used for Organizational Domains that have
+   *    published a DMARC Policy Record."
+   *
+   * So when a psd=y boundary is found AND the Organizational Domain below it
+   * published its own record, that record wins over the PSD's — even though
+   * the PSD sits higher in the tree. Where no psd tag is involved, §4.10.2
+   * rule 3 makes the Organizational Domain the fewest-labels record, so this
+   * collapses to §B.4.2's "the highest element in the DNS tree with a DMARC
+   * Policy Record" and the two readings agree.
+   */
+  function selectAppliedRecord(subject, collected, organizationalDomain) {
+    var atSubject = collected.filter(function (e) { return e.name === subject; })[0];
+    if (atSubject) return atSubject;
+    var atOrg = collected.filter(function (e) { return e.name === organizationalDomain; })[0];
+    if (atOrg) return atOrg;
+    if (!collected.length) return null;
+    return collected.reduce(function (best, entry) {
+      return domainLabels(entry.name).length < domainLabels(best.name).length ? entry : best;
+    });
+  }
+
+  /**
+   * RFC 9989 §3.2.13 and Appendix A.4: existence is a property of the NAME,
+   * not of any record type. "if any RR exists for a domain, then the domain
+   * exists"; an NXDOMAIN response means the name does not exist, while a
+   * NODATA response (NOERROR, no records of the queried type) means the name
+   * exists but that type does not.
+   *
+   * So a NOERROR of either shape is 'yes', and a transient failure is
+   * 'unknown' — never 'no'. Reading a timeout as non-existence would apply the
+   * np= branch of a policy to a name that is plainly there.
+   *
+   * analyzeDomain() derives this from the NS response it already holds rather
+   * than calling here; this exists for the destinations and fixtures that have
+   * no such response to hand.
+   */
+  async function domainExists(name, queryOpts) {
+    var response = await dohFetch(name, 'NS', queryOpts);
+    if (response.kind === 'cancelled') throw dnsError('cancelled', name, 'NS');
+    return existenceFromResponse(response);
+  }
+
+  function existenceFromResponse(response) {
+    if (!response) return 'unknown';
+    if (response.kind === 'nxdomain') return 'no';
+    if (response.kind === 'success' || response.kind === 'nodata') return 'yes';
+    return 'unknown';
+  }
+
+  /**
+   * Apply the discovered record's inheritance rules to a parsed DMARC status,
+   * returning a NEW object.
+   *
+   * RFC 9989 §4.10.1: "If the DMARC Policy Record to be applied is that of
+   * either the Organizational Domain or the PSD and the Author Domain is a
+   * subdomain of that domain, then the Domain Owner Assessment Policy is taken
+   * from the 'sp' tag (if any) if the Author Domain exists or the 'np' tag (if
+   * any) if the Author Domain does not exist. In the absence of applicable
+   * 'sp' or 'np' tags, the 'p' tag policy is used for subdomains."
+   *
+   * `effectiveSp` and `effectiveNp` already carry that fallback chain, so the
+   * only new decision here is WHICH of the two governs — and that turns on
+   * domain existence, which was previously never tested. When existence is
+   * unknown the weaker of the two governs, matching the weakest-link rule the
+   * scorer already uses.
+   *
+   * This replaces an in-place mutation of dmarcStatus. That mutation was the
+   * only place a status object was edited after construction, which made it
+   * easy to miss when reasoning about the record.
+   */
+  function applyInheritance(dmarcStatus, discovery, existence) {
+    if (!dmarcStatus || !discovery || !discovery.applied || !discovery.applied.inherited) return dmarcStatus;
+    if (dmarcStatus.status === 'missing' || dmarcStatus.status === 'permerror' || dmarcStatus.status === 'present') {
+      return dmarcStatus;
+    }
+    var governing = existence === 'no' ? dmarcStatus.effectiveNp
+      : existence === 'yes' ? dmarcStatus.effectiveSp
+        : weakerPolicy(dmarcStatus.effectiveSp, dmarcStatus.effectiveNp);
+    var policy = governing || dmarcStatus.policy;
+    var effectivePolicy = dmarcStatus.testMode ? 'none' : policy;
+    var enforcing = effectivePolicy === 'quarantine' || effectivePolicy === 'reject';
+    var status = enforcing ? 'ok' : 'warn';
+    return Object.assign({}, dmarcStatus, {
+      inherited: true,
+      inheritedFrom: discovery.applied.foundAt,
+      organizationalPolicy: dmarcStatus.policy,
+      appliedBranch: existence === 'no' ? 'np' : existence === 'yes' ? 'sp' : 'weakest',
+      policy: policy,
+      effectivePolicy: effectivePolicy,
+      enforcing: enforcing,
+      status: status,
+      cls: status === 'ok' ? 'ok' : 'warn',
+    });
+  }
+
+  function weakerPolicy(a, b) {
+    var ra = POLICY_RANK[a], rb = POLICY_RANK[b];
+    if (ra === undefined) return b;
+    if (rb === undefined) return a;
+    return ra <= rb ? a : b;
   }
 
   /* ── Advanced checks ────────────────────────────────────────────────── */
@@ -1456,7 +1971,7 @@
 
   // Each issue carries a key (→ locale lookup) and optional `args` used to
   // fill {0} placeholders in the translated message.
-  function buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardApex, wildcardDkim, hosting, advanced, domain }) {
+  function buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, wildcardApex, wildcardDkim, hosting, advanced, domain }) {
     const issues = [];
 
     // Reported by the depth that was actually measured. A wildcard only the
@@ -1508,8 +2023,46 @@
     if (dkimStatus.confidence === 'not-checked' && emailProvider !== '@none' && emailProvider !== '@null-mx' && emailProvider !== '@porkbun-forwarding') {
       issues.push({ key: 'dkim-not-checked', sev: 'info' });
     }
-    if (dmarcStatus.status === 'permerror') issues.push({ key: 'dmarc-multiple-records', sev: 'crit' });
-    else if (dmarcStatus.status === 'missing') issues.push({ key: 'dmarc-missing', sev: 'warn' });
+    /* Duplicate records are no longer a policy verdict, so the finding is
+       raised from the walk's own evidence rather than from a `permerror`
+       status that the Tree Walk never produces. It stays CRITICAL: publishing
+       two records at one name makes every receiver ignore both, and an auditor
+       that reported only "no DMARC record" would be describing the symptom
+       instead of the cause.
+
+       What changes is that the message must not lie. When a record higher in
+       the tree still governs, the finding says the duplicate is ignored AND
+       names the policy that actually applies — never "no DMARC policy
+       applies", because one does. That is the entire point of the corrected
+       walk. Hence two keys rather than one. */
+    var observed = (dmarcDiscovery && dmarcDiscovery.observed) || [];
+    var observedWhere = function (why) { return observed.filter(function (o) { return o.why === why; }); };
+    var duplicates = observedWhere('multiple-at-step');
+    if (duplicates.length) {
+      issues.push(dmarcStatus.status === 'missing' || dmarcStatus.status === 'permerror'
+        ? { key: 'dmarc-multiple-records', sev: 'crit', args: [duplicates[0].queryName] }
+        : {
+          key: 'dmarc-multiple-records-inherited', sev: 'crit',
+          args: [duplicates[0].queryName, dmarcDiscovery.applied.foundAt, dmarcStatus.effectivePolicy || dmarcStatus.policy],
+        });
+    }
+    if (dmarcStatus.status === 'permerror' && !duplicates.length) issues.push({ key: 'dmarc-multiple-records', sev: 'crit', args: ['_dmarc.' + domain] });
+    else if (dmarcStatus.status === 'missing' && !duplicates.length) issues.push({ key: 'dmarc-missing', sev: 'warn' });
+
+    /* A misplaced or miscased v= tag is now diagnosed as misplaced rather than
+       reported as absent. These never change the policy verdict — the record
+       genuinely is not one a receiver will read — they change the message from
+       "you have no DMARC record" to "you have a DMARC record that no receiver
+       will read, and here is why". */
+    var DIAGNOSIS_KEYS = {
+      'version-not-first': 'dmarc-version-not-first',
+      'version-bad-case': 'dmarc-version-bad-value',
+      'version-absent': 'dmarc-version-missing',
+      'at-apex-not-underscore': 'dmarc-at-apex',
+    };
+    Object.keys(DIAGNOSIS_KEYS).forEach(function (why) {
+      if (observedWhere(why).length) issues.push({ key: DIAGNOSIS_KEYS[why], sev: 'crit' });
+    });
     if (dmarcStatus.status === 'warn' && dmarcStatus.policy === 'none') issues.push({ key: 'dmarc-none', sev: 'warn' });
     // p=quarantine is real enforcement, so this is a nudge rather than a defect —
     // reject is the end state, and nothing else surfaces that gap.
@@ -1536,17 +2089,11 @@
        ───────────────────────────────────────────────────────────────────── */
 
     // v= absent, not first, or not exactly 'DMARC1' → the whole record MUST be
-    // ignored (RFC 9989 §5.4). The domain is unprotected while looking fine.
-    if (dmarcStatus.status === 'present' && dmarcStatus.version && !dmarcStatus.version.valid) {
-      issues.push({
-        key: {
-          'absent': 'dmarc-version-missing',
-          'not-first': 'dmarc-version-not-first',
-          'bad-value': 'dmarc-version-bad-value',
-        }[dmarcStatus.version.reason] || 'dmarc-version-missing',
-        sev: 'crit',
-      });
-    } else if (dmarcStatus.status === 'present' && dmarcStatus.duplicateTags && dmarcStatus.duplicateTags.length) {
+    // ignored (RFC 9989 §5.4). Since the Tree Walk's strict pass is
+    // validateDmarcVersion() itself, no record with a bad v= is ever applied,
+    // so that case now arrives through the diagnosis block above instead. What
+    // is left here is a record receivers WILL read and cannot act on.
+    if (dmarcStatus.status === 'present' && dmarcStatus.duplicateTags && dmarcStatus.duplicateTags.length) {
       issues.push({ key: 'dmarc-duplicate-tags', sev: 'crit', args: [dmarcStatus.duplicateTags.join(', ')] });
     } else if (dmarcStatus.status === 'present') {
       issues.push({ key: 'dmarc-invalid-policy', sev: 'crit' });
@@ -1559,6 +2106,27 @@
       issues.push({ key: 'dmarc-test-mode', sev: dmarcStatus.policy === 'none' ? 'info' : 'warn', args: [dmarcStatus.policy] });
     }
     if (dmarcStatus.tValid === false) issues.push({ key: 'dmarc-bad-t', sev: 'warn' });
+
+    /* Tag values that parse but are not what the operator wrote.
+       normalizePolicy() and the alignment defaults both fall back silently,
+       which is the correct RECEIVER behaviour and a poor auditor one: an
+       `sp=rejcet` inherits p= and looks deliberate in the record. Report the
+       divergence and name the value, without changing what receivers do. */
+    if (dmarcStatus.spState === 'invalid') issues.push({ key: 'dmarc-bad-sp', sev: 'warn', args: [dmarcStatus.spRaw] });
+    if (dmarcStatus.npState === 'invalid') issues.push({ key: 'dmarc-bad-np', sev: 'warn', args: [dmarcStatus.npRaw] });
+    if (dmarcStatus.adkimState === 'invalid') issues.push({ key: 'dmarc-bad-adkim', sev: 'warn', args: [dmarcStatus.adkimRaw] });
+    if (dmarcStatus.aspfState === 'invalid') issues.push({ key: 'dmarc-bad-aspf', sev: 'warn', args: [dmarcStatus.aspfRaw] });
+
+    /* np= applies to NON-EXISTENT subdomains of the Organizational Domain
+       (RFC 9989 §4.10.1). It was previously carried into the audited name's
+       verdict without ever testing whether that name exists — and it plainly
+       does, or the NS lookup would have returned NXDOMAIN. Say so, so the
+       reported policy is explicable: the record's np= is real, it is simply
+       not the branch that governs here. */
+    if (dmarcStatus.inherited && dmarcExistence === 'yes' && dmarcStatus.npState !== 'absent'
+      && POLICY_RANK[dmarcStatus.effectiveNp] !== POLICY_RANK[dmarcStatus.effectiveSp]) {
+      issues.push({ key: 'dmarc-np-not-applied', sev: 'info', args: [dmarcStatus.effectiveNp, dmarcStatus.effectiveSp] });
+    }
 
     // pct= was removed by RFC 9989. "This tag is obsolete, remove it" is advice
     // rather than a defect, so it is raised as a recommendation (see
@@ -1592,7 +2160,10 @@
        When the lookup ran, say only what it found: a domain whose vendor has
        published the record correctly should hear nothing at all. The blanket
        "verify this" notice is the fallback for when the check did not run. */
-    var externalReports = findExternalReportDestinations(dmarcStatus, domain);
+    // Resolved by analyzeDomain with a Tree Walk per destination (RFC 9990 §4).
+    // The fallback keeps buildIssues callable on its own in tests, where no
+    // walk has run and every destination is compared against the bare name.
+    var externalReports = externalReportDestinations || findExternalReportDestinations(dmarcStatus, domain);
     if (externalReports.length) {
       var reportAuth = advanced && advanced.reportAuth;
       if (reportAuth && reportAuth.length) {
@@ -1874,30 +2445,34 @@
     const spfStatus = analyzeSpf(spfRecord, emailProvider, spfMultiple);
     const verifications = txt.filter(v => startsWithCI(v, 'google-site-verification') || startsWithCI(v, 'apple-domain'));
 
-    var dmarcAtDomain = d;
-    var dmarcTxts = await dohQuery(`_dmarc.${d}`, 'TXT', queryOpts);
-    var dmarcMatches = dmarcTxts.filter(v => startsWithCI(v, 'v=DMARC1'));
-    const organizationalDomain = getOrganizationalDomain(d);
-    if (!dmarcMatches.length && organizationalDomain && organizationalDomain !== d) {
-      dmarcAtDomain = organizationalDomain;
-      dmarcTxts = await dohQuery(`_dmarc.${organizationalDomain}`, 'TXT', queryOpts);
-      dmarcMatches = dmarcTxts.filter(v => startsWithCI(v, 'v=DMARC1'));
-    }
-    const dmarcRecord = dmarcMatches[0] || '';
-    const dmarcMultiple = dmarcMatches.length > 1;
-    const dmarcStatus = analyzeDmarc(dmarcRecord, dmarcMultiple);
-    if (dmarcAtDomain !== d && dmarcStatus.status !== 'missing' && dmarcStatus.status !== 'permerror' && dmarcStatus.status !== 'present') {
-      // The audited name is a subdomain covered by the organizational domain's
-      // record, so sp= is what applies to it — not p=. Test mode still wins:
-      // t=y on the organizational record suppresses enforcement here too.
-      dmarcStatus.inherited = true;
-      dmarcStatus.organizationalPolicy = dmarcStatus.policy;
-      dmarcStatus.policy = dmarcStatus.effectiveSp;
-      dmarcStatus.effectivePolicy = dmarcStatus.testMode ? 'none' : dmarcStatus.policy;
-      dmarcStatus.enforcing = dmarcStatus.effectivePolicy === 'quarantine' || dmarcStatus.effectivePolicy === 'reject';
-      dmarcStatus.status = dmarcStatus.enforcing ? 'ok' : 'warn';
-      dmarcStatus.cls = dmarcStatus.status === 'ok' ? 'ok' : 'warn';
-    }
+    // RFC 9989 §4.10 Tree Walk. This replaces the two-query PSL approximation:
+    // one query at _dmarc.<domain>, and on a miss one more at the name the
+    // vendored Public Suffix List picked. No DMARC decision consults the PSL
+    // after this release (OQ-DMARC-04); the vendored list stays only for the
+    // hosting and provider heuristics.
+    const dmarcDiscovery = await discoverDmarc(d, queryOpts, { apexTxt: txt });
+    // §3.2.13 and Appendix A.4: existence is a property of the name. The NS
+    // response above already answers it — NXDOMAIN returned early as
+    // unregistered, so anything reaching here resolved without one — so this
+    // costs no extra query.
+    const dmarcExistence = existenceFromResponse(nsResult);
+    const dmarcRecord = dmarcDiscovery.applied ? dmarcDiscovery.applied.record : '';
+    const dmarcAtDomain = dmarcDiscovery.applied ? dmarcDiscovery.applied.foundAt : d;
+    const organizationalDomain = dmarcDiscovery.organizationalDomain;
+    // Duplicates are no longer a policy verdict. RFC 9989 §4.10 step 2 discards
+    // them and the walk continues, so a record higher in the tree still
+    // applies; the duplicate survives as `observed[]` evidence and buildIssues
+    // raises it from there, still critical. `multiple` therefore stays false
+    // here — passing true would resurrect the permerror it replaces.
+    const dmarcStatus = applyInheritance(
+      analyzeDmarc(dmarcRecord, false), dmarcDiscovery, dmarcExistence
+    );
+    // The externality test in RFC 9990 §4 is defined against Organizational
+    // Domains, which now means walked ones on both sides.
+    const dmarcOrgDomains = await resolveDestinationOrgDomains(
+      dmarcStatus, dmarcAtDomain, organizationalDomain, queryOpts
+    );
+    const externalReportDestinations = findExternalReportDestinations(dmarcStatus, dmarcAtDomain, dmarcOrgDomains);
 
     // Wildcard TXT synthesis is measured at both depths that matter, because
     // only the deeper one predicts harm. The apex probe (one label) shows a
@@ -1968,7 +2543,7 @@
           ? optionalCheck(() => auditSpfSubnets(spfRecord, d, queryOpts),
             () => ({ subnets: classifySpfSubnets(spfRecord).subnets, redundancy: [], unknown: true }))
           : Promise.resolve({ subnets: [], redundancy: [], unknown: false }),
-        optionalCheck(() => checkExternalReportAuth(dmarcAtDomain, findExternalReportDestinations(dmarcStatus, dmarcAtDomain), queryOpts), []),
+        optionalCheck(() => checkExternalReportAuth(dmarcAtDomain, externalReportDestinations, queryOpts), []),
       ]);
 
       // All three specs say the same thing: filter to the versioned records,
@@ -2002,14 +2577,17 @@
       };
     }
 
-    const issues = buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, wildcardApex, wildcardDkim, hosting, advanced, domain: d });
+    const issues = buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, wildcardApex, wildcardDkim, hosting, advanced, domain: d });
     const suggestions = buildSuggestions({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
     const score = calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
     const advScore = opts.advanced ? calcAdvScore(advanced) : null;
 
     return {
       domain: d, ns, mx, txt, aRec, aaaaRec, dnsProvider, emailProvider,
-      spfRecord, spfStatus, dmarcRecord, dmarcStatus, dmarcAtDomain, organizationalDomain, dkimStatus,
+      spfRecord, spfStatus, dmarcRecord, dmarcStatus, dmarcDiscovery, dmarcExistence,
+      // Retained as an alias of dmarcDiscovery.applied.foundAt for one release
+      // so the CSV export and the saved report keep working, then removed.
+      dmarcAtDomain, organizationalDomain, dkimStatus,
       wildcardApex, wildcardDkim, hosting, verifications, advanced, advScore,
       issues, suggestions, score,
     };
@@ -2040,7 +2618,16 @@
     validateDmarcVersion,
     parseDmarcUriList,
     findExternalReportDestinations,
+    resolveDestinationOrgDomains,
     checkExternalReportAuth,
+    discoverDmarc,
+    dmarcWalkTargets,
+    isDmarcPolicyRecord,
+    diagnoseDmarcRecord,
+    selectOrganizationalDomain,
+    selectAppliedRecord,
+    applyInheritance,
+    domainExists,
     optionalCheck,
     startsWithCI,
     countSpfLookups,

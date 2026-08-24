@@ -181,7 +181,28 @@
     "pctSuffix": "(%{0})",
     "permerror": "🔴 Birden fazla kayıt",
     "inheritedFrom": "{0} kaydından devralındı",
-    "testMode": "⚠ {0} (test modu, uygulanmıyor)"
+    "testMode": "⚠ {0} (test modu, uygulanmıyor)",
+    "discoveryFoundAt": "İlke {0} adresinde, {1} sorgu sonunda bulundu",
+    "discoveryNotFound": "{0} sorguda hiçbir ilke bulunamadı",
+    "discoverySteps": "Tree Walk",
+    "showWalk": "Tree Walk'u göster",
+    "stepSelected": "kayıt",
+    "stepApplied": "uygulanan kayıt",
+    "stepKind": {
+      "success": "DMARC kaydı yok",
+      "nodata": "TXT kaydı yok",
+      "nxdomain": "ad mevcut değil",
+      "servfail": "SERVFAIL",
+      "refused": "reddedildi",
+      "timeout": "zaman aşımına uğradı",
+      "error": "sorgu başarısız oldu"
+    },
+    "terminated": {
+      "psd-y": "bir genel sonekte durdu (psd=y)",
+      "psd-n": "bir kurumsal alan adında durdu (psd=n)",
+      "root": "üst düzey alan adına kadar yürüdü",
+      "error": "erken durdu — bir sorgu başarısız oldu"
+    }
   },
   "dkim": {
     "uncommon": "Alışılmadık ({0})",
@@ -284,7 +305,10 @@
       "SPF sorguları",
       "Sorunlar",
       "Öneriler",
-      "Kayıt hijyeni"
+      "Kayıt hijyeni",
+      "DMARC bulunduğu yer",
+      "DMARC yukarı etiket sayısı",
+      "DMARC keşfinin bitişi"
     ],
     "yes": "Evet",
     "no": "Hayır",
@@ -327,10 +351,10 @@
       "fixCode": "; Önce — iki kayıt, SPF her şey için başarısız:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Sonra — her iki göndericiyi içeren tek kayıt:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
     },
     "dmarc-multiple-records": {
-      "msg": "_dmarc altında birden fazla DMARC kaydı bulundu — DMARC hiç uygulanmıyor, alan adı taklit edilebilir.",
-      "what": "RFC 7489 §6.6.3 tam olarak bir DMARC kaydı şart koşar. Alıcılar <code>v=DMARC1</code> etiketi olmayan her şeyi atar ve birden fazla kayıt kalırsa politika keşfi sona erer ve DMARC iletiye uygulanmaz. Politikanız — ne kadar katı olursa olsun — tamamen yok sayılır; dolayısıyla alan adı korunuyormuş gibi görünürken taklit edilebilir durumdadır. Ayrıca toplu raporları da almayı bırakırsınız; bu da bir şeylerin ters gittiğini size söyleyecek sinyali ortadan kaldırır.",
-      "fix": "<code>_dmarc</code> altındaki TXT kayıtlarından biri hariç hepsini silin. Yinelenen kayıtlar farklı rapor adresleri belirtiyorsa, tek bir kayıt bırakıp her iki adresi tek bir <code>rua=</code> etiketinde virgülle ayırarak listeleyin.",
-      "fixCode": "; Önce — _dmarc altında iki kayıt, DMARC yok sayılıyor:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Sonra — tek kayıt, iki rapor hedefi:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+      "msg": "{0} adresinde birden fazla DMARC kaydı var — her alıcı hepsini yok sayar ve hiçbir ilke uygulanmaz.",
+      "what": "RFC 9989 §4.10 açıktır: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> Alıcılar birini seçmez; kümenin tamamını atar ve DNS ağacında yukarı çıkmayı sürdürür. Bu adın üzerinde de hiçbir şey yayımlanmadığından sonuçta alan adınızın hiç DMARC ilkesi yoktur, üstelik tam yapılandırılmış görünür. Ayrıca toplu raporları almayı da bırakırsınız; sizi uyaracak tek sinyal buydu.",
+      "fix": "<code>_dmarc</code> altındaki TXT kayıtlarından biri dışında hepsini silin. Kopyalar farklı rapor adresleri belirtiyorsa tek bir kayıt bırakın ve her iki adresi virgülle ayırarak tek bir <code>rua=</code> etiketinde listeleyin.",
+      "fixCode": "; Önce — _dmarc altında iki kayıt, ikisi de atılıyor:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Sonra — tek kayıt, her iki rapor hedefi:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
     },
     "mta-sts-multiple-records": {
       "msg": "Birden fazla MTA-STS kaydı bulundu — gönderenler alan adınızı MTA-STS politikası yokmuş gibi değerlendirir, dolayısıyla gelen postada TLS zorunlu kılınmaz.",
@@ -637,6 +661,48 @@
       "what": "Bu alan adı için yapılan bir veya daha fazla DNS sorgusu kullanılabilir bir yanıt döndürmedi; bu genellikle çözümleyiciden gelen bir SERVFAIL veya zaman aşımıdır. Bu gerçekten bozuk bir ad sunucusu olabilir, ancak en az o kadar sık dakikalar içinde geçen anlık bir aksaklıktır. Denetimin geri kalanı normal şekilde tamamlandı ve doğrudur. Etkilenen kontroller sıfır puan alır; çünkü bu aracın arkasında duramayacağı bir not, yalnızca katı olan bir nottan daha değersizdir — dolayısıyla başarısız bir sorgu, yeniden çalıştırılana kadar size puan kaybettirir.",
       "fix": "Önce denetimi yeniden çalıştırın — geçici bir arıza kendiliğinden düzelir ve puanlar geri gelir. Aynı kontroller başarısız olmaya devam ederse, ad sunucularınızın yanıt verip vermediğini görmek için etkilenen adları doğrudan sorgulayın. Var olmayan adlar için NXDOMAIN yerine SERVFAIL döndüren bir sunucu bu duruma tekrar tekrar yol açar.",
       "fixCode": "; Ad sunucularınızın var olmaması gereken bir ada yanıt verip vermediğini kontrol edin.\n; Sağlıklı bir sunucu NXDOMAIN, bozuk bir sunucu SERVFAIL döndürür:\ndig +short does-not-exist-test.yourdomain.com\n\n; Çözümleyiciyi atlayarak yetkili sunucularınıza doğrudan sorun:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    },
+    "dmarc-multiple-records-inherited": {
+      "msg": "{0} adresinde birden fazla DMARC kaydı var — hepsi yok sayılıyor. Bu alan adını bunun yerine {1} adresindeki ilke ({2}) yönetiyor.",
+      "what": "RFC 9989 §4.10, bir ad için birden fazla kayıt döndüğünde hepsini atar: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> Tree Walk ardından yukarı çıkmayı sürdürür ve alıcıların gerçekten uyguladığı şey ağacın daha üstündeki geçerli bir kayıttır; yani bu alan adı korumasız değildir. Kaybettiğiniz şey yerel denetimdir: burada yazdığınız ilkenin hiçbir etkisi yoktur ve devralınan ilke daha zayıf olabilir, raporları başka yere yönlendirebilir ya da üst alan adı düzenlendiğinde habersizce değişebilir.",
+      "fix": "<code>_dmarc</code> altındaki TXT kayıtlarından biri dışında hepsini silin. Geriye tek kayıt kaldığında devralınan ilkenin önüne geçer. Devralmayı bilerek istiyorduysanız ikisini de silin ve üst alan adının ilkesinin bilinçli olarak geçerli olmasını sağlayın.",
+      "fixCode": "; Önce — burada iki kayıt, ikisi de atılıyor, üst alan adının ilkesi geçerli:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none;\"\n\n; Sonra — tek kayıt ve bu alan adını yeniden o yönetiyor:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-at-apex": {
+      "msg": "Bir DMARC kaydı _dmarc altı yerine alan adının kendisinde yayımlanmış — hiçbir alıcı oraya bakmaz.",
+      "what": "Bir DMARC ilkesi <code>yourdomain.com</code> adresinde değil, <code>_dmarc.yourdomain.com</code> adında bulunur. RFC 9989 §4.10.1, ilke keşfinin <em>\"starts with a query for a valid DMARC Policy Record at the name created by prepending the label '_dmarc' to the Author Domain\"</em> dediği gibi: alıcılar yalnızca o adı sorgular, başka hiçbir adı sorgulamaz. Kök adda doğru yazılmış bir kayıt görünmezdir; alan adı hiç DMARC ilkesi yokmuş gibi işlem görür. Bu genellikle bir DNS panelinin host alanını sessizce yok saymasından ya da kaydın SPF ile aynı kutuya yapıştırılmasından kaynaklanır.",
+      "fix": "Kaydı <code>_dmarc</code> host'unda bir TXT kaydı olarak yeniden yayımlayın ve kök adtan silin; kök adın TXT kümesinde başıboş duran bir DMARC dizesi, onu okuyacak bir sonraki kişiyi şaşırtmaktan başka bir işe yaramaz.",
+      "fixCode": "; Yanlış — alan adının kendisinde:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Doğru — _dmarc host'u altında:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-sp": {
+      "msg": "sp= değeri \"{0}\" olarak ayarlanmış; bu bir ilke değeri değil — alt alan adları bunun yerine p= değerine döner.",
+      "what": "RFC 9989 §5.4, <code>sp=</code> için tam olarak üç değere izin verir: <code>none</code>, <code>quarantine</code> ve <code>reject</code>. Bunun dışındaki hiçbir şey ilke değildir; alıcılar etiketi yok sayar ve alt alan adları <code>p=</code> değerini devralır. Bu, amaçladığınızdan daha katı ya da daha gevşek olabilir ve kayıt, aslında olmadığı hâlde bilinçli bir alt alan adı ilkesi yürürlükteymiş gibi okunur.",
+      "fix": "Değeri düzeltin ya da alt alan adlarının <code>p=</code> değerini devralmasında sakınca görmüyorsanız <code>sp=</code> etiketini tümüyle kaldırın.",
+      "fixCode": "; Yanlış — yazım hatası, sessizce yok sayılır:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
+    },
+    "dmarc-bad-np": {
+      "msg": "np= değeri \"{0}\" olarak ayarlanmış; bu bir ilke değeri değil — var olmayan alt alan adları bunun yerine sp= ya da p= değerine döner.",
+      "what": "RFC 9989 §5.4, <code>np=</code> için tam olarak üç değere izin verir: <code>none</code>, <code>quarantine</code> ve <code>reject</code>. Bunun dışındaki her şey yok sayılır ve var olmayan adlara ilişkin ilke <code>sp=</code> üzerinden <code>p=</code> değerine döner. Var olmayan alt alan adları bir saldırganın taklit etmesi en ucuz hedeftir; bu yüzden ayarlanmış görünen ama ayarlanmamış bir etiketi düzeltmeye değer.",
+      "fix": "Değeri düzeltin ya da <code>np=</code> etiketini kaldırıp geri dönüş zincirinin bilinçli olarak devreye girmesine izin verin.",
+      "fixCode": "; Yanlış — ilke değeri değil:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
+    },
+    "dmarc-bad-adkim": {
+      "msg": "adkim= değeri \"{0}\" olarak ayarlanmış — tek geçerli değerler r ve s olduğundan DKIM hizalaması gevşek kalır.",
+      "what": "RFC 9989 §5.4, iki DKIM hizalama kipi ve iki yazım tanımlar: gevşek için <code>r</code>, katı için <code>s</code>. <code>strict</code> ya da <code>1</code> gibi bir değer tanınmaz ve alıcılar gevşeğe döner. Kayıt, yazan kişiye katı görünürken uygulamada gevşek davranır; bu da iki dünyanın en kötüsüdür: yalnızca tam eşleşmenin başarabileceğini sandığınız hizalamayı, kurumsal alan adınızın herhangi bir alt alan adı geçebilir.",
+      "fix": "Katı hizalama için <code>adkim=s</code> kullanın ya da gevşek hizalamayı açıkça belirtmek için etiketi kaldırın.",
+      "fixCode": "; Yanlış — açık yazıldığı için yok sayılır:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
+    },
+    "dmarc-bad-aspf": {
+      "msg": "aspf= değeri \"{0}\" olarak ayarlanmış — tek geçerli değerler r ve s olduğundan SPF hizalaması gevşek kalır.",
+      "what": "RFC 9989 §5.4, iki SPF hizalama kipi ve iki yazım tanımlar: gevşek için <code>r</code>, katı için <code>s</code>. Tanınmayan bir değer yok sayılır ve alıcılar gevşeğe döner; böylece kayıt sahip olmadığı bir katılığı iddia eder. Gevşek hizalamada, kurumsal alan adınızın herhangi bir alt alan adı bir DMARC başarısının SPF yarısını karşılayabilir.",
+      "fix": "Katı hizalama için <code>aspf=s</code> kullanın ya da gevşek hizalamayı açıkça belirtmek için etiketi kaldırın.",
+      "fixCode": "; Yanlış — açık yazıldığı için yok sayılır:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; Doğru:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
+    },
+    "dmarc-np-not-applied": {
+      "msg": "np={0} yayımlanmış ama burada geçerli değil — bu ad mevcut olduğundan sp={1} yönetir.",
+      "what": "RFC 9989 §4.10.1, devralınan ilkeyi ikiye ayırır: <code>sp=</code> etiketi <em>\"if the Author Domain exists\"</em> durumunda, <code>np=</code> ise <em>\"if the Author Domain does not exist\"</em> durumunda geçerlidir. Varlık bir DNS sorusudur — RFC 9989 Ek A.4, bir ad için herhangi bir kayıt varsa o adın var olduğunu belirtir — ve bu ad çözümlendi, dolayısıyla <code>sp=</code> dalı yönetir. Bu bilgilendirme amaçlıdır: yanlış yapılandırılmış bir şey yoktur. Burada yer almasının nedeni, aksi hâlde bildirilen ilkenin okuyabildiğiniz kayıtla tutarsız görünecek olmasıdır.",
+      "fix": "Değişiklik gerekmiyor. Bu daha katı ilkenin gerçek alt alan adları için de geçerli olmasını istiyorsanız <code>sp=</code> değerini <code>np=</code> ile aynı yapın.",
+      "fixCode": "; np= var olmayan adları kapsar; sp= var olanları kapsar:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
     }
   },
   "suggestion": {

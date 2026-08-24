@@ -139,7 +139,7 @@ All met at merge.
 **A privacy document that goes stale is a liability, not an asset.** Mitigated
 by the rule stated in `PRIVACY.md` itself: any change to what the application
 stores or transmits is reflected in the same pull request as the code change
-that causes it. Two later specs — [dmarcbis-tree-walk](../dmarcbis-tree-walk.md)
+that causes it. Two later specs — [dmarcbis-tree-walk](dmarcbis-tree-walk.md)
 and [dnssec-evidence](../dnssec-evidence.md) — increase the query count and
 carry that obligation explicitly.
 

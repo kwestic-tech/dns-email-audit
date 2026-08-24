@@ -13,6 +13,11 @@
  *   node tools/backtest.mjs --sample              # built-in 40-domain sample
  *   node tools/backtest.mjs domains.txt --comprehensive-dkim # max 5 domains
  *
+ * Every run also reports the DNS query fan-out — the number of DoH requests
+ * actually issued, per domain. `PRIVACY.md` states that number publicly, so it
+ * is measured here rather than estimated, and re-measured whenever a release
+ * changes how many lookups an audit makes.
+ *
  * Requires outbound network access, so run it locally rather than in CI.
  */
 
@@ -53,9 +58,17 @@ if (comprehensiveDkim && domains.length > 5) {
 }
 
 // ── Load the production scoring code, unmodified ────────────────────────
+// Counted, not merely passed through: the fan-out figure in PRIVACY.md is a
+// promise to the reader about what Cloudflare gets to see, and an estimate is
+// not good enough for it. This counts requests that actually reach the
+// network, so the cache's effect on a multi-domain run is included — which is
+// the honest number, since that is what a real audit sends.
+let networkQueries = 0;
+const countingFetch = (...args) => { networkQueries++; return fetch(...args); };
+
 const sandbox = {
   window: {},
-  fetch,
+  fetch: countingFetch,
   AbortController,
   console,
   URLSearchParams,
@@ -112,14 +125,30 @@ function gradeSort(a, b) {
   return BASE_ORDER.indexOf(a) - BASE_ORDER.indexOf(b);
 }
 
+const fanOut = {
+  networkQueries,
+  domains: results.length,
+  perDomain: results.length ? Number((networkQueries / results.length).toFixed(1)) : 0,
+};
+
 if (asJson) {
   console.log(JSON.stringify({
     weights: D.WEIGHTS,
     thresholds: D.GRADE_THRESHOLDS,
+    fanOut,
     domains: scored.map(r => ({
       domain: r.domain, grade: r.score.grade, pts: r.score.pts,
       dmarc: r.dmarcStatus.policy, sp: r.dmarcStatus.effectiveSp,
       np: r.dmarcStatus.effectiveNp, pct: r.dmarcStatus.pct,
+      // Tree Walk provenance, so a diff between two runs can explain a grade
+      // move by naming the record that moved rather than just the number.
+      dmarcFoundAt: r.dmarcDiscovery?.applied?.foundAt ?? null,
+      dmarcLabelsUp: r.dmarcDiscovery?.applied?.labelsUp ?? null,
+      dmarcTerminated: r.dmarcDiscovery?.terminated ?? null,
+      dmarcQueries: r.dmarcDiscovery?.queries ?? null,
+      dmarcObserved: (r.dmarcDiscovery?.observed ?? []).map(o => o.why),
+      organizationalDomain: r.organizationalDomain ?? null,
+      dmarcStatus: r.dmarcStatus.status,
       dnssec: !!r.advanced?.dnssec?.signed,
       dkim: {
         found: r.dkimStatus.found,
@@ -183,6 +212,14 @@ scored.slice().sort((a, b) => a.score.pts - b.score.pts).slice(0, 10)
 console.log(`\nBEST 10`);
 scored.slice().sort((a, b) => b.score.pts - a.score.pts).slice(0, 10)
   .forEach(r => console.log(`  ${r.score.grade.padEnd(4)} ${String(r.score.pts).padStart(3)}  ${r.domain}`));
+
+console.log(`\nDNS QUERY FAN-OUT`);
+console.log(`  ${fanOut.networkQueries} network queries across ${fanOut.domains} domains`);
+console.log(`  ${fanOut.perDomain} per domain (cache shared across the run, as in a real audit)`);
+const dmarcQueries = results.filter(r => r.dmarcDiscovery).map(r => r.dmarcDiscovery.queries);
+if (dmarcQueries.length) {
+  console.log(`  Tree Walk: ${(dmarcQueries.reduce((a, b) => a + b, 0) / dmarcQueries.length).toFixed(1)} steps per domain, max ${Math.max(...dmarcQueries)}`);
+}
 
 const skipped = results.filter(r => r.error);
 if (skipped.length) {

@@ -181,7 +181,28 @@
     "pctSuffix": "({0}%)",
     "permerror": "🔴 Meerdere records",
     "inheritedFrom": "Overgenomen van {0}",
-    "testMode": "⚠ {0} (testmodus, niet toegepast)"
+    "testMode": "⚠ {0} (testmodus, niet toegepast)",
+    "discoveryFoundAt": "Beleid gevonden op {0} na {1} opvragingen",
+    "discoveryNotFound": "Geen beleid gevonden in {0} opvragingen",
+    "discoverySteps": "Tree Walk",
+    "showWalk": "Toon de Tree Walk",
+    "stepSelected": "record",
+    "stepApplied": "record toegepast",
+    "stepKind": {
+      "success": "geen DMARC-record",
+      "nodata": "geen TXT-records",
+      "nxdomain": "naam bestaat niet",
+      "servfail": "SERVFAIL",
+      "refused": "geweigerd",
+      "timeout": "time-out",
+      "error": "opvraging mislukt"
+    },
+    "terminated": {
+      "psd-y": "gestopt bij een public suffix (psd=y)",
+      "psd-n": "gestopt bij een organisatiedomein (psd=n)",
+      "root": "doorlopen tot het topleveldomein",
+      "error": "vroegtijdig gestopt — een opvraging mislukte"
+    }
   },
   "dkim": {
     "uncommon": "Ongebruikelijk ({0})",
@@ -284,7 +305,10 @@
       "SPF-lookups",
       "Problemen",
       "Suggesties",
-      "Recordhygiëne"
+      "Recordhygiëne",
+      "DMARC gevonden op",
+      "DMARC labels omhoog",
+      "Einde DMARC-ontdekking"
     ],
     "yes": "Ja",
     "no": "Nee",
@@ -327,10 +351,10 @@
       "fixCode": "; Voor — twee records, SPF faalt voor alles:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Na — één record met beide verzenders:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
     },
     "dmarc-multiple-records": {
-      "msg": "Meerdere DMARC-records gevonden op _dmarc — DMARC wordt helemaal niet toegepast en er kan misbruik van het domein worden gemaakt.",
-      "what": "RFC 7489 §6.6.3 vereist precies één DMARC-record. Ontvangers verwerpen alles zonder <code>v=DMARC1</code>-tag, en blijft er meer dan één over, dan stopt de beleids-discovery en wordt DMARC niet op het bericht toegepast. Uw beleid — hoe streng ook — wordt volledig genegeerd, dus er kan misbruik van het domein worden gemaakt terwijl het beschermd lijkt. U ontvangt ook geen samengevoegde rapporten meer, waardoor het signaal wegvalt dat u had verteld dat er iets mis was.",
+      "msg": "Meerdere DMARC-records op {0} — elke ontvanger negeert ze allemaal, en er geldt geen enkel beleid.",
+      "what": "RFC 9989 §4.10 is ondubbelzinnig: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> Ontvangers kiezen er niet één uit: ze verwerpen de hele verzameling en klimmen verder omhoog in de DNS-boom. Boven deze naam is evenmin iets gepubliceerd, dus het eindresultaat is dat uw domein helemaal geen DMARC-beleid heeft terwijl het volledig geconfigureerd lijkt. U ontvangt bovendien geen geaggregeerde rapporten meer — precies het signaal dat u gewaarschuwd zou hebben.",
       "fix": "Verwijder alle TXT-records op <code>_dmarc</code> op één na. Noemen de duplicaten verschillende rapportadressen, houd dan één record aan en zet beide adressen in één <code>rua=</code>-tag, gescheiden door een komma.",
-      "fixCode": "; Voor — twee records op _dmarc, DMARC genegeerd:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Na — één record, beide rapportbestemmingen:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+      "fixCode": "; Voor — twee records op _dmarc, beide verworpen:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Na — één record, beide rapportbestemmingen:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
     },
     "mta-sts-multiple-records": {
       "msg": "Meerdere MTA-STS-records gevonden — verzenders behandelen uw domein alsof het geen MTA-STS-beleid heeft, dus inkomende TLS wordt niet afgedwongen.",
@@ -637,6 +661,48 @@
       "what": "Een of meer DNS-lookups voor dit domein leverden geen bruikbaar antwoord op, meestal een SERVFAIL of een time-out van de resolver. Dat kan echt een defecte naamserver zijn, maar net zo vaak is het een tijdelijke hapering die binnen enkele minuten voorbij is. De rest van de audit is normaal afgerond en klopt. De betrokken controles krijgen nul punten, omdat een beoordeling waar dit hulpmiddel niet achter kan staan minder waard is dan een beoordeling die simpelweg streng is — een mislukte lookup kost u dus punten totdat hij opnieuw wordt uitgevoerd.",
       "fix": "Voer de audit eerst opnieuw uit — een tijdelijke storing lost zichzelf op en de punten komen terug. Blijven dezelfde controles falen, vraag de betreffende namen dan rechtstreeks op om te zien of uw naamservers antwoorden. Een server die SERVFAIL in plaats van NXDOMAIN teruggeeft voor namen die niet bestaan, veroorzaakt dit telkens opnieuw.",
       "fixCode": "; Controleer of uw naamservers antwoorden op een naam die niet zou moeten bestaan.\n; Een gezonde server geeft NXDOMAIN terug; een defecte geeft SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Vraag uw autoritatieve servers rechtstreeks, buiten de resolver om:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    },
+    "dmarc-multiple-records-inherited": {
+      "msg": "Meerdere DMARC-records op {0} — ze worden allemaal genegeerd. In plaats daarvan geldt voor dit domein het beleid op {1} ({2}).",
+      "what": "RFC 9989 §4.10 verwerpt elk record zodra er voor één naam meer dan één wordt teruggegeven: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> De Tree Walk klimt dan verder omhoog, en wat ontvangers daadwerkelijk toepassen is een geldig record hoger in de boom — dit domein is dus niet onbeschermd. Wat u kwijt bent, is de lokale zeggenschap: het beleid dat u hier hebt geschreven heeft geen effect, en het geërfde beleid kan zwakker zijn, rapporten elders heen sturen, of zonder waarschuwing veranderen zodra het bovenliggende domein wordt bewerkt.",
+      "fix": "Verwijder alle TXT-records op <code>_dmarc</code> op één na. Zodra er nog één over is, gaat die vóór het geërfde record. Wilde u juist erven, verwijder ze dan allebei en laat het beleid van het bovenliggende domein bewust gelden.",
+      "fixCode": "; Voor — twee records hier, beide verworpen, het beleid van het bovenliggende domein geldt:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none;\"\n\n; Na — één record, en het geldt weer voor dit domein:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-at-apex": {
+      "msg": "Er staat een DMARC-record op het domein zelf in plaats van onder _dmarc — geen enkele ontvanger kijkt daar ooit.",
+      "what": "Een DMARC-beleid hoort op de naam <code>_dmarc.yourdomain.com</code>, niet op <code>yourdomain.com</code>. RFC 9989 §4.10.1 stelt dat het opzoeken van het beleid <em>\"starts with a query for a valid DMARC Policy Record at the name created by prepending the label '_dmarc' to the Author Domain\"</em> — ontvangers bevragen die naam en geen andere. Een correct geschreven record op de apex is onzichtbaar: het domein wordt behandeld alsof het helemaal geen DMARC-beleid heeft. Dit gebeurt meestal wanneer een DNS-paneel het hostveld stilletjes negeert, of wanneer het record in hetzelfde vak als SPF wordt geplakt.",
+      "fix": "Publiceer het record opnieuw als TXT-record op de host <code>_dmarc</code> en verwijder het van de apex: een verdwaalde DMARC-tekenreeks in de TXT-set van de apex doet niets behalve de volgende lezer in verwarring brengen.",
+      "fixCode": "; Fout — op het domein zelf:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Goed — onder de host _dmarc:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-sp": {
+      "msg": "sp= staat op \"{0}\", wat geen beleidswaarde is — subdomeinen vallen in plaats daarvan terug op p=.",
+      "what": "RFC 9989 §5.4 staat precies drie waarden toe voor <code>sp=</code>: <code>none</code>, <code>quarantine</code> en <code>reject</code>. Al het andere is geen beleid, dus ontvangers negeren de tag en subdomeinen erven <code>p=</code>. Dat kan strenger of zwakker zijn dan u bedoelde, en het record leest alsof er een bewust subdomeinbeleid geldt terwijl dat er niet is.",
+      "fix": "Corrigeer de waarde, of verwijder <code>sp=</code> helemaal als u het prima vindt dat subdomeinen <code>p=</code> erven.",
+      "fixCode": "; Fout — typefout, stilletjes genegeerd:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
+    },
+    "dmarc-bad-np": {
+      "msg": "np= staat op \"{0}\", wat geen beleidswaarde is — niet-bestaande subdomeinen vallen in plaats daarvan terug op sp= of p=.",
+      "what": "RFC 9989 §5.4 staat precies drie waarden toe voor <code>np=</code>: <code>none</code>, <code>quarantine</code> en <code>reject</code>. Al het andere wordt genegeerd, en het beleid voor namen die niet bestaan valt via <code>sp=</code> terug op <code>p=</code>. Niet-bestaande subdomeinen zijn het goedkoopst om te vervalsen, dus een tag die ingesteld lijkt maar het niet is, verdient correctie.",
+      "fix": "Corrigeer de waarde, of verwijder <code>np=</code> en laat de terugvalketen bewust gelden.",
+      "fixCode": "; Fout — geen beleidswaarde:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
+    },
+    "dmarc-bad-adkim": {
+      "msg": "adkim= staat op \"{0}\" — alleen r en s zijn geldig, dus de DKIM-uitlijning blijft soepel.",
+      "what": "RFC 9989 §5.4 definieert twee DKIM-uitlijningsmodi en twee schrijfwijzen: <code>r</code> voor soepel en <code>s</code> voor strikt. Een waarde als <code>strict</code> of <code>1</code> wordt niet herkend en ontvangers vallen terug op soepel. Het record leest als strikt voor wie het schreef, maar gedraagt zich in de praktijk als soepel — het slechtste van twee werelden: een subdomein van uw organisatiedomein kan de uitlijning halen terwijl u dacht dat alleen een exacte overeenkomst dat zou doen.",
+      "fix": "Gebruik <code>adkim=s</code> voor strikte uitlijning, of verwijder de tag om soepele uitlijning expliciet vast te leggen.",
+      "fixCode": "; Fout — voluit geschreven, dus genegeerd:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
+    },
+    "dmarc-bad-aspf": {
+      "msg": "aspf= staat op \"{0}\" — alleen r en s zijn geldig, dus de SPF-uitlijning blijft soepel.",
+      "what": "RFC 9989 §5.4 definieert twee SPF-uitlijningsmodi en twee schrijfwijzen: <code>r</code> voor soepel en <code>s</code> voor strikt. Een niet-herkende waarde wordt genegeerd en ontvangers vallen terug op soepel, zodat het record een striktheid claimt die het niet heeft. Bij soepele uitlijning kan elk subdomein van uw organisatiedomein aan de SPF-helft van een geslaagde DMARC-controle voldoen.",
+      "fix": "Gebruik <code>aspf=s</code> voor strikte uitlijning, of verwijder de tag om soepele uitlijning expliciet vast te leggen.",
+      "fixCode": "; Fout — voluit geschreven, dus genegeerd:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; Goed:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
+    },
+    "dmarc-np-not-applied": {
+      "msg": "np={0} is gepubliceerd maar geldt hier niet — deze naam bestaat, dus sp={1} is van toepassing.",
+      "what": "RFC 9989 §4.10.1 splitst het geërfde beleid in tweeën: de tag <code>sp=</code> geldt <em>\"if the Author Domain exists\"</em> en <code>np=</code> geldt <em>\"if the Author Domain does not exist\"</em>. Bestaan is een DNS-vraag — bijlage A.4 van RFC 9989 stelt dat een naam bestaat zodra er enig record voor bestaat — en deze naam is opgelost, dus geldt de <code>sp=</code>-tak. Dit is informatief: er is niets verkeerd geconfigureerd. Het staat hier omdat het gemelde beleid anders in tegenspraak lijkt met het record dat u kunt lezen.",
+      "fix": "Er hoeft niets te veranderen. Wilde u dat dit strengere beleid ook voor echte subdomeinen gold, zet <code>sp=</code> dan op dezelfde waarde als <code>np=</code>.",
+      "fixCode": "; np= geldt voor namen die niet bestaan; sp= voor de namen die wel bestaan:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
     }
   },
   "suggestion": {

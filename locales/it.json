@@ -181,7 +181,28 @@
     "pctSuffix": "({0}%)",
     "permerror": "🔴 Record multipli",
     "inheritedFrom": "Ereditato da {0}",
-    "testMode": "⚠ {0} (modalità test, non applicata)"
+    "testMode": "⚠ {0} (modalità test, non applicata)",
+    "discoveryFoundAt": "Criterio trovato in {0} dopo {1} interrogazioni",
+    "discoveryNotFound": "Nessun criterio trovato in {0} interrogazioni",
+    "discoverySteps": "Tree Walk",
+    "showWalk": "Mostra il Tree Walk",
+    "stepSelected": "record",
+    "stepApplied": "record applicato",
+    "stepKind": {
+      "success": "nessun record DMARC",
+      "nodata": "nessun record TXT",
+      "nxdomain": "il nome non esiste",
+      "servfail": "SERVFAIL",
+      "refused": "rifiutata",
+      "timeout": "tempo scaduto",
+      "error": "interrogazione non riuscita"
+    },
+    "terminated": {
+      "psd-y": "fermato a un suffisso pubblico (psd=y)",
+      "psd-n": "fermato a un dominio organizzativo (psd=n)",
+      "root": "percorso fino al dominio di primo livello",
+      "error": "fermato in anticipo — un'interrogazione non è riuscita"
+    }
   },
   "dkim": {
     "uncommon": "Insolito ({0})",
@@ -284,7 +305,10 @@
       "Ricerche SPF",
       "Problemi",
       "Suggerimenti",
-      "Igiene del record"
+      "Igiene del record",
+      "DMARC trovato in",
+      "Label DMARC risalite",
+      "Fine della ricerca DMARC"
     ],
     "yes": "Sì",
     "no": "No",
@@ -327,10 +351,10 @@
       "fixCode": "@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
     },
     "dmarc-multiple-records": {
-      "msg": "Trovati più record DMARC su _dmarc — DMARC non viene applicato e il dominio è vulnerabile.",
-      "what": "In presenza di più record DMARC, i server di posta interrompono l'analisi e ignorano la politica.",
-      "fix": "Mantieni un solo record DMARC e unisci gli indirizzi di report.",
-      "fixCode": "_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+      "msg": "Più record DMARC in {0} — tutti i destinatari li ignorano completamente e non si applica alcun criterio.",
+      "what": "La RFC 9989 §4.10 è esplicita: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> I destinatari non ne scelgono uno: scartano l'intero insieme e continuano a risalire l'albero DNS. Nemmeno sopra questo nome è pubblicato qualcosa, quindi il risultato è che il suo dominio non ha alcun criterio DMARC, pur sembrando configurato del tutto. Smetterà inoltre di ricevere i rapporti aggregati, cioè l'unico segnale che glielo avrebbe rivelato.",
+      "fix": "Elimini tutti i record TXT in <code>_dmarc</code> tranne uno. Se i duplicati indicano indirizzi di rapporto diversi, ne tenga uno solo ed elenchi entrambi gli indirizzi in un unico tag <code>rua=</code>, separati da una virgola.",
+      "fixCode": "; Prima — due record in _dmarc, entrambi scartati:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Dopo — un record, entrambe le destinazioni dei rapporti:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
     },
     "mta-sts-multiple-records": {
       "msg": "Trovati più record MTA-STS — la cifratura TLS in entrata non viene forzata.",
@@ -637,6 +661,48 @@
       "what": "Una o più query DNS per questo dominio non hanno restituito una risposta utilizzabile, di solito un SERVFAIL o un timeout del resolver. Può trattarsi di un name server realmente guasto, ma altrettanto spesso è un contrattempo temporaneo che si risolve in pochi minuti. Il resto dell'audit si è concluso normalmente ed è accurato. I controlli interessati vengono valutati zero, perché un voto per cui questo strumento non può garantire vale meno di un voto semplicemente severo: una query fallita le costa punti finché non viene ripetuta.",
       "fix": "Per prima cosa ripeta l'audit: un guasto temporaneo si risolve da solo e i punti tornano. Se gli stessi controlli continuano a fallire, interroghi direttamente i nomi interessati per vedere se i suoi name server rispondono. Un server che restituisce SERVFAIL invece di NXDOMAIN per nomi inesistenti farà scattare ripetutamente questo avviso.",
       "fixCode": "; Verifichi se i suoi name server rispondono a un nome che non dovrebbe esistere.\n; Un server sano restituisce NXDOMAIN, uno guasto restituisce SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Interroghi direttamente i server autoritativi, bypassando il resolver:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    },
+    "dmarc-multiple-records-inherited": {
+      "msg": "Più record DMARC in {0} — vengono ignorati tutti. A governare questo dominio è invece il criterio in {1} ({2}).",
+      "what": "La RFC 9989 §4.10 scarta ogni record quando per un nome ne viene restituito più di uno: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> Il Tree Walk prosegue quindi verso l'alto, e ciò che i destinatari applicano davvero è un record valido più in alto nell'albero: questo dominio non è dunque privo di protezione. Ciò che ha perso è il controllo locale: il criterio scritto qui non ha effetto, e quello ereditato può essere più debole, indirizzare i rapporti altrove o cambiare senza preavviso quando il dominio padre viene modificato.",
+      "fix": "Elimini tutti i record TXT in <code>_dmarc</code> tranne uno. Non appena ne resta uno solo, ha la precedenza su quello ereditato. Se intendeva ereditare, li elimini entrambi e lasci che il criterio del dominio padre si applichi in modo deliberato.",
+      "fixCode": "; Prima — due record qui, entrambi scartati, vale il criterio del dominio padre:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none;\"\n\n; Dopo — un record, e torna a governare questo dominio:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-at-apex": {
+      "msg": "Un record DMARC è pubblicato sul dominio stesso anziché sotto _dmarc — nessun destinatario guarderà mai lì.",
+      "what": "Un criterio DMARC risiede al nome <code>_dmarc.yourdomain.com</code>, non a <code>yourdomain.com</code>. La RFC 9989 §4.10.1 dice che la ricerca del criterio <em>\"starts with a query for a valid DMARC Policy Record at the name created by prepending the label '_dmarc' to the Author Domain\"</em>: i destinatari interrogano quel nome e nessun altro. Un record scritto correttamente sull'apice è invisibile e il dominio viene trattato come del tutto privo di criterio DMARC. Di solito accade quando un pannello DNS ignora silenziosamente il campo host, oppure quando il record viene incollato nella stessa casella dell'SPF.",
+      "fix": "Ripubblichi il record come record TXT sull'host <code>_dmarc</code> ed elimini quello sull'apice: una stringa DMARC dispersa nell'insieme TXT dell'apice non fa nulla se non confondere chi la leggerà dopo di lei.",
+      "fixCode": "; Sbagliato — sul dominio stesso:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Giusto — sotto l'host _dmarc:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-sp": {
+      "msg": "sp= è impostato su \"{0}\", che non è un valore di criterio — i sottodomini ricadono invece su p=.",
+      "what": "La RFC 9989 §5.4 ammette esattamente tre valori per <code>sp=</code>: <code>none</code>, <code>quarantine</code> e <code>reject</code>. Qualunque altra cosa non è un criterio, quindi i destinatari ignorano il tag e i sottodomini ereditano <code>p=</code>. Può essere più severo o più debole di quanto intendesse, e il record si legge come se fosse in vigore un criterio deliberato per i sottodomini, mentre non ce n'è alcuno.",
+      "fix": "Corregga il valore, oppure rimuova del tutto <code>sp=</code> se le va bene che i sottodomini ereditino <code>p=</code>.",
+      "fixCode": "; Sbagliato — errore di battitura, ignorato in silenzio:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; Giusto:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
+    },
+    "dmarc-bad-np": {
+      "msg": "np= è impostato su \"{0}\", che non è un valore di criterio — i sottodomini inesistenti ricadono invece su sp= o p=.",
+      "what": "La RFC 9989 §5.4 ammette esattamente tre valori per <code>np=</code>: <code>none</code>, <code>quarantine</code> e <code>reject</code>. Qualunque altra cosa viene ignorata, e il criterio per i nomi che non esistono ricade attraverso <code>sp=</code> su <code>p=</code>. I sottodomini inesistenti sono la cosa più economica da falsificare per un aggressore, quindi vale la pena correggere un tag che sembra impostato e non lo è.",
+      "fix": "Corregga il valore, oppure rimuova <code>np=</code> e lasci che la catena di ripiego si applichi in modo deliberato.",
+      "fixCode": "; Sbagliato — non è un valore di criterio:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; Giusto:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
+    },
+    "dmarc-bad-adkim": {
+      "msg": "adkim= è impostato su \"{0}\" — gli unici valori sono r e s, quindi l'allineamento DKIM resta rilassato.",
+      "what": "La RFC 9989 §5.4 definisce due modalità di allineamento DKIM e due grafie: <code>r</code> per rilassato e <code>s</code> per rigido. Un valore come <code>strict</code> o <code>1</code> non viene riconosciuto e i destinatari ricadono sul rilassato. Il record si legge come rigido per chi lo ha scritto ma nella pratica si comporta come rilassato, il peggio di entrambi: un sottodominio del suo dominio organizzativo può superare l'allineamento mentre lei credeva che solo una corrispondenza esatta ci riuscisse.",
+      "fix": "Usi <code>adkim=s</code> per l'allineamento rigido, oppure rimuova il tag per dichiarare esplicitamente quello rilassato.",
+      "fixCode": "; Sbagliato — scritto per esteso, quindi ignorato:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; Giusto:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
+    },
+    "dmarc-bad-aspf": {
+      "msg": "aspf= è impostato su \"{0}\" — gli unici valori sono r e s, quindi l'allineamento SPF resta rilassato.",
+      "what": "La RFC 9989 §5.4 definisce due modalità di allineamento SPF e due grafie: <code>r</code> per rilassato e <code>s</code> per rigido. Un valore non riconosciuto viene ignorato e i destinatari ricadono sul rilassato, così il record rivendica un rigore che non ha. Con l'allineamento rilassato, qualsiasi sottodominio del suo dominio organizzativo può soddisfare la metà SPF di un DMARC superato.",
+      "fix": "Usi <code>aspf=s</code> per l'allineamento rigido, oppure rimuova il tag per dichiarare esplicitamente quello rilassato.",
+      "fixCode": "; Sbagliato — scritto per esteso, quindi ignorato:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; Giusto:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
+    },
+    "dmarc-np-not-applied": {
+      "msg": "np={0} è pubblicato ma qui non si applica — questo nome esiste, quindi vale sp={1}.",
+      "what": "La RFC 9989 §4.10.1 divide in due il criterio ereditato: il tag <code>sp=</code> si applica <em>\"if the Author Domain exists\"</em> e <code>np=</code> si applica <em>\"if the Author Domain does not exist\"</em>. L'esistenza è una questione di DNS — l'appendice A.4 della RFC 9989 stabilisce che se esiste un qualsiasi record per un nome, allora il nome esiste — e questo nome è stato risolto, quindi vale il ramo <code>sp=</code>. Si tratta di un'informazione: non c'è nulla di mal configurato. Compare qui perché altrimenti il criterio riportato sembrerebbe incoerente con il record che lei può leggere.",
+      "fix": "Non serve alcuna modifica. Se voleva che questo criterio più severo valesse anche per i sottodomini reali, imposti <code>sp=</code> allo stesso valore di <code>np=</code>.",
+      "fixCode": "; np= copre i nomi che non esistono; sp= copre quelli che esistono:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
     }
   },
   "suggestion": {

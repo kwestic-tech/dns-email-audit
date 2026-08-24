@@ -181,7 +181,28 @@
     "pctSuffix": "({0}%)",
     "permerror": "🔴 多条记录",
     "inheritedFrom": "继承自 {0}",
-    "testMode": "⚠ {0}（测试模式，未生效）"
+    "testMode": "⚠ {0}（测试模式，未生效）",
+    "discoveryFoundAt": "经过 {1} 次查询，在 {0} 找到策略",
+    "discoveryNotFound": "{0} 次查询中未找到策略",
+    "discoverySteps": "Tree Walk",
+    "showWalk": "显示 Tree Walk",
+    "stepSelected": "记录",
+    "stepApplied": "已应用的记录",
+    "stepKind": {
+      "success": "无 DMARC 记录",
+      "nodata": "无 TXT 记录",
+      "nxdomain": "名称不存在",
+      "servfail": "SERVFAIL",
+      "refused": "被拒绝",
+      "timeout": "已超时",
+      "error": "查询失败"
+    },
+    "terminated": {
+      "psd-y": "在公共后缀处停止 (psd=y)",
+      "psd-n": "在组织域处停止 (psd=n)",
+      "root": "一直遍历到顶级域",
+      "error": "提前停止 — 一次查询失败"
+    }
   },
   "dkim": {
     "uncommon": "不常见 ({0})",
@@ -284,7 +305,10 @@
       "SPF 查询次数",
       "问题",
       "建议",
-      "记录卫生状况"
+      "记录卫生状况",
+      "DMARC 发现位置",
+      "DMARC 向上标签数",
+      "DMARC 探测结束原因"
     ],
     "yes": "是",
     "no": "否",
@@ -327,10 +351,10 @@
       "fixCode": "; 合并前 — 两条记录，所有邮件的 SPF 都会失败：\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; 合并后 — 包含两个发送者的单条记录：\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
     },
     "dmarc-multiple-records": {
-      "msg": "在 _dmarc 发现多条 DMARC 记录 — DMARC 将完全不生效，域名可能被冒用。",
-      "what": "RFC 7489 §6.6.3 要求严格只能有一条 DMARC 记录。接收方会丢弃任何没有 <code>v=DMARC1</code> 标签的内容，如果保留的记录超过一条，策略探索将终止且不会对邮件应用 DMARC。无论您的策略多么严格，都会被完全忽略，因此域名虽然看起来受到保护，实际上却极易被冒用。您也将停止收到汇总报告，从而失去了发现异常的警报。",
-      "fix": "删除 <code>_dmarc</code> 处除了单条 TXT 记录之外的所有记录。如果重复的记录指定了不同的报告地址，请保留一条记录，并在单个 <code>rua=</code> 标签中列出这两个地址，用逗号隔开。",
-      "fixCode": "; 修改前 — _dmarc 处有两条记录，DMARC 被忽略：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; 修改后 — 单条记录，包含两个报告目的地：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+      "msg": "{0} 上存在多条 DMARC 记录 — 所有接收方都会全部忽略，没有任何策略生效。",
+      "what": "RFC 9989 §4.10 写得很明确：<em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> 接收方不会从中挑选一条，而是丢弃整组记录并继续沿 DNS 树向上查找。该名称之上同样没有发布任何记录，因此最终结果是您的域根本没有 DMARC 策略，尽管看起来配置齐全。您也将不再收到汇总报告，而那正是唯一能提醒您的信号。",
+      "fix": "删除 <code>_dmarc</code> 下除一条以外的所有 TXT 记录。如果这些重复记录指向不同的报告地址，请保留一条记录，并把两个地址用逗号分隔写在同一个 <code>rua=</code> 标签中。",
+      "fixCode": "; 修改前 — _dmarc 下有两条记录，均被丢弃：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; 修改后 — 一条记录，包含两个报告地址：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
     },
     "mta-sts-multiple-records": {
       "msg": "发现多条 MTA-STS 记录 — 发送方将视您的域名没有 MTA-STS 策略，因此不会强制执行入站 TLS 加密。",
@@ -637,6 +661,48 @@
       "what": "针对该域名的一次或多次 DNS 查询没有返回可用的应答，通常是解析器返回 SERVFAIL 或超时。这可能确实是域名服务器出了故障，但同样常见的是几分钟内即可恢复的临时性波动。审计的其余部分已正常完成，结果准确。受影响的检查按零分计，因为一个本工具无法为之背书的评分，其价值低于一个仅仅是严格的评分——因此在重新运行之前，查询失败确实会让您失分。",
       "fix": "请先重新运行审计：临时性故障会自行恢复，扣掉的分数也会回来。如果同样的检查持续失败，请直接查询受影响的名称，看您的域名服务器是否作出响应。对不存在的名称返回 SERVFAIL 而非 NXDOMAIN 的服务器会反复触发此问题。",
       "fixCode": "; 检查您的域名服务器是否会响应一个本不应存在的名称。\n; 正常的服务器返回 NXDOMAIN，异常的服务器返回 SERVFAIL：\ndig +short does-not-exist-test.yourdomain.com\n\n; 绕过解析器，直接询问您的权威服务器：\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    },
+    "dmarc-multiple-records-inherited": {
+      "msg": "{0} 上存在多条 DMARC 记录 — 它们全部被忽略。管辖本域的是 {1} 上的策略（{2}）。",
+      "what": "当同一名称返回多条记录时，RFC 9989 §4.10 会丢弃全部：<em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> 随后 Tree Walk 继续向上，接收方真正应用的是树中更高层的有效记录 — 所以本域并非毫无防护。您失去的是本地控制权：写在这里的策略不起作用，而继承来的策略可能更宽松、可能把报告发往别处，也可能在上级域被修改时毫无预警地改变。",
+      "fix": "删除 <code>_dmarc</code> 下除一条以外的所有 TXT 记录。只剩一条后，它就会优先于继承来的策略。如果您本就打算继承，请把两条都删掉，让上级域的策略有意识地生效。",
+      "fixCode": "; 修改前 — 此处两条记录均被丢弃，生效的是上级域的策略：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none;\"\n\n; 修改后 — 只剩一条，重新管辖本域：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-at-apex": {
+      "msg": "DMARC 记录发布在域本身而不是 _dmarc 之下 — 没有任何接收方会去那里查看。",
+      "what": "DMARC 策略位于 <code>_dmarc.yourdomain.com</code> 这个名称上，而不是 <code>yourdomain.com</code>。RFC 9989 §4.10.1 指出，策略探测 <em>\"starts with a query for a valid DMARC Policy Record at the name created by prepending the label '_dmarc' to the Author Domain\"</em> — 接收方只查询那个名称，别处一概不看。写在域顶点上的记录即便完全正确也是不可见的：该域会被当作根本没有 DMARC 策略。这通常发生在 DNS 控制面板悄悄忽略了主机字段时，或者把记录粘贴到了与 SPF 相同的输入框里。",
+      "fix": "请把该记录重新发布为主机 <code>_dmarc</code> 上的 TXT 记录，并从域顶点删除它 — 遗留在顶点 TXT 集合里的 DMARC 字符串毫无作用，只会让下一个阅读的人困惑。",
+      "fixCode": "; 错误 — 发布在域本身上：\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正确 — 发布在 _dmarc 主机下：\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-sp": {
+      "msg": "sp= 被设为“{0}”，这不是一个策略值 — 子域将改为回退到 p=。",
+      "what": "RFC 9989 §5.4 只允许 <code>sp=</code> 取三个值：<code>none</code>、<code>quarantine</code> 和 <code>reject</code>。其他任何取值都不是策略，因此接收方会忽略该标签，子域转而继承 <code>p=</code>。这可能比您本意更严格，也可能更宽松；而且这条记录读起来像是有意设置了子域策略，实际上并没有。",
+      "fix": "请更正该值；如果您接受子域继承 <code>p=</code>，也可以直接删除 <code>sp=</code>。",
+      "fixCode": "; 错误 — 拼写错误，被悄悄忽略：\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
+    },
+    "dmarc-bad-np": {
+      "msg": "np= 被设为“{0}”，这不是一个策略值 — 不存在的子域将改为回退到 sp= 或 p=。",
+      "what": "RFC 9989 §5.4 只允许 <code>np=</code> 取三个值：<code>none</code>、<code>quarantine</code> 和 <code>reject</code>。其他取值一律被忽略，针对不存在名称的策略会经由 <code>sp=</code> 回退到 <code>p=</code>。不存在的子域是攻击者最容易冒充的目标，因此一个看似已设置、实则未设置的标签值得更正。",
+      "fix": "请更正该值，或者删除 <code>np=</code>，让回退链有意识地生效。",
+      "fixCode": "; 错误 — 不是策略值：\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
+    },
+    "dmarc-bad-adkim": {
+      "msg": "adkim= 被设为“{0}” — 有效值只有 r 和 s，因此 DKIM 对齐仍为宽松模式。",
+      "what": "RFC 9989 §5.4 定义了两种 DKIM 对齐模式和两种写法：<code>r</code> 表示宽松，<code>s</code> 表示严格。像 <code>strict</code> 或 <code>1</code> 这样的值无法识别，接收方会回退到宽松模式。这条记录在书写者看来是严格的，实际行为却是宽松的，取了两者之短：您以为只有完全匹配才能通过的对齐检查，您组织域下的任意子域都能通过。",
+      "fix": "严格对齐请使用 <code>adkim=s</code>，或删除该标签以明确表示采用宽松对齐。",
+      "fixCode": "; 错误 — 拼成单词，因此被忽略：\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
+    },
+    "dmarc-bad-aspf": {
+      "msg": "aspf= 被设为“{0}” — 有效值只有 r 和 s，因此 SPF 对齐仍为宽松模式。",
+      "what": "RFC 9989 §5.4 定义了两种 SPF 对齐模式和两种写法：<code>r</code> 表示宽松，<code>s</code> 表示严格。无法识别的值会被忽略，接收方回退到宽松模式，于是这条记录宣称了它并不具备的严格性。在宽松对齐下，您组织域下的任意子域都能满足 DMARC 通过所需的 SPF 那一半条件。",
+      "fix": "严格对齐请使用 <code>aspf=s</code>，或删除该标签以明确表示采用宽松对齐。",
+      "fixCode": "; 错误 — 拼成单词，因此被忽略：\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; 正确：\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
+    },
+    "dmarc-np-not-applied": {
+      "msg": "np={0} 已发布，但在这里并不适用 — 该名称存在，因此由 sp={1} 管辖。",
+      "what": "RFC 9989 §4.10.1 把继承来的策略一分为二：<code>sp=</code> 标签在 <em>\"if the Author Domain exists\"</em> 时适用，<code>np=</code> 在 <em>\"if the Author Domain does not exist\"</em> 时适用。是否存在是一个 DNS 问题 — RFC 9989 附录 A.4 指出，只要某个名称存在任何记录，该名称即存在 — 而这个名称已成功解析，所以管辖它的是 <code>sp=</code> 分支。这只是提示信息：没有任何配置错误。之所以列在这里，是因为否则所报告的策略看起来会与您能读到的记录自相矛盾。",
+      "fix": "无需改动。如果您希望这条更严格的策略同样适用于真实存在的子域，请把 <code>sp=</code> 设为与 <code>np=</code> 相同的值。",
+      "fixCode": "; np= 适用于不存在的名称；sp= 适用于存在的名称：\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
     }
   },
   "suggestion": {

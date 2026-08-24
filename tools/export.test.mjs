@@ -316,8 +316,15 @@ const rows = APP.buildCsvRows([row]);
 const header = rows[0];
 const data = rows[1];
 
-eq('the hygiene column is appended last', header[header.length - 1], 'Record Hygiene');
+// 0.3.0 appended three Tree Walk columns after this one, which is the rule
+// working as intended: a column's index is fixed for the life of the file, so
+// later releases add to the right rather than renumbering what is already
+// there. Locate it by name, never by "last".
+const hygieneIdx = header.indexOf('Record Hygiene');
+eq('the hygiene column is still present', hygieneIdx !== -1, true);
 eq('the header and data rows are the same length', header.length, data.length);
+eq('the Tree Walk columns are appended after it',
+  header.slice(hygieneIdx), ['Record Hygiene', 'DMARC Found At', 'DMARC Labels Up', 'DMARC Discovery Terminated']);
 eq('the data column keeps the published bytes exactly',
   data[7], FIXTURES.bidiOverride);
 eq('the raw override character is still in the data column',
@@ -325,17 +332,35 @@ eq('the raw override character is still in the data column',
 eq('no sentinel was written into the data column',
   data[7].includes('‹RLO›'), false);
 eq('the hygiene column names what was found',
-  data[data.length - 1], 'bidi-override');
+  data[hygieneIdx], 'bidi-override');
+// A row with no discovery object leaves the appended columns empty rather
+// than shifting anything.
+eq('a row without a Tree Walk leaves the new columns empty',
+  data.slice(hygieneIdx + 1), ['', '', '']);
 
 const clean = APP.buildCsvRows([Object.assign({}, row, { spfRecord: 'v=spf1 -all' })]);
 eq('a clean record has an empty hygiene column',
-  clean[1][clean[1].length - 1], '');
+  clean[1][hygieneIdx], '');
+
+// Tree Walk provenance is exported as TOKENS, not translated prose, so a
+// script consuming the file does not have to parse a sentence in whichever
+// language the export happened to be made in.
+const walked = APP.buildCsvRows([Object.assign({}, row, {
+  spfRecord: 'v=spf1 -all',
+  dmarcDiscovery: {
+    applied: { record: 'v=DMARC1; p=reject', foundAt: 'example.com', labelsUp: 2, inherited: true },
+    terminated: 'root', queries: 4, steps: [], observed: [],
+  },
+})])[1];
+eq('the found-at column carries the name', walked[hygieneIdx + 1], 'example.com');
+eq('the labels-up column carries the count', walked[hygieneIdx + 2], 2);
+eq('the terminated column carries the token', walked[hygieneIdx + 3], 'root');
 
 // The positional-header rule: a locale that predates the column must not
 // misalign, which is why it is appended rather than inserted.
-eq('every column before the new one is unchanged',
-  header.slice(0, -1).join('|'),
-  (win.__I18N_EN__.csv.headers.slice(0, -1)).join('|'));
+eq('every column before the new ones is unchanged',
+  header.slice(0, hygieneIdx).join('|'),
+  (win.__I18N_EN__.csv.headers.slice(0, hygieneIdx)).join('|'));
 
 const csvText = APP.toCsvText(rows);
 eq('quotes in a value are doubled, not dropped',
@@ -421,9 +446,9 @@ eq('the row array still holds the published bytes',
 eq('the serialized cell is neutralized',
   fLines[1].split('","')[7].charAt(0), "'");
 eq('the hygiene column reports it',
-  fRows[1][fRows[1].length - 1].includes('formula-leading'), true);
+  fRows[1][hygieneIdx].includes('formula-leading'), true);
 eq('a clean row reports no formula hygiene',
-  APP.buildCsvRows([Object.assign({}, formulaRow, { spfRecord: 'v=spf1 -all' })])[1].slice(-1)[0],
+  APP.buildCsvRows([Object.assign({}, formulaRow, { spfRecord: 'v=spf1 -all' })])[1][hygieneIdx],
   '');
 
 /* ── 9. Codex review 1 — issue messages in the exported report ───────── */

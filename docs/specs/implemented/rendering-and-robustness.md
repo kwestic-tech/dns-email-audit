@@ -9,7 +9,7 @@
 | Pull request | [#18](https://github.com/kwestic-tech/dns-email-audit/pull/18) |
 | Merge commit | `6bf8bda` (squashed) |
 | Depends on | Nothing. This is the first release after 0.2.2. |
-| Blocks | [dmarcbis-tree-walk](../dmarcbis-tree-walk.md) and [local-artifact-validation](../local-artifact-validation.md) directly; every later release extends the rendering path. |
+| Blocks | [dmarcbis-tree-walk](dmarcbis-tree-walk.md) and [local-artifact-validation](../local-artifact-validation.md) directly; every later release extends the rendering path. |
 | Slug for open questions | `SEC` |
 | Last updated | 2026-08-24 |
 
@@ -39,7 +39,7 @@ worth fixing before six more releases extend the same code.
 the string that `i=1` then scans, so a value containing `{1}` causes the second
 argument to be interpolated into a position the translator never wrote. Every
 current multi-argument message takes an internal value first, so nothing reachable
-exploits this today. [dmarcbis-tree-walk](../dmarcbis-tree-walk.md) and
+exploits this today. [dmarcbis-tree-walk](dmarcbis-tree-walk.md) and
 [dns-protocol-depth](../dns-protocol-depth.md) both add messages whose first
 argument is a DNS-derived name, which makes it reachable.
 

@@ -2,18 +2,18 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.1 (Final) |
+| Spec version | 1.2 (Implemented) |
 | Target release | 0.3.0 |
-| Status | Final — approved for implementation |
-| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md) (0.2.3), because this release adds new rendered evidence |
-| Blocks | [findings-and-remediation](findings-and-remediation.md), which consumes discovery provenance |
+| Status | Implemented |
+| Depends on | [rendering-and-robustness](rendering-and-robustness.md) (0.2.3), because this release adds new rendered evidence |
+| Blocks | [findings-and-remediation](../findings-and-remediation.md), which consumes discovery provenance |
 | Slug for open questions | `DMARC` |
 | Last updated | 2026-08-24 |
 
 ## Problem
 
 The application already advertises RFC 9989 conformance. `js/dns.js` implements
-the full DMARCbis tag vocabulary at [`js/dns.js:558`](../../js/dns.js), handles
+the full DMARCbis tag vocabulary at [`js/dns.js:558`](../../../js/dns.js), handles
 `t=` test mode, `psd=`, `sp`/`np` inheritance, case-insensitive anchored tag
 parsing, DMARC URI list parsing with size-limit suffixes, and external report
 authorization. The scoring rubric was already migrated off `pct=`. That is most
@@ -21,10 +21,10 @@ of the specification.
 
 What is missing is discovery. RFC 9989 replaced the Public Suffix List with a
 DNS Tree Walk for locating the Organizational Domain, and this application still
-uses the PSL. `analyzeDomain()` at [`js/dns.js:1844`](../../js/dns.js) queries
+uses the PSL. `analyzeDomain()` at [`js/dns.js:1844`](../../../js/dns.js) queries
 `_dmarc.<domain>`, and on a miss makes exactly one more query at
 `_dmarc.<organizational-domain>` where the organizational domain comes from
-`getOrganizationalDomain()` at [`js/dns.js:246`](../../js/dns.js), which reads
+`getOrganizationalDomain()` at [`js/dns.js:246`](../../../js/dns.js), which reads
 the vendored PSL snapshot in `js/public-suffixes.js`.
 
 That approximation is wrong in three ways that matter. It reaches the wrong name
@@ -35,10 +35,10 @@ which exists precisely so the walk knows where to stop without consulting a
 list maintained outside DNS.
 
 Two smaller defects sit alongside it. Record selection at
-[`js/dns.js:1846`](../../js/dns.js) filters TXT strings with
+[`js/dns.js:1846`](../../../js/dns.js) filters TXT strings with
 `startsWithCI(v, 'v=DMARC1')`, so a record written as `p=reject; v=DMARC1` is
 never selected and is reported as if no record exists. `validateDmarcVersion()`
-at [`js/dns.js:601`](../../js/dns.js) already knows how to say `not-first`, but
+at [`js/dns.js:601`](../../../js/dns.js) already knows how to say `not-first`, but
 nothing ever reaches it in that case. Separately, `np=` is scored through
 `effectiveNp` without ever testing whether the audited name is in fact a
 non-existent subdomain, so the non-existent-subdomain branch of the policy is
@@ -62,7 +62,7 @@ applied to names that plainly exist.
 ## Non-goals
 
 - No scoring change in this release. The rubric in `calcDmarcScore()` at
-  [`js/dns.js:1334`](../../js/dns.js) is untouched. Discovery correctness will
+  [`js/dns.js:1334`](../../../js/dns.js) is untouched. Discovery correctness will
   move some domains between grades because a different record is found, and that
   is a discovery change, not a rubric change. Any deliberate rubric change is a
   separate release and is backtested first.
@@ -102,8 +102,8 @@ async function discoverDmarc(domain, queryOpts) → {
 
 **`applied.foundAt` and `applied.labelsUp` are defined as the location of the
 policy record actually applied**, and are not renamed. Both are read directly by
-[findings-and-remediation](findings-and-remediation.md) and exported as schema
-fields by [report-comparison](report-comparison.md), so their names are frozen.
+[findings-and-remediation](../findings-and-remediation.md) and exported as schema
+fields by [report-comparison](../report-comparison.md), so their names are frozen.
 `policyDomain` is an alias of `applied.foundAt` provided for readability at call
 sites that care about the policy rather than the discovery evidence.
 `organizationalDomain` is a **separate** value and is often not the same name:
@@ -118,7 +118,7 @@ keeps its current signature. The orchestration in `analyzeDomain()` calls
 discovery object to the result as `dmarcDiscovery`.
 
 The existing post-hoc mutation of `dmarcStatus` at
-[`js/dns.js:1856`](../../js/dns.js), which overwrites `policy` with
+[`js/dns.js:1856`](../../../js/dns.js), which overwrites `policy` with
 `effectiveSp` and rewrites `status` and `cls`, is replaced by an explicit
 `applyInheritance(dmarcStatus, discovery)` function returning a new object. That
 mutation is currently the only place a `dmarcStatus` is edited after
@@ -196,7 +196,7 @@ Implementation constraints that are settled:
 - A step returning `servfail`, `timeout`, `network-error` or `http-error`
   terminates the walk with `terminated: 'error'` and `applied: null`. A failed
   lookup is not a missing record. The result is `unknown`, and per the pattern
-  established by `optionalCheck()` at [`js/dns.js:180`](../../js/dns.js) an
+  established by `optionalCheck()` at [`js/dns.js:180`](../../../js/dns.js) an
   unknown control must never be presented as an absent one. This holds even when
   a record was already collected at a lower step: a transient error means the
   higher names could not be examined, so the *highest* record is not knowable.
@@ -229,7 +229,7 @@ Selection runs in two passes at each step.
 
 The **strict pass** is what determines policy. Keep TXT strings that begin with
 `v=DMARC1` after leading-whitespace trimming, case-sensitive on the value
-`DMARC1` per [`js/dns.js:601`](../../js/dns.js) and case-insensitive on the tag
+`DMARC1` per [`js/dns.js:601`](../../../js/dns.js) and case-insensitive on the tag
 name `v`. If exactly one survives, it is that step's record. If more than one
 survives, **all are discarded and the walk continues**, and the step is recorded
 in `observed[]` with `why: 'multiple-at-step'`.
@@ -242,7 +242,7 @@ reported only "no DMARC record" would be describing the symptom instead of the
 cause. What changes is the *policy verdict*, which becomes RFC-correct: a record
 higher in the tree still applies, and if none exists the status is `missing`.
 Scoring is unaffected either way — `missing`, `present` and `permerror` all
-score zero at [`js/dns.js:1371`](../../js/dns.js).
+score zero at [`js/dns.js:1371`](../../../js/dns.js).
 
 **The message must not lie about the policy.** When a duplicate is found at one
 name but a valid record applies from higher in the tree, the finding says the
@@ -286,7 +286,7 @@ async function domainExists(name, queryOpts) → 'yes' | 'no' | 'unknown'
 Implementation: an NXDOMAIN response for any type at that name means `no`;
 NOERROR with or without data means `yes`; any transport failure means `unknown`.
 `analyzeDomain()` already issues NS, MX, TXT, A and AAAA queries for the audited
-name at [`js/dns.js:1819`](../../js/dns.js), and `nsResult.status === 3` is
+name at [`js/dns.js:1819`](../../../js/dns.js), and `nsResult.status === 3` is
 already the unregistered-domain test. The existence verdict should be derived
 from those existing responses rather than adding a query. See `OQ-DMARC-02` for
 which record type is authoritative for this purpose.
@@ -294,7 +294,7 @@ which record type is authoritative for this purpose.
 The consequence for scoring is deliberately conservative: when the audited name
 exists, `effectiveSp` governs and `effectiveNp` is reported but not applied. When
 existence is `unknown`, the weaker of the two continues to govern, matching the
-existing weakest-link rule at [`js/dns.js:1349`](../../js/dns.js).
+existing weakest-link rule at [`js/dns.js:1349`](../../../js/dns.js).
 
 ### 5. Stricter tag validation
 
@@ -306,7 +306,7 @@ an English string.
 | --- | --- |
 | `p` | An unrecognized value already forces `malformed`. Add the raw value to the status so the message can name it. |
 | `sp`, `np` | Same treatment: an unrecognized value is currently silently normalized to `null` by `normalizePolicy()` and then inherits. Distinguish "absent, inherits" from "present but unrecognized". |
-| `adkim`, `aspf` | Currently any value other than `s` becomes `r` at [`js/dns.js:715`](../../js/dns.js). Distinguish `absent`, `r`, `s`, and `invalid`. |
+| `adkim`, `aspf` | Currently any value other than `s` becomes `r` at [`js/dns.js:715`](../../../js/dns.js). Distinguish `absent`, `r`, `s`, and `invalid`. |
 | `t` | `tValid` exists. Surface it as a finding rather than only as a field. |
 | `psd` | `psdValid` exists. A `psd=y` on a name that is plainly not a public suffix is worth naming. |
 | `fo` | `foValid` exists. Add the existing "fo without ruf is a no-op" observation as a first-class finding. |
@@ -315,12 +315,12 @@ an English string.
 
 ### 6. External report authorization
 
-`checkExternalReportAuth()` at [`js/dns.js:828`](../../js/dns.js) is close to
+`checkExternalReportAuth()` at [`js/dns.js:828`](../../../js/dns.js) is close to
 correct and needs three tightenings.
 
 First, the authorization record must have `v=DMARC1` as its **first** tag, which
 is what RFC 9990 §4.3 requires and what the comment at
-[`js/dns.js:815`](../../js/dns.js) already states. The check uses
+[`js/dns.js:815`](../../../js/dns.js) already states. The check uses
 `startsWithCI(r, 'v=DMARC1')`, which is correct for position but accepts
 `v=DMARC1x`. Route it through `validateDmarcVersion()` so one function owns the
 rule.
@@ -348,7 +348,7 @@ normal vendor practice, while NOERROR with unrelated TXT data usually means
 someone put the record at the wrong name.
 
 The `policyDomain` passed in is `dmarcAtDomain` at
-[`js/dns.js:1938`](../../js/dns.js). Once the Tree Walk lands, the correct value
+[`js/dns.js:1938`](../../../js/dns.js). Once the Tree Walk lands, the correct value
 is the name the applied record was found at, which is `discovery.applied.foundAt`.
 This must be updated in the same change or authorization will be checked against
 the wrong source domain.
@@ -366,13 +366,13 @@ dmarcExistence: 'yes' | 'no' | 'unknown',
 one release so the CSV export and the report do not break, then removed.
 
 The detail panel gains a discovery line under the existing DMARC row at
-[`js/app.js:494`](../../js/app.js), showing the found-at name, the number of
+[`js/app.js:494`](../../../js/app.js), showing the found-at name, the number of
 steps, and the termination reason. The existing `dmarc.inheritedFrom` message is
 kept and extended.
 
-The CSV export at [`js/app.js:737`](../../js/app.js) gains columns for
+The CSV export at [`js/app.js:737`](../../../js/app.js) gains columns for
 `dmarc_found_at`, `dmarc_labels_up` and `dmarc_discovery_terminated`. Note the
-positional-header backfill logic at [`js/app.js:744`](../../js/app.js): new
+positional-header backfill logic at [`js/app.js:744`](../../../js/app.js): new
 columns must be appended, never inserted, and `locales/en.json` `csv.headers`
 defines the column count.
 
@@ -383,7 +383,7 @@ findings in section 5, the discovery evidence line, and the three CSV headers.
 Estimated 20 to 30 new keys under `issue.*`, `dmarc.*` and `csv.headers`.
 
 All thirteen locales are translated in the same change per
-[`AGENTS.md`](../../AGENTS.md). `npm run build:fallback` runs after the
+[`AGENTS.md`](../../../AGENTS.md). `npm run build:fallback` runs after the
 `locales/en.json` edit. `npm run locale:gate` must report 13/13 before the pull
 request opens. Protocol tokens (`v=DMARC1`, `p=`, `sp=`, `np=`, `psd=`, `t=y`,
 `_dmarc`, `_report._dmarc`) are never translated.
@@ -393,12 +393,12 @@ request opens. Protocol tokens (`v=DMARC1`, `p=`, `sp=`, `np=`, `psd=`, `t=y`,
 Discovery is tested against a fixture resolver rather than the network, with
 **no production code change**. Per `OQ-DMARC-03` the mechanism is a programmable
 `fetch` in the test sandbox: the sandbox already stubs `fetch` to return
-`{ok: false}` at [`tools/scoring.test.mjs:15`](../../tools/scoring.test.mjs), and
+`{ok: false}` at [`tools/scoring.test.mjs:15`](../../../tools/scoring.test.mjs), and
 this replaces that stub with one that pattern-matches the DoH query string and
 returns a canned DoH JSON body.
 
 The helper lives in `tools/lib/doh-fixture.mjs` rather than inline, because
-[dns-protocol-depth](dns-protocol-depth.md) and [dnssec-evidence](dnssec-evidence.md)
+[dns-protocol-depth](../dns-protocol-depth.md) and [dnssec-evidence](../dnssec-evidence.md)
 reuse it. It takes a map of query name and type to response, and defaults any
 unmatched query to `nxdomain` so a fixture cannot accidentally depend on a real
 lookup. No `__setResolver` hook and no transport seam is added to `js/dns.js`:
@@ -466,7 +466,7 @@ discovery difference and listed in `CHANGELOG.md`.
 queries per domain. A Tree Walk issues more, and a 200-domain audit multiplies
 that. `PRIVACY.md` states a typical domain fans out to roughly 30 queries, and
 that number will rise. Mitigation: the `dohFetch()` cache at
-[`js/dns.js:65`](../../js/dns.js) is keyed on name and type and already
+[`js/dns.js:65`](../../../js/dns.js) is keyed on name and type and already
 deduplicates shared upper steps across domains in the same run. Measure the
 actual fan-out change with the backtest and update `PRIVACY.md` with the real
 number.
@@ -491,11 +491,11 @@ None. All seven were resolved on 2026-08-24 — see **Resolved questions** below
 | --- | --- | --- | --- |
 | OQ-DMARC-01 | Who transcribes the normative Tree Walk parameters, and against what text? | RFC 9989 was fetched as published text (`rfc-editor.org`, May 2026, obsoletes 7489/9091) and §4.10 transcribed directly; no parameter comes from memory or another implementation. **Yes** to the procedural question: the normative subsection is quoted verbatim in section 2 above and again in a code comment beside the implementation, so a reviewer can check the code against the RFC without leaving the diff. Transcription immediately caught two defects in this spec's own 0.1 text — a five-label threshold that is eight in the published RFC, and a first-match stop condition that is highest-match. | 1.0 |
 | OQ-DMARC-02 | Which query answers the domain-existence question? | NXDOMAIN on the existing NS query is sufficient; no additional query is needed. RFC 9989 §3.2.13 and Appendix A.4 are explicit that existence is a property of the *name*, not of any record type: *"if any RR exists for a domain, then the domain exists"*, NXDOMAIN means the name does not exist, and NODATA (NOERROR with no records of the queried type) means the name exists but that type does not. The spec's own worry — a name with only a TXT record — is therefore handled correctly, because such a name returns NOERROR/NODATA rather than NXDOMAIN on the NS query. `analyzeDomain()` already holds NS, MX, TXT, A and AAAA responses, so existence is `no` on NXDOMAIN, `yes` on any NOERROR, and **`unknown` on any transient error** — a timeout or SERVFAIL must never be read as non-existence. | 1.0 |
-| OQ-DMARC-03 | How is a fixture resolver injected into `js/dns.js`? | A programmable `fetch` in the test sandbox that pattern-matches the DoH query string. No production code change, and the test stays honest about the wire format. Approved by Ian 2026-08-24, with the downstream consumers in mind: [dns-protocol-depth](dns-protocol-depth.md) and [dnssec-evidence](dnssec-evidence.md) reuse this mechanism, so the fixture helper is written to be shared rather than inlined in this release's test file. A `__setTransport()` hook was rejected as a production seam existing only for tests; extracting the transport was rejected as a refactor this release's non-goals exclude. | 1.0 |
+| OQ-DMARC-03 | How is a fixture resolver injected into `js/dns.js`? | A programmable `fetch` in the test sandbox that pattern-matches the DoH query string. No production code change, and the test stays honest about the wire format. Approved by Ian 2026-08-24, with the downstream consumers in mind: [dns-protocol-depth](../dns-protocol-depth.md) and [dnssec-evidence](../dnssec-evidence.md) reuse this mechanism, so the fixture helper is written to be shared rather than inlined in this release's test file. A `__setTransport()` hook was rejected as a production seam existing only for tests; extracting the transport was rejected as a refactor this release's non-goals exclude. | 1.0 |
 | OQ-DMARC-04 | Does the PSL stay after the Tree Walk lands? | **No — both call sites switch to the Tree Walk.** Approved by Ian 2026-08-24. RFC 9990 defines the externality test in terms of the Organizational Domain, which after this release means the Tree Walk result, and carrying two definitions of "organizational domain" in one codebase is the kind of ambiguity that produces a wrong answer years later. The cost is accepted and must be measured, not estimated: the externality test now walks the *destination's* tree, so the query fan-out rises beyond what this spec originally anticipated. `PRIVACY.md`'s stated fan-out is updated from a measured backtest before merge. | 1.0 |
 | OQ-DMARC-05 | What is the verdict when a report destination publishes multiple authorization records? | Not ambiguous, contrary to the 0.1 text. RFC 9990 §4 step 6 discards records that fail parsing, and step 8 states: *"If at least one TXT resource record remains in the set after parsing, then the external reporting arrangement was authorized by the Report Consumer."* Multiple authorization records are therefore **authorized** so long as one parses. This is the opposite of the conservative reading the draft leaned toward, and it is not a judgement call — the permissive reading is the normative one. Note this differs deliberately from the DMARC *policy* rule, where duplicates are discarded; the two questions are asked at different names for different purposes. | 1.0 |
 | OQ-DMARC-06 | Should discovery evidence be shown by default or on demand? | The middle option, confirmed. The found-at line always shows; the full step list appears only when `labelsUp > 0` or `terminated` is not `root`, and is behind a disclosure control otherwise. The step list is what makes a surprising result explicable and is noise the rest of the time. | 1.0 |
-| OQ-DMARC-07 | Does `psd=y` change the score? | No, in this release. `WEIGHTS`, `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` stay byte-identical, per the advisory-before-scoring rule: a new signal reports for at least one release before it affects a grade. Whether a correct `psd=y` earns credit, or an incorrect one costs it, is referred to [findings-and-remediation](findings-and-remediation.md) (0.6.0), which owns severity. Recorded there rather than left as a verbal note. | 1.0 |
+| OQ-DMARC-07 | Does `psd=y` change the score? | No, in this release. `WEIGHTS`, `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` stay byte-identical, per the advisory-before-scoring rule: a new signal reports for at least one release before it affects a grade. Whether a correct `psd=y` earns credit, or an incorrect one costs it, is referred to [findings-and-remediation](../findings-and-remediation.md) (0.6.0), which owns severity. Recorded there rather than left as a verbal note. | 1.0 |
 
 **Scores will move in this release, and that is expected.** 0.3.0 is a
 discovery-only change: no rubric, weight or threshold is touched, but a domain
@@ -503,8 +503,127 @@ whose policy is found at a different name than the PSL previously chose will
 score differently, and a domain with duplicate records at one name may now
 inherit a valid policy from higher in the tree where it previously scored zero.
 The backtest is run and the movement reported in the pull request rather than
-suppressed — this is the case [report-comparison](report-comparison.md)'s
+suppressed — this is the case [report-comparison](../report-comparison.md)'s
 `OQ-CMP-06` exists to describe.
+
+## As implemented
+
+**1. The applied record is chosen by §4.10.1's preference list, not by height
+alone.** The 1.1 text said the applied policy is the Author Domain's record if
+it has one and otherwise "the record at the **highest** name in the tree that
+has one", citing §B.4.2. Transcribing §4.10.1 during implementation showed that
+is right in every case except one, and wrong in the case `psd=` exists for. The
+RFC's preference list is *Author Domain, then Organizational Domain, then PSD*,
+and §4.10.1 closes with a note that settles it outright:
+
+> Note: PSD policy is not used for Organizational Domains that have published a
+> DMARC Policy Record.
+
+So for `x.giant.bank.example` with a plain record at `giant.bank.example` and
+`psd=y` at `bank.example`, the Organizational Domain is `giant.bank.example`
+(§4.10.2 rule 2) and *its* record applies — even though the PSD's record sits
+higher in the tree. Height-alone would apply the PSD's policy, which the note
+forbids. Where no `psd=` tag is involved, §4.10.2 rule 3 makes the
+Organizational Domain the fewest-labels record and the two readings agree, which
+is why §B.4.1 and §B.4.2 read as they do. `selectAppliedRecord()` implements the
+preference list; the divergent case is a fixture in section 28 of
+[`tools/scoring.test.mjs`](../../../tools/scoring.test.mjs).
+
+**2. A record at the Author Domain survives a transient error higher up.** The
+1.1 text said a `servfail`/`timeout`/`network-error` step terminates the walk
+with `applied: null` and that this "holds even when a record was already
+collected at a lower step", reasoning that the *highest* record is not knowable.
+That reasoning is correct for the Organizational Domain and for an inherited
+policy, and it does not hold for the Author Domain's own record, because
+§4.10.1 settles that one before any walk happens:
+
+> Policy discovery first starts with a query for a valid DMARC Policy Record at
+> the name created by prepending the label "_dmarc" to the Author Domain of the
+> message being evaluated. If a valid DMARC Policy Record is found there, then
+> this is the DMARC Policy Record to be applied to the message
+
+and performs the Tree Walk only "If no valid DMARC Policy Record is found by the
+first query". Nothing discovered higher can displace it. As specified, a
+SERVFAIL at `_dmarc.com` would have turned a domain's own `p=reject` into an
+unknown — a false "no policy" verdict on a healthy domain, which is the failure
+mode this project treats as the most damaging kind. `terminated` is still
+`error` and `organizationalDomain` still falls back to the audited name; only
+`applied` survives, and only when it was found at the audited name itself. Both
+branches are fixtures.
+
+**3. Duplicate records get two locale keys, and the walk supplies the
+evidence.** As specified. `dmarc-multiple-records` now names the queried name
+and is raised only when nothing governs; `dmarc-multiple-records-inherited`
+names the duplicate, the governing name and the governing policy. Both are
+critical. The finding is keyed on `observed[]` rather than on
+`status === 'permerror'`, which the Tree Walk never produces — so the old
+`permerror` branch in `buildIssues()` is now unreachable through
+`analyzeDomain()` and is retained only for a directly-constructed status.
+
+**4. The version diagnostics moved from `status === 'present'` to
+`observed[]`.** A consequence of the strict pass being `validateDmarcVersion()`
+itself: a record with a bad `v=` is never *selected*, so it can no longer arrive
+as a `present` status. `dmarc-version-not-first`, `dmarc-version-bad-value` and
+`dmarc-version-missing` are now raised from the walk's diagnostic pass. The
+`present` branch still exists for what remains reachable — a record receivers
+will read and cannot act on (bad `p=`, duplicate tags).
+
+**5. `dmarcExistence` is derived, and is `yes` on every path that reaches the
+DMARC code.** `OQ-DMARC-02` resolved that NXDOMAIN on the existing NS query is
+sufficient and no extra query is needed. In `analyzeDomain()` that is stronger
+than it looks: an NXDOMAIN on NS returns `unregistered` before any DMARC work
+happens, and a transient NS failure throws, so anything reaching discovery
+resolved without NXDOMAIN. The `np=` gate is therefore correct and conservative
+rather than frequently exercised, and `dmarc-np-not-applied` exists to explain
+the reported policy when a record publishes an `np=` that does not govern.
+`domainExists()` is exported and tested independently for the destinations and
+fixtures that have no NS response to hand.
+
+**6. `findExternalReportDestinations()` takes a map of walked Organizational
+Domains.** `OQ-DMARC-04` moved both DMARC call sites to the Tree Walk, which
+makes the externality test asynchronous — but `buildIssues()` is synchronous and
+calls it. Rather than make `buildIssues()` async, `analyzeDomain()` resolves
+every candidate destination's Organizational Domain with
+`resolveDestinationOrgDomains()` and passes both the map and the finished list
+down. A destination already equal to the policy domain's Organizational Domain
+is settled by string comparison and never walked. A destination whose own walk
+fails falls back to its bare name, which can only make it look external — a
+"verify this" notice rather than a silent pass.
+
+**7. A step list marks which record was applied.** Found in interface
+verification, not specified. A walk that stops at a `psd=y` boundary collects a
+record at two names, and both rendered as the word "record" — leaving the reader
+unable to tell which one governs. `dmarc.stepApplied` distinguishes them.
+
+**8. `tools/backtest.mjs` measures the query fan-out.** `PRIVACY.md` has to
+state the number and `OQ-DMARC-04` requires it be measured rather than
+estimated, so the backtest counts the requests that actually reach the network
+and reports per-domain fan-out on every run. It also carries the walk's
+provenance into `--json`, so a grade diff between two runs can be explained by
+naming the record that moved.
+
+## Verification
+
+- `npm test` — 1,130 assertions, 0 failures (972 at `v0.2.3`).
+- `npm run locale:gate` — 13/13 locales, 593/593 keys.
+- `node tools/backtest.mjs --sample --json`, diffed against `v0.2.3`:
+  **no DMARC-pillar movement across 40 apex domains.**
+- A second 40-name run over subdomains, where the PSL and the Tree Walk can
+  disagree, moved the DMARC pillar on exactly one: **`www.gov.uk`, 0 → 14
+  points, F → D.** `gov.uk` is a PSL public suffix, so the old code treated
+  `www.gov.uk` as its own organizational domain and never issued a second query;
+  the Tree Walk queries `_dmarc.gov.uk` and finds a real
+  `p=reject; sp=none; np=reject` record. `sp=none` governs because the audited
+  name exists, which is why the pillar is 14 rather than 27. Two other domains
+  moved on the DNSSEC pillar in that run; both were confirmed as resolver
+  flakiness by reproducing the same flip at `v0.2.3`.
+- Fan-out, measured: **30.4 → 32.1 queries per domain** on the 40-domain sample
+  (+5.6%), and 42 → 46 for `cloudflare.com` with the interface's default
+  options. `PRIVACY.md` is updated from these numbers.
+- Two real-world findings the release surfaces that 0.2.3 could not: `zoom.us`
+  publishes a complete DMARC record on its apex TXT set where no receiver reads
+  it (`dmarc-at-apex`), and `_dmarc.gov` publishes `psd=y`, which terminates the
+  walk for every `.gov` domain (`terminated: 'psd-y'`).
 
 ## Revision history
 
@@ -512,4 +631,5 @@ suppressed — this is the case [report-comparison](report-comparison.md)'s
 | --- | --- | --- |
 | 0.1 | 2026-08-20 | Initial draft. |
 | 1.0 | 2026-08-24 | Final. Resolved all seven open questions. Two corrections came out of transcribing RFC 9989 §4.10 rather than trusting the draft: the label threshold is **eight**, not five (five was an early DMARCbis draft), and the walk selects the **highest** name carrying a record, not the first one found going up — first-match would report the wrong policy domain for exactly the delegated-subdomain case DMARCbis exists to serve. Consequent changes: `applied.foundAt`/`applied.labelsUp` keep their names and are defined as the location of the applied record, `policyDomain` is added as an alias, `organizationalDomain` stays separate and is the highest name with a record; duplicate records at a step are discarded and the walk continues rather than terminating as `multiple`, with the duplicate kept as diagnostic evidence and the critical finding raised from that evidence; and the `terminated` vocabulary now describes how the walk ended (`psd-y`, `psd-n`, `root`, `query-limit`, `error`) rather than what was found in it. `OQ-DMARC-05` was resolved against RFC 9990 §4 step 8, which is explicit where the draft called it ambiguous. Corrections contributed by external review (Codex). |
+| 1.2 | 2026-08-24 | Implemented. Two corrections came out of transcribing RFC 9989 against the code, both in the same direction as 1.0's: the spec's summary of the RFC was tidier than the RFC. The applied record is selected by §4.10.1's preference list (Author Domain, then Organizational Domain, then PSD) rather than by height alone — §4.10.1's closing note, *"PSD policy is not used for Organizational Domains that have published a DMARC Policy Record"*, decides the one case where the two readings differ. And a record found at the Author Domain survives a transient error higher in the walk, because §4.10.1 settles that record on the first query and performs the walk only "If no valid DMARC Policy Record is found by the first query"; as written, 1.1 would have reported a false "no policy" on a healthy domain whenever `_dmarc.com` was slow. See **As implemented** 1 and 2. |
 | 1.1 | 2026-08-24 | Consistency pass over the 1.0 text before implementation, after external review (Codex) found six places where 1.0 still contradicted its own resolutions. Removed the non-goal claiming the PSL stays for `findExternalReportDestinations()`, which `OQ-DMARC-04` had already moved to the Tree Walk. Rewrote section 6's duplicate-authorization rule, which still proposed a `multiple` state after `OQ-DMARC-05` resolved to "authorized when at least one record parses", and corrected the matching fixture. Replaced the testing section's `__setResolver`/transport-injection proposal with the resolved programmable sandbox `fetch` helper. Removed `query-limit` from `terminated`: the eight-query bound is achieved by the shortening rule and labels always run out exactly at the budget, so it is not a reachable outcome. Corrected `organizationalDomain` to RFC 9989 §4.10.2's three-rule selection — `psd=n` wins outright, `psd=y` puts the Organizational Domain one label below (a name that may carry no record), and only otherwise is it the fewest-labels record — with the initial target as the normative fallback, so the field is never null. Added the requirement that a duplicate finding never claims no policy applies when one does. |

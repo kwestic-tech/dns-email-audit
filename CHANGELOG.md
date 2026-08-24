@@ -14,7 +14,93 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **DMARC discovery follows the RFC 9989 DNS Tree Walk instead of the Public
+  Suffix List.** Previously the audit made at most two DMARC queries: one at
+  `_dmarc.<domain>`, and on a miss one more at the name a bundled Public Suffix
+  List picked. That approximation reaches the wrong name whenever a domain's
+  real DMARC boundary differs from its PSL boundary, cannot see a policy
+  published at an intermediate level, and cannot honour `psd=` — the tag that
+  exists precisely so the boundary comes from DNS rather than from a list
+  maintained elsewhere. `discoverDmarc()` now walks from the audited name up to
+  the top-level domain, capped at eight queries by RFC 9989 §4.10's shortening
+  rule, stopping early at a `psd=y` or `psd=n` boundary.
+
+  **This moves some grades, and no scoring rule changed to do it.** `WEIGHTS`,
+  `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` are byte-identical to 0.2.3. A domain
+  moves only because a different record is now found. Measured across two
+  40-domain backtests: no DMARC-pillar movement at all on apex domains, and one
+  move on a subdomain list — `www.gov.uk`, F → D. `gov.uk` is a PSL public
+  suffix, so the old code never looked above it; the Tree Walk queries
+  `_dmarc.gov.uk` and finds a real `p=reject; sp=none; np=reject` record.
+
+  The vendored PSL file stays, but no DMARC decision consults it any more — the
+  external-report authorization check in RFC 9990 §4 is defined against
+  organizational domains, and those now come from the walk on both sides. The
+  list is retained only for the hosting and provider heuristics.
+
+- **Duplicate DMARC records no longer mean "no DMARC policy".** RFC 9989 §4.10
+  discards every record when a name returns more than one and then *keeps
+  walking*, so a valid record higher in the tree still governs. The finding
+  stays critical — two records at one name is a real misconfiguration that makes
+  every receiver ignore both — but it no longer claims that nothing applies when
+  something does. There are two messages now: one that names the governing
+  policy, and one for when there is genuinely nothing above.
+
+- **External report authorization is checked against the name the applied
+  record was found at**, and follows RFC 9990 §4 more closely: the `v=DMARC1`
+  tag is validated rather than prefix-matched, so `v=DMARC1x` no longer
+  authorizes anything, and a destination publishing several records is
+  authorized when at least one of them parses (§4 step 8) rather than only the
+  first being examined.
+
+### Added
+
+- **A misplaced or miscased DMARC record is diagnosed instead of reported as
+  missing.** `p=reject; v=DMARC1` (version not first), `v=dmarc1; p=reject`
+  (wrong case — the value is case-sensitive), a record with no `v=` at all, and
+  a record published on the domain's own TXT set instead of under `_dmarc` each
+  produce a specific finding naming the actual problem. The last of these is
+  common and previously indistinguishable from having no record: `zoom.us`
+  publishes a complete, correct DMARC record where no receiver will ever read
+  it.
+
+- **Discovery evidence in the interface and the export.** The DMARC detail line
+  names the name the policy was found at and how many lookups it took, and the
+  step-by-step walk is shown when it did something worth seeing — an inherited
+  policy or an early stop — and is behind a disclosure control otherwise. Three
+  CSV columns are appended: `DMARC Found At`, `DMARC Labels Up` and
+  `DMARC Discovery Terminated`.
+
+- **`np=` is applied only to names that do not exist.** RFC 9989 §4.10.1 takes
+  the inherited policy from `sp=` when the audited name exists and from `np=`
+  when it does not; existence was never tested before. Where a record publishes
+  an `np=` that does not govern the audited name, that is now stated rather than
+  left to look like an inconsistency.
+
+- **Stricter DMARC tag validation.** An `sp=`, `np=`, `adkim=` or `aspf=` value
+  that is not one the RFC defines is reported and the written value named.
+  Receiver behaviour is unchanged — these still fall back exactly as before —
+  but `adkim=strict` relaxes alignment while reading as strict, and that is
+  worth saying out loud.
+
+- `tools/backtest.mjs` now reports the DNS query fan-out of every run, so the
+  figure `PRIVACY.md` publishes is measured rather than estimated.
+
+- `tools/lib/doh-fixture.mjs`, a programmable DoH resolver for the test sandbox.
+  No production code gained a test seam: the sandbox's own `fetch` is replaced,
+  so fixtures exercise the real URL building, JSON parsing, cache, concurrency
+  limiter and retry loop. Unmatched queries default to NXDOMAIN so a fixture
+  cannot silently depend on a live lookup.
+
+### Documentation
+
+- `PRIVACY.md`'s query fan-out is updated from the measurement: roughly 32
+  queries for a typical domain, up from roughly 30, and 46 for `cloudflare.com`
+  with default options. The Tree Walk's own cost and the walk over each report
+  destination are both described, because both add query names that were not
+  sent before.
 
 ## [0.2.3] — 2026-08-24
 

@@ -181,7 +181,28 @@
     "pctSuffix": "({0}%)",
     "permerror": "🔴 중복 레코드",
     "inheritedFrom": "{0}에서 상속됨",
-    "testMode": "⚠ {0} (테스트 모드, 미적용)"
+    "testMode": "⚠ {0} (테스트 모드, 미적용)",
+    "discoveryFoundAt": "{1}회 조회 후 {0}에서 정책을 찾았습니다",
+    "discoveryNotFound": "{0}회 조회에서 정책을 찾지 못했습니다",
+    "discoverySteps": "Tree Walk",
+    "showWalk": "Tree Walk 보기",
+    "stepSelected": "레코드",
+    "stepApplied": "적용되는 레코드",
+    "stepKind": {
+      "success": "DMARC 레코드 없음",
+      "nodata": "TXT 레코드 없음",
+      "nxdomain": "이름이 존재하지 않음",
+      "servfail": "SERVFAIL",
+      "refused": "거부됨",
+      "timeout": "시간 초과",
+      "error": "조회 실패"
+    },
+    "terminated": {
+      "psd-y": "공개 접미사에서 중단됨 (psd=y)",
+      "psd-n": "조직 도메인에서 중단됨 (psd=n)",
+      "root": "최상위 도메인까지 순회함",
+      "error": "조기 중단됨 — 조회가 실패했습니다"
+    }
   },
   "dkim": {
     "uncommon": "비표준 설정 ({0})",
@@ -284,7 +305,10 @@
       "SPF 조회 횟수",
       "문제점",
       "권장 사항",
-      "레코드 건전성"
+      "레코드 건전성",
+      "DMARC 발견 위치",
+      "DMARC 상위 레이블 수",
+      "DMARC 탐색 종료 사유"
     ],
     "yes": "예",
     "no": "아니요",
@@ -327,10 +351,10 @@
       "fixCode": "; 수정 전 — 2개의 레코드로 인해 모든 SPF 검사가 실패하는 상태:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; 수정 후 — 두 발신자를 모두 포함한 단일 레코드:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
     },
     "dmarc-multiple-records": {
-      "msg": "_dmarc에 복수의 DMARC 레코드가 존재합니다 — DMARC가 전혀 적용되지 않아 도메인이 위조될 수 있습니다.",
-      "what": "RFC 7489 §6.6.3은 정확히 하나의 DMARC 레코드만 요구합니다. 수신자는 <code>v=DMARC1</code> 태그가 없는 것을 버리며, 2개 이상이 남아있으면 정책 탐색을 중단하고 DMARC를 적용하지 않습니다. 정책이 아무리 엄격하더라도 완전히 무시되므로 도메인이 보호받는 것처럼 보여도 위조가 가능해집니다. 또한 종합 보고서 수신도 중단되어 문제를 파악할 수 있는 신호도 사라집니다.",
-      "fix": "<code>_dmarc</code> 위치에 있는 TXT 레코드 중 하나만 남기고 모두 삭제하세요. 중복된 레코드가 서로 다른 보고서 주소를 지정하고 있다면, 하나의 레코드를 유지하고 쉼표로 구분하여 단일 <code>rua=</code> 태그에 두 주소를 모두 나열하세요.",
-      "fixCode": "; 수정 전 — _dmarc에 2개의 레코드가 있어 DMARC가 무시됨:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; 수정 후 — 단일 레코드에 두 보고서 수신처 나열:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+      "msg": "{0}에 DMARC 레코드가 여러 개 있습니다 — 모든 수신자가 전부 무시하며, 어떤 정책도 적용되지 않습니다.",
+      "what": "RFC 9989 §4.10은 명확합니다: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> 수신자는 그중 하나를 고르지 않고 전체를 폐기한 뒤 DNS 트리를 계속 위로 올라갑니다. 이 이름보다 위에도 게시된 것이 없으므로, 결과적으로 귀하의 도메인에는 DMARC 정책이 전혀 없는 셈입니다. 완전히 구성된 것처럼 보이는데도 말입니다. 또한 집계 보고서도 더 이상 받지 못하게 되어, 이를 알려줄 유일한 신호마저 사라집니다.",
+      "fix": "<code>_dmarc</code>의 TXT 레코드를 하나만 남기고 모두 삭제하십시오. 중복 레코드가 서로 다른 보고 주소를 지정하고 있다면 하나만 남기고 두 주소를 쉼표로 구분해 하나의 <code>rua=</code> 태그에 나열하십시오.",
+      "fixCode": "; 변경 전 — _dmarc에 레코드 2개, 둘 다 폐기됨:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; 변경 후 — 레코드 1개에 두 보고 대상 모두:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
     },
     "mta-sts-multiple-records": {
       "msg": "복수의 MTA-STS 레코드가 발견되었습니다 — 발신자가 이 도메인에 MTA-STS 정책이 없는 것으로 간주하여 수신 TLS가 강제되지 않습니다.",
@@ -637,6 +661,48 @@
       "what": "이 도메인에 대한 하나 이상의 DNS 조회가 사용 가능한 응답을 반환하지 않았습니다. 대개 리졸버의 SERVFAIL 또는 시간 초과입니다. 실제로 네임서버가 고장 난 경우일 수도 있지만, 그만큼 자주 몇 분 안에 해소되는 일시적인 문제이기도 합니다. 감사의 나머지 부분은 정상적으로 완료되었으며 정확합니다. 해당 검사는 0점으로 채점됩니다. 이 도구가 근거를 댈 수 없는 평가는 단지 엄격하기만 한 평가보다 가치가 낮기 때문입니다. 따라서 조회 실패는 다시 실행하기 전까지 실제로 점수 손실로 이어집니다.",
       "fix": "먼저 감사를 다시 실행하십시오. 일시적인 장애라면 저절로 해소되고 점수도 돌아옵니다. 같은 검사가 계속 실패한다면 해당 이름을 직접 조회하여 네임서버가 응답하는지 확인하십시오. 존재하지 않는 이름에 대해 NXDOMAIN 대신 SERVFAIL을 반환하는 서버에서는 이 문제가 반복해서 발생합니다.",
       "fixCode": "; 존재하지 않아야 할 이름에 네임서버가 응답하는지 확인합니다.\n; 정상 서버는 NXDOMAIN을, 문제가 있는 서버는 SERVFAIL을 반환합니다:\ndig +short does-not-exist-test.yourdomain.com\n\n; 리졸버를 거치지 않고 권한 있는 서버에 직접 질의합니다:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    },
+    "dmarc-multiple-records-inherited": {
+      "msg": "{0}에 DMARC 레코드가 여러 개 있습니다 — 모두 무시됩니다. 이 도메인은 대신 {1}의 정책({2})이 규율합니다.",
+      "what": "RFC 9989 §4.10은 한 이름에 대해 레코드가 둘 이상 반환되면 전부 폐기합니다: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> 그러면 Tree Walk가 계속 위로 올라가며, 수신자가 실제로 적용하는 것은 트리 상위에 있는 유효한 레코드입니다. 따라서 이 도메인이 무방비 상태인 것은 아닙니다. 잃은 것은 로컬 통제권입니다. 여기에 작성한 정책은 아무 효력이 없고, 상속되는 정책은 더 약할 수도, 보고서를 다른 곳으로 보낼 수도, 상위 도메인이 수정되면 예고 없이 바뀔 수도 있습니다.",
+      "fix": "<code>_dmarc</code>의 TXT 레코드를 하나만 남기고 모두 삭제하십시오. 하나만 남으면 상속된 정책보다 우선합니다. 상속을 의도하셨다면 둘 다 삭제하고 상위 도메인의 정책이 의도적으로 적용되도록 하십시오.",
+      "fixCode": "; 변경 전 — 여기에 2개, 둘 다 폐기되고 상위 도메인의 정책이 적용됨:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none;\"\n\n; 변경 후 — 1개만 남아 다시 이 도메인을 규율함:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-at-apex": {
+      "msg": "DMARC 레코드가 _dmarc 아래가 아니라 도메인 자체에 게시되어 있습니다 — 어떤 수신자도 그곳을 보지 않습니다.",
+      "what": "DMARC 정책은 <code>yourdomain.com</code>이 아니라 <code>_dmarc.yourdomain.com</code>이라는 이름에 있습니다. RFC 9989 §4.10.1은 정책 탐색이 <em>\"starts with a query for a valid DMARC Policy Record at the name created by prepending the label '_dmarc' to the Author Domain\"</em>이라고 규정하며, 수신자는 그 이름만 조회하고 다른 곳은 보지 않습니다. 정점(apex)에 올바르게 작성된 레코드는 보이지 않으며, 해당 도메인은 DMARC 정책이 전혀 없는 것으로 취급됩니다. 대개 DNS 관리 화면이 호스트 항목을 조용히 무시하거나, 레코드를 SPF와 같은 칸에 붙여 넣었을 때 발생합니다.",
+      "fix": "해당 레코드를 <code>_dmarc</code> 호스트의 TXT 레코드로 다시 게시하고 정점에서는 삭제하십시오. 정점의 TXT 집합에 남은 DMARC 문자열은 다음에 읽는 사람을 혼란스럽게 하는 것 외에 아무 일도 하지 않습니다.",
+      "fixCode": "; 잘못됨 — 도메인 자체에 게시:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 올바름 — _dmarc 호스트 아래에 게시:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-sp": {
+      "msg": "sp=가 \"{0}\"으로 설정되어 있으나 이는 정책 값이 아닙니다 — 하위 도메인은 대신 p=로 돌아갑니다.",
+      "what": "RFC 9989 §5.4가 <code>sp=</code>에 허용하는 값은 <code>none</code>, <code>quarantine</code>, <code>reject</code> 세 가지뿐입니다. 그 밖의 값은 정책이 아니므로 수신자는 이 태그를 무시하고 하위 도메인은 <code>p=</code>를 상속합니다. 의도보다 엄격해질 수도 느슨해질 수도 있으며, 레코드는 실제로는 없는 하위 도메인 정책이 의도적으로 적용되고 있는 것처럼 읽힙니다.",
+      "fix": "값을 수정하시거나, 하위 도메인이 <code>p=</code>를 상속해도 괜찮다면 <code>sp=</code>를 완전히 제거하십시오.",
+      "fixCode": "; 잘못됨 — 오타가 조용히 무시됨:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; 올바름:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
+    },
+    "dmarc-bad-np": {
+      "msg": "np=가 \"{0}\"으로 설정되어 있으나 이는 정책 값이 아닙니다 — 존재하지 않는 하위 도메인은 대신 sp= 또는 p=로 돌아갑니다.",
+      "what": "RFC 9989 §5.4가 <code>np=</code>에 허용하는 값은 <code>none</code>, <code>quarantine</code>, <code>reject</code> 세 가지뿐입니다. 그 밖의 값은 무시되며, 존재하지 않는 이름에 대한 정책은 <code>sp=</code>를 거쳐 <code>p=</code>로 돌아갑니다. 존재하지 않는 하위 도메인은 공격자가 가장 손쉽게 위장할 수 있는 대상이므로, 설정된 것처럼 보이지만 실제로는 아닌 태그는 바로잡을 가치가 있습니다.",
+      "fix": "값을 수정하시거나, <code>np=</code>를 제거하고 대체 연쇄가 의도적으로 적용되도록 하십시오.",
+      "fixCode": "; 잘못됨 — 정책 값이 아님:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; 올바름:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
+    },
+    "dmarc-bad-adkim": {
+      "msg": "adkim=가 \"{0}\"으로 설정되어 있습니다 — 유효한 값은 r과 s뿐이므로 DKIM 정렬은 완화 상태로 유지됩니다.",
+      "what": "RFC 9989 §5.4는 DKIM 정렬 모드 두 가지와 표기 두 가지를 정의합니다. 완화는 <code>r</code>, 엄격은 <code>s</code>입니다. <code>strict</code>나 <code>1</code> 같은 값은 인식되지 않아 수신자는 완화로 되돌립니다. 레코드는 작성자에게는 엄격해 보이지만 실제 동작은 완화라는, 양쪽의 나쁜 점만 모인 상태입니다. 정확히 일치해야만 통과한다고 생각하셨던 정렬을 조직 도메인의 하위 도메인이 통과할 수 있습니다.",
+      "fix": "엄격한 정렬에는 <code>adkim=s</code>를 사용하시거나, 태그를 제거해 완화 정렬임을 명시하십시오.",
+      "fixCode": "; 잘못됨 — 단어로 적어 무시됨:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; 올바름:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
+    },
+    "dmarc-bad-aspf": {
+      "msg": "aspf=가 \"{0}\"으로 설정되어 있습니다 — 유효한 값은 r과 s뿐이므로 SPF 정렬은 완화 상태로 유지됩니다.",
+      "what": "RFC 9989 §5.4는 SPF 정렬 모드 두 가지와 표기 두 가지를 정의합니다. 완화는 <code>r</code>, 엄격은 <code>s</code>입니다. 인식되지 않는 값은 무시되고 수신자는 완화로 되돌리므로, 레코드는 실제로 갖추지 않은 엄격함을 주장하게 됩니다. 완화 정렬에서는 조직 도메인의 어떤 하위 도메인이든 DMARC 통과의 SPF 쪽 조건을 충족할 수 있습니다.",
+      "fix": "엄격한 정렬에는 <code>aspf=s</code>를 사용하시거나, 태그를 제거해 완화 정렬임을 명시하십시오.",
+      "fixCode": "; 잘못됨 — 단어로 적어 무시됨:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; 올바름:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
+    },
+    "dmarc-np-not-applied": {
+      "msg": "np={0}이 게시되어 있으나 여기에는 적용되지 않습니다 — 이 이름은 존재하므로 sp={1}이 규율합니다.",
+      "what": "RFC 9989 §4.10.1은 상속되는 정책을 둘로 나눕니다. <code>sp=</code> 태그는 <em>\"if the Author Domain exists\"</em>인 경우에, <code>np=</code>는 <em>\"if the Author Domain does not exist\"</em>인 경우에 적용됩니다. 존재 여부는 DNS의 문제이며, RFC 9989 부록 A.4는 어떤 이름에 레코드가 하나라도 있으면 그 이름은 존재한다고 규정합니다. 이 이름은 정상적으로 해석되었으므로 <code>sp=</code> 쪽이 규율합니다. 이는 안내 사항이며 잘못 구성된 것은 없습니다. 그렇지 않으면 보고된 정책이 직접 읽으실 수 있는 레코드와 어긋나 보이기 때문에 여기에 표시합니다.",
+      "fix": "변경하실 필요는 없습니다. 이 더 엄격한 정책을 실제 하위 도메인에도 적용하려면 <code>sp=</code>를 <code>np=</code>와 같은 값으로 설정하십시오.",
+      "fixCode": "; np=는 존재하지 않는 이름을, sp=는 존재하는 이름을 대상으로 함:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
     }
   },
   "suggestion": {

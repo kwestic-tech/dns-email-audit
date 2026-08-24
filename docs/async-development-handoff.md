@@ -225,6 +225,23 @@ the first two exist.
 
 ### 3a. `dmarcbis-tree-walk` (0.3.0)
 
+> **Status, 2026-08-24: implemented.** Spec finalized at `1.1`, then amended to
+> `1.2` — two defects in the spec's own text, both found by transcribing RFC
+> 9989 against the code during implementation and both recorded in its Revision
+> history. `npm test` 1,130 assertions / 0 failures, `npm run locale:gate` 13/13
+> (593/593 keys). Backtested against `v0.2.3`: no DMARC-pillar movement across
+> 40 apex domains, one move across 40 subdomains (`www.gov.uk`, F → D, a genuine
+> PSL-versus-Tree-Walk divergence). Fan-out measured at 30.4 → 32.1 queries per
+> domain and written into `PRIVACY.md`. The spec has moved to
+> [`docs/specs/implemented/`](specs/implemented/dmarcbis-tree-walk.md) with its
+> **As implemented** section.
+>
+> `OQ-DMARC-03` resolved to a programmable sandbox `fetch`, and the shared
+> helper is `tools/lib/doh-fixture.mjs` — **3b and 3c reuse it rather than
+> inventing a second mechanism.**
+>
+> **Phase 2b (0.4.0) is now unblocked.**
+
 **STOP — needs Ian before implementation, not before spec finalization:**
 `OQ-DMARC-01` is explicit that the Tree Walk's label arithmetic, query budget,
 and long-name handling **must be transcribed from the RFC 9989 text directly**,

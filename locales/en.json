@@ -181,7 +181,28 @@
     "pctSuffix": "({0}%)",
     "permerror": "🔴 Multiple records",
     "inheritedFrom": "Inherited from {0}",
-    "testMode": "⚠ {0} (test mode, not applied)"
+    "testMode": "⚠ {0} (test mode, not applied)",
+    "discoveryFoundAt": "Policy found at {0} after {1} lookups",
+    "discoveryNotFound": "No policy found in {0} lookups",
+    "discoverySteps": "Tree Walk",
+    "showWalk": "Show the Tree Walk",
+    "stepSelected": "record",
+    "stepApplied": "record applied",
+    "stepKind": {
+      "success": "no DMARC record",
+      "nodata": "no TXT records",
+      "nxdomain": "name does not exist",
+      "servfail": "SERVFAIL",
+      "refused": "refused",
+      "timeout": "timed out",
+      "error": "lookup failed"
+    },
+    "terminated": {
+      "psd-y": "stopped at a public suffix (psd=y)",
+      "psd-n": "stopped at an organizational domain (psd=n)",
+      "root": "walked to the top-level domain",
+      "error": "stopped early — a lookup failed"
+    }
   },
   "dkim": {
     "uncommon": "Uncommon ({0})",
@@ -284,7 +305,10 @@
       "SPF Lookups",
       "Issues",
       "Suggestions",
-      "Record Hygiene"
+      "Record Hygiene",
+      "DMARC Found At",
+      "DMARC Labels Up",
+      "DMARC Discovery Terminated"
     ],
     "yes": "Yes",
     "no": "No",
@@ -327,10 +351,10 @@
       "fixCode": "; Before — two records, SPF fails for everything:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; After — one record with both senders:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
     },
     "dmarc-multiple-records": {
-      "msg": "Multiple DMARC records found at _dmarc — DMARC is not applied at all, the domain can be spoofed.",
-      "what": "RFC 7489 §6.6.3 requires exactly one DMARC record. Receivers discard anything without a <code>v=DMARC1</code> tag, and if more than one remains, policy discovery terminates and DMARC is not applied to the message. Your policy — however strict — is ignored entirely, so the domain is spoofable while appearing to be protected. You will also stop receiving aggregate reports, which removes the signal that would have told you something was wrong.",
-      "fix": "Delete all but one TXT record at <code>_dmarc</code>. If the duplicates specify different report addresses, keep one record and list both addresses in a single <code>rua=</code> tag, separated by a comma.",
-      "fixCode": "; Before — two records at _dmarc, DMARC ignored:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; After — one record, both report destinations:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+      "msg": "Multiple DMARC records at {0} — every receiver ignores all of them, and no policy applies.",
+      "what": "RFC 9989 §4.10 is explicit: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> Receivers do not pick one — they drop the whole set and keep walking up the DNS tree. Nothing is published above this name either, so the end result is that your domain has no DMARC policy at all, while looking fully configured. You also stop receiving aggregate reports, which removes the one signal that would have told you.",
+      "fix": "Delete all but one TXT record at <code>_dmarc</code>. If the duplicates name different report addresses, keep one record and list both addresses in a single <code>rua=</code> tag, separated by a comma.",
+      "fixCode": "; Before — two records at _dmarc, both discarded:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; After — one record, both report destinations:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
     },
     "mta-sts-multiple-records": {
       "msg": "Multiple MTA-STS records found — senders treat your domain as having no MTA-STS policy, so inbound TLS is not enforced.",
@@ -637,6 +661,48 @@
       "what": "One or more DNS lookups for this domain did not return a usable answer, usually a SERVFAIL or a timeout from the resolver. That can be a genuinely broken nameserver, but it is just as often a transient hiccup that clears within minutes. The rest of the audit completed normally and is accurate. The affected checks are scored as zero, because a grade this tool cannot stand behind is worth less than a grade that is simply strict — so a failed lookup does cost you points until it is re-run.",
       "fix": "Re-run the audit first — a transient failure clears on its own and the points come back. If the same checks keep failing, query the affected names directly to see whether your nameservers answer them. A server that returns SERVFAIL instead of NXDOMAIN for names that do not exist will trip this repeatedly.",
       "fixCode": "; Check whether your nameservers answer a name that should not exist.\n; A healthy server returns NXDOMAIN; a broken one returns SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Ask your authoritative servers directly, bypassing the resolver:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    },
+    "dmarc-multiple-records-inherited": {
+      "msg": "Multiple DMARC records at {0} — all of them are ignored. The policy at {1} ({2}) governs this domain instead.",
+      "what": "RFC 9989 §4.10 discards every record when more than one is returned for a name: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> The Tree Walk then continues upwards, and a valid record higher in the tree is what receivers actually apply — so this domain is not unprotected. What you have lost is local control: the policy you wrote here has no effect, and the inherited one may be weaker, may point reports elsewhere, or may change without warning when the parent domain is edited.",
+      "fix": "Delete all but one TXT record at <code>_dmarc</code>. Once a single record remains it takes precedence over the inherited one. If you meant to inherit, delete both and let the parent's policy apply deliberately.",
+      "fixCode": "; Before — two records here, both discarded, the parent's policy applies:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none;\"\n\n; After — one record, and it governs this domain again:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-at-apex": {
+      "msg": "A DMARC record is published on the domain itself instead of under _dmarc — no receiver will ever look there.",
+      "what": "A DMARC policy lives at the name <code>_dmarc.yourdomain.com</code>, not at <code>yourdomain.com</code>. RFC 9989 §4.10.1 says policy discovery <em>\"starts with a query for a valid DMARC Policy Record at the name created by prepending the label '_dmarc' to the Author Domain\"</em> — receivers query that name and nowhere else. A correctly written record on the apex is invisible: the domain is treated as having no DMARC policy at all. This usually happens when a DNS panel silently ignores the host field, or when the record is pasted into the same box as SPF.",
+      "fix": "Republish the record as a TXT record on the host <code>_dmarc</code>, and delete it from the apex — a stray DMARC string in the apex TXT set does nothing but confuse the next person to read it.",
+      "fixCode": "; Wrong — on the domain itself:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Right — under the _dmarc host:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-sp": {
+      "msg": "sp= is set to \"{0}\", which is not a policy value — subdomains fall back to p= instead.",
+      "what": "RFC 9989 §5.4 allows exactly three values for <code>sp=</code>: <code>none</code>, <code>quarantine</code> and <code>reject</code>. Anything else is not a policy, so receivers ignore the tag and subdomains inherit <code>p=</code>. That may be stricter or weaker than you intended, and the record reads as though a deliberate subdomain policy is in force when none is.",
+      "fix": "Correct the value, or remove <code>sp=</code> entirely if you are happy for subdomains to inherit <code>p=</code>.",
+      "fixCode": "; Wrong — typo, silently ignored:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; Right:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
+    },
+    "dmarc-bad-np": {
+      "msg": "np= is set to \"{0}\", which is not a policy value — non-existent subdomains fall back to sp= or p= instead.",
+      "what": "RFC 9989 §5.4 allows exactly three values for <code>np=</code>: <code>none</code>, <code>quarantine</code> and <code>reject</code>. Anything else is ignored, and the policy for names that do not exist falls back through <code>sp=</code> to <code>p=</code>. Non-existent subdomains are the cheapest thing for an attacker to spoof, so a tag that looks set and is not is worth correcting.",
+      "fix": "Correct the value, or remove <code>np=</code> and let the fallback chain apply deliberately.",
+      "fixCode": "; Wrong — not a policy value:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; Right:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
+    },
+    "dmarc-bad-adkim": {
+      "msg": "adkim= is set to \"{0}\" — the only values are r and s, so DKIM alignment stays relaxed.",
+      "what": "RFC 9989 §5.4 defines two DKIM alignment modes and two spellings: <code>r</code> for relaxed and <code>s</code> for strict. A value like <code>strict</code> or <code>1</code> is not recognised, and receivers fall back to relaxed. The record reads as strict to whoever wrote it while behaving as relaxed in practice, which is the worst of both — a subdomain of your organizational domain can pass alignment when you believed only an exact match would.",
+      "fix": "Use <code>adkim=s</code> for strict alignment, or remove the tag to state relaxed alignment explicitly.",
+      "fixCode": "; Wrong — spelled out, so it is ignored:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; Right:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
+    },
+    "dmarc-bad-aspf": {
+      "msg": "aspf= is set to \"{0}\" — the only values are r and s, so SPF alignment stays relaxed.",
+      "what": "RFC 9989 §5.4 defines two SPF alignment modes and two spellings: <code>r</code> for relaxed and <code>s</code> for strict. An unrecognised value is ignored and receivers fall back to relaxed, so the record claims a strictness it does not have. Under relaxed alignment any subdomain of your organizational domain can satisfy the SPF half of a DMARC pass.",
+      "fix": "Use <code>aspf=s</code> for strict alignment, or remove the tag to state relaxed alignment explicitly.",
+      "fixCode": "; Wrong — spelled out, so it is ignored:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; Right:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
+    },
+    "dmarc-np-not-applied": {
+      "msg": "np={0} is published but does not apply here — this name exists, so sp={1} governs it.",
+      "what": "RFC 9989 §4.10.1 splits the inherited policy in two: the <code>sp=</code> tag applies <em>\"if the Author Domain exists\"</em> and <code>np=</code> applies <em>\"if the Author Domain does not exist\"</em>. Existence is a DNS question — RFC 9989 Appendix A.4 says that if any record exists for a name, the name exists — and this name resolved, so it is the <code>sp=</code> branch that governs. This is informational: nothing is misconfigured. It is here because the reported policy would otherwise look inconsistent with the record you can read.",
+      "fix": "No change needed. If you intended this stricter policy to apply to real subdomains too, set <code>sp=</code> to match <code>np=</code>.",
+      "fixCode": "; np= covers names that do not exist; sp= covers the ones that do:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
     }
   },
   "suggestion": {

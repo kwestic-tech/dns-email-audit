@@ -181,7 +181,28 @@
     "pctSuffix": "({0}%)",
     "permerror": "🔴 Múltiplos registros",
     "inheritedFrom": "Herdado de {0}",
-    "testMode": "⚠ {0} (modo de teste, não aplicado)"
+    "testMode": "⚠ {0} (modo de teste, não aplicado)",
+    "discoveryFoundAt": "Política encontrada em {0} após {1} consultas",
+    "discoveryNotFound": "Nenhuma política encontrada em {0} consultas",
+    "discoverySteps": "Tree Walk",
+    "showWalk": "Mostrar o Tree Walk",
+    "stepSelected": "registro",
+    "stepApplied": "registro aplicado",
+    "stepKind": {
+      "success": "sem registro DMARC",
+      "nodata": "sem registros TXT",
+      "nxdomain": "o nome não existe",
+      "servfail": "SERVFAIL",
+      "refused": "recusada",
+      "timeout": "tempo esgotado",
+      "error": "falha na consulta"
+    },
+    "terminated": {
+      "psd-y": "parou em um sufixo público (psd=y)",
+      "psd-n": "parou em um domínio organizacional (psd=n)",
+      "root": "percorreu até o domínio de topo",
+      "error": "parou antes do fim — uma consulta falhou"
+    }
   },
   "dkim": {
     "uncommon": "Incomum ({0})",
@@ -284,7 +305,10 @@
       "Consultas SPF",
       "Problemas",
       "Sugestões",
-      "Higiene do registro"
+      "Higiene do registro",
+      "DMARC encontrado em",
+      "Rótulos DMARC acima",
+      "Fim da descoberta DMARC"
     ],
     "yes": "Sim",
     "no": "Não",
@@ -327,10 +351,10 @@
       "fixCode": "; Antes — dois registros, SPF falha para tudo:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Depois — um registro com os dois remetentes:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
     },
     "dmarc-multiple-records": {
-      "msg": "Vários registros DMARC encontrados em _dmarc — o DMARC não é aplicado de forma alguma, e o domínio pode ser falsificado.",
-      "what": "O RFC 7489 §6.6.3 exige exatamente um registro DMARC. Os receptores descartam qualquer coisa sem a tag <code>v=DMARC1</code> e, se restar mais de um, a descoberta de política é encerrada e o DMARC não é aplicado à mensagem. Sua política — por mais rígida que seja — é totalmente ignorada, então o domínio é falsificável embora pareça protegido. Você também deixa de receber relatórios agregados, o que elimina o sinal que teria avisado que algo estava errado.",
-      "fix": "Exclua todos os registros TXT em <code>_dmarc</code>, menos um. Se os duplicados indicam endereços de relatório diferentes, mantenha um registro e liste os dois endereços em uma única tag <code>rua=</code>, separados por vírgula.",
-      "fixCode": "; Antes — dois registros em _dmarc, DMARC ignorado:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Depois — um registro, os dois destinos de relatório:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+      "msg": "Vários registros DMARC em {0} — todos os destinatários ignoram todos eles, e nenhuma política se aplica.",
+      "what": "A RFC 9989 §4.10 é explícita: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> Os destinatários não escolhem um: descartam o conjunto inteiro e continuam subindo a árvore DNS. Acima deste nome também não há nada publicado, então o resultado final é que seu domínio não tem política DMARC nenhuma, embora pareça totalmente configurado. Você também deixa de receber os relatórios agregados, que eram o único sinal que teria avisado você.",
+      "fix": "Exclua todos os registros TXT em <code>_dmarc</code> menos um. Se as duplicatas indicam endereços de relatório diferentes, mantenha um registro e liste os dois endereços em uma única tag <code>rua=</code>, separados por vírgula.",
+      "fixCode": "; Antes — dois registros em _dmarc, ambos descartados:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Depois — um registro, os dois destinos de relatório:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
     },
     "mta-sts-multiple-records": {
       "msg": "Vários registros MTA-STS encontrados — os remetentes tratam seu domínio como se não tivesse política MTA-STS, então o TLS de entrada não é exigido.",
@@ -637,6 +661,48 @@
       "what": "Uma ou mais consultas DNS para este domínio não devolveram uma resposta utilizável, normalmente um SERVFAIL ou um tempo limite do resolvedor. Isso pode ser um servidor de nomes realmente com defeito, mas com a mesma frequência é um contratempo passageiro que se resolve em minutos. O restante da auditoria foi concluído normalmente e está correto. As verificações afetadas recebem zero, porque uma nota que esta ferramenta não pode sustentar vale menos do que uma nota simplesmente rigorosa — portanto uma consulta que falha custa pontos até que seja refeita.",
       "fix": "Primeiro execute a auditoria novamente — uma falha temporária se resolve sozinha e os pontos voltam. Se as mesmas verificações continuarem falhando, consulte diretamente os nomes afetados para ver se seus servidores de nomes respondem. Um servidor que devolve SERVFAIL em vez de NXDOMAIN para nomes inexistentes vai provocar isso repetidamente.",
       "fixCode": "; Verifique se seus servidores de nomes respondem a um nome que não deveria existir.\n; Um servidor saudável devolve NXDOMAIN; um com problema devolve SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Pergunte diretamente aos seus servidores autoritativos, sem passar pelo resolvedor:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    },
+    "dmarc-multiple-records-inherited": {
+      "msg": "Vários registros DMARC em {0} — todos são ignorados. Quem rege este domínio é a política em {1} ({2}).",
+      "what": "A RFC 9989 §4.10 descarta todos os registros quando mais de um é devolvido para um nome: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> O Tree Walk então continua subindo, e o que os destinatários realmente aplicam é um registro válido mais acima na árvore — portanto este domínio não está desprotegido. O que você perdeu foi o controle local: a política escrita aqui não tem efeito, e a herdada pode ser mais fraca, mandar os relatórios para outro lugar ou mudar sem aviso quando o domínio pai for editado.",
+      "fix": "Exclua todos os registros TXT em <code>_dmarc</code> menos um. Assim que restar apenas um, ele terá precedência sobre o herdado. Se a intenção era herdar, exclua os dois e deixe a política do domínio pai valer de forma deliberada.",
+      "fixCode": "; Antes — dois registros aqui, ambos descartados, vale a política do domínio pai:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none;\"\n\n; Depois — um registro, e ele volta a reger este domínio:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-at-apex": {
+      "msg": "Há um registro DMARC publicado no próprio domínio em vez de sob _dmarc — nenhum destinatário jamais olhará ali.",
+      "what": "Uma política DMARC fica no nome <code>_dmarc.yourdomain.com</code>, não em <code>yourdomain.com</code>. A RFC 9989 §4.10.1 diz que a descoberta da política <em>\"starts with a query for a valid DMARC Policy Record at the name created by prepending the label '_dmarc' to the Author Domain\"</em> — os destinatários consultam esse nome e nenhum outro. Um registro escrito corretamente no ápice é invisível: o domínio é tratado como se não tivesse política DMARC alguma. Isso costuma acontecer quando um painel DNS ignora silenciosamente o campo de host, ou quando o registro é colado na mesma caixa do SPF.",
+      "fix": "Republique o registro como registro TXT no host <code>_dmarc</code> e exclua-o do ápice: uma string DMARC perdida no conjunto TXT do ápice não faz nada além de confundir a próxima pessoa que a ler.",
+      "fixCode": "; Errado — no próprio domínio:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Certo — sob o host _dmarc:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-sp": {
+      "msg": "sp= está definido como \"{0}\", que não é um valor de política — os subdomínios recorrem a p= no lugar.",
+      "what": "A RFC 9989 §5.4 permite exatamente três valores para <code>sp=</code>: <code>none</code>, <code>quarantine</code> e <code>reject</code>. Qualquer outra coisa não é uma política, então os destinatários ignoram a tag e os subdomínios herdam <code>p=</code>. Isso pode ser mais rígido ou mais fraco do que você pretendia, e o registro se lê como se houvesse uma política de subdomínio deliberada em vigor quando não há nenhuma.",
+      "fix": "Corrija o valor, ou remova <code>sp=</code> por completo se não se importar que os subdomínios herdem <code>p=</code>.",
+      "fixCode": "; Errado — erro de digitação, ignorado em silêncio:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; Certo:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
+    },
+    "dmarc-bad-np": {
+      "msg": "np= está definido como \"{0}\", que não é um valor de política — subdomínios inexistentes recorrem a sp= ou p= no lugar.",
+      "what": "A RFC 9989 §5.4 permite exatamente três valores para <code>np=</code>: <code>none</code>, <code>quarantine</code> e <code>reject</code>. Qualquer outra coisa é ignorada, e a política para nomes que não existem recorre a <code>sp=</code> e depois a <code>p=</code>. Subdomínios inexistentes são o alvo mais barato de falsificar, então uma tag que parece configurada e não está vale a correção.",
+      "fix": "Corrija o valor, ou remova <code>np=</code> e deixe a cadeia de recurso valer de forma deliberada.",
+      "fixCode": "; Errado — não é um valor de política:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; Certo:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
+    },
+    "dmarc-bad-adkim": {
+      "msg": "adkim= está definido como \"{0}\" — os únicos valores são r e s, então o alinhamento DKIM continua relaxado.",
+      "what": "A RFC 9989 §5.4 define dois modos de alinhamento DKIM e duas grafias: <code>r</code> para relaxado e <code>s</code> para estrito. Um valor como <code>strict</code> ou <code>1</code> não é reconhecido, e os destinatários recorrem ao relaxado. O registro se lê como estrito para quem o escreveu, mas se comporta como relaxado na prática — o pior dos dois mundos: um subdomínio do seu domínio organizacional pode passar no alinhamento quando você acreditava que só uma correspondência exata conseguiria.",
+      "fix": "Use <code>adkim=s</code> para alinhamento estrito, ou remova a tag para declarar o alinhamento relaxado de forma explícita.",
+      "fixCode": "; Errado — escrito por extenso, então é ignorado:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; Certo:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
+    },
+    "dmarc-bad-aspf": {
+      "msg": "aspf= está definido como \"{0}\" — os únicos valores são r e s, então o alinhamento SPF continua relaxado.",
+      "what": "A RFC 9989 §5.4 define dois modos de alinhamento SPF e duas grafias: <code>r</code> para relaxado e <code>s</code> para estrito. Um valor não reconhecido é ignorado e os destinatários recorrem ao relaxado, de modo que o registro afirma um rigor que não tem. Com alinhamento relaxado, qualquer subdomínio do seu domínio organizacional pode satisfazer a metade SPF de um DMARC aprovado.",
+      "fix": "Use <code>aspf=s</code> para alinhamento estrito, ou remova a tag para declarar o alinhamento relaxado de forma explícita.",
+      "fixCode": "; Errado — escrito por extenso, então é ignorado:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; Certo:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
+    },
+    "dmarc-np-not-applied": {
+      "msg": "np={0} está publicado mas não se aplica aqui — este nome existe, então quem rege é sp={1}.",
+      "what": "A RFC 9989 §4.10.1 divide a política herdada em duas: a tag <code>sp=</code> se aplica <em>\"if the Author Domain exists\"</em> e <code>np=</code> se aplica <em>\"if the Author Domain does not exist\"</em>. Existência é uma questão de DNS — o apêndice A.4 da RFC 9989 diz que, se existe qualquer registro para um nome, o nome existe — e este nome resolveu, então quem rege é o ramo <code>sp=</code>. Isto é informativo: não há nada mal configurado. Aparece aqui porque, caso contrário, a política relatada pareceria inconsistente com o registro que você consegue ler.",
+      "fix": "Nenhuma mudança é necessária. Se você queria que esta política mais rígida valesse também para subdomínios reais, defina <code>sp=</code> com o mesmo valor de <code>np=</code>.",
+      "fixCode": "; np= cobre nomes que não existem; sp= cobre os que existem:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
     }
   },
   "suggestion": {

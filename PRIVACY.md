@@ -28,9 +28,16 @@ exists.
 ### What Cloudflare can see
 
 Auditing one domain is **not** a single DNS query. A full audit fans out into
-roughly 30 queries for a typical domain, and more when the comprehensive DKIM
+roughly 32 queries for a typical domain, and more when the comprehensive DKIM
 scan is enabled. For example, auditing `cloudflare.com` with default options
-issues 32 queries.
+issues 46 queries.
+
+These are measured numbers, not estimates: `node tools/backtest.mjs` reports
+the fan-out of every run it makes, and the figures above were taken from a
+40-domain sample at release 0.3.0. Re-measure rather than trusting this
+paragraph if you need the number to be exact for your own list — a domain with
+a long SPF `include:` chain or many DKIM selectors costs considerably more than
+one without.
 
 Those queries cover more than the name you typed. They include:
 
@@ -38,10 +45,19 @@ Those queries cover more than the name you typed. They include:
 - Subdomains derived from the standards being checked — `_dmarc.<domain>`,
   `<selector>._domainkey.<domain>` for each DKIM selector tried,
   `default._bimi.<domain>`, `_mta-sts.<domain>`, `_smtp._tls.<domain>`.
+- **Every name between the audited domain and the top-level domain.** Since
+  0.3.0, DMARC discovery follows the RFC 9989 DNS Tree Walk instead of a
+  bundled Public Suffix List, so auditing `a.b.example.com` queries
+  `_dmarc.a.b.example.com`, `_dmarc.b.example.com`, `_dmarc.example.com` and
+  `_dmarc.com`. The walk is capped at eight queries however long the name is,
+  and stops early at a `psd=` boundary.
 - **Hostnames belonging to third parties**, discovered by following the
   domain's own SPF `include:` chain and DMARC reporting addresses — for
   example `_spf.google.com`, `spf.mandrillapp.com`, `mail.zendesk.com`, or
-  `_spf.salesforce.com`.
+  `_spf.salesforce.com`. Since 0.3.0 this also includes a Tree Walk over each
+  DMARC **report destination**, because RFC 9990 §4 defines the external-
+  reporting check in terms of organizational domains and those now come from
+  DNS rather than from the bundled list.
 
 That last category matters: because the SPF chain is resolved, the pattern of
 queries can reveal **which email and SaaS vendors the audited domain uses**,
