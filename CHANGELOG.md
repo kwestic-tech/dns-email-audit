@@ -14,9 +14,12 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Becomes `0.2.3` at the release cut. No grade or score changes: a grade computed
-at `v0.2.2` is identical here, verified by diffing `node tools/backtest.mjs
---json` across the two.
+Nothing yet.
+
+## [0.2.3] — 2026-08-24
+
+No grade or score changes: a grade computed at `v0.2.2` is identical here,
+verified by diffing `node tools/backtest.mjs --json` across the two.
 
 ### Changed
 
@@ -546,7 +549,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.1.0...v0.2.0

@@ -5,7 +5,7 @@
 | Spec version | 0.1 (Draft) |
 | Target release | 0.3.0 |
 | Status | Awaiting review |
-| Depends on | [rendering-and-robustness](rendering-and-robustness.md) (0.2.3), because this release adds new rendered evidence |
+| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md) (0.2.3), because this release adds new rendered evidence |
 | Blocks | [findings-and-remediation](findings-and-remediation.md), which consumes discovery provenance |
 | Slug for open questions | `DMARC` |
 | Last updated | 2026-08-20 |
