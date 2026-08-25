@@ -10,10 +10,14 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
-import { dohFixture, txt, ns, mx, a } from './lib/doh-fixture.mjs';
+import { dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa } from './lib/doh-fixture.mjs';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
-const sandbox = { window: { __PUBLIC_SUFFIX_RULES__: ['com', 'co.uk', '*.ck', '!www.ck'] }, fetch: async () => ({ ok: false }), console, AbortController, URLSearchParams, setTimeout, clearTimeout };
+// `atob` and `crypto` are here for the DKIM key analysis: the DER length walk
+// decodes the base64 `p=` value, and the optional structural check calls
+// crypto.subtle.importKey. Both are browser globals js/dns.js may legitimately
+// use; supplying them is the same move the sandbox already makes for `fetch`.
+const sandbox = { window: { __PUBLIC_SUFFIX_RULES__: ['com', 'co.uk', '*.ck', '!www.ck'] }, fetch: async () => ({ ok: false }), console, AbortController, URLSearchParams, setTimeout, clearTimeout, atob, crypto };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(readFileSync(`${REPO}/js/dkim-selectors.js`, 'utf8'), sandbox);
@@ -2305,6 +2309,585 @@ const tooLong = (await D.checkExternalReportAuth('src.example', [longHost], { re
 eq('an over-long authorization name is undeterminable, not unauthorized',
   tooLong.state, 'unverifiable');
 eq('and says why', tooLong.error, 'name-too-long');
+
+/* ── 33. Transport: unsupported record types fail loudly ─────────────── */
+section('33. Transport: dnsTypeNum throws instead of guessing TXT');
+
+// The old `?? 16` made every unknown type a TXT query whose answers were then
+// filtered for type 16 — so a DS lookup returned a confident empty array.
+eq('SVCB throws rather than returning 16', (() => {
+  try { D.dnsTypeNum('SVCB'); return 'no-throw'; } catch (e) { return e.name; }
+})(), 'DnsTypeError');
+eq('the message names the type', (() => {
+  try { D.dnsTypeNum('SVCB'); return ''; } catch (e) { return e.message; }
+})(), 'unsupported DNS type: SVCB');
+eq('a prototype property name is not a type', (() => {
+  try { D.dnsTypeNum('constructor'); return 'no-throw'; } catch (e) { return e.name; }
+})(), 'DnsTypeError');
+
+eq('DS is supported',     D.dnsTypeNum('DS'), 43);
+eq('DNSKEY is supported', D.dnsTypeNum('DNSKEY'), 48);
+eq('TLSA is supported',   D.dnsTypeNum('TLSA'), 52);
+eq('PTR is supported',    D.dnsTypeNum('PTR'), 12);
+eq('TXT still resolves',  D.dnsTypeNum('TXT'), 16);
+eq('CAA still resolves',  D.dnsTypeNum('CAA'), 257);
+
+// The throw has to survive the transport, or it is caught by fetchDohOnce's
+// own catch and reported as 'network-error' — the same silent wrong answer in
+// a different costume.
+sandbox.fetch = dohFixture({});
+eq('dohFetch propagates the type error', await (async () => {
+  try { await D.dohFetch('example.com', 'SVCB', { retries: 0, noCache: true }); return 'no-throw'; }
+  catch (e) { return e.name; }
+})(), 'DnsTypeError');
+
+// And optionalCheck must not turn a programming error into a stated unknown.
+eq('optionalCheck re-throws a type error', await (async () => {
+  try {
+    await D.optionalCheck(() => D.dohFetch('example.com', 'SVCB', { retries: 0, noCache: true }), 'fallback');
+    return 'swallowed';
+  } catch (e) { return e.name; }
+})(), 'DnsTypeError');
+eq('optionalCheck still swallows a resolver failure', await (async () => {
+  sandbox.fetch = dohFixture({ 'x.example NS': 'servfail' });
+  return await D.optionalCheck(
+    async () => { throw Object.assign(new Error('x'), { name: 'DnsQueryError' }); }, 'fallback');
+})(), 'fallback');
+
+/* ── 34. DKIM public key analysis (RFC 6376 §3.6.1, RFC 8463) ────────── */
+section('34. DKIM public key analysis');
+
+// Real SPKI keys, generated with openssl and pasted as static strings so the
+// DER walk is exercised against genuine encodings rather than a hand-built one.
+const RSA_512 = 'MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBANvwLB0jC0G5N6ooxhzJStD6NSKbEBDqdjaIG/PVtJu4Sor/279iw+pLQreH2aF9ybG9DFJYphaM5HqDteMUbFECAwEAAQ==';
+const RSA_1024 = 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCYmA1/sNLcrMtU2cEfPrc5Gj7m1OFp23VoKeHbCMEYbMjSATLrI6YsefyW7760zWwHmb2kZ7tCAnlnLOvH75kmFdq+q6VHwaOH1MZQkB+F5VaVU2uf3iO50r23+FU5Cb6N3NuovTY8vzY/nPI2vUS/FCXuteqGUiuFKwttC8oESwIDAQAB';
+const RSA_2048 = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtdBGhkB+ys0FdTPY1/X59sh1kPlfMwovaF7w0uAdPijJvb28RVHRcZW0vfp2txuyZZ3qNAV2C/2nv+zVr/bld2flVPdmnCSdAoUXi9ZQpH20zzwj8bcGrU6v/sH4xC7BLRH7P8KQ4K3suhuSLpaK0KLC+oGdD7DZ3DyeFyHeMWcR9RJin3LhZMP0rVP3e6PHNd2XwW+zPJRjuQR6yACuOLyXhBvZtD+Frs6/mtKF8HyaO9/Zs/bqrw3v5qjuC6hi2VnlUbS+zWL9fZp3xh7lf2FaztehaVHcvUO2HOGAFGWci3jtwD2owSvw/Laqq0UTInQ/vcVZf/1QNJGiZ0tEIQIDAQAB';
+const RSA_4096 = 'MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA2GKwg8r1UzfnPgxUSjTck7Teu3YNAVasv1+fDj6bqNa1QAKqziKGhTUAd4NFb71ELSblrRIMmADzXEpgwEbWdGo0wMZYeXGzMATRifC1vjnBxeThGKeNtI6+wU3w3kcl+vmSVXS6oxD98bWzt2A0uqJo0uA54xnVhjoH4HG/LiKZFjLUhI6EAjjE46fmfoBGcLAOI82c7EmusMe8Xy0HcLk8Vepj3GhYO3ZS0ajgbPxNV7FjBUz9Z5wk8vdX2HFdf1/Dwfv3Kb6QOduj7MEU7RV1W4mRiYzsjZdrOqAQZSLrpxPx+Z73NRjxA0Q7t1rWCtFMP8wZ2xAK/F75FJmBi6j8urEpBt1S4xyNbaw3p/Ed7xpD4Zj3hd9vmWPGozqUP9Y9TJ3BBaR5vfDFvHl/e8ezpRcafyCH59GTmXq2j34ISjr6zRo5Y0jmdaPUXqgf2C+b8yw7Y0ut1Q3dhxQoca+Nb/REedy3tvxc2aY+uUIo80W06SoopPp3Lm8uk4u8t/t+IWjtGf7hKZgcmFPEmro1MK/1YmMnYg7ejjKEv2LBpF8m7QpZFTGEFd9/u02OkMYuM866nezPXvEKSnAkvmWDCkzwZhsBaIkihXmemKe1QhvAuk6dEVzmnHWUFAZnTErHu9TZ1Fpw6yJNw8QOkmrZ28Ji++HHu65vbzrvFWECAwEAAQ==';
+const ED25519_32 = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=';
+const ED25519_31 = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHg==';
+
+const key = value => D.analyzeDkimKey(value);
+
+eq('RSA-512 modulus read',   key(`v=DKIM1; k=rsa; p=${RSA_512}`).keyBits, 512);
+eq('RSA-1024 modulus read',  key(`v=DKIM1; k=rsa; p=${RSA_1024}`).keyBits, 1024);
+eq('RSA-2048 modulus read',  key(`v=DKIM1; k=rsa; p=${RSA_2048}`).keyBits, 2048);
+eq('RSA-4096 modulus read',  key(`v=DKIM1; k=rsa; p=${RSA_4096}`).keyBits, 4096);
+eq('a valid key has no errors', key(`v=DKIM1; k=rsa; p=${RSA_2048}`).errors, []);
+
+// k= defaults to rsa when absent (RFC 6376 §3.6.1), and paypal.com publishes
+// exactly this shape — no v=, no k=.
+eq('k= defaults to rsa',     key(`p=${RSA_2048}`).keyType, 'rsa');
+eq('v= may be omitted',      key(`p=${RSA_2048}`).version, null);
+eq('and the key is still valid', key(`p=${RSA_2048}`).valid, true);
+eq('v=DKIM1 is recorded',    key(`v=DKIM1; p=${RSA_2048}`).version, 'DKIM1');
+eq('v=DKIM2 is invalid',     key(`v=DKIM2; p=${RSA_2048}`).valid, false);
+eq('v=DKIM2 says why',       key(`v=DKIM2; p=${RSA_2048}`).errors, ['bad-version']);
+
+// RFC 8463 §3: the value is the raw 32-byte key, not an SPKI structure, so
+// there is no modulus to measure and keyBits must stay null rather than 0.
+const ed = key(`v=DKIM1; k=ed25519; p=${ED25519_32}`);
+eq('ed25519 detected',       ed.keyType, 'ed25519');
+eq('ed25519 byte length',    ed.keyBytes, 32);
+eq('ed25519 has no modulus', ed.keyBits, null);
+eq('ed25519 is valid',       ed.valid, true);
+eq('a 31-byte ed25519 key is flagged',
+  key(`v=DKIM1; k=ed25519; p=${ED25519_31}`).errors, ['bad-ed25519-length']);
+
+// The revocation case dkimKeyRecords() drops on the discovery side.
+const revoked = key('v=DKIM1; k=rsa; p=');
+eq('empty p= is revocation',        revoked.revoked, true);
+eq('revocation is not a parse error', revoked.errors, []);
+eq('revocation reports no size',    revoked.keyBits, null);
+eq('a live key is not revoked',     key(`v=DKIM1; p=${RSA_2048}`).revoked, false);
+
+// A p= truncated by a TXT chunking mistake is a completely silent DKIM
+// failure, and it must not read as a key of whatever size the garbage implies.
+eq('truncated base64 is unparseable',
+  key(`v=DKIM1; k=rsa; p=${RSA_2048.slice(0, 100)}`).errors, ['unparseable-key']);
+eq('and reports no size',
+  key(`v=DKIM1; k=rsa; p=${RSA_2048.slice(0, 100)}`).keyBits, null);
+eq('non-base64 is unparseable',
+  key('v=DKIM1; k=rsa; p=not base64 at all!!').errors, ['unparseable-key']);
+eq('a missing p= is named',  key('v=DKIM1; k=rsa').errors, ['missing-p']);
+
+// RFC 6376 requires SubjectPublicKeyInfo. A bare PKCS#1 blob is refused rather
+// than measured, so the DER walk and Web Crypto can never disagree on a size.
+eq('a bare PKCS#1 key is refused',
+  key('v=DKIM1; k=rsa; p=MIGJAoGBAJiYDX+w0tysy1TZwR8+tzkaPubU4WnbdWgp4dsIwRhsyNIBMusjpix5/Jbvvrq').errors, ['unparseable-key']);
+
+eq('t=y is testing',         key(`v=DKIM1; t=y; p=${RSA_2048}`).testing, true);
+eq('t=y:s sets both flags',  [key(`v=DKIM1; t=y:s; p=${RSA_2048}`).testing, key(`v=DKIM1; t=y:s; p=${RSA_2048}`).strictSubdomain], [true, true]);
+eq('t=s alone is not testing', key(`v=DKIM1; t=s; p=${RSA_2048}`).testing, false);
+eq('h= splits on colon',     key(`v=DKIM1; h=sha256:sha1; p=${RSA_2048}`).hashAlgorithms, ['sha256', 'sha1']);
+eq('s= splits on colon',     key(`v=DKIM1; s=email; p=${RSA_2048}`).serviceTypes, ['email']);
+eq('n= is carried through',  key(`v=DKIM1; n=rotate me; p=${RSA_2048}`).notes, 'rotate me');
+eq('unknown tags are listed', key(`v=DKIM1; g=*; p=${RSA_2048}`).unknownTags, ['g']);
+
+// Folding whitespace is legal inside p= (RFC 6376 §3.2) and destroys the
+// decode if it is not stripped first.
+eq('whitespace inside p= survives',
+  key(`v=DKIM1; k=rsa; p=${RSA_1024.slice(0, 40)} ${RSA_1024.slice(40)}`).keyBits, 1024);
+
+// The base64 is case-sensitive. Anything that lowercases it destroys the key,
+// which is why cleanAnswerData() must not be changed to do so.
+eq('case-sensitive base64 is not normalized',
+  key(`v=DKIM1; k=rsa; p=${RSA_2048.toLowerCase()}`).keyBits, null);
+
+// Web Crypto never lowers a verdict: it confirms, or it says nothing.
+eq('crypto is not attempted synchronously', key(`v=DKIM1; p=${RSA_2048}`).cryptoValidated, null);
+const validated = await D.validateDkimKeyStructure(key(`v=DKIM1; p=${RSA_2048}`), `v=DKIM1; p=${RSA_2048}`);
+eq('crypto confirms a good key',   validated.cryptoValidated, true);
+eq('and adds no errors',           validated.errors, []);
+eq('and leaves the size alone',    validated.keyBits, 2048);
+// A revoked key has nothing to import, and must not come back marked invalid.
+const revokedValidated = await D.validateDkimKeyStructure(key('v=DKIM1; p='), 'v=DKIM1; p=');
+eq('a revoked key is not sent to crypto', revokedValidated.cryptoValidated, null);
+eq('and stays valid',                     revokedValidated.valid, true);
+
+// Multi-string TXT reassembly, through the real cleanAnswerData path.
+const split = D.dkimRecordSet([{ type: 16, data: `"v=DKIM1; k=rsa; p=${RSA_2048.slice(0, 120)}" "${RSA_2048.slice(120)}"` }]);
+eq('a split TXT record rejoins', split.keys.length, 1);
+eq('and the rejoined key parses', key(split.keys[0]).keyBits, 2048);
+
+// dkimRecordSet separates the two questions dkimKeyRecords conflates.
+const mixedSet = D.dkimRecordSet([
+  { type: 16, data: `"v=DKIM1; p=${RSA_2048}"` },
+  { type: 16, data: '"v=DKIM1; p="' },
+  { type: 16, data: '"verification=abc"' },
+]);
+eq('usable keys are separated',   mixedSet.keys.length, 1);
+eq('revoked records are kept',    mixedSet.revoked.length, 1);
+eq('unrelated TXT is dropped',    mixedSet.keys.length + mixedSet.revoked.length, 2);
+eq('dkimKeyRecords is unchanged', D.dkimKeyRecords([{ type: 16, data: '"v=DKIM1; p="' }]).length, 0);
+
+// The domain-level rollup: strength, not algorithm.
+eq('mixed strengths detected', D.summarizeDkimKeys([
+  { key: key(`v=DKIM1; p=${RSA_1024}`) }, { key: key(`v=DKIM1; p=${RSA_2048}`) },
+]).mixed, true);
+eq('the weakest selector sets minBits', D.summarizeDkimKeys([
+  { key: key(`v=DKIM1; p=${RSA_1024}`) }, { key: key(`v=DKIM1; p=${RSA_2048}`) },
+]).minBits, 1024);
+eq('equal strengths are not mixed', D.summarizeDkimKeys([
+  { key: key(`v=DKIM1; p=${RSA_2048}`) }, { key: key(`v=DKIM1; p=${RSA_2048}`) },
+]).mixed, false);
+// RFC 8463 double-signing is the recommended migration, not a weakness.
+eq('ed25519 alongside RSA is not "mixed"', D.summarizeDkimKeys([
+  { key: key(`v=DKIM1; k=ed25519; p=${ED25519_32}`) }, { key: key(`v=DKIM1; p=${RSA_2048}`) },
+]).mixed, false);
+eq('but both algorithms are recorded', D.summarizeDkimKeys([
+  { key: key(`v=DKIM1; k=ed25519; p=${ED25519_32}`) }, { key: key(`v=DKIM1; p=${RSA_2048}`) },
+]).algorithms, ['ed25519', 'rsa']);
+
+/* ── 35. Structured CAA (RFC 8659, RFC 9495) ─────────────────────────── */
+section('35. Structured CAA');
+
+const caaRec = D.parseCaaRecord('0 issue "letsencrypt.org"');
+eq('flags parsed',   caaRec.flags, 0);
+eq('tag parsed',     caaRec.tag, 'issue');
+eq('value unquoted', caaRec.value, 'letsencrypt.org');
+eq('tag is known',   caaRec.known, true);
+eq('record is valid', caaRec.valid, true);
+
+eq('tag is lowercased',    D.parseCaaRecord('0 ISSUE "pki.goog"').tag, 'issue');
+eq('critical bit read',    D.parseCaaRecord('128 issue "pki.goog"').critical, true);
+eq('flags 0 is not critical', D.parseCaaRecord('0 issue "pki.goog"').critical, false);
+eq('flags 256 is rejected', D.parseCaaRecord('256 issue "pki.goog"').errors, ['bad-flags']);
+eq('an unquoted value is named', D.parseCaaRecord('0 issue pki.goog').errors, ['unquoted-value']);
+eq('but is still read',    D.parseCaaRecord('0 issue pki.goog').value, 'pki.goog');
+eq('an embedded semicolon survives',
+  D.parseCaaRecord('0 issue "ca.example; policy=ev"').value, 'ca.example; policy=ev');
+eq('an unknown tag is marked',   D.parseCaaRecord('128 unknowntag "x"').known, false);
+eq('RFC 9495 tags are known',    D.parseCaaRecord('0 issuemail "ca.example"').known, true);
+eq('iodef is known',             D.parseCaaRecord('0 iodef "mailto:sec@example.com"').known, true);
+eq('a one-field record is unparseable', D.parseCaaRecord('issue').errors, ['unparseable-record']);
+
+// The two semantics that are easy to get wrong.
+const blocked = D.summarizeCaa(['0 issue ";"']);
+eq('an issue value of ; blocks all issuance', blocked.issuanceBlocked, true);
+eq('and names no issuers',                    blocked.issuers, []);
+const wildBlocked = D.summarizeCaa(['0 issue "letsencrypt.org"', '0 issuewild ";"']);
+eq('issuewild ; blocks wildcards only',   wildBlocked.wildcardBlocked, true);
+eq('while normal issuance continues',     wildBlocked.issuanceBlocked, false);
+eq('and the issuer is still listed',      wildBlocked.issuers, ['letsencrypt.org']);
+// An absent issuewild set means `issue` governs wildcards — NOT that wildcards
+// are unrestricted. Reading it the other way inverts the policy.
+const noWild = D.summarizeCaa(['0 issue "letsencrypt.org"']);
+eq('an absent issuewild set is not "blocked"',   noWild.wildcardBlocked, false);
+eq('and publishes no wildcard issuers of its own', noWild.wildcardIssuers, []);
+
+const caaFull = D.summarizeCaa([
+  '0 issue "letsencrypt.org"', '0 issue "pki.goog"',
+  '0 iodef "mailto:sec@example.com"', '128 weirdtag "x"', 'garbage',
+]);
+eq('issuers collected',        caaFull.issuers, ['letsencrypt.org', 'pki.goog']);
+eq('iodef collected',          caaFull.iodef, ['mailto:sec@example.com']);
+eq('unknown critical flagged', caaFull.unknownCritical, ['weirdtag']);
+eq('malformed keeps the raw text', caaFull.malformed, ['garbage']);
+// Parameters after the issuer name are not part of the CA identity.
+eq('issuer parameters are stripped',
+  D.summarizeCaa(['0 issue "letsencrypt.org; validationmethods=dns-01"']).issuers, ['letsencrypt.org']);
+
+sandbox.fetch = dohFixture({ 'caa.example CAA': caa('0 issue "letsencrypt.org"') });
+const caaWalk = await D.checkCAA('caa.example', { retries: 0, noCache: true });
+eq('checkCAA keeps its original shape', [caaWalk.found, caaWalk.atDomain], [true, 'caa.example']);
+eq('and gains the parsed set',          caaWalk.issuers, ['letsencrypt.org']);
+eq('and the raw records still',         caaWalk.records, ['0 issue "letsencrypt.org"']);
+// The climb is unchanged: RFC 8659 §3 stops at the first name with any record.
+sandbox.fetch = dohFixture({ 'parent.example CAA': caa('0 issue "pki.goog"') });
+const climbed = await D.checkCAA('sub.parent.example', { retries: 0, noCache: true });
+eq('CAA is still inherited from the parent', climbed.atDomain, 'parent.example');
+eq('and the parent policy is parsed',        climbed.issuers, ['pki.goog']);
+
+/* ── 36. MX health (DNS only, no SMTP) ───────────────────────────────── */
+section('36. MX health');
+
+eq('an MX record splits into preference and host',
+  D.parseMxRecord('10 mail.example.com.'), { preference: 10, host: 'mail.example.com' });
+eq('a malformed MX record is dropped', D.parseMxRecord('mail.example.com'), null);
+
+const MX_FIXTURE = {
+  'good.example A': a('203.0.113.10'),
+  'good.example AAAA': aaaa('2001:db8::10'),
+  'good.example CNAME': 'nodata',
+  'dead.example A': 'nxdomain',
+  'dead.example AAAA': 'nxdomain',
+  'dead.example CNAME': 'nxdomain',
+  'aliased.example CNAME': cname('real.example.'),
+  'aliased.example A': a('203.0.113.20'),
+  'aliased.example AAAA': 'nodata',
+};
+sandbox.fetch = dohFixture(MX_FIXTURE);
+const mxAudit = await D.auditMxHosts(
+  ['10 good.example.', '20 dead.example.', '30 aliased.example.'],
+  'example.com', { retries: 0, noCache: true });
+
+eq('every MX host is audited',   mxAudit.hosts.length, 3);
+eq('a resolving host says yes',  mxAudit.hosts[0].resolves, 'yes');
+eq('a dangling host is named',   mxAudit.danglingHosts, ['dead.example']);
+eq('a CNAME target is named',    mxAudit.cnameHosts, ['aliased.example']);
+// RFC 2181 §10.3 forbids it, but the A record behind the alias still resolves,
+// so the host is reachable and must not also be reported as dangling.
+eq('a CNAME target still resolves', mxAudit.hosts[2].resolves, 'yes');
+eq('IPv6 coverage is partial',   mxAudit.ipv6Coverage, 'some');
+eq('three hosts is not a single point', mxAudit.singleHost, false);
+eq('nothing is unknown here',    mxAudit.unknown, false);
+
+sandbox.fetch = dohFixture({
+  'only.example A': a('198.51.100.5'), 'only.example AAAA': 'nodata', 'only.example CNAME': 'nodata',
+});
+const single = await D.auditMxHosts(['10 only.example.'], 'example.com', { retries: 0, noCache: true });
+eq('a lone MX host is a single point of failure', single.singleHost, true);
+eq('and IPv4-only reads as no IPv6',              single.ipv6Coverage, 'none');
+
+// Concentration: three hosts, one /24. The prefix label is what the operator
+// has to go and look at, so it is reported rather than a bare count.
+sandbox.fetch = dohFixture({
+  'a.example A': a('203.0.113.10'), 'a.example AAAA': 'nodata', 'a.example CNAME': 'nodata',
+  'b.example A': a('203.0.113.11'), 'b.example AAAA': 'nodata', 'b.example CNAME': 'nodata',
+  'c.example A': a('198.51.100.9'), 'c.example AAAA': 'nodata', 'c.example CNAME': 'nodata',
+});
+const prefixes = await D.auditMxHosts(
+  ['10 a.example.', '20 b.example.', '30 c.example.'], 'example.com', { retries: 0, noCache: true });
+eq('one shared /24 is reported', prefixes.sharedPrefixes.length, 1);
+eq('the prefix is named',        prefixes.sharedPrefixes[0].prefix, '203.0.113.0/24');
+eq('with the hosts inside it',   prefixes.sharedPrefixes[0].hosts, ['a.example', 'b.example']);
+// The host in a different /24 is not swept into the group.
+eq('an unrelated host is left out', prefixes.sharedPrefixes[0].hosts.includes('c.example'), false);
+
+sandbox.fetch = dohFixture({
+  'p1.example A': a('203.0.113.10'), 'p1.example AAAA': 'nodata', 'p1.example CNAME': 'nodata',
+  'p2.example A': a('198.51.100.10'), 'p2.example AAAA': 'nodata', 'p2.example CNAME': 'nodata',
+});
+const dupes = await D.auditMxHosts(['10 p1.example.', '10 p2.example.'], 'example.com', { retries: 0, noCache: true });
+eq('duplicate preferences are reported', dupes.duplicatePreferences, [10]);
+
+// A SERVFAIL on one host must degrade that host and leave the others intact —
+// and must never let an unchecked host be counted as dangling.
+sandbox.fetch = dohFixture({
+  'ok.example A': a('203.0.113.10'), 'ok.example AAAA': 'nodata', 'ok.example CNAME': 'nodata',
+  'flaky.example A': 'servfail', 'flaky.example AAAA': 'servfail', 'flaky.example CNAME': 'servfail',
+});
+const flakyMx = await D.auditMxHosts(['10 ok.example.', '20 flaky.example.'], 'example.com', { retries: 0, noCache: true });
+eq('the healthy host still reports',      flakyMx.hosts[0].resolves, 'yes');
+eq('the failed host is unknown',          flakyMx.hosts[1].resolves, 'unknown');
+eq('an unknown host is NOT dangling',     flakyMx.danglingHosts, []);
+eq('and the audit says it is incomplete', flakyMx.unknown, true);
+
+// A null MX never reaches this function, but an empty list must not throw.
+eq('no MX records is not an error', (await D.auditMxHosts([], 'example.com', { retries: 0, noCache: true })).hosts, []);
+
+/* ── 37. TLSA and DANE (RFC 6698, RFC 7671) ──────────────────────────── */
+section('37. TLSA published, not yet qualified');
+
+// The parenthesised uppercase shape the resolver actually returns. A parser
+// written for the DS shape splits this to ['3','1','1','('] and reads the
+// association data as an empty string, raising no error at all.
+const tlsaRec = D.parseTlsaRecord('3 1 1 ( 13815B2C03F7BD63C54869706428442EDAB706D5B018A27575CA989129A196D5 )');
+eq('usage parsed',         tlsaRec.usage, 3);
+eq('selector parsed',      tlsaRec.selector, 1);
+eq('matching type parsed', tlsaRec.matchingType, 1);
+eq('parentheses stripped', tlsaRec.data, '13815b2c03f7bd63c54869706428442edab706d5b018a27575ca989129a196d5');
+eq('the digest is 32 bytes', tlsaRec.data.length / 2, 32);
+eq('the record is valid',  tlsaRec.valid, true);
+
+// The same record without parentheses, as DS would come back. Both must work,
+// because nothing guarantees the resolver keeps its current formatting.
+eq('an unparenthesised record parses too',
+  D.parseTlsaRecord('3 1 1 13815B2C03F7BD63C54869706428442EDAB706D5B018A27575CA989129A196D5').data,
+  tlsaRec.data);
+eq('a 3 0 1 record parses', D.parseTlsaRecord('3 0 1 ( ' + 'AB'.repeat(32) + ' )').valid, true);
+eq('SHA-512 wants 64 bytes', D.parseTlsaRecord('3 1 2 ( ' + 'AB'.repeat(64) + ' )').valid, true);
+eq('a short SHA-256 digest is flagged',
+  D.parseTlsaRecord('3 1 1 ( ABCD )').errors, ['bad-digest-length']);
+// Matching type 0 is the full certificate, of no fixed length.
+eq('matching type 0 accepts any length',
+  D.parseTlsaRecord('3 1 0 ( ' + 'AB'.repeat(200) + ' )').valid, true);
+eq('usage 4 is out of range',    D.parseTlsaRecord('4 1 1 ( ' + 'AB'.repeat(32) + ' )').errors, ['bad-usage']);
+eq('selector 2 is out of range', D.parseTlsaRecord('3 2 1 ( ' + 'AB'.repeat(32) + ' )').errors, ['bad-selector']);
+eq('matching type 3 is out of range',
+  D.parseTlsaRecord('3 1 3 ( ' + 'AB'.repeat(32) + ' )').errors, ['bad-matching-type']);
+eq('non-hex data is flagged',
+  D.parseTlsaRecord('3 1 1 ( ZZZZ )').errors, ['bad-association-data']);
+eq('an empty record is unparseable', D.parseTlsaRecord('').errors, ['unparseable-record']);
+
+const DIGEST = 'A6EB48052B5A83AA9D40E71CEAA20F6818C3A632D3B182A6246501B64D63724D';
+sandbox.fetch = dohFixture({
+  '_25._tcp.signed.example TLSA': { answers: tlsa(`3 1 1 ( ${DIGEST} )`), ad: true },
+  '_25._tcp.unsigned.example TLSA': { answers: tlsa(`3 1 1 ( ${DIGEST} )`), ad: false },
+  '_25._tcp.bare.example TLSA': 'nxdomain',
+});
+const tlsaResult = await D.checkTlsa(
+  ['signed.example', 'unsigned.example', 'bare.example'], { retries: 0, noCache: true });
+eq('TLSA is found where published',   tlsaResult.hosts[0].present, true);
+eq('and the digest survives the query', tlsaResult.hosts[0].records[0].data, DIGEST.toLowerCase());
+eq('a signed answer is authenticated', tlsaResult.hosts[0].authenticated, true);
+eq('an unsigned answer is not',        tlsaResult.hosts[1].authenticated, false);
+eq('a host without TLSA is absent',    tlsaResult.hosts[2].present, false);
+eq('anyPresent is true',               tlsaResult.anyPresent, true);
+eq('unauthenticated hosts are named',  tlsaResult.unauthenticatedHosts, ['unsigned.example']);
+// Acceptance criterion 4: nothing in this release may claim DANE is active.
+eq('qualified is false even when every host is signed', tlsaResult.qualified, false);
+eq('and stays false with a fully signed set',
+  (await D.checkTlsa(['signed.example'], { retries: 0, noCache: true })).qualified, false);
+eq('a fully signed set is recorded as such',
+  (await D.checkTlsa(['signed.example'], { retries: 0, noCache: true })).allAuthenticated, true);
+
+// A TLSA query commonly returns a CNAME alongside the records — pointing
+// _25._tcp.<host> at a shared _dane.<zone> name is ordinary practice. Handing
+// that CNAME to the record parser reports a malformed TLSA on a healthy host.
+sandbox.fetch = dohFixture({
+  '_25._tcp.dane.example TLSA': {
+    answers: [...cname('_dane.example.'), ...tlsa(`3 1 1 ( ${DIGEST} )`)], ad: true,
+  },
+});
+const withCname = await D.checkTlsa(['dane.example'], { retries: 0, noCache: true });
+eq('the CNAME in the answer set is filtered out', withCname.hosts[0].records.length, 1);
+eq('and nothing is reported malformed',
+  withCname.hosts[0].records.every(r => r.valid), true);
+
+sandbox.fetch = dohFixture({ '_25._tcp.flaky.example TLSA': 'servfail' });
+const tlsaFlaky = await D.checkTlsa(['flaky.example'], { retries: 0, noCache: true });
+eq('a failed TLSA lookup is unknown',    tlsaFlaky.hosts[0].unknown, true);
+eq('and is never reported as absent',    tlsaFlaky.hosts[0].authenticated, null);
+eq('and the result says so',             tlsaFlaky.unknown, true);
+
+/* ── 38. The findings these analyzers produce ────────────────────────── */
+section('38. Advisory findings from the new analyzers');
+
+const findings = (parts) => D.buildIssues(Object.assign({
+  emailProvider: 'Google Workspace',
+  spfStatus: { status: 'ok', cls: 'ok', warnings: [] },
+  dkimStatus: { found: true, selectors: [], testedSelectors: ['s1'], failedSelectors: [], duplicated: [], revokedSelectors: [], confidence: 'observed' },
+  dmarcStatus: { status: 'ok', cls: 'ok', policy: 'reject', warnings: [] },
+  dmarcDiscovery: null, dmarcExistence: 'yes', externalReportDestinations: [],
+  reportPlan: { external: [] }, wildcardApex: false, wildcardDkim: false,
+  hosting: '@custom', advanced: {}, domain: 'example.com',
+}, parts));
+const keysOf = (parts) => findings(parts).map(i => i.key);
+const sevOf = (parts, k) => (findings(parts).find(i => i.key === k) || {}).sev;
+
+const sel = (name, value) => ({ sel: name, key: key(value) });
+const dkimWith = (...selectors) => ({
+  dkimStatus: {
+    found: true, selectors, testedSelectors: [], failedSelectors: [], duplicated: [],
+    revokedSelectors: [], confidence: 'observed', keyProfile: D.summarizeDkimKeys(selectors),
+  },
+});
+
+eq('a sub-1024 key is critical', sevOf(dkimWith(sel('s1', `v=DKIM1; p=${RSA_512}`)), 'dkim-key-weak'), 'crit');
+eq('and names the selector and size',
+  findings(dkimWith(sel('s1', `v=DKIM1; p=${RSA_512}`))).find(i => i.key === 'dkim-key-weak').args, ['s1 (512)']);
+// OQ-DEPTH-05: 53% of real keys are RSA-1024, so a warning here would fire on
+// most audited domains and teach people to ignore the critical line above.
+eq('a 1024-bit key is informational, not a warning',
+  sevOf(dkimWith(sel('s1', `v=DKIM1; p=${RSA_1024}`)), 'dkim-key-1024'), 'info');
+eq('a 2048-bit key raises nothing',
+  keysOf(dkimWith(sel('s1', `v=DKIM1; p=${RSA_2048}`))).filter(k => k.startsWith('dkim-key')), []);
+eq('selectors are grouped onto one line',
+  findings(dkimWith(sel('a', `v=DKIM1; p=${RSA_1024}`), sel('b', `v=DKIM1; p=${RSA_1024}`)))
+    .filter(i => i.key === 'dkim-key-1024').length, 1);
+eq('mixed strengths are reported with both sizes',
+  findings(dkimWith(sel('a', `v=DKIM1; p=${RSA_1024}`), sel('b', `v=DKIM1; p=${RSA_2048}`)))
+    .find(i => i.key === 'dkim-key-mixed').args, [1024, 2048]);
+eq('a testing key is informational', sevOf(dkimWith(sel('s1', `v=DKIM1; t=y; p=${RSA_2048}`)), 'dkim-key-testing'), 'info');
+eq('an unparseable key warns', sevOf(dkimWith(sel('s1', `v=DKIM1; p=${RSA_2048.slice(0, 100)}`)), 'dkim-key-unparseable'), 'warn');
+eq('h=sha1 alone warns', sevOf(dkimWith(sel('s1', `v=DKIM1; h=sha1; p=${RSA_2048}`)), 'dkim-key-sha1'), 'warn');
+// A verifier offered both can pick SHA-256, so the list is not a finding.
+eq('h=sha256:sha1 does not warn',
+  keysOf(dkimWith(sel('s1', `v=DKIM1; h=sha256:sha1; p=${RSA_2048}`))).includes('dkim-key-sha1'), false);
+eq('a revoked selector warns', sevOf({
+  dkimStatus: { found: true, selectors: [], testedSelectors: [], failedSelectors: [], duplicated: [], confidence: 'observed', revokedSelectors: [{ sel: 'old', queryName: 'old._domainkey.example.com', value: 'v=DKIM1; p=' }] },
+}, 'dkim-key-revoked'), 'warn');
+// A browser without Web Crypto has said nothing about the key. It must never
+// end up in the unparseable line.
+const uncheckable = key(`v=DKIM1; p=${RSA_2048}`);
+eq('an unvalidated key is not reported broken',
+  keysOf(dkimWith({ sel: 's1', key: uncheckable })).includes('dkim-key-unparseable'), false);
+
+const caaAdv = summary => ({ advanced: { caa: Object.assign({ found: true, atDomain: 'example.com', records: [] }, summary) } });
+eq('blocked issuance warns',
+  sevOf(caaAdv(D.summarizeCaa(['0 issue ";"'])), 'caa-blocks-all-issuance'), 'warn');
+eq('an unknown critical tag warns',
+  sevOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"', '128 weird "x"'])), 'caa-unknown-critical-tag'), 'warn');
+eq('a malformed record warns',
+  sevOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"', 'garbage'])), 'caa-malformed'), 'warn');
+eq('a missing iodef is informational',
+  sevOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"'])), 'caa-no-iodef'), 'info');
+eq('a single issuer is informational',
+  sevOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"'])), 'caa-single-issuer'), 'info');
+// issue + issuewild for the same CA is one issuer, not two.
+eq('issue and issuewild for one CA is still a single issuer',
+  keysOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"', '0 issuewild "pki.goog"']))).includes('caa-single-issuer'), true);
+eq('two issuers raise nothing',
+  keysOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"', '0 issue "letsencrypt.org"']))).includes('caa-single-issuer'), false);
+eq('a blocked policy is not also "single issuer"',
+  keysOf(caaAdv(D.summarizeCaa(['0 issue ";"']))).includes('caa-single-issuer'), false);
+// No CAA at all is a suggestion, not a policy finding.
+eq('an absent CAA set raises no policy findings',
+  keysOf({ advanced: { caa: { found: false, records: [], atDomain: null } } }).filter(k => k.startsWith('caa-')), []);
+
+const mxAdv = health => ({ advanced: { mxHealth: health } });
+eq('a dangling MX host is critical', sevOf(mxAdv(mxAudit), 'mx-dangling'), 'crit');
+eq('and names the host',            findings(mxAdv(mxAudit)).find(i => i.key === 'mx-dangling').args, ['dead.example']);
+eq('a CNAME MX target warns',       sevOf(mxAdv(mxAudit), 'mx-cname-target'), 'warn');
+eq('a single MX host is informational', sevOf(mxAdv(single), 'mx-single-host'), 'info');
+eq('no IPv6 is informational',      sevOf(mxAdv(single), 'mx-no-ipv6'), 'info');
+eq('a shared prefix is informational', sevOf(mxAdv(prefixes), 'mx-same-prefix'), 'info');
+eq('and names the prefix',          findings(mxAdv(prefixes)).find(i => i.key === 'mx-same-prefix').args[0], '203.0.113.0/24');
+eq('duplicate preferences are informational', sevOf(mxAdv(dupes), 'mx-duplicate-preference'), 'info');
+// The whole point of the resilience work: a host we could not check must never
+// be reported as an outage.
+eq('an unchecked host raises no dangling finding',
+  keysOf(mxAdv(flakyMx)).includes('mx-dangling'), false);
+eq('but the audit says which check was incomplete',
+  findings(mxAdv(flakyMx)).find(i => i.key === 'checks-unverified').args, ['MX']);
+
+eq('an unsigned TLSA record warns', sevOf({ advanced: { tlsa: tlsaResult } }, 'tlsa-published-unsigned'), 'warn');
+eq('and names only the unsigned host',
+  findings({ advanced: { tlsa: tlsaResult } }).find(i => i.key === 'tlsa-published-unsigned').args, ['unsigned.example']);
+// The finding that would have shipped wrong: gating on `qualified` alone fires
+// on every domain, telling a correctly signed zone its DANE is unprotected.
+eq('a fully signed TLSA set raises no unsigned warning',
+  keysOf({ advanced: { tlsa: await D.checkTlsa(['signed.example'], { retries: 0, noCache: true }) } })
+    .includes('tlsa-published-unsigned'), false);
+eq('partial coverage is informational',
+  sevOf({ advanced: { tlsa: tlsaResult } }, 'tlsa-partial-coverage'), 'info');
+eq('and counts only the hosts checked',
+  findings({ advanced: { tlsa: tlsaResult } }).find(i => i.key === 'tlsa-partial-coverage').args, [2, 3]);
+
+sandbox.fetch = dohFixture({
+  '_25._tcp.bad.example TLSA': { answers: tlsa('3 1 1 ( ABCD )'), ad: true },
+});
+eq('a malformed TLSA record warns',
+  sevOf({ advanced: { tlsa: await D.checkTlsa(['bad.example'], { retries: 0, noCache: true }) } }, 'tlsa-malformed'), 'warn');
+
+/* ── 39. Deep checks through analyzeDomain ───────────────────────────── */
+section('39. Deep protocol checks through analyzeDomain');
+
+const DEEP = {
+  'depth.example NS': ns('ns1.depth.example.'),
+  'depth.example MX': mx('10 mail.depth.example.', '20 dead.depth.example.'),
+  'depth.example TXT': txt('v=spf1 -all'),
+  'depth.example A': a('203.0.113.5'),
+  'depth.example AAAA': 'nodata',
+  'depth.example CAA': caa('0 issue "letsencrypt.org"'),
+  '_dmarc.depth.example TXT': txt('v=DMARC1; p=reject; rua=mailto:d@depth.example'),
+  'mail.depth.example A': a('203.0.113.25'),
+  'mail.depth.example AAAA': 'nodata',
+  'mail.depth.example CNAME': 'nodata',
+  'dead.depth.example A': 'nxdomain',
+  'dead.depth.example AAAA': 'nxdomain',
+  'dead.depth.example CNAME': 'nxdomain',
+  '_25._tcp.mail.depth.example TLSA': { answers: tlsa(`3 1 1 ( ${DIGEST} )`), ad: true },
+};
+
+// One fixture across both runs, so the second audit's query count is measured
+// on the same `calls` array — and, because dohFetch's cache is module-level and
+// already warm from the first run, what it counts is exactly the queries the
+// toggle adds. That number is what PRIVACY.md has to state.
+sandbox.fetch = dohFixture(DEEP);
+const deepOff = await D.analyzeDomain('depth.example', { dkim: false, advanced: true, retries: 0 });
+eq('deep checks are off unless asked for', deepOff.advanced.mxHealth, null);
+eq('and TLSA is not queried at all',       deepOff.advanced.tlsa, null);
+eq('no TLSA query is issued',              sandbox.fetch.callsFor('TLSA').length, 0);
+// CAA parsing is free — it reads records the audit already fetched — so it
+// must work with the deep checks switched off.
+eq('CAA is still parsed with deep checks off', deepOff.advanced.caa.issuers, ['letsencrypt.org']);
+
+const queriesWithout = sandbox.fetch.calls.length;
+const deepOn = await D.analyzeDomain('depth.example', { dkim: false, advanced: true, deepChecks: true, retries: 0 });
+eq('MX health runs',                deepOn.advanced.mxHealth.hosts.length, 2);
+eq('the dead MX host is found',     deepOn.advanced.mxHealth.danglingHosts, ['dead.depth.example']);
+eq('and reported as critical',      deepOn.issues.find(i => i.key === 'mx-dangling').sev, 'crit');
+eq('TLSA runs for every MX host',   deepOn.advanced.tlsa.hosts.length, 2);
+eq('and finds the published record', deepOn.advanced.tlsa.anyPresent, true);
+eq('DANE is never called qualified', deepOn.advanced.tlsa.qualified, false);
+// The measured cost of the toggle, which PRIVACY.md has to state.
+eq('deep checks cost 3 queries per MX host plus 1 TLSA each',
+  sandbox.fetch.calls.length - queriesWithout, 8);
+
+// A null MX has declared it accepts no mail: there is no host to resolve.
+sandbox.fetch = dohFixture({
+  'nomail.example NS': ns('ns1.nomail.example.'),
+  'nomail.example MX': mx('0 .'),
+  'nomail.example TXT': txt('v=spf1 -all'),
+  'nomail.example A': a('203.0.113.5'),
+  'nomail.example AAAA': 'nodata',
+});
+const nullMx = await D.analyzeDomain('nomail.example', { dkim: false, advanced: true, deepChecks: true, retries: 0 });
+eq('a null MX skips the deep checks', nullMx.advanced.mxHealth, null);
+eq('and issues no TLSA query',        sandbox.fetch.callsFor('TLSA').length, 0);
+
+// Acceptance criterion 5: nothing here may move a grade.
+eq('the deep checks change no score', deepOn.score.total, deepOff.score.total);
+eq('and no grade',                    deepOn.score.grade, deepOff.score.grade);
+
+// Every finding this release can emit must have English text behind it. The
+// guard in section 22 only walks DMARC-shaped records, so the DKIM key, CAA,
+// MX and TLSA findings would have slipped past it — a finding with no locale
+// entry renders as its own key, which is how a 124-key gap once survived for
+// months.
+sandbox.fetch = dohFixture({
+  '_25._tcp.bad.example TLSA': { answers: tlsa('3 1 1 ( ABCD )'), ad: true },
+});
+const malformedTlsaResult = await D.checkTlsa(['bad.example'], { retries: 0, noCache: true });
+const depthEmitted = new Set([
+  ...keysOf(dkimWith(sel('a', `v=DKIM1; p=${RSA_512}`), sel('b', `v=DKIM1; t=y; h=sha1; p=${RSA_1024}`))),
+  ...keysOf(dkimWith(sel('c', `v=DKIM1; p=${RSA_2048.slice(0, 100)}`))),
+  ...keysOf({ dkimStatus: { found: true, selectors: [], testedSelectors: [], failedSelectors: [], duplicated: [], confidence: 'observed', revokedSelectors: [{ sel: 'old', queryName: 'old._domainkey.example.com', value: 'v=DKIM1; p=' }] } }),
+  ...keysOf(caaAdv(D.summarizeCaa(['0 issue ";"', '128 weird "x"', 'garbage']))),
+  ...keysOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"']))),
+  ...keysOf(mxAdv(mxAudit)), ...keysOf(mxAdv(single)),
+  ...keysOf(mxAdv(prefixes)), ...keysOf(mxAdv(dupes)), ...keysOf(mxAdv(flakyMx)),
+  ...keysOf({ advanced: { tlsa: tlsaResult } }),
+  ...keysOf({ advanced: { tlsa: malformedTlsaResult } }),
+]);
+eq('every finding in this release has English text',
+  [...depthEmitted].filter(k => !enIssues[k]), []);
+// And the set actually covers what was built, rather than passing by emitting
+// nothing at all.
+eq('the guard exercises all 21 new findings',
+  [...depthEmitted].filter(k => /^(dkim-key|caa-|mx-|tlsa-)/.test(k)).length, 21);
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

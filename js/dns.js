@@ -91,8 +91,37 @@
 
   /* ── DNS-over-HTTPS core ────────────────────────────────────────────── */
 
+  var DNS_TYPES = {
+    A: 1, NS: 2, CNAME: 5, PTR: 12, MX: 15, TXT: 16, AAAA: 28,
+    DS: 43, DNSKEY: 48, TLSA: 52, CAA: 257,
+  };
+
+  /**
+   * Map a record type name to its IANA number.
+   *
+   * This used to end in `?? 16`, which made the function total by answering
+   * every unknown type with the TXT number. The cost of that totality was the
+   * worst failure this codebase can produce: a caller asking for `DS` issued a
+   * TXT query, filtered the answers for type 16, found none, and received a
+   * plausible-looking empty array. No error, no warning, and a confident
+   * "no records published" about a type that was never asked for.
+   *
+   * Every existing call site passes a supported literal, so throwing is
+   * behaviour-preserving for the code that exists and fail-fast for the code
+   * that comes next. `hasOwnProperty` rather than a bare lookup so a type name
+   * that collides with `Object.prototype` ("constructor", "toString") throws
+   * instead of returning a function.
+   */
   function dnsTypeNum(type) {
-    return { NS: 2, A: 1, AAAA: 28, MX: 15, TXT: 16, CNAME: 5, CAA: 257 }[type] ?? 16;
+    if (!Object.prototype.hasOwnProperty.call(DNS_TYPES, type)) {
+      var error = new Error('unsupported DNS type: ' + type);
+      // Named so optionalCheck() re-throws it. An unsupported type is a
+      // programming error, not a resolver hiccup, and degrading it to a stated
+      // "unknown" would hide exactly what the throw exists to surface.
+      error.name = 'DnsTypeError';
+      throw error;
+    }
+    return DNS_TYPES[type];
   }
 
   function dnsError(kind, name, type, detail) {
@@ -139,6 +168,11 @@
   }
 
   async function fetchDohOnce(name, type, opts) {
+    // Resolved before the slot and before the try: the catch below turns every
+    // throw into 'network-error', so an unsupported type checked inside it
+    // would be reported as a resolver failure — the same silent-wrong-answer
+    // shape dnsTypeNum() was changed to prevent, one layer up.
+    const typeNum = dnsTypeNum(type);
     await acquireDohSlot(opts.signal);
     var controller = new AbortController();
     var timedOut = false;
@@ -146,7 +180,7 @@
     var forwardAbort = function () { controller.abort(); };
     if (opts.signal) opts.signal.addEventListener('abort', forwardAbort, { once: true });
     try {
-      const params = new URLSearchParams({ name: name, type: String(dnsTypeNum(type)) });
+      const params = new URLSearchParams({ name: name, type: String(typeNum) });
       if (opts.dnssec) params.set('do', '1');
       if (opts.checkingDisabled) params.set('cd', '1');
       const r = await fetch(`${DOH}?${params}`, {
@@ -168,6 +202,7 @@
   }
 
   async function dohFetch(name, type, opts = {}) {
+    dnsTypeNum(type);   // throw on an unsupported type before the cache, not only on a miss
     const normalizedName = String(name || '').toLowerCase().replace(/\.$/, '');
     const key = [normalizedName, type, opts.dnssec ? 1 : 0, opts.checkingDisabled ? 1 : 0].join('|');
     if (!opts.noCache) {
@@ -202,12 +237,18 @@
    * rather than as zero.
    *
    * Cancellation is re-thrown: an aborted audit is not an unknown result.
+   *
+   * So is DnsTypeError. A query for a record type the transport does not know
+   * is a bug in this file, not a resolver hiccup, and reporting it as a stated
+   * "unknown" would restore the very failure dnsTypeNum() throws to prevent:
+   * the check silently never runs and the interface says so in the calm voice
+   * it uses for a domain the resolver was merely slow about.
    */
   async function optionalCheck(run, fallback) {
     try {
       return await run();
     } catch (error) {
-      if (error && error.name === 'AbortError') throw error;
+      if (error && (error.name === 'AbortError' || error.name === 'DnsTypeError')) throw error;
       return typeof fallback === 'function' ? fallback(error) : fallback;
     }
   }
@@ -424,6 +465,233 @@
       });
   }
 
+  /**
+   * Split a selector's TXT answers into usable keys and revoked ones.
+   *
+   * `dkimKeyRecords()` above answers "is there a usable key here", and its
+   * filter drops any record whose `p=` is empty. That is right for discovery
+   * and wrong for reporting: RFC 6376 3.6.1 defines an empty `p=` as key
+   * REVOCATION, so the records it discards are precisely the ones a domain
+   * publishes to say "this selector is dead". Reporting a revoked selector as
+   * absent tells the operator to go and create a key they deliberately killed.
+   *
+   * So the two questions are answered separately rather than by loosening the
+   * existing filter, which would let a revoked key satisfy "DKIM is present".
+   */
+  function dkimRecordSet(answers) {
+    var keys = [];
+    var revoked = [];
+    (answers || []).filter(function (answer) { return answer.type === 16; })
+      .forEach(function (answer) {
+        var value = cleanAnswerData(answer.data, 'TXT');
+        var tags = parseTagList(value).tags;
+        if (!Object.prototype.hasOwnProperty.call(tags, 'p')) return;
+        if (tags.v && tags.v.toLowerCase() !== 'dkim1') return;
+        if (tags.p.length > 0) keys.push(value);
+        else revoked.push(value);
+      });
+    return { keys: keys, revoked: revoked };
+  }
+
+  /* ── DKIM public key analysis (RFC 6376 3.6.1, RFC 8463) ──────────────
+     Everything here is pure and synchronous. The size of an RSA modulus is
+     the single most actionable fact about a DKIM key and it must not depend
+     on a secure context, so it is read with a DER length walk rather than
+     with Web Crypto (OQ-DEPTH-02). Web Crypto validates the structure on top,
+     where it exists, and its absence is recorded as an unknown — never as a
+     bad key. A browser that cannot check a key has said nothing about it.
+     ───────────────────────────────────────────────────────────────────── */
+
+  var DKIM_KEY_TAGS = ['v', 'h', 'k', 'n', 'p', 's', 't'];
+
+  /** Decode base64, tolerating the folding whitespace RFC 6376 allows in p=. */
+  function base64ToBytes(value) {
+    var text = String(value || '').replace(/\s+/g, '');
+    if (!text) return new Uint8Array(0);
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(text) || text.length % 4 !== 0) return null;
+    var binary;
+    try { binary = atob(text); } catch (e) { return null; }
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  /**
+   * Read one DER tag-length-value at `pos`. Returns null for anything that is
+   * not well-formed, which is the whole point: a `p=` value truncated by a TXT
+   * chunking mistake decodes to bytes that are not a key, and that must read as
+   * "unparseable" rather than as a key of whatever size the garbage implies.
+   */
+  function derReadTlv(bytes, pos) {
+    if (pos + 2 > bytes.length) return null;
+    var tag = bytes[pos];
+    var lengthByte = bytes[pos + 1];
+    var start, length;
+    if (lengthByte < 0x80) {
+      length = lengthByte;
+      start = pos + 2;
+    } else {
+      var count = lengthByte & 0x7f;
+      // 0 is BER indefinite length, which DER forbids; over 4 bytes is a
+      // length no DKIM key has and a sign the input is not DER at all.
+      if (count === 0 || count > 4) return null;
+      if (pos + 2 + count > bytes.length) return null;
+      length = 0;
+      for (var i = 0; i < count; i++) length = (length * 256) + bytes[pos + 2 + i];
+      start = pos + 2 + count;
+    }
+    if (start + length > bytes.length) return null;
+    return { tag: tag, start: start, length: length, end: start + length };
+  }
+
+  /** Bit length of a DER INTEGER, less the leading sign padding. */
+  function derIntegerBits(bytes, tlv) {
+    var start = tlv.start;
+    var length = tlv.length;
+    while (length > 0 && bytes[start] === 0x00) { start++; length--; }
+    return length > 0 ? length * 8 : null;
+  }
+
+  /**
+   * Walk an RSA public key to its modulus and return the modulus size in bits.
+   *
+   * SPKI only — SEQUENCE { AlgorithmIdentifier, BIT STRING { RSAPublicKey } } —
+   * which is the encoding RFC 6376 3.6.1 requires by reference to RFC 5280.
+   * A bare PKCS#1 RSAPublicKey is deliberately NOT accepted even though it
+   * would be trivial to read here: a verifier following RFC 6376 rejects it, so
+   * reading a size out of it would report a working key size for a key that
+   * verifies nowhere. It also has to be refused for this walk and Web Crypto to
+   * agree, and a size that depends on which of the two ran is worse than none.
+   *
+   * Returns null for anything else, and null is reported as unparseable rather
+   * than guessed at.
+   */
+  function rsaModulusBits(bytes) {
+    if (!bytes) return null;
+    var outer = derReadTlv(bytes, 0);
+    if (!outer || outer.tag !== 0x30) return null;
+    var first = derReadTlv(bytes, outer.start);
+    if (!first || first.tag !== 0x30) return null;
+    var bitString = derReadTlv(bytes, first.end);
+    if (!bitString || bitString.tag !== 0x03 || bitString.length < 1) return null;
+    // First content octet of a BIT STRING counts the unused trailing bits. A
+    // key is a whole number of bytes, so anything but zero means this is not
+    // the structure we think it is.
+    if (bytes[bitString.start] !== 0x00) return null;
+    var inner = derReadTlv(bytes, bitString.start + 1);
+    if (!inner || inner.tag !== 0x30) return null;
+    var modulus = derReadTlv(bytes, inner.start);
+    if (!modulus || modulus.tag !== 0x02) return null;
+    return derIntegerBits(bytes, modulus);
+  }
+
+  /**
+   * Analyze one DKIM key record. Pure, synchronous, no DNS, no Web Crypto.
+   *
+   * `errors` carries tokens, never English — js/dns.js does not speak to the
+   * user. `cryptoValidated` starts null meaning "not attempted"; only
+   * inspectDkimSelector() moves it to true or false, and false never on its
+   * own makes a key invalid.
+   */
+  function analyzeDkimKey(txtValue) {
+    var parsed = parseTagList(txtValue);
+    var tags = parsed.tags;
+    var errors = [];
+
+    var version = null;
+    if (Object.prototype.hasOwnProperty.call(tags, 'v')) {
+      if (tags.v.toLowerCase() === 'dkim1') version = 'DKIM1';
+      else errors.push('bad-version');
+    }
+    if (parsed.duplicates.length) errors.push('duplicate-tags');
+
+    var keyType = Object.prototype.hasOwnProperty.call(tags, 'k')
+      ? tags.k.trim().toLowerCase() : 'rsa';
+    if (keyType !== 'rsa' && keyType !== 'ed25519') keyType = 'unknown';
+
+    var hasP = Object.prototype.hasOwnProperty.call(tags, 'p');
+    var rawKey = hasP ? tags.p : '';
+    // RFC 6376 3.6.1: "An empty value means that this public key has been
+    // revoked." Revocation is a deliberate act and a complete record, so it is
+    // reported as such and not as a parse failure.
+    var revoked = hasP && rawKey.replace(/\s+/g, '').length === 0;
+    if (!hasP) errors.push('missing-p');
+
+    var bytes = null;
+    var keyBytes = null;
+    var keyBits = null;
+    if (hasP && !revoked) {
+      bytes = base64ToBytes(rawKey);
+      if (bytes === null) {
+        errors.push('unparseable-key');
+      } else {
+        keyBytes = bytes.length;
+        if (keyType === 'ed25519') {
+          // RFC 8463 3: the value is the raw 32-byte Ed25519 public key, not
+          // an SPKI structure, so there is no modulus and keyBits stays null.
+          if (keyBytes !== 32) errors.push('bad-ed25519-length');
+        } else if (keyType === 'rsa') {
+          keyBits = rsaModulusBits(bytes);
+          if (keyBits === null) errors.push('unparseable-key');
+        }
+      }
+    }
+
+    var splitList = function (value) {
+      return String(value || '').split(':')
+        .map(function (part) { return part.trim().toLowerCase(); })
+        .filter(Boolean);
+    };
+    var flags = splitList(tags.t);
+    var unknownTags = Object.keys(tags).filter(function (name) {
+      return DKIM_KEY_TAGS.indexOf(name) === -1;
+    });
+
+    return {
+      valid: errors.length === 0,
+      version: version,
+      keyType: keyType,
+      revoked: revoked,
+      keyBits: keyBits,
+      keyBytes: keyBytes,
+      hashAlgorithms: splitList(tags.h),
+      serviceTypes: splitList(tags.s),
+      flags: flags,
+      testing: flags.indexOf('y') !== -1,
+      strictSubdomain: flags.indexOf('s') !== -1,
+      notes: Object.prototype.hasOwnProperty.call(tags, 'n') ? tags.n : '',
+      unknownTags: unknownTags,
+      cryptoValidated: null,
+      errors: errors,
+    };
+  }
+
+  /**
+   * Optional structural confirmation through Web Crypto.
+   *
+   * Never lowers a verdict. A missing `crypto.subtle` leaves `cryptoValidated`
+   * null — "we did not check" — and an import failure records
+   * `key-structure-invalid` while the DER-derived size stays exactly as it was.
+   * The size was read without the browser's help and does not become less true
+   * because the browser declined to confirm it.
+   */
+  async function validateDkimKeyStructure(key, txtValue) {
+    var subtle = typeof crypto !== 'undefined' && crypto && crypto.subtle;
+    if (!subtle || key.keyType !== 'rsa' || key.revoked || key.keyBits === null) return key;
+    var bytes = base64ToBytes(parseTagList(txtValue).tags.p);
+    if (!bytes) return key;
+    try {
+      await subtle.importKey('spki', bytes,
+        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, true, ['verify']);
+      key.cryptoValidated = true;
+    } catch (e) {
+      key.cryptoValidated = false;
+      if (key.errors.indexOf('key-structure-invalid') === -1) key.errors.push('key-structure-invalid');
+      key.valid = false;
+    }
+    return key;
+  }
+
   // Only the literal include:/redirect= hostnames of the domain's own record
   // count. Following an included record into its own includes would attribute
   // the vendor's upstream to the audited domain — freshdesk.com's SPF includes
@@ -510,18 +778,23 @@
       // A wildcard covering _domainkey answers every selector query alike, so a
       // value it synthesizes is not evidence of a key at this selector. Drop
       // those by content; what survives is published for this selector only.
-      var keys = dkimKeyRecords(result.answers).filter(function (value) {
-        return !(synthesized && synthesized.has(value));
-      });
-      if (keys.length) {
-        return { sel: selector, queryName: queryName, keys: keys, cname: firstCname };
+      var notSynthesized = function (value) { return !(synthesized && synthesized.has(value)); };
+      var set = dkimRecordSet(result.answers);
+      var keys = set.keys.filter(notSynthesized);
+      // A revoked key stops the walk as surely as a live one does. It is an
+      // answer — the operator published it on purpose to retire the selector —
+      // and continuing past it would report the selector as absent, which reads
+      // as "you never set this up" rather than "you turned this off".
+      var revoked = set.revoked.filter(notSynthesized);
+      if (keys.length || revoked.length) {
+        return { sel: selector, queryName: queryName, keys: keys, revoked: revoked, cname: firstCname };
       }
       var cnameAnswer = result.answers.find(function (answer) { return answer.type === 5; });
       if (!cnameAnswer) break;
       name = cleanAnswerData(cnameAnswer.data, 'CNAME').toLowerCase().replace(/\.$/, '');
       if (!firstCname) firstCname = name;
     }
-    return { sel: selector, queryName: queryName, keys: [], cname: firstCname };
+    return { sel: selector, queryName: queryName, keys: [], revoked: [], cname: firstCname };
   }
 
   async function checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive, spfRecord, queryOpts) {
@@ -536,6 +809,7 @@
     const missingSelectors = [];
     const duplicated = [];
     const failedSelectors = [];
+    const revokedSelectors = [];
     for (var offset = 0; offset < selectorList.length; offset += DKIM_SCAN_BATCH_SIZE) {
       var batch = selectorList.slice(offset, offset + DKIM_SCAN_BATCH_SIZE);
       var checks = await Promise.all(batch.map(async function (selector) {
@@ -543,11 +817,17 @@
           return await inspectDkimSelector(domain, selector, queryOpts, synthesized);
         } catch (error) {
           if (error && error.name === 'AbortError') throw error;
-          return { sel: selector, keys: [], cname: '', error: true };
+          return { sel: selector, keys: [], revoked: [], cname: '', error: true };
         }
       }));
-      for (const { sel, queryName, keys, cname, error } of checks) {
+      for (const { sel, queryName, keys, revoked, cname, error } of checks) {
         if (error) { failedSelectors.push(sel); continue; }
+        // Reported whether or not a live key was also found, because a revoked
+        // record left behind next to a working one is a different situation
+        // from a selector that is only a revocation.
+        (revoked || []).forEach(function (value) {
+          revokedSelectors.push({ sel: sel, queryName: queryName, value: value });
+        });
         // RFC 6376 §3.6.2.2: key records MUST be unique per selector; with more
         // than one the result is undefined, so verification may fail depending on
         // which verifier looks.
@@ -561,6 +841,7 @@
             cname: cname,
             uncommon: !isRecognizedDkimSelector(sel),
             viaSpf: spfSources.get(sel) || '',
+            key: analyzeDkimKey(keys[0]),
           });
         } else if (suppliedSelectors.has(sel)) {
           missingSelectors.push({ sel: sel, queryName: queryName, cname: cname });
@@ -568,10 +849,43 @@
       }
     }
 
+    // One parallel pass rather than one await per selector. The DER walk has
+    // already produced every size this reports; all that is outstanding is the
+    // optional structural confirmation, and it never lowers a size.
+    await Promise.all(found.map(function (entry) { return validateDkimKeyStructure(entry.key, entry.value); }));
+    const keyProfile = summarizeDkimKeys(found);
+
     if (!found.length) {
-      return { found: false, selectors: [], missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, confidence: 'sampled', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: wildcardDkim ? 'noteWildcard' : failedSelectors.length ? 'noteNotFoundWithErrors' : 'noteNotFound' };
+      return { found: false, selectors: [], missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, revokedSelectors, keyProfile, confidence: 'sampled', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: wildcardDkim ? 'noteWildcard' : failedSelectors.length ? 'noteNotFoundWithErrors' : 'noteNotFound' };
     }
-    return { found: true, selectors: found, missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, confidence: 'observed', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: '' };
+    return { found: true, selectors: found, missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, revokedSelectors, keyProfile, confidence: 'observed', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: '' };
+  }
+
+  /**
+   * Roll the per-selector key analyses up to one domain-level profile.
+   *
+   * `mixed` is about strength, not algorithm: RSA-1024 next to RSA-2048 means
+   * mail signed by the weaker selector is only as strong as that selector, so
+   * the domain's real DKIM strength is its minimum and not its best. Ed25519
+   * alongside RSA is not mixed in that sense — RFC 8463 double-signing is the
+   * recommended migration path — so it is counted in `algorithms` and left out
+   * of `mixed`.
+   */
+  function summarizeDkimKeys(selectors) {
+    var sizes = [];
+    var algorithms = [];
+    (selectors || []).forEach(function (entry) {
+      var key = entry && entry.key;
+      if (!key) return;
+      if (algorithms.indexOf(key.keyType) === -1) algorithms.push(key.keyType);
+      if (typeof key.keyBits === 'number') sizes.push(key.keyBits);
+    });
+    return {
+      minBits: sizes.length ? Math.min.apply(null, sizes) : null,
+      maxBits: sizes.length ? Math.max.apply(null, sizes) : null,
+      algorithms: algorithms,
+      mixed: sizes.length > 1 && Math.min.apply(null, sizes) !== Math.max.apply(null, sizes),
+    };
   }
 
   // Valid policy values per RFC 9989 §4.7, ordered weakest → strongest.
@@ -1552,6 +1866,101 @@
 
   /* ── Advanced checks ────────────────────────────────────────────────── */
 
+  /* ── CAA (RFC 8659, RFC 9495) ─────────────────────────────────────────
+     A CAA record set is a policy, and reducing it to a green dot loses the
+     whole policy. `0 issue ";"` locks out every certificate authority and
+     `0 issuewild ";"` locks out wildcards only; before this, both rendered
+     identically to `0 issue "letsencrypt.org"`.
+     ───────────────────────────────────────────────────────────────────── */
+
+  // RFC 8659 §4 (issue, issuewild, iodef) and RFC 9495 §3 (issuemail,
+  // contactemail, contactphone).
+  var CAA_KNOWN_TAGS = ['issue', 'issuewild', 'iodef', 'issuemail', 'contactemail', 'contactphone'];
+
+  /**
+   * Parse one CAA record from its presentation form: `<flags> <tag> "<value>"`.
+   *
+   * Captured from the resolver rather than assumed — Cloudflare returns
+   * `0 issue "letsencrypt.org"` and `0 iodef "mailto:dns-admin@example.org"`,
+   * with the value quoted and the flags and tag bare. Unlike the DS/DNSKEY/TLSA
+   * path this one IS quoted, which is why checkCAA() reads `a.data` directly
+   * instead of going through cleanAnswerData().
+   */
+  function parseCaaRecord(presentationString) {
+    var text = String(presentationString || '').trim();
+    var errors = [];
+    var match = /^(\S+)\s+(\S+)\s*([\s\S]*)$/.exec(text);
+    if (!match) {
+      return { flags: 0, critical: false, tag: '', value: '', known: false, valid: false, errors: ['unparseable-record'] };
+    }
+
+    var flags = 0;
+    if (/^\d{1,3}$/.test(match[1]) && Number(match[1]) <= 255) flags = Number(match[1]);
+    else errors.push('bad-flags');
+
+    // RFC 8659 §4.1: the tag is 1–15 ALPHA/DIGIT octets, and it is matched
+    // case-insensitively, so it is lowercased here once for every comparison.
+    var tag = match[2].toLowerCase();
+    if (!/^[a-z0-9]{1,15}$/.test(tag)) errors.push('bad-tag');
+
+    var raw = match[3].trim();
+    var value;
+    if (/^".*"$/.test(raw)) value = raw.slice(1, -1).replace(/\\(.)/g, '$1');
+    else {
+      value = raw;
+      // Not fatal: the value is still readable and every resolver observed
+      // quotes it, so an unquoted one is worth naming without discarding.
+      if (raw) errors.push('unquoted-value');
+    }
+
+    var known = CAA_KNOWN_TAGS.indexOf(tag) !== -1;
+    return {
+      flags: flags,
+      // RFC 8659 §4.1: bit 0, the most significant bit, is the Issuer Critical
+      // flag. A CA that does not understand a critical property MUST refuse to
+      // issue — so an unrecognized tag with this bit set is a live outage risk,
+      // and the same tag without it is inert.
+      critical: (flags & 0x80) !== 0,
+      tag: tag,
+      value: value,
+      known: known,
+      valid: errors.length === 0,
+      errors: errors,
+    };
+  }
+
+  /** The issuer-domain-name half of an issue/issuewild value, before any parameters. */
+  function caaIssuerName(value) {
+    return String(value || '').split(';')[0].trim().toLowerCase();
+  }
+
+  function summarizeCaa(records) {
+    var parsed = records.map(parseCaaRecord);
+    var issueRecords = parsed.filter(function (r) { return r.tag === 'issue'; });
+    var wildRecords = parsed.filter(function (r) { return r.tag === 'issuewild'; });
+    var issuers = issueRecords.map(function (r) { return caaIssuerName(r.value); }).filter(Boolean);
+    var wildcardIssuers = wildRecords.map(function (r) { return caaIssuerName(r.value); }).filter(Boolean);
+
+    return {
+      parsed: parsed,
+      issuers: issuers,
+      // Empty is not "unrestricted". RFC 8659 §4.3: with no issuewild present,
+      // wildcard issuance is governed by the issue set. Reading an absent
+      // issuewild as "wildcards are open" inverts the policy.
+      wildcardIssuers: wildcardIssuers,
+      // RFC 8659 §4.2: an issue value of ';' (or empty) names no issuer, and a
+      // set of those authorizes nobody at all.
+      issuanceBlocked: issueRecords.length > 0 && issuers.length === 0,
+      wildcardBlocked: wildRecords.length > 0 && wildcardIssuers.length === 0,
+      iodef: parsed.filter(function (r) { return r.tag === 'iodef'; }).map(function (r) { return r.value; }),
+      unknownCritical: parsed.filter(function (r) { return !r.known && r.critical; }).map(function (r) { return r.tag; }),
+      // The raw presentation string, not the parsed tag: a record that failed
+      // to parse may have no usable tag to name it by, and the operator needs
+      // to see the text they published in order to find it in their zone.
+      malformed: records.filter(function (raw, i) { return !parsed[i].valid; }),
+    };
+  }
+
   async function checkCAA(domain, queryOpts) {
     // Walk up the domain tree (CAA can be inherited from parent)
     const parts = domain.split('.');
@@ -1560,10 +1969,253 @@
       const { answers } = requireUsable(await dohFetch(check, 'CAA', queryOpts), check, 'CAA');
       const caaAnswers = answers.filter(a => a.type === 257);
       if (caaAnswers.length > 0) {
-        return { found: true, records: caaAnswers.map(a => a.data), atDomain: check };
+        const records = caaAnswers.map(a => a.data);
+        return Object.assign({ found: true, records: records, atDomain: check }, summarizeCaa(records));
       }
     }
-    return { found: false, records: [], atDomain: null };
+    return Object.assign({ found: false, records: [], atDomain: null }, summarizeCaa([]));
+  }
+
+  /* ── MX health (DNS only) ─────────────────────────────────────────────
+     No SMTP, ever. Everything below is inferred from DNS, so it reports what
+     is published and never what a delivery attempt would do.
+     ───────────────────────────────────────────────────────────────────── */
+
+  /** Prefix width used to notice that every MX host sits in one block. */
+  var MX_PREFIX_BITS = { ipv4: 24, ipv6: 48 };
+
+  /** Render a network address back to text, for the prefix label only. */
+  function bigIntToIp(value, family) {
+    if (family === 'ipv4') {
+      return [24n, 16n, 8n, 0n].map(function (shift) { return String((value >> shift) & 0xffn); }).join('.');
+    }
+    var groups = [];
+    for (var i = 7; i >= 0; i--) groups.push((((value >> BigInt(i * 16)) & 0xffffn)).toString(16));
+    return groups.join(':');
+  }
+
+  /** `10 mail.example.com.` → `{ preference: 10, host: 'mail.example.com' }`. */
+  function parseMxRecord(record) {
+    var parts = String(record || '').trim().split(/\s+/);
+    if (parts.length < 2 || !/^\d+$/.test(parts[0])) return null;
+    var host = parts.slice(1).join(' ').replace(/\.$/, '').toLowerCase();
+    if (!host) return null;
+    return { preference: Number(parts[0]), host: host };
+  }
+
+  /**
+   * Resolve every MX target and report what DNS alone can say about it.
+   *
+   * An MX host that does not resolve is a total inbound mail outage, and today
+   * it reads in the interface exactly like a healthy mail domain. That is the
+   * finding this function exists for; the rest — CNAME targets, single points
+   * of failure, address-block concentration — are hygiene notes.
+   *
+   * Each host is resolved independently and a failure degrades that host to
+   * `resolves: 'unknown'`. A resolver hiccup on one target must not turn the
+   * other targets' answers into an outage report, and must never let a host we
+   * could not check be counted as dangling. That is optionalCheck()'s rule
+   * applied per host rather than to the audit as a whole.
+   */
+  async function auditMxHosts(mx, domain, queryOpts) {
+    var entries = (mx || []).map(parseMxRecord).filter(Boolean);
+    if (!entries.length) {
+      return {
+        hosts: [], danglingHosts: [], cnameHosts: [], duplicatePreferences: [],
+        singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [], unknown: false,
+      };
+    }
+
+    var hosts = await Promise.all(entries.map(async function (entry) {
+      var UNKNOWN = {};
+      var results = await Promise.all([
+        optionalCheck(function () { return dohQuery(entry.host, 'A', queryOpts); }, UNKNOWN),
+        optionalCheck(function () { return dohQuery(entry.host, 'AAAA', queryOpts); }, UNKNOWN),
+        optionalCheck(function () { return dohQuery(entry.host, 'CNAME', queryOpts); }, UNKNOWN),
+      ]);
+      var v4 = results[0] === UNKNOWN ? null : results[0];
+      var v6 = results[1] === UNKNOWN ? null : results[1];
+      var cname = results[2] === UNKNOWN ? null : results[2];
+      var addresses = (v4 || []).concat(v6 || []);
+      return {
+        host: entry.host,
+        preference: entry.preference,
+        addresses: addresses,
+        v4Count: v4 ? v4.length : 0,
+        v6Count: v6 ? v6.length : 0,
+        // 'no' is claimed only when both address lookups actually returned.
+        // One failed lookup and one empty answer is not evidence of absence.
+        resolves: addresses.length ? 'yes' : (v4 === null || v6 === null) ? 'unknown' : 'no',
+        isCname: cname === null ? false : cname.length > 0,
+        cnameUnknown: cname === null,
+        inAudited: entry.host === domain || entry.host.endsWith('.' + domain),
+      };
+    }));
+
+    var seenPreferences = Object.create(null);
+    var duplicatePreferences = [];
+    entries.forEach(function (entry) {
+      if (seenPreferences[entry.preference]) {
+        if (duplicatePreferences.indexOf(entry.preference) === -1) duplicatePreferences.push(entry.preference);
+      }
+      seenPreferences[entry.preference] = true;
+    });
+
+    // Only hosts whose addresses we actually read can tell us anything about
+    // concentration, so an unknown host is left out rather than counted as
+    // sharing or not sharing a block.
+    var groups = Object.create(null);
+    hosts.filter(function (h) { return h.resolves === 'yes'; }).forEach(function (h) {
+      h.addresses.forEach(function (address) {
+        var family = address.indexOf(':') === -1 ? 'ipv4' : 'ipv6';
+        var block = parseIpCidr(address + '/' + MX_PREFIX_BITS[family], family);
+        if (!block) return;
+        var network = block.address >> BigInt(block.bits - block.prefix) << BigInt(block.bits - block.prefix);
+        var label = bigIntToIp(network, family) + '/' + MX_PREFIX_BITS[family];
+        if (!groups[label]) groups[label] = [];
+        if (groups[label].indexOf(h.host) === -1) groups[label].push(h.host);
+      });
+    });
+    var sharedPrefixes = Object.keys(groups)
+      .filter(function (label) { return groups[label].length > 1; })
+      .map(function (label) { return { prefix: label, hosts: groups[label] }; });
+
+    var resolved = hosts.filter(function (h) { return h.resolves === 'yes'; });
+    var withV6 = resolved.filter(function (h) { return h.v6Count > 0; });
+
+    return {
+      hosts: hosts,
+      danglingHosts: hosts.filter(function (h) { return h.resolves === 'no'; }).map(function (h) { return h.host; }),
+      cnameHosts: hosts.filter(function (h) { return h.isCname; }).map(function (h) { return h.host; }),
+      duplicatePreferences: duplicatePreferences,
+      singleHost: hosts.length === 1,
+      ipv6Coverage: !resolved.length ? 'none'
+        : withV6.length === resolved.length ? 'all'
+          : withV6.length ? 'some' : 'none',
+      sharedPrefixes: sharedPrefixes,
+      unknown: hosts.some(function (h) { return h.resolves === 'unknown'; }),
+    };
+  }
+
+  /* ── TLSA / DANE (RFC 6698, RFC 7671) ─────────────────────────────────
+     Syntax only. Nothing here connects to port 25 and nothing compares a TLSA
+     record against a certificate, so what is reported is what is published.
+
+     The labelling rule matters more than the parsing. DANE is meaningful only
+     when the TLSA record is carried by a validated DNSSEC chain: without one,
+     anyone on the path can strip or rewrite the record, so an unsigned TLSA
+     record provides no protection whatsoever while looking exactly like
+     protection.
+
+     Two separate facts, deliberately not merged. `authenticated` is the AD bit
+     the validating resolver returned for this exact name, which is real
+     evidence and is what the unsigned finding is gated on — without it the
+     finding would announce "your TLSA is unprotected" on a correctly signed
+     zone purely because this release had not looked. `qualified` is the
+     stronger claim that the chain was walked and verified, which
+     dnssec-evidence (0.5.0) supplies; it stays false here, and every string
+     the interface shows says "published", never "enabled".
+     ───────────────────────────────────────────────────────────────────── */
+
+  var TLSA_MATCHING_LENGTHS = { 1: 32, 2: 64 };   // SHA-256, SHA-512; 0 is a full cert, any length
+
+  /**
+   * Parse one TLSA record from its presentation form.
+   *
+   * Captured from the resolver before this was written, because the shape is
+   * not the one the neighbouring DS parser would suggest: Cloudflare returns
+   * TLSA as `3 1 1 ( 87D109DD… )` — parenthesised, with spaces inside the
+   * parentheses, in uppercase hex — where DS comes back as four plain fields
+   * in lowercase. Splitting on whitespace the way a DS parser does yields
+   * ['3','1','1','('] and reads the association data as an empty string,
+   * raising no error at all. Hence the explicit strip.
+   */
+  function parseTlsaRecord(presentationString) {
+    var text = String(presentationString || '').trim();
+    var match = /^(\d+)\s+(\d+)\s+(\d+)\s+([\s\S]+)$/.exec(text);
+    if (!match) {
+      return { usage: null, selector: null, matchingType: null, data: '', valid: false, errors: ['unparseable-record'] };
+    }
+    var usage = Number(match[1]);
+    var selector = Number(match[2]);
+    var matchingType = Number(match[3]);
+    var data = match[4].replace(/^\(\s*/, '').replace(/\s*\)$/, '').replace(/\s+/g, '').toLowerCase();
+
+    var errors = [];
+    // RFC 6698 §2.1.1–2.1.3, and RFC 7671 §4 for the SMTP-usable subset.
+    if (!(usage >= 0 && usage <= 3)) errors.push('bad-usage');
+    if (!(selector >= 0 && selector <= 1)) errors.push('bad-selector');
+    if (!(matchingType >= 0 && matchingType <= 2)) errors.push('bad-matching-type');
+    if (!/^[0-9a-f]+$/.test(data) || data.length % 2 !== 0) errors.push('bad-association-data');
+    else {
+      var expected = TLSA_MATCHING_LENGTHS[matchingType];
+      // Matching type 0 is the full certificate or SPKI, of no fixed length.
+      if (expected !== undefined && data.length / 2 !== expected) errors.push('bad-digest-length');
+    }
+
+    return {
+      usage: usage, selector: selector, matchingType: matchingType,
+      data: data, valid: errors.length === 0, errors: errors,
+    };
+  }
+
+  /**
+   * Look up `_25._tcp.<host>` for every MX host and validate what comes back.
+   */
+  async function checkTlsa(mxHosts, queryOpts) {
+    var hosts = await Promise.all((mxHosts || []).map(async function (host) {
+      var queryName = '_25._tcp.' + host;
+      var UNKNOWN = {};
+      // `do=1` costs nothing — the query is being made anyway — and it is the
+      // difference between "this record is not protected" and "we did not
+      // look". The filter on type 52 is not optional either: a TLSA query
+      // commonly returns a CNAME alongside the records, because pointing
+      // _25._tcp.<host> at a shared _dane.<zone> name is ordinary practice,
+      // and handing that CNAME string to the record parser would report a
+      // malformed TLSA record on a correctly configured host.
+      var result = await optionalCheck(function () {
+        return dohFetch(queryName, 'TLSA', Object.assign({}, queryOpts, { dnssec: true }))
+          .then(function (r) { return requireUsable(r, queryName, 'TLSA'); });
+      }, UNKNOWN);
+      if (result === UNKNOWN) {
+        return { host: host, queryName: queryName, records: [], present: false, authenticated: null, unknown: true };
+      }
+      var records = result.answers.filter(function (a) { return a.type === 52; })
+        .map(function (a) { return parseTlsaRecord(cleanAnswerData(a.data, 'TLSA')); });
+      return {
+        host: host,
+        queryName: queryName,
+        records: records,
+        present: records.length > 0,
+        // The AD bit from the same validating resolver checkDNSSEC() already
+        // trusts, read for THIS name rather than for the audited domain — an
+        // MX host usually lives in someone else's zone, so the audited
+        // domain's DNSSEC status says nothing about whether this record is
+        // protected. null means the lookup did not complete.
+        authenticated: result.ad === true,
+        unknown: false,
+      };
+    }));
+
+    var present = hosts.filter(function (h) { return h.present; });
+    return {
+      hosts: hosts,
+      anyPresent: present.length > 0,
+      // Every host that publishes TLSA does so under an authenticated chain.
+      // Evidence, not a verdict: it is what the `tlsa-published-unsigned`
+      // finding is gated on, and it is deliberately NOT the same thing as
+      // `qualified`.
+      allAuthenticated: present.length > 0 && present.every(function (h) { return h.authenticated === true; }),
+      unauthenticatedHosts: present.filter(function (h) { return h.authenticated === false; })
+        .map(function (h) { return h.host; }),
+      unknown: hosts.some(function (h) { return h.unknown; }),
+      // Stays false until dnssec-evidence (0.5.0) walks the DS/DNSKEY chain.
+      // The AD bit above says a validating resolver authenticated the answer,
+      // which is good evidence and not the same as having verified the chain
+      // ourselves — so nothing in this release calls DANE active, and the
+      // interface says "published", never "enabled".
+      qualified: false,
+    };
   }
 
   function parseTagList(record) {
@@ -2442,6 +3094,143 @@
       });
     }
     if (advanced?.spfLookups?.indeterminate) issues.push({ key: 'spf-indeterminate', sev: 'info' });
+
+    /* ── DKIM key strength (RFC 8301, RFC 6376, RFC 8463) ──────────────────
+       Grouped one line per condition rather than one per selector: a domain
+       running six selectors at 1024 bits would otherwise contribute six
+       identical informational lines and bury everything else.
+
+       The 1024-bit line is INFORMATIONAL on purpose, and that was decided by
+       counting rather than arguing (OQ-DEPTH-05). Across the 40-domain
+       backtest sample, 35 of 66 keys are RSA-1024 — on 21 of the 27 domains
+       that publish DKIM at all, Microsoft, GitHub, Apple, PayPal, Stripe and
+       the EFF among them. A warning firing on ~78% of audited domains is not
+       a signal, it is a thing people learn to scroll past, and it would take
+       the genuinely critical sub-1024 line down with it.
+       ───────────────────────────────────────────────────────────────────── */
+    var dkimKeys = (dkimStatus?.selectors || []).filter(function (entry) { return entry.key; });
+    var byCondition = function (predicate) {
+      return dkimKeys.filter(function (entry) { return predicate(entry.key); })
+        .map(function (entry) { return entry.sel; });
+    };
+
+    var weakKeys = dkimKeys.filter(function (e) { return typeof e.key.keyBits === 'number' && e.key.keyBits < 1024; });
+    if (weakKeys.length) {
+      issues.push({ key: 'dkim-key-weak', sev: 'crit', args: [
+        weakKeys.map(function (e) { return e.sel + ' (' + e.key.keyBits + ')'; }).join(', '),
+      ] });
+    }
+    var thousandKeys = byCondition(function (k) { return k.keyBits === 1024; });
+    if (thousandKeys.length) issues.push({ key: 'dkim-key-1024', sev: 'info', args: [thousandKeys.join(', ')] });
+
+    if (dkimStatus?.revokedSelectors?.length) {
+      issues.push({ key: 'dkim-key-revoked', sev: 'warn', args: [
+        dkimStatus.revokedSelectors.map(function (r) { return r.sel; }).join(', '),
+      ] });
+    }
+
+    // 'unparseable-key' is the truncated-p= case, which is a completely silent
+    // DKIM failure: the record is present, the selector is found, and no
+    // verifier can use it. 'key-structure-invalid' is the same outcome by a
+    // different route. A key we could not check because the browser has no
+    // Web Crypto is NOT here, and must never be — that is cryptoValidated:
+    // null, and it means we said nothing, not that the key is bad.
+    var brokenKeys = byCondition(function (k) {
+      return k.errors.indexOf('unparseable-key') !== -1 ||
+        k.errors.indexOf('key-structure-invalid') !== -1 ||
+        k.errors.indexOf('bad-ed25519-length') !== -1;
+    });
+    if (brokenKeys.length) issues.push({ key: 'dkim-key-unparseable', sev: 'warn', args: [brokenKeys.join(', ')] });
+
+    var testingKeys = byCondition(function (k) { return k.testing; });
+    if (testingKeys.length) issues.push({ key: 'dkim-key-testing', sev: 'info', args: [testingKeys.join(', ')] });
+
+    // Only when sha1 is the ONLY hash offered. `h=sha256:sha1` lets a verifier
+    // choose SHA-256 and is not a finding; RFC 8301 deprecates sha1 as a
+    // signing hash, not as an entry in a list.
+    var sha1Keys = byCondition(function (k) {
+      return k.hashAlgorithms.length > 0 && k.hashAlgorithms.every(function (h) { return h === 'sha1'; });
+    });
+    if (sha1Keys.length) issues.push({ key: 'dkim-key-sha1', sev: 'warn', args: [sha1Keys.join(', ')] });
+
+    if (dkimStatus?.keyProfile?.mixed) {
+      issues.push({ key: 'dkim-key-mixed', sev: 'info', args: [dkimStatus.keyProfile.minBits, dkimStatus.keyProfile.maxBits] });
+    }
+
+    /* ── CAA policy (RFC 8659, RFC 9495) ──────────────────────────────── */
+    if (advanced?.caa?.found) {
+      if (advanced.caa.issuanceBlocked) {
+        issues.push({ key: 'caa-blocks-all-issuance', sev: 'warn', args: [advanced.caa.atDomain] });
+      }
+      // RFC 8659 §4.1: a CA that does not recognize a critical property MUST
+      // refuse to issue. So this is an issuance outage waiting for the next
+      // renewal, not a tidiness note — and it is invisible until then.
+      if (advanced.caa.unknownCritical?.length) {
+        issues.push({ key: 'caa-unknown-critical-tag', sev: 'warn', args: [advanced.caa.unknownCritical.join(', ')] });
+      }
+      if (advanced.caa.malformed?.length) {
+        issues.push({ key: 'caa-malformed', sev: 'warn', args: [advanced.caa.malformed.join(', ')] });
+      }
+      if (!advanced.caa.iodef?.length) issues.push({ key: 'caa-no-iodef', sev: 'info' });
+      // Distinct issuers, not record count: `issue` and `issuewild` for the
+      // same CA is one issuer, and counting records would call it two.
+      var caaIssuers = (advanced.caa.issuers || []).concat(advanced.caa.wildcardIssuers || [])
+        .filter(function (v, i, all) { return all.indexOf(v) === i; });
+      if (caaIssuers.length === 1 && !advanced.caa.issuanceBlocked) {
+        issues.push({ key: 'caa-single-issuer', sev: 'info', args: [caaIssuers[0]] });
+      }
+    }
+
+    /* ── MX health ────────────────────────────────────────────────────── */
+    if (advanced?.mxHealth?.hosts?.length) {
+      var mxHealth = advanced.mxHealth;
+      // Critical, and the only critical finding in this group: an MX host that
+      // does not resolve accepts no mail at all. Hosts we could not check are
+      // 'unknown' and are deliberately not in this list.
+      if (mxHealth.danglingHosts.length) {
+        issues.push({ key: 'mx-dangling', sev: 'crit', args: [mxHealth.danglingHosts.join(', ')] });
+      }
+      // RFC 2181 §10.3 and RFC 5321 §5.1 both forbid it. It frequently works
+      // anyway, which is why it survives in the wild and why it is a warning
+      // rather than an error — it breaks in specific, hard-to-diagnose ways.
+      if (mxHealth.cnameHosts.length) {
+        issues.push({ key: 'mx-cname-target', sev: 'warn', args: [mxHealth.cnameHosts.join(', ')] });
+      }
+      if (mxHealth.singleHost) issues.push({ key: 'mx-single-host', sev: 'info', args: [mxHealth.hosts[0].host] });
+      if (mxHealth.ipv6Coverage === 'none') issues.push({ key: 'mx-no-ipv6', sev: 'info' });
+      mxHealth.sharedPrefixes.forEach(function (group) {
+        issues.push({ key: 'mx-same-prefix', sev: 'info', args: [group.prefix, group.hosts.join(', ')] });
+      });
+      if (mxHealth.duplicatePreferences.length) {
+        issues.push({ key: 'mx-duplicate-preference', sev: 'info', args: [mxHealth.duplicatePreferences.join(', ')] });
+      }
+    }
+
+    /* ── TLSA / DANE ──────────────────────────────────────────────────── */
+    if (advanced?.tlsa?.anyPresent) {
+      var tlsa = advanced.tlsa;
+      // Gated on evidence, not on `qualified`. `qualified` is false for every
+      // domain in this release because the chain has not been walked, so
+      // firing on it would tell a correctly signed zone that its DANE is
+      // unprotected — a confident verdict with nothing behind it, which is the
+      // exact failure this whole release is written to avoid.
+      if (tlsa.unauthenticatedHosts.length) {
+        issues.push({ key: 'tlsa-published-unsigned', sev: 'warn', args: [tlsa.unauthenticatedHosts.join(', ')] });
+      }
+      var malformedTlsa = tlsa.hosts.filter(function (h) {
+        return h.records.some(function (r) { return !r.valid; });
+      }).map(function (h) { return h.host; });
+      if (malformedTlsa.length) issues.push({ key: 'tlsa-malformed', sev: 'warn', args: [malformedTlsa.join(', ')] });
+
+      // Only over hosts actually checked — a host whose lookup failed is not
+      // evidence of missing coverage.
+      var checked = tlsa.hosts.filter(function (h) { return !h.unknown; });
+      var covered = checked.filter(function (h) { return h.present; });
+      if (covered.length && covered.length < checked.length) {
+        issues.push({ key: 'tlsa-partial-coverage', sev: 'info', args: [covered.length, checked.length] });
+      }
+    }
+
     if (advanced?.dnssec?.state === 'bogus') issues.push({ key: 'dnssec-bogus', sev: 'crit' });
     else if (advanced?.dnssec?.state === 'indeterminate') issues.push({ key: 'dnssec-indeterminate', sev: 'warn' });
 
@@ -2456,6 +3245,8 @@
     if (advanced?.tlsRpt?.unknown) unverified.push('TLS-RPT');
     if (advanced?.bimi?.unknown) unverified.push('BIMI');
     if (advanced?.spfLookups?.unknown) unverified.push('SPF');
+    if (advanced?.mxHealth?.unknown) unverified.push('MX');
+    if (advanced?.tlsa?.unknown) unverified.push('TLSA');
     if (hosting === '@dns-error') unverified.push('Website');
     if (unverified.length) {
       issues.push({ key: 'checks-unverified', sev: 'warn', args: [unverified.join(', ')] });
@@ -2730,7 +3521,7 @@
     }
 
     // ── Advanced checks ──
-    let advanced = { bimi: null, mtaSts: null, tlsRpt: null, caa: null, dnssec: null, spfLookups: null, spfSubnets: null, reportAuth: null };
+    let advanced = { bimi: null, mtaSts: null, tlsRpt: null, caa: null, dnssec: null, spfLookups: null, spfSubnets: null, reportAuth: null, mxHealth: null, tlsa: null };
     if (opts.advanced) {
       // Every entry is wrapped independently. Promise.all rejects on the first
       // failure, so without this one unlucky lookup would take the other six
@@ -2784,7 +3575,29 @@
         spfLookups,
         spfSubnets,
         reportAuth,
+        mxHealth: null,
+        tlsa: null,
       };
+
+      // ── Deep protocol checks ──
+      // Gated separately from `advanced` because these are the only checks in
+      // the audit whose cost scales with the domain's own configuration: three
+      // queries per MX host for the health audit and one more for TLSA, so a
+      // five-MX domain adds twenty on its own. Everything above is a fixed
+      // handful per domain. See OQ-DEPTH-03 — the interface turns this off
+      // above 50 domains, and the engine simply does what it is told.
+      //
+      // A null MX (RFC 7505) is skipped: the domain has declared it accepts no
+      // mail, so there is no host to resolve and nothing to say about TLSA.
+      if (opts.deepChecks && mx.length && !isNullMx(mx)) {
+        const mxHealth = await optionalCheck(() => auditMxHosts(mx, d, queryOpts),
+          () => ({ hosts: [], danglingHosts: [], cnameHosts: [], duplicatePreferences: [], singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [], unknown: true }));
+        const tlsaHosts = mxHealth.hosts.map(h => h.host);
+        const tlsa = await optionalCheck(() => checkTlsa(tlsaHosts, queryOpts),
+          () => ({ hosts: [], anyPresent: false, qualified: false, unknown: true }));
+        advanced.mxHealth = mxHealth;
+        advanced.tlsa = tlsa;
+      }
     }
 
     const issues = buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan, wildcardApex, wildcardDkim, hosting, advanced, domain: d });
@@ -2813,6 +3626,17 @@
     isRecognizedDkimSelector,
     checkDKIM,
     dkimKeyRecords,
+    dkimRecordSet,
+    analyzeDkimKey,
+    validateDkimKeyStructure,
+    summarizeDkimKeys,
+    parseCaaRecord,
+    summarizeCaa,
+    parseMxRecord,
+    auditMxHosts,
+    parseTlsaRecord,
+    checkTlsa,
+    dnsTypeNum,
     analyzeDomain,
     checkConnectivity,
     dohFetch,
@@ -2853,6 +3677,7 @@
     classifySpfSubnets,
     findSpfRedundancy,
     auditSpfSubnets,
+    checkCAA,
     validateMtaStsRecord,
     validateTlsRptRecord,
     validateBimiRecord,
