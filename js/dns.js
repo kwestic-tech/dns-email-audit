@@ -1014,17 +1014,43 @@
     var rua = parseDmarcTag(text, 'rua');
     var override = null;
     var overrideValid = true;
+    var overrideReason = null;
     if (rua !== null) {
       var parsed = parseDmarcUriList(rua);
       var hosts = parsed.uris.filter(function (u) { return u.valid; }).map(function (u) { return u.domain; });
       override = rua;
-      // Step 9's loop guard. A mismatch does not un-authorize the arrangement;
-      // it means the override itself must be ignored, so it is recorded as
-      // evidence rather than treated as a parse failure.
-      overrideValid = parsed.count > 0 && parsed.valid
-        && hosts.every(function (h) { return h === destinationHost; });
+      /* Step 9 lets the Report Consumer override the destination, but "the
+         overriding URI MUST use the same destination host from the first
+         step", and the paragraph after the algorithm says what a violation
+         costs:
+
+         > Further, if the confirming record includes a URI whose host is again
+         > different than the domain publishing that override, the Mail
+         > Receiver generating the report MUST NOT generate a report to either
+         > the original or the override URI.
+
+         So a cross-host override does not merely void itself — it makes the
+         whole arrangement unusable, and neither URI receives anything. That is
+         a different fact from "the destination never authorized you", and it
+         has a different fix, so it gets its own state rather than being folded
+         into `unauthorized`.
+
+         A merely malformed override is not the same case. RFC 9990 §3.5 says
+         of reporting URIs that "if any of the URIs are malformed, they SHOULD
+         be ignored" — ignored, not escalated — so the authorization stands and
+         the override is dropped. */
+      if (parsed.count > 0 && hosts.length && !hosts.every(function (h) { return h === destinationHost; })) {
+        overrideValid = false;
+        overrideReason = 'cross-host';
+      } else if (!parsed.valid || parsed.count === 0) {
+        overrideValid = false;
+        overrideReason = 'malformed';
+      }
     }
-    return { valid: true, reason: null, override: override, overrideValid: overrideValid };
+    return {
+      valid: true, reason: null,
+      override: override, overrideValid: overrideValid, overrideReason: overrideReason,
+    };
   }
 
   async function checkExternalReportAuth(domain, destinations, queryOpts) {
@@ -1088,13 +1114,21 @@
            either one to match the other. */
         if (authorizedAt !== -1) {
           var winner = parsed[authorizedAt];
+          // An arrangement whose override points at a third party is not a
+          // usable reporting destination: conformant receivers send to neither
+          // URI. Reporting it as `authorized` would tell the operator their
+          // reports are flowing when nothing is being sent at all.
+          var crossHost = winner.overrideReason === 'cross-host';
           return {
-            destination: host, state: 'authorized', via: 'exact', queryName: exact,
+            destination: host,
+            state: crossHost ? 'override-mismatch' : 'authorized',
+            via: 'exact', queryName: exact,
             record: records[authorizedAt],
             recordCount: parsed.filter(function (p) { return p.valid; }).length,
             exactKind: response.kind,
             override: winner.override || null,
             overrideValid: winner.override ? winner.overrideValid : null,
+            overrideReason: winner.overrideReason || null,
           };
         }
         // A TXT record that exists but does not parse authorizes nothing —
@@ -2298,6 +2332,16 @@
       if (reportAuth && reportAuth.length) {
         var unauthorized = reportAuth.filter(function (r) { return r.state === 'unauthorized'; });
         var unverifiable = reportAuth.filter(function (r) { return r.state === 'unverifiable'; });
+        var mismatched = reportAuth.filter(function (r) { return r.state === 'override-mismatch'; });
+        if (mismatched.length) {
+          issues.push({
+            key: 'dmarc-external-override-mismatch', sev: 'warn',
+            args: [
+              mismatched.map(function (r) { return r.destination; }).join(', '),
+              mismatched.map(function (r) { return r.override; }).join(', '),
+            ],
+          });
+        }
         if (unauthorized.length) {
           issues.push({
             key: 'dmarc-external-unauthorized', sev: 'warn',

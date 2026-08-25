@@ -645,6 +645,12 @@
       "fix": "請要求 {0} 的營運方發布一筆針對您網域的授權記錄。多數報告服務供應商會在您新增網域時自動處理，因此如果您才剛完成設定，不妨先查看供應商的控制台——該記錄可能要等網域在對方端通過驗證後才會出現。",
       "fixCode": "; 目的地網域在自己的區域中發布這筆記錄，\n; 並指明它接受哪個網域的報告：\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; 服務大量客戶的供應商通常改為發布萬用字元形式：\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
     },
+    "dmarc-external-override-mismatch": {
+      "msg": "{0} 授權了您的報告，隨後又把它們改投給第三方（{1}）— 接收方兩個位址都不會傳送，因此您什麼也收不到。",
+      "what": "該目標正確發布了授權記錄，隨後用自己的 <code>rua=</code> 覆寫了您的報告應當送往何處 — RFC 9990 §4 允許這樣做，但只能指向同一主機上的位址。這個覆寫卻指向了別處。RFC 明確寫出了後果：<em>\"if the confirming record includes a URI whose host is again different than the domain publishing that override, the Mail Receiver generating the report MUST NOT generate a report to either the original or the override URI.\"</em> 這條規則是為了防止有人用一連串改投去淹沒第三方。所以這比一個未授權的目標更糟：一切看起來都已設定並獲得授權，而合規的接收方什麼都不會傳送 — 既不發給您，也不發給他們。",
+      "fix": "這筆記錄該由您的報告服務商來修，而不是您。請他們從 <code>_report._dmarc</code> 記錄中刪除 <code>rua=</code> 覆寫，或者把它指向他們自己主機上的位址。在此之前，請把這個目標視為收不到報告，並檢查您是否還有另一個能正常運作的 <code>rua=</code> 位址。",
+      "fixCode": "; 由目標方發布於 yourdomain.com._report._dmarc.vendor.example\n\n; 有問題 — 覆寫指向了另一個主機，因此什麼都不會傳送：\n_report._dmarc    TXT    \"v=DMARC1; rua=mailto:collector@some-other-host.example;\"\n\n; 沒問題 — 覆寫指向服務商自己的主機：\n_report._dmarc    TXT    \"v=DMARC1; rua=mailto:collector@vendor.example;\"\n\n; 同樣沒問題 — 完全沒有覆寫，報告會送到您自己的 rua= 位址：\n_report._dmarc    TXT    \"v=DMARC1;\""
+    },
     "dmarc-external-unverifiable": {
       "msg": "無法驗證 {0} 的報告授權——DNS 查詢未能完成。",
       "what": "送往組織網域之外的報告必須取得目的地授權，我們是透過向目的地查詢授權記錄來確認這一點。這次查詢失敗了——可能是逾時、SERVFAIL 或解析器的短暫狀況——因此我們無法告訴您該記錄是否存在。這是我們結果中的一處空白，而不是針對您設定的結論：請將它視為「未知」而非問題，並在採取行動前重新執行稽核。",

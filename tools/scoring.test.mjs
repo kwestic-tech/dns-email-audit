@@ -1998,11 +1998,52 @@ const override = await authFor({
 }, 'ov.example');
 eq('a same-host override is retained', override.override, 'mailto:reports@ov.example');
 eq('and marked valid', override.overrideValid, true);
+/* A cross-host override does not merely void itself. RFC 9990 §4: "if the
+   confirming record includes a URI whose host is again different than the
+   domain publishing that override, the Mail Receiver generating the report
+   MUST NOT generate a report to either the original or the override URI." So
+   the destination is unusable, and reporting it as `authorized` would tell the
+   operator their reports are flowing when nothing is sent at all. */
 const badOverride = await authFor({
   'src.example._report._dmarc.bo.example TXT': txt('v=DMARC1; rua=mailto:reports@elsewhere.example'),
 }, 'bo.example');
-eq('an override pointing at another host is still authorized', badOverride.state, 'authorized');
-eq('but the override itself is marked invalid', badOverride.overrideValid, false);
+eq('a cross-host override makes the destination unusable', badOverride.state, 'override-mismatch');
+eq('it is not reported as authorized', badOverride.state === 'authorized', false);
+eq('the offending override is retained as evidence', badOverride.override, 'mailto:reports@elsewhere.example');
+eq('and the reason is named', badOverride.overrideReason, 'cross-host');
+
+// §3.5 treats a malformed URI differently: "if any of the URIs are malformed,
+// they SHOULD be ignored" — ignored, not escalated. The authorization stands.
+const junkOverride = await authFor({
+  'src.example._report._dmarc.jo.example TXT': txt('v=DMARC1; rua=not-a-uri'),
+}, 'jo.example');
+eq('a malformed override is ignored, not escalated', junkOverride.state, 'authorized');
+eq('and is distinguished from a cross-host override', junkOverride.overrideReason, 'malformed');
+
+/* The state has to be CONSUMED, or it is decorative. This is the regression
+   that the first override fix was missing: `overrideValid: false` was set and
+   nothing downstream read it, so the interface presented the destination as
+   usable. */
+const mismatchKeys = D.buildIssues({
+  emailProvider: 'Custom', spfStatus: spf('ok'), dkimStatus: { found: true },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:d@bo.example'),
+  dmarcExistence: 'yes', externalReportDestinations: ['bo.example'],
+  hosting: 'Custom', advanced: Object.assign({}, full, { reportAuth: [badOverride] }),
+  domain: 'src.example',
+}).map(i => i.key);
+eq('a cross-host override raises its own finding',
+  mismatchKeys.includes('dmarc-external-override-mismatch'), true);
+eq('and is not silently reported as a working destination',
+  mismatchKeys.includes('dmarc-external-reporting'), false);
+const okKeys = D.buildIssues({
+  emailProvider: 'Custom', spfStatus: spf('ok'), dkimStatus: { found: true },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:d@jo.example'),
+  dmarcExistence: 'yes', externalReportDestinations: ['jo.example'],
+  hosting: 'Custom', advanced: Object.assign({}, full, { reportAuth: [junkOverride] }),
+  domain: 'src.example',
+}).map(i => i.key);
+eq('a properly authorized destination raises no mismatch finding',
+  okKeys.includes('dmarc-external-override-mismatch'), false);
 
 sandbox.fetch = dohFixture({ 'src.example._report._dmarc.flap.example TXT': 'servfail' });
 const unverifiable = (await D.checkExternalReportAuth('src.example', ['flap.example'], { retries: 0 }))[0];

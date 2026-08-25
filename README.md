@@ -280,7 +280,7 @@ JSON files from disk, so translated interfaces require HTTP.
 | --- | --- |
 | `npm start` | Start the dependency-free development server on port 8080. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Run locale validation plus 1,182 parser, protocol, scoring, rendering, export and CSP assertions. |
+| `npm test` | Run locale validation plus 1,189 parser, protocol, scoring, rendering, export and CSP assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `js/locales-en.js` after editing `locales/en.json`. |

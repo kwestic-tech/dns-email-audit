@@ -645,6 +645,12 @@
       "fix": "请要求 {0} 的运营方发布一条针对您域名的授权记录。多数报告服务商在您添加域名时会自动完成此项，因此如果您刚刚完成配置，不妨先查看服务商的控制台——该记录可能要等到域名在对方侧通过验证后才会出现。",
       "fixCode": "; 目标域名在自己的区域中发布这条记录，\n; 并写明它接受哪个域名的报告：\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; 面向大量客户的服务商通常改为发布通配符形式：\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
     },
+    "dmarc-external-override-mismatch": {
+      "msg": "{0} 授权了您的报告，随后又把它们改投给第三方（{1}）— 接收方两个地址都不会发送，因此您什么也收不到。",
+      "what": "该目标正确发布了授权记录，随后用自己的 <code>rua=</code> 覆盖了您的报告应当送往何处 — RFC 9990 §4 允许这样做，但只能指向同一主机上的地址。这个覆盖却指向了别处。RFC 明确写出了后果：<em>\"if the confirming record includes a URI whose host is again different than the domain publishing that override, the Mail Receiver generating the report MUST NOT generate a report to either the original or the override URI.\"</em> 这条规则是为了防止有人用一连串改投去淹没第三方。所以这比一个未授权的目标更糟：一切看起来都已配置并获得授权，而合规的接收方什么都不会发送 — 既不发给您，也不发给他们。",
+      "fix": "这条记录该由您的报告服务商来修，而不是您。请他们从 <code>_report._dmarc</code> 记录中删除 <code>rua=</code> 覆盖，或者把它指向他们自己主机上的地址。在此之前，请把这个目标视为收不到报告，并检查您是否还有另一个能正常工作的 <code>rua=</code> 地址。",
+      "fixCode": "; 由目标方发布于 yourdomain.com._report._dmarc.vendor.example\n\n; 有问题 — 覆盖指向了另一个主机，因此什么都不会发送：\n_report._dmarc    TXT    \"v=DMARC1; rua=mailto:collector@some-other-host.example;\"\n\n; 没问题 — 覆盖指向服务商自己的主机：\n_report._dmarc    TXT    \"v=DMARC1; rua=mailto:collector@vendor.example;\"\n\n; 同样没问题 — 完全没有覆盖，报告会送到您自己的 rua= 地址：\n_report._dmarc    TXT    \"v=DMARC1;\""
+    },
     "dmarc-external-unverifiable": {
       "msg": "无法验证 {0} 的报告授权——DNS 查询未能完成。",
       "what": "发往组织域名之外的报告需要目标方授权，我们通过向目标方查询授权记录来核实这一点。该查询失败了——可能是超时、SERVFAIL 或解析器波动——因此我们无法告诉您该记录是否存在。这是我们结果中的一处空白，而不是针对您配置的结论：请将其视为「未知」而非问题，并在采取行动前重新运行审计。",

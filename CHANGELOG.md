@@ -62,6 +62,13 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   authorizes nothing, and a destination publishing several records is authorized
   when at least one **complete** record parses (§4 step 8).
 
+  A destination that authorizes your reports and then redirects them to a
+  different host is now reported as unusable rather than as authorized. RFC 9990
+  §4 says receivers must send to neither the original nor the override address
+  in that case, so "authorized" would have meant reports were flowing when
+  nothing was being sent at all. A merely malformed override is still ignored
+  and the authorization stands, per §3.5.
+
 - **The number of report destinations one audit will follow is capped at ten**,
   in the order the record gives them, and the audit says so when it stops short.
   Every destination outside your organizational domain costs a tree walk plus an

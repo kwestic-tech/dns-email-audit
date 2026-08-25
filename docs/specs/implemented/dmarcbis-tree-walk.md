@@ -723,6 +723,34 @@ this gone, no DMARC code path calls `getOrganizationalDomain()` — the invarian
 check would have to be explicitly heuristic, informational, and evaluated at
 `dmarcDiscovery.applied.foundAt`.
 
+**17. A cross-host `rua` override makes the destination unusable, and the
+result says so.** External review, follow-up round — my first pass at step 9 was
+incomplete. It recorded `overrideValid: false` and still returned
+`state: 'authorized'`, and since `buildIssues()` branches only on `state`, the
+interface presented the destination as working. RFC 9990 §4 is explicit that
+this is not a cosmetic problem:
+
+> Further, if the confirming record includes a URI whose host is again different
+> than the domain publishing that override, the Mail Receiver generating the
+> report MUST NOT generate a report to either the original or the override URI.
+
+So neither address receives anything, and reporting `authorized` told the
+operator their reports were flowing when nothing was being sent at all. That is
+the same class of error as #9 and #10 — a confident verdict the evidence does
+not support — arriving by a third route.
+
+The result now carries a distinct `override-mismatch` state, consumed by
+`buildIssues()` as unusable and raised as its own finding. It is deliberately
+not folded into `unauthorized`: the destination *did* authorize, and the fix
+belongs to the reporting vendor rather than to the domain owner, so collapsing
+the two would misdirect whoever reads it.
+
+A merely malformed override is treated differently, and that distinction is also
+from the RFC: §3.5 says of reporting URIs that *"if any of the URIs are
+malformed, they SHOULD be ignored"* — ignored, not escalated — so the
+authorization stands and only the override is dropped. `overrideReason`
+separates `cross-host` from `malformed`.
+
 ## Verification
 
 - `npm test` — 1,130 assertions, 0 failures (972 at `v0.2.3`).
@@ -752,5 +780,5 @@ check would have to be explicitly heuristic, informational, and evaluated at
 | --- | --- | --- |
 | 0.1 | 2026-08-20 | Initial draft. |
 | 1.0 | 2026-08-24 | Final. Resolved all seven open questions. Two corrections came out of transcribing RFC 9989 §4.10 rather than trusting the draft: the label threshold is **eight**, not five (five was an early DMARCbis draft), and the walk selects the **highest** name carrying a record, not the first one found going up — first-match would report the wrong policy domain for exactly the delegated-subdomain case DMARCbis exists to serve. Consequent changes: `applied.foundAt`/`applied.labelsUp` keep their names and are defined as the location of the applied record, `policyDomain` is added as an alias, `organizationalDomain` stays separate and is the highest name with a record; duplicate records at a step are discarded and the walk continues rather than terminating as `multiple`, with the duplicate kept as diagnostic evidence and the critical finding raised from that evidence; and the `terminated` vocabulary now describes how the walk ended (`psd-y`, `psd-n`, `root`, `query-limit`, `error`) rather than what was found in it. `OQ-DMARC-05` was resolved against RFC 9990 §4 step 8, which is explicit where the draft called it ambiguous. Corrections contributed by external review (Codex). |
-| 1.2 | 2026-08-25 | Implemented. Two corrections came out of transcribing RFC 9989 against the code, both in the same direction as 1.0's: the spec's summary of the RFC was tidier than the RFC. The applied record is selected by §4.10.1's preference list (Author Domain, then Organizational Domain, then PSD) rather than by height alone — §4.10.1's closing note, *"PSD policy is not used for Organizational Domains that have published a DMARC Policy Record"*, decides the one case where the two readings differ. And a record found at the Author Domain survives a transient error higher in the walk, because §4.10.1 settles that record on the first query and performs the walk only "If no valid DMARC Policy Record is found by the first query"; as written, 1.1 would have reported a false "no policy" on a healthy domain whenever `_dmarc.com` was slow. See **As implemented** 1 and 2. Internal review then found four more defects, recorded as **As implemented** 9–12; the first of them — a failed walk reported as a missing record — was a regression against 0.2.3 and against this spec's own section 2. External review (Codex) found four more, recorded as 13–16: the external-authorization check queried the literal wildcard owner rather than relying on resolver synthesis (RFC 4592 §2.3), which changed verdicts where synthesis is suppressed; authorization records were accepted on the version tag alone rather than parsed in full (RFC 9990 §4 step 6); the destination cap bounded only the walks and not the authorization queries; and `dmarc-psd-invalid` was both PSL-dependent and evaluated at the wrong name, producing a false positive on domains inheriting the real `_dmarc.gov` PSD policy. |
+| 1.2 | 2026-08-25 | Implemented. Two corrections came out of transcribing RFC 9989 against the code, both in the same direction as 1.0's: the spec's summary of the RFC was tidier than the RFC. The applied record is selected by §4.10.1's preference list (Author Domain, then Organizational Domain, then PSD) rather than by height alone — §4.10.1's closing note, *"PSD policy is not used for Organizational Domains that have published a DMARC Policy Record"*, decides the one case where the two readings differ. And a record found at the Author Domain survives a transient error higher in the walk, because §4.10.1 settles that record on the first query and performs the walk only "If no valid DMARC Policy Record is found by the first query"; as written, 1.1 would have reported a false "no policy" on a healthy domain whenever `_dmarc.com` was slow. See **As implemented** 1 and 2. Internal review then found four more defects, recorded as **As implemented** 9–12; the first of them — a failed walk reported as a missing record — was a regression against 0.2.3 and against this spec's own section 2. External review (Codex) found four more, recorded as 13–16: the external-authorization check queried the literal wildcard owner rather than relying on resolver synthesis (RFC 4592 §2.3), which changed verdicts where synthesis is suppressed; authorization records were accepted on the version tag alone rather than parsed in full (RFC 9990 §4 step 6); the destination cap bounded only the walks and not the authorization queries; and `dmarc-psd-invalid` was both PSL-dependent and evaluated at the wrong name, producing a false positive on domains inheriting the real `_dmarc.gov` PSD policy. A second Codex round found the step 9 fix incomplete — a cross-host `rua` override was recorded as invalid while the destination was still reported `authorized`, and nothing downstream read the flag — recorded as **As implemented** 17. |
 | 1.1 | 2026-08-24 | Consistency pass over the 1.0 text before implementation, after external review (Codex) found six places where 1.0 still contradicted its own resolutions. Removed the non-goal claiming the PSL stays for `findExternalReportDestinations()`, which `OQ-DMARC-04` had already moved to the Tree Walk. Rewrote section 6's duplicate-authorization rule, which still proposed a `multiple` state after `OQ-DMARC-05` resolved to "authorized when at least one record parses", and corrected the matching fixture. Replaced the testing section's `__setResolver`/transport-injection proposal with the resolved programmable sandbox `fetch` helper. Removed `query-limit` from `terminated`: the eight-query bound is achieved by the shortening rule and labels always run out exactly at the budget, so it is not a reachable outcome. Corrected `organizationalDomain` to RFC 9989 §4.10.2's three-rule selection — `psd=n` wins outright, `psd=y` puts the Organizational Domain one label below (a name that may carry no record), and only otherwise is it the fewest-labels record — with the initial target as the normative fallback, so the field is never null. Added the requirement that a duplicate finding never claims no policy applies when one does. |
