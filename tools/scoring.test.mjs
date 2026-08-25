@@ -3981,6 +3981,161 @@ eq('a DNSKEY survives the shared answer cleaner',
   (await D.dohFetch('signed.example', 'DNSKEY', { retries: 0, noCache: true }))
     .answers.filter(r => r.type === 48).map(r => r.data.split(' ').length), [4, 4]);
 
+/* ── 45. DNSSEC record parsing and the RFC 4034 key tag ────────────────
+   The load-bearing tests of dnssec-evidence (0.5.0). The key tag is what links
+   a DS to a DNSKEY, and an off-by-one in it does not fail loudly — it reports
+   a spurious mismatch on a healthy zone, which the spec calls the most
+   damaging defect this project could ship. So the reference vectors come from
+   the RFCs themselves and from answers captured off the live resolver, never
+   from this implementation's own output.
+   ──────────────────────────────────────────────────────────────────────── */
+section('45. DNSSEC record parsing and the RFC 4034 key tag');
+
+// RFC 4034 §5.4's worked example. The RFC states the key tag as 60485, and
+// RFC 4509 §2.3 publishes the SHA-256 DS for the same key — so this one key
+// anchors the tag arithmetic here and the digest matcher in the next section.
+const RFC4034_KEY = '256 3 5 AQOeiiR0GOMYkDshWoSKz9XzfwJr1AYtsmx3TGkJaNXVbfi/2pHm822aJ5iI9BMzNXxeYCmZDRD99WYwYqUSdjMmmAphXdvxegXd/M5+X7OrzKBaMbCVdFLUUh6DhweJBjEVv5f2wwjM9XzcnOf+EPbtG9DMBmADjFDc2w/rljwvFw==';
+const rfcKey = D.parseDnskey(RFC4034_KEY);
+eq('RFC 4034 §5.4 key tag is the RFC\'s stated 60485', rfcKey.keyTag, 60485);
+eq('and it parses as RSASHA1', [rfcKey.algorithm, rfcKey.algorithmName], [5, 'RSASHA1']);
+eq('RSASHA1 is deprecated per RFC 8624 §3.1', rfcKey.deprecated, true);
+eq('a 256-flag key is a zone key and not a SEP', [rfcKey.isZoneKey, rfcKey.isKsk], [true, false]);
+
+// Live keys, captured before the parser existed. The tags below were computed
+// independently of this code and cross-checked against the DS records the
+// parents actually publish — cloudflare.com and ietf.org both anchor tag 2371.
+const LIVE = {
+  zsk13: '256 3 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==',
+  ksk13: '257 3 13 mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl+GqJxpVXckHAeF+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ==',
+  zsk8:  '256 3 8 AwEAAd0QrBPRbxNYnFgWuM4MagnO2sYGEOgRJMN47TcPPd/RfeKt3MSoYnemjW1PjQvI61fagfUvI/lfse6f2ZpDVHwOS+iO/zKY25eH+PazhEVleydA618j/ZSZxNd91OBqRIdBjusdsEL8TjyiND2+7TNfB44NX9HjdyBaVaTen0BV',
+};
+eq('live ECDSAP256SHA256 ZSK tag', D.parseDnskey(LIVE.zsk13).keyTag, 34505);
+eq('live ECDSAP256SHA256 KSK tag', D.parseDnskey(LIVE.ksk13).keyTag, 2371);
+eq('live RSASHA256 ZSK tag',       D.parseDnskey(LIVE.zsk8).keyTag, 61291);
+eq('a 257-flag key is a SEP',      D.parseDnskey(LIVE.ksk13).isKsk, true);
+eq('RSA-1024 decodes to 132 RDATA key bytes', D.parseDnskey(LIVE.zsk8).keyBytes, 132);
+eq('ECDSA P-256 decodes to 64',    D.parseDnskey(LIVE.zsk13).keyBytes, 64);
+
+// The defect this parser is written to avoid. Base64 is case-carrying; folding
+// it destroys the key, every digest then fails, and a healthy zone is reported
+// as a broken chain.
+eq('the public key survives byte-identical', D.parseDnskey(LIVE.ksk13).publicKey,
+  'mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl+GqJxpVXckHAeF+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ==');
+eq('a key differing only in case parses to a different tag',
+  D.parseDnskey(LIVE.ksk13).keyTag === D.parseDnskey(LIVE.ksk13.toLowerCase()).keyTag, false);
+
+// RFC 4034 Appendix B.1: algorithm 1 has its own rule — the most significant
+// 16 bits of the least significant 24 bits of the modulus. The vector is built
+// so the general formula gives 44837 and B.1 gives 4660, which is what makes
+// the assertion prove the special case is reached at all.
+eq('RSAMD5 uses the Appendix B.1 rule', D.parseDnskey('256 3 1 qrvMEjRW').keyTag, 4660);
+eq('RSAMD5 is deprecated',              D.parseDnskey('256 3 1 qrvMEjRW').deprecated, true);
+
+// RFC 4034 §2.1.2: the protocol field MUST be 3; anything else is invalid.
+eq('protocol 4 is refused', D.parseDnskey('256 4 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==').errors, ['bad-protocol']);
+eq('an invalid key computes no tag',  D.parseDnskey('256 4 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==').keyTag, null);
+
+// RFC 5011 §2.1 REVOKE, and RFC 4034 §2.1.1's zone bit. Both are reported;
+// neither makes the record unparseable.
+eq('the REVOKE bit is read', D.parseDnskey('385 3 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==').isRevoked, true);
+eq('a key with the zone bit clear is reported, not rejected',
+  [D.parseDnskey('1 3 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==').isZoneKey,
+   D.parseDnskey('1 3 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==').valid], [false, true]);
+
+// The registry grows. An algorithm this build has never heard of is reported
+// as its number with no name, not as a broken record.
+const future = D.parseDnskey('257 3 250 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==');
+eq('an unregistered algorithm keeps its number', [future.algorithm, future.algorithmName, future.valid], [250, null, true]);
+
+eq('a non-record is unparseable',       D.parseDnskey('not a dnskey').errors, ['unparseable-record']);
+eq('an empty string is unparseable',    D.parseDnskey('').errors, ['unparseable-record']);
+eq('an empty key field is caught',      D.parseDnskey('256 3 13 ').errors, ['unparseable-record']);
+eq('non-base64 key material is caught', D.parseDnskey('256 3 13 not!base64!').errors, ['bad-key-encoding']);
+eq('a half-open parenthesis is refused', D.parseDnskey('256 3 13 ( oJMRESz5E4g').errors, ['unbalanced-parentheses']);
+eq('a balanced pair is accepted', D.parseDnskey(`256 3 13 ( ${LIVE.zsk13.split(' ')[3]} )`).keyTag, 34505);
+
+/* ── DS ──────────────────────────────────────────────────────────────── */
+
+// RFC 4034 §5.4 and RFC 4509 §2.3 publish both digests for the same key.
+eq('the RFC 4034 SHA-1 DS parses', (() => {
+  const d = D.parseDs('60485 5 1 2BB183AF5F22588179A53B0A98631FAD1A292118');
+  return [d.keyTag, d.algorithm, d.digestType, d.digestName, d.deprecated, d.valid];
+})(), [60485, 5, 1, 'SHA-1', true, true]);
+eq('the RFC 4509 SHA-256 DS parses', (() => {
+  const d = D.parseDs('60485 5 2 D4B7D520E7BB5F0F67674A0CCEB1E3E0614B93C4F9E99B8383F6A1E4469DA50A');
+  return [d.digestType, d.digestName, d.deprecated, d.valid];
+})(), [2, 'SHA-256', false, true]);
+
+// Cloudflare returns the digest lowercase and dns.google returns it uppercase.
+// The comparison this feeds is a string equality, so the case is folded — the
+// opposite decision from DNSKEY, and safe here because the field is hex.
+eq('an uppercase digest is folded to lowercase',
+  D.parseDs('60485 5 2 D4B7D520E7BB5F0F67674A0CCEB1E3E0614B93C4F9E99B8383F6A1E4469DA50A').digest,
+  'd4b7d520e7bb5f0f67674a0cceb1e3e0614b93c4f9e99b8383f6a1e4469da50a');
+eq('the two resolvers\' spellings parse identically',
+  D.parseDs('2371 13 2 B1AE88AFF068DDEC3F7FF662F47D6599C74134425C67106E6C203942D6227EA4').digest,
+  D.parseDs('2371 13 2 b1ae88aff068ddec3f7ff662f47d6599c74134425c67106e6c203942d6227ea4').digest);
+
+// A digest of the wrong length for its type is the shape of a truncated
+// record, and it must not reach the matcher and be reported as a mismatch.
+eq('a short SHA-256 digest is refused',  D.parseDs('60485 5 2 D4B7D5').errors, ['bad-digest-length']);
+eq('a SHA-1-length digest labelled SHA-256 is refused',
+  D.parseDs('60485 5 2 2BB183AF5F22588179A53B0A98631FAD1A292118').errors, ['bad-digest-length']);
+eq('an odd number of hex digits is refused', D.parseDs('60485 5 2 abc').errors, ['bad-digest']);
+eq('non-hex digest material is refused',     D.parseDs('60485 5 2 ' + 'z'.repeat(64)).errors, ['bad-digest']);
+eq('SHA-384 length is accepted',             D.parseDs('60485 5 4 ' + 'ab'.repeat(48)).valid, true);
+eq('SHA-384 at SHA-256 length is refused',   D.parseDs('60485 5 4 ' + 'ab'.repeat(32)).errors, ['bad-digest-length']);
+
+// An unregistered digest type has no length to check against. Inventing one
+// would reject a record written to a specification newer than this build.
+const futureDigest = D.parseDs('60485 5 99 ' + 'ab'.repeat(19));
+eq('an unregistered digest type is carried, not judged',
+  [futureDigest.digestType, futureDigest.digestName, futureDigest.valid], [99, null, true]);
+
+eq('a parenthesised DS is unwrapped',
+  D.parseDs('2371 13 2 ( b1ae88aff068ddec3f7ff662f47d6599c74134425c67106e6c203942d6227ea4 )').valid, true);
+eq('a DS half-open parenthesis is refused', D.parseDs('2371 13 2 ( b1ae88').errors, ['unbalanced-parentheses']);
+eq('an RRSIG is not a DS record', D.parseDs('DS 8 2 3600 1788794710 1786976710 44925 org. mcMQJv3yl').errors, ['unparseable-record']);
+eq('an RRSIG is not a DNSKEY',    D.parseDnskey('DNSKEY 13 2 3600 1792128637 1786858237 2371 ietf.org. k4KjRHaT').errors, ['unparseable-record']);
+
+// Every error branch above is reachable, and each is asserted so none of them
+// is quietly dead. A validator with an unreachable rejection reads as stricter
+// than it is.
+eq('a flags value over 16 bits is refused',   D.parseDnskey('999999 3 13 ' + LIVE.zsk13.split(' ')[3]).errors, ['bad-flags']);
+eq('an algorithm over 8 bits is refused',     D.parseDnskey('256 3 999 ' + LIVE.zsk13.split(' ')[3]).errors, ['bad-algorithm']);
+eq('an empty parenthesised key is refused',   D.parseDnskey('256 3 13 ()').errors, ['empty-key']);
+eq('a key tag over 16 bits is refused',       D.parseDs('99999999 5 2 ' + 'ab'.repeat(32)).errors, ['bad-key-tag']);
+eq('a DS algorithm over 8 bits is refused',   D.parseDs('60485 999 2 ' + 'ab'.repeat(32)).errors, ['bad-algorithm']);
+eq('a digest type over 8 bits is refused',    D.parseDs('60485 5 999 ' + 'ab'.repeat(32)).errors, ['bad-digest-type']);
+eq('an empty parenthesised digest is refused', D.parseDs('60485 5 2 ()').errors, ['empty-digest']);
+
+/* ── Canonical owner name (RFC 4034 §5.1.4) ──────────────────────────── */
+
+const wire = name => Array.from(D.dnsWireName(name) || []);
+eq('dskey.example.com encodes per the RFC example', wire('dskey.example.com'),
+  [5, 100, 115, 107, 101, 121, 7, 101, 120, 97, 109, 112, 108, 101, 3, 99, 111, 109, 0]);
+eq('an uppercase label is lowercased before hashing',
+  wire('DSKEY.Example.COM'), wire('dskey.example.com'));
+eq('a trailing dot is not an extra label', wire('example.com.'), wire('example.com'));
+eq('a four-label name encodes every label', wire('a.b.c.example.com').length, 2 + 2 + 2 + 8 + 4 + 1);
+eq('the root is a single zero octet', wire(''), [0]);
+
+// Returns null rather than writing wrong bytes. A digest built on a bad
+// encoding would be a mismatch verdict about the operator's zone that is
+// really a statement about our own encoder.
+eq('a 64-octet label cannot be encoded', D.dnsWireName('a'.repeat(64) + '.example.com'), null);
+eq('a 63-octet label can',                D.dnsWireName('a'.repeat(63) + '.example.com') === null, false);
+eq('an over-long name cannot be encoded',
+  D.dnsWireName(new Array(52).join('abcd.') + 'example.com'), null);
+eq('a non-ASCII label cannot be encoded',  D.dnsWireName('münchen.example.com'), null);
+eq('an empty label cannot be encoded',     D.dnsWireName('a..example.com'), null);
+
+// RFC 4034 §2.1: flags(2) || protocol(1) || algorithm(1) || public key.
+eq('RDATA is four octets plus the key', D.dnskeyRdata(rfcKey).length, 134);
+eq('RDATA opens with the flags, protocol and algorithm',
+  Array.from(D.dnskeyRdata(rfcKey).slice(0, 4)), [1, 0, 3, 5]);
+eq('an invalid key yields no RDATA', D.dnskeyRdata(D.parseDnskey('256 4 13 abcd')), null);
+
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);

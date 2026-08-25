@@ -3241,6 +3241,258 @@
     return { loop: true, chain: chain, addresses: [] };
   }
 
+  /* ── DNSSEC record parsing (RFC 4034) ──────────────────────────────────
+     Two presentation forms from one resolver, and they must not share a
+     normalizer. A DS digest is hex, so folding its case is free. A DNSKEY
+     public key is base64 — case-carrying, with `+`, `/` and `=` in it — and
+     folding its case destroys it silently: every digest then fails to match
+     and a perfectly healthy zone is reported as a broken chain. That is the
+     most damaging verdict this tool can produce, so the two parsers are
+     written apart rather than factored together.
+
+     Shapes captured from the live resolver before any of this was written:
+     docs/specs/fixtures/dnssec-live-states-0.5.0.md.
+     ───────────────────────────────────────────────────────────────────── */
+
+  // IANA DNSSEC algorithm numbers. These are protocol identifiers, not prose,
+  // and are emitted as-is — the localization contract lists them among the
+  // terms that are never translated.
+  var DNSSEC_ALGORITHMS = {
+    1: 'RSAMD5', 3: 'DSA', 5: 'RSASHA1', 6: 'DSA-NSEC3-SHA1',
+    7: 'RSASHA1-NSEC3-SHA1', 8: 'RSASHA256', 10: 'RSASHA512', 12: 'ECC-GOST',
+    13: 'ECDSAP256SHA256', 14: 'ECDSAP384SHA384', 15: 'ED25519', 16: 'ED448',
+  };
+
+  /**
+   * RFC 8624 §3.1. MUST NOT sign: RSAMD5, DSA, DSA-NSEC3-SHA1, ECC-GOST.
+   * NOT RECOMMENDED: the two RSASHA1 variants.
+   *
+   * Wider than the set the spec enumerates, which named 3, 5, 6 and 7. A tool
+   * that flags RSASHA1 while staying silent about RSAMD5 is not applying a
+   * rule, and RSAMD5 is the algorithm with its own key tag arithmetic below —
+   * it was already unavoidable here.
+   */
+  var DEPRECATED_DNSSEC_ALGORITHMS = [1, 3, 5, 6, 7, 12];
+
+  // RFC 4034 §5.1.3 and the IANA digest registry. Digest type 1 is SHA-1,
+  // deprecated by RFC 8624 §3.3; 3 is GOST, likewise.
+  var DNSSEC_DIGESTS = { 1: 'SHA-1', 2: 'SHA-256', 3: 'GOST-R-34.11-94', 4: 'SHA-384' };
+  var DEPRECATED_DNSSEC_DIGESTS = [1, 3];
+  var DNSSEC_DIGEST_LENGTHS = { 1: 20, 2: 32, 3: 32, 4: 48 };
+
+  // RFC 4034 §2.1.1 and RFC 5011 §2.1.
+  var DNSKEY_FLAG_SEP = 0x0001;      // bit 15: this key is a secure entry point
+  var DNSKEY_FLAG_ZONE = 0x0100;     // bit 7: this key signs RRsets in the zone
+  var DNSKEY_FLAG_REVOKE = 0x0080;   // bit 8: the operator has revoked this key
+
+  /**
+   * Split a record into its fixed leading integers and one trailing blob,
+   * unwrapping the optional parenthesis pair around the blob.
+   *
+   * The balanced-pair rule is `parseTlsaRecord()`'s, and for the same reason:
+   * stripping each side independently accepts `( ABCD` and `ABCD )` alike,
+   * which defeats the point of a parser written for a presentation form. What
+   * is deliberately NOT shared is case folding — see the block comment above.
+   */
+  function splitRdataFields(presentationString, leadingFields) {
+    var text = String(presentationString || '').trim();
+    var pattern = new RegExp('^' + new Array(leadingFields + 1).join('(\\d+)\\s+') + '([\\s\\S]+)$');
+    var match = pattern.exec(text);
+    if (!match) return null;
+    var body = match[leadingFields + 1].trim();
+    var opened = body.charAt(0) === '(';
+    var closed = body.length > 1 && body.charAt(body.length - 1) === ')';
+    if (opened !== closed) return { unbalanced: true };
+    if (opened) body = body.slice(1, -1);
+    return {
+      numbers: match.slice(1, leadingFields + 1).map(Number),
+      body: body.replace(/\s+/g, ''),
+    };
+  }
+
+  /**
+   * A domain name in DNS wire format: each label prefixed by its length byte,
+   * lowercased, terminated by a zero byte. RFC 4034 §5.1.4 hashes this ahead
+   * of the DNSKEY RDATA, so an error here is an error in every digest.
+   *
+   * Returns null rather than guessing. A label over 63 octets, a name over 255,
+   * or a byte outside ASCII cannot be encoded correctly, and writing the wrong
+   * bytes anyway would produce a mismatch verdict about the operator's zone
+   * that is really a statement about our own encoder.
+   */
+  function dnsWireName(domain) {
+    var name = String(domain || '').toLowerCase().replace(/\.$/, '');
+    if (!name) return new Uint8Array([0]);
+    var labels = name.split('.');
+    var total = 1;
+    for (var i = 0; i < labels.length; i++) {
+      if (!labels[i].length || labels[i].length > 63) return null;
+      total += 1 + labels[i].length;
+    }
+    if (total > 255) return null;
+    var bytes = new Uint8Array(total);
+    var out = 0;
+    for (var j = 0; j < labels.length; j++) {
+      bytes[out++] = labels[j].length;
+      for (var k = 0; k < labels[j].length; k++) {
+        var code = labels[j].charCodeAt(k);
+        if (code > 127) return null;
+        bytes[out++] = code;
+      }
+    }
+    bytes[out] = 0;
+    return bytes;
+  }
+
+  /** RFC 4034 §2.1: flags(2) || protocol(1) || algorithm(1) || public key. */
+  function dnskeyRdata(key) {
+    if (!key || !key.valid) return null;
+    var publicKey = base64ToBytes(key.publicKey);
+    if (!publicKey) return null;
+    var rdata = new Uint8Array(4 + publicKey.length);
+    rdata[0] = (key.flags >> 8) & 0xff;
+    rdata[1] = key.flags & 0xff;
+    rdata[2] = key.protocol;
+    rdata[3] = key.algorithm;
+    rdata.set(publicKey, 4);
+    return rdata;
+  }
+
+  /**
+   * RFC 4034 Appendix B. The key tag is what links a DS to a DNSKEY, so an
+   * off-by-one here does not fail loudly — it reports a spurious mismatch on a
+   * healthy zone, which the spec calls the worst defect this project could
+   * ship. Implemented to the RFC's own pseudocode and checked against the
+   * reference key in RFC 4034 §5.4, whose stated tag is 60485.
+   *
+   * Algorithm 1 is Appendix B.1's separate rule: the tag is the most
+   * significant 16 bits of the least significant 24 bits of the modulus, which
+   * in RDATA terms is the third- and second-to-last byte. RSAMD5 is deprecated
+   * and vanishingly rare, and it is implemented anyway because the alternative
+   * is running the general formula over it and reporting a mismatch.
+   */
+  function dnskeyKeyTag(rdata, algorithm) {
+    if (!rdata) return null;
+    if (algorithm === 1) return rdata.length < 3 ? 0 : (rdata[rdata.length - 3] << 8) + rdata[rdata.length - 2];
+    var accumulator = 0;
+    for (var i = 0; i < rdata.length; i++) {
+      accumulator += (i & 1) ? rdata[i] : rdata[i] << 8;
+    }
+    accumulator += (accumulator >> 16) & 0xffff;
+    return accumulator & 0xffff;
+  }
+
+  /**
+   * Parse one DNSKEY presentation string.
+   *
+   * `publicKey` stays the base64 text rather than becoming a byte array. It is
+   * the evidence the resolver returned, it survives export and comparison
+   * intact, and a 2048-bit key as a Uint8Array serializes into a 259-entry
+   * object in every report this result reaches. `dnskeyRdata()` decodes it
+   * where bytes are actually needed.
+   */
+  function parseDnskey(presentationString) {
+    var blank = {
+      flags: null, protocol: null, algorithm: null, algorithmName: null,
+      publicKey: '', keyBytes: 0, keyTag: null,
+      isKsk: false, isZoneKey: false, isRevoked: false,
+      deprecated: false, valid: false, errors: ['unparseable-record'],
+    };
+    var fields = splitRdataFields(presentationString, 3);
+    if (!fields) return blank;
+    if (fields.unbalanced) return Object.assign({}, blank, { errors: ['unbalanced-parentheses'] });
+
+    var flags = fields.numbers[0];
+    var protocol = fields.numbers[1];
+    var algorithm = fields.numbers[2];
+    var errors = [];
+
+    if (!(flags >= 0 && flags <= 0xffff)) errors.push('bad-flags');
+    // RFC 4034 §2.1.2: the protocol field MUST have value 3, and a DNSKEY with
+    // any other value MUST be treated as invalid. A recognized field with an
+    // unregistered value is the failure pattern 0.4.0 spent three review
+    // rounds on, so it is checked rather than carried.
+    if (protocol !== 3) errors.push('bad-protocol');
+    if (!(algorithm >= 0 && algorithm <= 255)) errors.push('bad-algorithm');
+
+    var publicKey = fields.body;
+    var bytes = publicKey ? base64ToBytes(publicKey) : null;
+    if (!publicKey) errors.push('empty-key');
+    else if (!bytes) errors.push('bad-key-encoding');
+
+    var valid = errors.length === 0;
+    var parsed = {
+      flags: flags,
+      protocol: protocol,
+      algorithm: algorithm,
+      // An unregistered algorithm number is not an error. The registry grows,
+      // and a resolver may return a key this build has never heard of; the
+      // honest report is the number with no name beside it.
+      algorithmName: DNSSEC_ALGORITHMS[algorithm] || null,
+      publicKey: publicKey,
+      keyBytes: bytes ? bytes.length : 0,
+      keyTag: null,
+      isKsk: valid && (flags & DNSKEY_FLAG_SEP) !== 0,
+      // RFC 4034 §2.1.1: with the zone bit clear the key is some other kind of
+      // public key and MUST NOT be used to verify RRsets. Reported here, and
+      // excluded from anchoring where the DS matching runs.
+      isZoneKey: valid && (flags & DNSKEY_FLAG_ZONE) !== 0,
+      isRevoked: valid && (flags & DNSKEY_FLAG_REVOKE) !== 0,
+      deprecated: DEPRECATED_DNSSEC_ALGORITHMS.indexOf(algorithm) !== -1,
+      valid: valid,
+      errors: errors,
+    };
+    if (valid) parsed.keyTag = dnskeyKeyTag(dnskeyRdata(parsed), algorithm);
+    return parsed;
+  }
+
+  /** Parse one DS presentation string. RFC 4034 §5.1. */
+  function parseDs(presentationString) {
+    var blank = {
+      keyTag: null, algorithm: null, algorithmName: null,
+      digestType: null, digestName: null, digest: '',
+      deprecated: false, valid: false, errors: ['unparseable-record'],
+    };
+    var fields = splitRdataFields(presentationString, 3);
+    if (!fields) return blank;
+    if (fields.unbalanced) return Object.assign({}, blank, { errors: ['unbalanced-parentheses'] });
+
+    var keyTag = fields.numbers[0];
+    var algorithm = fields.numbers[1];
+    var digestType = fields.numbers[2];
+    var errors = [];
+
+    if (!(keyTag >= 0 && keyTag <= 0xffff)) errors.push('bad-key-tag');
+    if (!(algorithm >= 0 && algorithm <= 255)) errors.push('bad-algorithm');
+    if (!(digestType >= 0 && digestType <= 255)) errors.push('bad-digest-type');
+
+    // Hex, so folding the case is safe and necessary: Cloudflare returns this
+    // lowercase and dns.google returns it uppercase, and the comparison this
+    // feeds is a string equality.
+    var digest = fields.body.toLowerCase();
+    if (!digest) errors.push('empty-digest');
+    else if (!/^[0-9a-f]+$/.test(digest) || digest.length % 2 !== 0) errors.push('bad-digest');
+    else {
+      var expected = DNSSEC_DIGEST_LENGTHS[digestType];
+      // Only for a digest type whose length is registered. An unknown type has
+      // no length to check against, and inventing one would reject a record
+      // written to a specification newer than this build.
+      if (expected !== undefined && digest.length / 2 !== expected) errors.push('bad-digest-length');
+    }
+
+    return {
+      keyTag: keyTag,
+      algorithm: algorithm,
+      algorithmName: DNSSEC_ALGORITHMS[algorithm] || null,
+      digestType: digestType,
+      digestName: DNSSEC_DIGESTS[digestType] || null,
+      digest: digest,
+      deprecated: DEPRECATED_DNSSEC_DIGESTS.indexOf(digestType) !== -1,
+      valid: errors.length === 0,
+      errors: errors,
+    };
+  }
+
   async function checkDNSSEC(domain, queryOpts) {
     // AD=true means the validating resolver authenticated the answer. If the
     // normal query SERVFAILs but succeeds with checking disabled, the chain is
@@ -4676,6 +4928,13 @@
     // TXT and silently mis-keyed. Both are the failure dnsTypeNum() throws to
     // prevent, arriving through the tests instead of through production.
     DNS_TYPES,
+    parseDnskey,
+    parseDs,
+    dnskeyRdata,
+    dnskeyKeyTag,
+    dnsWireName,
+    DNSSEC_ALGORITHMS,
+    DNSSEC_DIGESTS,
     analyzeDomain,
     checkConnectivity,
     dohFetch,
