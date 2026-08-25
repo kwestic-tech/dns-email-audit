@@ -12,6 +12,7 @@
  *   node tools/backtest.mjs domains.txt --json > before.json
  *   node tools/backtest.mjs --sample              # built-in 40-domain sample
  *   node tools/backtest.mjs domains.txt --comprehensive-dkim # max 5 domains
+ *   node tools/backtest.mjs --sample --deep      # with MX health + TLSA
  *
  * Every run also reports the DNS query fan-out — the number of DoH requests
  * actually issued, per domain. `PRIVACY.md` states that number publicly, so it
@@ -31,6 +32,11 @@ const args = process.argv.slice(2);
 const asJson = args.includes('--json');
 const useSample = args.includes('--sample');
 const comprehensiveDkim = args.includes('--comprehensive-dkim');
+// The deep protocol checks (MX health, TLSA) are the only part of an audit
+// whose cost scales with the audited domain's own configuration, so their
+// fan-out has to be measured rather than reasoned about. PRIVACY.md states the
+// number with and without them; this flag is how both halves are obtained.
+const deepChecks = args.includes('--deep');
 const fileArg = args.find(a => !a.startsWith('--'));
 
 // A spread of well-known domains across sectors and maturity levels. Not a
@@ -91,7 +97,7 @@ vm.runInContext(readFileSync(join(ROOT, 'js', 'dkim-selectors.js'), 'utf8'), san
 vm.runInContext(readFileSync(join(ROOT, 'js', 'dns.js'), 'utf8'), sandbox);
 const D = sandbox.window.DnsAudit;
 
-const OPTS = { dkim: true, dkimComprehensive: comprehensiveDkim, www: false, advanced: true, wildcard: false };
+const OPTS = { dkim: true, dkimComprehensive: comprehensiveDkim, www: false, advanced: true, wildcard: false, deepChecks };
 const CONCURRENCY = 6;
 
 const results = [];

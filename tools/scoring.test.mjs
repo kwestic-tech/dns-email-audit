@@ -13,11 +13,12 @@ import vm from 'node:vm';
 import { dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa } from './lib/doh-fixture.mjs';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
-// `atob` and `crypto` are here for the DKIM key analysis: the DER length walk
-// decodes the base64 `p=` value, and the optional structural check calls
-// crypto.subtle.importKey. Both are browser globals js/dns.js may legitimately
-// use; supplying them is the same move the sandbox already makes for `fetch`.
-const sandbox = { window: { __PUBLIC_SUFFIX_RULES__: ['com', 'co.uk', '*.ck', '!www.ck'] }, fetch: async () => ({ ok: false }), console, AbortController, URLSearchParams, setTimeout, clearTimeout, atob, crypto };
+// `crypto` is here for the OPTIONAL half of the DKIM key analysis — the Web
+// Crypto structural check. `atob` is deliberately NOT provided: the DER length
+// walk that produces every key size must work with nothing but the language,
+// and leaving the global out is what proves it does. A sandbox that handed the
+// code a convenience the browser might not have would test the wrong thing.
+const sandbox = { window: { __PUBLIC_SUFFIX_RULES__: ['com', 'co.uk', '*.ck', '!www.ck'] }, fetch: async () => ({ ok: false }), console, AbortController, URLSearchParams, setTimeout, clearTimeout, crypto };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(readFileSync(`${REPO}/js/dkim-selectors.js`, 'utf8'), sandbox);
@@ -2443,6 +2444,21 @@ eq('and leaves the size alone',    validated.keyBits, 2048);
 const revokedValidated = await D.validateDkimKeyStructure(key('v=DKIM1; p='), 'v=DKIM1; p=');
 eq('a revoked key is not sent to crypto', revokedValidated.cryptoValidated, null);
 eq('and stays valid',                     revokedValidated.valid, true);
+
+// The base64 decode is the language and nothing else. This whole file runs
+// with no `atob` in the sandbox, so a decoder that reached for it would report
+// every key on every domain as unparseable — an assertion about our own
+// environment wearing the clothes of an assertion about the operator's DNS.
+eq('the sandbox really has no atob', typeof sandbox.atob, 'undefined');
+// Exact byte lengths across the three padding cases, checked against Node's
+// own base64 encoder rather than against a hand-written expectation.
+eq('decoded lengths round-trip for every padding case',
+  [0, 1, 2, 3, 61, 62, 63, 64, 255, 256].map(n =>
+    D.analyzeDkimKey(`v=DKIM1; k=ed25519; p=${Buffer.from(Array.from({ length: n }, (_, i) => (i * 37 + n) & 0xff)).toString('base64')}`).keyBytes),
+  [null, 1, 2, 3, 61, 62, 63, 64, 255, 256]);
+// n=0 above is null rather than 0 on purpose: an empty p= is revocation, and
+// the decoder is never reached.
+eq('an empty p= never reaches the decoder', D.analyzeDkimKey('v=DKIM1; p=').revoked, true);
 
 // Multi-string TXT reassembly, through the real cleanAnswerData path.
 const split = D.dkimRecordSet([{ type: 16, data: `"v=DKIM1; k=rsa; p=${RSA_2048.slice(0, 120)}" "${RSA_2048.slice(120)}"` }]);

@@ -723,119 +723,119 @@
       "fix": "记录本身没有问题。如果您希望审计每一个目标，请把这些域分到多次运行中。如果这份清单只是随时间变长了，那么值得精简：您不再查看的目标，接收方仍然必须尝试投递。"
     },
     "dkim-key-weak": {
-      "msg": "DKIM key below 1024 bits: {0} — the signature is forgeable and receivers may ignore it.",
-      "what": "RFC 8301 sets 1024 bits as the absolute floor for an RSA DKIM key and recommends 2048. A modulus below that floor can be factored by an attacker with modest resources, and anyone who factors it can sign mail that passes DKIM as your domain — which also means it passes DMARC, because DMARC accepts a message whose DKIM signature aligns. Some receivers have stopped accepting short keys outright, so the same record can silently fail verification at one provider while passing at another.",
-      "fix": "Generate a new 2048-bit key and publish it under a <strong>new</strong> selector, switch your signing service to that selector, and only then remove the old record. Rotating in place breaks every message still in flight that was signed with the old key.",
-      "fixCode": "; A receiver queries s2026._domainkey.example.com for this key\n; Publish the new key first, under a new selector:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Switch signing to s2026, wait for mail in flight to clear,\n; then delete the old short-key record:\ns2020._domainkey    TXT    \"v=DKIM1; k=rsa; p=MFwwDQYJKoZIhvcNAQEB...\""
+      "msg": "DKIM 密钥低于 1024 位：{0} — 签名可被伪造，接收方可能会直接忽略。",
+      "what": "RFC 8301 将 1024 位定为 RSA DKIM 密钥的绝对下限，并推荐 2048 位。低于该下限的模数用不多的资源即可分解，而分解成功的人就能以您的域名签署可通过 DKIM 的邮件——也就同时通过了 DMARC，因为 DMARC 接受 DKIM 签名对齐的邮件。部分接收方已完全不再接受短密钥，因此同一条记录可能在一家服务商处悄无声息地验证失败，却在另一家处通过。",
+      "fix": "生成一把新的 2048 位密钥，发布在<strong>新的</strong>选择器下，把签名服务切换到该选择器，之后再删除旧记录。原地轮换会破坏所有仍在投递途中、用旧密钥签过名的邮件。",
+      "fixCode": "; 接收方会向 s2026._domainkey.example.com 查询这把密钥\n; 先在新的选择器下发布新密钥：\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; 把签名切换到 s2026，等投递途中的邮件走完，\n; 再删除使用短密钥的旧记录：\ns2020._domainkey    TXT    \"v=DKIM1; k=rsa; p=MFwwDQYJKoZIhvcNAQEB...\""
     },
     "dkim-key-1024": {
-      "msg": "DKIM key is 1024 bits: {0} — valid today, but 2048 is the current recommendation.",
-      "what": "RFC 8301 names 1024 bits as the minimum and 2048 as the recommended size for RSA DKIM keys. A 1024-bit key is not broken and is not being rejected by mainstream receivers — this is genuinely common, and plenty of large senders still publish one. It is listed here as a rotation to schedule rather than an incident to work, which is why it sits with the suggestions and not with the failures.",
-      "fix": "Fold a move to 2048 bits into your next planned key rotation. There is nothing to do urgently. Publish the new key under a new selector, switch signing to it, then retire the old record."
+      "msg": "DKIM 密钥为 1024 位：{0} — 目前仍然有效，但当前推荐使用 2048 位。",
+      "what": "RFC 8301 把 1024 位列为 RSA DKIM 密钥的最小值，2048 位为推荐值。1024 位密钥并未被攻破，主流接收方也没有拒收它——这种长度确实很常见，不少大型发件方至今仍在发布。这里把它列为需要排期的密钥轮换，而不是需要处理的事故，因此它出现在建议中而非错误中。",
+      "fix": "把改用 2048 位纳入您下一次计划中的密钥轮换。没有需要紧急处理的事。在新的选择器下发布新密钥，把签名切换过去，然后撤下旧记录。"
     },
     "dkim-key-revoked": {
-      "msg": "DKIM selector published with an empty key: {0} — the selector is revoked and signs nothing.",
-      "what": "RFC 6376 §3.6.1 defines a <code>p=</code> tag with an empty value as key revocation: a receiver that finds it treats every signature made with that selector as permanently invalid. That is the correct way to retire a selector. It becomes a problem when the selector is still configured somewhere as a signing key, because the mail goes out signed, the receiver looks up the selector, and the signature fails — which looks identical to a forgery.",
-      "fix": "Confirm nothing still signs with this selector. If the selector is genuinely retired, the revocation record can stay indefinitely or be removed once no mail signed with it is still in flight. If something is still signing with it, publish the real public key or move that service to a live selector.",
-      "fixCode": "; A revocation — empty p=, deliberately:\nold2019._domainkey    TXT    \"v=DKIM1; k=rsa; p=\"\n\n; A live selector, for comparison:\ns2026._domainkey      TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+      "msg": "DKIM 选择器发布的密钥为空：{0} — 该选择器已吊销，不会签署任何内容。",
+      "what": "RFC 6376 §3.6.1 将值为空的 <code>p=</code> 标签定义为密钥吊销：接收方一旦发现它，就会把用该选择器做出的所有签名视为永久无效。这是让选择器退役的正确做法。问题出在该选择器在某处仍被配置为签名密钥：邮件带着签名发出，接收方查询选择器，签名验证失败——这与伪造完全无法区分。",
+      "fix": "确认已经没有任何东西还在用这个选择器签名。如果该选择器确实已退役，吊销记录可以长期保留，也可以在没有用它签名的邮件仍在投递途中之后删除。如果仍有服务在用它签名，请发布真正的公钥，或把该服务改到一个有效的选择器上。",
+      "fixCode": "; 一条吊销记录——p= 是刻意留空的：\nold2019._domainkey    TXT    \"v=DKIM1; k=rsa; p=\"\n\n; 作为对照，一个有效的选择器：\ns2026._domainkey      TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     },
     "dkim-key-unparseable": {
-      "msg": "DKIM public key does not decode: {0} — no receiver can verify a signature from this selector.",
-      "what": "The record is present and the selector is found, so the domain looks configured — but the <code>p=</code> value is not a key any verifier can read. Much the most common cause is a truncated record: a DNS TXT string is limited to 255 characters, a 2048-bit key is longer than that, and a key pasted into a control panel that does not split it correctly loses its tail. The failure is completely silent. Nothing warns you, the record resolves, and every signature simply fails.",
-      "fix": "Re-publish the key, letting your DNS provider split it into multiple quoted strings rather than truncating it. Compare the published value against the key your signing service holds — they must match character for character, including case, because the value is base64 and case-sensitive.",
-      "fixCode": "; One TXT record, split into quoted strings the resolver rejoins:\ns2026._domainkey    TXT    ( \"v=DKIM1; k=rsa; \"\n                            \"p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\"\n                            \"...IDAQAB\" )"
+      "msg": "DKIM 公钥无法解码：{0} — 没有任何接收方能验证该选择器的签名。",
+      "what": "记录存在，选择器也能找到，因此这个域名看起来是配置好的——但 <code>p=</code> 的值并不是任何验证方能读懂的密钥。最常见的原因是记录被截断：DNS 的 TXT 字符串上限为 255 个字符，2048 位密钥比这更长，而粘贴进不会正确拆分的管理面板的密钥就会丢掉尾部。这种故障完全无声。没有任何提示，记录照常解析，只是每一次签名验证都失败。",
+      "fix": "重新发布密钥，让您的 DNS 服务商把它拆成多个带引号的字符串，而不是截断它。把发布的值和签名服务持有的密钥逐字比对——两者必须一字不差，包括大小写，因为该值是 base64 且区分大小写。",
+      "fixCode": "; 一条 TXT 记录，拆成若干由解析器重新拼接的字符串：\ns2026._domainkey    TXT    ( \"v=DKIM1; k=rsa; \"\n                            \"p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\"\n                            \"...IDAQAB\" )"
     },
     "dkim-key-testing": {
-      "msg": "DKIM selector is in testing mode: {0} — receivers are told to ignore its results.",
-      "what": "The <code>t=y</code> flag tells receivers the domain is still testing DKIM and that they should treat signed and unsigned mail alike. It exists so a new deployment can be validated without risking delivery. Left in place after go-live it quietly cancels the protection: a receiver honouring the flag will not act on a signature failure, so the selector contributes nothing to DMARC.",
-      "fix": "Remove the <code>t=y</code> flag once you have confirmed signatures verify. If you are genuinely still testing, leave it and revisit after go-live."
+      "msg": "DKIM 选择器处于测试模式：{0} — 接收方被告知忽略其结果。",
+      "what": "<code>t=y</code> 标志告诉接收方，该域名仍在测试 DKIM，应当对已签名和未签名的邮件一视同仁。它的存在是为了让新部署可以在不影响投递的前提下验证。上线之后仍然留着，它就会悄悄取消这份保护：遵循该标志的接收方不会对签名失败采取任何动作，于是这个选择器对 DMARC 毫无贡献。",
+      "fix": "确认签名能够通过验证后，删除 <code>t=y</code> 标志。如果确实仍在测试，就先留着，等上线后再回头处理。"
     },
     "dkim-key-mixed": {
-      "msg": "DKIM selectors use different key strengths, from {0} to {1} bits — the weakest one sets your real strength.",
-      "what": "An attacker picks which selector to attack, not you. If one selector signs at 1024 bits and another at 2048, the domain's practical DKIM strength is 1024, because forging a signature under the weaker selector produces mail that passes DKIM and DMARC just as convincingly. Different sizes usually mean a rotation that was started and never finished, or a second sending service set up separately from the first.",
-      "fix": "Bring the weaker selectors up to the size of the strongest, or retire them if the service behind them no longer sends."
+      "msg": "各 DKIM 选择器的密钥强度不一致，从 {0} 位到 {1} 位——最弱的那个决定了您的实际强度。",
+      "what": "选择攻击哪个选择器的是攻击者，不是您。如果一个选择器用 1024 位签名、另一个用 2048 位，该域名实际的 DKIM 强度就是 1024 位，因为在较弱的选择器下伪造签名同样能造出顺利通过 DKIM 与 DMARC 的邮件。长度不一致通常意味着一次开了头却没做完的密钥轮换，或者是与第一个分开配置的第二套发信服务。",
+      "fix": "把较弱的选择器提升到最强的那个长度；如果其背后的服务已不再发信，就让它退役。"
     },
     "dkim-key-sha1": {
-      "msg": "DKIM key allows only SHA-1: {0} — RFC 8301 forbids SHA-1 for DKIM signatures.",
-      "what": "The <code>h=</code> tag lists the hash algorithms a verifier may accept for this key. With <code>sha1</code> as the only entry, a conformant receiver has nothing acceptable to offer: RFC 8301 §3.1 removed SHA-1 from DKIM outright, on the strength of practical collision attacks. Receivers enforcing that will fail the signature. Listing <code>sha1</code> alongside <code>sha256</code> is fine and is not reported here — a verifier can simply choose the stronger one.",
-      "fix": "Change <code>h=sha1</code> to <code>h=sha256</code>, or drop the <code>h=</code> tag entirely, which allows any hash the verifier supports. Confirm your signing service is producing SHA-256 signatures before you do.",
-      "fixCode": "; Before — nothing a conformant receiver will accept:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha1; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; After:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0B...\""
+      "msg": "DKIM 密钥仅允许 SHA-1：{0} — RFC 8301 禁止在 DKIM 签名中使用 SHA-1。",
+      "what": "<code>h=</code> 标签列出验证方针对这把密钥可以接受的散列算法。当 <code>sha1</code> 是唯一条目时，遵循规范的接收方就没有任何可接受的选项：RFC 8301 §3.1 基于已可实际执行的碰撞攻击，把 SHA-1 从 DKIM 中彻底移除。执行该规定的接收方会判定签名失败。把 <code>sha1</code> 与 <code>sha256</code> 并列则没有问题，这里不会报告——验证方直接选更强的那个即可。",
+      "fix": "把 <code>h=sha1</code> 改为 <code>h=sha256</code>，或者干脆删掉 <code>h=</code> 标签，这样便允许验证方支持的任何散列算法。改动之前请确认您的签名服务生成的是 SHA-256 签名。",
+      "fixCode": "; 修改前——遵循规范的接收方没有可接受的选项：\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha1; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; 修改后：\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0B...\""
     },
     "caa-blocks-all-issuance": {
-      "msg": "CAA at {0} authorizes no certificate authority — no CA can issue a certificate for this domain.",
-      "what": "An <code>issue</code> property whose value is <code>;</code> names no issuer, and RFC 8659 §4.2 reads that as authorizing nobody. Every conformant certificate authority will refuse. This is a legitimate and deliberate setting for a domain that must never have a certificate, so it is not necessarily wrong. It becomes an outage when it was not intended, and the outage is invisible until a renewal fails — the existing certificate keeps working right up to the day it expires.",
-      "fix": "If this is deliberate, nothing to do. If it is not, add an <code>issue</code> property naming the certificate authority you use. Remember that CAA is inherited down the tree, so a record set at the parent governs this name too.",
-      "fixCode": "; Blocks every CA:\nexample.com.    CAA    0 issue \";\"\n\n; Authorizes one CA:\nexample.com.    CAA    0 issue \"letsencrypt.org\""
+      "msg": "{0} 上的 CAA 未授权任何证书颁发机构 — 没有任何 CA 能为该域名签发证书。",
+      "what": "值为 <code>;</code> 的 <code>issue</code> 属性没有指名任何签发者，RFC 8659 §4.2 将其解读为不授权给任何人。所有遵循规范的证书颁发机构都会拒绝。对于绝对不应拥有证书的域名，这是合法且有意为之的设置，未必是错误。当它并非本意时就成了一次故障，而这种故障在续期失败之前完全看不出来——已有的证书会一直工作到过期那天。",
+      "fix": "如果这是有意为之，无需改动。如果不是，请添加一条 <code>issue</code> 属性，指名您使用的证书颁发机构。请记住 CAA 会沿域名树向下继承，因此设在上级名称上的记录同样管辖此名称。",
+      "fixCode": "; 拒绝所有 CA：\nexample.com.    CAA    0 issue \";\"\n\n; 授权一家 CA：\nexample.com.    CAA    0 issue \"letsencrypt.org\""
     },
     "caa-unknown-critical-tag": {
-      "msg": "CAA property not recognized, with the critical flag set: {0} — a conformant CA must refuse to issue.",
-      "what": "RFC 8659 §4.1 defines the top bit of the flags byte as Issuer Critical. A certificate authority that encounters a property it does not understand with that bit set MUST refuse to issue, rather than ignoring the property and carrying on. So an unrecognized critical property is an issuance block, and it is one that will not be noticed until the next renewal. The same property without the critical bit is inert and would not be reported here.",
-      "fix": "Check the property name for a typo against the registry — <code>issue</code>, <code>issuewild</code>, <code>iodef</code>, <code>issuemail</code>, <code>contactemail</code>, <code>contactphone</code>. If the property is intentional and non-standard, clear the critical flag by setting the flags byte to 0.",
-      "fixCode": "; Critical and unrecognized — blocks issuance:\nexample.com.    CAA    128 issuewildcard \"letsencrypt.org\"\n\n; The registered property name:\nexample.com.    CAA    0 issuewild \"letsencrypt.org\""
+      "msg": "无法识别的 CAA 属性且设置了关键标志：{0} — 遵循规范的 CA 必须拒绝签发。",
+      "what": "RFC 8659 §4.1 把标志字节的最高位定义为 Issuer Critical。证书颁发机构遇到自己无法理解、且该位被置位的属性时，必须拒绝签发，而不是忽略该属性继续处理。因此，一个无法识别的关键属性就是一道签发阻断，而且它会以在下一次续期之前无人察觉的方式阻断。同样的属性若没有关键位则不起作用，也不会在这里报告。",
+      "fix": "对照注册表检查属性名是否拼错——<code>issue</code>、<code>issuewild</code>、<code>iodef</code>、<code>issuemail</code>、<code>contactemail</code>、<code>contactphone</code>。如果该属性确属有意使用的非标准属性，请把标志字节设为 0 以清除关键标志。",
+      "fixCode": "; 关键且无法识别——阻断签发：\nexample.com.    CAA    128 issuewildcard \"letsencrypt.org\"\n\n; 已注册的属性名：\nexample.com.    CAA    0 issuewild \"letsencrypt.org\""
     },
     "caa-malformed": {
-      "msg": "CAA record could not be parsed: {0}",
-      "what": "A CAA record is three fields: a flags byte from 0 to 255, a property tag, and a quoted value. A record that does not fit that shape may be ignored by a certificate authority, or may be treated as an unrecognized property — and if its flags byte happens to set the critical bit, that means refusing to issue. The behaviour is not something you want to leave to chance.",
-      "fix": "Re-enter the record in the standard three-field form. Some DNS interfaces ask for the flags, tag and value in separate boxes and add the quotes for you; others take the whole line, in which case the value needs its own quotation marks."
+      "msg": "无法解析 CAA 记录：{0}",
+      "what": "一条 CAA 记录由三个字段组成：0 到 255 的标志字节、属性标签，以及带引号的值。不符合这一形式的记录，可能被证书颁发机构忽略，也可能被当作无法识别的属性处理——而如果它的标志字节恰好置位了关键位，那就意味着拒绝签发。这种行为不该交给运气。",
+      "fix": "按标准的三字段形式重新录入该记录。有些 DNS 界面会分别要求填写标志、标签和值，并替您加上引号；另一些则接收整行，这时值需要自带引号。"
     },
     "caa-no-iodef": {
-      "msg": "CAA is published but has no iodef property — you will not hear about refused certificate requests.",
-      "what": "The <code>iodef</code> property gives a certificate authority somewhere to report a request that your CAA policy made it refuse. Without one, a refusal is silent from your side: an attacker probing for a CA that will issue for your domain looks exactly like nothing happening, and so does a colleague who tried to get a certificate from the wrong provider.",
-      "fix": "Add an <code>iodef</code> property pointing at a mailbox somebody reads. It costs one record and it is the only notification channel CAA has.",
+      "msg": "已发布 CAA，但没有 iodef 属性 — 您不会得知被拒绝的证书申请。",
+      "what": "<code>iodef</code> 属性为证书颁发机构提供一个地址，用来上报因您的 CAA 策略而不得不拒绝的申请。没有它，拒绝在您这边就是无声的：攻击者在试探哪家 CA 会为您的域名签发证书，看上去与什么都没发生完全一样；同事误向错误的服务商申请证书，同样如此。",
+      "fix": "添加一条 <code>iodef</code> 属性，指向一个真的有人查看的邮箱。它只需一条记录，而且是 CAA 唯一的通知渠道。",
       "fixCode": "example.com.    CAA    0 issue \"letsencrypt.org\"\nexample.com.    CAA    0 iodef \"mailto:security@example.com\""
     },
     "caa-single-issuer": {
-      "msg": "CAA authorizes one certificate authority: {0} — changing provider will need a DNS change first.",
-      "what": "A single authorized issuer is a perfectly good, tight policy and this is not a misconfiguration. It is worth knowing about at the moment it starts to matter: if that CA has an outage, or you need to move provider in a hurry, no other authority can issue until this record is updated — and whoever is trying to get the certificate is often not whoever can edit DNS.",
-      "fix": "Nothing to change. Make sure the people who request certificates know the record exists and who can edit it. If you already have a fallback CA in mind, authorizing it now costs one record and removes a step from a bad day."
+      "msg": "CAA 只授权了一家证书颁发机构：{0} — 更换服务商需要先改 DNS。",
+      "what": "只授权一个签发者是一条完全合理且收紧的策略，这并不是配置错误。值得知道的时机，正是它开始产生影响的那一刻：万一这家 CA 出现故障，或者您需要紧急更换服务商，在这条记录更新之前没有别的机构能够签发——而想要拿到证书的人，往往并不是能改 DNS 的人。",
+      "fix": "无需改动。请让申请证书的同事知道这条记录的存在以及谁能编辑它。如果您心里已经有了备用 CA，现在授权它只需一条记录，还能在糟糕的一天里省下一步。"
     },
     "mx-dangling": {
-      "msg": "MX host does not resolve: {0} — mail routed there cannot be delivered.",
-      "what": "An MX record names a hostname, and that hostname has to resolve to an address before any sending server can connect to it. This one does not: the name returns no A or AAAA record. A sending server that selects this host has nowhere to go — it will queue the message and retry, and eventually return it to the sender. If it is your only MX host, you are receiving no mail at all right now. If it is a backup, you are one failure away from that.",
-      "fix": "Check the hostname for a typo, and check that the zone it lives in still publishes an address record for it. A host that has been decommissioned should have its MX record removed rather than left pointing at nothing — a dangling backup MX delays delivery on every retry cycle.",
-      "fixCode": "; Every host named on the right must resolve to an address:\nexample.com.        MX     10 mail1.example.com.\nexample.com.        MX     20 mail2.example.com.\n\nmail1.example.com.  A      203.0.113.10\nmail2.example.com.  A      203.0.113.11"
+      "msg": "MX 主机无法解析：{0} — 投往该处的邮件无法送达。",
+      "what": "MX 记录指定一个主机名，而任何发信服务器要连接之前，该主机名都必须解析出地址。这个主机名解析不出来：既没有 A 记录也没有 AAAA 记录。选中该主机的发信服务器无处可去——它会把邮件排队、反复重试，最终退回给发件人。如果这是您唯一的 MX 主机，那么此刻您完全收不到邮件；如果它是备用主机，您距离那种局面只差一次故障。",
+      "fix": "检查主机名是否拼错，并确认它所在的区域是否仍在发布对应的地址记录。已经下线的主机应当连同 MX 记录一并删除，而不是留着指向空处——一台失效的备用 MX 会在每一轮重试中拖慢投递。",
+      "fixCode": "; 右侧列出的每一台主机都必须解析出地址：\nexample.com.        MX     10 mail1.example.com.\nexample.com.        MX     20 mail2.example.com.\n\nmail1.example.com.  A      203.0.113.10\nmail2.example.com.  A      203.0.113.11"
     },
     "mx-cname-target": {
-      "msg": "MX target is a CNAME: {0} — RFC 2181 and RFC 5321 both forbid this.",
-      "what": "RFC 2181 §10.3 and RFC 5321 §5.1 both require that an MX record point at a name with an address record, not at an alias. It usually works anyway, because most sending servers follow the alias without complaining, which is exactly why the mistake survives in the wild. Where it breaks, it breaks specifically and confusingly: some servers refuse the alias outright, and the extra lookup adds a failure point on every delivery. It also interacts badly with DANE, where the TLSA record must be found under the right name.",
-      "fix": "Point the MX record at the alias target directly, so the MX names a host that has its own address record.",
-      "fixCode": "; Before — the MX names an alias:\nexample.com.        MX      10 mail.example.com.\nmail.example.com.   CNAME   host7.provider.example.\n\n; After — the MX names the host itself:\nexample.com.        MX      10 host7.provider.example."
+      "msg": "MX 目标是 CNAME：{0} — RFC 2181 与 RFC 5321 都禁止这样做。",
+      "what": "RFC 2181 §10.3 与 RFC 5321 §5.1 都要求 MX 记录指向拥有地址记录的名称，而不是指向别名。多数情况下它照样能用，因为大部分发信服务器会毫无怨言地跟随别名——这个错误之所以在现实中长期存在，原因正在于此。而一旦出问题，就会以特定且难以诊断的方式出问题：有些服务器会直接拒绝别名，多出来的这次查询也在每次投递中增加了一个故障点。它与 DANE 的配合同样糟糕，因为 DANE 要求在正确的名称下找到 TLSA 记录。",
+      "fix": "让 MX 记录直接指向别名的目标，使 MX 指名一台拥有自己地址记录的主机。",
+      "fixCode": "; 修改前——MX 指向一个别名：\nexample.com.        MX      10 mail.example.com.\nmail.example.com.   CNAME   host7.provider.example.\n\n; 修改后——MX 指向主机本身：\nexample.com.        MX      10 host7.provider.example."
     },
     "mx-single-host": {
-      "msg": "Only one MX host is published: {0} — mail queues at the sender while it is unreachable.",
-      "what": "With one MX host, any period where that host is unreachable is a period where inbound mail sits in other people's queues. Nothing is lost immediately — sending servers retry for days before returning a message — but delivery stops, and it stops for a maintenance window as readily as for a failure. Many hosted mail providers publish several MX hosts precisely to avoid this; a single one is more often a self-hosted setup or a provider entry that was only half-copied.",
-      "fix": "Publish a second MX host at a higher preference number if your mail platform offers one. If your provider gave you several hostnames, check that all of them made it into DNS."
+      "msg": "只发布了一台 MX 主机：{0} — 它不可达期间，邮件会积压在发件方的队列里。",
+      "what": "只有一台 MX 主机时，这台主机不可达的每一段时间，都是入站邮件滞留在别人队列里的时间。眼下不会丢失什么——发信服务器会重试好几天才退回邮件——但投递会停下，而且因一次计划维护而停下，和因一次故障而停下一样容易。许多托管邮件服务商正是为了避免这一点才发布多台 MX 主机；只有一台，更多时候意味着自建部署，或者服务商给的配置只抄了一半。",
+      "fix": "如果您的邮件平台提供，请再发布一台优先级数字更大的 MX 主机。如果服务商给了您多个主机名，请检查它们是否都进了 DNS。"
     },
     "mx-no-ipv6": {
-      "msg": "No MX host has an IPv6 address — IPv6-only senders cannot reach your mail.",
-      "what": "A sending server on an IPv6-only network reaches an IPv4-only mail host through whatever translation its operator provides, or not at all. This is not a security finding and it is not urgent: IPv4 mail delivery is not going away. It is a reachability note, and it also affects reputation, because some large receivers treat dual-stack availability as a signal of a well-maintained mail system.",
-      "fix": "Add AAAA records for your MX hosts once the hosts themselves accept mail over IPv6. Publishing an AAAA record for a host that is not actually listening on IPv6 is worse than having none — senders will try it first and fail."
+      "msg": "没有任何 MX 主机拥有 IPv6 地址 — 纯 IPv6 的发件方无法送达您的邮件。",
+      "what": "处在纯 IPv6 网络中的发信服务器，只能通过其运营方提供的转换来触及纯 IPv4 的邮件主机，否则根本触及不到。这不是安全问题，也不紧急：基于 IPv4 的邮件投递不会消失。这是一条关于可达性的提示，同时也关系到声誉，因为部分大型接收方把双栈可用性视为邮件系统维护良好的信号。",
+      "fix": "等主机本身确实开始通过 IPv6 收信之后，再为 MX 主机添加 AAAA 记录。为一台实际并未在 IPv6 上监听的主机发布 AAAA 记录，比完全不发布更糟——发件方会优先尝试它然后失败。"
     },
     "mx-same-prefix": {
-      "msg": "MX hosts share one address block, {0}: {1} — the redundancy is smaller than it looks.",
-      "what": "Several MX hosts published at different preferences read as redundancy, but if every address sits in the same small block, they very likely share a rack, an uplink and a data centre. The failures that take out one will usually take out all of them, so the second host is protecting against a server fault and not against anything larger. This is normal for a single-site mail platform and worth knowing rather than fixing.",
-      "fix": "If the redundancy is meant to survive a site failure, place at least one MX host in a different network. If the second host is only there to cover a server restart, nothing needs to change."
+      "msg": "多台 MX 主机共用同一个地址段 {0}：{1} — 冗余度比看上去要小。",
+      "what": "以不同优先级发布的多台 MX 主机看起来像是冗余，但如果所有地址都落在同一个小地址段里，它们极可能共用同一个机柜、同一条上联和同一个数据中心。能撂倒其中一台的故障，通常会把它们全都撂倒，所以第二台主机防的是单台服务器出错，而不是更大范围的问题。对单站点的邮件平台来说这很正常，值得知道，而不是值得修改。",
+      "fix": "如果这份冗余需要扛住整个站点的故障，请至少把一台 MX 主机放到另一个网络中。如果第二台主机只是为了覆盖服务器重启，那就无需改动。"
     },
     "mx-duplicate-preference": {
-      "msg": "Two or more MX hosts share the same preference value: {0} — sending servers will load-balance across them.",
-      "what": "Equal preference values are a deliberate feature: RFC 5321 §5.1 says a sender should pick among equal-preference hosts at random, which spreads inbound mail across them. That is what you want for two equivalent front ends. It is not what you want if one host was intended as a backup, because half your mail will go to the backup all the time.",
-      "fix": "Nothing, if the hosts are equivalent. If one is meant to be a fallback, give it a higher preference number — higher means less preferred."
+      "msg": "两台或更多 MX 主机使用了相同的优先级值：{0} — 发信服务器会在它们之间分摊负载。",
+      "what": "优先级相同是一项有意的特性：RFC 5321 §5.1 规定发件方应在优先级相同的主机中随机挑选，从而把入站邮件分散到这些主机上。对两台等价的前端来说，这正是您想要的。如果其中一台本打算作为备用，这就不是您想要的了，因为您一半的邮件会一直流向备用主机。",
+      "fix": "如果这些主机是等价的，无需处理。如果其中一台应当作为备选，请给它一个更大的优先级数字——数字越大越不被优先选择。"
     },
     "tlsa-published-unsigned": {
-      "msg": "TLSA published without a validated DNSSEC chain: {0} — DANE offers no protection here.",
-      "what": "DANE works by putting the certificate a mail server should present into DNS, and it is only worth anything if that DNS answer cannot be tampered with. Without DNSSEC, anyone able to intercept the lookup can strip the TLSA record — at which point the sending server sees a host with no DANE policy and delivers anyway — or replace it with a record matching their own certificate. The record still appears in every diagnostic as if DANE were configured, which is the reason this is worth saying out loud: it looks like protection, and it is not.",
-      "fix": "Sign the zone the TLSA record lives in and get the DS record published at its parent. Until that is done, the TLSA record is decoration. If signing the zone is not on the cards, removing the TLSA record is more honest than leaving it there.",
-      "fixCode": "; A sending server queries _25._tcp.mail1.example.com for this record,\n; and it must sit in a DNSSEC-signed zone to mean anything:\n_25._tcp.mail1.example.com.    TLSA    3 1 1 ( 87D109DD028655D5370B... )"
+      "msg": "TLSA 在没有经过验证的 DNSSEC 信任链的情况下发布：{0} — 这里的 DANE 提供不了任何保护。",
+      "what": "DANE 的工作方式是把邮件服务器应当出示的证书放进 DNS，因此它只有在该 DNS 应答无法被篡改时才有价值。没有 DNSSEC，任何能够截获这次查询的人都可以把 TLSA 记录摘掉——于是发信服务器看到的是一台没有 DANE 策略的主机，照样投递——或者把它替换成与自己证书匹配的记录。而这条记录在各类诊断中仍会显示为 DANE 已配置的样子，这正是有必要把话说明白的原因：它看起来像保护，实际上不是。",
+      "fix": "为 TLSA 记录所在的区域签名，并让其上级发布 DS 记录。在此之前，TLSA 记录只是装饰。如果暂时没有为该区域签名的计划，删掉 TLSA 记录比把它留在那里更诚实。",
+      "fixCode": "; 发信服务器会向 _25._tcp.mail1.example.com 查询这条记录，\n; 而它必须位于经 DNSSEC 签名的区域中才有意义：\n_25._tcp.mail1.example.com.    TLSA    3 1 1 ( 87D109DD028655D5370B... )"
     },
     "tlsa-malformed": {
-      "msg": "TLSA record is malformed: {0} — a sending server enforcing DANE may refuse to deliver.",
-      "what": "A TLSA record is a certificate usage, a selector, a matching type and the association data, and the length of that data is fixed by the matching type — 32 bytes for SHA-256, 64 for SHA-512. A record that does not fit cannot be matched against any certificate. Under DANE that is not a soft failure: a sending server that finds a TLSA record it cannot use is required to treat delivery as failed rather than fall back to an unauthenticated connection, so a malformed record can stop mail arriving.",
-      "fix": "Regenerate the record from the certificate the mail host actually presents, rather than editing the digest by hand. Check that the matching type matches the digest length you published."
+      "msg": "TLSA 记录格式有误：{0} — 执行 DANE 的发信服务器可能拒绝投递。",
+      "what": "一条 TLSA 记录由证书用途、选择器、匹配类型和关联数据组成，而关联数据的长度由匹配类型决定——SHA-256 为 32 字节，SHA-512 为 64 字节。不符合这一要求的记录无法与任何证书比对。在 DANE 之下这不是一次轻微的失败：发信服务器一旦发现无法使用的 TLSA 记录，就必须把这次投递视为失败，而不是退回到未经认证的连接，因此一条格式有误的记录可能直接让邮件到不了。",
+      "fix": "请从邮件主机实际出示的证书重新生成该记录，而不要手工改动摘要值。检查匹配类型是否与您发布的摘要长度相符。"
     },
     "tlsa-partial-coverage": {
-      "msg": "TLSA is published for {0} of {1} mail hosts — the hosts without it accept unauthenticated connections.",
-      "what": "A sending server picks an MX host and looks for a TLSA record under that host's name. Where it finds one, the connection is authenticated; where it does not, delivery falls back to ordinary opportunistic TLS, which an attacker on the path can downgrade. So partial coverage means an attacker simply targets the host that has no record. The protection is only as good as its weakest MX host.",
-      "fix": "Publish a TLSA record for every MX host, or remove the records until you can cover all of them. Each host needs its own record, under <code>_25._tcp</code> at that host's name."
+      "msg": "TLSA 只为 {1} 台邮件主机中的 {0} 台发布 — 没有 TLSA 的主机会接受未经认证的连接。",
+      "what": "发信服务器会挑选一台 MX 主机，并在该主机名下查找 TLSA 记录。找得到，连接就经过认证；找不到，投递就退回到普通的机会性 TLS，而路径上的攻击者可以将其降级。所以覆盖不全就意味着攻击者只需盯上那台没有记录的主机。这份保护的强度，只等于最弱的那台 MX 主机。",
+      "fix": "为每一台 MX 主机都发布 TLSA 记录，或者在能够全部覆盖之前先撤下这些记录。每台主机都需要自己的记录，位于该主机名下的 <code>_25._tcp</code>。"
     }
   },
   "suggestion": {

@@ -504,15 +504,41 @@
 
   var DKIM_KEY_TAGS = ['v', 'h', 'k', 'n', 'p', 's', 't'];
 
-  /** Decode base64, tolerating the folding whitespace RFC 6376 allows in p=. */
+  var BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+  /**
+   * Decode base64, tolerating the folding whitespace RFC 6376 §3.2 allows in p=.
+   *
+   * Decoded here rather than with `atob` on purpose. `atob` throws when it is
+   * absent, and this function's caller reads a throw as "this key does not
+   * decode" — so in any environment without it, every DKIM key on every domain
+   * would be reported unparseable. That is precisely the failure this release
+   * exists to prevent: a confident verdict about the operator's records that is
+   * really a statement about our own environment. Twelve lines of arithmetic
+   * buys an answer that cannot depend on what the host happens to provide.
+   *
+   * Returns null only for input that genuinely is not base64.
+   */
   function base64ToBytes(value) {
     var text = String(value || '').replace(/\s+/g, '');
     if (!text) return new Uint8Array(0);
     if (!/^[A-Za-z0-9+/]*={0,2}$/.test(text) || text.length % 4 !== 0) return null;
-    var binary;
-    try { binary = atob(text); } catch (e) { return null; }
-    var bytes = new Uint8Array(binary.length);
-    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    var padding = /==$/.test(text) ? 2 : /=$/.test(text) ? 1 : 0;
+    var bytes = new Uint8Array((text.length / 4) * 3 - padding);
+    var out = 0;
+    for (var i = 0; i < text.length; i += 4) {
+      // The '=' padding characters index to -1; masking with 63 folds them to
+      // zero bits, and the output length computed above stops them being
+      // written. Padding can only appear in the last two positions, which the
+      // pattern above already guarantees.
+      var group = (BASE64_ALPHABET.indexOf(text[i]) << 18) |
+        (BASE64_ALPHABET.indexOf(text[i + 1]) << 12) |
+        ((BASE64_ALPHABET.indexOf(text[i + 2]) & 63) << 6) |
+        (BASE64_ALPHABET.indexOf(text[i + 3]) & 63);
+      if (out < bytes.length) bytes[out++] = (group >> 16) & 0xff;
+      if (out < bytes.length) bytes[out++] = (group >> 8) & 0xff;
+      if (out < bytes.length) bytes[out++] = group & 0xff;
+    }
     return bytes;
   }
 

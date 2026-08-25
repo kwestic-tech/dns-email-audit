@@ -723,119 +723,119 @@
       "fix": "レコードに問題はありません。すべての宛先を監査したい場合は、ドメインを複数回の実行に分けてください。単に時間とともに増えただけであれば、整理する価値があります。読まなくなった宛先も、受信者は送信を試み続けなければなりません。"
     },
     "dkim-key-weak": {
-      "msg": "DKIM key below 1024 bits: {0} — the signature is forgeable and receivers may ignore it.",
-      "what": "RFC 8301 sets 1024 bits as the absolute floor for an RSA DKIM key and recommends 2048. A modulus below that floor can be factored by an attacker with modest resources, and anyone who factors it can sign mail that passes DKIM as your domain — which also means it passes DMARC, because DMARC accepts a message whose DKIM signature aligns. Some receivers have stopped accepting short keys outright, so the same record can silently fail verification at one provider while passing at another.",
-      "fix": "Generate a new 2048-bit key and publish it under a <strong>new</strong> selector, switch your signing service to that selector, and only then remove the old record. Rotating in place breaks every message still in flight that was signed with the old key.",
-      "fixCode": "; A receiver queries s2026._domainkey.example.com for this key\n; Publish the new key first, under a new selector:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Switch signing to s2026, wait for mail in flight to clear,\n; then delete the old short-key record:\ns2020._domainkey    TXT    \"v=DKIM1; k=rsa; p=MFwwDQYJKoZIhvcNAQEB...\""
+      "msg": "DKIM 鍵が 1024 ビット未満です: {0} — 署名は偽造可能で、受信側に無視される可能性があります。",
+      "what": "RFC 8301 は RSA の DKIM 鍵について 1024 ビットを絶対的な下限と定め、2048 ビットを推奨しています。この下限を下回るモジュラスは限られた計算資源でも素因数分解でき、分解できた者はあなたのドメインとして DKIM を通過するメールに署名できます。つまり DMARC も通過します。DMARC は DKIM 署名が整合していればメッセージを受け入れるからです。短い鍵をまったく受け付けなくなった受信側もあり、同じレコードが一方の事業者では静かに検証に失敗し、他方では通過するという事態が起こります。",
+      "fix": "2048 ビットの鍵を新たに生成し、<strong>新しい</strong>セレクターの下に公開してください。署名サービスをそのセレクターに切り替え、そのうえで初めて古いレコードを削除します。同じセレクターのまま入れ替えると、古い鍵で署名済みでまだ配送途中のメールがすべて壊れます。",
+      "fixCode": "; 受信側はこの鍵を s2026._domainkey.example.com に問い合わせます\n; まず新しい鍵を、新しいセレクターの下に公開します:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; 署名を s2026 に切り替え、配送途中のメールがはけるのを待ってから、\n; 短い鍵の古いレコードを削除します:\ns2020._domainkey    TXT    \"v=DKIM1; k=rsa; p=MFwwDQYJKoZIhvcNAQEB...\""
     },
     "dkim-key-1024": {
-      "msg": "DKIM key is 1024 bits: {0} — valid today, but 2048 is the current recommendation.",
-      "what": "RFC 8301 names 1024 bits as the minimum and 2048 as the recommended size for RSA DKIM keys. A 1024-bit key is not broken and is not being rejected by mainstream receivers — this is genuinely common, and plenty of large senders still publish one. It is listed here as a rotation to schedule rather than an incident to work, which is why it sits with the suggestions and not with the failures.",
-      "fix": "Fold a move to 2048 bits into your next planned key rotation. There is nothing to do urgently. Publish the new key under a new selector, switch signing to it, then retire the old record."
+      "msg": "DKIM 鍵が 1024 ビットです: {0} — 現時点では有効ですが、現在の推奨は 2048 ビットです。",
+      "what": "RFC 8301 は RSA の DKIM 鍵について 1024 ビットを最小、2048 ビットを推奨サイズとしています。1024 ビットの鍵は破られてはおらず、主要な受信側から拒否されてもいません。実際に広く使われており、大手の送信者でも今なお公開しているところが少なくありません。ここでは対応すべき障害ではなく、計画すべき鍵更新として挙げています。だからこそエラーではなく提案の側に置かれています。",
+      "fix": "次に予定している鍵更新のタイミングで 2048 ビットへの移行を組み込んでください。急いで行うべきことはありません。新しい鍵を新しいセレクターの下に公開し、署名をそちらに切り替えてから、古いレコードを撤去します。"
     },
     "dkim-key-revoked": {
-      "msg": "DKIM selector published with an empty key: {0} — the selector is revoked and signs nothing.",
-      "what": "RFC 6376 §3.6.1 defines a <code>p=</code> tag with an empty value as key revocation: a receiver that finds it treats every signature made with that selector as permanently invalid. That is the correct way to retire a selector. It becomes a problem when the selector is still configured somewhere as a signing key, because the mail goes out signed, the receiver looks up the selector, and the signature fails — which looks identical to a forgery.",
-      "fix": "Confirm nothing still signs with this selector. If the selector is genuinely retired, the revocation record can stay indefinitely or be removed once no mail signed with it is still in flight. If something is still signing with it, publish the real public key or move that service to a live selector.",
-      "fixCode": "; A revocation — empty p=, deliberately:\nold2019._domainkey    TXT    \"v=DKIM1; k=rsa; p=\"\n\n; A live selector, for comparison:\ns2026._domainkey      TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+      "msg": "DKIM セレクターが空の鍵で公開されています: {0} — このセレクターは失効しており、何も署名しません。",
+      "what": "RFC 6376 §3.6.1 は、値が空の <code>p=</code> タグを鍵の失効と定義しています。これを見つけた受信側は、そのセレクターで作成された署名をすべて恒久的に無効として扱います。セレクターを引退させる正しい方法です。問題になるのは、そのセレクターがどこかでまだ署名鍵として設定されている場合です。メールは署名付きで送出され、受信側はセレクターを参照し、署名は失敗します — これは偽造とまったく見分けがつきません。",
+      "fix": "このセレクターで署名しているものがもう存在しないことを確認してください。セレクターが本当に引退済みなら、失効レコードは無期限に残しても構いませんし、そのセレクターで署名されたメールが配送途中になくなった時点で削除しても構いません。まだ署名しているものがあるなら、実際の公開鍵を公開するか、そのサービスを有効なセレクターへ移してください。",
+      "fixCode": "; 失効 — 意図的に p= を空にしています:\nold2019._domainkey    TXT    \"v=DKIM1; k=rsa; p=\"\n\n; 比較のための有効なセレクター:\ns2026._domainkey      TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     },
     "dkim-key-unparseable": {
-      "msg": "DKIM public key does not decode: {0} — no receiver can verify a signature from this selector.",
-      "what": "The record is present and the selector is found, so the domain looks configured — but the <code>p=</code> value is not a key any verifier can read. Much the most common cause is a truncated record: a DNS TXT string is limited to 255 characters, a 2048-bit key is longer than that, and a key pasted into a control panel that does not split it correctly loses its tail. The failure is completely silent. Nothing warns you, the record resolves, and every signature simply fails.",
-      "fix": "Re-publish the key, letting your DNS provider split it into multiple quoted strings rather than truncating it. Compare the published value against the key your signing service holds — they must match character for character, including case, because the value is base64 and case-sensitive.",
-      "fixCode": "; One TXT record, split into quoted strings the resolver rejoins:\ns2026._domainkey    TXT    ( \"v=DKIM1; k=rsa; \"\n                            \"p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\"\n                            \"...IDAQAB\" )"
+      "msg": "DKIM 公開鍵をデコードできません: {0} — どの受信側もこのセレクターの署名を検証できません。",
+      "what": "レコードは存在し、セレクターも見つかるため、ドメインは設定済みに見えます。しかし <code>p=</code> の値は、どの検証側にも読み取れる鍵ではありません。圧倒的に多い原因はレコードの切り詰めです。DNS の TXT 文字列は 255 文字に制限され、2048 ビットの鍵はそれより長く、正しく分割しない管理画面に貼り付けた鍵は末尾を失います。この障害は完全に無言です。何の警告も出ず、レコードは解決し、署名がただ失敗し続けます。",
+      "fix": "鍵を公開し直し、DNS 事業者に切り詰めではなく複数の引用符付き文字列へ分割させてください。公開された値を署名サービスが保持している鍵と突き合わせてください。値は base64 で大文字と小文字を区別するため、大小の別も含めて一字一句一致していなければなりません。",
+      "fixCode": "; 1 件の TXT レコードを、リゾルバーが再結合する文字列に分割します:\ns2026._domainkey    TXT    ( \"v=DKIM1; k=rsa; \"\n                            \"p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\"\n                            \"...IDAQAB\" )"
     },
     "dkim-key-testing": {
-      "msg": "DKIM selector is in testing mode: {0} — receivers are told to ignore its results.",
-      "what": "The <code>t=y</code> flag tells receivers the domain is still testing DKIM and that they should treat signed and unsigned mail alike. It exists so a new deployment can be validated without risking delivery. Left in place after go-live it quietly cancels the protection: a receiver honouring the flag will not act on a signature failure, so the selector contributes nothing to DMARC.",
-      "fix": "Remove the <code>t=y</code> flag once you have confirmed signatures verify. If you are genuinely still testing, leave it and revisit after go-live."
+      "msg": "DKIM セレクターがテストモードです: {0} — 受信側はその結果を無視するよう指示されています。",
+      "what": "<code>t=y</code> フラグは、ドメインがまだ DKIM をテスト中であり、署名付きメールと署名なしメールを同等に扱うよう受信側に伝えます。新規導入を配信に影響を与えずに検証できるようにするための仕組みです。本番稼働後もそのままにしておくと、保護を静かに打ち消します。このフラグを尊重する受信側は署名の失敗に対して何もしないため、そのセレクターは DMARC に何も寄与しません。",
+      "fix": "署名が検証されることを確認できたら <code>t=y</code> フラグを削除してください。本当にまだテスト中であればそのままにし、本番稼働後にあらためて見直してください。"
     },
     "dkim-key-mixed": {
-      "msg": "DKIM selectors use different key strengths, from {0} to {1} bits — the weakest one sets your real strength.",
-      "what": "An attacker picks which selector to attack, not you. If one selector signs at 1024 bits and another at 2048, the domain's practical DKIM strength is 1024, because forging a signature under the weaker selector produces mail that passes DKIM and DMARC just as convincingly. Different sizes usually mean a rotation that was started and never finished, or a second sending service set up separately from the first.",
-      "fix": "Bring the weaker selectors up to the size of the strongest, or retire them if the service behind them no longer sends."
+      "msg": "DKIM セレクターごとに鍵の強度が異なります（{0} 〜 {1} ビット）— 実際の強度は最も弱いものが決めます。",
+      "what": "どのセレクターを攻撃するかを選ぶのは攻撃者であり、あなたではありません。あるセレクターが 1024 ビットで署名し、別のセレクターが 2048 ビットで署名しているなら、このドメインの実効的な DKIM 強度は 1024 ビットです。弱いほうのセレクターで署名を偽造すれば、DKIM も DMARC も同じように説得力をもって通過するメールが作れるからです。サイズがまちまちなのは、始めたまま完了していない鍵更新か、最初とは別に設定された 2 つ目の送信サービスであることがほとんどです。",
+      "fix": "弱いセレクターを最も強いものと同じサイズに引き上げるか、その背後のサービスがもう送信していないのであれば引退させてください。"
     },
     "dkim-key-sha1": {
-      "msg": "DKIM key allows only SHA-1: {0} — RFC 8301 forbids SHA-1 for DKIM signatures.",
-      "what": "The <code>h=</code> tag lists the hash algorithms a verifier may accept for this key. With <code>sha1</code> as the only entry, a conformant receiver has nothing acceptable to offer: RFC 8301 §3.1 removed SHA-1 from DKIM outright, on the strength of practical collision attacks. Receivers enforcing that will fail the signature. Listing <code>sha1</code> alongside <code>sha256</code> is fine and is not reported here — a verifier can simply choose the stronger one.",
-      "fix": "Change <code>h=sha1</code> to <code>h=sha256</code>, or drop the <code>h=</code> tag entirely, which allows any hash the verifier supports. Confirm your signing service is producing SHA-256 signatures before you do.",
-      "fixCode": "; Before — nothing a conformant receiver will accept:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha1; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; After:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0B...\""
+      "msg": "DKIM 鍵が SHA-1 しか許可していません: {0} — RFC 8301 は DKIM 署名での SHA-1 を禁じています。",
+      "what": "<code>h=</code> タグは、この鍵に対して検証側が受け入れてよいハッシュアルゴリズムを列挙します。<code>sha1</code> だけが記載されている場合、仕様に従う受信側には受け入れ可能な選択肢が残りません。RFC 8301 §3.1 は、実用的な衝突攻撃を踏まえて SHA-1 を DKIM から完全に削除しました。これを適用する受信側は署名を失敗させます。<code>sha1</code> を <code>sha256</code> と並べて記載するのは問題なく、ここでは報告されません — 検証側が強いほうを選べばよいだけです。",
+      "fix": "<code>h=sha1</code> を <code>h=sha256</code> に変更するか、<code>h=</code> タグ自体を削除してください。削除すれば検証側が対応する任意のハッシュが許可されます。その前に、署名サービスが SHA-256 署名を生成していることを確認してください。",
+      "fixCode": "; 変更前 — 仕様に従う受信側が受け入れられるものがありません:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha1; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; 変更後:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0B...\""
     },
     "caa-blocks-all-issuance": {
-      "msg": "CAA at {0} authorizes no certificate authority — no CA can issue a certificate for this domain.",
-      "what": "An <code>issue</code> property whose value is <code>;</code> names no issuer, and RFC 8659 §4.2 reads that as authorizing nobody. Every conformant certificate authority will refuse. This is a legitimate and deliberate setting for a domain that must never have a certificate, so it is not necessarily wrong. It becomes an outage when it was not intended, and the outage is invisible until a renewal fails — the existing certificate keeps working right up to the day it expires.",
-      "fix": "If this is deliberate, nothing to do. If it is not, add an <code>issue</code> property naming the certificate authority you use. Remember that CAA is inherited down the tree, so a record set at the parent governs this name too.",
-      "fixCode": "; Blocks every CA:\nexample.com.    CAA    0 issue \";\"\n\n; Authorizes one CA:\nexample.com.    CAA    0 issue \"letsencrypt.org\""
+      "msg": "{0} の CAA はどの認証局も許可していません — どの CA もこのドメインの証明書を発行できません。",
+      "what": "値が <code>;</code> の <code>issue</code> プロパティは発行者を一つも挙げておらず、RFC 8659 §4.2 はこれを「誰にも許可しない」と読みます。仕様に従う認証局はすべて発行を拒否します。証明書を決して持たせてはならないドメインにとっては正当かつ意図的な設定であり、必ずしも誤りではありません。意図していなかった場合に障害となり、その障害は更新が失敗するまで表に出ません — 既存の証明書は失効する日まで動き続けるからです。",
+      "fix": "意図的であれば何もする必要はありません。そうでなければ、利用している認証局を挙げる <code>issue</code> プロパティを追加してください。CAA はツリーの下位へ継承されるため、上位の名前に設定されたレコードはこの名前にも及ぶ点にご注意ください。",
+      "fixCode": "; すべての CA を拒否します:\nexample.com.    CAA    0 issue \";\"\n\n; 1 つの CA を許可します:\nexample.com.    CAA    0 issue \"letsencrypt.org\""
     },
     "caa-unknown-critical-tag": {
-      "msg": "CAA property not recognized, with the critical flag set: {0} — a conformant CA must refuse to issue.",
-      "what": "RFC 8659 §4.1 defines the top bit of the flags byte as Issuer Critical. A certificate authority that encounters a property it does not understand with that bit set MUST refuse to issue, rather than ignoring the property and carrying on. So an unrecognized critical property is an issuance block, and it is one that will not be noticed until the next renewal. The same property without the critical bit is inert and would not be reported here.",
-      "fix": "Check the property name for a typo against the registry — <code>issue</code>, <code>issuewild</code>, <code>iodef</code>, <code>issuemail</code>, <code>contactemail</code>, <code>contactphone</code>. If the property is intentional and non-standard, clear the critical flag by setting the flags byte to 0.",
-      "fixCode": "; Critical and unrecognized — blocks issuance:\nexample.com.    CAA    128 issuewildcard \"letsencrypt.org\"\n\n; The registered property name:\nexample.com.    CAA    0 issuewild \"letsencrypt.org\""
+      "msg": "認識できない CAA プロパティにクリティカルフラグが設定されています: {0} — 仕様に従う CA は発行を拒否しなければなりません。",
+      "what": "RFC 8659 §4.1 は、フラグバイトの最上位ビットを Issuer Critical と定義しています。このビットが立った、理解できないプロパティに遭遇した認証局は、そのプロパティを無視して処理を続けるのではなく、発行を拒否しなければなりません。したがって認識されないクリティカルプロパティは発行の遮断であり、しかも次回の更新まで気づかれない形で遮断します。同じプロパティでもクリティカルビットがなければ無害で、ここでは報告されません。",
+      "fix": "プロパティ名に打ち間違いがないか、登録簿と照らして確認してください — <code>issue</code>、<code>issuewild</code>、<code>iodef</code>、<code>issuemail</code>、<code>contactemail</code>、<code>contactphone</code>。プロパティが意図的で非標準のものであれば、フラグバイトを 0 にしてクリティカルフラグを解除してください。",
+      "fixCode": "; クリティカルかつ認識不能 — 発行を遮断します:\nexample.com.    CAA    128 issuewildcard \"letsencrypt.org\"\n\n; 登録されているプロパティ名:\nexample.com.    CAA    0 issuewild \"letsencrypt.org\""
     },
     "caa-malformed": {
-      "msg": "CAA record could not be parsed: {0}",
-      "what": "A CAA record is three fields: a flags byte from 0 to 255, a property tag, and a quoted value. A record that does not fit that shape may be ignored by a certificate authority, or may be treated as an unrecognized property — and if its flags byte happens to set the critical bit, that means refusing to issue. The behaviour is not something you want to leave to chance.",
-      "fix": "Re-enter the record in the standard three-field form. Some DNS interfaces ask for the flags, tag and value in separate boxes and add the quotes for you; others take the whole line, in which case the value needs its own quotation marks."
+      "msg": "CAA レコードを解析できませんでした: {0}",
+      "what": "CAA レコードは 3 つのフィールドから成ります。0 から 255 までのフラグバイト、プロパティタグ、そして引用符で囲まれた値です。この形に収まらないレコードは、認証局に無視されるか、認識できないプロパティとして扱われる可能性があります。そしてフラグバイトがたまたまクリティカルビットを立てていれば、それは発行拒否を意味します。運任せにしてよい挙動ではありません。",
+      "fix": "標準の 3 フィールド形式でレコードを入力し直してください。DNS 管理画面によっては、フラグ・タグ・値を別々の欄で受け取り、引用符を自動で付けてくれるものもあります。行全体を受け取る方式であれば、値に引用符を自分で付ける必要があります。"
     },
     "caa-no-iodef": {
-      "msg": "CAA is published but has no iodef property — you will not hear about refused certificate requests.",
-      "what": "The <code>iodef</code> property gives a certificate authority somewhere to report a request that your CAA policy made it refuse. Without one, a refusal is silent from your side: an attacker probing for a CA that will issue for your domain looks exactly like nothing happening, and so does a colleague who tried to get a certificate from the wrong provider.",
-      "fix": "Add an <code>iodef</code> property pointing at a mailbox somebody reads. It costs one record and it is the only notification channel CAA has.",
+      "msg": "CAA は公開されていますが iodef プロパティがありません — 拒否された証明書要求について知る手段がありません。",
+      "what": "<code>iodef</code> プロパティは、あなたの CAA ポリシーによって拒否せざるを得なかった要求を認証局が報告する宛先を与えます。これがないと、拒否はあなたの側からは無音です。あなたのドメイン向けに発行してくれる CA を探る攻撃者の動きは、何も起きていないのとまったく同じに見えますし、誤った事業者から証明書を取ろうとした同僚の動きも同様です。",
+      "fix": "誰かが実際に読んでいるメールボックスを指す <code>iodef</code> プロパティを追加してください。レコード 1 件のコストで済み、CAA が持つ唯一の通知経路です。",
       "fixCode": "example.com.    CAA    0 issue \"letsencrypt.org\"\nexample.com.    CAA    0 iodef \"mailto:security@example.com\""
     },
     "caa-single-issuer": {
-      "msg": "CAA authorizes one certificate authority: {0} — changing provider will need a DNS change first.",
-      "what": "A single authorized issuer is a perfectly good, tight policy and this is not a misconfiguration. It is worth knowing about at the moment it starts to matter: if that CA has an outage, or you need to move provider in a hurry, no other authority can issue until this record is updated — and whoever is trying to get the certificate is often not whoever can edit DNS.",
-      "fix": "Nothing to change. Make sure the people who request certificates know the record exists and who can edit it. If you already have a fallback CA in mind, authorizing it now costs one record and removes a step from a bad day."
+      "msg": "CAA が許可している認証局は 1 つだけです: {0} — 事業者を変えるには、まず DNS の変更が必要になります。",
+      "what": "許可された発行者が 1 つだけというのは、まったく妥当で引き締まったポリシーであり、設定ミスではありません。知っておく価値があるのは、それが問題になり始めるまさにその瞬間です。その CA に障害が起きたとき、あるいは急いで事業者を変える必要が生じたとき、このレコードが更新されるまで他のどの認証局も発行できません — そして証明書を取得しようとしている人が DNS を編集できる人であることは、多くありません。",
+      "fix": "変更すべきことはありません。証明書を申請する人たちに、このレコードの存在と編集できる担当者を知らせておいてください。予備の CA の当てがすでにあるなら、いま許可しておくのはレコード 1 件のコストで済み、大変な日の手順を一つ減らせます。"
     },
     "mx-dangling": {
-      "msg": "MX host does not resolve: {0} — mail routed there cannot be delivered.",
-      "what": "An MX record names a hostname, and that hostname has to resolve to an address before any sending server can connect to it. This one does not: the name returns no A or AAAA record. A sending server that selects this host has nowhere to go — it will queue the message and retry, and eventually return it to the sender. If it is your only MX host, you are receiving no mail at all right now. If it is a backup, you are one failure away from that.",
-      "fix": "Check the hostname for a typo, and check that the zone it lives in still publishes an address record for it. A host that has been decommissioned should have its MX record removed rather than left pointing at nothing — a dangling backup MX delays delivery on every retry cycle.",
-      "fixCode": "; Every host named on the right must resolve to an address:\nexample.com.        MX     10 mail1.example.com.\nexample.com.        MX     20 mail2.example.com.\n\nmail1.example.com.  A      203.0.113.10\nmail2.example.com.  A      203.0.113.11"
+      "msg": "MX ホストが解決しません: {0} — そこへ配送されるメールは届けられません。",
+      "what": "MX レコードはホスト名を指定しており、送信側サーバーが接続するには、そのホスト名がアドレスへ解決される必要があります。このホスト名は解決されません。A レコードも AAAA レコードも返ってこないのです。このホストを選んだ送信側サーバーには行き先がなく、メッセージをキューに入れ、再試行を重ね、最終的に差出人へ返送します。これが唯一の MX ホストであれば、現在まったくメールを受信できていません。予備のホストであれば、そうなるまで障害ひとつ分の余裕しかありません。",
+      "fix": "ホスト名に打ち間違いがないか確認し、そのホストが属するゾーンが今もアドレスレコードを公開しているか確かめてください。運用を終えたホストは、何も指さない状態で残すのではなく MX レコードごと削除すべきです — 死んだ予備 MX は再試行のたびに配送を遅らせます。",
+      "fixCode": "; 右側に挙げたホストはすべてアドレスへ解決されなければなりません:\nexample.com.        MX     10 mail1.example.com.\nexample.com.        MX     20 mail2.example.com.\n\nmail1.example.com.  A      203.0.113.10\nmail2.example.com.  A      203.0.113.11"
     },
     "mx-cname-target": {
-      "msg": "MX target is a CNAME: {0} — RFC 2181 and RFC 5321 both forbid this.",
-      "what": "RFC 2181 §10.3 and RFC 5321 §5.1 both require that an MX record point at a name with an address record, not at an alias. It usually works anyway, because most sending servers follow the alias without complaining, which is exactly why the mistake survives in the wild. Where it breaks, it breaks specifically and confusingly: some servers refuse the alias outright, and the extra lookup adds a failure point on every delivery. It also interacts badly with DANE, where the TLSA record must be found under the right name.",
-      "fix": "Point the MX record at the alias target directly, so the MX names a host that has its own address record.",
-      "fixCode": "; Before — the MX names an alias:\nexample.com.        MX      10 mail.example.com.\nmail.example.com.   CNAME   host7.provider.example.\n\n; After — the MX names the host itself:\nexample.com.        MX      10 host7.provider.example."
+      "msg": "MX の宛先が CNAME です: {0} — RFC 2181 と RFC 5321 の双方がこれを禁じています。",
+      "what": "RFC 2181 §10.3 と RFC 5321 §5.1 はいずれも、MX レコードが別名ではなくアドレスレコードを持つ名前を指すことを求めています。それでも大抵は動いてしまいます。多くの送信側サーバーが文句を言わずに別名をたどるからで、この誤りが現場で生き残っている理由もまさにそこにあります。壊れるときは、特定の状況で、原因を突き止めにくい形で壊れます。別名をはっきり拒否するサーバーもありますし、余分な参照が配送のたびに障害点を一つ増やします。TLSA レコードが正しい名前の下で見つかる必要がある DANE とも相性が悪くなります。",
+      "fix": "MX レコードを別名の宛先へ直接向け、MX が自前のアドレスレコードを持つホストを指すようにしてください。",
+      "fixCode": "; 変更前 — MX が別名を指しています:\nexample.com.        MX      10 mail.example.com.\nmail.example.com.   CNAME   host7.provider.example.\n\n; 変更後 — MX がホスト自体を指しています:\nexample.com.        MX      10 host7.provider.example."
     },
     "mx-single-host": {
-      "msg": "Only one MX host is published: {0} — mail queues at the sender while it is unreachable.",
-      "what": "With one MX host, any period where that host is unreachable is a period where inbound mail sits in other people's queues. Nothing is lost immediately — sending servers retry for days before returning a message — but delivery stops, and it stops for a maintenance window as readily as for a failure. Many hosted mail providers publish several MX hosts precisely to avoid this; a single one is more often a self-hosted setup or a provider entry that was only half-copied.",
-      "fix": "Publish a second MX host at a higher preference number if your mail platform offers one. If your provider gave you several hostnames, check that all of them made it into DNS."
+      "msg": "公開されている MX ホストが 1 台だけです: {0} — 到達できない間、メールは送信側のキューに滞留します。",
+      "what": "MX ホストが 1 台だと、そのホストに到達できない期間はそのまま、受信メールが他人のキューに溜まっている期間になります。すぐに失われるものはありません — 送信側サーバーはメッセージを返送するまで何日も再試行します — が、配送は止まります。しかも障害と同じくらい容易に、計画メンテナンスの時間帯でも止まります。多くのホスティング型メール事業者が複数の MX ホストを公開しているのは、まさにこれを避けるためです。1 台だけという構成は、自前運用か、事業者の設定を途中までしか写していないケースであることが多いです。",
+      "fix": "メールプラットフォームが提供しているなら、優先度の数値がより大きい 2 台目の MX ホストを公開してください。事業者から複数のホスト名を渡されている場合は、そのすべてが DNS に入っているか確認してください。"
     },
     "mx-no-ipv6": {
-      "msg": "No MX host has an IPv6 address — IPv6-only senders cannot reach your mail.",
-      "what": "A sending server on an IPv6-only network reaches an IPv4-only mail host through whatever translation its operator provides, or not at all. This is not a security finding and it is not urgent: IPv4 mail delivery is not going away. It is a reachability note, and it also affects reputation, because some large receivers treat dual-stack availability as a signal of a well-maintained mail system.",
-      "fix": "Add AAAA records for your MX hosts once the hosts themselves accept mail over IPv6. Publishing an AAAA record for a host that is not actually listening on IPv6 is worse than having none — senders will try it first and fail."
+      "msg": "IPv6 アドレスを持つ MX ホストがありません — IPv6 のみの送信者はあなたのメールに到達できません。",
+      "what": "IPv6 のみのネットワーク上にある送信側サーバーが IPv4 のみのメールホストへ到達できるのは、その運用者が用意した変換を経由する場合か、さもなければまったく到達できません。これはセキュリティ上の指摘ではなく、緊急でもありません。IPv4 でのメール配送がなくなることはないからです。到達性についての注意であり、評判にも関わります。大手の受信側の中には、デュアルスタック対応をよく手入れされたメールシステムの印と見なすところがあるためです。",
+      "fix": "ホスト自身が IPv6 でメールを受け付けるようになってから、MX ホストに AAAA レコードを追加してください。実際には IPv6 で待ち受けていないホストに AAAA レコードを公開するのは、まったく公開しないより悪い結果になります — 送信者はそちらを先に試して失敗します。"
     },
     "mx-same-prefix": {
-      "msg": "MX hosts share one address block, {0}: {1} — the redundancy is smaller than it looks.",
-      "what": "Several MX hosts published at different preferences read as redundancy, but if every address sits in the same small block, they very likely share a rack, an uplink and a data centre. The failures that take out one will usually take out all of them, so the second host is protecting against a server fault and not against anything larger. This is normal for a single-site mail platform and worth knowing rather than fixing.",
-      "fix": "If the redundancy is meant to survive a site failure, place at least one MX host in a different network. If the second host is only there to cover a server restart, nothing needs to change."
+      "msg": "MX ホストが同一のアドレスブロック {0} を共有しています: {1} — 冗長性は見た目より小さいです。",
+      "what": "優先度の異なる複数の MX ホストは冗長構成に見えますが、すべてのアドレスが同じ小さなブロックに収まっているなら、ラックも上流回線もデータセンターも共有している可能性が高いです。一方を落とす障害はたいてい全部を落とすため、2 台目のホストが守っているのはサーバー単体の故障であって、それより大きな障害ではありません。単一拠点のメールプラットフォームでは普通のことであり、直すというより知っておく価値のある事柄です。",
+      "fix": "冗長性に拠点障害を乗り切らせたいのであれば、少なくとも 1 台の MX ホストを別のネットワークに置いてください。2 台目がサーバー再起動をしのぐためだけのものなら、変える必要はありません。"
     },
     "mx-duplicate-preference": {
-      "msg": "Two or more MX hosts share the same preference value: {0} — sending servers will load-balance across them.",
-      "what": "Equal preference values are a deliberate feature: RFC 5321 §5.1 says a sender should pick among equal-preference hosts at random, which spreads inbound mail across them. That is what you want for two equivalent front ends. It is not what you want if one host was intended as a backup, because half your mail will go to the backup all the time.",
-      "fix": "Nothing, if the hosts are equivalent. If one is meant to be a fallback, give it a higher preference number — higher means less preferred."
+      "msg": "2 台以上の MX ホストが同じ優先度の値を持っています: {0} — 送信側サーバーはそれらに負荷を分散します。",
+      "what": "優先度の値が等しいのは意図された機能です。RFC 5321 §5.1 は、送信側が同じ優先度のホストの中からランダムに選ぶべきだと述べており、これによって受信メールがホスト間に分散されます。同等の 2 台のフロントエンドであれば、それが望ましい状態です。一方のホストを予備のつもりで用意していたなら望ましくありません。メールの半分が常に予備側へ向かってしまうからです。",
+      "fix": "ホストが同等であれば何もする必要はありません。片方を待避先にしたいのであれば、優先度の数値を大きくしてください — 数値が大きいほど優先度は低くなります。"
     },
     "tlsa-published-unsigned": {
-      "msg": "TLSA published without a validated DNSSEC chain: {0} — DANE offers no protection here.",
-      "what": "DANE works by putting the certificate a mail server should present into DNS, and it is only worth anything if that DNS answer cannot be tampered with. Without DNSSEC, anyone able to intercept the lookup can strip the TLSA record — at which point the sending server sees a host with no DANE policy and delivers anyway — or replace it with a record matching their own certificate. The record still appears in every diagnostic as if DANE were configured, which is the reason this is worth saying out loud: it looks like protection, and it is not.",
-      "fix": "Sign the zone the TLSA record lives in and get the DS record published at its parent. Until that is done, the TLSA record is decoration. If signing the zone is not on the cards, removing the TLSA record is more honest than leaving it there.",
-      "fixCode": "; A sending server queries _25._tcp.mail1.example.com for this record,\n; and it must sit in a DNSSEC-signed zone to mean anything:\n_25._tcp.mail1.example.com.    TLSA    3 1 1 ( 87D109DD028655D5370B... )"
+      "msg": "検証済みの DNSSEC チェーンなしに TLSA が公開されています: {0} — ここでは DANE は何の保護にもなりません。",
+      "what": "DANE は、メールサーバーが提示すべき証明書を DNS に置くことで機能します。したがって、その DNS 応答が改ざんされ得ないことが前提であり、そうでなければ何の価値もありません。DNSSEC がなければ、参照を傍受できる者は TLSA レコードを取り除くことができ — そうなると送信側サーバーは DANE ポリシーのないホストを見てそのまま配送します — あるいは自分の証明書に一致するレコードに差し替えることもできます。それでもレコードはあらゆる診断で DANE が設定済みであるかのように表示され続けます。これを声に出して言う価値があるのはまさにそこです。保護のように見えて、保護ではないからです。",
+      "fix": "TLSA レコードが置かれているゾーンに署名し、その親に DS レコードを公開してもらってください。それが済むまで TLSA レコードは飾りにすぎません。ゾーンへの署名の予定が立たないのであれば、TLSA レコードをそのまま置いておくより削除するほうが誠実です。",
+      "fixCode": "; 送信側サーバーはこのレコードを _25._tcp.mail1.example.com に問い合わせます。\n; 意味を持たせるには DNSSEC で署名されたゾーンに置かれている必要があります:\n_25._tcp.mail1.example.com.    TLSA    3 1 1 ( 87D109DD028655D5370B... )"
     },
     "tlsa-malformed": {
-      "msg": "TLSA record is malformed: {0} — a sending server enforcing DANE may refuse to deliver.",
-      "what": "A TLSA record is a certificate usage, a selector, a matching type and the association data, and the length of that data is fixed by the matching type — 32 bytes for SHA-256, 64 for SHA-512. A record that does not fit cannot be matched against any certificate. Under DANE that is not a soft failure: a sending server that finds a TLSA record it cannot use is required to treat delivery as failed rather than fall back to an unauthenticated connection, so a malformed record can stop mail arriving.",
-      "fix": "Regenerate the record from the certificate the mail host actually presents, rather than editing the digest by hand. Check that the matching type matches the digest length you published."
+      "msg": "TLSA レコードの形式が不正です: {0} — DANE を適用する送信側サーバーは配送を拒否する可能性があります。",
+      "what": "TLSA レコードは、証明書の用途、セレクター、照合方式、そして関連付けデータから成り、そのデータ長は照合方式によって決まります — SHA-256 なら 32 バイト、SHA-512 なら 64 バイトです。これに合わないレコードは、どの証明書とも照合できません。DANE のもとでは、これは軽い失敗では済みません。使えない TLSA レコードを見つけた送信側サーバーは、認証なしの接続に後退するのではなく配送失敗として扱うことが求められるため、形式の不正なレコードはメールの到達そのものを止めかねません。",
+      "fix": "ダイジェストを手作業で書き換えるのではなく、メールホストが実際に提示している証明書からレコードを生成し直してください。照合方式が、公開したダイジェストの長さと一致しているか確認してください。"
     },
     "tlsa-partial-coverage": {
-      "msg": "TLSA is published for {0} of {1} mail hosts — the hosts without it accept unauthenticated connections.",
-      "what": "A sending server picks an MX host and looks for a TLSA record under that host's name. Where it finds one, the connection is authenticated; where it does not, delivery falls back to ordinary opportunistic TLS, which an attacker on the path can downgrade. So partial coverage means an attacker simply targets the host that has no record. The protection is only as good as its weakest MX host.",
-      "fix": "Publish a TLSA record for every MX host, or remove the records until you can cover all of them. Each host needs its own record, under <code>_25._tcp</code> at that host's name."
+      "msg": "TLSA が公開されているのは {1} 台中 {0} 台のメールホストです — 公開していないホストは認証されない接続を受け入れます。",
+      "what": "送信側サーバーは MX ホストを 1 つ選び、そのホスト名の下で TLSA レコードを探します。見つかれば接続は認証されますが、見つからなければ配送は通常の日和見的 TLS に後退し、経路上の攻撃者はそれを格下げできます。つまり部分的な導入とは、攻撃者がレコードを持たないホストを狙えばよいということです。保護の強さは、最も弱い MX ホストの強さまでしかありません。",
+      "fix": "すべての MX ホストについて TLSA レコードを公開するか、全台をカバーできるようになるまでレコードを取り下げてください。各ホストにはそのホスト名の下の <code>_25._tcp</code> に、それぞれ専用のレコードが必要です。"
     }
   },
   "suggestion": {

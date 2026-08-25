@@ -14,7 +14,117 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **DKIM public keys are decoded rather than just displayed.** A found selector
+  used to produce only the raw TXT string, leaving the single most actionable
+  fact about the key — its size — sitting decoded-but-unread. `analyzeDkimKey()`
+  now reports algorithm, RSA modulus size, Ed25519 detection, revocation, and
+  the `h=`, `s=`, `t=` and `n=` service tags.
+
+  The modulus size comes from a synchronous DER length walk rather than from Web
+  Crypto, because `crypto.subtle` needs a secure context and `README.md`
+  advertises that opening `index.html` from disk works. Web Crypto still runs
+  where it exists, as confirmation only: a key it cannot import is recorded as
+  `key-structure-invalid` with the size intact, and a browser without it records
+  "not checked" rather than a verdict. The base64 decode is hand-rolled for the
+  same reason — reaching for `atob` would have meant reporting every key on
+  every domain as unparseable in any environment lacking it, which is an
+  assertion about our own runtime dressed up as one about the operator's DNS.
+
+  New findings: `dkim-key-weak` (crit), `dkim-key-1024` (**info**),
+  `dkim-key-revoked`, `dkim-key-unparseable`, `dkim-key-sha1`,
+  `dkim-key-testing`, `dkim-key-mixed`.
+
+  `dkim-key-1024` is informational rather than a warning, and that was settled
+  by counting instead of arguing. Across the 40-domain backtest sample, 35 of
+  66 keys are RSA-1024, on 21 of the 27 domains that publish DKIM at all —
+  Microsoft, GitHub, Apple, PayPal, Stripe and the EFF among them. A warning
+  firing on roughly 78% of audited domains is not a signal. Zero sub-1024 keys
+  were found, which is why `dkim-key-weak` stays critical and stays meaningful.
+
+- **A revoked DKIM selector is reported as revoked, not as absent.** RFC 6376
+  §3.6.1 defines an empty `p=` as key revocation, and the discovery filter
+  discarded exactly those records — so a selector the operator had deliberately
+  retired read as one they had never set up. The two questions are now answered
+  separately rather than by loosening the filter, which would have let a revoked
+  key satisfy "DKIM is present".
+
+- **CAA is parsed into a policy instead of a boolean.** A domain publishing
+  `0 issue ";"` has locked out every certificate authority and one publishing
+  `0 issuewild ";"` has locked out wildcards only; both used to render as the
+  same green dot. `parseCaaRecord()` and the extended `checkCAA()` report
+  issuers, wildcard issuers, `iodef` destinations, unknown critical properties
+  and malformed records. Two semantics are encoded explicitly because both are
+  easy to invert: an `issue` value of `;` forbids all issuance, and an **absent**
+  `issuewild` set means wildcards are governed by `issue` — not that they are
+  unrestricted. Findings: `caa-blocks-all-issuance`, `caa-unknown-critical-tag`,
+  `caa-malformed`, `caa-no-iodef`, `caa-single-issuer`.
+
+- **MX health, from DNS alone.** `auditMxHosts()` resolves every MX target and
+  reports dangling hosts, `CNAME` targets, single points of failure, IPv6
+  coverage, address-block concentration and duplicate preferences. An MX host
+  that does not resolve is a total inbound mail outage and used to read exactly
+  like a healthy mail domain. Nothing connects to port 25 — every conclusion is
+  inferred from DNS. Findings: `mx-dangling` (crit), `mx-cname-target`,
+  `mx-single-host`, `mx-no-ipv6`, `mx-same-prefix`, `mx-duplicate-preference`.
+
+  A host whose lookup fails degrades to `unknown` and is deliberately excluded
+  from `danglingHosts`: a resolver hiccup must never be reported as an outage.
+
+- **TLSA lookup and syntax validation, labelled as published rather than
+  active.** `checkTlsa()` queries `_25._tcp.<mx-host>` and validates usage,
+  selector, matching type and association-data length. `qualified` is hardcoded
+  `false` — DANE is only meaningful behind a validated DNSSEC chain, and this
+  release does not walk one, so nothing in the interface says anything
+  resembling "DANE enabled". Findings: `tlsa-published-unsigned`,
+  `tlsa-malformed`, `tlsa-partial-coverage`.
+
+  The unsigned finding is gated on the AD bit the validating resolver returns
+  for that exact name, not on `qualified`. Gating it on `qualified` would have
+  fired on every domain in the release, telling a correctly signed zone that its
+  DANE was unprotected — a confident verdict with nothing behind it. The AD bit
+  costs no extra query and is read for the MX host's own name, because an MX
+  host usually lives in someone else's zone and the audited domain's DNSSEC
+  status says nothing about it.
+
+### Changed
+
+- **`dnsTypeNum()` throws on an unknown record type instead of returning the TXT
+  type number.** The old `?? 16` fallback made the function total, and the cost
+  of that totality was the worst answer this codebase can produce: a caller
+  asking for `DS` issued a TXT query, filtered the answers for type 16, found
+  none, and received a plausible-looking empty array — no error, and a confident
+  "nothing published" about a type that was never asked for. `PTR`, `DS`,
+  `DNSKEY` and `TLSA` are added. Every existing call site passes a supported
+  literal, so this is behaviour-preserving for the code that exists and
+  fail-fast for the code that comes next.
+
+  The throw is resolved before the concurrency slot and re-thrown by
+  `optionalCheck()`. Both matter: `fetchDohOnce()`'s own catch would otherwise
+  have reported it as `network-error`, and `optionalCheck()` would have degraded
+  it to a stated "unknown" — either of which restores the silent wrong answer in
+  a different costume.
+
+### Notes
+
+- **No scoring changes.** `WEIGHTS`, `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` are
+  byte-identical to 0.3.0, and every observation above is advisory. Measured
+  across the 40-domain backtest: **zero grade movement and zero score movement**,
+  with the deep checks both off and on. Unlike 0.3.0, where movement was
+  expected and explained, here there should be none and there is none.
+
+- **A domain that was clean did not get worse; the tool got more thorough.**
+  Twenty-one new findings can read as a regression on a domain that previously
+  showed nothing. None of them changes a grade.
+
+- **Query fan-out is measured, and `PRIVACY.md` is updated with the real
+  numbers.** MX health and TLSA cost three queries per MX host plus one more
+  each, so they sit behind a `deepChecks` option and are off unless asked for.
+  With them off the fan-out is unchanged from 0.3.0 — `cloudflare.com` issues
+  exactly 43 queries on both releases. With them on, the 40-domain sample goes
+  from 31.9 to 39.1 queries per domain. `node tools/backtest.mjs --deep`
+  reproduces it.
 
 ## [0.3.0] — 2026-08-25
 
