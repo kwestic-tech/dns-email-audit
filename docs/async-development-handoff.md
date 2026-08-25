@@ -288,9 +288,10 @@ to `docs/specs/implemented/`.
 
 ### 3b. `dns-protocol-depth` (0.4.0)
 
-> **Status, 2026-08-25: implemented, pending release.** Spec finalized at `1.0`,
-> then amended to `1.1` — see its **As implemented** section. `npm test` 1,813
-> assertions / 0 failures, `npm run locale:gate` 13/13 (724/724 keys).
+> **Status, 2026-08-25: released as `v0.4.0`.** Merged via [PR #22](https://github.com/kwestic-tech/dns-email-audit/pull/22) (squashed to `9bda3ad`).
+> Spec finalized at `1.0`, then amended to `1.1` — see its **As implemented**
+> section. `npm test` 1,813 assertions / 0 failures, `npm run locale:gate` 13/13
+> (724/724 keys).
 > Backtested against `v0.3.0`: **zero grade movement and zero score movement**
 > across the 40-domain sample with the deep checks both off and on, which is the
 > expected result here and unlike 0.3.0, where movement was expected and
