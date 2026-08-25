@@ -288,6 +288,36 @@ to `docs/specs/implemented/`.
 
 ### 3b. `dns-protocol-depth` (0.4.0)
 
+> **Status, 2026-08-25: implemented, pending release.** Spec finalized at `1.0`,
+> then amended to `1.1` — see its **As implemented** section. `npm test` 1,466
+> assertions / 0 failures, `npm run locale:gate` 13/13 (715/715 keys).
+> Backtested against `v0.3.0`: **zero grade movement and zero score movement**
+> across the 40-domain sample with the deep checks both off and on, which is the
+> expected result here and unlike 0.3.0, where movement was expected and
+> explained. Fan-out measured at 31.9 queries per domain with the deep checks
+> off — unchanged from 0.3.0, `cloudflare.com` issues exactly 43 on both — and
+> 39.1 with them on; both are written into `PRIVACY.md`. The spec has moved to
+> [`docs/specs/implemented/`](specs/implemented/dns-protocol-depth.md) with its
+> fixtures.
+>
+> **The 3a lesson held, and cost two corrections.** Both were the same shape it
+> warned about — a confident verdict the evidence did not support. The
+> `tlsa-published-unsigned` finding, gated on `qualified` as the spec's text
+> implies, would have announced "DANE offers no protection here" on **every**
+> domain publishing TLSA, a correctly signed zone included, purely because this
+> release does not walk the chain; it is now gated on the resolver's AD bit for
+> the MX host's own name, which costs no extra query. And the DER walk was
+> written SPKI-only, which would have reported a conformant bare PKCS#1 key as
+> unparseable because `crypto.subtle.importKey` does not accept that encoding —
+> an implementation's input formats standing in for the protocol's rules.
+>
+> **What 3c inherits.** `dnsTypeNum()` now throws on an unknown type and knows
+> `PTR`/`DS`/`DNSKEY`/`TLSA`; `optionalCheck()` re-throws that error rather than
+> degrading it to an unknown. `checkTlsa()` records `authenticated` (the AD bit)
+> separately from `qualified` (still hardcoded `false`) — 0.5.0 makes the latter
+> mean something without having to redefine the former. `tools/lib/doh-fixture.mjs`
+> gained the four new types.
+
 **STOP — needs Ian, likely early in implementation:** `OQ-DEPTH-01` requires
 someone to capture real DoH JSON responses for `DS`, `DNSKEY`, and `TLSA`
 against a signed domain and a DANE-enabled mail host, and attach them to the

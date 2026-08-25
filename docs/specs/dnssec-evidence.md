@@ -5,7 +5,7 @@
 | Spec version | 0.1 (Draft) |
 | Target release | 0.5.0 |
 | Status | Awaiting review |
-| Depends on | [dns-protocol-depth](dns-protocol-depth.md) for `DS`, `DNSKEY` and `TLSA` transport support |
+| Depends on | [dns-protocol-depth](implemented/dns-protocol-depth.md) for `DS`, `DNSKEY` and `TLSA` transport support |
 | Blocks | [findings-and-remediation](findings-and-remediation.md), which uses chain state to qualify DANE findings |
 | Slug for open questions | `SEC9` |
 | Last updated | 2026-08-20 |
@@ -33,7 +33,7 @@ or from a zone whose DS and DNSKEY have drifted apart during a key rollover. Tho
 three states all render as one grey dot, and the remediation for each is
 completely different.
 
-There is also a forward dependency. [dns-protocol-depth](dns-protocol-depth.md)
+There is also a forward dependency. [dns-protocol-depth](implemented/dns-protocol-depth.md)
 adds TLSA records but hardcodes `qualified: false`, because a TLSA record without
 a validated chain above it provides no protection. That flag cannot become
 meaningful until this release exists.

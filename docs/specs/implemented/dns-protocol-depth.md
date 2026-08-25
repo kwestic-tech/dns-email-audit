@@ -2,11 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.0 (Final) |
+| Spec version | 1.1 (Implemented) |
 | Target release | 0.4.0 |
-| Status | Final — approved for implementation |
-| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md) for rendering, [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) for the fixture-resolver test harness |
-| Blocks | [dnssec-evidence](dnssec-evidence.md), which qualifies the DANE conclusions this release produces |
+| Status | Implemented, pending release |
+| Pull request | [#22](https://github.com/kwestic-tech/dns-email-audit/pull/22) |
+| Merge commit | pending merge |
+| Depends on | [rendering-and-robustness](rendering-and-robustness.md) for rendering, [dmarcbis-tree-walk](dmarcbis-tree-walk.md) for the fixture-resolver test harness |
+| Blocks | [dnssec-evidence](../dnssec-evidence.md), which qualifies the DANE conclusions this release produces |
 | Slug for open questions | `DEPTH` |
 | Last updated | 2026-08-25 |
 
@@ -19,7 +21,7 @@ TXT string. Nobody is told whether the key is RSA-1024, RSA-2048, Ed25519, or
 revoked. That is the single most actionable fact about a DKIM key and it is
 sitting decoded-but-unread in `s.value`.
 
-CAA is reduced to a boolean. `checkCAA()` at [`js/dns.js:1555`](../../js/dns.js)
+CAA is reduced to a boolean. `checkCAA()` at [`js/dns.js:1555`](../../../js/dns.js)
 walks up the tree, returns `found`, the raw record strings, and the name they
 were found at, and nothing parses them. A domain with
 `0 issue ";"` has locked out every certificate authority, and a domain with
@@ -27,14 +29,14 @@ were found at, and nothing parses them. A domain with
 green dot.
 
 MX records are read for provider detection at
-[`js/dns.js:336`](../../js/dns.js) and never validated. An MX pointing at a
+[`js/dns.js:336`](../../../js/dns.js) and never validated. An MX pointing at a
 hostname that does not resolve is a total mail outage and reads today as a
 normal configured mail domain. Single-MX setups, MX targets that are CNAMEs,
 and MX hosts that all sit in one address block are equally invisible.
 
 TLSA is not queried at all, so DANE for SMTP is entirely unrepresented. That
 also means the transport layer cannot currently ask for it:
-`dnsTypeNum()` at [`js/dns.js:94`](../../js/dns.js) knows seven record types and
+`dnsTypeNum()` at [`js/dns.js:94`](../../../js/dns.js) knows seven record types and
 silently returns 16, the TXT type number, for anything else. A caller asking for
 `DS` today would issue a TXT query, filter the answers for type 16, and receive a
 plausible-looking empty array.
@@ -64,7 +66,7 @@ plausible-looking empty array.
   must not imply it can. A selector name containing a year, such as `s2024`, is
   a naming convention and not evidence of anything.
 - **No scoring changes.** Weights in `WEIGHTS` at
-  [`js/dns.js:1987`](../../js/dns.js) are untouched. See `OQ-DEPTH-06`.
+  [`js/dns.js:1987`](../../../js/dns.js) are untouched. See `OQ-DEPTH-06`.
 
 ## Design
 
@@ -108,7 +110,7 @@ A `TLSA` query may also return a `CNAME` in the same answer set — pointing
 the TLSA path filters on `a.type === 52`. `dohQuery()` already does; `dohAll()`
 does not and must not be used here.
 
-`cleanAnswerData()` at [`js/dns.js:220`](../../js/dns.js) needs **no change**.
+`cleanAnswerData()` at [`js/dns.js:220`](../../../js/dns.js) needs **no change**.
 Its non-TXT branch strips surrounding quotes and trims, and does not lowercase,
 so the case-sensitive `DNSKEY` base64 survives intact and the quote-stripping is
 a no-op for all three types. No CAA-style bypass is required.
@@ -146,6 +148,16 @@ The DER walk reads the SPKI structure to the modulus INTEGER and takes its
 length. Web Crypto, where `crypto.subtle` exists, additionally confirms the key
 imports:
 
+> **Amended at 1.1 — see [As implemented](#as-implemented) item 1.** "the SPKI
+> structure" is too narrow. RFC 6376 §3.6.1 describes the `p=` value as a
+> DER-encoded `RSAPublicKey`, and the errata clarify that it MAY be wrapped in a
+> `SubjectPublicKeyInfo` — so a bare PKCS#1 key is conformant too, and the walk
+> accepts both. Web Crypto's `importKey` takes `spki` and not `pkcs1`, and as
+> written this paragraph would have let that API's input formats decide which
+> published keys are valid.
+
+
+
 ```js
 const der = base64ToBytes(tags.p);
 const key = await crypto.subtle.importKey(
@@ -162,10 +174,18 @@ because it was read without Web Crypto. Where `crypto.subtle` is absent
 altogether the analysis records `cryptoValidated: false` and reports the size
 regardless; it never reports a key as bad because the browser could not check it.
 
+> **Amended at 1.1 — see [As implemented](#as-implemented) item 1.**
+> `cryptoValidated` is `null`, not `false`, when nothing was checked. The final
+> sentence is the binding rule and it needs three states to hold: `true`
+> confirmed, `false` attempted and rejected, `null` not attempted. `false` for
+> "absent" would have collapsed "we did not look" into "it failed", which is the
+> false negative the same sentence forbids. A bare PKCS#1 key is also `null` —
+> Web Crypto cannot express it, so there is nothing to confirm it with.
+
 Because the DER walk is synchronous, `analyzeDkimKey()` stays synchronous and
 returns the sizes directly. Only the optional Web Crypto validation is async, and
 it is attached separately inside `inspectDkimSelector()` at
-[`js/dns.js:500`](../../js/dns.js) where each selector's records are already in
+[`js/dns.js:500`](../../../js/dns.js) where each selector's records are already in
 hand.
 
 Ed25519 keys are not SPKI. RFC 8463 defines the `p=` value for `k=ed25519` as
@@ -173,7 +193,7 @@ the raw 32-byte public key, base64-encoded. Detection is therefore
 `keyType === 'ed25519' && keyBytes === 32`, and a length other than 32 is
 `errors: ['bad-ed25519-length']`.
 
-`dkimKeyRecords()` at [`js/dns.js:412`](../../js/dns.js) currently filters out
+`dkimKeyRecords()` at [`js/dns.js:412`](../../../js/dns.js) currently filters out
 records whose `p=` is empty, which discards exactly the revoked keys this release
 wants to report. Split it: keep the strict filter for the "is there a usable key
 here" question, and return the discarded records separately so a revoked key is
@@ -265,7 +285,7 @@ async function auditMxHosts(mx, domain, queryOpts) → {
 }
 ```
 
-`isNullMx()` at [`js/dns.js:330`](../../js/dns.js) already detects the RFC 7505
+`isNullMx()` at [`js/dns.js:330`](../../../js/dns.js) already detects the RFC 7505
 null MX and that path short-circuits before this function runs.
 
 An MX target that is a CNAME violates RFC 2181 §10.3 and RFC 5321 §5.1. It
@@ -274,11 +294,11 @@ specific and hard-to-diagnose ways. It is reported as a warning, not an error.
 
 `sharedPrefixes` uses the CIDR helpers already present for the SPF subnet audit:
 `parseIpCidr()`, `cidrContains()` and `ipv4ToBigInt()` / `ipv6ToBigInt()` at
-[`js/dns.js:1782`](../../js/dns.js) onward. No new IP arithmetic is needed.
+[`js/dns.js:1782`](../../../js/dns.js) onward. No new IP arithmetic is needed.
 
 The whole function is wrapped in `optionalCheck()` so a resolver failure on one
 MX target degrades that host to `resolves: 'unknown'` rather than discarding the
-audit, following the pattern documented at [`js/dns.js:206`](../../js/dns.js).
+audit, following the pattern documented at [`js/dns.js:206`](../../../js/dns.js).
 
 Query cost: one A and one AAAA per MX host, plus one CNAME probe per host. A
 five-MX domain adds fifteen queries. See `OQ-DEPTH-03`.
@@ -346,13 +366,13 @@ dkimStatus: {
 ```
 
 CSV columns are appended, never inserted, per the positional-header backfill at
-[`js/app.js:1079`](../../js/app.js): `dkim_key_type`, `dkim_key_bits`,
+[`js/app.js:1079`](../../../js/app.js): `dkim_key_type`, `dkim_key_bits`,
 `dkim_revoked`, `caa_issuers`, `caa_wildcard_issuers`, `mx_dangling`,
 `mx_host_count`, `tlsa_present`.
 
 The detail panel gains a key line under each DKIM selector at
-[`js/app.js:666`](../../js/app.js), a parsed CAA block, and an MX health block
-replacing the plain `r.mx.join('\n')` at [`js/app.js:782`](../../js/app.js).
+[`js/app.js:666`](../../../js/app.js), a parsed CAA block, and an MX health block
+replacing the plain `r.mx.join('\n')` at [`js/app.js:782`](../../../js/app.js).
 
 ## Localization impact
 
@@ -371,7 +391,7 @@ authority", "mail host", "unreachable".
 `analyzeDkimKey()` and `parseCaaRecord()` are pure and test directly in the
 existing `node:vm` sandbox with no DOM and no network. Note that
 `crypto.subtle` must be added to the sandbox globals in
-[`tools/scoring.test.mjs:16`](../../tools/scoring.test.mjs), which currently
+[`tools/scoring.test.mjs:16`](../../../tools/scoring.test.mjs), which currently
 provides only `fetch`, `console`, `AbortController`, `URLSearchParams`,
 `setTimeout` and `clearTimeout`.
 
@@ -399,7 +419,7 @@ CAA fixtures: `0 issue "letsencrypt.org"`, `0 issue ";"`,
 unquoted value, and a flags value of 256.
 
 MX and TLSA fixtures use the programmable resolver from
-[dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) `OQ-DMARC-03`: dangling target,
+[dmarcbis-tree-walk](dmarcbis-tree-walk.md) `OQ-DMARC-03`: dangling target,
 CNAME target, single host, IPv4-only, all hosts in one `/24`, duplicate
 preferences, TLSA present on some hosts, malformed TLSA, and a SERVFAIL on one
 host asserting the other hosts still report.
@@ -462,9 +482,145 @@ on the grounds that MTA-STS and DANE are the two mechanisms for authenticated
 SMTP transport and belong in one place. If 0.6.0 disagrees, this is the sentence
 to change, and nothing in 0.4.0 depends on it — no scoring code is written here.
 
+## As implemented
+
+**1. The DER walk accepts both RSA encodings, and Web Crypto confirms only the
+one it can express.** The 1.0 text said the walk "reads the SPKI structure", and
+the first implementation refused a bare PKCS#1 `RSAPublicKey` on the reasoning
+that the walk and Web Crypto must never disagree about a size. That has the
+dependency backwards. RFC 6376 §3.6.1 describes the `p=` value as a DER-encoded
+`RSAPublicKey`, and the errata clarify that it MAY be wrapped in a
+`SubjectPublicKeyInfo`; both are therefore conformant DKIM key encodings.
+`crypto.subtle.importKey` accepts `'spki'` and not `'pkcs1'`, so refusing the
+bare form let one API's input formats decide which published keys are valid —
+and would have reported a working key as `unparseable-key`, which is exactly the
+class of confident-but-unsupported verdict this release was written to avoid.
+
+`rsaPublicKeyShape()` reads both and returns the envelope alongside the size, so
+`analyzeDkimKey()` gains a `keyEncoding: 'pkcs1' | 'spki' | null` field. The
+DER-derived size is authoritative in both cases. `validateDkimKeyStructure()`
+returns early for a bare key, leaving `cryptoValidated: null` and no error, so a
+lack of confirmation never makes a valid key look broken.
+
+Accepting a second envelope tightened the walk rather than loosening it, because
+a shape check that accepts more must discriminate better: a top-level DER value
+must now consume the whole buffer, and a PKCS#1 `SEQUENCE` must carry a
+`publicExponent` that ends it. Both guards are mutation-tested — removing either
+one fails assertions that otherwise pass.
+
+Bare PKCS#1 has fixture coverage and no real-world sample: all 39 keys found
+across a 15-domain slice, Microsoft, Apple, PayPal, Stripe, NASA, Harvard,
+Mozilla and the EFF among them, are SPKI. That is the argument for accepting it
+rather than against — a conformant encoding rare enough that nothing in the
+sample would have caught the misreport.
+
+**2. `tlsa-published-unsigned` is gated on the resolver's AD bit, not on
+`qualified`.** Section 5 hardcodes `qualified: false` for the whole release,
+which is right, and `OQ-DEPTH-07` makes the unsigned record a warning, which is
+also right. Firing the finding on `qualified` alone joins the two into something
+neither says: it would warn on **every** domain that publishes TLSA, including a
+correctly signed zone, announcing "DANE offers no protection here" on the
+strength of a check this release had simply not made. That is the release's own
+headline failure mode — an unknown presented as an absent.
+
+The evidence was available for nothing: the TLSA query is issued anyway, so it
+carries `do=1` and the answer's AD bit is recorded per host as `authenticated`.
+It is read for the MX host's own name rather than for the audited domain,
+because an MX host usually lives in someone else's zone and the audited domain's
+DNSSEC state says nothing about it. The finding fires only on hosts where
+`authenticated === false`. Verified against live zones: posteo.de and ietf.org
+publish authenticated TLSA and correctly raise nothing.
+
+`authenticated` and `qualified` are deliberately separate and both are kept.
+The AD bit is a validating resolver's assertion; `qualified` is the stronger
+claim that the chain was walked and verified, which
+[dnssec-evidence](../dnssec-evidence.md) supplies. Nothing in this release calls
+DANE active, and the interface's first line stays "published, not yet
+qualified" — acceptance criterion 4 holds at the surface the user actually
+reads, not only in the data model.
+
+**3. Base64 is decoded in-file rather than with `atob`.** The spec's pseudocode
+calls `base64ToBytes(tags.p)` without saying where that comes from. Reaching for
+the `atob` global would have meant that in any environment lacking it — the
+test sandbox and `tools/backtest.mjs` both lack it — the decode throws, the
+caller reads a throw as "this key does not decode", and **every key on every
+domain** is reported unparseable. That is an assertion about our own runtime
+wearing the clothes of an assertion about the operator's DNS. Twelve lines of
+arithmetic buy an answer that cannot depend on what the host provides. The test
+sandbox deliberately supplies no `atob`, which is what proves the DER walk needs
+nothing but the language; the decoder is fuzzed against Node's own encoder for
+every length from 1 to 300.
+
+**4. The renderer is hardened against partial result shapes.** The detail-panel
+blocks were written against the result shape section 7 defines, and a fixture
+carrying `caa.found` without the parsed fields threw — taking down not just the
+block but the entire table row, since one thrown render aborts the row. A saved
+report from an earlier release has exactly that shape. `caaDetail()` now returns
+nothing when `parsed` is absent, and the MX, TLSA and DKIM-key blocks default
+their collections, so an unrecognized shape renders less rather than failing.
+The rule this encodes: a renderer may say less than it hoped to, and may never
+take the page down to say it.
+
+**5. CSV column order is asserted by index, not by tail.** Section 7 says the
+new columns are appended and never inserted. The 0.3.0 export tests pinned the
+*last* columns of the header row, so appending fired them — the rule working,
+not breaking. They are re-anchored to fixed indices, with an added assertion
+that no pre-0.4.0 column moved, so the next release's append moves nothing here.
+
+Two cells needed a decision the spec did not cover. With the deep checks off,
+`MX Dangling`, `MX Host Count` and `TLSA Present` say `Unknown` rather than
+`No`: a domain whose MX hosts were never resolved has no dangling hosts
+*reported*, which is not the same as having none. And an absent `issuewild` set
+is named as governed by `issue` rather than left blank, because a blank cell
+reads as "wildcards unrestricted" — the inverse of the policy the domain
+published, and the same inversion section 3 calls out for the interface.
+
+**6. `optionalCheck()` re-throws the unsupported-type error.** Section 1 and
+acceptance criterion 2 require `dnsTypeNum()` to throw, and on its own that is
+not enough to make an unsupported type fail loudly. Two layers would have
+swallowed it: `fetchDohOnce()`'s catch turns every throw into `network-error`,
+and `optionalCheck()` turns everything except an abort into a stated "unknown".
+Either one restores the silent wrong answer the throw exists to prevent, in a
+different costume. The type is now resolved before the concurrency slot and
+before the try, and `optionalCheck()` re-throws `DnsTypeError` alongside
+`AbortError` — a query for a type the transport does not know is a bug in
+`js/dns.js`, not a resolver hiccup, and must not be reported as one.
+
+**7. Twenty-one findings, not the fifteen estimated.** The Localization impact
+section estimated "roughly fifteen new findings" and 40 to 60 locale keys; the
+implemented set is 21 findings and 73 keys, plus 36 more for the interface and
+the CSV headers — 109 keys, translated into all thirteen locales in the same
+change. The count rose because several conditions the design describes in prose
+turned out to deserve their own line rather than sharing one: `caa-single-issuer`
+and `caa-no-iodef` split from the CAA block, and the MX findings separated
+concentration from redundancy. No finding was added that the design did not
+already describe.
+
+**8. Verification.** `npm test` passes 1,466 assertions across the five suites,
+up from 1,189 at 0.3.0; `npm run locale:gate` passes 13/13 at 715/715 keys. The
+backtest shows **zero grade movement and zero score movement** against `v0.3.0`
+on the 40-domain sample, with the deep checks both off and on, and `WEIGHTS`,
+`PARKED_WEIGHTS` and `GRADE_THRESHOLDS` byte-identical — acceptance criterion 5.
+Fan-out is 31.9 queries per domain with the deep checks off, unchanged from
+0.3.0 (`cloudflare.com` issues exactly 43 on both releases), and 39.1 with them
+on; `PRIVACY.md` carries both numbers and its storage table is untouched,
+because the toggle's session memory is a module variable and not a second
+`localStorage` key.
+
+The interface was exercised against live domains through the running app: the
+toggle's default, its auto-disable above 50 domains, the notice text, manual
+re-enable, all four detail blocks, a 40-column CSV export, and a non-English
+locale rendering the new strings with DNS terms correctly left in Latin script.
+That verification was done by reading the rendered DOM text rather than from
+screenshots — the browser pane returned blank captures for scrolled content, so
+the detail panel could not be photographed. It is not treated as a gap: the
+renderer tests cover the same nodes deterministically, and the live DOM read
+confirms them against real DNS.
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-08-20 | Initial draft. |
+| 1.1 | 2026-08-25 | Implemented. Two amendments, both in the same direction — the spec had let an implementation's capabilities stand in for the protocol's rules. The DER walk was written as SPKI-only, which would have reported a conformant bare PKCS#1 key as unparseable because `crypto.subtle.importKey` does not accept that encoding; and `cryptoValidated: false` for an absent Web Crypto collapsed "not checked" into "failed", contradicting the same paragraph's own rule. Three further notes recorded: the `tlsa-published-unsigned` finding is gated on the resolver's AD bit rather than on `qualified`, which would otherwise have fired on every domain in the release; base64 is decoded in-file rather than with `atob`; and the renderer was hardened against partial result shapes. See **As implemented**. |
 | 1.0 | 2026-08-25 | Final. Resolved all seven open questions. Two were settled with measurement rather than argument: `OQ-DEPTH-01`'s resolver shapes were captured before any parser was designed, and immediately found that `TLSA` comes back parenthesised where `DS` does not — a difference that would have produced a silently empty digest; and `OQ-DEPTH-05`'s 1024-bit threshold was decided by counting real keys, which showed 53% of keys on the sample are RSA-1024, so a warning would fire on most audited domains and the finding drops to informational. `OQ-DEPTH-02` takes the draft's third option, a DER walk for size with Web Crypto validation where available, which also keeps the analysis synchronous. `OQ-DEPTH-03` and `OQ-DEPTH-06` were decided by Ian; the former's "remember the user's choice" is explicitly session-scoped, because persisting it would need a second `localStorage` key and falsify `PRIVACY.md`'s "exactly one value" claim. Every code reference in the draft was re-pointed — all fifteen were stale, the spec having been written against 0.2.2 — and each referenced function was confirmed to still exist. |

@@ -40,7 +40,7 @@ the string that `i=1` then scans, so a value containing `{1}` causes the second
 argument to be interpolated into a position the translator never wrote. Every
 current multi-argument message takes an internal value first, so nothing reachable
 exploits this today. [dmarcbis-tree-walk](dmarcbis-tree-walk.md) and
-[dns-protocol-depth](../dns-protocol-depth.md) both add messages whose first
+[dns-protocol-depth](dns-protocol-depth.md) both add messages whose first
 argument is a DNS-derived name, which makes it reachable.
 
 **The progress log is quadratic.** `log()` at
