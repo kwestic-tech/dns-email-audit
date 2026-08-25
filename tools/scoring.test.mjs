@@ -2668,6 +2668,36 @@ eq('a difference in the LEADING octet is caught too',
 // the comparison is rejecting valid keys rather than invalid ones.
 eq('a same-width exponent below the modulus is accepted',
   asKey(pkcs1Of(GOOD_MODULUS, sameWidth(e => { e[0] = 0x7f; }))).keyBits, 1024);
+/* ── Both RSA values must be odd ────────────────────────────────────────
+   RFC 8017 §3.1 makes `n` a product of distinct odd primes, so an even modulus
+   is not an RSA modulus at all — and `e` must be coprime to lambda(n), which is
+   even. The exponent was checked from the start; the modulus was not, two lines
+   away in the same function.
+
+   These two moduli differ in exactly one bit, so nothing but parity can explain
+   a difference in the verdict.
+   ───────────────────────────────────────────────────────────────────── */
+const withLastOctet = (modulus, octet) => {
+  const m = Buffer.from(modulus); m[m.length - 1] = octet; return m;
+};
+const ODD_MODULUS = withLastOctet(GOOD_MODULUS, 0xad);
+const EVEN_MODULUS = withLastOctet(GOOD_MODULUS, 0xac);
+eq('the two fixtures differ only in the last octet',
+  [ODD_MODULUS.length, EVEN_MODULUS.length,
+    ODD_MODULUS.subarray(0, -1).equals(EVEN_MODULUS.subarray(0, -1))],
+  [GOOD_MODULUS.length, GOOD_MODULUS.length, true]);
+
+eq('an odd modulus is accepted',            asKey(pkcs1Of(ODD_MODULUS)).keyBits, 1024);
+eq('an even modulus is refused',            asKey(pkcs1Of(EVEN_MODULUS)).errors, ['unparseable-key']);
+eq('an odd modulus inside SPKI is accepted',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER), ODD_MODULUS)).keyBits, 1024);
+eq('an even modulus inside SPKI is refused',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER), EVEN_MODULUS)).errors, ['unparseable-key']);
+// The smallest even value that is otherwise well-formed, so the guard is not
+// relying on the modulus being large.
+eq('a small even modulus is refused too',
+  asKey(pkcs1Of(Buffer.from([0x04]), Buffer.from([0x03]))).errors, ['unparseable-key']);
+
 /* ── DER length octets must be minimal, at every level ──────────────────
    X.690 §10.1: the definite length uses the FEWEST possible octets. A leading
    zero is never the fewest, and neither is the long form for a value the short

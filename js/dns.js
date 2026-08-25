@@ -671,6 +671,16 @@
    * key whose exponent tag had been altered walked cleanly and reported a size —
    * leaving an optional browser API as the only thing that would reject
    * malformed DER, in a function documented as authoritative without it.
+   *
+   * **Where this stops, deliberately.** The walk establishes that the encoding
+   * is canonical DER and that the values satisfy the cheap NECESSARY conditions
+   * RFC 8017 3.1 states: positive, minimally encoded, both odd, and
+   * 3 <= e < n. It does not establish that they are SUFFICIENT. Proving `n` is
+   * a product of two distinct primes, or that gcd(e, lambda(n)) is 1, needs the
+   * private factors, which a public key does not carry — and factoring a
+   * 2048-bit modulus is not a thing a DNS audit does in a browser. So a key
+   * that passes here is well-formed, not proven usable. Web Crypto confirms
+   * further where it can, for SPKI only, and its silence is never a verdict.
    */
   function derReadRsaPublicKey(bytes, sequence) {
     var modulus = derReadTlv(bytes, sequence.start);
@@ -686,7 +696,11 @@
     var modulusValue = derPositiveInteger(bytes, modulus);
     var exponentValue = derPositiveInteger(bytes, exponent);
     if (!modulusValue || !exponentValue) return null;
-    // Odd, because `e` must be coprime to (p-1)(q-1) and both are even.
+    // Both are odd. RFC 8017 3.1 makes `n` a product of distinct odd primes,
+    // so an even modulus is not an RSA modulus at all; and `e` must be coprime
+    // to lambda(n), which is even. The exponent was checked here from the
+    // start and the modulus was not — the same condition, two lines apart.
+    if ((bytes[modulusValue.start + modulusValue.length - 1] & 1) === 0) return null;
     if ((bytes[exponentValue.start + exponentValue.length - 1] & 1) === 0) return null;
     // At least 3. A single content octet is the only way to encode a value
     // below 128, so nothing wider needs comparing.
