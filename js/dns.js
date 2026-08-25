@@ -482,12 +482,27 @@
     var keys = [];
     var revoked = [];
     var unusable = [];
+    var malformed = [];
     (answers || []).filter(function (answer) { return answer.type === 16; })
       .forEach(function (answer) {
         var value = cleanAnswerData(answer.data, 'TXT');
-        var tags = parseTagList(value).tags;
-        if (!Object.prototype.hasOwnProperty.call(tags, 'p')) return;
-        if (tags.v && tags.v.toLowerCase() !== 'dkim1') return;
+        var parsed = parseDkimKeyTagList(value);
+        var tags = parsed.tags;
+        // v= is optional for a DKIM key, but when it is present it identifies
+        // the protocol. Keep malformed DKIM-family values (`DKIM2`, `dkim1`)
+        // so the analyzer can explain them; ignore a record that explicitly
+        // identifies some OTHER protocol. This matters for wildcard TXT:
+        // gov.uk synthesizes its `v=DMARC1; p=reject` record at every selector,
+        // and treating its DMARC p= tag as a public key awarded 15 DKIM points.
+        if (Object.prototype.hasOwnProperty.call(tags, 'v') && !/^dkim/i.test(tags.v)) return;
+        if (!Object.prototype.hasOwnProperty.call(tags, 'p')) {
+          // Ignore unrelated TXT at a selector, but retain a recognizable DKIM
+          // candidate whose required p= tag is missing. Dropping it here made
+          // the analyzer's `missing-p` error unreachable and reported an empty
+          // DNS name where the operator had actually published a broken key.
+          if (Object.prototype.hasOwnProperty.call(tags, 'v')) malformed.push(value);
+          return;
+        }
         if (tags.p.length === 0) { revoked.push(value); return; }
         // Key-shaped is not the same as usable. A record with an unrecognized
         // `k=`, a service list that excludes email, or a hash list this
@@ -497,7 +512,7 @@
         if (analyzeDkimKey(value).appliesToEmail) keys.push(value);
         else unusable.push(value);
       });
-    return { keys: keys, revoked: revoked, unusable: unusable };
+    return { keys: keys, revoked: revoked, unusable: unusable, malformed: malformed };
   }
 
   /* ── DKIM public key analysis (RFC 6376 3.6.1, RFC 8463) ──────────────
@@ -518,6 +533,50 @@
   var DKIM_TOKEN = /^[a-z](?:[a-z0-9-]*[a-z0-9])?$/i;
 
   /**
+   * Parse the complete RFC 6376 §3.2 tag-list grammar used by a DKIM key.
+   *
+   * This is deliberately not the permissive `parseTagList()` helper used by
+   * protocols that merely want a map. A key verifier must reject a bare
+   * fragment, an illegal tag name, bad folding, or a version tag in the wrong
+   * position. Silently skipping those pieces makes `dkim-key-malformed`
+   * impossible to emit because the analyzer has already forgotten the error.
+   */
+  function parseDkimKeyTagList(record) {
+    var source = String(record === undefined || record === null ? '' : record);
+    var errors = [];
+    // FWS permits CRLF only when followed by WSP. Unfold it while retaining
+    // the following WSP; every other control is outside tag-value grammar.
+    var unfolded = source.replace(/\r\n(?=[ \t])/g, '');
+    if (/[\r\n]|[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(unfolded)) errors.push('invalid-tag-list');
+
+    var parts = unfolded.split(';');
+    if (parts.length > 1 && /^[ \t]*$/.test(parts[parts.length - 1])) parts.pop();
+    var tags = Object.create(null);
+    var duplicates = [];
+    var order = [];
+    parts.forEach(function (part) {
+      if (!part || /^[ \t]*$/.test(part)) { errors.push('invalid-tag-list'); return; }
+      var equals = part.indexOf('=');
+      if (equals === -1) { errors.push('invalid-tag-list'); return; }
+      var left = part.slice(0, equals);
+      if (!/^[ \t]*[a-z][a-z0-9_]*[ \t]*$/i.test(left)) {
+        errors.push('invalid-tag-list'); return;
+      }
+      var name = left.trim();
+      var value = part.slice(equals + 1).replace(/^[ \t]+|[ \t]+$/g, '');
+      if (!/^(?:[\x21-\x3a\x3c-\x7e]|[ \t])*$/.test(value)) {
+        errors.push('invalid-tag-list'); return;
+      }
+      order.push(name);
+      if (Object.prototype.hasOwnProperty.call(tags, name)) duplicates.push(name);
+      else tags[name] = value;
+    });
+    if (!order.length) errors.push('invalid-tag-list');
+    if (duplicates.length) errors.push('duplicate-tags');
+    return { tags: tags, duplicates: duplicates, order: order, errors: Array.from(new Set(errors)) };
+  }
+
+  /**
    * Split a colon-separated DKIM tag list, or null if it is not one.
    *
    * A PRESENT tag with an empty value is malformed — `h=` and `s=` are lists of
@@ -536,6 +595,21 @@
     return entries;
   }
 
+  /** RFC 6376's DKIM-Quoted-Printable used by the human-readable n= tag. */
+  function isDkimQuotedPrintable(value) {
+    var text = String(value === undefined || value === null ? '' : value).replace(/[ \t]/g, '');
+    for (var i = 0; i < text.length; i++) {
+      var code = text.charCodeAt(i);
+      if (text.charAt(i) === '=') {
+        if (!/^[0-9A-F]{2}$/.test(text.slice(i + 1, i + 3))) return false;
+        i += 2;
+      } else if (!((code >= 0x21 && code <= 0x3a) || code === 0x3c || (code >= 0x3e && code <= 0x7e))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   var BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
   /**
@@ -552,10 +626,20 @@
    * Returns null only for input that genuinely is not base64.
    */
   function base64ToBytes(value) {
-    var text = String(value || '').replace(/\s+/g, '');
+    var source = String(value || '');
+    // base64string permits FWS, not every character JavaScript classifies as
+    // whitespace. A bare LF, vertical tab or form feed makes the key record
+    // malformed and must not disappear during decoding.
+    source = source.replace(/\r\n(?=[ \t])/g, '');
+    if (/[\r\n]|[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(source)) return null;
+    var text = source.replace(/[ \t]+/g, '');
     if (!text) return new Uint8Array(0);
     if (!/^[A-Za-z0-9+/]*={0,2}$/.test(text) || text.length % 4 !== 0) return null;
     var padding = /==$/.test(text) ? 2 : /=$/.test(text) ? 1 : 0;
+    // RFC 4648 canonical encoding requires unused pad bits to be zero. Without
+    // this, several different strings decode to the same DER value.
+    if (padding === 2 && (BASE64_ALPHABET.indexOf(text[text.length - 3]) & 0x0f) !== 0) return null;
+    if (padding === 1 && (BASE64_ALPHABET.indexOf(text[text.length - 2]) & 0x03) !== 0) return null;
     var bytes = new Uint8Array((text.length / 4) * 3 - padding);
     var out = 0;
     for (var i = 0; i < text.length; i += 4) {
@@ -812,16 +896,16 @@
    * own makes a key invalid.
    */
   function analyzeDkimKey(txtValue) {
-    var parsed = parseTagList(txtValue);
+    var parsed = parseDkimKeyTagList(txtValue);
     var tags = parsed.tags;
-    var errors = [];
+    var errors = parsed.errors.slice();
 
     var version = null;
     if (Object.prototype.hasOwnProperty.call(tags, 'v')) {
-      if (tags.v.toLowerCase() === 'dkim1') version = 'DKIM1';
+      if (tags.v === 'DKIM1') version = 'DKIM1';
       else errors.push('bad-version');
+      if (parsed.order[0] !== 'v') errors.push('version-not-first');
     }
-    if (parsed.duplicates.length) errors.push('duplicate-tags');
 
     // Reasons a well-formed record still cannot sign this domain's email.
     // Kept apart from `errors` on purpose: none of these is a malformed record,
@@ -829,8 +913,9 @@
     // it to another service would be the same false verdict in a new place.
     var restrictions = [];
 
-    var keyType = Object.prototype.hasOwnProperty.call(tags, 'k')
-      ? tags.k.trim().toLowerCase() : 'rsa';
+    var rawKeyType = Object.prototype.hasOwnProperty.call(tags, 'k') ? tags.k.trim() : 'rsa';
+    var keyType = rawKeyType.toLowerCase();
+    if (!DKIM_TOKEN.test(rawKeyType)) errors.push('invalid-key-type');
     if (keyType !== 'rsa' && keyType !== 'ed25519') {
       keyType = 'unknown';
       // RFC 6376 §3.6.1: "Unrecognized key types MUST be ignored." Ignored is
@@ -906,6 +991,10 @@
       if (!flags.length) errors.push('invalid-tag-list');
     }
 
+    if (Object.prototype.hasOwnProperty.call(tags, 'n') && !isDkimQuotedPrintable(tags.n)) {
+      errors.push('invalid-notes');
+    }
+
     var unknownTags = Object.keys(tags).filter(function (name) {
       return DKIM_KEY_TAGS.indexOf(name) === -1;
     });
@@ -929,7 +1018,7 @@
       notes: Object.prototype.hasOwnProperty.call(tags, 'n') ? tags.n : '',
       unknownTags: unknownTags,
       cryptoValidated: null,
-      errors: errors,
+      errors: Array.from(new Set(errors)),
       restrictions: restrictions,
       // Does this record APPLY to ordinary email for this domain?
       //
@@ -965,7 +1054,7 @@
     var subtle = typeof crypto !== 'undefined' && crypto && crypto.subtle;
     if (!subtle || key.keyType !== 'rsa' || key.revoked || key.keyBits === null) return key;
     if (key.keyEncoding !== 'spki') return key;
-    var bytes = base64ToBytes(parseTagList(txtValue).tags.p);
+    var bytes = base64ToBytes(parseDkimKeyTagList(txtValue).tags.p);
     if (!bytes) return key;
     try {
       await subtle.importKey('spki', bytes,
@@ -1069,20 +1158,21 @@
       var set = dkimRecordSet(result.answers);
       var keys = set.keys.filter(notSynthesized);
       var unusable = set.unusable.filter(notSynthesized);
+      var malformed = set.malformed.filter(notSynthesized);
       // A revoked key stops the walk as surely as a live one does. It is an
       // answer — the operator published it on purpose to retire the selector —
       // and continuing past it would report the selector as absent, which reads
       // as "you never set this up" rather than "you turned this off".
       var revoked = set.revoked.filter(notSynthesized);
-      if (keys.length || revoked.length || unusable.length) {
-        return { sel: selector, queryName: queryName, keys: keys, revoked: revoked, unusable: unusable, cname: firstCname };
+      if (keys.length || revoked.length || unusable.length || malformed.length) {
+        return { sel: selector, queryName: queryName, keys: keys, revoked: revoked, unusable: unusable, malformed: malformed, cname: firstCname };
       }
       var cnameAnswer = result.answers.find(function (answer) { return answer.type === 5; });
       if (!cnameAnswer) break;
       name = cleanAnswerData(cnameAnswer.data, 'CNAME').toLowerCase().replace(/\.$/, '');
       if (!firstCname) firstCname = name;
     }
-    return { sel: selector, queryName: queryName, keys: [], revoked: [], unusable: [], cname: firstCname };
+    return { sel: selector, queryName: queryName, keys: [], revoked: [], unusable: [], malformed: [], cname: firstCname };
   }
 
   async function checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive, spfRecord, queryOpts) {
@@ -1099,6 +1189,7 @@
     const failedSelectors = [];
     const revokedSelectors = [];
     const unusableSelectors = [];
+    const malformedSelectors = [];
     for (var offset = 0; offset < selectorList.length; offset += DKIM_SCAN_BATCH_SIZE) {
       var batch = selectorList.slice(offset, offset + DKIM_SCAN_BATCH_SIZE);
       var checks = await Promise.all(batch.map(async function (selector) {
@@ -1106,22 +1197,25 @@
           return await inspectDkimSelector(domain, selector, queryOpts, synthesized);
         } catch (error) {
           if (error && error.name === 'AbortError') throw error;
-          return { sel: selector, keys: [], revoked: [], unusable: [], cname: '', error: true };
+          return { sel: selector, keys: [], revoked: [], unusable: [], malformed: [], cname: '', error: true };
         }
       }));
-      for (const { sel, queryName, keys, revoked, unusable, cname, error } of checks) {
+      for (const { sel, queryName, keys, revoked, unusable, malformed, cname, error } of checks) {
         if (error) { failedSelectors.push(sel); continue; }
         // Reported whether or not a live key was also found, because a revoked
         // record left behind next to a working one is a different situation
         // from a selector that is only a revocation.
         (revoked || []).forEach(function (value) {
-          revokedSelectors.push({ sel: sel, queryName: queryName, value: value });
+          revokedSelectors.push({ sel: sel, queryName: queryName, value: value, key: analyzeDkimKey(value) });
         });
         // Published here, and not a key this domain's email can be verified
         // with. Reported so the operator sees why the selector did not count,
         // rather than being told nothing was found at a name they configured.
         (unusable || []).forEach(function (value) {
           unusableSelectors.push({ sel: sel, queryName: queryName, value: value, key: analyzeDkimKey(value) });
+        });
+        (malformed || []).forEach(function (value) {
+          malformedSelectors.push({ sel: sel, queryName: queryName, value: value, key: analyzeDkimKey(value) });
         });
         // RFC 6376 §3.6.2.2: key records MUST be unique per selector; with more
         // than one the result is undefined, so verification may fail depending on
@@ -1138,7 +1232,7 @@
             viaSpf: spfSources.get(sel) || '',
             key: analyzeDkimKey(keys[0]),
           });
-        } else if (suppliedSelectors.has(sel) && !(revoked || []).length && !(unusable || []).length) {
+        } else if (suppliedSelectors.has(sel) && !(revoked || []).length && !(unusable || []).length && !(malformed || []).length) {
           // Only when NOTHING was published here. A selector carrying a revoked
           // key or one scoped to another service has a record at that name, and
           // reporting "No Domain Key Found" alongside a finding that describes
@@ -1156,9 +1250,9 @@
     const keyProfile = summarizeDkimKeys(found);
 
     if (!found.length) {
-      return { found: false, selectors: [], missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, revokedSelectors, unusableSelectors, keyProfile, confidence: 'sampled', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: wildcardDkim ? 'noteWildcard' : failedSelectors.length ? 'noteNotFoundWithErrors' : 'noteNotFound' };
+      return { found: false, selectors: [], missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, revokedSelectors, unusableSelectors, malformedSelectors, keyProfile, confidence: 'sampled', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: wildcardDkim ? 'noteWildcard' : failedSelectors.length ? 'noteNotFoundWithErrors' : 'noteNotFound' };
     }
-    return { found: true, selectors: found, missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, revokedSelectors, unusableSelectors, keyProfile, confidence: 'observed', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: '' };
+    return { found: true, selectors: found, missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, revokedSelectors, unusableSelectors, malformedSelectors, keyProfile, confidence: 'observed', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: '' };
   }
 
   /**
@@ -2649,12 +2743,21 @@
      mailbox receives mail or that a URL resolves.
      ───────────────────────────────────────────────────────────────────── */
 
-  // A dotted LDH host: labels of ALPHA/DIGIT with interior hyphens, at least
-  // two labels so a bare word is not mistaken for a fully qualified name. This
-  // is a BIMI requirement, NOT a URI one — RFC 3986 is happy with `localhost`.
-  var FQDN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+\.?$/i;
-
-  function isFqdn(host) { return FQDN.test(String(host || '')); }
+  // A dotted LDH host. This is a BIMI requirement, NOT a URI one — RFC 3986
+  // is happy with `localhost`. Keep the DNS size limits here too: a regex that
+  // checks only characters calls a 64-octet label an FQDN even though no DNS
+  // implementation can resolve it.
+  function isFqdn(host) {
+    var text = String(host || '');
+    if (text.charAt(text.length - 1) === '.') text = text.slice(0, -1);
+    if (!text || text.length > 253) return false;
+    var labels = text.split('.');
+    if (labels.length < 2) return false;
+    return labels.every(function (label) {
+      return label.length >= 1 && label.length <= 63 &&
+        /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(label);
+    });
+  }
 
   /** RFC 3986 §2.1: every '%' must introduce two hex digits. */
   function hasValidPercentEncoding(text) {
@@ -2673,17 +2776,82 @@
    * good TLS-RPT destination — the FQDN rule belongs to BIMI, which adds it,
    * and is applied there rather than to every URI this file reads.
    */
+  function isIpv4Address(value) {
+    var parts = String(value || '').split('.');
+    return parts.length === 4 && parts.every(function (part) {
+      return /^(?:0|[1-9]\d{0,2})$/.test(part) && Number(part) <= 255;
+    });
+  }
+
+  /** RFC 3986 §3.2.2 IPv6address, including an embedded final IPv4 address. */
+  function isIpv6Address(value) {
+    var text = String(value || '');
+    if (!text || text.indexOf(':::') !== -1) return false;
+    var halves = text.split('::');
+    if (halves.length > 2) return false;
+    var compressed = halves.length === 2;
+    var parseHalf = function (half, allowIpv4) {
+      if (!half) return { valid: true, units: 0 };
+      var pieces = half.split(':');
+      var units = 0;
+      for (var i = 0; i < pieces.length; i++) {
+        if (!pieces[i]) return { valid: false, units: 0 };
+        if (pieces[i].indexOf('.') !== -1) {
+          if (!allowIpv4 || i !== pieces.length - 1 || !isIpv4Address(pieces[i])) {
+            return { valid: false, units: 0 };
+          }
+          units += 2;
+        } else {
+          if (!/^[0-9a-f]{1,4}$/i.test(pieces[i])) return { valid: false, units: 0 };
+          units++;
+        }
+      }
+      return { valid: true, units: units };
+    };
+    // An embedded IPv4 address supplies the FINAL 32 bits. With compression
+    // present that means it can occur only in the right half: accepting
+    // `192.0.2.1::` put the IPv4 address before the elided zero groups.
+    var left = parseHalf(halves[0], !compressed);
+    var right = parseHalf(compressed ? halves[1] : '', true);
+    if (!left.valid || !right.valid) return false;
+    var total = left.units + right.units;
+    return compressed ? total < 8 : total === 8;
+  }
+
+  function isIpLiteral(value) {
+    var inner = String(value || '').slice(1, -1);
+    if (/^v[0-9a-f]+\.(?:[a-z0-9._~!$&'()*+,;=:-])+$/i.test(inner)) return true;
+    return isIpv6Address(inner);
+  }
+
   function isUriHost(host) {
     var text = String(host || '');
     if (!text) return false;
-    if (/^\[[0-9a-f:.]+\]$/i.test(text)) return true;                 // IP-literal
+    if (text.charAt(0) === '[' && text.charAt(text.length - 1) === ']') return isIpLiteral(text);
     return /^(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})+$/i.test(text); // reg-name / IPv4
   }
 
   /** Split an authority into host and port, keeping an IP-literal intact. */
+  function hasOnlyUriChars(text, rawPattern) {
+    var value = String(text || '');
+    for (var i = 0; i < value.length; i++) {
+      if (value.charAt(i) === '%') {
+        if (!/^[0-9a-f]{2}$/i.test(value.slice(i + 1, i + 3))) return false;
+        i += 2;
+      } else if (!rawPattern.test(value.charAt(i))) return false;
+    }
+    return true;
+  }
+
   function splitUriAuthority(authority) {
-    var withoutUserinfo = String(authority || '').replace(/^[^@]*@/, '');
-    var match = /^(\[[^\]]*\]|[^:]*)(?::(\d{0,5}))?$/.exec(withoutUserinfo);
+    var text = String(authority || '');
+    var at = text.lastIndexOf('@');
+    if (at !== -1) {
+      var userinfo = text.slice(0, at);
+      if (!hasOnlyUriChars(userinfo, /^[a-z0-9._~!$&'()*+,;=:-]$/i)) return null;
+      text = text.slice(at + 1);
+    }
+    var match = /^(\[[^\]]*\]|[^:]*)(?::(\d*))?$/.exec(text);
     return match ? { host: match[1], port: match[2] } : null;
   }
 
@@ -2697,14 +2865,93 @@
     var options = opts || {};
     var text = String(value || '').trim();
     if (/\s/.test(text) || !hasValidPercentEncoding(text)) return false;
-    var match = /^(https?):\/\/([^/?#]*)([/?#][\s\S]*)?$/i.exec(text);
+    var match = /^(https?):\/\/([^/?#]*)([^?#]*)(?:\?([^#]*))?(?:#(.*))?$/i.exec(text);
     if (!match) return false;
     if (options.httpsOnly && match[1].toLowerCase() !== 'https') return false;
     var authority = splitUriAuthority(match[2]);
     if (!authority || !isUriHost(authority.host)) return false;
-    if (authority.port === '') return false;                          // "host:" with no port
     if (options.requireFqdn && !isFqdn(authority.host)) return false;
+    // path-abempty = *( "/" segment ); query/fragment add pchar, "/" and
+    // "?". Validate the productions, not merely the absence of whitespace —
+    // `<`, `>`, `"`, `{` and friends are not URI characters.
+    if (match[3] && match[3].charAt(0) !== '/') return false;
+    var pchar = /^[a-z0-9._~!$&'()*+,;=:@\/-]$/i;
+    var qchar = /^[a-z0-9._~!$&'()*+,;=:@\/?-]$/i;
+    if (!hasOnlyUriChars(match[3] || '', pchar)) return false;
+    if (!hasOnlyUriChars(match[4] || '', qchar)) return false;
+    if (!hasOnlyUriChars(match[5] || '', qchar)) return false;
     return true;
+  }
+
+  function decodeUriPercent(value) {
+    try { return decodeURIComponent(String(value || '')); }
+    catch (_) { return null; }
+  }
+
+  function splitMailboxList(value) {
+    var result = [];
+    var start = 0;
+    var quoted = false;
+    var escaped = false;
+    for (var i = 0; i < value.length; i++) {
+      var ch = value.charAt(i);
+      if (escaped) { escaped = false; continue; }
+      if (quoted && ch === '\\') { escaped = true; continue; }
+      if (ch === '"') { quoted = !quoted; continue; }
+      if (ch === ',' && !quoted) { result.push(value.slice(start, i)); start = i + 1; }
+    }
+    if (quoted || escaped) return null;
+    result.push(value.slice(start));
+    return result;
+  }
+
+  function isMailbox(value) {
+    var text = String(value || '');
+    var at = -1;
+    var quoted = false;
+    var escaped = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (escaped) { escaped = false; continue; }
+      if (quoted && ch === '\\') { escaped = true; continue; }
+      if (ch === '"') { quoted = !quoted; continue; }
+      if (ch === '@' && !quoted) { if (at !== -1) return false; at = i; }
+    }
+    if (quoted || escaped || at < 1 || at === text.length - 1) return false;
+    var local = text.slice(0, at);
+    var domain = text.slice(at + 1);
+    var atext = /^[a-z0-9!#$%&'*+\-/=?^_`{|}~]+$/i;
+    var validDotAtom = function (part) {
+      var atoms = part.split('.');
+      return atoms.length > 0 && atoms.every(function (atom) { return atext.test(atom); });
+    };
+    var localValid;
+    if (local.charAt(0) === '"' && local.charAt(local.length - 1) === '"') {
+      localValid = true;
+      for (var j = 1; j < local.length - 1; j++) {
+        var code = local.charCodeAt(j);
+        if (local.charAt(j) === '\\') {
+          j++;
+          if (j >= local.length - 1 || local.charCodeAt(j) < 0x20 || local.charCodeAt(j) > 0x7e) localValid = false;
+        } else if (local.charAt(j) === '"' || code < 0x21 || code > 0x7e) localValid = false;
+      }
+    } else localValid = validDotAtom(local);
+    if (!localValid) return false;
+    if (domain.charAt(0) === '[' && domain.charAt(domain.length - 1) === ']') {
+      for (var k = 1; k < domain.length - 1; k++) {
+        var d = domain.charCodeAt(k);
+        if (!((d >= 33 && d <= 90) || (d >= 94 && d <= 126))) return false;
+      }
+      return true;
+    }
+    if (validDotAtom(domain)) return true;
+    // RFC 6068 permits a UTF-8 percent-encoded internationalized domain. It
+    // is converted to an A-label when a message is composed; syntax checking
+    // here only establishes that it decoded as UTF-8 and remains label-shaped.
+    if (!/[^\x00-\x7f]/.test(domain)) return false;
+    return domain.split('.').every(function (label) {
+      return label.length > 0 && !/^[\-]|\-$/.test(label) && !/[\s@\[\]\\/?#]/.test(label);
+    });
   }
 
   /**
@@ -2719,15 +2966,31 @@
     var text = String(value || '').trim();
     if (text.slice(0, 7).toLowerCase() !== 'mailto:') return false;
     if (/\s/.test(text) || !hasValidPercentEncoding(text)) return false;
-    var to = text.slice(7).split('?')[0];
-    var at = to.lastIndexOf('@');
-    if (at < 1 || at === to.length - 1) return false;
-    var local = to.slice(0, at);
-    var domain = to.slice(at + 1);
-    if (!/^(?:[a-z0-9\-._~!$&'*+,;=:]|%[0-9a-f]{2})+$/i.test(local)) return false;
-    if (options.requireFqdn) return isFqdn(domain);
-    if (/^%5b[\s\S]*%5d$/i.test(domain)) return true;                 // encoded domain-literal
-    return /^(?:[a-z0-9\-._~!$&'*+,;=]|%[0-9a-f]{2})+$/i.test(domain);
+    var question = text.indexOf('?');
+    var rawTo = text.slice(7, question === -1 ? text.length : question);
+    // RFC 6068 requires URI-reserved '/', '?', '#', '[', ']', '&', ';' and
+    // '=' inside addr-specs to be percent-encoded. A syntactically valid
+    // percent escape is not enough if the raw character itself was forbidden.
+    if (!rawTo || !hasOnlyUriChars(rawTo, /^[a-z0-9._~!$'()*+,:@-]$/i)) return false;
+    var decodedTo = decodeUriPercent(rawTo);
+    if (decodedTo === null) return false;
+    var mailboxes = splitMailboxList(decodedTo);
+    if (!mailboxes || !mailboxes.length || !mailboxes.every(isMailbox)) return false;
+    if (options.requireFqdn && !mailboxes.every(function (mailbox) {
+      return isFqdn(mailbox.slice(mailbox.lastIndexOf('@') + 1));
+    })) return false;
+    if (question !== -1) {
+      var hfields = text.slice(question + 1).split('&');
+      if (!hfields.length || hfields.some(function (field) {
+        var equals = field.indexOf('=');
+        if (equals === -1) return true;
+        var hname = field.slice(0, equals);
+        var hvalue = field.slice(equals + 1);
+        var hchar = /^[a-z0-9._~!$'()*+,;:@-]$/i;
+        return !hasOnlyUriChars(hname, hchar) || !hasOnlyUriChars(hvalue, hchar);
+      })) return false;
+    }
+    return true;
   }
 
   /**
@@ -2771,6 +3034,16 @@
    */
   function versionCandidates(records, token) {
     var pattern = new RegExp('(^|;)\\s*v\\s*=\\s*' + token + '\\s*(;|$)', 'i');
+    return (records || []).filter(function (record) { return pattern.test(String(record || '')); });
+  }
+
+  /** Records a conforming sender keeps before applying the full validator. */
+  function leadingVersionMatches(records, token) {
+    // The version literal itself is exact and case-sensitive. The delimiter,
+    // however, is `*WSP ";" *WSP` in MTA-STS/TLS-RPT (and tolerated by the
+    // BIMI parser), so valid whitespace before the semicolon must not make a
+    // sender-compatible record disappear from the effective set.
+    var pattern = new RegExp('^v=' + token + '[ \\t]*(?:;|$)');
     return (records || []).filter(function (record) { return pattern.test(String(record || '')); });
   }
 
@@ -2870,7 +3143,9 @@
         if (!uris.length) syntax = false;
         uris.forEach(function (uri) {
           // RFC 8460 imports RFC 3986 whole; it adds no FQDN rule.
-          if (!isMailtoUri(uri) && !isHttpUri(uri, { httpsOnly: true })) syntax = false;
+          // It does add one encoding rule: comma, exclamation and semicolon
+          // must not occur raw inside a destination URI.
+          if (/[!,;]/.test(uri) || (!isMailtoUri(uri) && !isHttpUri(uri, { httpsOnly: true }))) syntax = false;
           destinations.push(uri);
         });
         continue;
@@ -3812,6 +4087,19 @@
       return dkimKeys.filter(function (entry) { return predicate(entry.key); })
         .map(function (entry) { return entry.sel; });
     };
+    // Syntax evidence is wider than usable signing keys. Revoked, service-
+    // scoped and missing-p= candidates can all be malformed too; restricting
+    // these findings to `selectors` made the most broken records disappear
+    // from the very diagnostics intended to explain them.
+    var dkimEvidence = dkimKeys
+      .concat(dkimStatus?.unusableSelectors || [])
+      .concat(dkimStatus?.revokedSelectors || [])
+      .concat(dkimStatus?.malformedSelectors || []);
+    var evidenceByCondition = function (predicate) {
+      return Array.from(new Set(dkimEvidence.filter(function (entry) {
+        return entry.key && predicate(entry.key);
+      }).map(function (entry) { return entry.sel; })));
+    };
 
     var weakKeys = dkimKeys.filter(function (e) { return typeof e.key.keyBits === 'number' && e.key.keyBits < 1024; });
     if (weakKeys.length) {
@@ -3850,7 +4138,7 @@
     var hasDecodeError = function (k) {
       return k.errors.some(function (e) { return DECODE_ERRORS.indexOf(e) !== -1; });
     };
-    var brokenKeys = byCondition(hasDecodeError);
+    var brokenKeys = evidenceByCondition(hasDecodeError);
     if (brokenKeys.length) issues.push({ key: 'dkim-key-unparseable', sev: 'warn', args: [brokenKeys.join(', ')] });
 
     // Every other way a key record can be invalid. Without this, a record the
@@ -3858,7 +4146,7 @@
     // bad version — counted as a found key and said nothing at all, so the
     // audit reported DKIM present on the strength of a record it knew was
     // malformed.
-    var malformedKeys = byCondition(function (k) { return !k.valid && !hasDecodeError(k); });
+    var malformedKeys = evidenceByCondition(function (k) { return !k.valid && !hasDecodeError(k); });
     if (malformedKeys.length) issues.push({ key: 'dkim-key-malformed', sev: 'warn', args: [malformedKeys.join(', ')] });
 
     var testingKeys = byCondition(function (k) { return k.testing; });
@@ -4282,9 +4570,9 @@
       // A null here is a lookup that failed, not a domain without the record.
       // `unknown` carries that distinction through to scoring and the UI so an
       // unverified control is never presented as an absent one.
-      const bimiMatches = bimiTxt ? bimiTxt.filter(v => startsWithCI(v, 'v=BIMI1')) : [];
-      const mtaMatches = mtaStsTxt ? mtaStsTxt.filter(v => startsWithCI(v, 'v=STSv1')) : [];
-      const tlsMatches = tlsRptTxt ? tlsRptTxt.filter(v => startsWithCI(v, 'v=TLSRPTv1')) : [];
+      const bimiMatches = leadingVersionMatches(bimiTxt, 'BIMI1');
+      const mtaMatches = leadingVersionMatches(mtaStsTxt, 'STSv1');
+      const tlsMatches = leadingVersionMatches(tlsRptTxt, 'TLSRPTv1');
 
       // A sender discards a record that does not BEGIN with the version field,
       // and `present` follows that rule exactly. An auditor must not: the
@@ -4312,9 +4600,9 @@
         // conformant, deliberate, and not a configured BIMI logo. Counting it
         // as present would report an indicator the operator said they do not
         // have; counting it as invalid would report a correct record as broken.
-        bimi: { present: bimiMatches.length === 1 && bimiValidation.valid && !bimiValidation.declined, declined: bimiMatches.length === 1 && bimiValidation.declined, advertised: bimiCandidates.length === 1, record: bimiRecord, validation: bimiValidation, multiple: bimiCandidates.length > 1, unknown: bimiTxt === null },
-        mtaSts: { present: mtaMatches.length === 1 && mtaValidation.valid, advertised: mtaCandidates.length === 1, policyVerified: false, record: mtaRecord, validation: mtaValidation, multiple: mtaCandidates.length > 1, unknown: mtaStsTxt === null },
-        tlsRpt: { present: tlsMatches.length === 1 && tlsValidation.valid, advertised: tlsCandidates.length === 1, record: tlsRecord, validation: tlsValidation, multiple: tlsCandidates.length > 1, unknown: tlsRptTxt === null },
+        bimi: { present: bimiMatches.length === 1 && bimiValidation.valid && !bimiValidation.declined, declined: bimiMatches.length === 1 && bimiValidation.declined, advertised: bimiCandidates.length > 0, record: bimiRecord, candidates: bimiCandidates, validation: bimiValidation, multiple: bimiMatches.length > 1, unknown: bimiTxt === null },
+        mtaSts: { present: mtaMatches.length === 1 && mtaValidation.valid, advertised: mtaCandidates.length > 0, policyVerified: false, record: mtaRecord, candidates: mtaCandidates, validation: mtaValidation, multiple: mtaMatches.length > 1, unknown: mtaStsTxt === null },
+        tlsRpt: { present: tlsMatches.length === 1 && tlsValidation.valid, advertised: tlsCandidates.length > 0, record: tlsRecord, candidates: tlsCandidates, validation: tlsValidation, multiple: tlsMatches.length > 1, unknown: tlsRptTxt === null },
         caa: caaResult,
         dnssec: dnssecResult,
         spfLookups,

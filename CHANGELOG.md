@@ -51,7 +51,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   New findings: `dkim-key-weak` (crit), `dkim-key-1024` (**info**),
   `dkim-key-revoked`, `dkim-key-unparseable`, `dkim-key-sha1`,
-  `dkim-key-testing`, `dkim-key-mixed`.
+  `dkim-key-testing`, `dkim-key-mixed`, `dkim-key-not-email`,
+  `dkim-key-malformed`.
 
   `dkim-key-1024` is informational rather than a warning, and that was settled
   by counting instead of arguing. Across the 40-domain backtest sample, 35 of
@@ -137,6 +138,32 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   opposite of what the domain published.
 
 ### Fixed
+
+- **Protocol-looking TXT is separated from sender-effective policy.** BIMI,
+  MTA-STS and TLS-RPT now retain every recognizable candidate as evidence while
+  counting only records with an exact, leading version field for multiplicity
+  and activation. A valid record beside a malformed, wrong-order candidate no
+  longer disables the valid policy or raises a false multiple-record finding.
+
+- **DKIM validation now covers the complete tag-list boundary without treating
+  unrelated wildcard TXT as a key.** Illegal tag syntax, folding, base64 pad
+  bits, `k=`, `n=`, missing `p=` and version placement all reach an explicit
+  malformed finding, including on revoked or service-scoped records. At the
+  same time, a TXT record that explicitly declares another protocol is ignored:
+  a live check found `gov.uk` synthesizing `v=DMARC1; p=reject` at every tested
+  selector, which the intermediate implementation counted as ten DKIM keys and
+  incorrectly awarded the full 15-point pillar.
+
+- **URI validation follows the imported grammar rather than a dotted-host
+  approximation.** TLS-RPT and CAA `iodef` accept valid IPv6/IPvFuture hosts,
+  quoted and percent-encoded mailboxes, UTF-8 domain names and structured
+  mailto header fields, while rejecting malformed IPv6 placement, invalid
+  percent encoding and forbidden component characters. BIMI keeps its own
+  stricter HTTPS/FQDN profile and enforces DNS label lengths.
+
+- **JSON backtests flush before exiting.** The 0.4.0 selector evidence pushes a
+  40-domain report beyond 64 KiB; an immediate `process.exit()` truncated the
+  piped JSON and made the release's score-diff gate unparsable.
 
 - **DKIM key sizes are the modulus's bit length, not its encoded byte width.**
   The two differ whenever the leading significant octet is below `0x80`, and the

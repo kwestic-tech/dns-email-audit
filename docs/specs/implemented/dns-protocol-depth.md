@@ -586,18 +586,18 @@ before the try, and `optionalCheck()` re-throws `DnsTypeError` alongside
 `AbortError` — a query for a type the transport does not know is a bug in
 `js/dns.js`, not a resolver hiccup, and must not be reported as one.
 
-**7. Twenty-one findings, not the fifteen estimated.** The Localization impact
+**7. Twenty-three findings, not the fifteen estimated.** The Localization impact
 section estimated "roughly fifteen new findings" and 40 to 60 locale keys; the
-implemented set is 21 findings and 73 keys, plus 36 more for the interface and
-the CSV headers — 109 keys, translated into all thirteen locales in the same
+implemented set is 23 findings and 81 keys, plus 29 more for the interface and
+the CSV headers — 110 keys, translated into all thirteen locales in the same
 change. The count rose because several conditions the design describes in prose
 turned out to deserve their own line rather than sharing one: `caa-single-issuer`
 and `caa-no-iodef` split from the CAA block, and the MX findings separated
 concentration from redundancy. No finding was added that the design did not
 already describe.
 
-**8. Verification.** `npm test` passes 1,466 assertions across the five suites,
-up from 1,189 at 0.3.0; `npm run locale:gate` passes 13/13 at 715/715 keys. The
+**8. Verification.** `npm test` passes 1,813 assertions across the five suites,
+up from 1,189 at 0.3.0; `npm run locale:gate` passes 13/13 at 724/724 keys. The
 backtest shows **zero grade movement and zero score movement** against `v0.3.0`
 on the 40-domain sample, with the deep checks both off and on, and `WEIGHTS`,
 `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` byte-identical — acceptance criterion 5.
@@ -606,6 +606,16 @@ Fan-out is 31.9 queries per domain with the deep checks off, unchanged from
 on; `PRIVACY.md` carries both numbers and its storage table is untouched,
 because the toggle's session memory is a module variable and not a second
 `localStorage` key.
+
+The final review also exercised the candidate/effective-state boundary, the
+complete DKIM tag-list and base64 grammar, and the imported URI productions.
+The live gate caught a wildcard-specific false positive that fixtures had not:
+`gov.uk` synthesized `v=DMARC1; p=reject` at every tested DKIM selector, and an
+intermediate implementation treated the DMARC `p=` tag as a public key. The
+candidate filter now retains malformed DKIM-family records as evidence while
+ignoring records that explicitly declare another protocol. A three-way live
+comparison of all 40 sampled domains — v0.3.0, 0.4.0 with deep checks off, and
+0.4.0 with them on — reports zero per-domain score or grade movement.
 
 The interface was exercised against live domains through the running app: the
 toggle's default, its auto-disable above 50 domains, the notice text, manual

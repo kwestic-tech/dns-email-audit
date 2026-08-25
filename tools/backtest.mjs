@@ -138,7 +138,7 @@ const fanOut = {
 };
 
 if (asJson) {
-  console.log(JSON.stringify({
+  var jsonReport = JSON.stringify({
     weights: D.WEIGHTS,
     thresholds: D.GRADE_THRESHOLDS,
     fanOut,
@@ -165,7 +165,17 @@ if (asJson) {
       },
       pillars: r.score.breakdown?.pillars,
     })),
-  }, null, 2));
+  }, null, 2);
+  // The selector evidence added in 0.4.0 pushes the 40-domain report beyond
+  // Node's commonly buffered 64 KiB stdout chunk. `console.log()` followed by
+  // an immediate `process.exit()` truncated valid JSON when another process
+  // captured it, defeating the score-diff gate this mode exists to support.
+  await new Promise(function (resolve, reject) {
+    process.stdout.write(jsonReport + '\n', function (error) {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
   process.exit(0);
 }
 

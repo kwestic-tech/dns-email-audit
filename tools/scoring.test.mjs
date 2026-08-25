@@ -3757,6 +3757,157 @@ eq('a decode failure raises only the decode finding',
     .filter(k => k === 'dkim-key-malformed' || k === 'dkim-key-unparseable'), ['dkim-key-unparseable']);
 eq('and a clean key raises neither',            malformedFindings('v=DKIM1; h=sha256; s=email; '), []);
 
+/* ── 43. Full grammar and candidate-state regression matrix ─────────── */
+section('43. Full DKIM/URI grammar and sender-effective candidate state');
+
+// Candidate evidence and sender-effective multiplicity are different axes.
+// A malformed record that senders discard cannot disable the valid record
+// beside it or make the UI claim the control is inactive.
+const MIXED_CANDIDATES = {
+  'mixed43.example NS': ns('ns1.mixed43.example.'),
+  'mixed43.example MX': mx('10 mail.mixed43.example.'),
+  'mixed43.example TXT': txt('v=spf1 -all'),
+  'mixed43.example A': a('203.0.113.5'),
+  'mixed43.example AAAA': 'nodata',
+  'default._bimi.mixed43.example TXT': txt(
+    'v=BIMI1 ; l=https://logo.example/logo.svg',
+    'l=https://old.example/old.svg; v=BIMI1'),
+  '_mta-sts.mixed43.example TXT': txt(
+    'v=STSv1 ; id=good',
+    'id=discarded; v=STSv1'),
+  '_smtp._tls.mixed43.example TXT': txt(
+    'v=TLSRPTv1\t; rua=mailto:good@example.com',
+    'rua=mailto:discarded@example.com; v=TLSRPTv1'),
+};
+sandbox.fetch = dohFixture(MIXED_CANDIDATES);
+const mixed43 = await D.analyzeDomain('mixed43.example', { dkim: false, advanced: true, retries: 0 });
+const mixed43Keys = mixed43.issues.map(i => i.key);
+['bimi', 'mtaSts', 'tlsRpt'].forEach(name => {
+  eq(`${name}: the valid sender-compatible record remains present`, mixed43.advanced[name].present, true);
+  eq(`${name}: malformed evidence does not become effective multiplicity`, mixed43.advanced[name].multiple, false);
+  eq(`${name}: configuration at the owner is advertised`, mixed43.advanced[name].advertised, true);
+  eq(`${name}: both raw candidates are retained`, mixed43.advanced[name].candidates.length, 2);
+});
+eq('no false BIMI multiple-record verdict', mixed43Keys.includes('bimi-multiple-records'), false);
+eq('no false MTA-STS multiple-record verdict', mixed43Keys.includes('mta-sts-multiple-records'), false);
+eq('no false TLS-RPT multiple-record verdict', mixed43Keys.includes('tls-rpt-multiple-records'), false);
+
+// The complete DKIM tag-list grammar reaches the malformed finding. These
+// are not merely unknown extensions: each violates a production RFC 6376
+// requires a verifier to enforce.
+const grammarFinding = record => {
+  const analyzed = D.analyzeDkimKey(record);
+  return {
+    valid: analyzed.valid,
+    findings: keysOf(dkimWith(sel('s1', record)))
+      .filter(k => k === 'dkim-key-malformed' || k === 'dkim-key-unparseable'),
+  };
+};
+const ED43 = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=';
+[
+  ['v= is not first', `k=ed25519; p=${ED43}; v=DKIM1`],
+  ['k= is empty', `v=DKIM1; k=; p=${ED43}`],
+  ['k= is not a hyphenated-word', `v=DKIM1; k=not a token; p=${ED43}`],
+  ['a bare fragment occurs', `v=DKIM1; garbage; k=ed25519; p=${ED43}`],
+  ['a tag name is malformed', `v=DKIM1; bad name=x; k=ed25519; p=${ED43}`],
+  ['an empty middle tag occurs', `v=DKIM1;; k=ed25519; p=${ED43}`],
+  ['n= contains a bad quoted-printable escape', `v=DKIM1; n=bad=zz; k=ed25519; p=${ED43}`],
+].forEach(([label, record]) => {
+  const result = grammarFinding(record);
+  eq(`${label}: invalid`, result.valid, false);
+  eq(`${label}: reported`, result.findings, ['dkim-key-malformed']);
+});
+eq('a well-formed unknown key type remains a restriction, not malformed',
+  D.analyzeDkimKey(`v=DKIM1; k=future-alg; p=${ED43}`).errors, []);
+eq('a syntactically valid unknown tag remains allowed',
+  D.analyzeDkimKey(`v=DKIM1; future_tag=x; k=ed25519; p=${ED43}`).valid, true);
+eq('legal folded whitespace inside p= remains accepted',
+  D.analyzeDkimKey(`v=DKIM1; k=ed25519; p=${ED43.slice(0, 8)}\r\n ${ED43.slice(8)}`).valid, true);
+['\n', '\v', '\f'].forEach((space, i) => {
+  eq(`non-FWS base64 whitespace ${i + 1} is refused`,
+    D.analyzeDkimKey(`v=DKIM1; k=ed25519; p=${ED43.slice(0, 8)}${space}${ED43.slice(8)}`).valid, false);
+});
+// Non-zero unused padding bits are not a canonical base64 encoding.
+eq('non-canonical base64 pad bits are refused',
+  D.analyzeDkimKey('v=DKIM1; k=ed25519; p=AB==').errors.includes('unparseable-key'), true);
+
+// A recognizable key candidate with no p= must reach the analyzer rather than
+// becoming a contradictory "nothing at this selector" result.
+eq('a missing-p candidate is retained as malformed evidence',
+  D.dkimRecordSet([{ type: 16, data: '"v=DKIM1; k=rsa"' }]).malformed,
+  ['v=DKIM1; k=rsa']);
+eq('an explicitly different protocol with p= is not a DKIM candidate',
+  D.dkimRecordSet([{ type: 16, data: '"v=DMARC1; p=reject"' }]),
+  { keys: [], revoked: [], unusable: [], malformed: [] });
+eq('a malformed DKIM-family version remains diagnosable',
+  D.dkimRecordSet([{ type: 16, data: `"v=DKIM2; k=ed25519; p=${ED43}"` }]).keys.length, 1);
+sandbox.fetch = dohFixture({
+  'broken._domainkey.missingp.example TXT': txt('v=DKIM1; k=rsa'),
+});
+const missingP43 = await D.checkDKIM('missingp.example', false, ['broken'], '@custom-unknown', false, '', { retries: 0, noCache: true });
+eq('a missing-p candidate does not claim the selector is empty', missingP43.missingSelectors.length, 0);
+eq('a missing-p candidate has its own evidence channel', missingP43.malformedSelectors.map(r => r.sel), ['broken']);
+eq('a missing-p candidate raises the malformed finding',
+  D.buildIssues({ emailProvider: 'X', spfStatus: { status: 'ok', warnings: [] },
+    dkimStatus: missingP43, dmarcStatus: { status: 'ok', policy: 'reject', warnings: [] },
+    reportPlan: { external: [] }, externalReportDestinations: [], advanced: {}, domain: 'missingp.example',
+  }).map(i => i.key).includes('dkim-key-malformed'), true);
+
+// The same grammar finding must not vanish merely because the key is revoked
+// or deliberately scoped away from ordinary email.
+const nonSigningEvidence = {
+  found: false, selectors: [], missingSelectors: [], testedSelectors: [], failedSelectors: [],
+  duplicated: [], keyProfile: {}, confidence: 'sampled',
+  revokedSelectors: [{ sel: 'old', key: D.analyzeDkimKey('v=DKIM1; h=; p=') }],
+  unusableSelectors: [{ sel: 'rpt', key: D.analyzeDkimKey(`v=DKIM1; s=tlsrpt; h=; k=ed25519; p=${ED43}`) }],
+  malformedSelectors: [],
+};
+eq('revoked and scoped malformed records both reach the finding',
+  D.buildIssues({ emailProvider: 'X', spfStatus: { status: 'ok', warnings: [] },
+    dkimStatus: nonSigningEvidence, dmarcStatus: { status: 'ok', policy: 'reject', warnings: [] },
+    reportPlan: { external: [] }, externalReportDestinations: [], advanced: {}, domain: 'e.example',
+  }).filter(i => i.key === 'dkim-key-malformed').map(i => i.args), [['rpt, old']]);
+
+const rpt43 = record => D.validateTlsRptRecord(record).valid;
+// RFC 3986 IP-literal boundaries and component characters.
+['::1', '2001:db8::1', '1:2:3:4:5:6:7:8', '::ffff:192.0.2.1'].forEach(ip => {
+  eq(`valid IPv6 literal ${ip}`, rpt43(`v=TLSRPTv1; rua=https://[${ip}]/r`), true);
+});
+[':::', '1:2:3:4:5:6:7', '1:2:3:4:5:6:7:8:9', '12345::1', '::ffff:999.0.2.1', '192.0.2.1::'].forEach(ip => {
+  eq(`invalid IPv6 literal ${ip}`, rpt43(`v=TLSRPTv1; rua=https://[${ip}]/r`), false);
+});
+eq('IPvFuture is accepted by the imported URI grammar',
+  rpt43('v=TLSRPTv1; rua=https://[v1.foo]/r'), true);
+eq('IPvFuture requires a hexadecimal version',
+  rpt43('v=TLSRPTv1; rua=https://[v.foo]/r'), false);
+eq('valid path/query/fragment characters are accepted',
+  rpt43('v=TLSRPTv1; rua=https://example.com/a:@%21$&\'()*+%2C%3B=/%20?q=/?:@#ok'), true);
+['<bad>', '{bad}', '"bad"'].forEach(path => {
+  eq(`illegal URI path ${path}`, rpt43(`v=TLSRPTv1; rua=https://example.com/${path}`), false);
+});
+
+// RFC 6068 addr-spec and hfield structure, including its own published
+// examples rather than an invented approximation.
+eq('encoded quoted local part remains accepted',
+  rpt43('v=TLSRPTv1; rua=mailto:%22not%40me%22@example.org'), true);
+eq('encoded multiple-recipient mailto is accepted',
+  rpt43('v=TLSRPTv1; rua=mailto:a@example.com%2Cb@example.com'), true);
+eq('valid mailto header fields are accepted',
+  rpt43('v=TLSRPTv1; rua=mailto:a@example.com?subject=hello%20world&body=ok'), true);
+eq('RFC 6068 UTF-8 domain example is accepted',
+  rpt43('v=TLSRPTv1; rua=mailto:user@%E7%B4%8D%E8%B1%86.example.org'), true);
+['a..b@example.com', '.a@example.com', 'a.@example.com', 'a=b@example.com'].forEach(address => {
+  eq(`invalid addr-spec ${address}`, rpt43(`v=TLSRPTv1; rua=mailto:${address}`), false);
+});
+eq('a mailto query must contain hfield syntax',
+  rpt43('v=TLSRPTv1; rua=mailto:a@example.com?garbage'), false);
+eq('an invalid percent-encoded UTF-8 sequence is refused',
+  rpt43('v=TLSRPTv1; rua=mailto:a@%FF.example'), false);
+
+const longLabel = 'a'.repeat(64);
+eq('BIMI refuses a DNS-impossible 64-octet FQDN label',
+  D.validateBimiRecord(`v=BIMI1; l=https://${longLabel}.example/logo.svg`).valid, false);
+
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);
