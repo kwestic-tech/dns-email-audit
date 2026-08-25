@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.1 (Draft) |
+| Spec version | 1.0 (Final) |
 | Target release | 0.4.0 |
-| Status | Awaiting review |
+| Status | Final — approved for implementation |
 | Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md) for rendering, [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) for the fixture-resolver test harness |
 | Blocks | [dnssec-evidence](dnssec-evidence.md), which qualifies the DANE conclusions this release produces |
 | Slug for open questions | `DEPTH` |
-| Last updated | 2026-08-20 |
+| Last updated | 2026-08-25 |
 
 ## Problem
 
@@ -19,7 +19,7 @@ TXT string. Nobody is told whether the key is RSA-1024, RSA-2048, Ed25519, or
 revoked. That is the single most actionable fact about a DKIM key and it is
 sitting decoded-but-unread in `s.value`.
 
-CAA is reduced to a boolean. `checkCAA()` at [`js/dns.js:868`](../../js/dns.js)
+CAA is reduced to a boolean. `checkCAA()` at [`js/dns.js:1555`](../../js/dns.js)
 walks up the tree, returns `found`, the raw record strings, and the name they
 were found at, and nothing parses them. A domain with
 `0 issue ";"` has locked out every certificate authority, and a domain with
@@ -27,14 +27,14 @@ were found at, and nothing parses them. A domain with
 green dot.
 
 MX records are read for provider detection at
-[`js/dns.js:303`](../../js/dns.js) and never validated. An MX pointing at a
+[`js/dns.js:336`](../../js/dns.js) and never validated. An MX pointing at a
 hostname that does not resolve is a total mail outage and reads today as a
 normal configured mail domain. Single-MX setups, MX targets that are CNAMEs,
 and MX hosts that all sit in one address block are equally invisible.
 
 TLSA is not queried at all, so DANE for SMTP is entirely unrepresented. That
 also means the transport layer cannot currently ask for it:
-`dnsTypeNum()` at [`js/dns.js:71`](../../js/dns.js) knows seven record types and
+`dnsTypeNum()` at [`js/dns.js:94`](../../js/dns.js) knows seven record types and
 silently returns 16, the TXT type number, for anything else. A caller asking for
 `DS` today would issue a TXT query, filter the answers for type 16, and receive a
 plausible-looking empty array.
@@ -64,7 +64,7 @@ plausible-looking empty array.
   must not imply it can. A selector name containing a year, such as `s2024`, is
   a naming convention and not evidence of anything.
 - **No scoring changes.** Weights in `WEIGHTS` at
-  [`js/dns.js:1300`](../../js/dns.js) are untouched. See `OQ-DEPTH-06`.
+  [`js/dns.js:1987`](../../js/dns.js) are untouched. See `OQ-DEPTH-06`.
 
 ## Design
 
@@ -86,11 +86,32 @@ cost of totality here is that a typo produces a confidently wrong empty answer
 rather than a stack trace. Every current call site passes a supported literal, so
 this change is behavior-preserving for existing code and fail-fast for new code.
 
-`cleanAnswerData()` at [`js/dns.js:194`](../../js/dns.js) strips surrounding
-quotes for non-TXT types. `DS`, `DNSKEY` and `TLSA` come back from the resolver
-as space-separated presentation-format strings that must not be quote-stripped or
-lowercased before parsing. Confirm the exact shape returned by the resolver
-before writing the parsers; see `OQ-DEPTH-01`.
+The exact resolver output for these three types was captured before any parser
+was designed and is recorded in
+[`fixtures/doh-shapes-0.4.0.md`](fixtures/doh-shapes-0.4.0.md). **Write the
+parsers against that file, not against the shape you expect**, because the three
+types come back in three different shapes from the same resolver:
+
+| Type | Observed `data` | Note |
+| --- | --- | --- |
+| `DS` | `2371 13 2 32996839a6d8…` | four plain fields, **lowercase** hex |
+| `DNSKEY` | `256 3 13 oJMRESz5E4gY…` | four plain fields, **case-sensitive** base64 |
+| `TLSA` | `3 1 1 ( 87D109DD0286… )` | **parenthesised**, **uppercase** hex |
+
+The `TLSA` parentheses are the trap `OQ-DEPTH-01` existed to catch. A parser
+written for the `DS` shape and reused for `TLSA` splits to `['3','1','1','(']`
+and reads the association data as an empty string, raising no error. Strip the
+parentheses and normalise hex case before comparing anything.
+
+A `TLSA` query may also return a `CNAME` in the same answer set — pointing
+`_25._tcp.<host>` at a shared `_dane.<zone>` name is ordinary DANE practice — so
+the TLSA path filters on `a.type === 52`. `dohQuery()` already does; `dohAll()`
+does not and must not be used here.
+
+`cleanAnswerData()` at [`js/dns.js:220`](../../js/dns.js) needs **no change**.
+Its non-TXT branch strips surrounding quotes and trims, and does not lowercase,
+so the case-sensitive `DNSKEY` base64 survives intact and the quote-stripping is
+a no-op for all three types. No CAA-style bypass is required.
 
 ### 2. DKIM key analysis
 
@@ -115,8 +136,15 @@ function analyzeDkimKey(txtValue) → {
 }
 ```
 
-Key size determination for RSA uses Web Crypto rather than a hand-rolled DER
-walk, because `importKey` validates the structure as a side effect:
+Key size determination for RSA does **both**, per `OQ-DEPTH-02`: a DER length
+walk establishes the modulus size synchronously and everywhere, and Web Crypto
+validates the structure when it is available. The size is the actionable fact and
+must not depend on a secure context; structural validation is a bonus that
+degrades to an explicit unknown rather than to a false negative.
+
+The DER walk reads the SPKI structure to the modulus INTEGER and takes its
+length. Web Crypto, where `crypto.subtle` exists, additionally confirms the key
+imports:
 
 ```js
 const der = base64ToBytes(tags.p);
@@ -126,22 +154,26 @@ const jwk = await crypto.subtle.exportKey('jwk', key);
 const keyBits = base64UrlToBytes(jwk.n).length * 8;   // 1024, 2048, 4096
 ```
 
-A key that fails `importKey` is `errors: ['unparseable-key']`, which is itself a
+A key that fails the DER walk is `errors: ['unparseable-key']`, which is itself a
 useful finding: a truncated `p=` value from a TXT record split across strings is
-a common and completely silent DKIM failure.
+a common and completely silent DKIM failure. A key that walks but fails
+`importKey` is `errors: ['key-structure-invalid']` — the size is still reported,
+because it was read without Web Crypto. Where `crypto.subtle` is absent
+altogether the analysis records `cryptoValidated: false` and reports the size
+regardless; it never reports a key as bad because the browser could not check it.
+
+Because the DER walk is synchronous, `analyzeDkimKey()` stays synchronous and
+returns the sizes directly. Only the optional Web Crypto validation is async, and
+it is attached separately inside `inspectDkimSelector()` at
+[`js/dns.js:500`](../../js/dns.js) where each selector's records are already in
+hand.
 
 Ed25519 keys are not SPKI. RFC 8463 defines the `p=` value for `k=ed25519` as
 the raw 32-byte public key, base64-encoded. Detection is therefore
 `keyType === 'ed25519' && keyBytes === 32`, and a length other than 32 is
 `errors: ['bad-ed25519-length']`.
 
-Because `importKey` is asynchronous, `analyzeDkimKey` is async. `checkDKIM()` at
-[`js/dns.js:494`](../../js/dns.js) already awaits per-selector work, so the
-analysis attaches inside `inspectDkimSelector()` at
-[`js/dns.js:467`](../../js/dns.js) where each selector's records are already in
-hand.
-
-`dkimKeyRecords()` at [`js/dns.js:379`](../../js/dns.js) currently filters out
+`dkimKeyRecords()` at [`js/dns.js:412`](../../js/dns.js) currently filters out
 records whose `p=` is empty, which discards exactly the revoked keys this release
 wants to report. Split it: keep the strict filter for the "is there a usable key
 here" question, and return the discarded records separately so a revoked key is
@@ -152,7 +184,7 @@ Advisory findings produced:
 | Finding | Condition | Severity |
 | --- | --- | --- |
 | `dkim-key-weak` | RSA modulus under 1024 bits | crit |
-| `dkim-key-1024` | RSA modulus exactly 1024 bits | warn |
+| `dkim-key-1024` | RSA modulus exactly 1024 bits | **info** (see `OQ-DEPTH-05`) |
 | `dkim-key-revoked` | `p=` present and empty | warn |
 | `dkim-key-unparseable` | `p=` fails to decode or import | warn |
 | `dkim-key-testing` | `t=y` | info |
@@ -233,7 +265,7 @@ async function auditMxHosts(mx, domain, queryOpts) → {
 }
 ```
 
-`isNullMx()` at [`js/dns.js:297`](../../js/dns.js) already detects the RFC 7505
+`isNullMx()` at [`js/dns.js:330`](../../js/dns.js) already detects the RFC 7505
 null MX and that path short-circuits before this function runs.
 
 An MX target that is a CNAME violates RFC 2181 §10.3 and RFC 5321 §5.1. It
@@ -242,11 +274,11 @@ specific and hard-to-diagnose ways. It is reported as a warning, not an error.
 
 `sharedPrefixes` uses the CIDR helpers already present for the SPF subnet audit:
 `parseIpCidr()`, `cidrContains()` and `ipv4ToBigInt()` / `ipv6ToBigInt()` at
-[`js/dns.js:1033`](../../js/dns.js) onward. No new IP arithmetic is needed.
+[`js/dns.js:1782`](../../js/dns.js) onward. No new IP arithmetic is needed.
 
 The whole function is wrapped in `optionalCheck()` so a resolver failure on one
 MX target degrades that host to `resolves: 'unknown'` rather than discarding the
-audit, following the pattern documented at [`js/dns.js:162`](../../js/dns.js).
+audit, following the pattern documented at [`js/dns.js:206`](../../js/dns.js).
 
 Query cost: one A and one AAAA per MX host, plus one CNAME probe per host. A
 five-MX domain adds fifteen queries. See `OQ-DEPTH-03`.
@@ -314,13 +346,13 @@ dkimStatus: {
 ```
 
 CSV columns are appended, never inserted, per the positional-header backfill at
-[`js/app.js:744`](../../js/app.js): `dkim_key_type`, `dkim_key_bits`,
+[`js/app.js:1079`](../../js/app.js): `dkim_key_type`, `dkim_key_bits`,
 `dkim_revoked`, `caa_issuers`, `caa_wildcard_issuers`, `mx_dangling`,
 `mx_host_count`, `tlsa_present`.
 
 The detail panel gains a key line under each DKIM selector at
-[`js/app.js:425`](../../js/app.js), a parsed CAA block, and an MX health block
-replacing the plain `r.mx.join('\n')` at [`js/app.js:489`](../../js/app.js).
+[`js/app.js:666`](../../js/app.js), a parsed CAA block, and an MX health block
+replacing the plain `r.mx.join('\n')` at [`js/app.js:782`](../../js/app.js).
 
 ## Localization impact
 
@@ -339,7 +371,7 @@ authority", "mail host", "unreachable".
 `analyzeDkimKey()` and `parseCaaRecord()` are pure and test directly in the
 existing `node:vm` sandbox with no DOM and no network. Note that
 `crypto.subtle` must be added to the sandbox globals in
-[`tools/scoring.test.mjs:15`](../../tools/scoring.test.mjs), which currently
+[`tools/scoring.test.mjs:16`](../../tools/scoring.test.mjs), which currently
 provides only `fetch`, `console`, `AbortController`, `URLSearchParams`,
 `setTimeout` and `clearTimeout`.
 
@@ -410,68 +442,29 @@ tool got more thorough.
 
 ## Open questions
 
-**OQ-DEPTH-01: What exactly does the resolver return for DS, DNSKEY and TLSA in
-JSON?**
-The DoH JSON `data` field for these types may be presentation format, or it may
-be an escaped or hex-encoded generic form for types the resolver does not
-specifically format. The parsers must be written against observed output, not
-assumed output. Someone needs to capture real responses for a signed domain and
-a DANE-enabled mail host and attach them to this spec before implementation. Note
-that `cleanAnswerData()` quote-strips and the CAA path deliberately bypasses it;
-the same decision is needed for these three types.
+None. All seven were resolved on 2026-08-25 — see **Resolved questions** below.
 
-**OQ-DEPTH-02: Is Web Crypto the right tool for RSA key size, or a plain DER
-walk?**
-`importKey` gives structural validation for free and is honest about malformed
-keys, at the cost of making the analysis asynchronous and dependent on a secure
-context. A 30-line DER length parser is synchronous, works everywhere including
-`file://`, and would accept some structurally invalid keys that Web Crypto
-rejects. A third option is to do both: DER walk for the size, Web Crypto for
-validation when available. Which?
+## Resolved questions
 
-**OQ-DEPTH-03: Are MX health and TLSA on by default, or behind a checkbox?**
-The options row already carries four toggles and a text field, and adding more
-makes the default path less informative for the majority of users who never
-change defaults. Against that, this is a privacy-conscious tool whose selling
-point is that it makes few queries, and MX plus TLSA plus PTR could double the
-fan-out. Options: on by default with the cost documented; a single "deep
-protocol checks" toggle covering all three; on by default but skipped
-automatically when the run exceeds some domain count. This draft prefers the
-single combined toggle, defaulted on, automatically disabled above 50 domains.
+| Id | Question | Resolution | Resolved in |
+| --- | --- | --- | --- |
+| OQ-DEPTH-01 | What exactly does the resolver return for `DS`, `DNSKEY` and `TLSA` in JSON? | **Captured, not assumed.** Real responses were fetched from `cloudflare-dns.com` on 2026-08-25 and are recorded in [`fixtures/doh-shapes-0.4.0.md`](fixtures/doh-shapes-0.4.0.md). The three types come back in **three different shapes from the same resolver**: `DS` as four plain fields with lowercase hex, `DNSKEY` as four plain fields with case-sensitive base64, and `TLSA` **parenthesised with uppercase hex** (`3 1 1 ( 87D1… )`). A parser written for the `DS` shape and reused for `TLSA` splits to `['3','1','1','(']` and reads the digest as an empty string with no error — precisely the failure this question existed to prevent. Two further findings: a `TLSA` query can return a `CNAME` alongside the `TLSA` (shared `_dane.<zone>` names are ordinary practice), so the path must filter on `a.type === 52`; and `cleanAnswerData()` needs no change, because it does not lowercase and none of these types are quoted. | 1.0 |
+| OQ-DEPTH-02 | Is Web Crypto the right tool for RSA key size, or a plain DER walk? | **Both — the draft's third option.** A synchronous DER length walk establishes the modulus size, and Web Crypto validates the structure where `crypto.subtle` exists. The size is the actionable fact and must not depend on a secure context; validation is a bonus that degrades to an explicit unknown. This also keeps `analyzeDkimKey()` synchronous and therefore trivially testable in the `node:vm` sandbox. **Note for implementation:** whether `file://` is a secure context was *not* established — the available browser surface loads local files as `data:` URLs, so the obvious probe measures the sandbox rather than `file://`. Confirm it against a real browser if it ever matters; under this resolution it does not, because the size never depends on it. | 1.0 |
+| OQ-DEPTH-03 | Are MX health and TLSA on by default, or behind a checkbox? | **A single "deep protocol checks" toggle, defaulted on, automatically disabled above 50 domains.** Approved by Ian 2026-08-25, with four riders: the interface shows a clear notice when the auto-disable fires; the user can re-enable manually; that explicit choice is remembered **for the browser tab's session only**; and the real fan-out is measured, published in `PRIVACY.md`, and the 50-domain threshold revisited after release. The session-scoped memory is deliberate and was confirmed explicitly: persisting it would need a second `localStorage` key, and `PRIVACY.md` states the app writes "exactly one value" and calls that "the entire footprint". **No new storage key, and no change to `PRIVACY.md`'s storage table.** A reload restores the default. | 1.0 |
+| OQ-DEPTH-04 | Do we implement forward-confirmed reverse DNS at all? | **No.** `PTR` is added to the transport, because `dnssec-evidence` (0.5.0) and `report-comparison` (0.8.0) may want it and adding a type is free; the FCrDNS check itself is not shipped. It is a deliverability signal rather than a security control, most large providers pass it trivially, it costs two queries per MX address, and it does not fit the tool's stated subject. Agreeing with the draft's own recommendation. | 1.0 |
+| OQ-DEPTH-05 | What is the threshold for a weak DKIM key? | **Sub-1024 is critical; exactly 1024 is *informational*, not a warning.** The draft asked whether warning on 1024 would generate noise on a majority of domains. It would, and this was measured rather than argued: across the 40-domain backtest sample, 66 keys were found on 27 domains — **35 of them (53%) are RSA-1024**, on 21 of those 27 domains, including Microsoft, GitHub, Apple, PayPal, Stripe, NASA, Harvard, Mozilla and the EFF. A warning firing on roughly 78% of domains that publish DKIM at all is not a signal. RFC 8301's floor still deserves saying, so it is said at informational severity, in the suggestions section this release's own risk note reserves for exactly this. **Zero sub-1024 keys were found**, which is the other half of the answer: `dkim-key-weak` stays critical and stays meaningful precisely because it will almost never fire. No Ed25519 keys were found either, so that path has fixture coverage only and no real-world sample. | 1.0 |
+| OQ-DEPTH-06 | When do these checks enter the score, and what gives way? | **Refine existing pillars; the 100-point total is a contract.** Approved by Ian 2026-08-25. DKIM key strength eventually refines the existing DKIM pillar, CAA quality refines the CAA pillar, and DANE refines the transport-security pillar — read here as **MTA-STS**, the pillar that already scores authenticated SMTP transport, with DNSSEC remaining separate as the prerequisite that *qualifies* DANE rather than as its host. **MX health never scores**: availability and operational hygiene are not email-security signals and must not distort the score. Weighting *within* that contract is revisited in `findings-and-remediation` (0.6.0); the 100-point total and the pillar set are not. Nothing changes in 0.4.0 — this is recorded so the advisory findings are shaped to feed it. Score continuity across releases is the reason, and it is what makes `report-comparison` (0.8.0) able to diff grades at all. | 1.0 |
+| OQ-DEPTH-07 | Does an unsigned TLSA record deserve a warning or an informational finding? | **Warning.** The draft asked what the user should do differently in each case, and the answer is concrete: an unsigned TLSA record can be stripped or rewritten by anyone on the path, so it provides no protection while creating a strong appearance of it — and the operator's action is real, which is to sign the zone or stop advertising DANE. That is the same reasoning that makes `dmarc-at-apex` critical when nothing else governs: a control that looks active and is not is worse than one that is plainly absent. It stays a warning rather than critical because nothing is broken by it. | 1.0 |
 
-**OQ-DEPTH-04: Do we implement forward-confirmed reverse DNS at all?**
-FCrDNS is a deliverability signal rather than a security control, most large
-providers pass it trivially, and it costs two queries per MX address. It also
-does not fit the tool's stated subject, which is DNS and email *security*.
-Recommendation in this draft is to add `PTR` to the transport, because 0.5.0 and
-0.8.0 may want it, and to not ship the check. Agree, or is FCrDNS worth having?
-
-**OQ-DEPTH-05: What is the threshold for a weak DKIM key?**
-RFC 8301 sets the floor at 1024 bits and recommends 2048. Real-world practice
-splits: many large senders still publish 1024-bit keys because some receivers
-historically rejected keys over 2048 bits in a single TXT string. This draft
-treats sub-1024 as critical and exactly 1024 as a warning, and does not flag 2048
-at all. Is flagging 1024 as a warning going to generate noise on a majority of
-audited domains, and if so is that a reason to soften it or a reason it is worth
-saying?
-
-**OQ-DEPTH-06: When do these checks enter the score, and what gives way?**
-The rubric currently totals 100 across eight pillars. Adding DKIM key strength,
-CAA quality, MX health and DANE means either taking weight from existing pillars
-or expanding the total and rescaling. Neither happens in 0.4.0. The question for
-review is what the intended end state is, so that the advisory findings are
-designed with it in mind: does DKIM key strength modify the existing DKIM pillar,
-or become its own? Does MX health belong in a security score at all?
-
-**OQ-DEPTH-07: Does an unsigned TLSA record deserve a warning or an informational
-finding?**
-Publishing TLSA without DNSSEC provides no protection while creating a strong
-appearance of protection, which argues for a warning. It also breaks nothing and
-harms nobody, which argues for informational. This draft warns. Reviewers who
-disagree should say what the user is supposed to do differently in each case.
+**Note on the DANE pillar reading.** `OQ-DEPTH-06`'s answer named "the relevant
+transport-security pillar" without naming it. This spec reads that as MTA-STS,
+on the grounds that MTA-STS and DANE are the two mechanisms for authenticated
+SMTP transport and belong in one place. If 0.6.0 disagrees, this is the sentence
+to change, and nothing in 0.4.0 depends on it — no scoring code is written here.
 
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-08-20 | Initial draft. |
+| 1.0 | 2026-08-25 | Final. Resolved all seven open questions. Two were settled with measurement rather than argument: `OQ-DEPTH-01`'s resolver shapes were captured before any parser was designed, and immediately found that `TLSA` comes back parenthesised where `DS` does not — a difference that would have produced a silently empty digest; and `OQ-DEPTH-05`'s 1024-bit threshold was decided by counting real keys, which showed 53% of keys on the sample are RSA-1024, so a warning would fire on most audited domains and the finding drops to informational. `OQ-DEPTH-02` takes the draft's third option, a DER walk for size with Web Crypto validation where available, which also keeps the analysis synchronous. `OQ-DEPTH-03` and `OQ-DEPTH-06` were decided by Ian; the former's "remember the user's choice" is explicitly session-scoped, because persisting it would need a second `localStorage` key and falsify `PRIVACY.md`'s "exactly one value" claim. Every code reference in the draft was re-pointed — all fifteen were stale, the spec having been written against 0.2.2 — and each referenced function was confirmed to still exist. |
