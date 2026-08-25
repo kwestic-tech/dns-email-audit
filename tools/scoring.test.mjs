@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
-import { dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa } from './lib/doh-fixture.mjs';
+import { dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa, ds, dnskey, rrsig, TYPE_NUM } from './lib/doh-fixture.mjs';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
 // `crypto` is here for the OPTIONAL half of the DKIM key analysis — the Web
@@ -3907,6 +3907,79 @@ eq('an invalid percent-encoded UTF-8 sequence is refused',
 const longLabel = 'a'.repeat(64);
 eq('BIMI refuses a DNS-impossible 64-octet FQDN label',
   D.validateBimiRecord(`v=BIMI1; l=https://${longLabel}.example/logo.svg`).valid, false);
+
+/* ── 44. The fixture harness and the transport agree on record types ──
+   Groundwork for dnssec-evidence (0.5.0). Two type maps now describe the same
+   thing — DNS_TYPES in js/dns.js, which decides what can be queried, and
+   TYPE_NUM in tools/lib/doh-fixture.mjs, which decides what a fixture key
+   resolves to. Nothing forced them to agree, and a divergence is silent in
+   both directions: a fixture written for a type the transport cannot query is
+   simply unreachable, and a transport type the harness does not know falls
+   through TYPE_NAME to 'TXT' and answers the wrong fixture entry. That is the
+   same silent-wrong-type failure dnsTypeNum() was changed to throw on,
+   relocated into the tests that are supposed to catch it.
+   ──────────────────────────────────────────────────────────────────────── */
+section('44. The fixture harness and the transport agree on record types');
+
+// dnsTypeNum() throws on a type it does not know, which is the whole point of
+// it — but a guard that propagates that throw takes the rest of the suite with
+// it, and a drift check whose failure mode is "no results at all" is worse
+// than the drift. Resolve to a value first, then assert on it.
+const transportType = type => {
+  try { return D.dnsTypeNum(type); } catch (e) { return e.name; }
+};
+Object.keys(TYPE_NUM).forEach(type => {
+  eq(`harness ${type} matches the transport`, transportType(type), TYPE_NUM[type]);
+});
+eq('the harness knows every type the transport can query',
+  Object.keys(D.DNS_TYPES).filter(type => TYPE_NUM[type] === undefined), []);
+eq('the harness claims no type the transport rejects',
+  Object.keys(TYPE_NUM).filter(type => D.DNS_TYPES[type] === undefined), []);
+
+// The builders write the resolver's presentation form verbatim. A DS digest is
+// lowercase hex and a DNSKEY key is case-sensitive base64 with '+', '/' and
+// '=' in it; a builder that normalized either would hide the parser defect
+// most likely to ship in 0.5.0.
+eq('ds() emits type 43 untouched',
+  ds('2371 13 2 b1ae88aff068ddec3f7ff662f47d6599c74134425c67106e6c203942d6227ea4'),
+  [{ type: 43, data: '2371 13 2 b1ae88aff068ddec3f7ff662f47d6599c74134425c67106e6c203942d6227ea4' }]);
+eq('dnskey() preserves base64 case and symbols',
+  dnskey('257 3 13 mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl+GqJxpVXckHAeF+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ=='),
+  [{ type: 48, data: '257 3 13 mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl+GqJxpVXckHAeF+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ==' }]);
+eq('rrsig() emits type 46', rrsig('DS 8 2 3600 1788794710 1786976710 44925 org. mcMQ').map(r => r.type), [46]);
+
+// A do=1 answer carries the RRSIG beside the record it signs. The fixture has
+// to be able to reproduce that, or no test can prove the type filter exists.
+sandbox.fetch = dohFixture({
+  'signed.example DS': { ad: true, answers: [
+    ...ds('2371 13 2 b1ae88aff068ddec3f7ff662f47d6599c74134425c67106e6c203942d6227ea4'),
+    ...rrsig('DS 8 2 3600 1788794710 1786976710 44925 example. mcMQJv3yllXqZPW2kGss3W8bJWnjdtMYYe0bY9T0U2zQ'),
+  ] },
+  'signed.example DNSKEY': { ad: true, answers: [
+    ...dnskey('256 3 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA=='),
+    ...dnskey('257 3 13 mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl+GqJxpVXckHAeF+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ=='),
+    ...rrsig('DNSKEY 13 2 3600 1792128637 1786858237 2371 example. k4KjRHaTjZno4j69wB4L/tVnR55KUxIIlOR6Lb4FWII'),
+  ] },
+});
+
+const dsAnswer = await D.dohFetch('signed.example', 'DS', { retries: 0, noCache: true });
+eq('the DS answer carries its RRSIG', dsAnswer.answers.map(r => r.type), [43, 46]);
+eq('the DS AD flag survives the transport', dsAnswer.ad, true);
+eq('filtering on 43 leaves exactly the DS record',
+  dsAnswer.answers.filter(r => r.type === 43).length, 1);
+
+const keyAnswer = await D.dohFetch('signed.example', 'DNSKEY', { retries: 0, noCache: true });
+eq('the DNSKEY answer carries its RRSIG', keyAnswer.answers.map(r => r.type), [48, 48, 46]);
+eq('the key field reaches the caller byte-identical',
+  keyAnswer.answers.filter(r => r.type === 48)[1].data.split(' ')[3],
+  'mdsswUyr3DPW132mOi8V9xESWE8jTo0dxCjjnopKl+GqJxpVXckHAeF+KkxLbxILfDLUT0rAK9iUzy1L53eKGQ==');
+
+// cleanAnswerData()'s non-TXT branch strips surrounding quotes and trims; the
+// 0.4.0 capture concluded it needs no change for these types. Asserted rather
+// than assumed, because every digest match in 0.5.0 depends on it.
+eq('a DNSKEY survives the shared answer cleaner',
+  (await D.dohFetch('signed.example', 'DNSKEY', { retries: 0, noCache: true }))
+    .answers.filter(r => r.type === 48).map(r => r.data.split(' ').length), [4, 4]);
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

@@ -4670,6 +4670,12 @@
     parseTlsaRecord,
     checkTlsa,
     dnsTypeNum,
+    // Exported so the test harness can assert its own type map has not drifted
+    // from this one. A fixture keyed for a type the transport cannot query is
+    // unreachable; a transport type the harness does not know is answered as
+    // TXT and silently mis-keyed. Both are the failure dnsTypeNum() throws to
+    // prevent, arriving through the tests instead of through production.
+    DNS_TYPES,
     analyzeDomain,
     checkConnectivity,
     dohFetch,
