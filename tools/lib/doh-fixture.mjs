@@ -19,7 +19,10 @@
  * fixture entry.
  */
 
-const TYPE_NUM = { A: 1, NS: 2, CNAME: 5, MX: 15, TXT: 16, AAAA: 28, CAA: 257 };
+const TYPE_NUM = {
+  A: 1, NS: 2, CNAME: 5, PTR: 12, MX: 15, TXT: 16, AAAA: 28,
+  DS: 43, DNSKEY: 48, TLSA: 52, CAA: 257,
+};
 const TYPE_NAME = Object.fromEntries(Object.entries(TYPE_NUM).map(([k, v]) => [v, k]));
 
 const STATUS = { noerror: 0, nodata: 0, nxdomain: 3, servfail: 2, refused: 5 };
@@ -29,6 +32,15 @@ export const txt = (...strings) => strings.map(s => ({ type: 16, data: `"${Strin
 export const ns = (...hosts) => hosts.map(h => ({ type: 2, data: h }));
 export const mx = (...entries) => entries.map(e => ({ type: 15, data: e }));
 export const a = (...addresses) => addresses.map(v => ({ type: 1, data: v }));
+export const aaaa = (...addresses) => addresses.map(v => ({ type: 28, data: v }));
+export const cname = (...targets) => targets.map(v => ({ type: 5, data: v }));
+export const caa = (...records) => records.map(v => ({ type: 257, data: v }));
+/**
+ * TLSA answers are written in the resolver's own presentation form —
+ * parenthesised, uppercase hex — so a fixture exercises the parenthesis strip
+ * rather than a tidied-up shape that would let the trap through untested.
+ */
+export const tlsa = (...records) => records.map(v => ({ type: 52, data: v }));
 
 /**
  * Build a `fetch` implementation from a fixture map.

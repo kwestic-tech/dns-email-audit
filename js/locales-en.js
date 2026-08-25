@@ -45,7 +45,10 @@ window.__I18N_EN__ = {
     "www": "Detect website hosting",
     "wildcard": "Detect wildcard TXT records",
     "dkimSelectors": "Additional DKIM selectors",
-    "footer": "DNS via Cloudflare DoH · No data stored · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a>"
+    "footer": "DNS via Cloudflare DoH · No data stored · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a>",
+    "deepChecks": "Deep protocol checks (MX health, TLSA)",
+    "deepChecksTitle": "Resolves every MX host and looks for TLSA records; adds roughly 7 DNS queries per domain",
+    "deepChecksAutoDisabled": "Deep protocol checks are off for this run: they add about 7 DNS queries per domain, and this run has {1} domains against a limit of {0}. Tick the box again to run them anyway."
   },
   "help": {
     "title": "How it works:",
@@ -112,7 +115,9 @@ window.__I18N_EN__ = {
     "status": "Status",
     "none": "None",
     "na": "N/A",
-    "dash": "—"
+    "dash": "—",
+    "caa": "CAA Policy",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "Show {0} more characters",
@@ -176,7 +181,8 @@ window.__I18N_EN__ = {
     "meterNear": "{0}/10 ⚠ Near limit",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "DNS lookups",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} conflicting records — none of them applies:"
   },
   "dmarc": {
     "missing": "✗ Missing",
@@ -220,7 +226,14 @@ window.__I18N_EN__ = {
     "viaSpf": "via SPF: {0}",
     "noteWildcard": "Wildcard TXT bug may be interfering",
     "noteNotFound": "No active DKIM key found among {0} tested selectors.",
-    "noteNotFoundWithErrors": "No active DKIM key found among {0} completed selector checks; {1} DNS queries failed."
+    "noteNotFoundWithErrors": "No active DKIM key found among {0} completed selector checks; {1} DNS queries failed.",
+    "keyLabel": "Key",
+    "keyRsaBits": "RSA {0}-bit",
+    "keyRevoked": "revoked",
+    "keyUnreadable": "does not decode",
+    "keyUnknownType": "unrecognized key type",
+    "keyStructureInvalid": "structure rejected",
+    "keyTesting": "testing mode"
   },
   "adv": {
     "configured": "✓ Configured",
@@ -316,7 +329,15 @@ window.__I18N_EN__ = {
       "Record Hygiene",
       "DMARC Found At",
       "DMARC Labels Up",
-      "DMARC Discovery Terminated"
+      "DMARC Discovery Terminated",
+      "DKIM Key Type",
+      "DKIM Key Bits",
+      "DKIM Revoked Selectors",
+      "CAA Issuers",
+      "CAA Wildcard Issuers",
+      "MX Dangling",
+      "MX Host Count",
+      "TLSA Present"
     ],
     "yes": "Yes",
     "no": "No",
@@ -353,7 +374,7 @@ window.__I18N_EN__ = {
       "fixCode": "; Null MX — tells senders this domain accepts no mail:\n@    MX     0 .\n\n; SPF — block all senders:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — reject any spoofed mail:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Multiple SPF records found — SPF fails permanently (permerror) for all mail from this domain.",
+      "msg": "{0} SPF records found — SPF fails permanently (permerror) for all mail from this domain, and none of them applies.",
       "what": "RFC 7208 §4.5 allows exactly one <code>v=spf1</code> TXT record per domain. When a receiver finds two, it returns <code>permerror</code> and stops — it does not merge them, and it does not pick the stricter one. The practical effect is worse than having no SPF at all: your record looks correct in the DNS panel, but every message from your domain fails SPF authentication. This usually happens when a second mail service is onboarded and adds its own record instead of editing the existing one.",
       "fix": "Merge the records into one. Take every <code>include:</code>, <code>ip4:</code> and <code>ip6:</code> mechanism from all records, put them in a single <code>v=spf1</code> record, and delete the others. Watch the 10-lookup limit while merging — combining records is a common way to exceed it.",
       "fixCode": "; Before — two records, SPF fails for everything:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; After — one record with both senders:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
@@ -728,6 +749,133 @@ window.__I18N_EN__ = {
       "msg": "Only {0} of {1} report destinations were checked — this audit stops at 10. Not checked: {2}",
       "what": "Your record names more report destinations than this audit will follow. Each one outside your organizational domain costs a DNS tree walk plus an authorization lookup, and the number of them is set by the record itself — so an audit will not let a single record decide how much DNS traffic it generates. RFC 9990 §3.5 anticipates exactly this, saying reports go to every URI <em>\"up to the Receiver's limits on supported URIs\"</em>, and real receivers impose their own limits too. This notice exists so the verdicts above are not mistaken for a complete list.",
       "fix": "Nothing is wrong with the record. If you want every destination audited, split the domains across separate runs. If the list has simply grown over time, it is worth pruning: destinations you no longer read are destinations a receiver still has to try."
+    },
+    "dkim-key-weak": {
+      "msg": "DKIM key below 1024 bits: {0} — the signature is forgeable and receivers may ignore it.",
+      "what": "RFC 8301 sets 1024 bits as the absolute floor for an RSA DKIM key and recommends 2048. A modulus below that floor can be factored by an attacker with modest resources, and anyone who factors it can sign mail that passes DKIM as your domain — which also means it passes DMARC, because DMARC accepts a message whose DKIM signature aligns. Some receivers have stopped accepting short keys outright, so the same record can silently fail verification at one provider while passing at another.",
+      "fix": "Generate a new 2048-bit key and publish it under a <strong>new</strong> selector, switch your signing service to that selector, and only then remove the old record. Rotating in place breaks every message still in flight that was signed with the old key.",
+      "fixCode": "; A receiver queries s2026._domainkey.example.com for this key\n; Publish the new key first, under a new selector:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Switch signing to s2026, wait for mail in flight to clear,\n; then delete the old short-key record:\ns2020._domainkey    TXT    \"v=DKIM1; k=rsa; p=MFwwDQYJKoZIhvcNAQEB...\""
+    },
+    "dkim-key-1024": {
+      "msg": "DKIM key is 1024 bits: {0} — valid today, but 2048 is the current recommendation.",
+      "what": "RFC 8301 names 1024 bits as the minimum and 2048 as the recommended size for RSA DKIM keys. A 1024-bit key is not broken and is not being rejected by mainstream receivers — this is genuinely common, and plenty of large senders still publish one. It is listed here as a rotation to schedule rather than an incident to work, which is why it sits with the suggestions and not with the failures.",
+      "fix": "Fold a move to 2048 bits into your next planned key rotation. There is nothing to do urgently. Publish the new key under a new selector, switch signing to it, then retire the old record."
+    },
+    "dkim-key-revoked": {
+      "msg": "DKIM selector published with an empty key: {0} — the selector is revoked and signs nothing.",
+      "what": "RFC 6376 §3.6.1 defines a <code>p=</code> tag with an empty value as key revocation: a receiver that finds it treats every signature made with that selector as permanently invalid. That is the correct way to retire a selector. It becomes a problem when the selector is still configured somewhere as a signing key, because the mail goes out signed, the receiver looks up the selector, and the signature fails — which looks identical to a forgery.",
+      "fix": "Confirm nothing still signs with this selector. If the selector is genuinely retired, the revocation record can stay indefinitely or be removed once no mail signed with it is still in flight. If something is still signing with it, publish the real public key or move that service to a live selector.",
+      "fixCode": "; A revocation — empty p=, deliberately:\nold2019._domainkey    TXT    \"v=DKIM1; k=rsa; p=\"\n\n; A live selector, for comparison:\ns2026._domainkey      TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "dkim-key-unparseable": {
+      "msg": "DKIM public key does not decode: {0} — no receiver can verify a signature from this selector.",
+      "what": "The record is present and the selector is found, so the domain looks configured — but the <code>p=</code> value is not a key any verifier can read. Much the most common cause is a truncated record: a DNS TXT string is limited to 255 characters, a 2048-bit key is longer than that, and a key pasted into a control panel that does not split it correctly loses its tail. The failure is completely silent. Nothing warns you, the record resolves, and every signature simply fails.",
+      "fix": "Re-publish the key, letting your DNS provider split it into multiple quoted strings rather than truncating it. Compare the published value against the key your signing service holds — they must match character for character, including case, because the value is base64 and case-sensitive.",
+      "fixCode": "; One TXT record, split into quoted strings the resolver rejoins:\ns2026._domainkey    TXT    ( \"v=DKIM1; k=rsa; \"\n                            \"p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\"\n                            \"...IDAQAB\" )"
+    },
+    "dkim-key-testing": {
+      "msg": "DKIM selector is in testing mode: {0} — receivers are told to ignore its results.",
+      "what": "The <code>t=y</code> flag tells receivers the domain is still testing DKIM and that they should treat signed and unsigned mail alike. It exists so a new deployment can be validated without risking delivery. Left in place after go-live it quietly cancels the protection: a receiver honouring the flag will not act on a signature failure, so the selector contributes nothing to DMARC.",
+      "fix": "Remove the <code>t=y</code> flag once you have confirmed signatures verify. If you are genuinely still testing, leave it and revisit after go-live."
+    },
+    "dkim-key-mixed": {
+      "msg": "DKIM selectors use different key strengths, from {0} to {1} bits — the weakest one sets your real strength.",
+      "what": "An attacker picks which selector to attack, not you. If one selector signs at 1024 bits and another at 2048, the domain's practical DKIM strength is 1024, because forging a signature under the weaker selector produces mail that passes DKIM and DMARC just as convincingly. Different sizes usually mean a rotation that was started and never finished, or a second sending service set up separately from the first.",
+      "fix": "Bring the weaker selectors up to the size of the strongest, or retire them if the service behind them no longer sends."
+    },
+    "dkim-key-sha1": {
+      "msg": "DKIM key allows only SHA-1: {0} — RFC 8301 forbids SHA-1 for DKIM signatures.",
+      "what": "The <code>h=</code> tag lists the hash algorithms a verifier may accept for this key. With <code>sha1</code> as the only entry, a conformant receiver has nothing acceptable to offer: RFC 8301 §3.1 removed SHA-1 from DKIM outright, on the strength of practical collision attacks. Receivers enforcing that will fail the signature. Listing <code>sha1</code> alongside <code>sha256</code> is fine and is not reported here — a verifier can simply choose the stronger one.",
+      "fix": "Change <code>h=sha1</code> to <code>h=sha256</code>, or drop the <code>h=</code> tag entirely, which allows any hash the verifier supports. Confirm your signing service is producing SHA-256 signatures before you do.",
+      "fixCode": "; Before — nothing a conformant receiver will accept:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha1; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; After:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "caa-blocks-all-issuance": {
+      "msg": "CAA at {0} authorizes no certificate authority — no CA can issue a certificate for this domain.",
+      "what": "An <code>issue</code> property whose value is <code>;</code> names no issuer, and RFC 8659 §4.2 reads that as authorizing nobody. Every conformant certificate authority will refuse. This is a legitimate and deliberate setting for a domain that must never have a certificate, so it is not necessarily wrong. It becomes an outage when it was not intended, and the outage is invisible until a renewal fails — the existing certificate keeps working right up to the day it expires.",
+      "fix": "If this is deliberate, nothing to do. If it is not, add an <code>issue</code> property naming the certificate authority you use. Remember that CAA is inherited down the tree, so a record set at the parent governs this name too.",
+      "fixCode": "; Blocks every CA:\nexample.com.    CAA    0 issue \";\"\n\n; Authorizes one CA:\nexample.com.    CAA    0 issue \"letsencrypt.org\""
+    },
+    "caa-unknown-critical-tag": {
+      "msg": "CAA property not recognized, with the critical flag set: {0} — a conformant CA must refuse to issue.",
+      "what": "RFC 8659 §4.1 defines the top bit of the flags byte as Issuer Critical. A certificate authority that encounters a property it does not understand with that bit set MUST refuse to issue, rather than ignoring the property and carrying on. So an unrecognized critical property is an issuance block, and it is one that will not be noticed until the next renewal. The same property without the critical bit is inert and would not be reported here.",
+      "fix": "Check the property name for a typo against the registry — <code>issue</code>, <code>issuewild</code>, <code>iodef</code>, <code>issuemail</code>, <code>contactemail</code>, <code>contactphone</code>. If the property is intentional and non-standard, clear the critical flag by setting the flags byte to 0.",
+      "fixCode": "; Critical and unrecognized — blocks issuance:\nexample.com.    CAA    128 issuewildcard \"letsencrypt.org\"\n\n; The registered property name:\nexample.com.    CAA    0 issuewild \"letsencrypt.org\""
+    },
+    "caa-malformed": {
+      "msg": "CAA record could not be parsed: {0}",
+      "what": "A CAA record is three fields: a flags byte from 0 to 255, a property tag, and a quoted value. A record that does not fit that shape may be ignored by a certificate authority, or may be treated as an unrecognized property — and if its flags byte happens to set the critical bit, that means refusing to issue. The behaviour is not something you want to leave to chance.",
+      "fix": "Re-enter the record in the standard three-field form. Some DNS interfaces ask for the flags, tag and value in separate boxes and add the quotes for you; others take the whole line, in which case the value needs its own quotation marks."
+    },
+    "caa-no-iodef": {
+      "msg": "CAA is published but has no iodef property — you will not hear about refused certificate requests.",
+      "what": "The <code>iodef</code> property gives a certificate authority somewhere to report a request that your CAA policy made it refuse. Without one, a refusal is silent from your side: an attacker probing for a CA that will issue for your domain looks exactly like nothing happening, and so does a colleague who tried to get a certificate from the wrong provider.",
+      "fix": "Add an <code>iodef</code> property pointing at a mailbox somebody reads. It costs one record and it is the only notification channel CAA has.",
+      "fixCode": "example.com.    CAA    0 issue \"letsencrypt.org\"\nexample.com.    CAA    0 iodef \"mailto:security@example.com\""
+    },
+    "caa-single-issuer": {
+      "msg": "CAA authorizes one certificate authority: {0} — changing provider will need a DNS change first.",
+      "what": "A single authorized issuer is a perfectly good, tight policy and this is not a misconfiguration. It is worth knowing about at the moment it starts to matter: if that CA has an outage, or you need to move provider in a hurry, no other authority can issue until this record is updated — and whoever is trying to get the certificate is often not whoever can edit DNS.",
+      "fix": "Nothing to change. Make sure the people who request certificates know the record exists and who can edit it. If you already have a fallback CA in mind, authorizing it now costs one record and removes a step from a bad day."
+    },
+    "mx-dangling": {
+      "msg": "MX host does not resolve: {0} — mail routed there cannot be delivered.",
+      "what": "An MX record names a hostname, and that hostname has to resolve to an address before any sending server can connect to it. This one does not: the name returns no A or AAAA record. A sending server that selects this host has nowhere to go — it will queue the message and retry, and eventually return it to the sender. If it is your only MX host, you are receiving no mail at all right now. If it is a backup, you are one failure away from that.",
+      "fix": "Check the hostname for a typo, and check that the zone it lives in still publishes an address record for it. A host that has been decommissioned should have its MX record removed rather than left pointing at nothing — a dangling backup MX delays delivery on every retry cycle.",
+      "fixCode": "; Every host named on the right must resolve to an address:\nexample.com.        MX     10 mail1.example.com.\nexample.com.        MX     20 mail2.example.com.\n\nmail1.example.com.  A      203.0.113.10\nmail2.example.com.  A      203.0.113.11"
+    },
+    "mx-cname-target": {
+      "msg": "MX target is a CNAME: {0} — RFC 2181 and RFC 5321 both forbid this.",
+      "what": "RFC 2181 §10.3 and RFC 5321 §5.1 both require that an MX record point at a name with an address record, not at an alias. It usually works anyway, because most sending servers follow the alias without complaining, which is exactly why the mistake survives in the wild. Where it breaks, it breaks specifically and confusingly: some servers refuse the alias outright, and the extra lookup adds a failure point on every delivery. It also interacts badly with DANE, where the TLSA record must be found under the right name.",
+      "fix": "Point the MX record at the alias target directly, so the MX names a host that has its own address record.",
+      "fixCode": "; Before — the MX names an alias:\nexample.com.        MX      10 mail.example.com.\nmail.example.com.   CNAME   host7.provider.example.\n\n; After — the MX names the host itself:\nexample.com.        MX      10 host7.provider.example."
+    },
+    "mx-single-host": {
+      "msg": "Only one MX host is published: {0} — mail queues at the sender while it is unreachable.",
+      "what": "With one MX host, any period where that host is unreachable is a period where inbound mail sits in other people's queues. Nothing is lost immediately — sending servers retry for days before returning a message — but delivery stops, and it stops for a maintenance window as readily as for a failure. Many hosted mail providers publish several MX hosts precisely to avoid this; a single one is more often a self-hosted setup or a provider entry that was only half-copied.",
+      "fix": "Publish a second MX host at a higher preference number if your mail platform offers one. If your provider gave you several hostnames, check that all of them made it into DNS."
+    },
+    "mx-no-ipv6": {
+      "msg": "No MX host has an IPv6 address — IPv6-only senders cannot reach your mail.",
+      "what": "A sending server on an IPv6-only network reaches an IPv4-only mail host through whatever translation its operator provides, or not at all. This is not a security finding and it is not urgent: IPv4 mail delivery is not going away. It is a reachability note, and it also affects reputation, because some large receivers treat dual-stack availability as a signal of a well-maintained mail system.",
+      "fix": "Add AAAA records for your MX hosts once the hosts themselves accept mail over IPv6. Publishing an AAAA record for a host that is not actually listening on IPv6 is worse than having none — senders will try it first and fail."
+    },
+    "mx-same-prefix": {
+      "msg": "MX hosts share one address block, {0}: {1} — the redundancy is smaller than it looks.",
+      "what": "Several MX hosts published at different preferences read as redundancy, but if every address sits in the same small block, they very likely share a rack, an uplink and a data centre. The failures that take out one will usually take out all of them, so the second host is protecting against a server fault and not against anything larger. This is normal for a single-site mail platform and worth knowing rather than fixing.",
+      "fix": "If the redundancy is meant to survive a site failure, place at least one MX host in a different network. If the second host is only there to cover a server restart, nothing needs to change."
+    },
+    "mx-duplicate-preference": {
+      "msg": "Two or more MX hosts share the same preference value: {0} — sending servers will load-balance across them.",
+      "what": "Equal preference values are a deliberate feature: RFC 5321 §5.1 says a sender should pick among equal-preference hosts at random, which spreads inbound mail across them. That is what you want for two equivalent front ends. It is not what you want if one host was intended as a backup, because half your mail will go to the backup all the time.",
+      "fix": "Nothing, if the hosts are equivalent. If one is meant to be a fallback, give it a higher preference number — higher means less preferred."
+    },
+    "tlsa-published-unsigned": {
+      "msg": "TLSA published without a validated DNSSEC chain: {0} — DANE offers no protection here.",
+      "what": "DANE works by putting the certificate a mail server should present into DNS, and it is only worth anything if that DNS answer cannot be tampered with. Without DNSSEC, anyone able to intercept the lookup can strip the TLSA record — at which point the sending server sees a host with no DANE policy and delivers anyway — or replace it with a record matching their own certificate. The record still appears in every diagnostic as if DANE were configured, which is the reason this is worth saying out loud: it looks like protection, and it is not.",
+      "fix": "Sign the zone the TLSA record lives in and get the DS record published at its parent. Until that is done, the TLSA record is decoration. If signing the zone is not on the cards, removing the TLSA record is more honest than leaving it there.",
+      "fixCode": "; A sending server queries _25._tcp.mail1.example.com for this record,\n; and it must sit in a DNSSEC-signed zone to mean anything:\n_25._tcp.mail1.example.com.    TLSA    3 1 1 ( 87D109DD028655D5370B... )"
+    },
+    "tlsa-malformed": {
+      "msg": "TLSA record is malformed: {0} — a sending server enforcing DANE may refuse to deliver.",
+      "what": "A TLSA record is a certificate usage, a selector, a matching type and the association data, and the length of that data is fixed by the matching type — 32 bytes for SHA-256, 64 for SHA-512. A record that does not fit cannot be matched against any certificate. Under DANE that is not a soft failure: a sending server that finds a TLSA record it cannot use is required to treat delivery as failed rather than fall back to an unauthenticated connection, so a malformed record can stop mail arriving.",
+      "fix": "Regenerate the record from the certificate the mail host actually presents, rather than editing the digest by hand. Check that the matching type matches the digest length you published."
+    },
+    "tlsa-partial-coverage": {
+      "msg": "TLSA is published for {0} of {1} mail hosts — the hosts without it accept unauthenticated connections.",
+      "what": "A sending server picks an MX host and looks for a TLSA record under that host's name. Where it finds one, the connection is authenticated; where it does not, delivery falls back to ordinary opportunistic TLS, which an attacker on the path can downgrade. So partial coverage means an attacker simply targets the host that has no record. The protection is only as good as its weakest MX host.",
+      "fix": "Publish a TLSA record for every MX host, or remove the records until you can cover all of them. Each host needs its own record, under <code>_25._tcp</code> at that host's name."
+    },
+    "dkim-key-not-email": {
+      "msg": "DKIM key published but not applicable to email: {0} — it does not count toward this domain's email signing.",
+      "what": "A DKIM key record can restrict what it may be used for. An <code>s=</code> tag lists the services the key applies to, and a key scoped to something else — <code>s=tlsrpt</code>, for example, which RFC 8460 uses for TLS reporting — is not a key for ordinary mail. A key whose <code>k=</code> names an algorithm this tool does not recognize is in the same position: RFC 6376 §3.6.1 says a verifier must ignore it. These records are usually correct and deliberate. They are listed here so that a domain whose only DKIM records are of this kind is told why the audit reports no signing key, instead of being told nothing was found at a selector the operator knows they configured.",
+      "fix": "Nothing, if the restriction is intended. If this selector was meant to sign ordinary mail, either remove the <code>s=</code> tag — an absent tag means the key applies to every service — or include <code>email</code> in its list. Check the <code>k=</code> value too: only <code>rsa</code> and <code>ed25519</code> are defined for DKIM.",
+      "fixCode": "; Scoped to another service — valid, but not an email key:\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Applies to email, either by naming it or by omitting s= entirely:\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "dkim-key-malformed": {
+      "msg": "DKIM key record is malformed: {0} — the key may decode, but the record around it does not parse.",
+      "what": "This is separate from a key that fails to decode. The <code>p=</code> value here may be perfectly good; what is wrong is the record it sits in — an empty <code>h=</code>, <code>s=</code> or <code>t=</code> list where the tag is present but names nothing, a repeated tag, or a <code>v=</code> that is not <code>DKIM1</code>. RFC 6376 §3.6.1 defines each of those tags as a non-empty colon-separated list, and a verifier reading a record it cannot parse is entitled to ignore the key entirely. The selector still counts as published, because a broken record at a name you configured is a different problem from nothing being there at all — but it is not something to rely on.",
+      "fix": "Compare the record against what your signing service generated. The usual causes are a tag left with no value after an edit — <code>s=</code> or <code>h=</code> with nothing following it — and a tag pasted twice. Remove an optional tag entirely rather than leaving it empty: an absent <code>s=</code> means the key applies to every service, and an absent <code>h=</code> means every hash is acceptable.",
+      "fixCode": "; Malformed — the tags are present but empty:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=; s=; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Correct — either name the values, or leave the tags out:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {
@@ -935,5 +1083,27 @@ window.__I18N_EN__ = {
       "ruf": "Forensic reports (ruf=)",
       "uris": "Report destinations"
     }
+  },
+  "mx": {
+    "doesNotResolve": "does not resolve",
+    "notChecked": "not checked",
+    "cnameTarget": "CNAME target"
+  },
+  "caa": {
+    "issuers": "Certificate authorities",
+    "wildcard": "Wildcards",
+    "iodef": "Report to",
+    "none": "none",
+    "blocksAll": "No certificate authority is authorized",
+    "wildcardBlocked": "No wildcard certificates",
+    "wildcardViaIssue": "governed by the issue set",
+    "unknownCritical": "Unrecognized critical property"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Published, not yet qualified — DANE is only meaningful behind a validated DNSSEC chain, which this release does not verify.",
+    "notPublished": "not published",
+    "notChecked": "not checked",
+    "authenticated": "published · DNSSEC-authenticated",
+    "unauthenticated": "published · not DNSSEC-authenticated"
   }
 };

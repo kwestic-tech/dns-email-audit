@@ -10,10 +10,15 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
-import { dohFixture, txt, ns, mx, a } from './lib/doh-fixture.mjs';
+import { dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa } from './lib/doh-fixture.mjs';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
-const sandbox = { window: { __PUBLIC_SUFFIX_RULES__: ['com', 'co.uk', '*.ck', '!www.ck'] }, fetch: async () => ({ ok: false }), console, AbortController, URLSearchParams, setTimeout, clearTimeout };
+// `crypto` is here for the OPTIONAL half of the DKIM key analysis — the Web
+// Crypto structural check. `atob` is deliberately NOT provided: the DER length
+// walk that produces every key size must work with nothing but the language,
+// and leaving the global out is what proves it does. A sandbox that handed the
+// code a convenience the browser might not have would test the wrong thing.
+const sandbox = { window: { __PUBLIC_SUFFIX_RULES__: ['com', 'co.uk', '*.ck', '!www.ck'] }, fetch: async () => ({ ok: false }), console, AbortController, URLSearchParams, setTimeout, clearTimeout, crypto };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(readFileSync(`${REPO}/js/dkim-selectors.js`, 'utf8'), sandbox);
@@ -2305,6 +2310,1603 @@ const tooLong = (await D.checkExternalReportAuth('src.example', [longHost], { re
 eq('an over-long authorization name is undeterminable, not unauthorized',
   tooLong.state, 'unverifiable');
 eq('and says why', tooLong.error, 'name-too-long');
+
+/* ── 33. Transport: unsupported record types fail loudly ─────────────── */
+section('33. Transport: dnsTypeNum throws instead of guessing TXT');
+
+// The old `?? 16` made every unknown type a TXT query whose answers were then
+// filtered for type 16 — so a DS lookup returned a confident empty array.
+eq('SVCB throws rather than returning 16', (() => {
+  try { D.dnsTypeNum('SVCB'); return 'no-throw'; } catch (e) { return e.name; }
+})(), 'DnsTypeError');
+eq('the message names the type', (() => {
+  try { D.dnsTypeNum('SVCB'); return ''; } catch (e) { return e.message; }
+})(), 'unsupported DNS type: SVCB');
+eq('a prototype property name is not a type', (() => {
+  try { D.dnsTypeNum('constructor'); return 'no-throw'; } catch (e) { return e.name; }
+})(), 'DnsTypeError');
+
+eq('DS is supported',     D.dnsTypeNum('DS'), 43);
+eq('DNSKEY is supported', D.dnsTypeNum('DNSKEY'), 48);
+eq('TLSA is supported',   D.dnsTypeNum('TLSA'), 52);
+eq('PTR is supported',    D.dnsTypeNum('PTR'), 12);
+eq('TXT still resolves',  D.dnsTypeNum('TXT'), 16);
+eq('CAA still resolves',  D.dnsTypeNum('CAA'), 257);
+
+// The throw has to survive the transport, or it is caught by fetchDohOnce's
+// own catch and reported as 'network-error' — the same silent wrong answer in
+// a different costume.
+sandbox.fetch = dohFixture({});
+eq('dohFetch propagates the type error', await (async () => {
+  try { await D.dohFetch('example.com', 'SVCB', { retries: 0, noCache: true }); return 'no-throw'; }
+  catch (e) { return e.name; }
+})(), 'DnsTypeError');
+
+// And optionalCheck must not turn a programming error into a stated unknown.
+eq('optionalCheck re-throws a type error', await (async () => {
+  try {
+    await D.optionalCheck(() => D.dohFetch('example.com', 'SVCB', { retries: 0, noCache: true }), 'fallback');
+    return 'swallowed';
+  } catch (e) { return e.name; }
+})(), 'DnsTypeError');
+eq('optionalCheck still swallows a resolver failure', await (async () => {
+  sandbox.fetch = dohFixture({ 'x.example NS': 'servfail' });
+  return await D.optionalCheck(
+    async () => { throw Object.assign(new Error('x'), { name: 'DnsQueryError' }); }, 'fallback');
+})(), 'fallback');
+
+/* ── 34. DKIM public key analysis (RFC 6376 §3.6.1, RFC 8463) ────────── */
+section('34. DKIM public key analysis');
+
+// Real SPKI keys, generated with openssl and pasted as static strings so the
+// DER walk is exercised against genuine encodings rather than a hand-built one.
+const RSA_512 = 'MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBANvwLB0jC0G5N6ooxhzJStD6NSKbEBDqdjaIG/PVtJu4Sor/279iw+pLQreH2aF9ybG9DFJYphaM5HqDteMUbFECAwEAAQ==';
+const RSA_1024 = 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCYmA1/sNLcrMtU2cEfPrc5Gj7m1OFp23VoKeHbCMEYbMjSATLrI6YsefyW7760zWwHmb2kZ7tCAnlnLOvH75kmFdq+q6VHwaOH1MZQkB+F5VaVU2uf3iO50r23+FU5Cb6N3NuovTY8vzY/nPI2vUS/FCXuteqGUiuFKwttC8oESwIDAQAB';
+const RSA_2048 = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtdBGhkB+ys0FdTPY1/X59sh1kPlfMwovaF7w0uAdPijJvb28RVHRcZW0vfp2txuyZZ3qNAV2C/2nv+zVr/bld2flVPdmnCSdAoUXi9ZQpH20zzwj8bcGrU6v/sH4xC7BLRH7P8KQ4K3suhuSLpaK0KLC+oGdD7DZ3DyeFyHeMWcR9RJin3LhZMP0rVP3e6PHNd2XwW+zPJRjuQR6yACuOLyXhBvZtD+Frs6/mtKF8HyaO9/Zs/bqrw3v5qjuC6hi2VnlUbS+zWL9fZp3xh7lf2FaztehaVHcvUO2HOGAFGWci3jtwD2owSvw/Laqq0UTInQ/vcVZf/1QNJGiZ0tEIQIDAQAB';
+const RSA_4096 = 'MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA2GKwg8r1UzfnPgxUSjTck7Teu3YNAVasv1+fDj6bqNa1QAKqziKGhTUAd4NFb71ELSblrRIMmADzXEpgwEbWdGo0wMZYeXGzMATRifC1vjnBxeThGKeNtI6+wU3w3kcl+vmSVXS6oxD98bWzt2A0uqJo0uA54xnVhjoH4HG/LiKZFjLUhI6EAjjE46fmfoBGcLAOI82c7EmusMe8Xy0HcLk8Vepj3GhYO3ZS0ajgbPxNV7FjBUz9Z5wk8vdX2HFdf1/Dwfv3Kb6QOduj7MEU7RV1W4mRiYzsjZdrOqAQZSLrpxPx+Z73NRjxA0Q7t1rWCtFMP8wZ2xAK/F75FJmBi6j8urEpBt1S4xyNbaw3p/Ed7xpD4Zj3hd9vmWPGozqUP9Y9TJ3BBaR5vfDFvHl/e8ezpRcafyCH59GTmXq2j34ISjr6zRo5Y0jmdaPUXqgf2C+b8yw7Y0ut1Q3dhxQoca+Nb/REedy3tvxc2aY+uUIo80W06SoopPp3Lm8uk4u8t/t+IWjtGf7hKZgcmFPEmro1MK/1YmMnYg7ejjKEv2LBpF8m7QpZFTGEFd9/u02OkMYuM866nezPXvEKSnAkvmWDCkzwZhsBaIkihXmemKe1QhvAuk6dEVzmnHWUFAZnTErHu9TZ1Fpw6yJNw8QOkmrZ28Ji++HHu65vbzrvFWECAwEAAQ==';
+const ED25519_32 = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=';
+const ED25519_31 = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHg==';
+
+const key = value => D.analyzeDkimKey(value);
+
+eq('RSA-512 modulus read',   key(`v=DKIM1; k=rsa; p=${RSA_512}`).keyBits, 512);
+eq('RSA-1024 modulus read',  key(`v=DKIM1; k=rsa; p=${RSA_1024}`).keyBits, 1024);
+eq('RSA-2048 modulus read',  key(`v=DKIM1; k=rsa; p=${RSA_2048}`).keyBits, 2048);
+eq('RSA-4096 modulus read',  key(`v=DKIM1; k=rsa; p=${RSA_4096}`).keyBits, 4096);
+eq('a valid key has no errors', key(`v=DKIM1; k=rsa; p=${RSA_2048}`).errors, []);
+
+// k= defaults to rsa when absent (RFC 6376 §3.6.1), and paypal.com publishes
+// exactly this shape — no v=, no k=.
+eq('k= defaults to rsa',     key(`p=${RSA_2048}`).keyType, 'rsa');
+eq('v= may be omitted',      key(`p=${RSA_2048}`).version, null);
+eq('and the key is still valid', key(`p=${RSA_2048}`).valid, true);
+eq('v=DKIM1 is recorded',    key(`v=DKIM1; p=${RSA_2048}`).version, 'DKIM1');
+eq('v=DKIM2 is invalid',     key(`v=DKIM2; p=${RSA_2048}`).valid, false);
+eq('v=DKIM2 says why',       key(`v=DKIM2; p=${RSA_2048}`).errors, ['bad-version']);
+
+// RFC 8463 §3: the value is the raw 32-byte key, not an SPKI structure, so
+// there is no modulus to measure and keyBits must stay null rather than 0.
+const ed = key(`v=DKIM1; k=ed25519; p=${ED25519_32}`);
+eq('ed25519 detected',       ed.keyType, 'ed25519');
+eq('ed25519 byte length',    ed.keyBytes, 32);
+eq('ed25519 has no modulus', ed.keyBits, null);
+eq('ed25519 is valid',       ed.valid, true);
+eq('a 31-byte ed25519 key is flagged',
+  key(`v=DKIM1; k=ed25519; p=${ED25519_31}`).errors, ['bad-ed25519-length']);
+
+// The revocation case dkimKeyRecords() drops on the discovery side.
+const revoked = key('v=DKIM1; k=rsa; p=');
+eq('empty p= is revocation',        revoked.revoked, true);
+eq('revocation is not a parse error', revoked.errors, []);
+eq('revocation reports no size',    revoked.keyBits, null);
+eq('a live key is not revoked',     key(`v=DKIM1; p=${RSA_2048}`).revoked, false);
+
+// A p= truncated by a TXT chunking mistake is a completely silent DKIM
+// failure, and it must not read as a key of whatever size the garbage implies.
+eq('truncated base64 is unparseable',
+  key(`v=DKIM1; k=rsa; p=${RSA_2048.slice(0, 100)}`).errors, ['unparseable-key']);
+eq('and reports no size',
+  key(`v=DKIM1; k=rsa; p=${RSA_2048.slice(0, 100)}`).keyBits, null);
+eq('non-base64 is unparseable',
+  key('v=DKIM1; k=rsa; p=not base64 at all!!').errors, ['unparseable-key']);
+eq('a missing p= is named',  key('v=DKIM1; k=rsa').errors, ['missing-p']);
+
+/* ── Both RSA envelopes are conformant ──────────────────────────────────
+   RFC 6376 §3.6.1 describes the p= value as a DER-encoded RSAPublicKey, and
+   the errata clarify that it MAY be wrapped in a SubjectPublicKeyInfo. So a
+   bare PKCS#1 key is valid, not a curiosity — and it must not be refused just
+   because crypto.subtle.importKey takes 'spki' and not 'pkcs1'. Letting an
+   API's input formats decide what the protocol permits would report a
+   perfectly good published key as unparseable.
+
+   Both envelopes below are the SAME four keys, exported by openssl two ways,
+   so the sizes must agree exactly across the pair.
+   ───────────────────────────────────────────────────────────────────────── */
+const PKCS1_512 = 'MEgCQQDb8CwdIwtBuTeqKMYcyUrQ+jUimxAQ6nY2iBvz1bSbuEqK/9u/YsPqS0K3h9mhfcmxvQxSWKYWjOR6g7XjFGxRAgMBAAE=';
+const PKCS1_1024 = 'MIGJAoGBAJiYDX+w0tysy1TZwR8+tzkaPubU4WnbdWgp4dsIwRhsyNIBMusjpix5/JbvvrTNbAeZvaRnu0ICeWcs68fvmSYV2r6rpUfBo4fUxlCQH4XlVpVTa5/eI7nSvbf4VTkJvo3c26i9Njy/Nj+c8ja9RL8UJe616oZSK4UrC20LygRLAgMBAAE=';
+const PKCS1_2048 = 'MIIBCgKCAQEAtdBGhkB+ys0FdTPY1/X59sh1kPlfMwovaF7w0uAdPijJvb28RVHRcZW0vfp2txuyZZ3qNAV2C/2nv+zVr/bld2flVPdmnCSdAoUXi9ZQpH20zzwj8bcGrU6v/sH4xC7BLRH7P8KQ4K3suhuSLpaK0KLC+oGdD7DZ3DyeFyHeMWcR9RJin3LhZMP0rVP3e6PHNd2XwW+zPJRjuQR6yACuOLyXhBvZtD+Frs6/mtKF8HyaO9/Zs/bqrw3v5qjuC6hi2VnlUbS+zWL9fZp3xh7lf2FaztehaVHcvUO2HOGAFGWci3jtwD2owSvw/Laqq0UTInQ/vcVZf/1QNJGiZ0tEIQIDAQAB';
+const PKCS1_4096 = 'MIICCgKCAgEA2GKwg8r1UzfnPgxUSjTck7Teu3YNAVasv1+fDj6bqNa1QAKqziKGhTUAd4NFb71ELSblrRIMmADzXEpgwEbWdGo0wMZYeXGzMATRifC1vjnBxeThGKeNtI6+wU3w3kcl+vmSVXS6oxD98bWzt2A0uqJo0uA54xnVhjoH4HG/LiKZFjLUhI6EAjjE46fmfoBGcLAOI82c7EmusMe8Xy0HcLk8Vepj3GhYO3ZS0ajgbPxNV7FjBUz9Z5wk8vdX2HFdf1/Dwfv3Kb6QOduj7MEU7RV1W4mRiYzsjZdrOqAQZSLrpxPx+Z73NRjxA0Q7t1rWCtFMP8wZ2xAK/F75FJmBi6j8urEpBt1S4xyNbaw3p/Ed7xpD4Zj3hd9vmWPGozqUP9Y9TJ3BBaR5vfDFvHl/e8ezpRcafyCH59GTmXq2j34ISjr6zRo5Y0jmdaPUXqgf2C+b8yw7Y0ut1Q3dhxQoca+Nb/REedy3tvxc2aY+uUIo80W06SoopPp3Lm8uk4u8t/t+IWjtGf7hKZgcmFPEmro1MK/1YmMnYg7ejjKEv2LBpF8m7QpZFTGEFd9/u02OkMYuM866nezPXvEKSnAkvmWDCkzwZhsBaIkihXmemKe1QhvAuk6dEVzmnHWUFAZnTErHu9TZ1Fpw6yJNw8QOkmrZ28Ji++HHu65vbzrvFWECAwEAAQ==';
+
+eq('bare PKCS#1 512 is read',   key(`v=DKIM1; k=rsa; p=${PKCS1_512}`).keyBits, 512);
+eq('bare PKCS#1 1024 is read',  key(`v=DKIM1; k=rsa; p=${PKCS1_1024}`).keyBits, 1024);
+eq('bare PKCS#1 2048 is read',  key(`v=DKIM1; k=rsa; p=${PKCS1_2048}`).keyBits, 2048);
+eq('bare PKCS#1 4096 is read',  key(`v=DKIM1; k=rsa; p=${PKCS1_4096}`).keyBits, 4096);
+eq('a bare PKCS#1 key is valid', key(`v=DKIM1; k=rsa; p=${PKCS1_2048}`).valid, true);
+eq('and raises no errors',       key(`v=DKIM1; k=rsa; p=${PKCS1_2048}`).errors, []);
+
+// The two encodings of one key must never disagree about its size.
+eq('both envelopes agree on every size',
+  [PKCS1_512, PKCS1_1024, PKCS1_2048, PKCS1_4096].map(p => key(`v=DKIM1; k=rsa; p=${p}`).keyBits),
+  [RSA_512, RSA_1024, RSA_2048, RSA_4096].map(p => key(`v=DKIM1; k=rsa; p=${p}`).keyBits));
+
+// The envelope is recorded as evidence — it explains why Web Crypto confirms
+// one key and stays silent about the other. It is not a quality signal.
+eq('SPKI is identified',   key(`v=DKIM1; k=rsa; p=${RSA_2048}`).keyEncoding, 'spki');
+eq('PKCS#1 is identified', key(`v=DKIM1; k=rsa; p=${PKCS1_2048}`).keyEncoding, 'pkcs1');
+eq('ed25519 has no RSA envelope', key(`v=DKIM1; k=ed25519; p=${ED25519_32}`).keyEncoding, null);
+
+// Web Crypto is confirmation, never a downgrade. A bare key it cannot express
+// comes back "not checked" — and still valid, with its size intact.
+const pkcs1Validated = await D.validateDkimKeyStructure(key(`v=DKIM1; p=${PKCS1_2048}`), `v=DKIM1; p=${PKCS1_2048}`);
+eq('a bare key is not sent to Web Crypto', pkcs1Validated.cryptoValidated, null);
+eq('lack of confirmation leaves it valid', pkcs1Validated.valid, true);
+eq('and never marks it unparseable',       pkcs1Validated.errors, []);
+eq('and leaves the DER-derived size alone', pkcs1Validated.keyBits, 2048);
+
+/* ── Malformed DER is still refused ─────────────────────────────────────
+   Accepting both envelopes must not turn the walk into a shrug. These are
+   built rather than pasted so the exact defect under test is visible.
+   ───────────────────────────────────────────────────────────────────── */
+const derTlv = (tag, content) => {
+  const body = Buffer.from(content);
+  if (body.length < 0x80) return Buffer.concat([Buffer.from([tag, body.length]), body]);
+  const len = [];
+  for (let n = body.length; n > 0; n >>= 8) len.unshift(n & 0xff);
+  return Buffer.concat([Buffer.from([tag, 0x80 | len.length]), Buffer.from(len), body]);
+};
+const asKey = buf => key(`v=DKIM1; k=rsa; p=${Buffer.from(buf).toString('base64')}`);
+// A conformant positive DER INTEGER: X.690 §8.3.2 puts the sign in the high bit
+// of the first octet, so a value with that bit set needs a leading 0x00 — which
+// is why a bare `0x80 …` is a NEGATIVE integer and not a 1024-bit modulus at
+// all. RFC 8017 §3.1 requires `n` and `e` to be positive.
+const positiveInteger = buf => ((buf[0] & 0x80) ? Buffer.concat([Buffer.from([0x00]), buf]) : buf);
+// A modulus of `bytes` significant octets whose leading octet is `top`.
+const modulusOf = (bytes, top) =>
+  positiveInteger(Buffer.concat([Buffer.from([top]), Buffer.alloc(bytes - 1, 0xab)]));
+// A well-formed modulus, for fixtures whose defect is meant to be elsewhere —
+// so the assertion proves the reason under test and not an incidental one.
+const wellFormedModulus = bytes => modulusOf(bytes, 0x81);
+
+const spkiBytes = Buffer.from(RSA_2048, 'base64');
+const pkcs1Bytes = Buffer.from(PKCS1_2048, 'base64');
+
+eq('a truncated SPKI key is unparseable',
+  key(`v=DKIM1; k=rsa; p=${RSA_2048.slice(0, 100)}`).errors, ['unparseable-key']);
+eq('a truncated PKCS#1 key is unparseable',
+  key(`v=DKIM1; k=rsa; p=${PKCS1_2048.slice(0, 100)}`).errors, ['unparseable-key']);
+// A valid key with junk appended parses as far as the outer SEQUENCE, so
+// without a length check it would report a confident 2048 for an unusable blob.
+eq('trailing bytes after a valid SPKI key are refused',
+  asKey(Buffer.concat([spkiBytes, Buffer.from([0x00])])).errors, ['unparseable-key']);
+eq('trailing bytes after a valid PKCS#1 key are refused',
+  asKey(Buffer.concat([pkcs1Bytes, Buffer.from([0x00])])).errors, ['unparseable-key']);
+// A SEQUENCE holding one INTEGER is not an RSAPublicKey — the publicExponent
+// is required, and without that check any such SEQUENCE would read as a key.
+eq('a SEQUENCE with no publicExponent is refused',
+  asKey(derTlv(0x30, derTlv(0x02, wellFormedModulus(256)))).errors, ['unparseable-key']);
+eq('a SEQUENCE of the wrong inner type is refused',
+  asKey(derTlv(0x30, derTlv(0x04, Buffer.alloc(16, 0x41)))).errors, ['unparseable-key']);
+// The BIT STRING's first octet counts unused trailing bits; a key is a whole
+// number of bytes, so a non-zero count means this is not the structure claimed.
+const badBitString = derTlv(0x30, Buffer.concat([
+  derTlv(0x30, Buffer.from([0x06, 0x01, 0x2a])),
+  derTlv(0x03, Buffer.concat([Buffer.from([0x03]), derTlv(0x30, derTlv(0x02, wellFormedModulus(128)))])),
+]));
+eq('a BIT STRING with unused bits is refused', asKey(badBitString).errors, ['unparseable-key']);
+eq('an INTEGER at the top level is not a key',
+  asKey(derTlv(0x02, Buffer.alloc(8, 0x01))).errors, ['unparseable-key']);
+eq('random bytes are not a key', asKey(Buffer.alloc(64, 0xab)).errors, ['unparseable-key']);
+eq('a single byte is not a key', asKey(Buffer.from([0x30])).errors, ['unparseable-key']);
+// An over-long DER length prefix is not something any real key carries, and
+// reading it would mean trusting a length field that cannot be satisfied.
+eq('an oversized length prefix is refused',
+  asKey(Buffer.from([0x30, 0x85, 0x01, 0x02, 0x03, 0x04, 0x05, 0x02, 0x01, 0x01])).errors, ['unparseable-key']);
+
+/* ── The reported size is the modulus's bit length, not its byte width ──
+   These differ whenever the leading significant octet is below 0x80, and the
+   difference straddles this release's own threshold: `dkim-key-weak` is
+   critical below 1024 and `dkim-key-1024` is informational at exactly 1024.
+   Every real RSA key has the top bit set, so the two answers agree on every key
+   in the backtest sample — which is why this needs constructed keys rather than
+   captured ones.
+   ───────────────────────────────────────────────────────────────────── */
+const EXPONENT = Buffer.from([0x01, 0x00, 0x01]);
+const RSA_OID_DER = Buffer.from([0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00]);
+// modulus -> a bare PKCS#1 RSAPublicKey
+const asPkcs1 = modulus => derTlv(0x30, Buffer.concat([derTlv(0x02, modulus), derTlv(0x02, EXPONENT)]));
+// modulus -> the same key wrapped in a SubjectPublicKeyInfo
+const asSpki = modulus => derTlv(0x30, Buffer.concat([
+  derTlv(0x30, RSA_OID_DER),
+  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(modulus)])),
+]));
+const bitsOf = buf => key(`v=DKIM1; k=rsa; p=${Buffer.from(buf).toString('base64')}`).keyBits;
+
+// Immediately below, at, and above the 1024-bit boundary — both envelopes.
+eq('a 1017-bit modulus reports 1017, not 1024', bitsOf(asPkcs1(modulusOf(128, 0x01))), 1017);
+eq('a 1023-bit modulus reports 1023',           bitsOf(asPkcs1(modulusOf(128, 0x7f))), 1023);
+eq('a 1024-bit modulus reports 1024',           bitsOf(asPkcs1(modulusOf(128, 0x80))), 1024);
+eq('a 1025-bit modulus reports 1025',           bitsOf(asPkcs1(modulusOf(129, 0x01))), 1025);
+eq('both envelopes agree at the boundary',
+  [128, 129].flatMap(n => [0x01, 0x7f, 0x80].map(t => bitsOf(asSpki(modulusOf(n, t))))),
+  [128, 129].flatMap(n => [0x01, 0x7f, 0x80].map(t => bitsOf(asPkcs1(modulusOf(n, t))))));
+// The permitted sign octet is stripped rather than counted — modulusOf() emits
+// it for any top octet at or above 0x80, so this is the 1024-bit case above
+// seen from the encoding side.
+eq('the sign octet is not counted as key material',
+  [modulusOf(128, 0x80).length, bitsOf(asPkcs1(modulusOf(128, 0x80)))], [129, 1024]);
+
+/* ── SPKI gets the same structural guards as PKCS#1 ─────────────────────
+   Both envelopes go through one RSAPublicKey reader. The SPKI path used to
+   check only that a modulus INTEGER existed, so a key whose exponent had been
+   altered walked cleanly and returned a size — leaving Web Crypto as the only
+   thing that would reject malformed DER, in a walk documented as authoritative
+   without it. These are mutations of a REAL key, one byte at a time.
+   ───────────────────────────────────────────────────────────────────── */
+const realSpki = Buffer.from(RSA_512, 'base64');
+const expAt = realSpki.lastIndexOf(Buffer.from([0x02, 0x03, 0x01, 0x00, 0x01]));
+eq('the exponent was located in the real key', expAt > 0, true);
+eq('the unmutated real key still parses', asKey(realSpki).keyBits, 512);
+
+const mutate = (at, byte) => { const b = Buffer.from(realSpki); b[at] = byte; return b; };
+eq('an SPKI exponent that is not an INTEGER is refused',
+  asKey(mutate(expAt, 0x04)).errors, ['unparseable-key']);
+eq('and reports no size',            asKey(mutate(expAt, 0x04)).keyBits, null);
+// Truncating the exponent leaves trailing content inside the inner sequence.
+eq('an SPKI exponent that does not end the sequence is refused',
+  asKey(mutate(expAt + 1, 0x02)).errors, ['unparseable-key']);
+
+const noExponent = derTlv(0x30, Buffer.concat([
+  derTlv(0x30, RSA_OID_DER),
+  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), derTlv(0x30, derTlv(0x02, wellFormedModulus(64)))])),
+]));
+eq('an SPKI key with no publicExponent is refused', asKey(noExponent).errors, ['unparseable-key']);
+
+// ecPublicKey, 1.2.840.10045.2.1 — a well-formed SPKI that is not an RSA key.
+const ecAlgorithm = derTlv(0x30, Buffer.from([0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01]));
+const notRsa = derTlv(0x30, Buffer.concat([
+  ecAlgorithm,
+  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(wellFormedModulus(64))])),
+]));
+eq('a non-RSA algorithm identifier is refused', asKey(notRsa).errors, ['unparseable-key']);
+eq('and an RSA identifier is accepted',         asKey(asSpki(wellFormedModulus(64))).keyBits, 512);
+
+// Trailing content at every nesting level.
+eq('trailing bytes inside the BIT STRING are refused',
+  asKey(derTlv(0x30, Buffer.concat([
+    derTlv(0x30, RSA_OID_DER),
+    derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(wellFormedModulus(64)), Buffer.from([0x00])])),
+  ]))).errors, ['unparseable-key']);
+eq('trailing bytes after the BIT STRING are refused',
+  asKey(Buffer.concat([
+    derTlv(0x30, Buffer.concat([
+      derTlv(0x30, RSA_OID_DER),
+      derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(wellFormedModulus(64))])),
+      derTlv(0x05, Buffer.alloc(0)),
+    ])),
+  ])).errors, ['unparseable-key']);
+eq('a third INTEGER in the inner sequence is refused',
+  asKey(derTlv(0x30, Buffer.concat([
+    derTlv(0x30, RSA_OID_DER),
+    derTlv(0x03, Buffer.concat([Buffer.from([0x00]), derTlv(0x30, Buffer.concat([
+      derTlv(0x02, wellFormedModulus(64)), derTlv(0x02, EXPONENT), derTlv(0x02, EXPONENT),
+    ]))])),
+  ]))).errors, ['unparseable-key']);
+
+/* ── Values, not only tags and boundaries ───────────────────────────────
+   A field that is tagged INTEGER is not yet a modulus, and an OID is not yet
+   an AlgorithmIdentifier. RFC 8017 §3.1 makes `n` and `e` positive integers
+   with `e` between 3 and n-1; RFC 3279 §2.3.1 requires rsaEncryption's
+   parameters to be ASN.1 NULL. Checking only the tags accepted a negative
+   modulus, an empty exponent, and an AlgorithmIdentifier carrying arbitrary
+   parameters — each returning a confident size for a key no implementation
+   would use.
+   ───────────────────────────────────────────────────────────────────── */
+const rawInteger = buf => Buffer.from(buf);   // deliberately NOT sign-corrected
+const pkcs1Of = (modulus, exponent) => derTlv(0x30, Buffer.concat([
+  derTlv(0x02, modulus), derTlv(0x02, exponent === undefined ? EXPONENT : exponent),
+]));
+const spkiOf = (algorithm, modulus, exponent) => derTlv(0x30, Buffer.concat([
+  algorithm,
+  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), pkcs1Of(modulus, exponent)])),
+]));
+const GOOD_MODULUS = wellFormedModulus(128);
+
+// The control: everything below differs from this by one deliberate defect.
+eq('the control key parses', asKey(pkcs1Of(GOOD_MODULUS)).keyBits, 1024);
+
+// Modulus values.
+eq('a negative modulus is refused',
+  asKey(pkcs1Of(rawInteger(Buffer.concat([Buffer.from([0x80]), Buffer.alloc(127, 0xab)])))).errors,
+  ['unparseable-key']);
+eq('a non-minimally encoded modulus is refused',
+  asKey(pkcs1Of(rawInteger(Buffer.concat([Buffer.from([0x00, 0x01]), Buffer.alloc(126, 0xab)])))).errors,
+  ['unparseable-key']);
+eq('a zero modulus is refused',  asKey(pkcs1Of(Buffer.from([0x00]))).errors, ['unparseable-key']);
+eq('an empty modulus is refused', asKey(pkcs1Of(Buffer.alloc(0))).errors, ['unparseable-key']);
+
+// Exponent values.
+eq('an empty exponent is refused',    asKey(pkcs1Of(GOOD_MODULUS, Buffer.alloc(0))).errors, ['unparseable-key']);
+eq('a zero exponent is refused',      asKey(pkcs1Of(GOOD_MODULUS, Buffer.from([0x00]))).errors, ['unparseable-key']);
+eq('an exponent of 1 is refused',     asKey(pkcs1Of(GOOD_MODULUS, Buffer.from([0x01]))).errors, ['unparseable-key']);
+eq('an even exponent is refused',     asKey(pkcs1Of(GOOD_MODULUS, Buffer.from([0x04]))).errors, ['unparseable-key']);
+eq('a negative exponent is refused',  asKey(pkcs1Of(GOOD_MODULUS, rawInteger(Buffer.from([0x80, 0x01])))).errors, ['unparseable-key']);
+// e must be less than n; a bit-length comparison is as far as that goes without
+// bignum arithmetic, and it deliberately says nothing about the factors.
+eq('an exponent wider than the modulus is refused',
+  asKey(pkcs1Of(Buffer.from([0x03]), wellFormedModulus(128))).errors, ['unparseable-key']);
+// 3 is the smallest legal exponent and must still be accepted.
+eq('an exponent of 3 is accepted', asKey(pkcs1Of(GOOD_MODULUS, Buffer.from([0x03]))).keyBits, 1024);
+
+// RFC 8017 §3.1 is `3 <= e < n`, and the upper half needs comparing values
+// rather than widths. A bit-length test accepted `e == n` and any same-width
+// `e > n`; both are conformant DER and neither is a usable key. No bignum
+// arithmetic is needed — strip the sign octet, compare lengths, then octets.
+const SIGNIFICANT = GOOD_MODULUS.subarray(GOOD_MODULUS[0] === 0x00 ? 1 : 0);
+const sameWidth = mutate => {
+  const e = Buffer.from(SIGNIFICANT); mutate(e);
+  return (e[0] & 0x80) ? Buffer.concat([Buffer.from([0x00]), e]) : e;
+};
+eq('the exponent fixture really is the same width as the modulus',
+  sameWidth(() => {}).length, GOOD_MODULUS.length);
+eq('an exponent equal to the modulus is refused',
+  asKey(pkcs1Of(GOOD_MODULUS, sameWidth(() => {}))).errors, ['unparseable-key']);
+eq('a same-width exponent greater than the modulus is refused',
+  asKey(pkcs1Of(GOOD_MODULUS, sameWidth(e => { e[e.length - 1] = 0xad; }))).errors, ['unparseable-key']);
+eq('a difference in the LEADING octet is caught too',
+  asKey(pkcs1Of(GOOD_MODULUS, sameWidth(e => { e[0] = 0x82; }))).errors, ['unparseable-key']);
+// The control: same width, strictly smaller, still odd — this one must pass, or
+// the comparison is rejecting valid keys rather than invalid ones.
+eq('a same-width exponent below the modulus is accepted',
+  asKey(pkcs1Of(GOOD_MODULUS, sameWidth(e => { e[0] = 0x7f; }))).keyBits, 1024);
+/* ── Both RSA values must be odd ────────────────────────────────────────
+   RFC 8017 §3.1 makes `n` a product of distinct odd primes, so an even modulus
+   is not an RSA modulus at all — and `e` must be coprime to lambda(n), which is
+   even. The exponent was checked from the start; the modulus was not, two lines
+   away in the same function.
+
+   These two moduli differ in exactly one bit, so nothing but parity can explain
+   a difference in the verdict.
+   ───────────────────────────────────────────────────────────────────── */
+const withLastOctet = (modulus, octet) => {
+  const m = Buffer.from(modulus); m[m.length - 1] = octet; return m;
+};
+const ODD_MODULUS = withLastOctet(GOOD_MODULUS, 0xad);
+const EVEN_MODULUS = withLastOctet(GOOD_MODULUS, 0xac);
+eq('the two fixtures differ only in the last octet',
+  [ODD_MODULUS.length, EVEN_MODULUS.length,
+    ODD_MODULUS.subarray(0, -1).equals(EVEN_MODULUS.subarray(0, -1))],
+  [GOOD_MODULUS.length, GOOD_MODULUS.length, true]);
+
+eq('an odd modulus is accepted',            asKey(pkcs1Of(ODD_MODULUS)).keyBits, 1024);
+eq('an even modulus is refused',            asKey(pkcs1Of(EVEN_MODULUS)).errors, ['unparseable-key']);
+eq('an odd modulus inside SPKI is accepted',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER), ODD_MODULUS)).keyBits, 1024);
+eq('an even modulus inside SPKI is refused',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER), EVEN_MODULUS)).errors, ['unparseable-key']);
+// The smallest even value that is otherwise well-formed, so the guard is not
+// relying on the modulus being large.
+eq('a small even modulus is refused too',
+  asKey(pkcs1Of(Buffer.from([0x04]), Buffer.from([0x03]))).errors, ['unparseable-key']);
+
+/* ── DER length octets must be minimal, at every level ──────────────────
+   X.690 §10.1: the definite length uses the FEWEST possible octets. A leading
+   zero is never the fewest, and neither is the long form for a value the short
+   form can express. Accepting either let BER encodings through a walk this
+   release calls authoritative DER, and gave one key two valid encodings.
+   ───────────────────────────────────────────────────────────────────── */
+// A deliberately non-minimal encoder: `octets` length bytes, whatever the size.
+const longFormTlv = (tag, content, octets) => {
+  const body = Buffer.from(content);
+  const len = [];
+  for (let i = 0, n = body.length; i < octets; i++, n >>= 8) len.unshift(n & 0xff);
+  return Buffer.concat([Buffer.from([tag, 0x80 | octets]), Buffer.from(len), body]);
+};
+// 129 significant octets, so its own length legitimately needs the long form.
+const LONG_MODULUS = wellFormedModulus(129);
+const canonicalKey = derTlv(0x30, Buffer.concat([derTlv(0x02, LONG_MODULUS), derTlv(0x02, EXPONENT)]));
+
+// The control: the same key, canonically encoded, must parse.
+eq('a canonically encoded key parses', asKey(canonicalKey).keyBits, 1032);
+// ...and its modulus really does need the long form, or the fixtures below
+// would not be testing what they claim.
+eq('the long modulus needs long-form length', LONG_MODULUS.length >= 0x80, true);
+
+eq('long form for a short exponent length is refused',
+  asKey(derTlv(0x30, Buffer.concat([derTlv(0x02, LONG_MODULUS), longFormTlv(0x02, EXPONENT, 1)]))).errors,
+  ['unparseable-key']);
+eq('a leading zero length octet on the modulus is refused',
+  asKey(derTlv(0x30, Buffer.concat([longFormTlv(0x02, LONG_MODULUS, 2), derTlv(0x02, EXPONENT)]))).errors,
+  ['unparseable-key']);
+eq('a leading zero length octet on the outer sequence is refused',
+  asKey(longFormTlv(0x30, Buffer.concat([derTlv(0x02, LONG_MODULUS), derTlv(0x02, EXPONENT)]), 2)).errors,
+  ['unparseable-key']);
+eq('long form inside the SPKI envelope is refused too',
+  asKey(derTlv(0x30, Buffer.concat([
+    derTlv(0x30, RSA_OID_DER),
+    derTlv(0x03, Buffer.concat([Buffer.from([0x00]),
+      derTlv(0x30, Buffer.concat([derTlv(0x02, LONG_MODULUS), longFormTlv(0x02, EXPONENT, 1)]))])),
+  ]))).errors, ['unparseable-key']);
+
+// The 127/128 boundary, where the short form stops being legal. Both controls
+// must PASS, or the guard is rejecting canonical encodings rather than BER.
+const shortBody = wellFormedModulus(126);   // < 128 octets: short form required
+eq('a value at the short-form limit parses',
+  asKey(derTlv(0x30, Buffer.concat([derTlv(0x02, shortBody), derTlv(0x02, EXPONENT)]))).keyBits, 1008);
+eq('the short-form fixture is genuinely under 128 octets', shortBody.length < 0x80, true);
+eq('a 128-octet value uses long form and parses',
+  asKey(derTlv(0x30, Buffer.concat([derTlv(0x02, wellFormedModulus(128)), derTlv(0x02, EXPONENT)]))).keyBits, 1024);
+
+// And the same rules inside the SPKI envelope.
+eq('an exponent equal to the modulus inside SPKI is refused',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER), GOOD_MODULUS, sameWidth(() => {}))).errors, ['unparseable-key']);
+
+// AlgorithmIdentifier parameters.
+const RSA_OID_ONLY = Buffer.from([0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01]);
+eq('rsaEncryption with NULL parameters is accepted',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER), GOOD_MODULUS)).keyBits, 1024);
+eq('an algorithm with no parameters is refused',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_ONLY), GOOD_MODULUS)).errors, ['unparseable-key']);
+eq('an algorithm with OCTET STRING parameters is refused',
+  asKey(spkiOf(derTlv(0x30, Buffer.concat([RSA_OID_ONLY, derTlv(0x04, Buffer.from([0xaa]))])), GOOD_MODULUS)).errors,
+  ['unparseable-key']);
+eq('an algorithm with a non-empty NULL is refused',
+  asKey(spkiOf(derTlv(0x30, Buffer.concat([RSA_OID_ONLY, derTlv(0x05, Buffer.from([0x00]))])), GOOD_MODULUS)).errors,
+  ['unparseable-key']);
+eq('an algorithm with content after NULL is refused',
+  asKey(spkiOf(derTlv(0x30, Buffer.concat([RSA_OID_DER, derTlv(0x02, Buffer.from([0x01]))])), GOOD_MODULUS)).errors,
+  ['unparseable-key']);
+
+// The same value rules apply inside the SPKI envelope, not only bare PKCS#1.
+eq('a negative modulus inside SPKI is refused',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER),
+    rawInteger(Buffer.concat([Buffer.from([0x80]), Buffer.alloc(127, 0xab)])))).errors, ['unparseable-key']);
+eq('an empty exponent inside SPKI is refused',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER), GOOD_MODULUS, Buffer.alloc(0))).errors, ['unparseable-key']);
+
+// Where Web Crypto exists it must now agree with the walk rather than be the
+// only thing that catches these.
+const walkAndCrypto = await D.validateDkimKeyStructure(
+  key(`v=DKIM1; p=${RSA_512}`), `v=DKIM1; p=${RSA_512}`);
+eq('a real SPKI key is confirmed by both', [walkAndCrypto.keyBits, walkAndCrypto.cryptoValidated], [512, true]);
+
+eq('t=y is testing',         key(`v=DKIM1; t=y; p=${RSA_2048}`).testing, true);
+eq('t=y:s sets both flags',  [key(`v=DKIM1; t=y:s; p=${RSA_2048}`).testing, key(`v=DKIM1; t=y:s; p=${RSA_2048}`).strictSubdomain], [true, true]);
+eq('t=s alone is not testing', key(`v=DKIM1; t=s; p=${RSA_2048}`).testing, false);
+eq('h= splits on colon',     key(`v=DKIM1; h=sha256:sha1; p=${RSA_2048}`).hashAlgorithms, ['sha256', 'sha1']);
+eq('s= splits on colon',     key(`v=DKIM1; s=email; p=${RSA_2048}`).serviceTypes, ['email']);
+eq('n= is carried through',  key(`v=DKIM1; n=rotate me; p=${RSA_2048}`).notes, 'rotate me');
+eq('unknown tags are listed', key(`v=DKIM1; g=*; p=${RSA_2048}`).unknownTags, ['g']);
+
+// Folding whitespace is legal inside p= (RFC 6376 §3.2) and destroys the
+// decode if it is not stripped first.
+eq('whitespace inside p= survives',
+  key(`v=DKIM1; k=rsa; p=${RSA_1024.slice(0, 40)} ${RSA_1024.slice(40)}`).keyBits, 1024);
+
+// The base64 is case-sensitive. Anything that lowercases it destroys the key,
+// which is why cleanAnswerData() must not be changed to do so.
+eq('case-sensitive base64 is not normalized',
+  key(`v=DKIM1; k=rsa; p=${RSA_2048.toLowerCase()}`).keyBits, null);
+
+// Web Crypto never lowers a verdict: it confirms, or it says nothing.
+eq('crypto is not attempted synchronously', key(`v=DKIM1; p=${RSA_2048}`).cryptoValidated, null);
+const validated = await D.validateDkimKeyStructure(key(`v=DKIM1; p=${RSA_2048}`), `v=DKIM1; p=${RSA_2048}`);
+eq('crypto confirms a good key',   validated.cryptoValidated, true);
+eq('and adds no errors',           validated.errors, []);
+eq('and leaves the size alone',    validated.keyBits, 2048);
+// A revoked key has nothing to import, and must not come back marked invalid.
+const revokedValidated = await D.validateDkimKeyStructure(key('v=DKIM1; p='), 'v=DKIM1; p=');
+eq('a revoked key is not sent to crypto', revokedValidated.cryptoValidated, null);
+eq('and stays valid',                     revokedValidated.valid, true);
+
+// The base64 decode is the language and nothing else. This whole file runs
+// with no `atob` in the sandbox, so a decoder that reached for it would report
+// every key on every domain as unparseable — an assertion about our own
+// environment wearing the clothes of an assertion about the operator's DNS.
+eq('the sandbox really has no atob', typeof sandbox.atob, 'undefined');
+// Exact byte lengths across the three padding cases, checked against Node's
+// own base64 encoder rather than against a hand-written expectation.
+eq('decoded lengths round-trip for every padding case',
+  [0, 1, 2, 3, 61, 62, 63, 64, 255, 256].map(n =>
+    D.analyzeDkimKey(`v=DKIM1; k=ed25519; p=${Buffer.from(Array.from({ length: n }, (_, i) => (i * 37 + n) & 0xff)).toString('base64')}`).keyBytes),
+  [null, 1, 2, 3, 61, 62, 63, 64, 255, 256]);
+// n=0 above is null rather than 0 on purpose: an empty p= is revocation, and
+// the decoder is never reached.
+eq('an empty p= never reaches the decoder', D.analyzeDkimKey('v=DKIM1; p=').revoked, true);
+
+// Multi-string TXT reassembly, through the real cleanAnswerData path.
+const split = D.dkimRecordSet([{ type: 16, data: `"v=DKIM1; k=rsa; p=${RSA_2048.slice(0, 120)}" "${RSA_2048.slice(120)}"` }]);
+eq('a split TXT record rejoins', split.keys.length, 1);
+eq('and the rejoined key parses', key(split.keys[0]).keyBits, 2048);
+
+// dkimRecordSet separates the two questions dkimKeyRecords conflates.
+const mixedSet = D.dkimRecordSet([
+  { type: 16, data: `"v=DKIM1; p=${RSA_2048}"` },
+  { type: 16, data: '"v=DKIM1; p="' },
+  { type: 16, data: '"verification=abc"' },
+]);
+eq('usable keys are separated',   mixedSet.keys.length, 1);
+eq('revoked records are kept',    mixedSet.revoked.length, 1);
+eq('unrelated TXT is dropped',    mixedSet.keys.length + mixedSet.revoked.length, 2);
+eq('dkimKeyRecords is unchanged', D.dkimKeyRecords([{ type: 16, data: '"v=DKIM1; p="' }]).length, 0);
+
+// The domain-level rollup: strength, not algorithm.
+eq('mixed strengths detected', D.summarizeDkimKeys([
+  { key: key(`v=DKIM1; p=${RSA_1024}`) }, { key: key(`v=DKIM1; p=${RSA_2048}`) },
+]).mixed, true);
+eq('the weakest selector sets minBits', D.summarizeDkimKeys([
+  { key: key(`v=DKIM1; p=${RSA_1024}`) }, { key: key(`v=DKIM1; p=${RSA_2048}`) },
+]).minBits, 1024);
+eq('equal strengths are not mixed', D.summarizeDkimKeys([
+  { key: key(`v=DKIM1; p=${RSA_2048}`) }, { key: key(`v=DKIM1; p=${RSA_2048}`) },
+]).mixed, false);
+// RFC 8463 double-signing is the recommended migration, not a weakness.
+eq('ed25519 alongside RSA is not "mixed"', D.summarizeDkimKeys([
+  { key: key(`v=DKIM1; k=ed25519; p=${ED25519_32}`) }, { key: key(`v=DKIM1; p=${RSA_2048}`) },
+]).mixed, false);
+eq('but both algorithms are recorded', D.summarizeDkimKeys([
+  { key: key(`v=DKIM1; k=ed25519; p=${ED25519_32}`) }, { key: key(`v=DKIM1; p=${RSA_2048}`) },
+]).algorithms, ['ed25519', 'rsa']);
+
+/* ── 35. Structured CAA (RFC 8659, RFC 9495) ─────────────────────────── */
+section('35. Structured CAA');
+
+const caaRec = D.parseCaaRecord('0 issue "letsencrypt.org"');
+eq('flags parsed',   caaRec.flags, 0);
+eq('tag parsed',     caaRec.tag, 'issue');
+eq('value unquoted', caaRec.value, 'letsencrypt.org');
+eq('tag is known',   caaRec.known, true);
+eq('record is valid', caaRec.valid, true);
+
+eq('tag is lowercased',    D.parseCaaRecord('0 ISSUE "pki.goog"').tag, 'issue');
+eq('critical bit read',    D.parseCaaRecord('128 issue "pki.goog"').critical, true);
+eq('flags 0 is not critical', D.parseCaaRecord('0 issue "pki.goog"').critical, false);
+eq('flags 256 is rejected', D.parseCaaRecord('256 issue "pki.goog"').errors, ['bad-flags']);
+eq('an unquoted value is named', D.parseCaaRecord('0 issue pki.goog').errors, ['unquoted-value']);
+eq('but is still read',    D.parseCaaRecord('0 issue pki.goog').value, 'pki.goog');
+eq('an embedded semicolon survives',
+  D.parseCaaRecord('0 issue "ca.example; policy=ev"').value, 'ca.example; policy=ev');
+eq('an unknown tag is marked',   D.parseCaaRecord('128 unknowntag "x"').known, false);
+eq('RFC 9495 tags are known',    D.parseCaaRecord('0 issuemail "ca.example"').known, true);
+eq('iodef is known',             D.parseCaaRecord('0 iodef "mailto:sec@example.com"').known, true);
+eq('a one-field record is unparseable', D.parseCaaRecord('issue').errors, ['unparseable-record']);
+
+// The two semantics that are easy to get wrong.
+const blocked = D.summarizeCaa(['0 issue ";"']);
+eq('an issue value of ; blocks all issuance', blocked.issuanceBlocked, true);
+eq('and names no issuers',                    blocked.issuers, []);
+const wildBlocked = D.summarizeCaa(['0 issue "letsencrypt.org"', '0 issuewild ";"']);
+eq('issuewild ; blocks wildcards only',   wildBlocked.wildcardBlocked, true);
+eq('while normal issuance continues',     wildBlocked.issuanceBlocked, false);
+eq('and the issuer is still listed',      wildBlocked.issuers, ['letsencrypt.org']);
+// An absent issuewild set means `issue` governs wildcards — NOT that wildcards
+// are unrestricted. Reading it the other way inverts the policy.
+const noWild = D.summarizeCaa(['0 issue "letsencrypt.org"']);
+eq('an absent issuewild set is not "blocked"',   noWild.wildcardBlocked, false);
+eq('and publishes no wildcard issuers of its own', noWild.wildcardIssuers, []);
+
+const caaFull = D.summarizeCaa([
+  '0 issue "letsencrypt.org"', '0 issue "pki.goog"',
+  '0 iodef "mailto:sec@example.com"', '128 weirdtag "x"', 'garbage',
+]);
+eq('issuers collected',        caaFull.issuers, ['letsencrypt.org', 'pki.goog']);
+eq('iodef collected',          caaFull.iodef, ['mailto:sec@example.com']);
+eq('unknown critical flagged', caaFull.unknownCritical, ['weirdtag']);
+eq('malformed keeps the raw text', caaFull.malformed, ['garbage']);
+// Parameters after the issuer name are not part of the CA identity.
+eq('issuer parameters are stripped',
+  D.summarizeCaa(['0 issue "letsencrypt.org; validationmethods=dns-01"']).issuers, ['letsencrypt.org']);
+
+/* ── A known tag promises a value grammar ───────────────────────────────
+   RFC 8659 §4.2 uses `%%%%%` as its own example of a malformed issue value and
+   requires a CA to treat it like an absent issuer-domain-name. Reading the text
+   before the first semicolon as a CA identity reported the policy backwards:
+   a domain that has blocked issuance was shown as authorizing a CA called
+   `%%%%%`.
+   ───────────────────────────────────────────────────────────────────── */
+const malformedIssue = D.summarizeCaa(['0 issue "%%%%%"']);
+eq('the RFC\'s own malformed example is not an issuer', malformedIssue.issuers, []);
+eq('and it blocks issuance',                             malformedIssue.issuanceBlocked, true);
+eq('and it is reported malformed',                       malformedIssue.malformed, ['0 issue "%%%%%"']);
+eq('the record itself is invalid',                       malformedIssue.parsed[0].valid, false);
+eq('and says why',                                       malformedIssue.parsed[0].errors, ['bad-issue-value']);
+// issuewild has the same grammar and the same consequence.
+eq('a malformed issuewild blocks wildcards',
+  D.summarizeCaa(['0 issue "pki.goog"', '0 issuewild "%%%%%"']).wildcardBlocked, true);
+// RFC 9495 §3 gives issuemail the same syntax.
+eq('a malformed issuemail is invalid',
+  D.summarizeCaa(['0 issuemail "%%%%%"']).parsed[0].errors, ['bad-issue-value']);
+
+// NOT overcorrected: a malformed record alongside a valid one leaves the valid
+// issuer authorized, because that record still matches the grammar.
+const mixedCaa = D.summarizeCaa(['0 issue "%%%%%"', '0 issue "letsencrypt.org"']);
+eq('a valid issuer survives a malformed sibling', mixedCaa.issuers, ['letsencrypt.org']);
+eq('and issuance is not blocked',                 mixedCaa.issuanceBlocked, false);
+eq('while the malformed record is still named',   mixedCaa.malformed, ['0 issue "%%%%%"']);
+
+// Controls that must remain valid, or the grammar is rejecting real policies.
+eq('a plain LDH issuer is valid',        D.summarizeCaa(['0 issue "letsencrypt.org"']).issuers, ['letsencrypt.org']);
+eq('a hyphenated label is valid',        D.summarizeCaa(['0 issue "sectigo-ca.example"']).issuers, ['sectigo-ca.example']);
+eq('a digit-leading label is valid',     D.summarizeCaa(['0 issue "1trust.example"']).issuers, ['1trust.example']);
+eq('parameters are accepted',
+  D.summarizeCaa(['0 issue "letsencrypt.org; validationmethods=dns-01"']).issuers, ['letsencrypt.org']);
+eq('multiple parameters are accepted',
+  D.summarizeCaa(['0 issue "ca.example; a=1; b=2"']).parsed[0].valid, true);
+eq('a trailing semicolon with no parameters is valid',
+  D.summarizeCaa(['0 issue "ca.example;"']).parsed[0].valid, true);
+eq('an empty value still authorizes nobody, and is not malformed',
+  [D.summarizeCaa(['0 issue ""']).issuanceBlocked, D.summarizeCaa(['0 issue ""']).malformed], [true, []]);
+eq('a bare ";" is still the blocking form, not a malformed one',
+  [D.summarizeCaa(['0 issue ";"']).issuanceBlocked, D.summarizeCaa(['0 issue ";"']).malformed], [true, []]);
+// Grammar violations that must be caught.
+eq('a trailing-hyphen label is refused',   D.summarizeCaa(['0 issue "ca-.example"']).parsed[0].valid, false);
+eq('a leading-hyphen label is refused',    D.summarizeCaa(['0 issue "-ca.example"']).parsed[0].valid, false);
+eq('an empty label is refused',            D.summarizeCaa(['0 issue "ca..example"']).parsed[0].valid, false);
+eq('a parameter without "=" is refused',   D.summarizeCaa(['0 issue "ca.example; nope"']).parsed[0].valid, false);
+eq('a space inside a parameter value is refused',
+  D.summarizeCaa(['0 issue "ca.example; a=b c"']).parsed[0].valid, false);
+
+// RFC 8659 §4.4: iodef takes mailto, http or https and nothing else.
+eq('an ftp iodef is refused',      D.summarizeCaa(['0 iodef "ftp://x.example"']).parsed[0].errors, ['bad-iodef-url']);
+eq('a scheme-less iodef is refused', D.summarizeCaa(['0 iodef "x.example"']).parsed[0].valid, false);
+eq('a mailto iodef is valid',      D.summarizeCaa(['0 iodef "mailto:sec@example.com"']).parsed[0].valid, true);
+eq('an https iodef is valid',      D.summarizeCaa(['0 iodef "https://example.com/r"']).parsed[0].valid, true);
+eq('an http iodef is valid',       D.summarizeCaa(['0 iodef "http://example.com/r"']).parsed[0].valid, true);
+// Deliberately unvalidated — RFC 9495 §4/§5 define these loosely enough that a
+// false "malformed" on a real record would be worse than no check.
+eq('contactemail is not grammar-checked',  D.summarizeCaa(['0 contactemail "anything at all"']).parsed[0].valid, true);
+eq('contactphone is not grammar-checked',  D.summarizeCaa(['0 contactphone "+1 555 0100"']).parsed[0].valid, true);
+
+sandbox.fetch = dohFixture({ 'caa.example CAA': caa('0 issue "letsencrypt.org"') });
+const caaWalk = await D.checkCAA('caa.example', { retries: 0, noCache: true });
+eq('checkCAA keeps its original shape', [caaWalk.found, caaWalk.atDomain], [true, 'caa.example']);
+eq('and gains the parsed set',          caaWalk.issuers, ['letsencrypt.org']);
+eq('and the raw records still',         caaWalk.records, ['0 issue "letsencrypt.org"']);
+// The climb is unchanged: RFC 8659 §3 stops at the first name with any record.
+sandbox.fetch = dohFixture({ 'parent.example CAA': caa('0 issue "pki.goog"') });
+const climbed = await D.checkCAA('sub.parent.example', { retries: 0, noCache: true });
+eq('CAA is still inherited from the parent', climbed.atDomain, 'parent.example');
+eq('and the parent policy is parsed',        climbed.issuers, ['pki.goog']);
+
+/* ── 36. MX health (DNS only, no SMTP) ───────────────────────────────── */
+section('36. MX health');
+
+eq('an MX record splits into preference and host',
+  D.parseMxRecord('10 mail.example.com.'), { preference: 10, host: 'mail.example.com' });
+eq('a malformed MX record is dropped', D.parseMxRecord('mail.example.com'), null);
+
+const MX_FIXTURE = {
+  'good.example A': a('203.0.113.10'),
+  'good.example AAAA': aaaa('2001:db8::10'),
+  'good.example CNAME': 'nodata',
+  'dead.example A': 'nxdomain',
+  'dead.example AAAA': 'nxdomain',
+  'dead.example CNAME': 'nxdomain',
+  'aliased.example CNAME': cname('real.example.'),
+  'aliased.example A': a('203.0.113.20'),
+  'aliased.example AAAA': 'nodata',
+};
+sandbox.fetch = dohFixture(MX_FIXTURE);
+const mxAudit = await D.auditMxHosts(
+  ['10 good.example.', '20 dead.example.', '30 aliased.example.'],
+  'example.com', { retries: 0, noCache: true });
+
+eq('every MX host is audited',   mxAudit.hosts.length, 3);
+eq('a resolving host says yes',  mxAudit.hosts[0].resolves, 'yes');
+eq('a dangling host is named',   mxAudit.danglingHosts, ['dead.example']);
+eq('a CNAME target is named',    mxAudit.cnameHosts, ['aliased.example']);
+// RFC 2181 §10.3 forbids it, but the A record behind the alias still resolves,
+// so the host is reachable and must not also be reported as dangling.
+eq('a CNAME target still resolves', mxAudit.hosts[2].resolves, 'yes');
+eq('IPv6 coverage is partial',   mxAudit.ipv6Coverage, 'some');
+eq('three hosts is not a single point', mxAudit.singleHost, false);
+eq('nothing is unknown here',    mxAudit.unknown, false);
+
+sandbox.fetch = dohFixture({
+  'only.example A': a('198.51.100.5'), 'only.example AAAA': 'nodata', 'only.example CNAME': 'nodata',
+});
+const single = await D.auditMxHosts(['10 only.example.'], 'example.com', { retries: 0, noCache: true });
+eq('a lone MX host is a single point of failure', single.singleHost, true);
+eq('and IPv4-only reads as no IPv6',              single.ipv6Coverage, 'none');
+
+// Concentration: three hosts, one /24. The prefix label is what the operator
+// has to go and look at, so it is reported rather than a bare count.
+sandbox.fetch = dohFixture({
+  'a.example A': a('203.0.113.10'), 'a.example AAAA': 'nodata', 'a.example CNAME': 'nodata',
+  'b.example A': a('203.0.113.11'), 'b.example AAAA': 'nodata', 'b.example CNAME': 'nodata',
+  'c.example A': a('198.51.100.9'), 'c.example AAAA': 'nodata', 'c.example CNAME': 'nodata',
+});
+const prefixes = await D.auditMxHosts(
+  ['10 a.example.', '20 b.example.', '30 c.example.'], 'example.com', { retries: 0, noCache: true });
+eq('one shared /24 is reported', prefixes.sharedPrefixes.length, 1);
+eq('the prefix is named',        prefixes.sharedPrefixes[0].prefix, '203.0.113.0/24');
+eq('with the hosts inside it',   prefixes.sharedPrefixes[0].hosts, ['a.example', 'b.example']);
+// The host in a different /24 is not swept into the group.
+eq('an unrelated host is left out', prefixes.sharedPrefixes[0].hosts.includes('c.example'), false);
+
+sandbox.fetch = dohFixture({
+  'p1.example A': a('203.0.113.10'), 'p1.example AAAA': 'nodata', 'p1.example CNAME': 'nodata',
+  'p2.example A': a('198.51.100.10'), 'p2.example AAAA': 'nodata', 'p2.example CNAME': 'nodata',
+});
+const dupes = await D.auditMxHosts(['10 p1.example.', '10 p2.example.'], 'example.com', { retries: 0, noCache: true });
+eq('duplicate preferences are reported', dupes.duplicatePreferences, [10]);
+
+// A SERVFAIL on one host must degrade that host and leave the others intact —
+// and must never let an unchecked host be counted as dangling.
+sandbox.fetch = dohFixture({
+  'ok.example A': a('203.0.113.10'), 'ok.example AAAA': 'nodata', 'ok.example CNAME': 'nodata',
+  'flaky.example A': 'servfail', 'flaky.example AAAA': 'servfail', 'flaky.example CNAME': 'servfail',
+});
+const flakyMx = await D.auditMxHosts(['10 ok.example.', '20 flaky.example.'], 'example.com', { retries: 0, noCache: true });
+eq('the healthy host still reports',      flakyMx.hosts[0].resolves, 'yes');
+eq('the failed host is unknown',          flakyMx.hosts[1].resolves, 'unknown');
+eq('an unknown host is NOT dangling',     flakyMx.danglingHosts, []);
+eq('and the audit says it is incomplete', flakyMx.unknown, true);
+
+// Two MX records naming the same exchange are ONE delivery target: one point
+// of failure, one set of lookups, one row. Mapping records straight to audits
+// queried it twice, counted it twice, and suppressed `mx-single-host` on a
+// domain that has exactly one host.
+sandbox.fetch = dohFixture({
+  'dup.example A': a('203.0.113.10'), 'dup.example AAAA': 'nodata', 'dup.example CNAME': 'nodata',
+});
+const dupTarget = await D.auditMxHosts(
+  ['10 dup.example.', '20 dup.example.'], 'example.com', { retries: 0, noCache: true });
+eq('one exchange at two preferences is one host',  dupTarget.hosts.length, 1);
+eq('and is still a single point of failure',       dupTarget.singleHost, true);
+eq('and both preferences survive as evidence',     dupTarget.hosts[0].preferences, [10, 20]);
+eq('and the host is described by the preferred one', dupTarget.hosts[0].preference, 10);
+eq('and it is queried once per type, not twice',   sandbox.fetch.calls.length, 3);
+eq('the finding names the single host',
+  D.buildIssues({ emailProvider: 'X', spfStatus: { status: 'ok', warnings: [] },
+    dkimStatus: { found: false, selectors: [], confidence: 'observed' },
+    dmarcStatus: { status: 'ok', policy: 'reject', warnings: [] }, reportPlan: { external: [] },
+    externalReportDestinations: [], advanced: { mxHealth: dupTarget }, domain: 'example.com',
+  }).filter(i => i.key === 'mx-single-host').length, 1);
+// Trailing-dot and case differences are the same name, so they are one target.
+sandbox.fetch = dohFixture({
+  'mixed.example A': a('203.0.113.11'), 'mixed.example AAAA': 'nodata', 'mixed.example CNAME': 'nodata',
+});
+eq('case and trailing dot do not split a target',
+  (await D.auditMxHosts(['10 Mixed.Example.', '20 mixed.example'], 'example.com',
+    { retries: 0, noCache: true })).hosts.length, 1);
+// Two genuinely different hosts stay two, or the deduplication is too eager.
+sandbox.fetch = dohFixture({
+  'x1.example A': a('203.0.113.20'), 'x1.example AAAA': 'nodata', 'x1.example CNAME': 'nodata',
+  'x2.example A': a('198.51.100.20'), 'x2.example AAAA': 'nodata', 'x2.example CNAME': 'nodata',
+});
+const twoTargets = await D.auditMxHosts(
+  ['10 x1.example.', '20 x2.example.'], 'example.com', { retries: 0, noCache: true });
+eq('two distinct hosts remain two',       twoTargets.hosts.length, 2);
+eq('and are not a single point',          twoTargets.singleHost, false);
+eq('and each carries one preference',
+  twoTargets.hosts.map(h => h.preferences), [[10], [20]]);
+// Duplicate PREFERENCES are about the records, not the targets, so a repeated
+// host at one preference is still reported as a duplicate preference.
+sandbox.fetch = dohFixture({
+  'same.example A': a('203.0.113.30'), 'same.example AAAA': 'nodata', 'same.example CNAME': 'nodata',
+});
+eq('duplicate preferences are still counted from the records',
+  (await D.auditMxHosts(['10 same.example.', '10 same.example.'], 'example.com',
+    { retries: 0, noCache: true })).duplicatePreferences, [10]);
+
+// A null MX never reaches this function, but an empty list must not throw.
+eq('no MX records is not an error', (await D.auditMxHosts([], 'example.com', { retries: 0, noCache: true })).hosts, []);
+
+/* ── 37. TLSA and DANE (RFC 6698, RFC 7671) ──────────────────────────── */
+section('37. TLSA published, not yet qualified');
+
+// The parenthesised uppercase shape the resolver actually returns. A parser
+// written for the DS shape splits this to ['3','1','1','('] and reads the
+// association data as an empty string, raising no error at all.
+const tlsaRec = D.parseTlsaRecord('3 1 1 ( 13815B2C03F7BD63C54869706428442EDAB706D5B018A27575CA989129A196D5 )');
+eq('usage parsed',         tlsaRec.usage, 3);
+eq('selector parsed',      tlsaRec.selector, 1);
+eq('matching type parsed', tlsaRec.matchingType, 1);
+eq('parentheses stripped', tlsaRec.data, '13815b2c03f7bd63c54869706428442edab706d5b018a27575ca989129a196d5');
+eq('the digest is 32 bytes', tlsaRec.data.length / 2, 32);
+eq('the record is valid',  tlsaRec.valid, true);
+
+// The same record without parentheses, as DS would come back. Both must work,
+// because nothing guarantees the resolver keeps its current formatting.
+eq('an unparenthesised record parses too',
+  D.parseTlsaRecord('3 1 1 13815B2C03F7BD63C54869706428442EDAB706D5B018A27575CA989129A196D5').data,
+  tlsaRec.data);
+eq('a 3 0 1 record parses', D.parseTlsaRecord('3 0 1 ( ' + 'AB'.repeat(32) + ' )').valid, true);
+eq('SHA-512 wants 64 bytes', D.parseTlsaRecord('3 1 2 ( ' + 'AB'.repeat(64) + ' )').valid, true);
+eq('a short SHA-256 digest is flagged',
+  D.parseTlsaRecord('3 1 1 ( ABCD )').errors, ['bad-digest-length']);
+// Matching type 0 is the full certificate, of no fixed length.
+eq('matching type 0 accepts any length',
+  D.parseTlsaRecord('3 1 0 ( ' + 'AB'.repeat(200) + ' )').valid, true);
+eq('usage 4 is out of range',    D.parseTlsaRecord('4 1 1 ( ' + 'AB'.repeat(32) + ' )').errors, ['bad-usage']);
+eq('selector 2 is out of range', D.parseTlsaRecord('3 2 1 ( ' + 'AB'.repeat(32) + ' )').errors, ['bad-selector']);
+eq('matching type 3 is out of range',
+  D.parseTlsaRecord('3 1 3 ( ' + 'AB'.repeat(32) + ' )').errors, ['bad-matching-type']);
+eq('non-hex data is flagged',
+  D.parseTlsaRecord('3 1 1 ( ZZZZ )').errors, ['bad-association-data']);
+eq('an empty record is unparseable', D.parseTlsaRecord('').errors, ['unparseable-record']);
+
+// The wrapper is either absent or one balanced pair. Stripping each side
+// independently accepted both halves of a broken record, which defeats the
+// syntactic contract of a parser written for exactly this presentation form.
+eq('an opening parenthesis with no close is refused',
+  D.parseTlsaRecord('3 1 1 ( ' + 'AB'.repeat(32)).errors, ['unbalanced-parentheses']);
+eq('a closing parenthesis with no open is refused',
+  D.parseTlsaRecord('3 1 1 ' + 'AB'.repeat(32) + ' )').errors, ['unbalanced-parentheses']);
+eq('an unbalanced record reports no digest',
+  D.parseTlsaRecord('3 1 1 ( ' + 'AB'.repeat(32)).data, '');
+eq('a lone opening parenthesis is refused',
+  D.parseTlsaRecord('3 1 1 (').errors, ['unbalanced-parentheses']);
+// Both controls must still pass, or the check is rejecting real records.
+eq('a balanced pair is still accepted',
+  D.parseTlsaRecord('3 1 1 ( ' + 'AB'.repeat(32) + ' )').valid, true);
+eq('no parentheses at all is still accepted',
+  D.parseTlsaRecord('3 1 1 ' + 'AB'.repeat(32)).valid, true);
+eq('an empty balanced pair fails on its data, not its wrapper',
+  D.parseTlsaRecord('3 1 1 ( )').errors, ['bad-association-data']);
+
+const DIGEST = 'A6EB48052B5A83AA9D40E71CEAA20F6818C3A632D3B182A6246501B64D63724D';
+sandbox.fetch = dohFixture({
+  '_25._tcp.signed.example TLSA': { answers: tlsa(`3 1 1 ( ${DIGEST} )`), ad: true },
+  '_25._tcp.unsigned.example TLSA': { answers: tlsa(`3 1 1 ( ${DIGEST} )`), ad: false },
+  '_25._tcp.bare.example TLSA': 'nxdomain',
+});
+const tlsaResult = await D.checkTlsa(
+  ['signed.example', 'unsigned.example', 'bare.example'], { retries: 0, noCache: true });
+eq('TLSA is found where published',   tlsaResult.hosts[0].present, true);
+eq('and the digest survives the query', tlsaResult.hosts[0].records[0].data, DIGEST.toLowerCase());
+eq('a signed answer is authenticated', tlsaResult.hosts[0].authenticated, true);
+eq('an unsigned answer is not',        tlsaResult.hosts[1].authenticated, false);
+eq('a host without TLSA is absent',    tlsaResult.hosts[2].present, false);
+eq('anyPresent is true',               tlsaResult.anyPresent, true);
+eq('unauthenticated hosts are named',  tlsaResult.unauthenticatedHosts, ['unsigned.example']);
+// Acceptance criterion 4: nothing in this release may claim DANE is active.
+eq('qualified is false even when every host is signed', tlsaResult.qualified, false);
+eq('and stays false with a fully signed set',
+  (await D.checkTlsa(['signed.example'], { retries: 0, noCache: true })).qualified, false);
+eq('a fully signed set is recorded as such',
+  (await D.checkTlsa(['signed.example'], { retries: 0, noCache: true })).allAuthenticated, true);
+
+// A TLSA query commonly returns a CNAME alongside the records — pointing
+// _25._tcp.<host> at a shared _dane.<zone> name is ordinary practice. Handing
+// that CNAME to the record parser reports a malformed TLSA on a healthy host.
+sandbox.fetch = dohFixture({
+  '_25._tcp.dane.example TLSA': {
+    answers: [...cname('_dane.example.'), ...tlsa(`3 1 1 ( ${DIGEST} )`)], ad: true,
+  },
+});
+const withCname = await D.checkTlsa(['dane.example'], { retries: 0, noCache: true });
+eq('the CNAME in the answer set is filtered out', withCname.hosts[0].records.length, 1);
+eq('and nothing is reported malformed',
+  withCname.hosts[0].records.every(r => r.valid), true);
+
+sandbox.fetch = dohFixture({ '_25._tcp.flaky.example TLSA': 'servfail' });
+const tlsaFlaky = await D.checkTlsa(['flaky.example'], { retries: 0, noCache: true });
+eq('a failed TLSA lookup is unknown',    tlsaFlaky.hosts[0].unknown, true);
+eq('and is never reported as absent',    tlsaFlaky.hosts[0].authenticated, null);
+eq('and the result says so',             tlsaFlaky.unknown, true);
+
+/* ── 38. The findings these analyzers produce ────────────────────────── */
+section('38. Advisory findings from the new analyzers');
+
+const findings = (parts) => D.buildIssues(Object.assign({
+  emailProvider: 'Google Workspace',
+  spfStatus: { status: 'ok', cls: 'ok', warnings: [] },
+  dkimStatus: { found: true, selectors: [], testedSelectors: ['s1'], failedSelectors: [], duplicated: [], revokedSelectors: [], confidence: 'observed' },
+  dmarcStatus: { status: 'ok', cls: 'ok', policy: 'reject', warnings: [] },
+  dmarcDiscovery: null, dmarcExistence: 'yes', externalReportDestinations: [],
+  reportPlan: { external: [] }, wildcardApex: false, wildcardDkim: false,
+  hosting: '@custom', advanced: {}, domain: 'example.com',
+}, parts));
+const keysOf = (parts) => findings(parts).map(i => i.key);
+const sevOf = (parts, k) => (findings(parts).find(i => i.key === k) || {}).sev;
+
+const sel = (name, value) => ({ sel: name, key: key(value) });
+const dkimWith = (...selectors) => ({
+  dkimStatus: {
+    found: true, selectors, testedSelectors: [], failedSelectors: [], duplicated: [],
+    revokedSelectors: [], confidence: 'observed', keyProfile: D.summarizeDkimKeys(selectors),
+  },
+});
+
+eq('a sub-1024 key is critical', sevOf(dkimWith(sel('s1', `v=DKIM1; p=${RSA_512}`)), 'dkim-key-weak'), 'crit');
+eq('and names the selector and size',
+  findings(dkimWith(sel('s1', `v=DKIM1; p=${RSA_512}`))).find(i => i.key === 'dkim-key-weak').args, ['s1 (512)']);
+// OQ-DEPTH-05: 53% of real keys are RSA-1024, so a warning here would fire on
+// most audited domains and teach people to ignore the critical line above.
+eq('a 1024-bit key is informational, not a warning',
+  sevOf(dkimWith(sel('s1', `v=DKIM1; p=${RSA_1024}`)), 'dkim-key-1024'), 'info');
+// The size fix carried into the findings: `dkim-key-weak` is critical below
+// 1024 and `dkim-key-1024` is informational at exactly 1024, so a modulus
+// reported by byte width rather than bit length crossed the boundary the wrong
+// way. Helpers come from section 34.
+const bitsFinding = buf => keysOf(dkimWith(sel('s1', `v=DKIM1; k=rsa; p=${Buffer.from(buf).toString('base64')}`)))
+  .filter(k => k === 'dkim-key-weak' || k === 'dkim-key-1024');
+eq('a 1017-bit key is critical, not informational', bitsFinding(asPkcs1(modulusOf(128, 0x01))), ['dkim-key-weak']);
+eq('a 1023-bit key is critical too',                bitsFinding(asPkcs1(modulusOf(128, 0x7f))), ['dkim-key-weak']);
+eq('a 1024-bit key is informational',               bitsFinding(asPkcs1(modulusOf(128, 0x80))), ['dkim-key-1024']);
+eq('the same holds through the SPKI envelope',      bitsFinding(asSpki(modulusOf(128, 0x01))), ['dkim-key-weak']);
+
+eq('a 2048-bit key raises nothing',
+  keysOf(dkimWith(sel('s1', `v=DKIM1; p=${RSA_2048}`))).filter(k => k.startsWith('dkim-key')), []);
+eq('selectors are grouped onto one line',
+  findings(dkimWith(sel('a', `v=DKIM1; p=${RSA_1024}`), sel('b', `v=DKIM1; p=${RSA_1024}`)))
+    .filter(i => i.key === 'dkim-key-1024').length, 1);
+eq('mixed strengths are reported with both sizes',
+  findings(dkimWith(sel('a', `v=DKIM1; p=${RSA_1024}`), sel('b', `v=DKIM1; p=${RSA_2048}`)))
+    .find(i => i.key === 'dkim-key-mixed').args, [1024, 2048]);
+eq('a testing key is informational', sevOf(dkimWith(sel('s1', `v=DKIM1; t=y; p=${RSA_2048}`)), 'dkim-key-testing'), 'info');
+eq('an unparseable key warns', sevOf(dkimWith(sel('s1', `v=DKIM1; p=${RSA_2048.slice(0, 100)}`)), 'dkim-key-unparseable'), 'warn');
+eq('h=sha1 alone warns', sevOf(dkimWith(sel('s1', `v=DKIM1; h=sha1; p=${RSA_2048}`)), 'dkim-key-sha1'), 'warn');
+// A verifier offered both can pick SHA-256, so the list is not a finding.
+eq('h=sha256:sha1 does not warn',
+  keysOf(dkimWith(sel('s1', `v=DKIM1; h=sha256:sha1; p=${RSA_2048}`))).includes('dkim-key-sha1'), false);
+eq('a revoked selector warns', sevOf({
+  dkimStatus: { found: true, selectors: [], testedSelectors: [], failedSelectors: [], duplicated: [], confidence: 'observed', revokedSelectors: [{ sel: 'old', queryName: 'old._domainkey.example.com', value: 'v=DKIM1; p=' }] },
+}, 'dkim-key-revoked'), 'warn');
+// A browser without Web Crypto has said nothing about the key. It must never
+// end up in the unparseable line.
+const uncheckable = key(`v=DKIM1; p=${RSA_2048}`);
+eq('an unvalidated key is not reported broken',
+  keysOf(dkimWith({ sel: 's1', key: uncheckable })).includes('dkim-key-unparseable'), false);
+
+const caaAdv = summary => ({ advanced: { caa: Object.assign({ found: true, atDomain: 'example.com', records: [] }, summary) } });
+eq('blocked issuance warns',
+  sevOf(caaAdv(D.summarizeCaa(['0 issue ";"'])), 'caa-blocks-all-issuance'), 'warn');
+eq('an unknown critical tag warns',
+  sevOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"', '128 weird "x"'])), 'caa-unknown-critical-tag'), 'warn');
+eq('a malformed record warns',
+  sevOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"', 'garbage'])), 'caa-malformed'), 'warn');
+eq('a missing iodef is informational',
+  sevOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"'])), 'caa-no-iodef'), 'info');
+eq('a single issuer is informational',
+  sevOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"'])), 'caa-single-issuer'), 'info');
+// issue + issuewild for the same CA is one issuer, not two.
+eq('issue and issuewild for one CA is still a single issuer',
+  keysOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"', '0 issuewild "pki.goog"']))).includes('caa-single-issuer'), true);
+eq('two issuers raise nothing',
+  keysOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"', '0 issue "letsencrypt.org"']))).includes('caa-single-issuer'), false);
+eq('a blocked policy is not also "single issuer"',
+  keysOf(caaAdv(D.summarizeCaa(['0 issue ";"']))).includes('caa-single-issuer'), false);
+// No CAA at all is a suggestion, not a policy finding.
+eq('an absent CAA set raises no policy findings',
+  keysOf({ advanced: { caa: { found: false, records: [], atDomain: null } } }).filter(k => k.startsWith('caa-')), []);
+
+const mxAdv = health => ({ advanced: { mxHealth: health } });
+eq('a dangling MX host is critical', sevOf(mxAdv(mxAudit), 'mx-dangling'), 'crit');
+eq('and names the host',            findings(mxAdv(mxAudit)).find(i => i.key === 'mx-dangling').args, ['dead.example']);
+eq('a CNAME MX target warns',       sevOf(mxAdv(mxAudit), 'mx-cname-target'), 'warn');
+eq('a single MX host is informational', sevOf(mxAdv(single), 'mx-single-host'), 'info');
+eq('no IPv6 is informational',      sevOf(mxAdv(single), 'mx-no-ipv6'), 'info');
+eq('a shared prefix is informational', sevOf(mxAdv(prefixes), 'mx-same-prefix'), 'info');
+eq('and names the prefix',          findings(mxAdv(prefixes)).find(i => i.key === 'mx-same-prefix').args[0], '203.0.113.0/24');
+eq('duplicate preferences are informational', sevOf(mxAdv(dupes), 'mx-duplicate-preference'), 'info');
+// The whole point of the resilience work: a host we could not check must never
+// be reported as an outage.
+eq('an unchecked host raises no dangling finding',
+  keysOf(mxAdv(flakyMx)).includes('mx-dangling'), false);
+eq('but the audit says which check was incomplete',
+  findings(mxAdv(flakyMx)).find(i => i.key === 'checks-unverified').args, ['MX']);
+
+eq('an unsigned TLSA record warns', sevOf({ advanced: { tlsa: tlsaResult } }, 'tlsa-published-unsigned'), 'warn');
+eq('and names only the unsigned host',
+  findings({ advanced: { tlsa: tlsaResult } }).find(i => i.key === 'tlsa-published-unsigned').args, ['unsigned.example']);
+// The finding that would have shipped wrong: gating on `qualified` alone fires
+// on every domain, telling a correctly signed zone its DANE is unprotected.
+eq('a fully signed TLSA set raises no unsigned warning',
+  keysOf({ advanced: { tlsa: await D.checkTlsa(['signed.example'], { retries: 0, noCache: true }) } })
+    .includes('tlsa-published-unsigned'), false);
+eq('partial coverage is informational',
+  sevOf({ advanced: { tlsa: tlsaResult } }, 'tlsa-partial-coverage'), 'info');
+eq('and counts only the hosts checked',
+  findings({ advanced: { tlsa: tlsaResult } }).find(i => i.key === 'tlsa-partial-coverage').args, [2, 3]);
+
+sandbox.fetch = dohFixture({
+  '_25._tcp.bad.example TLSA': { answers: tlsa('3 1 1 ( ABCD )'), ad: true },
+});
+eq('a malformed TLSA record warns',
+  sevOf({ advanced: { tlsa: await D.checkTlsa(['bad.example'], { retries: 0, noCache: true }) } }, 'tlsa-malformed'), 'warn');
+
+/* ── 39. Deep checks through analyzeDomain ───────────────────────────── */
+section('39. Deep protocol checks through analyzeDomain');
+
+const DEEP = {
+  'depth.example NS': ns('ns1.depth.example.'),
+  'depth.example MX': mx('10 mail.depth.example.', '20 dead.depth.example.'),
+  'depth.example TXT': txt('v=spf1 -all'),
+  'depth.example A': a('203.0.113.5'),
+  'depth.example AAAA': 'nodata',
+  'depth.example CAA': caa('0 issue "letsencrypt.org"'),
+  '_dmarc.depth.example TXT': txt('v=DMARC1; p=reject; rua=mailto:d@depth.example'),
+  'mail.depth.example A': a('203.0.113.25'),
+  'mail.depth.example AAAA': 'nodata',
+  'mail.depth.example CNAME': 'nodata',
+  'dead.depth.example A': 'nxdomain',
+  'dead.depth.example AAAA': 'nxdomain',
+  'dead.depth.example CNAME': 'nxdomain',
+  '_25._tcp.mail.depth.example TLSA': { answers: tlsa(`3 1 1 ( ${DIGEST} )`), ad: true },
+};
+
+// One fixture across both runs, so the second audit's query count is measured
+// on the same `calls` array — and, because dohFetch's cache is module-level and
+// already warm from the first run, what it counts is exactly the queries the
+// toggle adds. That number is what PRIVACY.md has to state.
+sandbox.fetch = dohFixture(DEEP);
+const deepOff = await D.analyzeDomain('depth.example', { dkim: false, advanced: true, retries: 0 });
+eq('deep checks are off unless asked for', deepOff.advanced.mxHealth, null);
+eq('and TLSA is not queried at all',       deepOff.advanced.tlsa, null);
+eq('no TLSA query is issued',              sandbox.fetch.callsFor('TLSA').length, 0);
+// CAA parsing is free — it reads records the audit already fetched — so it
+// must work with the deep checks switched off.
+eq('CAA is still parsed with deep checks off', deepOff.advanced.caa.issuers, ['letsencrypt.org']);
+
+const queriesWithout = sandbox.fetch.calls.length;
+const deepOn = await D.analyzeDomain('depth.example', { dkim: false, advanced: true, deepChecks: true, retries: 0 });
+eq('MX health runs',                deepOn.advanced.mxHealth.hosts.length, 2);
+eq('the dead MX host is found',     deepOn.advanced.mxHealth.danglingHosts, ['dead.depth.example']);
+eq('and reported as critical',      deepOn.issues.find(i => i.key === 'mx-dangling').sev, 'crit');
+eq('TLSA runs for every MX host',   deepOn.advanced.tlsa.hosts.length, 2);
+eq('and finds the published record', deepOn.advanced.tlsa.anyPresent, true);
+eq('DANE is never called qualified', deepOn.advanced.tlsa.qualified, false);
+// The measured cost of the toggle, which PRIVACY.md has to state.
+eq('deep checks cost 3 queries per MX host plus 1 TLSA each',
+  sandbox.fetch.calls.length - queriesWithout, 8);
+
+// A null MX has declared it accepts no mail: there is no host to resolve.
+sandbox.fetch = dohFixture({
+  'nomail.example NS': ns('ns1.nomail.example.'),
+  'nomail.example MX': mx('0 .'),
+  'nomail.example TXT': txt('v=spf1 -all'),
+  'nomail.example A': a('203.0.113.5'),
+  'nomail.example AAAA': 'nodata',
+});
+const nullMx = await D.analyzeDomain('nomail.example', { dkim: false, advanced: true, deepChecks: true, retries: 0 });
+eq('a null MX skips the deep checks', nullMx.advanced.mxHealth, null);
+eq('and issues no TLSA query',        sandbox.fetch.callsFor('TLSA').length, 0);
+
+// Acceptance criterion 5: nothing here may move a grade.
+eq('the deep checks change no score', deepOn.score.total, deepOff.score.total);
+eq('and no grade',                    deepOn.score.grade, deepOff.score.grade);
+
+// Every finding this release can emit must have English text behind it. The
+// guard in section 22 only walks DMARC-shaped records, so the DKIM key, CAA,
+// MX and TLSA findings would have slipped past it — a finding with no locale
+// entry renders as its own key, which is how a 124-key gap once survived for
+// months.
+sandbox.fetch = dohFixture({
+  '_25._tcp.bad.example TLSA': { answers: tlsa('3 1 1 ( ABCD )'), ad: true },
+});
+const malformedTlsaResult = await D.checkTlsa(['bad.example'], { retries: 0, noCache: true });
+const depthEmitted = new Set([
+  ...keysOf(dkimWith(sel('a', `v=DKIM1; p=${RSA_512}`), sel('b', `v=DKIM1; t=y; h=sha1; p=${RSA_1024}`))),
+  ...keysOf(dkimWith(sel('c', `v=DKIM1; p=${RSA_2048.slice(0, 100)}`))),
+  ...keysOf({ dkimStatus: { found: true, selectors: [], testedSelectors: [], failedSelectors: [], duplicated: [], confidence: 'observed', revokedSelectors: [{ sel: 'old', queryName: 'old._domainkey.example.com', value: 'v=DKIM1; p=' }] } }),
+  ...keysOf(caaAdv(D.summarizeCaa(['0 issue ";"', '128 weird "x"', 'garbage']))),
+  ...keysOf(caaAdv(D.summarizeCaa(['0 issue "pki.goog"']))),
+  ...keysOf(mxAdv(mxAudit)), ...keysOf(mxAdv(single)),
+  ...keysOf(mxAdv(prefixes)), ...keysOf(mxAdv(dupes)), ...keysOf(mxAdv(flakyMx)),
+  ...keysOf({ advanced: { tlsa: tlsaResult } }),
+  ...keysOf({ advanced: { tlsa: malformedTlsaResult } }),
+]);
+eq('every finding in this release has English text',
+  [...depthEmitted].filter(k => !enIssues[k]), []);
+// And the set actually covers what was built, rather than passing by emitting
+// nothing at all.
+eq('the guard exercises all 21 new findings',
+  [...depthEmitted].filter(k => /^(dkim-key|caa-|mx-|tlsa-)/.test(k)).length, 21);
+
+/* ── 40. Conflicting SPF records keep their evidence ─────────────────── */
+section('40. Multiple SPF records are reported WITH the records');
+
+// Reported from the field against splunk.com, which really does publish two
+// v=spf1 records. The permerror was correct; the panel beside it showed one
+// perfectly valid record, because every match after the first was discarded
+// here and existed nowhere in the result. A critical finding with its evidence
+// withheld reads as a bug in this tool — which is exactly how it was reported.
+const SPF_A = 'v=spf1 include:_spf.google.com include:_spf.xactlycorp.com ~all';
+const SPF_B = 'v=spf1 include:mktomail.com include:stspg-customer.com ~all';
+
+sandbox.fetch = dohFixture({
+  'twospf.example NS': ns('ns1.twospf.example.'),
+  'twospf.example MX': mx('10 mail.twospf.example.'),
+  'twospf.example TXT': [...txt(SPF_A), ...txt(SPF_B)],
+  'twospf.example A': a('203.0.113.5'),
+  'twospf.example AAAA': 'nodata',
+  '_dmarc.twospf.example TXT': txt('v=DMARC1; p=reject; rua=mailto:d@twospf.example'),
+});
+const twoSpf = await D.analyzeDomain('twospf.example', { dkim: false, retries: 0 });
+eq('two records is still a permerror',   twoSpf.spfStatus.status, 'permerror');
+eq('and still critical',                 twoSpf.spfStatus.cls, 'crit');
+eq('every conflicting record is kept',   twoSpf.spfRecords, [SPF_A, SPF_B]);
+eq('spfRecord still names the first',    twoSpf.spfRecord, SPF_A);
+// The finding evidences itself at row level too, the way dkim-multiple-records
+// already names its selectors.
+eq('the finding counts the records',
+  twoSpf.issues.find(i => i.key === 'spf-multiple-records').args, [2]);
+// Nothing in the record contents may be judged: no record applies at all, so a
+// warning about `~all` or a missing provider include would be about a record
+// receivers never reach.
+eq('no content warning is drawn from a record that does not apply',
+  twoSpf.spfStatus.warnings, ['spf-multiple-records']);
+
+sandbox.fetch = dohFixture({
+  'threespf.example NS': ns('ns1.threespf.example.'),
+  'threespf.example MX': mx('10 mail.threespf.example.'),
+  'threespf.example TXT': [...txt(SPF_A), ...txt(SPF_B), ...txt('v=spf1 -all')],
+  'threespf.example A': a('203.0.113.5'),
+  'threespf.example AAAA': 'nodata',
+});
+const threeSpf = await D.analyzeDomain('threespf.example', { dkim: false, retries: 0 });
+eq('three records are all kept',   threeSpf.spfRecords.length, 3);
+eq('and the count says three',
+  threeSpf.issues.find(i => i.key === 'spf-multiple-records').args, [3]);
+
+// The single-record path is untouched: one record, no finding, no behaviour
+// change for the overwhelming majority of domains.
+sandbox.fetch = dohFixture({
+  'onespf.example NS': ns('ns1.onespf.example.'),
+  'onespf.example MX': mx('10 mail.onespf.example.'),
+  'onespf.example TXT': txt(SPF_A),
+  'onespf.example A': a('203.0.113.5'),
+  'onespf.example AAAA': 'nodata',
+});
+const oneSpf = await D.analyzeDomain('onespf.example', { dkim: false, retries: 0 });
+eq('one record is not a permerror',  oneSpf.spfStatus.status !== 'permerror', true);
+eq('and spfRecords holds just it',   oneSpf.spfRecords, [SPF_A]);
+eq('and raises no multiple finding',
+  oneSpf.issues.map(i => i.key).includes('spf-multiple-records'), false);
+
+// A domain with no SPF at all must not report an empty record as a conflict.
+sandbox.fetch = dohFixture({
+  'nospf.example NS': ns('ns1.nospf.example.'),
+  'nospf.example MX': mx('10 mail.nospf.example.'),
+  'nospf.example TXT': txt('google-site-verification=abc'),
+  'nospf.example A': a('203.0.113.5'),
+  'nospf.example AAAA': 'nodata',
+});
+const noSpf = await D.analyzeDomain('nospf.example', { dkim: false, retries: 0 });
+eq('no SPF means an empty record list', noSpf.spfRecords, []);
+eq('and the status is missing, not permerror', noSpf.spfStatus.status, 'missing');
+
+/* ── 41. A recognized field name promises a value grammar ────────────── */
+section('41. Registered value grammars: DKIM applicability, MTA-STS, TLS-RPT, BIMI');
+
+// ── DKIM: published key-shaped record vs. usable for THIS domain's email ──
+// `k=bogus` and `s=tlsrpt` are conformant records that RFC 6376 §3.6.1 tells a
+// verifier to ignore for email. Counting them satisfied DKIM discovery and
+// reported a signing key where none applies.
+const appliesToEmail = tags => D.analyzeDkimKey(`${tags}p=${RSA_2048}`).appliesToEmail;
+const discovered = tags => D.dkimRecordSet([{ type: 16, data: `"${tags}p=${RSA_2048}"` }]).keys.length > 0;
+
+eq('an unrecognized k= does not apply to email', appliesToEmail('k=bogus; '), false);
+eq('and does not satisfy discovery',             discovered('k=bogus; '), false);
+eq('but is not called malformed',                D.analyzeDkimKey(`k=bogus; p=${RSA_2048}`).errors, []);
+eq('it is recorded as a restriction instead',
+  D.analyzeDkimKey(`k=bogus; p=${RSA_2048}`).restrictions, ['unsupported-key-type']);
+
+eq('s=tlsrpt does not apply to email',  appliesToEmail('s=tlsrpt; '), false);
+eq('and does not satisfy discovery',    discovered('s=tlsrpt; '), false);
+eq('and is a restriction, not an error',
+  D.analyzeDkimKey(`s=tlsrpt; p=${RSA_2048}`).restrictions, ['service-not-email']);
+
+// Controls that must all still apply to email.
+eq('s=email applies',            appliesToEmail('s=email; '), true);
+eq('s=* applies',                appliesToEmail('s=*; '), true);
+eq('an absent s= defaults to *', appliesToEmail(''), true);
+eq('s=email:tlsrpt applies',     appliesToEmail('s=email:tlsrpt; '), true);
+eq('and all four satisfy discovery',
+  ['s=email; ', 's=*; ', '', 's=email:tlsrpt; '].map(discovered), [true, true, true, true]);
+
+// h=: an unknown hash name is an extension, not a defect — but a list offering
+// no hash this verifier knows is a key it cannot use.
+eq('h=sha999 alone does not apply',      appliesToEmail('h=sha999; '), false);
+eq('and is a restriction, not an error',
+  D.analyzeDkimKey(`h=sha999; p=${RSA_2048}`).restrictions, ['no-supported-hash']);
+eq('h=sha999:sha256 applies',            appliesToEmail('h=sha999:sha256; '), true);
+eq('and keeps the extension token',
+  D.analyzeDkimKey(`h=sha999:sha256; p=${RSA_2048}`).hashAlgorithms, ['sha999', 'sha256']);
+eq('an unknown t= flag is kept as an extension',
+  D.analyzeDkimKey(`t=y:custom; p=${RSA_2048}`).flags, ['y', 'custom']);
+
+// A PRESENT list tag may not be empty; an ABSENT one is a different thing.
+eq('an empty h= is malformed',  D.analyzeDkimKey(`h=; p=${RSA_2048}`).errors, ['invalid-tag-list']);
+eq('an empty s= is malformed',  D.analyzeDkimKey(`s=; p=${RSA_2048}`).errors, ['invalid-tag-list']);
+eq('an empty t= is malformed',  D.analyzeDkimKey(`t=; p=${RSA_2048}`).errors, ['invalid-tag-list']);
+eq('an absent h= is not malformed', D.analyzeDkimKey(`p=${RSA_2048}`).errors, []);
+eq('and reports no hash list',      D.analyzeDkimKey(`p=${RSA_2048}`).hashAlgorithms, []);
+
+// The line this fix must NOT cross: a key meant for email that happens to be
+// broken still counts as found, so `dkim-key-unparseable` keeps firing. Turning
+// a warning about a broken key into "no DKIM at all" is a worse answer.
+eq('an unparseable key still applies to email', D.analyzeDkimKey('p=notbase64!!').appliesToEmail, true);
+eq('and still satisfies discovery',
+  D.dkimRecordSet([{ type: 16, data: '"v=DKIM1; p=notbase64!!"' }]).keys.length, 1);
+eq('a revoked key applies to nothing', D.analyzeDkimKey('v=DKIM1; p=').appliesToEmail, false);
+
+// The unusable records are surfaced, not silently dropped.
+sandbox.fetch = dohFixture({
+  'tlsrpt._domainkey.svc.example TXT': txt(`v=DKIM1; k=rsa; s=tlsrpt; p=${RSA_2048}`),
+});
+const scoped = await D.checkDKIM('svc.example', false, ['tlsrpt'], '@custom-unknown', false, '', { retries: 0, noCache: true });
+eq('a scoped-only domain reports no email DKIM', scoped.found, false);
+// A record exists at that name, so "No Domain Key Found" would contradict the
+// finding that describes it.
+eq('but the selector is not reported missing',   scoped.missingSelectors.length, 0);
+// The same applies to a selector holding only a revocation.
+sandbox.fetch = dohFixture({ 'old._domainkey.rev.example TXT': txt('v=DKIM1; p=') });
+const revokedOnly = await D.checkDKIM('rev.example', false, ['old'], '@custom-unknown', false, '', { retries: 0, noCache: true });
+eq('a revoked-only selector is not reported missing either', revokedOnly.missingSelectors.length, 0);
+eq('it is reported as revoked',                              revokedOnly.revokedSelectors.map(r => r.sel), ['old']);
+// ...but a selector with genuinely nothing at it is still reported missing.
+sandbox.fetch = dohFixture({});
+eq('an empty selector is still reported missing',
+  (await D.checkDKIM('none.example', false, ['ghost'], '@custom-unknown', false, '', { retries: 0, noCache: true }))
+    .missingSelectors.map(m => m.sel), ['ghost']);
+eq('it is reported as inapplicable instead',
+  scoped.unusableSelectors.map(u => u.sel), ['tlsrpt']);
+eq('and the finding says so',
+  D.buildIssues({ emailProvider: 'X', spfStatus: { status: 'ok', warnings: [] }, dkimStatus: scoped,
+    dmarcStatus: { status: 'ok', policy: 'reject', warnings: [] }, reportPlan: { external: [] },
+    externalReportDestinations: [], advanced: {}, domain: 'svc.example',
+  }).filter(i => i.key === 'dkim-key-not-email').map(i => i.args), [['tlsrpt']]);
+
+// ── MTA-STS (RFC 8461 §3.1) ──
+const sts = r => D.validateMtaStsRecord(r).valid;
+eq('a canonical MTA-STS record is valid',   sts('v=STSv1; id=20260817'), true);
+eq('a trailing delimiter is permitted',     sts('v=STSv1; id=abc;'), true);
+eq('a valid extension is permitted',        sts('v=STSv1; id=abc; ext_1=ok'), true);
+eq('the version must come first',           sts('id=abc; v=STSv1'), false);
+eq('the version is case-sensitive',         sts('v=stsv1; id=abc'), false);
+eq('an id with a hyphen is refused',        sts('v=STSv1; id=has-hyphen'), false);
+eq('a 33-character id is refused',          sts(`v=STSv1; id=${'a'.repeat(33)}`), false);
+eq('a 32-character id is accepted',         sts(`v=STSv1; id=${'a'.repeat(32)}`), true);
+eq('a bare fragment is not an extension',   sts('v=STSv1; id=abc; garbage'), false);
+eq('a missing id is still refused',         sts('v=STSv1'), false);
+// A bare fragment is rejected for having no "=" at all, which never reaches
+// the extension grammar. These do reach it: a well-formed field whose NAME or
+// VALUE breaks the ABNF.
+eq('an extension name with a space is refused',  sts('v=STSv1; id=abc; bad name=x'), false);
+eq('an extension value with a space is refused', sts('v=STSv1; id=abc; ext=has space'), false);
+eq('an empty extension value is refused',        sts('v=STSv1; id=abc; ext='), false);
+eq('an over-long extension name is refused',     sts(`v=STSv1; id=abc; ${'e'.repeat(33)}=x`), false);
+eq('a dotted extension name is accepted',        sts('v=STSv1; id=abc; a.b-c_d=x'), true);
+
+// ── TLS-RPT (RFC 8460 §3) ──
+const rpt = r => D.validateTlsRptRecord(r).valid;
+eq('a canonical TLS-RPT record is valid',   rpt('v=TLSRPTv1; rua=mailto:tls@example.com'), true);
+eq('an https destination is valid',         rpt('v=TLSRPTv1; rua=https://example.com/r'), true);
+eq('a comma-separated pair is valid',       rpt('v=TLSRPTv1; rua=mailto:a@e.example,https://e.example/r'), true);
+eq('the version must come first',           rpt('rua=mailto:a@example.com; v=TLSRPTv1'), false);
+eq('the version is case-sensitive',         rpt('v=tlsrptv1; rua=mailto:a@e.example'), false);
+eq('a scheme prefix is not a URI',          rpt('v=TLSRPTv1; rua=mailto:not an address'), false);
+eq('a bare fragment is not an extension',   rpt('v=TLSRPTv1; rua=https://example.com/x; garbage'), false);
+eq('a missing rua is still refused',        rpt('v=TLSRPTv1'), false);
+eq('an extension value with a space is refused',
+  rpt('v=TLSRPTv1; rua=mailto:a@e.example; ext=has space'), false);
+eq('a valid extension is accepted',
+  rpt('v=TLSRPTv1; rua=mailto:a@e.example; ext_1=ok'), true);
+
+// ── BIMI (draft-brand-indicators-for-message-identification §4.3) ──
+const bimi = r => D.validateBimiRecord(r);
+eq('an active BIMI record is valid',        bimi('v=BIMI1; l=https://logo.example/x.svg').valid, true);
+eq('and is not a declination',              bimi('v=BIMI1; l=https://logo.example/x.svg').declined, false);
+// The draft's explicit "we publish no indicator" — a conformant record that
+// was previously reported invalid.
+eq('an empty l= is a valid declination',    bimi('v=BIMI1; l=').valid, true);
+eq('and is flagged as declined',            bimi('v=BIMI1; l=').declined, true);
+eq('an absent l= is still invalid',         bimi('v=BIMI1').valid, false);
+eq('the version is case-sensitive',         bimi('v=bimi1; l=https://logo.example/x.svg').valid, false);
+eq('the version must come first',           bimi('l=https://logo.example/x.svg; v=BIMI1').valid, false);
+eq('a scheme with no host is refused',      bimi('v=BIMI1; l=https://').valid, false);
+eq('a PNG indicator is refused',            bimi('v=BIMI1; l=https://logo.example/x.png').valid, false);
+eq('an SVGZ indicator is accepted',         bimi('v=BIMI1; l=https://logo.example/x.svgz').valid, true);
+eq('an https authority is accepted',
+  bimi('v=BIMI1; l=https://l.example/x.svg; a=https://a.example/c.pem').valid, true);
+eq('an http logo is still refused',         bimi('v=BIMI1; l=http://logo.example/x.svg').valid, false);
+eq('an extension value with a space is refused',
+  bimi('v=BIMI1; l=https://l.example/x.svg; ext=has space').valid, false);
+eq('a valid extension is accepted',
+  bimi('v=BIMI1; l=https://l.example/x.svg; ext_1=ok').valid, true);
+eq('a malformed authority URL is refused',
+  bimi('v=BIMI1; l=https://l.example/x.svg; a=https://').valid, false);
+
+// A declination is neither "present" nor "invalid" once it reaches the result.
+const bimiDeclined = { advertised: true, present: false, declined: true, multiple: false, unknown: false };
+eq('a declination raises no bimi-invalid finding',
+  D.buildIssues({ emailProvider: 'X', spfStatus: { status: 'ok', warnings: [] },
+    dkimStatus: { found: true, selectors: [], confidence: 'observed' },
+    dmarcStatus: { status: 'ok', policy: 'reject', warnings: [] }, reportPlan: { external: [] },
+    externalReportDestinations: [], advanced: { bimi: bimiDeclined }, domain: 'e.example',
+  }).map(i => i.key).includes('bimi-invalid'), false);
+eq('and is not sold BIMI in the suggestions',
+  D.buildSuggestions({ emailProvider: 'X', spfStatus: { status: 'ok' },
+    dkimStatus: { found: true }, dmarcStatus: { status: 'ok', policy: 'reject' },
+    advanced: { bimi: bimiDeclined },
+  }).map(t => t.key).some(k => k.startsWith('bimi')), false);
+
+// ── CAA iodef is a URL, not a prefix ──
+const iodef = v => D.summarizeCaa([`0 iodef "${v}"`]).parsed[0].valid;
+eq('a scheme prefix with prose is refused', iodef('mailto:not an address'), false);
+eq('a bare scheme is refused',              iodef('https://'), false);
+// CAA §4.4 asks for a URL and adds no FQDN rule of its own — that constraint
+// belongs to BIMI, which states it. RFC 6068 permits a bare reg-name here.
+eq('a single-label host is accepted',       iodef('mailto:a@b'), true);
+eq('an encoded quoted local part is accepted',
+  iodef('mailto:%22not%40me%22@example.org'), true);
+eq('an encoded domain literal is accepted', iodef('mailto:user@%5B192.0.2.1%5D'), true);
+eq('an IPv6 literal authority is accepted', iodef('https://[2001:db8::1]/r'), true);
+eq('a malformed percent escape is refused', iodef('https://example.com/%ZZ'), false);
+eq('a real mailto is accepted',             iodef('mailto:sec@example.com'), true);
+eq('a real https URL is accepted',          iodef('https://example.com/report'), true);
+eq('a real http URL is accepted',           iodef('http://example.com/report'), true);
+eq('ftp is still refused',                  iodef('ftp://x.example'), false);
+
+/* ── 42. Repetition, field ABNF, URI profiles, and malformed evidence ─── */
+section('42. Conforming records must not be rejected, malformed ones must not vanish');
+
+// ── Repetition semantics are per-protocol, not a blanket duplicate rule ──
+// RFC 8461 §3.1: "If any non-repeated field is duplicated, all entries except
+// for the first SHALL be ignored" — and that sentence is explicitly about TXT
+// records. A blanket rejection called a conformant record invalid AND reported
+// the last id as effective, which is the one every sender discards.
+const stsDup = D.validateMtaStsRecord('v=STSv1; id=first; id=second');
+eq('a repeated MTA-STS id is still valid', stsDup.valid, true);
+eq('and the FIRST id is effective',        stsDup.id, 'first');
+// RFC 8460 §3: `1*(field-delim tlsrpt-field)` where a field may be a rua, so
+// more than one rua is grammatical. Rejecting it also threw away evidence.
+const rptDup = D.validateTlsRptRecord('v=TLSRPTv1; rua=mailto:a@example.com; rua=https://example.com/r');
+eq('repeated TLS-RPT rua fields are valid', rptDup.valid, true);
+eq('and every destination is kept',
+  rptDup.destinations, ['mailto:a@example.com', 'https://example.com/r']);
+eq('a repeated version field is ignored, not fatal',
+  D.validateMtaStsRecord('v=STSv1; id=abc; v=STSv1').valid, true);
+
+// ── Field ABNF: WSP belongs to the delimiter, and '=' is not a value char ──
+// `sts-version = %s"v=STSv1"` and `sts-id = %s"id="` are single literals.
+eq('whitespace inside an MTA-STS field is refused', D.validateMtaStsRecord('v = STSv1; id = abc').valid, false);
+eq('whitespace inside a TLS-RPT field is refused',
+  D.validateTlsRptRecord('v = TLSRPTv1; rua = mailto:a@e.example').valid, false);
+// ...but `field-delim = *WSP ";" *WSP` means it does surround the delimiter.
+eq('whitespace around the delimiter is permitted', D.validateMtaStsRecord('v=STSv1 ;  id=abc').valid, true);
+eq('and for TLS-RPT too',
+  D.validateTlsRptRecord('v=TLSRPTv1 ;  rua=mailto:a@e.example').valid, true);
+// sts-ext-value / tlsrpt-ext-value = 1*(%x21-3A / %x3C / %x3E-7E): no '='.
+eq('an "=" in an MTA-STS extension value is refused', D.validateMtaStsRecord('v=STSv1; id=abc; ext=a=b').valid, false);
+eq('an "=" in a TLS-RPT extension value is refused',
+  D.validateTlsRptRecord('v=TLSRPTv1; rua=mailto:a@e.example; ext=a=b').valid, false);
+// BIMI's pinned grammar carries no such exclusion, so it must not inherit one.
+eq('BIMI does not inherit the "=" exclusion',
+  D.validateBimiRecord('v=BIMI1; l=https://l.example/x.svg; ext=a=b').valid, true);
+
+// ── URI profiles: the consuming protocol adds the extra constraints ──
+eq('an IPv6 literal is a valid TLS-RPT destination',
+  D.validateTlsRptRecord('v=TLSRPTv1; rua=https://[2001:db8::1]/r').valid, true);
+eq('a malformed percent escape is refused',
+  D.validateTlsRptRecord('v=TLSRPTv1; rua=https://example.com/%ZZ').valid, false);
+eq('an encoded quoted local part is accepted',
+  D.validateTlsRptRecord('v=TLSRPTv1; rua=mailto:%22not%40me%22@example.org').valid, true);
+// BIMI is the protocol that adds HTTPS and FQDN, so it keeps rejecting these.
+eq('BIMI still refuses a single-label host',
+  D.validateBimiRecord('v=BIMI1; l=https://localhost/logo.svg').valid, false);
+eq('BIMI still refuses http',
+  D.validateBimiRecord('v=BIMI1; l=http://logo.example/x.svg').valid, false);
+
+// ── A malformed candidate is evidence, not an absence ──
+// A sender discards a record that does not begin with the version field. An
+// auditor that also discards it reports "nothing published" at an owner name
+// dedicated to the protocol, and withholds the reason senders ignore it.
+const ORDER = {
+  'order.example NS': ns('ns1.order.example.'),
+  'order.example MX': mx('10 mail.order.example.'),
+  'order.example TXT': txt('v=spf1 -all'),
+  'order.example A': a('203.0.113.5'),
+  'order.example AAAA': 'nodata',
+  'default._bimi.order.example TXT': txt('l=https://logo.example/logo.svg; v=BIMI1'),
+  '_mta-sts.order.example TXT': txt('id=abc; v=STSv1'),
+  '_smtp._tls.order.example TXT': txt('rua=mailto:a@example.com; v=TLSRPTv1'),
+};
+sandbox.fetch = dohFixture(ORDER);
+const wrongOrder = await D.analyzeDomain('order.example', { dkim: false, advanced: true, retries: 0 });
+const orderKeys = wrongOrder.issues.map(i => i.key);
+eq('a wrong-order BIMI record is advertised',    wrongOrder.advanced.bimi.advertised, true);
+eq('but not present',                            wrongOrder.advanced.bimi.present, false);
+eq('and raises bimi-invalid',                    orderKeys.includes('bimi-invalid'), true);
+eq('and the record is kept as evidence',
+  wrongOrder.advanced.bimi.record, 'l=https://logo.example/logo.svg; v=BIMI1');
+eq('a wrong-order MTA-STS record raises mta-sts-invalid', orderKeys.includes('mta-sts-invalid'), true);
+eq('and keeps its record',                       wrongOrder.advanced.mtaSts.record, 'id=abc; v=STSv1');
+eq('a wrong-order TLS-RPT record raises tls-rpt-invalid',  orderKeys.includes('tls-rpt-invalid'), true);
+eq('and keeps its record',                       wrongOrder.advanced.tlsRpt.record, 'rua=mailto:a@example.com; v=TLSRPTv1');
+// An owner with genuinely nothing at it must still read as absent.
+sandbox.fetch = dohFixture({
+  'bare42.example NS': ns('ns1.bare42.example.'), 'bare42.example MX': mx('10 mail.bare42.example.'),
+  'bare42.example TXT': txt('v=spf1 -all'), 'bare42.example A': a('203.0.113.5'), 'bare42.example AAAA': 'nodata',
+});
+const bare42 = await D.analyzeDomain('bare42.example', { dkim: false, advanced: true, retries: 0 });
+eq('an empty owner is not advertised',  bare42.advanced.bimi.advertised, false);
+eq('and raises no invalid finding',     bare42.issues.map(i => i.key).includes('bimi-invalid'), false);
+
+// ── A malformed DKIM key record must not pass in silence ──
+const ED25519_KEY = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=';
+const malformedRecord = `v=DKIM1; k=ed25519; h=; p=${ED25519_KEY}`;
+eq('an empty h= makes the record invalid', D.analyzeDkimKey(malformedRecord).valid, false);
+eq('but it still applies to email',        D.analyzeDkimKey(malformedRecord).appliesToEmail, true);
+eq('so it still satisfies discovery',
+  D.dkimRecordSet([{ type: 16, data: `"${malformedRecord}"` }]).keys.length, 1);
+// ...and the silence is what had to end.
+const malformedFindings = tags => keysOf(dkimWith(sel('s1', `${tags}p=${RSA_2048}`)))
+  .filter(k => k === 'dkim-key-malformed' || k === 'dkim-key-unparseable');
+eq('an empty h= raises the malformed finding',  malformedFindings('v=DKIM1; h=; '), ['dkim-key-malformed']);
+eq('an empty s= raises it too',                 malformedFindings('v=DKIM1; s=; '), ['dkim-key-malformed']);
+eq('an empty t= raises it too',                 malformedFindings('v=DKIM1; t=; '), ['dkim-key-malformed']);
+eq('a duplicated tag raises it',                malformedFindings('v=DKIM1; t=y; t=s; '), ['dkim-key-malformed']);
+eq('a bad version raises it',                   malformedFindings('v=DKIM2; '), ['dkim-key-malformed']);
+// The two findings are disjoint: a decode failure is not also "malformed".
+eq('a decode failure raises only the decode finding',
+  keysOf(dkimWith(sel('s1', 'v=DKIM1; p=notbase64!!')))
+    .filter(k => k === 'dkim-key-malformed' || k === 'dkim-key-unparseable'), ['dkim-key-unparseable']);
+eq('and a clean key raises neither',            malformedFindings('v=DKIM1; h=sha256; s=email; '), []);
+
+/* ── 43. Full grammar and candidate-state regression matrix ─────────── */
+section('43. Full DKIM/URI grammar and sender-effective candidate state');
+
+// Candidate evidence and sender-effective multiplicity are different axes.
+// A malformed record that senders discard cannot disable the valid record
+// beside it or make the UI claim the control is inactive.
+const MIXED_CANDIDATES = {
+  'mixed43.example NS': ns('ns1.mixed43.example.'),
+  'mixed43.example MX': mx('10 mail.mixed43.example.'),
+  'mixed43.example TXT': txt('v=spf1 -all'),
+  'mixed43.example A': a('203.0.113.5'),
+  'mixed43.example AAAA': 'nodata',
+  'default._bimi.mixed43.example TXT': txt(
+    'v=BIMI1 ; l=https://logo.example/logo.svg',
+    'l=https://old.example/old.svg; v=BIMI1'),
+  '_mta-sts.mixed43.example TXT': txt(
+    'v=STSv1 ; id=good',
+    'id=discarded; v=STSv1'),
+  '_smtp._tls.mixed43.example TXT': txt(
+    'v=TLSRPTv1\t; rua=mailto:good@example.com',
+    'rua=mailto:discarded@example.com; v=TLSRPTv1'),
+};
+sandbox.fetch = dohFixture(MIXED_CANDIDATES);
+const mixed43 = await D.analyzeDomain('mixed43.example', { dkim: false, advanced: true, retries: 0 });
+const mixed43Keys = mixed43.issues.map(i => i.key);
+['bimi', 'mtaSts', 'tlsRpt'].forEach(name => {
+  eq(`${name}: the valid sender-compatible record remains present`, mixed43.advanced[name].present, true);
+  eq(`${name}: malformed evidence does not become effective multiplicity`, mixed43.advanced[name].multiple, false);
+  eq(`${name}: configuration at the owner is advertised`, mixed43.advanced[name].advertised, true);
+  eq(`${name}: both raw candidates are retained`, mixed43.advanced[name].candidates.length, 2);
+});
+eq('no false BIMI multiple-record verdict', mixed43Keys.includes('bimi-multiple-records'), false);
+eq('no false MTA-STS multiple-record verdict', mixed43Keys.includes('mta-sts-multiple-records'), false);
+eq('no false TLS-RPT multiple-record verdict', mixed43Keys.includes('tls-rpt-multiple-records'), false);
+
+// The complete DKIM tag-list grammar reaches the malformed finding. These
+// are not merely unknown extensions: each violates a production RFC 6376
+// requires a verifier to enforce.
+const grammarFinding = record => {
+  const analyzed = D.analyzeDkimKey(record);
+  return {
+    valid: analyzed.valid,
+    findings: keysOf(dkimWith(sel('s1', record)))
+      .filter(k => k === 'dkim-key-malformed' || k === 'dkim-key-unparseable'),
+  };
+};
+const ED43 = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=';
+[
+  ['v= is not first', `k=ed25519; p=${ED43}; v=DKIM1`],
+  ['k= is empty', `v=DKIM1; k=; p=${ED43}`],
+  ['k= is not a hyphenated-word', `v=DKIM1; k=not a token; p=${ED43}`],
+  ['a bare fragment occurs', `v=DKIM1; garbage; k=ed25519; p=${ED43}`],
+  ['a tag name is malformed', `v=DKIM1; bad name=x; k=ed25519; p=${ED43}`],
+  ['an empty middle tag occurs', `v=DKIM1;; k=ed25519; p=${ED43}`],
+  ['n= contains a bad quoted-printable escape', `v=DKIM1; n=bad=zz; k=ed25519; p=${ED43}`],
+].forEach(([label, record]) => {
+  const result = grammarFinding(record);
+  eq(`${label}: invalid`, result.valid, false);
+  eq(`${label}: reported`, result.findings, ['dkim-key-malformed']);
+});
+eq('a well-formed unknown key type remains a restriction, not malformed',
+  D.analyzeDkimKey(`v=DKIM1; k=future-alg; p=${ED43}`).errors, []);
+eq('a syntactically valid unknown tag remains allowed',
+  D.analyzeDkimKey(`v=DKIM1; future_tag=x; k=ed25519; p=${ED43}`).valid, true);
+eq('legal folded whitespace inside p= remains accepted',
+  D.analyzeDkimKey(`v=DKIM1; k=ed25519; p=${ED43.slice(0, 8)}\r\n ${ED43.slice(8)}`).valid, true);
+['\n', '\v', '\f'].forEach((space, i) => {
+  eq(`non-FWS base64 whitespace ${i + 1} is refused`,
+    D.analyzeDkimKey(`v=DKIM1; k=ed25519; p=${ED43.slice(0, 8)}${space}${ED43.slice(8)}`).valid, false);
+});
+// Non-zero unused padding bits are not a canonical base64 encoding.
+eq('non-canonical base64 pad bits are refused',
+  D.analyzeDkimKey('v=DKIM1; k=ed25519; p=AB==').errors.includes('unparseable-key'), true);
+
+// A recognizable key candidate with no p= must reach the analyzer rather than
+// becoming a contradictory "nothing at this selector" result.
+eq('a missing-p candidate is retained as malformed evidence',
+  D.dkimRecordSet([{ type: 16, data: '"v=DKIM1; k=rsa"' }]).malformed,
+  ['v=DKIM1; k=rsa']);
+eq('an explicitly different protocol with p= is not a DKIM candidate',
+  D.dkimRecordSet([{ type: 16, data: '"v=DMARC1; p=reject"' }]),
+  { keys: [], revoked: [], unusable: [], malformed: [] });
+eq('a malformed DKIM-family version remains diagnosable',
+  D.dkimRecordSet([{ type: 16, data: `"v=DKIM2; k=ed25519; p=${ED43}"` }]).keys.length, 1);
+sandbox.fetch = dohFixture({
+  'broken._domainkey.missingp.example TXT': txt('v=DKIM1; k=rsa'),
+});
+const missingP43 = await D.checkDKIM('missingp.example', false, ['broken'], '@custom-unknown', false, '', { retries: 0, noCache: true });
+eq('a missing-p candidate does not claim the selector is empty', missingP43.missingSelectors.length, 0);
+eq('a missing-p candidate has its own evidence channel', missingP43.malformedSelectors.map(r => r.sel), ['broken']);
+eq('a missing-p candidate raises the malformed finding',
+  D.buildIssues({ emailProvider: 'X', spfStatus: { status: 'ok', warnings: [] },
+    dkimStatus: missingP43, dmarcStatus: { status: 'ok', policy: 'reject', warnings: [] },
+    reportPlan: { external: [] }, externalReportDestinations: [], advanced: {}, domain: 'missingp.example',
+  }).map(i => i.key).includes('dkim-key-malformed'), true);
+
+// The same grammar finding must not vanish merely because the key is revoked
+// or deliberately scoped away from ordinary email.
+const nonSigningEvidence = {
+  found: false, selectors: [], missingSelectors: [], testedSelectors: [], failedSelectors: [],
+  duplicated: [], keyProfile: {}, confidence: 'sampled',
+  revokedSelectors: [{ sel: 'old', key: D.analyzeDkimKey('v=DKIM1; h=; p=') }],
+  unusableSelectors: [{ sel: 'rpt', key: D.analyzeDkimKey(`v=DKIM1; s=tlsrpt; h=; k=ed25519; p=${ED43}`) }],
+  malformedSelectors: [],
+};
+eq('revoked and scoped malformed records both reach the finding',
+  D.buildIssues({ emailProvider: 'X', spfStatus: { status: 'ok', warnings: [] },
+    dkimStatus: nonSigningEvidence, dmarcStatus: { status: 'ok', policy: 'reject', warnings: [] },
+    reportPlan: { external: [] }, externalReportDestinations: [], advanced: {}, domain: 'e.example',
+  }).filter(i => i.key === 'dkim-key-malformed').map(i => i.args), [['rpt, old']]);
+
+const rpt43 = record => D.validateTlsRptRecord(record).valid;
+// RFC 3986 IP-literal boundaries and component characters.
+['::1', '2001:db8::1', '1:2:3:4:5:6:7:8', '::ffff:192.0.2.1'].forEach(ip => {
+  eq(`valid IPv6 literal ${ip}`, rpt43(`v=TLSRPTv1; rua=https://[${ip}]/r`), true);
+});
+[':::', '1:2:3:4:5:6:7', '1:2:3:4:5:6:7:8:9', '12345::1', '::ffff:999.0.2.1', '192.0.2.1::'].forEach(ip => {
+  eq(`invalid IPv6 literal ${ip}`, rpt43(`v=TLSRPTv1; rua=https://[${ip}]/r`), false);
+});
+eq('IPvFuture is accepted by the imported URI grammar',
+  rpt43('v=TLSRPTv1; rua=https://[v1.foo]/r'), true);
+eq('IPvFuture requires a hexadecimal version',
+  rpt43('v=TLSRPTv1; rua=https://[v.foo]/r'), false);
+eq('valid path/query/fragment characters are accepted',
+  rpt43('v=TLSRPTv1; rua=https://example.com/a:@%21$&\'()*+%2C%3B=/%20?q=/?:@#ok'), true);
+['<bad>', '{bad}', '"bad"'].forEach(path => {
+  eq(`illegal URI path ${path}`, rpt43(`v=TLSRPTv1; rua=https://example.com/${path}`), false);
+});
+
+// RFC 6068 addr-spec and hfield structure, including its own published
+// examples rather than an invented approximation.
+eq('encoded quoted local part remains accepted',
+  rpt43('v=TLSRPTv1; rua=mailto:%22not%40me%22@example.org'), true);
+eq('encoded multiple-recipient mailto is accepted',
+  rpt43('v=TLSRPTv1; rua=mailto:a@example.com%2Cb@example.com'), true);
+eq('valid mailto header fields are accepted',
+  rpt43('v=TLSRPTv1; rua=mailto:a@example.com?subject=hello%20world&body=ok'), true);
+eq('RFC 6068 UTF-8 domain example is accepted',
+  rpt43('v=TLSRPTv1; rua=mailto:user@%E7%B4%8D%E8%B1%86.example.org'), true);
+['a..b@example.com', '.a@example.com', 'a.@example.com', 'a=b@example.com'].forEach(address => {
+  eq(`invalid addr-spec ${address}`, rpt43(`v=TLSRPTv1; rua=mailto:${address}`), false);
+});
+eq('a mailto query must contain hfield syntax',
+  rpt43('v=TLSRPTv1; rua=mailto:a@example.com?garbage'), false);
+eq('an invalid percent-encoded UTF-8 sequence is refused',
+  rpt43('v=TLSRPTv1; rua=mailto:a@%FF.example'), false);
+
+const longLabel = 'a'.repeat(64);
+eq('BIMI refuses a DNS-impossible 64-octet FQDN label',
+  D.validateBimiRecord(`v=BIMI1; l=https://${longLabel}.example/logo.svg`).valid, false);
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

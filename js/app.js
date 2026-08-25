@@ -20,6 +20,26 @@
   var CONCURRENCY = 6;
   var MAX_DOMAINS = 200;
   var MAX_COMPREHENSIVE_DKIM_DOMAINS = 5;
+  /**
+   * Above this many domains the deep protocol checks turn themselves off.
+   *
+   * They cost three queries per MX host plus one TLSA query each — measured at
+   * roughly seven extra queries per domain across the backtest sample — so a
+   * 200-domain run would add well over a thousand lookups to a fan-out
+   * `PRIVACY.md` already describes as large. The threshold is a starting point
+   * to revisit against real use, not a law.
+   */
+  var MAX_DEEP_CHECK_DOMAINS = 50;
+  /**
+   * Whether the user has re-enabled the deep checks after seeing the notice.
+   *
+   * Deliberately a module variable and NOT `localStorage`. `PRIVACY.md` states
+   * that this app writes "exactly one value" to storage and calls that the
+   * entire footprint; a second key would falsify a published privacy claim to
+   * remember a checkbox. The scope this gives is the browser tab's session — a
+   * reload restores the default — and that was the accepted trade.
+   */
+  var deepChecksReEnabled = false;
 
   var results = [];
   var sortCol = null;
@@ -194,6 +214,37 @@
   function hostCls(h) {
     if (h === '@cname-loop') return 'crit';
     return 'muted';
+  }
+
+  /**
+   * Apply the large-run rule to the deep-checks toggle, and say so.
+   *
+   * An explicit re-enable wins: having been told the cost and having ticked the
+   * box again, the user is not told twice for the rest of the tab session.
+   */
+  /**
+   * Record the user's answer to the notice.
+   *
+   * Only a re-enable is remembered. An explicit un-tick needs no memory — the
+   * box is already clear and applyDeepCheckLimit() never ticks it back on — and
+   * recording it would suppress the notice for someone who had never seen it.
+   */
+  function rememberDeepCheckChoice(checked) {
+    if (!checked) return;
+    deepChecksReEnabled = true;
+    $('deepChecksNotice').style.display = 'none';
+  }
+
+  function applyDeepCheckLimit(domainCount) {
+    var notice = $('deepChecksNotice');
+    if (domainCount <= MAX_DEEP_CHECK_DOMAINS || deepChecksReEnabled) {
+      notice.style.display = 'none';
+      notice.textContent = '';
+      return;
+    }
+    $('optDeepChecks').checked = false;
+    notice.textContent = t('opt.deepChecksAutoDisabled', MAX_DEEP_CHECK_DOMAINS, domainCount);
+    notice.style.display = '';
   }
 
   function showToast(msg) {
@@ -504,6 +555,192 @@
     ]);
   }
 
+  /**
+   * The one line under a DKIM selector that says what the key actually is.
+   *
+   * Until now a found selector rendered only its raw TXT string, so the size —
+   * the single most actionable fact about the key — was sitting decoded but
+   * unread in front of the operator.
+   *
+   * `RSA` and `Ed25519` are algorithm names and stay in Latin script in every
+   * locale; only the words around them are translated. A key the browser could
+   * not confirm says nothing at all here, because "we did not check" is not a
+   * finding and must not look like one.
+   */
+  function dkimKeyLine(key) {
+    if (!key || !key.errors) return null;
+    var parts;
+    if (key.revoked) parts = [t('dkim.keyRevoked')];
+    else if (key.errors.indexOf('unparseable-key') !== -1 ||
+      key.errors.indexOf('bad-ed25519-length') !== -1) parts = [t('dkim.keyUnreadable')];
+    else if (key.keyType === 'ed25519') parts = ['Ed25519'];
+    else if (key.keyType === 'rsa' && key.keyBits) parts = [t('dkim.keyRsaBits', key.keyBits)];
+    else parts = [t('dkim.keyUnknownType')];
+
+    if (key.errors.indexOf('key-structure-invalid') !== -1) parts.push(t('dkim.keyStructureInvalid'));
+    if (key.testing) parts.push(t('dkim.keyTesting'));
+    if ((key.hashAlgorithms || []).length) parts.push(key.hashAlgorithms.join(', '));
+
+    return R.el('div', { className: 'dkim-key-line' }, [
+      R.el('span', null, t('dkim.keyLabel') + ':'),
+      R.text(' '),
+      R.el('strong', null, parts.join(' · ')),
+    ]);
+  }
+
+  /**
+   * MX records, annotated with what DNS says about each host.
+   *
+   * Falls back to the plain list when the deep checks did not run — an
+   * un-annotated host must never be mistaken for one that resolved, so with no
+   * audit to report the display is exactly what it was before.
+   */
+  function mxDetail(r) {
+    var health = r.advanced && r.advanced.mxHealth;
+    var hosts = (health && health.hosts) || [];
+    if (!hosts.length) return R.list(r.mx, { sep: '\n' });
+    return R.frag(hosts.map(function (h) {
+      var state = h.resolves === 'yes'
+        ? h.addresses.slice(0, 4).join(', ') + (h.addresses.length > 4 ? ' …' : '')
+        : h.resolves === 'no' ? t('mx.doesNotResolve') : t('mx.notChecked');
+      return R.el('div', { className: 'mx-host mx-host-' + h.resolves }, [
+        R.el('code', null, R.host(h.preference + ' ' + h.host)),
+        R.text(' — '),
+        R.el('span', null, R.value(state)),
+        h.isCname ? R.frag([R.text(' · '), R.el('span', null, t('mx.cnameTarget'))]) : null,
+      ]);
+    }));
+  }
+
+  /** The CAA set as a policy rather than as a green dot. */
+  function caaDetail(r) {
+    var caa = r.advanced && r.advanced.caa;
+    if (!caa || !caa.found) return null;
+    // A result carrying `found` without the parsed fields is a shape this
+    // renderer has to survive rather than throw on — a saved report from an
+    // earlier release, or any future caller that fills in less. A row that
+    // throws here takes the whole table down with it, so the block simply has
+    // nothing to say instead.
+    if (!caa.parsed) return null;
+    var issuers = caa.issuers || [];
+    var wildcardIssuers = caa.wildcardIssuers || [];
+    var unknownCritical = caa.unknownCritical || [];
+    var line = function (label, node) {
+      return R.el('div', null, [R.el('span', null, label + ':'), R.text(' '), node]);
+    };
+    var joinOrNone = function (values) {
+      return values && values.length ? R.value(values.join(', ')) : R.text(t('caa.none'));
+    };
+    return R.frag([
+      line(t('caa.issuers'), caa.issuanceBlocked
+        ? R.el('strong', null, t('caa.blocksAll'))
+        : joinOrNone(issuers)),
+      // An absent issuewild set does not mean wildcards are unrestricted — it
+      // means the issue set governs them. Rendering it as "none" would invert
+      // the policy the operator published.
+      line(t('caa.wildcard'), caa.wildcardBlocked
+        ? R.el('strong', null, t('caa.wildcardBlocked'))
+        : wildcardIssuers.length
+          ? R.value(wildcardIssuers.join(', '))
+          : R.text(t('caa.wildcardViaIssue'))),
+      line(t('caa.iodef'), joinOrNone(caa.iodef)),
+      unknownCritical.length
+        ? line(t('caa.unknownCritical'), R.el('strong', null, R.value(unknownCritical.join(', '))))
+        : null,
+    ]);
+  }
+
+  /**
+   * TLSA, phrased as published rather than as active.
+   *
+   * The wording here is the whole point of the block. DANE protects nothing
+   * unless the record is carried by a validated DNSSEC chain, and this release
+   * does not walk one — so the strongest thing this may ever say is
+   * "published", and it says whether the resolver authenticated the answer
+   * separately from that.
+   */
+  function tlsaDetail(r) {
+    var tlsa = r.advanced && r.advanced.tlsa;
+    var hosts = (tlsa && tlsa.hosts) || [];
+    if (!hosts.length) return null;
+    return R.frag([
+      R.el('div', null, R.el('em', null, t('tlsa.publishedNotQualified'))),
+      R.frag(hosts.map(function (h) {
+        var state = h.unknown ? t('tlsa.notChecked')
+          : !h.present ? t('tlsa.notPublished')
+            : h.authenticated ? t('tlsa.authenticated') : t('tlsa.unauthenticated');
+        return R.el('div', null, [
+          R.el('code', null, R.host(h.host)),
+          R.text(' — '),
+          R.el('span', null, state),
+          h.present ? R.text(' (' + (h.records || []).length + ')') : null,
+        ]);
+      })),
+    ]);
+  }
+
+  /**
+   * The SPF record, or every conflicting record when there is more than one.
+   *
+   * With two `v=spf1` records the domain is in permerror and **none of them
+   * applies** — RFC 7208 §4.5, and receivers do not merge them or pick the
+   * stricter one. Showing only the first made the critical finding look
+   * unsupported: a valid-looking record sat next to "Multiple SPF records
+   * found", and the reasonable conclusion from that screen was that the tool
+   * was wrong. Both records are the evidence; without them an operator cannot
+   * tell which one to delete.
+   *
+   * The lookup meter is deliberately attached only in the single-record case.
+   * It is computed from the first record, and beside a conflicting set it would
+   * silently attribute one record's lookup count to all of them.
+   */
+  function spfDetail(r, spfMeterNode) {
+    var records = r.spfRecords || (r.spfRecord ? [r.spfRecord] : []);
+    if (records.length < 2) return R.frag([R.value(r.spfRecord), spfMeterNode]);
+    return R.frag([
+      R.el('div', { className: 'spf-conflict-note' }, t('spf.conflictingRecords', records.length)),
+      R.frag(records.map(function (record) {
+        return R.el('div', { className: 'spf-conflict-record' }, R.value(record));
+      })),
+    ]);
+  }
+
+  /**
+   * The `SPF Record` column: the record, or the whole conflicting set.
+   *
+   * Exporting only the first match reproduced outside the UI exactly the
+   * misleading presentation the panel was fixed for — a count in `Issues` names
+   * how many records conflict, but the records themselves are the evidence, and
+   * a consumer reading the export saw one valid-looking record beside a
+   * permerror.
+   *
+   * Compatibility is preserved as far as it can be. The column keeps its index,
+   * and a domain with one record (every domain not in permerror) produces a
+   * byte-for-byte identical cell — the join is reached only when there is
+   * genuinely more than one record to show. Records are joined with newlines in
+   * resolver order; `toCsvText()` quotes every cell unconditionally and doubles
+   * embedded quotes, so a newline inside the field is already RFC 4180 §2.6
+   * transport and needs nothing here.
+   *
+   * `neutralizeCsvCell()` guards the leading character of the cell, which is the
+   * first record's. Every line of a joined cell begins `v=spf1` by construction
+   * — the set is filtered on that prefix — so no later line can smuggle in a
+   * formula lead.
+   */
+  function spfRecordCell(r) {
+    var records = r.spfRecords || (r.spfRecord ? [r.spfRecord] : []);
+    if (records.length < 2) return r.spfRecord;
+    return records.join('\n');
+  }
+
+  /** One cell for a domain's DKIM key sizes: a number, a range, or nothing. */
+  function dkimKeyBitsCell(profile) {
+    if (!profile || profile.minBits === null) return '';
+    return profile.minBits === profile.maxBits
+      ? String(profile.minBits)
+      : profile.minBits + '-' + profile.maxBits;
+  }
+
   function detailItem(labelText, valueNode, opts) {
     var o = opts || {};
     return R.el('div', { className: 'detail-item', style: o.style }, [
@@ -518,7 +755,14 @@
    * what those bytes contained.
    */
   function rowHygieneValues(r) {
-    var values = [r.domain, r.spfRecord, r.dmarcRecord]
+    // Every conflicting SPF record, not just the first. The `SPF Record` cell
+    // now exports the whole set, so a bidi override or zero-width character in
+    // the second record would otherwise reach the export with nothing in the
+    // `Record Hygiene` column naming it — the data columns carry the published
+    // bytes verbatim by design, and that column is the only place the warning
+    // lives. `spfRecord` stays as the fallback for a result predating the set.
+    var spfValues = (r.spfRecords && r.spfRecords.length) ? r.spfRecords : [r.spfRecord];
+    var values = [r.domain, r.dmarcRecord].concat(spfValues)
       .concat(r.ns || [], r.mx || [], r.verifications || []);
     (r.dkimStatus && r.dkimStatus.selectors || []).forEach(function (s) {
       values.push(s.value, s.cname, s.queryName);
@@ -681,6 +925,7 @@
           R.text(' '),
           R.el('code', { className: 'dkim-record-data' }, R.value(s.value)),
         ]),
+        dkimKeyLine(s.key),
       ]);
     });
     (r.dkimStatus.missingSelectors || []).forEach(function (s) {
@@ -779,10 +1024,10 @@
           // BUILT, not how they look. Only the 20-record cap and the sentinel
           // substitution are new.
           detailItem(t('labels.nameservers'), R.list(r.ns, { sep: ', ', none: t('labels.na') })),
-          detailItem(t('labels.mx'), R.list(r.mx, { sep: '\n' })),
+          detailItem(t('labels.mx'), mxDetail(r)),
           detailItem(
             t('labels.spf') + (spfMeterNode ? ' · ' + t('labels.spfLookups') : ''),
-            R.frag([R.value(r.spfRecord), spfMeterNode])
+            spfDetail(r, spfMeterNode)
           ),
           detailItem(t('labels.dmarc'), R.frag([
             R.value(r.dmarcRecord),
@@ -792,6 +1037,8 @@
             dmarcDiscoveryNode(r),
           ])),
           detailItem(t('labels.dkim'), R.frag(dkimDetails)),
+          caaDetail(r) ? detailItem(t('labels.caa'), caaDetail(r)) : null,
+          tlsaDetail(r) ? detailItem(t('labels.tlsa'), tlsaDetail(r)) : null,
           detailItem(t('labels.verifications'), r.verifications.length
             ? R.list(r.verifications, { sep: 'br' })
             : R.text(t('labels.dash'))),
@@ -967,6 +1214,14 @@
       return;
     }
 
+    // Turn the deep checks off for a large run rather than refusing the run —
+    // unlike the comprehensive DKIM cap above, nothing here is impossible at
+    // scale, it is only expensive. The notice stays on screen because the user
+    // is about to watch a checkbox they ticked come back clear, and an
+    // unexplained change to what the tool measured is worse than the cost it
+    // avoids.
+    applyDeepCheckLimit(domains.length);
+
     // Pre-flight: verify we can reach the resolver before burning time on
     // queries that will all come back empty.
     var online = await DnsAudit.checkConnectivity();
@@ -983,6 +1238,7 @@
       www: $('optWWW').checked,
       advanced: true,
       wildcard: $('optWildcard').checked,
+      deepChecks: $('optDeepChecks').checked,
       selectors: $('dkimSelectors').value.split(/[\s,]+/).map(function (s) { return s.trim().toLowerCase(); })
         .filter(function (s) { return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(s); }),
     };
@@ -1088,7 +1344,7 @@
         r.domain, yes,
         r.score.grade, r.score.pts,
         label(r.dnsProvider), label(r.emailProvider),
-        r.spfStatus.status, r.spfRecord,
+        r.spfStatus.status, spfRecordCell(r),
         r.dkimStatus.found ? yes : (r.dkimStatus.confidence === 'sampled' || r.dkimStatus.confidence === 'not-checked') ? unknown : no,
         (r.dkimStatus.selectors || []).map(function (s) {
           return (s.uncommon ? t('dkim.uncommon', s.queryName) : s.sel + ' — ' + s.queryName) +
@@ -1118,6 +1374,27 @@
         r.dmarcDiscovery && r.dmarcDiscovery.applied ? r.dmarcDiscovery.applied.foundAt : '',
         r.dmarcDiscovery && r.dmarcDiscovery.applied ? r.dmarcDiscovery.applied.labelsUp : '',
         r.dmarcDiscovery ? r.dmarcDiscovery.terminated : '',
+        // 0.4.0 protocol depth. Appended, never inserted — `csv.headers` is
+        // positional and a consumer's column index must keep meaning what it
+        // meant last release.
+        (r.dkimStatus?.keyProfile?.algorithms || []).join(', '),
+        dkimKeyBitsCell(r.dkimStatus?.keyProfile),
+        (r.dkimStatus?.revokedSelectors || []).map(function (x) { return x.sel; }).join(', '),
+        (r.advanced?.caa?.issuers || []).join(', '),
+        // An absent issuewild set means the issue set governs wildcards. An
+        // empty cell here would be read as "wildcards unrestricted", which is
+        // the opposite of what the domain published, so it is named instead.
+        r.advanced?.caa?.found && r.advanced.caa.parsed
+          ? (r.advanced.caa.wildcardBlocked ? t('caa.wildcardBlocked')
+            : (r.advanced.caa.wildcardIssuers || []).length ? r.advanced.caa.wildcardIssuers.join(', ')
+              : t('caa.wildcardViaIssue'))
+          : '',
+        // Hosts we could not check are absent from danglingHosts by
+        // construction, so this column never accuses a host the audit did not
+        // actually resolve.
+        r.advanced?.mxHealth ? ((r.advanced.mxHealth.danglingHosts || []).join(', ') || no) : unknown,
+        r.advanced?.mxHealth ? (r.advanced.mxHealth.hosts || []).length : unknown,
+        r.advanced?.tlsa ? (r.advanced.tlsa.anyPresent ? yes : no) : unknown,
       ];
     });
 
@@ -1332,6 +1609,7 @@
     $('auditBtn').addEventListener('click', startAudit);
     $('cancelBtn').addEventListener('click', cancelAudit);
     $('fileInput').addEventListener('change', loadFile);
+    $('optDeepChecks').addEventListener('change', function () { rememberDeepCheckChoice(this.checked); });
     $('examplesBtn').addEventListener('click', loadExample);
     $('clearBtn').addEventListener('click', clearAll);
     $('helpBtn').addEventListener('click', showHelp);
@@ -1397,5 +1675,18 @@
     badge: badge,
     detailItem: detailItem,
     log: log,
+    applyDeepCheckLimit: applyDeepCheckLimit,
+    rememberDeepCheckChoice: rememberDeepCheckChoice,
+    // Models the one thing that clears this memory in production: a reload.
+    // There is no production reset because a fresh page already is one.
+    resetDeepCheckMemory: function () { deepChecksReEnabled = false; },
+    dkimKeyLine: dkimKeyLine,
+    mxDetail: mxDetail,
+    caaDetail: caaDetail,
+    tlsaDetail: tlsaDetail,
+    dkimKeyBitsCell: dkimKeyBitsCell,
+    spfDetail: spfDetail,
+    spfRecordCell: spfRecordCell,
+    MAX_DEEP_CHECK_DOMAINS: MAX_DEEP_CHECK_DOMAINS,
   };
 })(window);

@@ -68,6 +68,12 @@ input[type="file"] { display: none; }
 .options-row { display: flex; align-items: center; gap: 20px; margin-top: 14px; flex-wrap: wrap; }
 .checkbox-group { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink2); cursor: pointer; }
 .checkbox-group input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
+/* The auto-disable notice. Deliberately not a toast: a toast is gone in three
+   seconds, and this explains why a checkbox the user last saw ticked is now
+   clear. It has to still be there when they look. */
+.opt-notice { font-size: 12px; color: var(--warn, var(--ink2)); flex-basis: 100%; }
+.spf-conflict-note { color: var(--crit, var(--warn)); margin-bottom: 4px; }
+.spf-conflict-record { margin-bottom: 3px; }
 .selector-group { display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink2); }
 .selector-group input { width:180px; border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; color:var(--ink); background:#fff; }
 .selector-group input:focus { outline:2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-color:var(--accent); }

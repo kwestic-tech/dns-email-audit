@@ -10,7 +10,7 @@
 | Implementation commit | `1e6a736` |
 | Merge commit | `e158020` |
 | Depends on | The DKIM selector catalog and `parseSpfTerms()`, both already present |
-| Blocks | [dns-protocol-depth](../dns-protocol-depth.md), which analyses the keys this release finds |
+| Blocks | [dns-protocol-depth](dns-protocol-depth.md), which analyses the keys this release finds |
 | Slug for open questions | `VIASPF` |
 | Last updated | 2026-08-20 |
 

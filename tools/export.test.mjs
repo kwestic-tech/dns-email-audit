@@ -323,8 +323,22 @@ const data = rows[1];
 const hygieneIdx = header.indexOf('Record Hygiene');
 eq('the hygiene column is still present', hygieneIdx !== -1, true);
 eq('the header and data rows are the same length', header.length, data.length);
-eq('the Tree Walk columns are appended after it',
-  header.slice(hygieneIdx), ['Record Hygiene', 'DMARC Found At', 'DMARC Labels Up', 'DMARC Discovery Terminated']);
+// Anchored by index rather than by "last", so the next release appending a
+// column moves nothing here. Pinning the tail is what made this assertion fire
+// on 0.4.0's eight new columns — which is the rule working, not breaking.
+eq('the Tree Walk columns follow the hygiene column',
+  header.slice(hygieneIdx, hygieneIdx + 4),
+  ['Record Hygiene', 'DMARC Found At', 'DMARC Labels Up', 'DMARC Discovery Terminated']);
+// 0.4.0's protocol-depth columns go after those, in their own fixed block.
+eq('the protocol-depth columns are appended after the Tree Walk columns',
+  header.slice(hygieneIdx + 4, hygieneIdx + 12),
+  ['DKIM Key Type', 'DKIM Key Bits', 'DKIM Revoked Selectors', 'CAA Issuers',
+    'CAA Wildcard Issuers', 'MX Dangling', 'MX Host Count', 'TLSA Present']);
+// The whole point of the positional rule: every column that existed before
+// 0.4.0 is still at the index it was at. Checked against English rather than
+// against a count, so an inserted column fails loudly here.
+eq('no pre-0.4.0 column moved', header.indexOf('Record Hygiene'), hygieneIdx);
+eq('the first data column is still the domain', header[0], 'Domain');
 eq('the data column keeps the published bytes exactly',
   data[7], FIXTURES.bidiOverride);
 eq('the raw override character is still in the data column',
@@ -335,8 +349,118 @@ eq('the hygiene column names what was found',
   data[hygieneIdx], 'bidi-override');
 // A row with no discovery object leaves the appended columns empty rather
 // than shifting anything.
-eq('a row without a Tree Walk leaves the new columns empty',
-  data.slice(hygieneIdx + 1), ['', '', '']);
+eq('a row without a Tree Walk leaves those columns empty',
+  data.slice(hygieneIdx + 1, hygieneIdx + 4), ['', '', '']);
+// `advanced` is null on this fixture, so the deep-check columns must say
+// "Unknown" rather than "No". A domain whose MX hosts were never resolved has
+// no dangling hosts *reported*, which is not the same as having none.
+eq('unchecked protocol-depth columns say unknown, never no',
+  data.slice(hygieneIdx + 4, hygieneIdx + 12),
+  ['', '', '', '', '', 'Unknown', 'Unknown', 'Unknown']);
+
+/* ── The SPF Record column carries the whole conflicting set ─────────── */
+// A count in `Issues` says how many records conflict; the records are the
+// evidence. Exporting only the first reproduced outside the UI the same
+// misleading presentation the detail panel was fixed for.
+const spfIdx = header.indexOf('SPF Record');
+eq('the SPF Record column is still present', spfIdx !== -1, true);
+
+const SPF_ONE = 'v=spf1 include:_spf.google.com ~all';
+const SPF_TWO = 'v=spf1 include:mktomail.com ~all';
+const spfRow = extra => APP.buildCsvRows([Object.assign({}, row, { spfRecord: SPF_ONE }, extra)])[1];
+
+// Single record: byte-for-byte identical whether or not the new field exists,
+// which is every domain that is not in permerror.
+eq('a single record is unchanged by the new field',
+  spfRow({ spfRecords: [SPF_ONE] })[spfIdx], spfRow({})[spfIdx]);
+eq('and is exactly the record itself', spfRow({ spfRecords: [SPF_ONE] })[spfIdx], SPF_ONE);
+eq('a result predating spfRecords still exports', spfRow({})[spfIdx], SPF_ONE);
+eq('no SPF at all is still an empty cell',
+  APP.buildCsvRows([Object.assign({}, row, { spfRecord: '', spfRecords: [] })])[1][spfIdx], '');
+// The whole serialized line is identical too, not just the one cell.
+eq('the serialized row is byte-for-byte unchanged',
+  APP.toCsvText([spfRow({ spfRecords: [SPF_ONE] })]), APP.toCsvText([spfRow({})]));
+
+// Multiple records: joined with newlines, in resolver order.
+eq('both records reach the cell', spfRow({ spfRecords: [SPF_ONE, SPF_TWO] })[spfIdx],
+  SPF_ONE + '\n' + SPF_TWO);
+eq('resolver order is preserved, not sorted',
+  spfRow({ spfRecords: [SPF_TWO, SPF_ONE] })[spfIdx], SPF_TWO + '\n' + SPF_ONE);
+eq('three records join too',
+  spfRow({ spfRecords: [SPF_ONE, SPF_TWO, 'v=spf1 -all'] })[spfIdx],
+  SPF_ONE + '\n' + SPF_TWO + '\n' + 'v=spf1 -all');
+// Only the column moved; the row is still aligned with the header.
+eq('the joined row is still the header length',
+  spfRow({ spfRecords: [SPF_ONE, SPF_TWO] }).length, header.length);
+
+// A newline inside a field is RFC 4180 §2.6 only while the field is quoted.
+const joinedCsv = APP.toCsvText([spfRow({ spfRecords: [SPF_ONE, SPF_TWO] })]);
+eq('the joined cell is quoted, so its newline stays inside the field',
+  joinedCsv.includes('"' + SPF_ONE + '\n' + SPF_TWO + '"'), true);
+
+// CSV-special characters inside a record must survive the join and the quoting.
+// DNS TXT can carry commas and quotes, and a record is published by the domain.
+const SPF_COMMA = 'v=spf1 include:a.example,b.example ~all';
+const SPF_QUOTE = 'v=spf1 include:say"hi".example ~all';
+const SPF_CRLF  = 'v=spf1 include:a.example\r\nb ~all';
+const special = spfRow({ spfRecords: [SPF_COMMA, SPF_QUOTE, SPF_CRLF] });
+eq('a comma inside a record does not split the cell',
+  special[spfIdx], SPF_COMMA + '\n' + SPF_QUOTE + '\n' + SPF_CRLF);
+const specialCsv = APP.toCsvText([special]);
+eq('embedded quotes are doubled, not dropped',
+  specialCsv.includes('say""hi"".example'), true);
+eq('the raw single quote never survives undoubled',
+  specialCsv.includes('say"hi".example'), false);
+// Round-trip through a minimal RFC 4180 reader: the cell must come back
+// identical, commas, quotes, newlines and all.
+const parseCsv = text => {
+  const rows = [[]]; let cell = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cell += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ',') { rows[rows.length - 1].push(cell); cell = ''; }
+    else if (c === '\n') { rows[rows.length - 1].push(cell); cell = ''; rows.push([]); }
+    else cell += c;
+  }
+  rows[rows.length - 1].push(cell);
+  return rows;
+};
+eq('the cell round-trips through an RFC 4180 reader',
+  parseCsv(specialCsv)[0][spfIdx], SPF_COMMA + '\n' + SPF_QUOTE + '\n' + SPF_CRLF);
+eq('and the round-tripped row still has every column',
+  parseCsv(specialCsv)[0].length, header.length);
+eq('a two-record cell round-trips as one field, not two rows',
+  parseCsv(joinedCsv).length, 1);
+
+// Record hygiene must cover every record the export now carries. A marker in
+// the SECOND conflicting record reached the raw cell with nothing in the
+// Record Hygiene column naming it, because only the first was scanned.
+const hygieneIdx2 = header.indexOf('Record Hygiene');
+const secondDirty = APP.buildCsvRows([Object.assign({}, row, {
+  spfRecord: SPF_ONE,
+  spfRecords: [SPF_ONE, FIXTURES.bidiOverride],
+})])[1];
+eq('a marker in a non-first SPF record is still exported raw',
+  secondDirty[spfIdx].includes('‮'), true);
+eq('and the hygiene column names it',
+  secondDirty[hygieneIdx2].includes('bidi-override'), true);
+// A clean first record must not mask a dirty later one, and vice versa.
+eq('a marker in the first record is still caught',
+  APP.buildCsvRows([Object.assign({}, row, {
+    spfRecord: FIXTURES.bidiOverride, spfRecords: [FIXTURES.bidiOverride, SPF_ONE],
+  })])[1][hygieneIdx2].includes('bidi-override'), true);
+eq('two clean conflicting records report no hygiene marker',
+  APP.buildCsvRows([Object.assign({}, row, {
+    spfRecord: SPF_ONE, spfRecords: [SPF_ONE, SPF_TWO],
+  })])[1][hygieneIdx2], '');
+// The fallback for a result that predates spfRecords still scans spfRecord.
+eq('a result without spfRecords still has its record scanned',
+  APP.buildCsvRows([Object.assign({}, row, { spfRecord: FIXTURES.bidiOverride })])[1][hygieneIdx2]
+    .includes('bidi-override'), true);
 
 const clean = APP.buildCsvRows([Object.assign({}, row, { spfRecord: 'v=spf1 -all' })]);
 eq('a clean record has an empty hygiene column',

@@ -38,7 +38,10 @@
     "www": "Deteksi hosting situs web",
     "wildcard": "Deteksi data TXT wildcard",
     "dkimSelectors": "Selektor DKIM tambahan",
-    "footer": "DNS lewat Cloudflare DoH · Tanpa penyimpanan data · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privasi</a>"
+    "footer": "DNS lewat Cloudflare DoH · Tanpa penyimpanan data · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privasi</a>",
+    "deepChecks": "Pemeriksaan protokol mendalam (kesehatan MX, TLSA)",
+    "deepChecksTitle": "Meresolusi setiap host MX dan mencari data TLSA; menambah sekitar 7 kueri DNS per domain",
+    "deepChecksAutoDisabled": "Pemeriksaan protokol mendalam dimatikan untuk proses ini: pemeriksaan itu menambah sekitar 7 kueri DNS per domain, sedangkan proses ini memuat {1} domain terhadap batas {0}. Centang lagi kotaknya untuk tetap menjalankannya."
   },
   "help": {
     "title": "Cara kerjanya:",
@@ -105,7 +108,9 @@
     "status": "Status",
     "none": "Tidak ada",
     "na": "T/A",
-    "dash": "—"
+    "dash": "—",
+    "caa": "Kebijakan CAA",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "Tampilkan {0} karakter lagi",
@@ -169,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Mendekati batas",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "pencarian DNS",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} data yang saling bertentangan — tidak satu pun yang berlaku:"
   },
   "dmarc": {
     "missing": "✗ Tidak ada",
@@ -213,7 +219,14 @@
     "viaSpf": "via SPF: {0}",
     "noteWildcard": "Bug TXT wildcard mungkin mengganggu hasil",
     "noteNotFound": "Tidak ditemukan kunci DKIM aktif di antara {0} selektor yang diuji.",
-    "noteNotFoundWithErrors": "Tidak ditemukan kunci DKIM aktif di antara {0} pemeriksaan selektor yang selesai; {1} kueri DNS gagal."
+    "noteNotFoundWithErrors": "Tidak ditemukan kunci DKIM aktif di antara {0} pemeriksaan selektor yang selesai; {1} kueri DNS gagal.",
+    "keyLabel": "Kunci",
+    "keyRsaBits": "RSA {0} bit",
+    "keyRevoked": "dicabut",
+    "keyUnreadable": "tidak dapat didekode",
+    "keyUnknownType": "jenis kunci tidak dikenali",
+    "keyStructureInvalid": "struktur ditolak",
+    "keyTesting": "mode uji coba"
   },
   "adv": {
     "configured": "✓ Dikonfigurasi",
@@ -309,7 +322,15 @@
       "Kebersihan data",
       "DMARC ditemukan di",
       "Label DMARC ke atas",
-      "Akhir penemuan DMARC"
+      "Akhir penemuan DMARC",
+      "Jenis Kunci DKIM",
+      "Bit Kunci DKIM",
+      "Selektor DKIM yang Dicabut",
+      "Penerbit CAA",
+      "Penerbit CAA untuk Wildcard",
+      "MX Tidak Teresolusi",
+      "Jumlah Host MX",
+      "TLSA Diterbitkan"
     ],
     "yes": "Ya",
     "no": "Tidak",
@@ -346,7 +367,7 @@
       "fixCode": "; MX kosong — memberi tahu pengirim bahwa domain ini tidak menerima surel:\n@    MX     0 .\n\n; SPF — blokir semua pengirim:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — tolak semua surel palsu:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Ditemukan beberapa data SPF — SPF gagal permanen (permerror) untuk semua surel dari domain ini.",
+      "msg": "Ditemukan {0} data SPF — SPF gagal permanen (permerror) untuk semua surel dari domain ini, dan tidak satu pun yang berlaku.",
       "what": "RFC 7208 §4.5 mengizinkan tepat satu data TXT <code>v=spf1</code> per domain. Ketika penerima menemukan dua, ia mengembalikan <code>permerror</code> dan berhenti — ia tidak menggabungkannya dan tidak memilih yang lebih ketat. Efek praktisnya lebih buruk daripada tidak punya SPF sama sekali: data Anda tampak benar di panel DNS, tetapi setiap pesan dari domain Anda gagal autentikasi SPF. Ini biasanya terjadi ketika layanan surel kedua ditambahkan dan membuat datanya sendiri alih-alih menyunting yang sudah ada.",
       "fix": "Gabungkan datanya menjadi satu. Ambil setiap mekanisme <code>include:</code>, <code>ip4:</code>, dan <code>ip6:</code> dari semua data, taruh dalam satu data <code>v=spf1</code>, lalu hapus sisanya. Perhatikan batas 10 pencarian saat menggabungkan — menggabungkan data adalah cara umum untuk melampauinya.",
       "fixCode": "; Sebelum — dua data, SPF gagal untuk semuanya:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Sesudah — satu data dengan kedua pengirim:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
@@ -721,6 +742,133 @@
       "msg": "Hanya {0} dari {1} tujuan laporan yang diperiksa — audit ini berhenti di 10. Tidak diperiksa: {2}",
       "what": "Rekaman Anda menyebut lebih banyak tujuan laporan daripada yang akan ditelusuri audit ini. Setiap tujuan di luar domain organisasi Anda memerlukan satu penelusuran pohon DNS ditambah satu kueri otorisasi, dan jumlahnya ditentukan oleh rekaman itu sendiri — jadi audit tidak membiarkan satu rekaman menentukan seberapa banyak lalu lintas DNS yang dihasilkannya. RFC 9990 §3.5 mengantisipasi hal ini, menyatakan laporan dikirim ke setiap URI <em>\"up to the Receiver's limits on supported URIs\"</em>, dan penerima sungguhan pun menerapkan batas mereka sendiri. Pemberitahuan ini ada agar penilaian di atas tidak disalahartikan sebagai daftar yang lengkap.",
       "fix": "Tidak ada yang salah dengan rekaman itu. Jika Anda ingin semua tujuan diaudit, pisahkan domain ke dalam beberapa proses. Jika daftarnya memang bertambah panjang seiring waktu, ada baiknya dipangkas: tujuan yang tidak lagi Anda baca tetap harus dicoba oleh penerima."
+    },
+    "dkim-key-weak": {
+      "msg": "Kunci DKIM di bawah 1024 bit: {0} — tanda tangannya dapat dipalsukan dan penerima mungkin mengabaikannya.",
+      "what": "RFC 8301 menetapkan 1024 bit sebagai batas bawah mutlak untuk kunci DKIM RSA dan menganjurkan 2048. Modulus di bawah batas itu dapat difaktorkan dengan sumber daya yang sederhana, dan siapa pun yang berhasil memfaktorkannya dapat menandatangani surel yang lolos DKIM atas nama domain Anda — yang berarti lolos DMARC juga, karena DMARC menerima pesan yang tanda tangan DKIM-nya selaras. Sebagian penerima sudah berhenti menerima kunci pendek sama sekali, sehingga data yang sama bisa gagal verifikasi di satu penyedia secara diam-diam sambil lolos di penyedia lain.",
+      "fix": "Buat kunci 2048 bit yang baru dan terbitkan di bawah selektor <strong>baru</strong>, alihkan layanan penandatanganan Anda ke selektor itu, dan baru setelah itu hapus data lama. Mengganti di tempat akan merusak setiap pesan yang masih dalam perjalanan yang ditandatangani dengan kunci lama.",
+      "fixCode": "; Penerima menanyakan s2026._domainkey.example.com untuk kunci ini\n; Terbitkan kunci baru lebih dulu, di bawah selektor baru:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Alihkan penandatanganan ke s2026, tunggu surel dalam perjalanan selesai,\n; lalu hapus data lama yang berkunci pendek:\ns2020._domainkey    TXT    \"v=DKIM1; k=rsa; p=MFwwDQYJKoZIhvcNAQEB...\""
+    },
+    "dkim-key-1024": {
+      "msg": "Kunci DKIM berukuran 1024 bit: {0} — masih sah hari ini, tetapi anjuran saat ini adalah 2048.",
+      "what": "RFC 8301 menyebut 1024 bit sebagai ukuran minimum dan 2048 sebagai ukuran yang dianjurkan untuk kunci DKIM RSA. Kunci 1024 bit tidak rusak dan tidak ditolak oleh penerima arus utama — ukuran ini memang lazim, dan cukup banyak pengirim besar masih menerbitkannya. Ia tercantum di sini sebagai pergantian kunci yang perlu dijadwalkan, bukan sebagai insiden yang harus ditangani, dan itulah sebabnya ia berada di antara saran dan bukan di antara kegagalan.",
+      "fix": "Masukkan peralihan ke 2048 bit ke dalam pergantian kunci terjadwal Anda berikutnya. Tidak ada yang mendesak untuk dikerjakan. Terbitkan kunci baru di bawah selektor baru, alihkan penandatanganan ke sana, lalu tarik data lama."
+    },
+    "dkim-key-revoked": {
+      "msg": "Selektor DKIM diterbitkan dengan kunci kosong: {0} — selektor ini dicabut dan tidak menandatangani apa pun.",
+      "what": "RFC 6376 §3.6.1 mendefinisikan tag <code>p=</code> bernilai kosong sebagai pencabutan kunci: penerima yang menemukannya memperlakukan setiap tanda tangan yang dibuat dengan selektor itu sebagai tidak sah selamanya. Itu cara yang benar untuk memensiunkan sebuah selektor. Masalah muncul ketika selektor itu masih terpasang di suatu tempat sebagai kunci penandatanganan, karena surel keluar dalam keadaan ditandatangani, penerima mencari selektornya, dan tanda tangannya gagal — yang tampak persis seperti pemalsuan.",
+      "fix": "Pastikan tidak ada lagi yang menandatangani dengan selektor ini. Jika selektor ini benar-benar sudah dipensiunkan, data pencabutan boleh dibiarkan selamanya atau dihapus setelah tidak ada lagi surel bertanda tangan dengannya yang masih dalam perjalanan. Jika masih ada yang menandatangani dengannya, terbitkan kunci publik yang sebenarnya atau pindahkan layanan itu ke selektor yang aktif.",
+      "fixCode": "; Sebuah pencabutan — p= sengaja dikosongkan:\nold2019._domainkey    TXT    \"v=DKIM1; k=rsa; p=\"\n\n; Selektor aktif, sebagai pembanding:\ns2026._domainkey      TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "dkim-key-unparseable": {
+      "msg": "Kunci publik DKIM tidak dapat didekode: {0} — tidak ada penerima yang bisa memverifikasi tanda tangan dari selektor ini.",
+      "what": "Datanya ada dan selektornya ditemukan, jadi domain ini tampak sudah dikonfigurasi — tetapi nilai <code>p=</code> bukan kunci yang bisa dibaca oleh verifikator mana pun. Penyebab yang jauh paling umum adalah data terpotong: satu string TXT DNS dibatasi 255 karakter, kunci 2048 bit lebih panjang dari itu, dan kunci yang ditempelkan ke panel kendali yang tidak memecahnya dengan benar akan kehilangan bagian ekornya. Kegagalannya sepenuhnya senyap. Tidak ada yang memperingatkan Anda, datanya tetap teresolusi, dan setiap tanda tangan sekadar gagal.",
+      "fix": "Terbitkan ulang kuncinya, biarkan penyedia DNS Anda memecahnya menjadi beberapa string berkutip alih-alih memotongnya. Bandingkan nilai yang diterbitkan dengan kunci yang dipegang layanan penandatanganan Anda — keduanya harus sama persis karakter demi karakter, termasuk huruf besar-kecilnya, karena nilainya berupa base64 dan peka huruf besar-kecil.",
+      "fixCode": "; Satu data TXT, dipecah menjadi beberapa string yang disatukan kembali oleh resolver:\ns2026._domainkey    TXT    ( \"v=DKIM1; k=rsa; \"\n                            \"p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\"\n                            \"...IDAQAB\" )"
+    },
+    "dkim-key-testing": {
+      "msg": "Selektor DKIM dalam mode uji coba: {0} — penerima diminta mengabaikan hasilnya.",
+      "what": "Penanda <code>t=y</code> memberi tahu penerima bahwa domain ini masih menguji DKIM dan bahwa surel bertanda tangan maupun tanpa tanda tangan harus diperlakukan sama. Penanda ini ada supaya penerapan baru dapat divalidasi tanpa mempertaruhkan pengiriman. Jika dibiarkan setelah masuk produksi, ia membatalkan perlindungan secara diam-diam: penerima yang menghormati penanda ini tidak akan bertindak atas tanda tangan yang gagal, sehingga selektor tersebut tidak menyumbang apa pun bagi DMARC.",
+      "fix": "Hapus penanda <code>t=y</code> setelah Anda memastikan tanda tangannya terverifikasi. Jika Anda memang masih menguji, biarkan saja dan tinjau kembali setelah masuk produksi."
+    },
+    "dkim-key-mixed": {
+      "msg": "Selektor DKIM memakai kekuatan kunci yang berbeda-beda, dari {0} sampai {1} bit — yang terlemah menentukan kekuatan Anda yang sebenarnya.",
+      "what": "Penyeranglah yang memilih selektor mana yang akan diserang, bukan Anda. Jika satu selektor menandatangani dengan 1024 bit dan yang lain dengan 2048, kekuatan DKIM domain ini secara praktis adalah 1024, karena memalsukan tanda tangan di bawah selektor yang lebih lemah menghasilkan surel yang lolos DKIM dan DMARC dengan sama meyakinkannya. Ukuran yang berbeda biasanya berarti pergantian kunci yang dimulai tetapi tidak pernah dituntaskan, atau layanan pengiriman kedua yang disiapkan terpisah dari yang pertama.",
+      "fix": "Naikkan selektor yang lebih lemah ke ukuran yang terkuat, atau pensiunkan bila layanan di baliknya sudah tidak mengirim lagi."
+    },
+    "dkim-key-sha1": {
+      "msg": "Kunci DKIM hanya mengizinkan SHA-1: {0} — RFC 8301 melarang SHA-1 untuk tanda tangan DKIM.",
+      "what": "Tag <code>h=</code> mendaftar algoritme hash yang boleh diterima verifikator untuk kunci ini. Dengan <code>sha1</code> sebagai satu-satunya isian, penerima yang patuh tidak punya pilihan yang dapat diterima: RFC 8301 §3.1 mencabut SHA-1 dari DKIM sepenuhnya, berdasarkan serangan tabrakan yang sudah praktis dilakukan. Penerima yang menegakkannya akan menggagalkan tanda tangan tersebut. Mendaftarkan <code>sha1</code> berdampingan dengan <code>sha256</code> tidak bermasalah dan tidak dilaporkan di sini — verifikator cukup memilih yang lebih kuat.",
+      "fix": "Ubah <code>h=sha1</code> menjadi <code>h=sha256</code>, atau hapus tag <code>h=</code> sekalian, yang berarti mengizinkan hash apa pun yang didukung verifikator. Pastikan lebih dulu bahwa layanan penandatanganan Anda menghasilkan tanda tangan SHA-256.",
+      "fixCode": "; Sebelum — tidak ada yang akan diterima penerima yang patuh:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha1; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Sesudah:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "caa-blocks-all-issuance": {
+      "msg": "CAA di {0} tidak mengotorisasi satu pun otoritas sertifikat — tidak ada CA yang bisa menerbitkan sertifikat untuk domain ini.",
+      "what": "Properti <code>issue</code> yang bernilai <code>;</code> tidak menyebut penerbit mana pun, dan RFC 8659 §4.2 membacanya sebagai tidak mengotorisasi siapa pun. Setiap otoritas sertifikat yang patuh akan menolak. Ini pengaturan yang sah dan disengaja untuk domain yang memang tidak boleh punya sertifikat, jadi belum tentu keliru. Ia menjadi gangguan ketika tidak disengaja, dan gangguan itu tidak terlihat sampai satu pembaruan gagal — sertifikat yang ada tetap bekerja sampai hari kedaluwarsanya.",
+      "fix": "Jika ini disengaja, tidak ada yang perlu dilakukan. Jika tidak, tambahkan properti <code>issue</code> yang menyebut otoritas sertifikat yang Anda gunakan. Ingat bahwa CAA diwariskan ke bawah dalam pohon nama, jadi data yang dipasang di nama induk juga mengatur nama ini.",
+      "fixCode": "; Memblokir semua CA:\nexample.com.    CAA    0 issue \";\"\n\n; Mengotorisasi satu CA:\nexample.com.    CAA    0 issue \"letsencrypt.org\""
+    },
+    "caa-unknown-critical-tag": {
+      "msg": "Properti CAA tidak dikenali, dengan penanda kritis aktif: {0} — CA yang patuh harus menolak menerbitkan.",
+      "what": "RFC 8659 §4.1 mendefinisikan bit tertinggi pada bita penanda sebagai Issuer Critical. Otoritas sertifikat yang menemui properti yang tidak dipahaminya dengan bit itu aktif WAJIB menolak menerbitkan, alih-alih mengabaikan properti tersebut dan melanjutkan. Jadi properti kritis yang tidak dikenali memblokir penerbitan, dan blokade itu baru akan terasa pada pembaruan berikutnya. Properti yang sama tanpa bit kritis bersifat pasif dan tidak akan dilaporkan di sini.",
+      "fix": "Periksa nama propertinya terhadap daftar resmi, barangkali ada salah ketik — <code>issue</code>, <code>issuewild</code>, <code>iodef</code>, <code>issuemail</code>, <code>contactemail</code>, <code>contactphone</code>. Jika properti itu memang disengaja dan tidak baku, matikan penanda kritis dengan menyetel bita penanda ke 0.",
+      "fixCode": "; Kritis dan tidak dikenali — memblokir penerbitan:\nexample.com.    CAA    128 issuewildcard \"letsencrypt.org\"\n\n; Nama properti yang terdaftar:\nexample.com.    CAA    0 issuewild \"letsencrypt.org\""
+    },
+    "caa-malformed": {
+      "msg": "Data CAA tidak dapat diurai: {0}",
+      "what": "Sebuah data CAA terdiri dari tiga bidang: bita penanda dari 0 sampai 255, tag properti, dan nilai berkutip. Data yang tidak sesuai bentuk itu mungkin diabaikan oleh otoritas sertifikat, atau diperlakukan sebagai properti yang tidak dikenali — dan jika bita penandanya kebetulan mengaktifkan bit kritis, itu berarti menolak menerbitkan. Perilaku ini sebaiknya tidak diserahkan pada nasib.",
+      "fix": "Masukkan ulang datanya dalam bentuk baku tiga bidang. Sebagian antarmuka DNS meminta penanda, tag, dan nilai dalam kotak terpisah lalu menambahkan tanda kutipnya untuk Anda; yang lain menerima satu baris utuh, dan di situ nilainya perlu tanda kutip sendiri."
+    },
+    "caa-no-iodef": {
+      "msg": "CAA sudah diterbitkan tetapi tanpa properti iodef — Anda tidak akan tahu tentang permintaan sertifikat yang ditolak.",
+      "what": "Properti <code>iodef</code> memberi otoritas sertifikat tempat untuk melaporkan permintaan yang terpaksa ditolak karena kebijakan CAA Anda. Tanpa properti itu, penolakan menjadi senyap dari sisi Anda: penyerang yang menjajaki CA mana yang mau menerbitkan untuk domain Anda tampak persis sama dengan tidak ada apa-apa, begitu pula rekan kerja yang mencoba memperoleh sertifikat dari penyedia yang keliru.",
+      "fix": "Tambahkan properti <code>iodef</code> yang mengarah ke kotak surat yang benar-benar dibaca orang. Biayanya satu data saja, dan itulah satu-satunya kanal pemberitahuan yang dimiliki CAA.",
+      "fixCode": "example.com.    CAA    0 issue \"letsencrypt.org\"\nexample.com.    CAA    0 iodef \"mailto:security@example.com\""
+    },
+    "caa-single-issuer": {
+      "msg": "CAA hanya mengotorisasi satu otoritas sertifikat: {0} — berganti penyedia akan menuntut perubahan DNS lebih dulu.",
+      "what": "Satu penerbit yang diotorisasi adalah kebijakan yang sepenuhnya baik dan ketat, dan ini bukan kesalahan konfigurasi. Hal ini layak diketahui tepat pada saat mulai berarti: jika CA tersebut mengalami gangguan, atau Anda perlu pindah penyedia dengan terburu-buru, tidak ada otoritas lain yang bisa menerbitkan sampai data ini diperbarui — dan orang yang berusaha memperoleh sertifikat sering kali bukan orang yang bisa menyunting DNS.",
+      "fix": "Tidak ada yang perlu diubah. Pastikan orang-orang yang meminta sertifikat tahu bahwa data ini ada dan siapa yang bisa menyuntingnya. Jika Anda sudah punya CA cadangan dalam pikiran, mengotorisasinya sekarang berbiaya satu data dan menghapus satu langkah dari hari yang buruk."
+    },
+    "mx-dangling": {
+      "msg": "Host MX tidak teresolusi: {0} — surel yang dirutekan ke sana tidak dapat dikirimkan.",
+      "what": "Data MX menyebut sebuah nama host, dan nama host itu harus teresolusi ke sebuah alamat sebelum server pengirim mana pun bisa menyambung. Yang ini tidak: namanya tidak mengembalikan data A maupun AAAA. Server pengirim yang memilih host ini tidak punya tujuan — ia akan mengantrekan pesan itu, mencoba lagi, dan akhirnya mengembalikannya ke pengirim. Jika ini satu-satunya host MX Anda, saat ini Anda sama sekali tidak menerima surel. Jika ini host cadangan, Anda tinggal satu kegagalan dari keadaan itu.",
+      "fix": "Periksa nama host-nya kalau-kalau ada salah ketik, dan pastikan zona tempatnya berada masih menerbitkan data alamat untuknya. Host yang sudah dinonaktifkan sebaiknya dihapus data MX-nya alih-alih dibiarkan menunjuk ke ketiadaan — MX cadangan yang mati memperlambat pengiriman pada setiap siklus percobaan ulang.",
+      "fixCode": "; Setiap host yang disebut di sebelah kanan harus teresolusi ke sebuah alamat:\nexample.com.        MX     10 mail1.example.com.\nexample.com.        MX     20 mail2.example.com.\n\nmail1.example.com.  A      203.0.113.10\nmail2.example.com.  A      203.0.113.11"
+    },
+    "mx-cname-target": {
+      "msg": "Target MX berupa CNAME: {0} — RFC 2181 dan RFC 5321 sama-sama melarangnya.",
+      "what": "RFC 2181 §10.3 dan RFC 5321 §5.1 sama-sama mensyaratkan data MX menunjuk ke nama yang punya data alamat, bukan ke alias. Biasanya tetap berjalan, karena kebanyakan server pengirim mengikuti alias itu tanpa mengeluh — justru itulah sebabnya kekeliruan ini bertahan di lapangan. Di tempat ia gagal, kegagalannya spesifik dan sulit didiagnosis: sebagian server menolak alias itu mentah-mentah, dan pencarian tambahan menambah titik kegagalan pada setiap pengiriman. Ia juga berpadu buruk dengan DANE, yang mengharuskan data TLSA ditemukan di bawah nama yang tepat.",
+      "fix": "Arahkan data MX langsung ke target aliasnya, sehingga MX menyebut host yang punya data alamatnya sendiri.",
+      "fixCode": "; Sebelum — MX menyebut sebuah alias:\nexample.com.        MX      10 mail.example.com.\nmail.example.com.   CNAME   host7.provider.example.\n\n; Sesudah — MX menyebut host-nya langsung:\nexample.com.        MX      10 host7.provider.example."
+    },
+    "mx-single-host": {
+      "msg": "Hanya satu host MX yang diterbitkan: {0} — surel mengantre di sisi pengirim selama host itu tidak terjangkau.",
+      "what": "Dengan satu host MX, setiap rentang waktu ketika host itu tidak terjangkau adalah rentang waktu ketika surel masuk tertahan di antrean orang lain. Tidak ada yang langsung hilang — server pengirim mencoba lagi selama berhari-hari sebelum mengembalikan pesan — tetapi pengiriman berhenti, dan berhentinya sama saja entah karena jendela pemeliharaan atau karena kegagalan. Banyak penyedia surel terkelola menerbitkan beberapa host MX justru untuk menghindari hal ini; satu host saja lebih sering menandakan pemasangan mandiri atau entri penyedia yang baru disalin separuh.",
+      "fix": "Terbitkan host MX kedua dengan angka preferensi yang lebih tinggi bila platform surel Anda menyediakannya. Jika penyedia Anda memberi beberapa nama host, pastikan semuanya sudah masuk ke DNS."
+    },
+    "mx-no-ipv6": {
+      "msg": "Tidak ada host MX yang punya alamat IPv6 — pengirim yang hanya ber-IPv6 tidak dapat menjangkau surel Anda.",
+      "what": "Server pengirim di jaringan yang hanya ber-IPv6 menjangkau host surel yang hanya ber-IPv4 lewat penerjemahan yang disediakan operatornya, atau tidak sama sekali. Ini bukan temuan keamanan dan tidak mendesak: pengiriman surel melalui IPv4 tidak akan hilang. Ini catatan keterjangkauan, dan ia juga memengaruhi reputasi, karena sebagian penerima besar memandang ketersediaan dual-stack sebagai tanda sistem surel yang terawat baik.",
+      "fix": "Tambahkan data AAAA untuk host MX Anda setelah host-nya sendiri benar-benar menerima surel lewat IPv6. Menerbitkan data AAAA untuk host yang sebenarnya tidak mendengarkan di IPv6 lebih buruk daripada tidak punya sama sekali — pengirim akan mencobanya lebih dulu lalu gagal."
+    },
+    "mx-same-prefix": {
+      "msg": "Host-host MX berbagi satu blok alamat, {0}: {1} — redundansinya lebih kecil daripada yang tampak.",
+      "what": "Beberapa host MX yang diterbitkan dengan preferensi berbeda terlihat seperti redundansi, tetapi bila semua alamatnya berada di blok kecil yang sama, kemungkinan besar mereka berbagi rak, uplink, dan pusat data yang sama. Kegagalan yang menjatuhkan salah satunya biasanya menjatuhkan semuanya, sehingga host kedua hanya melindungi dari kerusakan server dan bukan dari yang lebih besar. Ini lazim bagi platform surel satu lokasi dan lebih layak diketahui daripada diperbaiki.",
+      "fix": "Jika redundansi itu dimaksudkan bertahan dari kegagalan satu lokasi, tempatkan setidaknya satu host MX di jaringan yang berbeda. Jika host kedua hanya untuk menutupi mulai-ulang server, tidak ada yang perlu berubah."
+    },
+    "mx-duplicate-preference": {
+      "msg": "Dua host MX atau lebih memakai nilai preferensi yang sama: {0} — server pengirim akan menyeimbangkan beban di antaranya.",
+      "what": "Nilai preferensi yang sama adalah fitur yang disengaja: RFC 5321 §5.1 menyatakan pengirim sebaiknya memilih secara acak di antara host berpreferensi sama, yang menyebarkan surel masuk ke seluruhnya. Itulah yang Anda inginkan untuk dua frontend yang setara. Itu bukan yang Anda inginkan bila salah satu host dimaksudkan sebagai cadangan, karena separuh surel Anda akan selalu menuju cadangan.",
+      "fix": "Tidak perlu apa-apa bila host-nya setara. Bila salah satunya dimaksudkan sebagai penampung terakhir, beri angka preferensi yang lebih tinggi — makin tinggi berarti makin tidak diutamakan."
+    },
+    "tlsa-published-unsigned": {
+      "msg": "TLSA diterbitkan tanpa rantai DNSSEC yang tervalidasi: {0} — DANE tidak memberi perlindungan di sini.",
+      "what": "DANE bekerja dengan menaruh sertifikat yang seharusnya ditampilkan server surel ke dalam DNS, dan itu baru berarti bila jawaban DNS tersebut tidak dapat diutak-atik. Tanpa DNSSEC, siapa pun yang mampu menyadap pencarian itu dapat mencopot data TLSA — sehingga server pengirim melihat host tanpa kebijakan DANE lalu tetap mengirim — atau menggantinya dengan data yang cocok dengan sertifikatnya sendiri. Datanya tetap muncul di setiap diagnosis seolah-olah DANE sudah dikonfigurasi, dan justru itulah sebabnya hal ini perlu dikatakan terang-terangan: tampak seperti perlindungan, padahal bukan.",
+      "fix": "Tandatangani zona tempat data TLSA itu berada dan pastikan data DS diterbitkan di induknya. Sampai itu selesai, data TLSA hanyalah hiasan. Jika menandatangani zona belum terpikirkan, menghapus data TLSA lebih jujur daripada membiarkannya di sana.",
+      "fixCode": "; Server pengirim menanyakan _25._tcp.mail1.example.com untuk data ini,\n; dan data ini harus berada di zona bertanda tangan DNSSEC agar berarti:\n_25._tcp.mail1.example.com.    TLSA    3 1 1 ( 87D109DD028655D5370B... )"
+    },
+    "tlsa-malformed": {
+      "msg": "Data TLSA salah bentuk: {0} — server pengirim yang menegakkan DANE bisa menolak mengirim.",
+      "what": "Data TLSA terdiri dari penggunaan sertifikat, selektor, tipe pencocokan, dan data asosiasi, dan panjang data asosiasi itu ditetapkan oleh tipe pencocokannya — 32 bita untuk SHA-256, 64 untuk SHA-512. Data yang tidak sesuai tidak bisa dicocokkan dengan sertifikat mana pun. Di bawah DANE itu bukan kegagalan ringan: server pengirim yang menemukan data TLSA yang tidak bisa dipakai wajib menganggap pengirimannya gagal alih-alih mundur ke sambungan tanpa autentikasi, sehingga data yang salah bentuk dapat menghentikan surel sampai ke tujuan.",
+      "fix": "Bangkitkan ulang datanya dari sertifikat yang benar-benar ditampilkan host surel, alih-alih menyunting ringkasannya dengan tangan. Periksa bahwa tipe pencocokannya sesuai dengan panjang ringkasan yang Anda terbitkan."
+    },
+    "tlsa-partial-coverage": {
+      "msg": "TLSA diterbitkan untuk {0} dari {1} host surel — host yang tanpa TLSA menerima sambungan tanpa autentikasi.",
+      "what": "Server pengirim memilih satu host MX lalu mencari data TLSA di bawah nama host itu. Di tempat ia menemukannya, sambungannya terautentikasi; di tempat ia tidak menemukannya, pengiriman mundur ke TLS oportunistik biasa, yang bisa diturunkan oleh penyerang di jalur. Jadi cakupan sebagian berarti penyerang tinggal membidik host yang tidak punya data itu. Perlindungannya hanya sebaik host MX yang paling lemah.",
+      "fix": "Terbitkan data TLSA untuk setiap host MX, atau hapus datanya sampai Anda bisa mencakup semuanya. Setiap host memerlukan datanya sendiri, di bawah <code>_25._tcp</code> pada nama host tersebut."
+    },
+    "dkim-key-not-email": {
+      "msg": "Kunci DKIM diterbitkan tetapi tidak berlaku untuk surel: {0} — kunci itu tidak dihitung dalam penandatanganan surel domain ini.",
+      "what": "Sebuah data kunci DKIM dapat membatasi penggunaannya. Tag <code>s=</code> mendaftar layanan yang berlaku bagi kunci tersebut, dan kunci yang dibatasi pada hal lain — misalnya <code>s=tlsrpt</code>, yang dipakai RFC 8460 untuk pelaporan TLS — bukanlah kunci untuk surel biasa. Kunci yang <code>k=</code>-nya menyebut algoritme yang tidak dikenali alat ini berada pada posisi yang sama: RFC 6376 §3.6.1 mewajibkan verifikator mengabaikannya. Data seperti ini biasanya benar dan disengaja. Ia dicantumkan di sini agar domain yang seluruh data DKIM-nya berjenis ini tahu mengapa audit tidak melaporkan kunci penandatanganan, alih-alih diberi tahu bahwa tidak ada apa pun pada selektor yang jelas-jelas ia siapkan sendiri.",
+      "fix": "Tidak perlu apa-apa jika pembatasan itu memang disengaja. Jika selektor ini dimaksudkan menandatangani surel biasa, hapus tag <code>s=</code> — ketiadaannya berarti kunci berlaku untuk setiap layanan — atau masukkan <code>email</code> ke dalam daftarnya. Periksa juga nilai <code>k=</code>: untuk DKIM hanya <code>rsa</code> dan <code>ed25519</code> yang didefinisikan.",
+      "fixCode": "; Dibatasi pada layanan lain — sah, tetapi bukan kunci surel:\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Berlaku untuk surel, dengan menyebutnya atau menghilangkan s= sama sekali:\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "dkim-key-malformed": {
+      "msg": "Data kunci DKIM salah bentuk: {0} — kuncinya mungkin bisa didekode, tetapi data di sekelilingnya tidak bisa diurai.",
+      "what": "Ini berbeda dari kunci yang gagal didekode. Nilai <code>p=</code> di sini bisa jadi sepenuhnya benar; yang keliru adalah data tempatnya berada — daftar <code>h=</code>, <code>s=</code>, atau <code>t=</code> yang kosong, dengan tag hadir tetapi tidak menyebut apa pun, tag yang berulang, atau <code>v=</code> yang bukan <code>DKIM1</code>. RFC 6376 §3.6.1 mendefinisikan masing-masing tag itu sebagai daftar tak kosong yang dipisahkan titik dua, dan verifikator yang tidak bisa mengurai sebuah data berhak mengabaikan kuncinya sama sekali. Selektor tetap dihitung sebagai diterbitkan, karena data rusak pada nama yang Anda siapkan sendiri adalah masalah yang berbeda dari tidak adanya apa pun — tetapi ia bukan sesuatu yang bisa diandalkan.",
+      "fix": "Bandingkan datanya dengan apa yang dihasilkan layanan penandatanganan Anda. Penyebab yang lazim adalah tag yang tertinggal tanpa nilai setelah penyuntingan — <code>s=</code> atau <code>h=</code> tanpa apa pun di belakangnya — dan tag yang tertempel dua kali. Hapus saja tag opsional sepenuhnya alih-alih membiarkannya kosong: <code>s=</code> yang absen berarti kunci berlaku untuk setiap layanan, dan <code>h=</code> yang absen berarti semua hash dapat diterima.",
+      "fixCode": "; Salah bentuk — tagnya ada tetapi kosong:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=; s=; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Benar — sebutkan nilainya, atau hilangkan tagnya:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {
@@ -928,5 +1076,27 @@
       "ruf": "Laporan forensik (ruf=)",
       "uris": "Tujuan laporan"
     }
+  },
+  "mx": {
+    "doesNotResolve": "tidak teresolusi",
+    "notChecked": "tidak diperiksa",
+    "cnameTarget": "target CNAME"
+  },
+  "caa": {
+    "issuers": "Otoritas sertifikat",
+    "wildcard": "Wildcard",
+    "iodef": "Laporkan ke",
+    "none": "tidak ada",
+    "blocksAll": "Tidak ada otoritas sertifikat yang diotorisasi",
+    "wildcardBlocked": "Tidak ada sertifikat wildcard",
+    "wildcardViaIssue": "diatur oleh himpunan issue",
+    "unknownCritical": "Properti kritis tidak dikenali"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Diterbitkan, belum memenuhi syarat — DANE hanya berarti di balik rantai DNSSEC yang tervalidasi, dan rilis ini tidak memverifikasinya.",
+    "notPublished": "tidak diterbitkan",
+    "notChecked": "tidak diperiksa",
+    "authenticated": "diterbitkan · terautentikasi DNSSEC",
+    "unauthenticated": "diterbitkan · tidak terautentikasi DNSSEC"
   }
 }

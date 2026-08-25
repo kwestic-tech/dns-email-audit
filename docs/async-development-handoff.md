@@ -288,6 +288,54 @@ to `docs/specs/implemented/`.
 
 ### 3b. `dns-protocol-depth` (0.4.0)
 
+> **Status, 2026-08-25: implemented, pending release.** Spec finalized at `1.0`,
+> then amended to `1.1` — see its **As implemented** section. `npm test` 1,813
+> assertions / 0 failures, `npm run locale:gate` 13/13 (724/724 keys).
+> Backtested against `v0.3.0`: **zero grade movement and zero score movement**
+> across the 40-domain sample with the deep checks both off and on, which is the
+> expected result here and unlike 0.3.0, where movement was expected and
+> explained. Fan-out measured at about 32 queries per domain with the deep
+> checks off — unchanged from 0.3.0, `cloudflare.com` issues exactly 43 on both
+> — and about 39 with them on, where the same domain issues 59; all of it is
+> written into `PRIVACY.md`. The spec has moved to
+> [`docs/specs/implemented/`](specs/implemented/dns-protocol-depth.md) with its
+> fixtures.
+>
+> **Budget for far more review than 3a needed.** 0.3.0 took four rounds; this
+> took **eight**, and every one found something real. Six were in the DER key
+> walk alone, each underneath a boundary the previous round had drawn: accept
+> both envelopes → exact bit length → strict structure → strict values → exact
+> `e < n` → canonical lengths → odd modulus. The lesson for 3c, which parses
+> `DS` and `DNSKEY` records of its own: **a structural check that is locally
+> consistent is not finished.** Validate the encoding, then the values, then the
+> relationships between them, and expect the next layer to exist.
+>
+> **The other three rounds found the opposite failure**, and it is the one to
+> watch when tightening: validators that rejected *conforming* records. A
+> blanket duplicate-field rule contradicted RFC 8461 §3.1 and RFC 8460 §3, which
+> require the first entry to win and permit repeated `rua` respectively; an
+> FQDN-only URI check refused `https://[2001:db8::1]/r`. Both were caught by
+> reading the RFC text rather than reasoning from familiarity — one of them
+> after I had drafted a reply declining the finding.
+>
+> **The 3a lesson held, and cost two corrections.** Both were the same shape it
+> warned about — a confident verdict the evidence did not support. The
+> `tlsa-published-unsigned` finding, gated on `qualified` as the spec's text
+> implies, would have announced "DANE offers no protection here" on **every**
+> domain publishing TLSA, a correctly signed zone included, purely because this
+> release does not walk the chain; it is now gated on the resolver's AD bit for
+> the MX host's own name, which costs no extra query. And the DER walk was
+> written SPKI-only, which would have reported a conformant bare PKCS#1 key as
+> unparseable because `crypto.subtle.importKey` does not accept that encoding —
+> an implementation's input formats standing in for the protocol's rules.
+>
+> **What 3c inherits.** `dnsTypeNum()` now throws on an unknown type and knows
+> `PTR`/`DS`/`DNSKEY`/`TLSA`; `optionalCheck()` re-throws that error rather than
+> degrading it to an unknown. `checkTlsa()` records `authenticated` (the AD bit)
+> separately from `qualified` (still hardcoded `false`) — 0.5.0 makes the latter
+> mean something without having to redefine the former. `tools/lib/doh-fixture.mjs`
+> gained the four new types.
+
 **STOP — needs Ian, likely early in implementation:** `OQ-DEPTH-01` requires
 someone to capture real DoH JSON responses for `DS`, `DNSKEY`, and `TLSA`
 against a signed domain and a DANE-enabled mail host, and attach them to the

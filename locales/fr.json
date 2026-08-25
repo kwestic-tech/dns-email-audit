@@ -38,7 +38,10 @@
     "www": "Détecter l'hébergement web",
     "wildcard": "Détecter les bugs de TXT générique (wildcard)",
     "dkimSelectors": "Sélecteurs DKIM supplémentaires",
-    "footer": "DNS via Cloudflare DoH · Aucune donnée stockée · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Confidentialité</a>"
+    "footer": "DNS via Cloudflare DoH · Aucune donnée stockée · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Confidentialité</a>",
+    "deepChecks": "Vérifications de protocole approfondies (santé MX, TLSA)",
+    "deepChecksTitle": "Résout chaque hôte MX et cherche les enregistrements TLSA ; ajoute environ 7 requêtes DNS par domaine",
+    "deepChecksAutoDisabled": "Les vérifications de protocole approfondies sont désactivées pour cette exécution : elles ajoutent environ 7 requêtes DNS par domaine, et cette exécution compte {1} domaines pour une limite de {0}. Recochez la case pour les exécuter quand même."
   },
   "help": {
     "title": "Comment ça marche :",
@@ -105,7 +108,9 @@
     "status": "Statut",
     "none": "Aucun",
     "na": "N/D",
-    "dash": "—"
+    "dash": "—",
+    "caa": "Politique CAA",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "Afficher {0} caractères de plus",
@@ -169,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Proche de la limite",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "recherches DNS",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} enregistrements en conflit — aucun d'eux ne s'applique :"
   },
   "dmarc": {
     "missing": "✗ Manquant",
@@ -213,7 +219,14 @@
     "viaSpf": "via SPF : {0}",
     "noteWildcard": "Le bug de TXT générique (wildcard) peut interférer",
     "noteNotFound": "Aucune clé DKIM active trouvée parmi les {0} sélecteurs testés",
-    "noteNotFoundWithErrors": "Aucune clé DKIM active trouvée sur {0} sélecteurs vérifiés ; {1} requêtes DNS ont échoué"
+    "noteNotFoundWithErrors": "Aucune clé DKIM active trouvée sur {0} sélecteurs vérifiés ; {1} requêtes DNS ont échoué",
+    "keyLabel": "Clé",
+    "keyRsaBits": "RSA {0} bits",
+    "keyRevoked": "révoquée",
+    "keyUnreadable": "ne se décode pas",
+    "keyUnknownType": "type de clé non reconnu",
+    "keyStructureInvalid": "structure rejetée",
+    "keyTesting": "mode test"
   },
   "adv": {
     "configured": "✓ Configuré",
@@ -309,7 +322,15 @@
       "Hygiène de l'enregistrement",
       "DMARC trouvé à",
       "Labels DMARC remontés",
-      "Fin de la découverte DMARC"
+      "Fin de la découverte DMARC",
+      "Type de clé DKIM",
+      "Bits de clé DKIM",
+      "Sélecteurs DKIM révoqués",
+      "Émetteurs CAA",
+      "Émetteurs CAA pour les jokers",
+      "MX non résolus",
+      "Nombre d'hôtes MX",
+      "TLSA publié"
     ],
     "yes": "Oui",
     "no": "Non",
@@ -346,7 +367,7 @@
       "fixCode": "; Null MX — indique qu'aucun e-mail n'est accepté :\n@    MX     0 .\n\n; SPF — bloquer tous les expéditeurs :\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — rejeter tout e-mail usurpé :\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Plusieurs enregistrements SPF trouvés — SPF échoue systématiquement (permerror) pour tous les e-mails de ce domaine.",
+      "msg": "{0} enregistrements SPF trouvés — SPF échoue systématiquement (permerror) pour tous les e-mails de ce domaine, et aucun d'eux ne s'applique.",
       "what": "La RFC 7208 §4.5 autorise exactement un seul enregistrement TXT <code>v=spf1</code> par domaine. Quand un destinataire en trouve deux, il renvoie une erreur <code>permerror</code> sans les fusionner. Résultat : chaque message échoue la vérification SPF. Cela se produit souvent lors de l'ajout d'un nouveau service e-mail au lieu d'éditer l'enregistrement existant.",
       "fix": "Fusionnez les enregistrements en un seul. Regroupez tous les mécanismes <code>include:</code>, <code>ip4:</code> et <code>ip6:</code> dans une seule entrée <code>v=spf1</code> et supprimez les autres. Veillez à ne pas dépasser la limite des 10 recherches DNS.",
       "fixCode": "; Avant — deux enregistrements, SPF échoue partout :\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Après — un seul enregistrement avec les deux services :\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
@@ -721,6 +742,133 @@
       "msg": "Seules {0} destinations de rapport sur {1} ont été vérifiées — cet audit s'arrête à 10. Non vérifiées : {2}",
       "what": "Votre enregistrement nomme plus de destinations de rapport que cet audit n'en suivra. Chacune située hors de votre domaine organisationnel coûte un parcours de l'arbre DNS plus une requête d'autorisation, et leur nombre est fixé par l'enregistrement lui-même — un audit ne laisse donc pas un seul enregistrement décider du volume de trafic DNS qu'il génère. La RFC 9990 §3.5 prévoit exactement cela en indiquant que les rapports vont à chaque URI <em>\"up to the Receiver's limits on supported URIs\"</em>, et les destinataires réels imposent eux aussi leurs propres limites. Cet avis existe pour que les verdicts ci-dessus ne soient pas pris pour une liste complète.",
       "fix": "L'enregistrement n'a rien d'incorrect. Si vous voulez auditer chaque destination, répartissez les domaines sur plusieurs exécutions. Si la liste s'est simplement allongée au fil du temps, il vaut la peine de l'élaguer : les destinations que vous ne lisez plus restent des destinations qu'un destinataire doit tout de même essayer."
+    },
+    "dkim-key-weak": {
+      "msg": "Clé DKIM inférieure à 1024 bits : {0} — la signature est falsifiable et les destinataires peuvent l'ignorer.",
+      "what": "La RFC 8301 fixe 1024 bits comme plancher absolu pour une clé DKIM RSA et recommande 2048. Un module en dessous de ce plancher se factorise avec des moyens modestes, et quiconque le factorise peut signer du courrier qui passe DKIM au nom de votre domaine — donc aussi DMARC, puisque DMARC accepte un message dont la signature DKIM est alignée. Certains destinataires ont cessé d'accepter les clés courtes, si bien que le même enregistrement peut échouer à la vérification chez un opérateur en silence tout en passant chez un autre.",
+      "fix": "Générez une nouvelle clé de 2048 bits et publiez-la sous un <strong>nouveau</strong> sélecteur, basculez votre service de signature sur ce sélecteur, et supprimez seulement ensuite l'ancien enregistrement. Une rotation sur place casse tous les messages encore en transit signés avec l'ancienne clé.",
+      "fixCode": "; Un destinataire interroge s2026._domainkey.example.com pour cette clé\n; Publiez d'abord la nouvelle clé, sous un nouveau sélecteur :\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Basculez la signature sur s2026, laissez passer le courrier en transit,\n; puis supprimez l'ancien enregistrement à clé courte :\ns2020._domainkey    TXT    \"v=DKIM1; k=rsa; p=MFwwDQYJKoZIhvcNAQEB...\""
+    },
+    "dkim-key-1024": {
+      "msg": "La clé DKIM fait 1024 bits : {0} — valide aujourd'hui, mais 2048 est la recommandation actuelle.",
+      "what": "La RFC 8301 désigne 1024 bits comme le minimum et 2048 comme la taille recommandée pour les clés DKIM RSA. Une clé de 1024 bits n'est pas cassée et n'est pas rejetée par les destinataires courants — c'est vraiment répandu, et bien des expéditeurs de premier plan en publient encore une. Elle figure ici comme une rotation à planifier et non comme un incident à traiter, et c'est pourquoi elle se range parmi les suggestions et non parmi les défauts.",
+      "fix": "Intégrez le passage à 2048 bits à votre prochaine rotation de clés planifiée. Il n'y a rien d'urgent à faire. Publiez la nouvelle clé sous un nouveau sélecteur, basculez la signature dessus, puis retirez l'ancien enregistrement."
+    },
+    "dkim-key-revoked": {
+      "msg": "Sélecteur DKIM publié avec une clé vide : {0} — le sélecteur est révoqué et ne signe rien.",
+      "what": "La RFC 6376 §3.6.1 définit une balise <code>p=</code> à valeur vide comme une révocation de clé : un destinataire qui la trouve traite toute signature faite avec ce sélecteur comme définitivement invalide. C'est la bonne façon de retirer un sélecteur. Cela devient un problème quand le sélecteur reste configuré quelque part comme clé de signature, car le courrier part signé, le destinataire consulte le sélecteur, et la signature échoue — ce qui ressemble en tout point à une falsification.",
+      "fix": "Vérifiez que plus rien ne signe avec ce sélecteur. Si le sélecteur est réellement retiré, l'enregistrement de révocation peut rester indéfiniment ou être supprimé une fois qu'aucun courrier signé avec lui n'est plus en transit. Si quelque chose signe encore avec, publiez la vraie clé publique ou basculez ce service sur un sélecteur actif.",
+      "fixCode": "; Une révocation — p= vide, délibérément :\nold2019._domainkey    TXT    \"v=DKIM1; k=rsa; p=\"\n\n; Un sélecteur actif, à titre de comparaison :\ns2026._domainkey      TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "dkim-key-unparseable": {
+      "msg": "La clé publique DKIM ne se décode pas : {0} — aucun destinataire ne peut vérifier une signature de ce sélecteur.",
+      "what": "L'enregistrement est présent et le sélecteur est trouvé, le domaine paraît donc configuré — mais la valeur <code>p=</code> n'est pas une clé qu'un vérificateur puisse lire. La cause de loin la plus fréquente est un enregistrement tronqué : une chaîne TXT DNS est limitée à 255 caractères, une clé de 2048 bits est plus longue, et une clé collée dans un panneau de configuration qui ne la découpe pas correctement perd sa fin. La panne est totalement silencieuse. Rien ne vous alerte, l'enregistrement résout, et chaque signature échoue simplement.",
+      "fix": "Republiez la clé en laissant votre opérateur DNS la découper en plusieurs chaînes entre guillemets plutôt que la tronquer. Comparez la valeur publiée avec la clé que détient votre service de signature — elles doivent correspondre caractère par caractère, casse comprise, car la valeur est en base64 et sensible à la casse.",
+      "fixCode": "; Un enregistrement TXT, découpé en chaînes que le résolveur recolle :\ns2026._domainkey    TXT    ( \"v=DKIM1; k=rsa; \"\n                            \"p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\"\n                            \"...IDAQAB\" )"
+    },
+    "dkim-key-testing": {
+      "msg": "Sélecteur DKIM en mode test : {0} — il est demandé aux destinataires d'ignorer ses résultats.",
+      "what": "L'indicateur <code>t=y</code> signale aux destinataires que le domaine teste encore DKIM et qu'ils doivent traiter de la même façon le courrier signé et non signé. Il existe pour qu'un nouveau déploiement puisse être validé sans risquer la délivrabilité. Laissé en place après la mise en production, il annule discrètement la protection : un destinataire qui l'honore n'agira pas sur un échec de signature, si bien que le sélecteur n'apporte rien à DMARC.",
+      "fix": "Retirez l'indicateur <code>t=y</code> une fois que vous avez confirmé que les signatures se vérifient. Si vous êtes réellement encore en test, laissez-le et revenez-y après la mise en production."
+    },
+    "dkim-key-mixed": {
+      "msg": "Les sélecteurs DKIM utilisent des forces de clé différentes, de {0} à {1} bits — le plus faible détermine votre force réelle.",
+      "what": "C'est l'attaquant qui choisit le sélecteur à attaquer, pas vous. Si un sélecteur signe en 1024 bits et un autre en 2048, la force DKIM réelle du domaine est 1024, car falsifier une signature sous le sélecteur le plus faible produit du courrier qui passe DKIM et DMARC tout aussi bien. Des tailles différentes signalent le plus souvent une rotation commencée et jamais terminée, ou un second service d'envoi configuré séparément du premier.",
+      "fix": "Portez les sélecteurs les plus faibles à la taille du plus fort, ou retirez-les si le service qui se trouve derrière n'envoie plus."
+    },
+    "dkim-key-sha1": {
+      "msg": "La clé DKIM n'autorise que SHA-1 : {0} — la RFC 8301 interdit SHA-1 pour les signatures DKIM.",
+      "what": "La balise <code>h=</code> énumère les algorithmes de hachage qu'un vérificateur peut accepter pour cette clé. Avec <code>sha1</code> comme seule entrée, un destinataire conforme n'a rien d'acceptable à proposer : la RFC 8301 §3.1 a retiré SHA-1 de DKIM purement et simplement, au vu des attaques par collision réalisables en pratique. Les destinataires qui l'appliquent feront échouer la signature. Énumérer <code>sha1</code> à côté de <code>sha256</code> ne pose pas de problème et n'est pas signalé ici — un vérificateur peut simplement choisir le plus robuste.",
+      "fix": "Remplacez <code>h=sha1</code> par <code>h=sha256</code>, ou supprimez complètement la balise <code>h=</code>, ce qui autorise tout hachage pris en charge par le vérificateur. Vérifiez d'abord que votre service de signature produit bien des signatures SHA-256.",
+      "fixCode": "; Avant — rien qu'un destinataire conforme accepterait :\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha1; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Après :\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "caa-blocks-all-issuance": {
+      "msg": "CAA à {0} n'autorise aucune autorité de certification — aucune CA ne peut émettre de certificat pour ce domaine.",
+      "what": "Une propriété <code>issue</code> dont la valeur est <code>;</code> ne nomme aucun émetteur, et la RFC 8659 §4.2 y lit une autorisation accordée à personne. Toute autorité de certification conforme refusera. C'est un réglage légitime et délibéré pour un domaine qui ne doit jamais avoir de certificat, donc pas nécessairement une erreur. Cela devient une panne quand ce n'était pas l'intention, et cette panne reste invisible jusqu'à l'échec d'un renouvellement — le certificat en place continue de fonctionner jusqu'au jour de son expiration.",
+      "fix": "Si c'est délibéré, il n'y a rien à faire. Sinon, ajoutez une propriété <code>issue</code> nommant l'autorité de certification que vous utilisez. N'oubliez pas que CAA est hérité vers le bas de l'arbre : un enregistrement posé au niveau parent gouverne aussi ce nom.",
+      "fixCode": "; Bloque toutes les CA :\nexample.com.    CAA    0 issue \";\"\n\n; Autorise une CA :\nexample.com.    CAA    0 issue \"letsencrypt.org\""
+    },
+    "caa-unknown-critical-tag": {
+      "msg": "Propriété CAA non reconnue, avec l'indicateur critique positionné : {0} — une CA conforme doit refuser d'émettre.",
+      "what": "La RFC 8659 §4.1 définit le bit de poids fort de l'octet d'indicateurs comme Issuer Critical. Une autorité de certification qui rencontre une propriété qu'elle ne comprend pas avec ce bit positionné DOIT refuser d'émettre, plutôt qu'ignorer la propriété et poursuivre. Une propriété critique non reconnue bloque donc l'émission, et d'une manière qui ne se remarquera qu'au prochain renouvellement. La même propriété sans le bit critique est inerte et ne serait pas signalée ici.",
+      "fix": "Vérifiez le nom de la propriété face au registre, au cas où il s'agirait d'une faute de frappe — <code>issue</code>, <code>issuewild</code>, <code>iodef</code>, <code>issuemail</code>, <code>contactemail</code>, <code>contactphone</code>. Si la propriété est intentionnelle et non standard, effacez l'indicateur critique en mettant l'octet d'indicateurs à 0.",
+      "fixCode": "; Critique et non reconnue — bloque l'émission :\nexample.com.    CAA    128 issuewildcard \"letsencrypt.org\"\n\n; Le nom de propriété enregistré :\nexample.com.    CAA    0 issuewild \"letsencrypt.org\""
+    },
+    "caa-malformed": {
+      "msg": "Enregistrement CAA impossible à analyser : {0}",
+      "what": "Un enregistrement CAA comporte trois champs : un octet d'indicateurs de 0 à 255, une balise de propriété et une valeur entre guillemets. Un enregistrement qui ne rentre pas dans cette forme peut être ignoré par une autorité de certification, ou traité comme une propriété non reconnue — et si son octet d'indicateurs positionne par hasard le bit critique, cela signifie un refus d'émettre. Ce n'est pas un comportement à laisser au hasard.",
+      "fix": "Ressaisissez l'enregistrement sous la forme standard à trois champs. Certaines interfaces DNS demandent les indicateurs, la balise et la valeur dans des cases séparées et ajoutent les guillemets pour vous ; d'autres prennent la ligne entière, et la valeur a alors besoin de ses propres guillemets."
+    },
+    "caa-no-iodef": {
+      "msg": "CAA est publié mais sans propriété iodef — vous ne serez pas informé des demandes de certificat refusées.",
+      "what": "La propriété <code>iodef</code> donne à une autorité de certification un endroit où signaler une demande que votre politique CAA lui a fait refuser. Sans elle, un refus est silencieux de votre côté : un attaquant qui cherche quelle CA acceptera d'émettre pour votre domaine ressemble exactement à rien du tout, et un collègue qui a demandé un certificat au mauvais fournisseur également.",
+      "fix": "Ajoutez une propriété <code>iodef</code> pointant vers une boîte aux lettres que quelqu'un lit. Elle coûte un enregistrement et c'est le seul canal de notification dont CAA dispose.",
+      "fixCode": "example.com.    CAA    0 issue \"letsencrypt.org\"\nexample.com.    CAA    0 iodef \"mailto:security@example.com\""
+    },
+    "caa-single-issuer": {
+      "msg": "CAA autorise une seule autorité de certification : {0} — changer de fournisseur exigera d'abord une modification DNS.",
+      "what": "Un émetteur autorisé unique est une politique parfaitement valable et resserrée, et ce n'est pas une erreur de configuration. Cela vaut la peine d'être su au moment précis où cela commence à compter : si cette CA subit une panne, ou s'il faut changer de fournisseur dans l'urgence, aucune autre autorité ne pourra émettre tant que cet enregistrement n'est pas mis à jour — et la personne qui demande le certificat n'est souvent pas celle qui peut modifier le DNS.",
+      "fix": "Rien à changer. Assurez-vous que les personnes qui demandent des certificats savent que l'enregistrement existe et qui peut le modifier. Si vous avez déjà une CA de secours en tête, l'autoriser dès maintenant coûte un enregistrement et retire une étape à une mauvaise journée."
+    },
+    "mx-dangling": {
+      "msg": "L'hôte MX ne résout pas : {0} — le courrier acheminé là ne peut pas être délivré.",
+      "what": "Un enregistrement MX nomme un hôte, et cet hôte doit résoudre vers une adresse avant qu'un serveur émetteur puisse s'y connecter. Celui-ci ne le fait pas : le nom ne renvoie ni enregistrement A ni AAAA. Un serveur émetteur qui choisit cet hôte n'a nulle part où aller — il mettra le message en file, réessaiera, et finira par le renvoyer à l'expéditeur. Si c'est votre seul hôte MX, vous ne recevez aucun courrier en ce moment. Si c'est un hôte de secours, vous êtes à une panne de cette situation.",
+      "fix": "Vérifiez le nom d'hôte au cas où il s'agirait d'une faute de frappe, et contrôlez que la zone où il vit publie encore un enregistrement d'adresse pour lui. Un hôte mis hors service devrait voir son enregistrement MX supprimé plutôt que laissé pointant dans le vide — un MX de secours mort retarde la délivrance à chaque cycle de réessai.",
+      "fixCode": "; Chaque hôte nommé à droite doit résoudre vers une adresse :\nexample.com.        MX     10 mail1.example.com.\nexample.com.        MX     20 mail2.example.com.\n\nmail1.example.com.  A      203.0.113.10\nmail2.example.com.  A      203.0.113.11"
+    },
+    "mx-cname-target": {
+      "msg": "La cible MX est un CNAME : {0} — les RFC 2181 et 5321 l'interdisent toutes deux.",
+      "what": "La RFC 2181 §10.3 et la RFC 5321 §5.1 exigent toutes deux qu'un enregistrement MX pointe vers un nom disposant d'un enregistrement d'adresse, et non vers un alias. Cela fonctionne généralement quand même, car la plupart des serveurs émetteurs suivent l'alias sans broncher — c'est précisément pour cela que l'erreur perdure. Là où cela casse, cela casse de façon précise et déroutante : certains serveurs refusent l'alias tout net, et la requête supplémentaire ajoute un point de défaillance à chaque délivrance. Cela s'accorde également mal avec DANE, où l'enregistrement TLSA doit être trouvé sous le bon nom.",
+      "fix": "Faites pointer l'enregistrement MX directement vers la cible de l'alias, de sorte que le MX nomme un hôte disposant de son propre enregistrement d'adresse.",
+      "fixCode": "; Avant — le MX nomme un alias :\nexample.com.        MX      10 mail.example.com.\nmail.example.com.   CNAME   host7.provider.example.\n\n; Après — le MX nomme l'hôte lui-même :\nexample.com.        MX      10 host7.provider.example."
+    },
+    "mx-single-host": {
+      "msg": "Un seul hôte MX est publié : {0} — le courrier reste en file chez l'expéditeur tant qu'il est injoignable.",
+      "what": "Avec un seul hôte MX, toute période où cet hôte est injoignable est une période où le courrier entrant patiente dans les files des autres. Rien n'est perdu dans l'immédiat — les serveurs émetteurs réessaient pendant des jours avant de renvoyer un message —, mais la délivrance s'arrête, et elle s'arrête aussi bien pour une fenêtre de maintenance que pour une panne. Beaucoup d'hébergeurs de messagerie publient plusieurs hôtes MX précisément pour éviter cela ; un seul trahit plus souvent une installation auto-hébergée ou une entrée d'opérateur recopiée à moitié.",
+      "fix": "Publiez un second hôte MX avec un numéro de préférence plus élevé si votre plateforme de messagerie en propose un. Si votre opérateur vous a donné plusieurs noms d'hôtes, vérifiez qu'ils sont tous arrivés dans le DNS."
+    },
+    "mx-no-ipv6": {
+      "msg": "Aucun hôte MX n'a d'adresse IPv6 — les expéditeurs en IPv6 seul ne peuvent pas atteindre votre messagerie.",
+      "what": "Un serveur émetteur sur un réseau en IPv6 seul atteint un hôte de messagerie en IPv4 seul via la traduction que son opérateur fournit, ou pas du tout. Ce n'est pas un constat de sécurité et ce n'est pas urgent : la délivrance de courrier en IPv4 ne va pas disparaître. C'est une note d'accessibilité, et cela joue aussi sur la réputation, car certains grands destinataires voient la disponibilité en double pile comme le signe d'un système de messagerie bien entretenu.",
+      "fix": "Ajoutez des enregistrements AAAA pour vos hôtes MX une fois que les hôtes eux-mêmes acceptent le courrier en IPv6. Publier un enregistrement AAAA pour un hôte qui n'écoute pas réellement en IPv6 est pire que de n'en avoir aucun — les expéditeurs l'essaieront en premier et échoueront."
+    },
+    "mx-same-prefix": {
+      "msg": "Les hôtes MX partagent un même bloc d'adresses, {0} : {1} — la redondance est plus mince qu'il n'y paraît.",
+      "what": "Plusieurs hôtes MX publiés à des préférences différentes ont l'air d'une redondance, mais si toutes les adresses tiennent dans le même petit bloc, ils partagent très probablement une baie, un lien et un centre de données. Les pannes qui emportent l'un emporteront généralement tous les autres, si bien que le second hôte protège d'une défaillance serveur et de rien de plus grand. C'est normal pour une plateforme de messagerie sur un seul site, et cela mérite d'être su plus que corrigé.",
+      "fix": "Si la redondance est censée survivre à la perte d'un site, placez au moins un hôte MX sur un autre réseau. Si le second hôte n'est là que pour couvrir un redémarrage de serveur, rien n'a besoin de changer."
+    },
+    "mx-duplicate-preference": {
+      "msg": "Deux hôtes MX ou plus partagent la même valeur de préférence : {0} — les serveurs émetteurs répartiront la charge entre eux.",
+      "what": "Des valeurs de préférence égales sont une fonctionnalité délibérée : la RFC 5321 §5.1 prévoit qu'un expéditeur choisisse au hasard parmi des hôtes de préférence égale, ce qui répartit le courrier entrant entre eux. C'est ce que vous voulez pour deux frontaux équivalents. Ce n'est pas ce que vous voulez si l'un des hôtes était prévu comme secours, car la moitié de votre courrier ira au secours en permanence.",
+      "fix": "Rien, si les hôtes sont équivalents. Si l'un doit servir de repli, donnez-lui un numéro de préférence plus élevé — plus élevé signifie moins préféré."
+    },
+    "tlsa-published-unsigned": {
+      "msg": "TLSA publié sans chaîne DNSSEC validée : {0} — DANE n'offre aucune protection ici.",
+      "what": "DANE fonctionne en plaçant dans le DNS le certificat qu'un serveur de messagerie doit présenter, et cela ne vaut quelque chose que si cette réponse DNS ne peut pas être altérée. Sans DNSSEC, quiconque peut intercepter la requête peut retirer l'enregistrement TLSA — le serveur émetteur voit alors un hôte sans politique DANE et délivre quand même — ou le remplacer par un enregistrement correspondant à son propre certificat. L'enregistrement continue d'apparaître dans tous les diagnostics comme si DANE était configuré, et c'est justement pour cela que cela mérite d'être dit : cela ressemble à une protection, et ce n'en est pas une.",
+      "fix": "Signez la zone où vit l'enregistrement TLSA et faites publier l'enregistrement DS chez son parent. D'ici là, l'enregistrement TLSA est décoratif. Si signer la zone n'est pas au programme, retirer l'enregistrement TLSA est plus honnête que de le laisser là.",
+      "fixCode": "; Un serveur émetteur interroge _25._tcp.mail1.example.com pour cet enregistrement,\n; et celui-ci doit se trouver dans une zone signée DNSSEC pour avoir un sens :\n_25._tcp.mail1.example.com.    TLSA    3 1 1 ( 87D109DD028655D5370B... )"
+    },
+    "tlsa-malformed": {
+      "msg": "L'enregistrement TLSA est mal formé : {0} — un serveur émetteur qui applique DANE peut refuser de délivrer.",
+      "what": "Un enregistrement TLSA comporte un usage de certificat, un sélecteur, un type de correspondance et les données d'association, et la longueur de ces données est fixée par le type de correspondance — 32 octets pour SHA-256, 64 pour SHA-512. Un enregistrement qui ne s'y conforme pas ne peut être rapproché d'aucun certificat. Sous DANE ce n'est pas un échec bénin : un serveur émetteur qui trouve un enregistrement TLSA inutilisable est tenu de considérer la délivrance comme échouée plutôt que de se rabattre sur une connexion non authentifiée, si bien qu'un enregistrement mal formé peut empêcher le courrier d'arriver.",
+      "fix": "Régénérez l'enregistrement à partir du certificat que l'hôte de messagerie présente réellement, plutôt que de modifier l'empreinte à la main. Vérifiez que le type de correspondance concorde avec la longueur d'empreinte que vous avez publiée."
+    },
+    "tlsa-partial-coverage": {
+      "msg": "TLSA est publié pour {0} hôtes de messagerie sur {1} — ceux qui n'en ont pas acceptent des connexions non authentifiées.",
+      "what": "Un serveur émetteur choisit un hôte MX et cherche un enregistrement TLSA sous le nom de cet hôte. Là où il en trouve un, la connexion est authentifiée ; là où il n'en trouve pas, la délivrance retombe sur le TLS opportuniste ordinaire, qu'un attaquant sur le chemin peut dégrader. Une couverture partielle signifie donc qu'un attaquant vise simplement l'hôte dépourvu d'enregistrement. La protection ne vaut que ce que vaut le plus faible des hôtes MX.",
+      "fix": "Publiez un enregistrement TLSA pour chaque hôte MX, ou retirez les enregistrements jusqu'à pouvoir tous les couvrir. Chaque hôte a besoin du sien, sous <code>_25._tcp</code> au nom de cet hôte."
+    },
+    "dkim-key-not-email": {
+      "msg": "Clé DKIM publiée mais non applicable au courrier : {0} — elle ne compte pas dans la signature du courrier de ce domaine.",
+      "what": "Un enregistrement de clé DKIM peut restreindre son usage. La balise <code>s=</code> énumère les services auxquels la clé s'applique, et une clé restreinte à autre chose — par exemple <code>s=tlsrpt</code>, que la RFC 8460 utilise pour les rapports TLS — n'est pas une clé pour le courrier ordinaire. Une clé dont le <code>k=</code> nomme un algorithme que cet outil ne reconnaît pas est dans la même situation : la RFC 6376 §3.6.1 impose à un vérificateur de l'ignorer. Ces enregistrements sont le plus souvent corrects et voulus. Ils figurent ici pour qu'un domaine dont les seuls enregistrements DKIM sont de ce type sache pourquoi l'audit ne signale aucune clé de signature, plutôt que de s'entendre dire que rien n'a été trouvé sous un sélecteur qu'il sait avoir configuré.",
+      "fix": "Rien, si la restriction est voulue. Si ce sélecteur devait signer du courrier ordinaire, supprimez la balise <code>s=</code> — son absence signifie que la clé s'applique à tous les services — ou ajoutez <code>email</code> à sa liste. Vérifiez aussi la valeur de <code>k=</code> : seuls <code>rsa</code> et <code>ed25519</code> sont définis pour DKIM.",
+      "fixCode": "; Restreinte à un autre service — valide, mais pas une clé de courrier :\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; S'applique au courrier, en le nommant ou en omettant s= :\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "dkim-key-malformed": {
+      "msg": "L'enregistrement de clé DKIM est mal formé : {0} — la clé se décode peut-être, mais l'enregistrement autour d'elle ne s'analyse pas.",
+      "what": "C'est différent d'une clé qui ne se décode pas. Ici la valeur <code>p=</code> peut être parfaitement bonne ; ce qui ne va pas, c'est l'enregistrement qui la contient — une liste <code>h=</code>, <code>s=</code> ou <code>t=</code> vide, où la balise est présente mais ne nomme rien, une balise répétée, ou un <code>v=</code> qui n'est pas <code>DKIM1</code>. La RFC 6376 §3.6.1 définit chacune de ces balises comme une liste non vide séparée par des deux-points, et un vérificateur qui ne peut pas analyser un enregistrement est en droit d'ignorer la clé entièrement. Le sélecteur compte toujours comme publié, car un enregistrement cassé sous un nom que vous avez configuré est un problème différent de l'absence totale — mais ce n'est pas une chose sur laquelle s'appuyer.",
+      "fix": "Comparez l'enregistrement à ce que votre service de signature a produit. Les causes habituelles sont une balise laissée sans valeur après une modification — <code>s=</code> ou <code>h=</code> sans rien derrière — et une balise collée deux fois. Supprimez entièrement une balise facultative plutôt que de la laisser vide : l'absence de <code>s=</code> signifie que la clé s'applique à tous les services, et celle de <code>h=</code> que tout hachage est acceptable.",
+      "fixCode": "; Mal formé — les balises sont présentes mais vides :\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=; s=; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Correct — soit on nomme les valeurs, soit on omet les balises :\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {
@@ -928,5 +1076,27 @@
       "ruf": "Rapports d'expertise (ruf=)",
       "uris": "Destinations des rapports"
     }
+  },
+  "mx": {
+    "doesNotResolve": "ne résout pas",
+    "notChecked": "non vérifié",
+    "cnameTarget": "cible CNAME"
+  },
+  "caa": {
+    "issuers": "Autorités de certification",
+    "wildcard": "Jokers",
+    "iodef": "Signaler à",
+    "none": "aucune",
+    "blocksAll": "Aucune autorité de certification n'est autorisée",
+    "wildcardBlocked": "Aucun certificat joker",
+    "wildcardViaIssue": "régi par l'ensemble issue",
+    "unknownCritical": "Propriété critique non reconnue"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Publié, pas encore qualifié — DANE n'a de sens que derrière une chaîne DNSSEC validée, que cette version ne vérifie pas.",
+    "notPublished": "non publié",
+    "notChecked": "non vérifié",
+    "authenticated": "publié · authentifié par DNSSEC",
+    "unauthenticated": "publié · non authentifié par DNSSEC"
   }
 }

@@ -38,7 +38,10 @@
     "www": "Web sitesi barındırmasını algıla",
     "wildcard": "Joker karakterli TXT kayıtlarını algıla",
     "dkimSelectors": "Ek DKIM seçicileri",
-    "footer": "Cloudflare DoH üzerinden DNS · Veri saklanmaz · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Gizlilik</a>"
+    "footer": "Cloudflare DoH üzerinden DNS · Veri saklanmaz · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Gizlilik</a>",
+    "deepChecks": "Derin protokol denetimleri (MX sağlığı, TLSA)",
+    "deepChecksTitle": "Her MX ana makinesini çözümler ve TLSA kayıtlarını arar; alan adı başına yaklaşık 7 DNS sorgusu ekler",
+    "deepChecksAutoDisabled": "Derin protokol denetimleri bu çalıştırma için kapalı: alan adı başına yaklaşık 7 DNS sorgusu ekliyorlar ve bu çalıştırmada {0} sınırına karşılık {1} alan adı var. Yine de çalıştırmak için kutuyu tekrar işaretleyin."
   },
   "help": {
     "title": "Nasıl çalışır:",
@@ -105,7 +108,9 @@
     "status": "Durum",
     "none": "Yok",
     "na": "Yok",
-    "dash": "—"
+    "dash": "—",
+    "caa": "CAA politikası",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "{0} karakter daha göster",
@@ -169,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Sınıra yakın",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "DNS sorgusu",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} çakışan kayıt — hiçbiri geçerli değil:"
   },
   "dmarc": {
     "missing": "✗ Eksik",
@@ -213,7 +219,14 @@
     "viaSpf": "SPF üzerinden: {0}",
     "noteWildcard": "Joker karakterli TXT hatası sonucu etkiliyor olabilir",
     "noteNotFound": "Test edilen {0} seçici arasında etkin bir DKIM anahtarı bulunamadı.",
-    "noteNotFoundWithErrors": "Tamamlanan {0} seçici kontrolü arasında etkin bir DKIM anahtarı bulunamadı; {1} DNS sorgusu başarısız oldu."
+    "noteNotFoundWithErrors": "Tamamlanan {0} seçici kontrolü arasında etkin bir DKIM anahtarı bulunamadı; {1} DNS sorgusu başarısız oldu.",
+    "keyLabel": "Anahtar",
+    "keyRsaBits": "RSA {0} bit",
+    "keyRevoked": "iptal edilmiş",
+    "keyUnreadable": "çözülemiyor",
+    "keyUnknownType": "tanınmayan anahtar türü",
+    "keyStructureInvalid": "yapı reddedildi",
+    "keyTesting": "test kipi"
   },
   "adv": {
     "configured": "✓ Yapılandırıldı",
@@ -309,7 +322,15 @@
       "Kayıt hijyeni",
       "DMARC bulunduğu yer",
       "DMARC yukarı etiket sayısı",
-      "DMARC keşfinin bitişi"
+      "DMARC keşfinin bitişi",
+      "DKIM Anahtar Türü",
+      "DKIM Anahtar Biti",
+      "İptal Edilmiş DKIM Seçicileri",
+      "CAA Verenleri",
+      "Joker Karakter için CAA Verenleri",
+      "Çözümlenmeyen MX",
+      "MX Ana Makine Sayısı",
+      "TLSA Yayımlanmış"
     ],
     "yes": "Evet",
     "no": "Hayır",
@@ -346,7 +367,7 @@
       "fixCode": "; Boş MX — gönderenlere bu alan adının posta kabul etmediğini bildirir:\n@    MX     0 .\n\n; SPF — tüm göndericileri engeller:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — taklit edilen tüm postayı reddeder:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Birden fazla SPF kaydı bulundu — bu alan adından gönderilen tüm posta için SPF kalıcı olarak başarısız (permerror).",
+      "msg": "{0} SPF kaydı bulundu — bu alan adından gönderilen tüm posta için SPF kalıcı olarak başarısız (permerror) ve kayıtların hiçbiri geçerli değil.",
       "what": "RFC 7208 §4.5, alan adı başına tam olarak bir <code>v=spf1</code> TXT kaydına izin verir. Bir alıcı iki kayıt bulduğunda <code>permerror</code> döndürür ve durur — kayıtları birleştirmez, daha katı olanı da seçmez. Pratik etkisi, hiç SPF olmamasından daha kötüdür: kaydınız DNS panelinde doğru görünür, ama alan adınızdan çıkan her ileti SPF kimlik doğrulamasından geçemez. Bu genellikle ikinci bir posta hizmeti devreye alınırken mevcut kaydı düzenlemek yerine kendi kaydını eklemesiyle olur.",
       "fix": "Kayıtları tek bir kayıtta birleştirin. Tüm kayıtlardaki <code>include:</code>, <code>ip4:</code> ve <code>ip6:</code> mekanizmalarını alıp tek bir <code>v=spf1</code> kaydına koyun ve diğerlerini silin. Birleştirirken 10 sorgu sınırına dikkat edin — kayıtları birleştirmek bu sınırı aşmanın yaygın bir yoludur.",
       "fixCode": "; Önce — iki kayıt, SPF her şey için başarısız:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Sonra — her iki göndericiyi içeren tek kayıt:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
@@ -721,6 +742,133 @@
       "msg": "{1} rapor hedefinden yalnızca {0} tanesi denetlendi — bu denetim 10'da duruyor. Denetlenmeyenler: {2}",
       "what": "Kaydınız, bu denetimin izleyeceğinden daha fazla rapor hedefi belirtiyor. Kurumsal alan adınızın dışındaki her hedef bir DNS ağaç yürüyüşü ile bir yetkilendirme sorgusuna mal olur ve sayılarını kaydın kendisi belirler — yani bir denetim, tek bir kaydın ne kadar DNS trafiği üreteceğine karar vermesine izin vermez. RFC 9990 §3.5 tam da bunu öngörür ve raporların her URI'ye <em>\"up to the Receiver's limits on supported URIs\"</em> gittiğini söyler; gerçek alıcılar da kendi sınırlarını koyar. Bu uyarı, yukarıdaki sonuçların eksiksiz bir liste sanılmaması için burada.",
       "fix": "Kayıtta yanlış bir şey yok. Her hedefin denetlenmesini istiyorsanız alan adlarını ayrı çalıştırmalara bölün. Liste zamanla büyüdüyse budamaya değer: artık okumadığınız hedefler, bir alıcının yine de denemek zorunda olduğu hedeflerdir."
+    },
+    "dkim-key-weak": {
+      "msg": "DKIM anahtarı 1024 bitin altında: {0} — imza taklit edilebilir ve alıcılar onu yok sayabilir.",
+      "what": "RFC 8301, RSA DKIM anahtarı için 1024 biti mutlak alt sınır olarak belirler ve 2048 önerir. Bu sınırın altındaki bir modül mütevazı kaynaklarla çarpanlarına ayrılabilir ve onu çarpanlarına ayıran biri, alan adınız adına DKIM'den geçen posta imzalayabilir — bu da DMARC'tan geçmesi demektir, çünkü DMARC, DKIM imzası hizalı olan bir iletiyi kabul eder. Bazı alıcılar kısa anahtarları tümüyle kabul etmeyi bıraktı; dolayısıyla aynı kayıt bir sağlayıcıda sessizce doğrulamada kalırken bir başkasında geçebilir.",
+      "fix": "Yeni bir 2048 bitlik anahtar üretip <strong>yeni</strong> bir seçici altında yayımlayın, imzalama hizmetinizi o seçiciye geçirin ve eski kaydı ancak ondan sonra kaldırın. Yerinde değiştirmek, eski anahtarla imzalanmış ve hâlâ yolda olan her iletiyi bozar.",
+      "fixCode": "; Bir alıcı bu anahtar için s2026._domainkey.example.com adresini sorgular\n; Önce yeni anahtarı, yeni bir seçici altında yayımlayın:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; İmzalamayı s2026'ya geçirin, yoldaki postanın tükenmesini bekleyin,\n; sonra kısa anahtarlı eski kaydı silin:\ns2020._domainkey    TXT    \"v=DKIM1; k=rsa; p=MFwwDQYJKoZIhvcNAQEB...\""
+    },
+    "dkim-key-1024": {
+      "msg": "DKIM anahtarı 1024 bit: {0} — bugün geçerli, ancak güncel öneri 2048.",
+      "what": "RFC 8301, RSA DKIM anahtarları için 1024 biti asgari, 2048'i ise önerilen boyut olarak anar. 1024 bitlik bir anahtar kırılmış değildir ve yaygın alıcılar tarafından reddedilmiyor — gerçekten çok yaygındır ve pek çok büyük gönderici hâlâ böyle bir anahtar yayımlar. Burada, ele alınacak bir olay olarak değil, planlanacak bir anahtar değişimi olarak yer alır; bu yüzden hatalar arasında değil önerilerin arasındadır.",
+      "fix": "2048 bite geçişi bir sonraki planlı anahtar değişiminize ekleyin. Acilen yapılacak bir şey yok. Yeni anahtarı yeni bir seçici altında yayımlayın, imzalamayı ona geçirin, sonra eski kaydı geri çekin."
+    },
+    "dkim-key-revoked": {
+      "msg": "DKIM seçicisi boş anahtarla yayımlanmış: {0} — seçici iptal edilmiş ve hiçbir şeyi imzalamıyor.",
+      "what": "RFC 6376 §3.6.1, değeri boş olan bir <code>p=</code> etiketini anahtar iptali olarak tanımlar: bunu bulan bir alıcı, o seçiciyle yapılmış her imzayı kalıcı olarak geçersiz sayar. Bir seçiciyi hizmetten çıkarmanın doğru yolu budur. Sorun, seçici bir yerde hâlâ imzalama anahtarı olarak tanımlıysa ortaya çıkar: posta imzalı olarak çıkar, alıcı seçiciyi sorgular ve imza başarısız olur — bu da bir sahtecilikten ayırt edilemez.",
+      "fix": "Bu seçiciyle artık hiçbir şeyin imzalamadığını doğrulayın. Seçici gerçekten hizmet dışıysa, iptal kaydı süresiz kalabilir ya da onunla imzalanmış posta yolda kalmadığında kaldırılabilir. Bir şey hâlâ onunla imzalıyorsa, gerçek genel anahtarı yayımlayın veya o hizmeti etkin bir seçiciye taşıyın.",
+      "fixCode": "; Bir iptal — p= bilerek boş bırakılmış:\nold2019._domainkey    TXT    \"v=DKIM1; k=rsa; p=\"\n\n; Karşılaştırma için etkin bir seçici:\ns2026._domainkey      TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "dkim-key-unparseable": {
+      "msg": "DKIM genel anahtarı çözülemiyor: {0} — hiçbir alıcı bu seçiciden gelen bir imzayı doğrulayamaz.",
+      "what": "Kayıt mevcut ve seçici bulunuyor, dolayısıyla alan adı yapılandırılmış görünüyor — ama <code>p=</code> değeri, herhangi bir doğrulayıcının okuyabileceği bir anahtar değil. Çok daha yaygın olan neden kesilmiş bir kayıttır: bir DNS TXT dizesi 255 karakterle sınırlıdır, 2048 bitlik bir anahtar bundan uzundur ve bunu doğru bölmeyen bir yönetim panelinde yapıştırılan anahtar kuyruğunu kaybeder. Arıza tümüyle sessizdir. Sizi hiçbir şey uyarmaz, kayıt çözümlenir ve her imza yalnızca başarısız olur.",
+      "fix": "Anahtarı yeniden yayımlayın; DNS sağlayıcınızın onu kesmek yerine tırnaklı birden çok dizeye bölmesine izin verin. Yayımlanan değeri imzalama hizmetinizdeki anahtarla karşılaştırın — büyük-küçük harf dahil karakter karakter aynı olmalıdır, çünkü değer base64'tür ve büyük-küçük harfe duyarlıdır.",
+      "fixCode": "; Tek bir TXT kaydı, çözümleyicinin yeniden birleştirdiği dizelere bölünmüş:\ns2026._domainkey    TXT    ( \"v=DKIM1; k=rsa; \"\n                            \"p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\"\n                            \"...IDAQAB\" )"
+    },
+    "dkim-key-testing": {
+      "msg": "DKIM seçicisi test kipinde: {0} — alıcılara sonuçlarını yok saymaları söyleniyor.",
+      "what": "<code>t=y</code> bayrağı alıcılara, alan adının DKIM'i hâlâ denediğini ve imzalı ile imzasız postayı aynı biçimde ele almaları gerektiğini bildirir. Yeni bir kurulumun teslimatı riske atmadan doğrulanabilmesi için vardır. Canlıya geçişten sonra bırakılırsa korumayı sessizce iptal eder: bayrağa uyan bir alıcı, başarısız bir imza karşısında işlem yapmaz, dolayısıyla seçici DMARC'a hiçbir katkı sunmaz.",
+      "fix": "İmzaların doğrulandığını teyit ettikten sonra <code>t=y</code> bayrağını kaldırın. Gerçekten hâlâ deniyorsanız bırakın ve canlıya geçişten sonra yeniden değerlendirin."
+    },
+    "dkim-key-mixed": {
+      "msg": "DKIM seçicileri farklı anahtar güçleri kullanıyor, {0} ile {1} bit arasında — gerçek gücünüzü en zayıfı belirler.",
+      "what": "Hangi seçiciye saldırılacağını siz değil saldırgan seçer. Bir seçici 1024 bitle, bir diğeri 2048 bitle imzalıyorsa, alan adının pratikteki DKIM gücü 1024'tür; çünkü daha zayıf seçici altında bir imza taklit etmek, DKIM ve DMARC'tan aynı inandırıcılıkla geçen posta üretir. Farklı boyutlar genellikle başlanıp hiç bitirilmemiş bir anahtar değişimine ya da ilkinden ayrı kurulmuş ikinci bir gönderim hizmetine işaret eder.",
+      "fix": "Daha zayıf seçicileri en güçlüsünün boyutuna yükseltin ya da arkalarındaki hizmet artık göndermiyorsa onları hizmetten çıkarın."
+    },
+    "dkim-key-sha1": {
+      "msg": "DKIM anahtarı yalnızca SHA-1'e izin veriyor: {0} — RFC 8301 DKIM imzalarında SHA-1'i yasaklar.",
+      "what": "<code>h=</code> etiketi, bir doğrulayıcının bu anahtar için kabul edebileceği özet algoritmalarını listeler. Tek girdi olarak <code>sha1</code> varsa, uyumlu bir alıcının kabul edebileceği hiçbir seçenek kalmaz: RFC 8301 §3.1, pratikte uygulanabilir çakışma saldırıları nedeniyle SHA-1'i DKIM'den tümüyle çıkardı. Bunu uygulayan alıcılar imzayı başarısız sayar. <code>sha1</code>'i <code>sha256</code> ile birlikte listelemek sorun değildir ve burada bildirilmez — doğrulayıcı yalnızca daha güçlü olanı seçebilir.",
+      "fix": "<code>h=sha1</code> yerine <code>h=sha256</code> yazın ya da <code>h=</code> etiketini tümüyle kaldırın; bu, doğrulayıcının desteklediği her özete izin verir. Öncesinde imzalama hizmetinizin SHA-256 imzaları ürettiğini doğrulayın.",
+      "fixCode": "; Önce — uyumlu bir alıcının kabul edeceği hiçbir şey yok:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha1; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Sonra:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "caa-blocks-all-issuance": {
+      "msg": "{0} adresindeki CAA hiçbir sertifika makamına yetki vermiyor — hiçbir CA bu alan adı için sertifika veremez.",
+      "what": "Değeri <code>;</code> olan bir <code>issue</code> özelliği hiçbir vereni adlandırmaz ve RFC 8659 §4.2 bunu kimseye yetki verilmemesi olarak okur. Uyumlu her sertifika makamı reddedecektir. Asla sertifikası olmaması gereken bir alan adı için bu meşru ve bilinçli bir ayardır, dolayısıyla mutlaka yanlış değildir. Amaçlanmadığında bir kesintiye dönüşür ve bu kesinti bir yenileme başarısız olana dek görünmez kalır — mevcut sertifika, süresinin dolduğu güne kadar çalışmayı sürdürür.",
+      "fix": "Bu bilinçliyse yapılacak bir şey yok. Değilse, kullandığınız sertifika makamını adlandıran bir <code>issue</code> özelliği ekleyin. CAA'nın ağaçta aşağı doğru miras alındığını unutmayın: üst adda ayarlanmış bir kayıt bu adı da yönetir.",
+      "fixCode": "; Her CA'yı engeller:\nexample.com.    CAA    0 issue \";\"\n\n; Bir CA'ya yetki verir:\nexample.com.    CAA    0 issue \"letsencrypt.org\""
+    },
+    "caa-unknown-critical-tag": {
+      "msg": "CAA özelliği tanınmıyor ve kritik bayrağı işaretli: {0} — uyumlu bir CA sertifika vermeyi reddetmelidir.",
+      "what": "RFC 8659 §4.1, bayrak baytının en anlamlı bitini Issuer Critical olarak tanımlar. Bu bit işaretliyken anlamadığı bir özellikle karşılaşan bir sertifika makamı, özelliği yok sayıp devam etmek yerine sertifika vermeyi REDDETMELİDİR. Yani tanınmayan kritik bir özellik sertifika verilmesini engeller ve bunu ancak bir sonraki yenilemede fark edilecek biçimde yapar. Kritik biti olmayan aynı özellik etkisizdir ve burada bildirilmezdi.",
+      "fix": "Özellik adını kayıt listesine karşı yazım hatası açısından denetleyin — <code>issue</code>, <code>issuewild</code>, <code>iodef</code>, <code>issuemail</code>, <code>contactemail</code>, <code>contactphone</code>. Özellik kasıtlı ve standart dışıysa, bayrak baytını 0 yaparak kritik bayrağını temizleyin.",
+      "fixCode": "; Kritik ve tanınmıyor — sertifika verilmesini engeller:\nexample.com.    CAA    128 issuewildcard \"letsencrypt.org\"\n\n; Kayıtlı özellik adı:\nexample.com.    CAA    0 issuewild \"letsencrypt.org\""
+    },
+    "caa-malformed": {
+      "msg": "CAA kaydı ayrıştırılamadı: {0}",
+      "what": "Bir CAA kaydı üç alandan oluşur: 0 ile 255 arasında bir bayrak baytı, bir özellik etiketi ve tırnak içinde bir değer. Bu biçime uymayan bir kayıt bir sertifika makamı tarafından yok sayılabilir ya da tanınmayan bir özellik gibi ele alınabilir — ve bayrak baytı rastlantıyla kritik biti işaretliyorsa bu, sertifika vermeyi reddetmek anlamına gelir. Bu davranışı şansa bırakmak istemezsiniz.",
+      "fix": "Kaydı standart üç alanlı biçimde yeniden girin. Bazı DNS arayüzleri bayrakları, etiketi ve değeri ayrı kutularda ister ve tırnakları sizin için ekler; diğerleri satırın tamamını alır ve o durumda değerin kendi tırnaklarına ihtiyacı olur."
+    },
+    "caa-no-iodef": {
+      "msg": "CAA yayımlanmış ama iodef özelliği yok — reddedilen sertifika taleplerinden haberiniz olmaz.",
+      "what": "<code>iodef</code> özelliği, bir sertifika makamına, CAA politikanızın reddettirdiği bir talebi bildirebileceği bir adres verir. Bu özellik olmadan reddetme sizin tarafınızdan sessizdir: alan adınız için hangi CA'nın sertifika vereceğini yoklayan bir saldırgan, hiçbir şey olmuyormuş gibi görünür; yanlış sağlayıcıdan sertifika almaya çalışan bir iş arkadaşınız da öyle.",
+      "fix": "Birinin gerçekten okuduğu bir posta kutusuna işaret eden bir <code>iodef</code> özelliği ekleyin. Bir kayıt kadar maliyeti vardır ve CAA'nın sahip olduğu tek bildirim kanalıdır.",
+      "fixCode": "example.com.    CAA    0 issue \"letsencrypt.org\"\nexample.com.    CAA    0 iodef \"mailto:security@example.com\""
+    },
+    "caa-single-issuer": {
+      "msg": "CAA tek bir sertifika makamına yetki veriyor: {0} — sağlayıcı değiştirmek önce bir DNS değişikliği gerektirecek.",
+      "what": "Tek bir yetkili veren gayet iyi ve sıkı bir politikadır; bu bir yapılandırma hatası değildir. Tam da önem kazanmaya başladığı anda bilinmesi gerekir: o CA'da bir kesinti olursa ya da aceleyle sağlayıcı değiştirmeniz gerekirse, bu kayıt güncellenene dek başka hiçbir makam sertifika veremez — ve sertifikayı almaya çalışan kişi çoğu zaman DNS'i düzenleyebilen kişi değildir.",
+      "fix": "Değiştirilecek bir şey yok. Sertifika talep eden kişilerin bu kaydın varlığını ve kimin düzenleyebileceğini bildiğinden emin olun. Aklınızda zaten yedek bir CA varsa, onu şimdi yetkilendirmek bir kayda mal olur ve kötü bir günden bir adım eksiltir."
+    },
+    "mx-dangling": {
+      "msg": "MX ana makinesi çözümlenmiyor: {0} — oraya yönlendirilen posta teslim edilemez.",
+      "what": "Bir MX kaydı bir ana makine adı belirtir ve gönderen hiçbir sunucu bağlanamadan önce o adın bir adrese çözümlenmesi gerekir. Bu ad çözümlenmiyor: ne A ne de AAAA kaydı döndürüyor. Bu ana makineyi seçen bir gönderen sunucunun gidecek yeri yoktur — iletiyi kuyruğa alır, yeniden dener ve sonunda göndericiye geri yollar. Bu tek MX ana makineniz ise şu anda hiç posta almıyorsunuz. Bir yedek ise, o duruma bir arıza kadar uzaktasınız.",
+      "fix": "Ana makine adında yazım hatası olup olmadığını denetleyin ve bulunduğu bölgenin onun için hâlâ bir adres kaydı yayımladığını doğrulayın. Hizmetten çıkarılmış bir ana makinenin MX kaydı, boşluğa işaret eder halde bırakılmak yerine kaldırılmalıdır — ölü bir yedek MX, her yeniden deneme döngüsünde teslimatı geciktirir.",
+      "fixCode": "; Sağda adı geçen her ana makine bir adrese çözümlenmelidir:\nexample.com.        MX     10 mail1.example.com.\nexample.com.        MX     20 mail2.example.com.\n\nmail1.example.com.  A      203.0.113.10\nmail2.example.com.  A      203.0.113.11"
+    },
+    "mx-cname-target": {
+      "msg": "MX hedefi bir CNAME: {0} — RFC 2181 ve RFC 5321 bunu birlikte yasaklar.",
+      "what": "RFC 2181 §10.3 ve RFC 5321 §5.1, bir MX kaydının bir takma ada değil, adres kaydı olan bir ada işaret etmesini gerektirir. Genellikle yine de çalışır, çünkü gönderen sunucuların çoğu takma adı şikâyet etmeden izler — hatanın sahada varlığını sürdürmesinin nedeni tam da budur. Bozulduğu yerde çok belirli ve teşhisi güç biçimde bozulur: bazı sunucular takma adı doğrudan reddeder ve fazladan sorgu her teslimata bir arıza noktası ekler. DANE ile de kötü çalışır; orada TLSA kaydının doğru ad altında bulunması gerekir.",
+      "fix": "MX kaydını doğrudan takma adın hedefine yöneltin; böylece MX, kendi adres kaydı olan bir ana makineyi belirtir.",
+      "fixCode": "; Önce — MX bir takma ad belirtiyor:\nexample.com.        MX      10 mail.example.com.\nmail.example.com.   CNAME   host7.provider.example.\n\n; Sonra — MX ana makinenin kendisini belirtiyor:\nexample.com.        MX      10 host7.provider.example."
+    },
+    "mx-single-host": {
+      "msg": "Yalnızca tek bir MX ana makinesi yayımlanmış: {0} — o erişilemez olduğu sürece posta göndericide kuyrukta bekler.",
+      "what": "Tek bir MX ana makinesiyle, o ana makinenin erişilemez olduğu her dönem, gelen postanın başkalarının kuyruklarında beklediği bir dönemdir. Hemen bir şey kaybolmaz — gönderen sunucular bir iletiyi geri yollamadan önce günlerce yeniden dener — ama teslimat durur ve bir bakım penceresinde de bir arızada da aynı şekilde durur. Birçok barındırılan posta sağlayıcısı tam da bunu önlemek için birden çok MX ana makinesi yayımlar; tek bir tanesi çoğu zaman kendi kendine barındırılan bir kuruluma ya da yarısı kopyalanmış bir sağlayıcı girdisine işaret eder.",
+      "fix": "Posta platformunuz sunuyorsa daha yüksek bir tercih numarasıyla ikinci bir MX ana makinesi yayımlayın. Sağlayıcınız size birden çok ana makine adı verdiyse, hepsinin DNS'e girdiğini denetleyin."
+    },
+    "mx-no-ipv6": {
+      "msg": "Hiçbir MX ana makinesinin IPv6 adresi yok — yalnızca IPv6 kullanan göndericiler postanıza ulaşamaz.",
+      "what": "Yalnızca IPv6 olan bir ağdaki gönderen sunucu, yalnızca IPv4 olan bir posta ana makinesine işletmecisinin sağladığı çeviri üzerinden ulaşır ya da hiç ulaşamaz. Bu bir güvenlik bulgusu değildir ve acil değildir: IPv4 üzerinden posta teslimatı ortadan kalkmıyor. Bu bir erişilebilirlik notudur ve itibarı da etkiler, çünkü bazı büyük alıcılar çift yığın erişilebilirliğini iyi bakılan bir posta sisteminin işareti sayar.",
+      "fix": "Ana makineler IPv6 üzerinden postayı gerçekten kabul etmeye başladığında MX ana makineleriniz için AAAA kayıtları ekleyin. Gerçekte IPv6'da dinlemeyen bir ana makine için AAAA kaydı yayımlamak, hiç kayıt olmamasından kötüdür — göndericiler önce oradan deneyip başarısız olur."
+    },
+    "mx-same-prefix": {
+      "msg": "MX ana makineleri tek bir adres bloğunu paylaşıyor, {0}: {1} — yedeklilik göründüğünden küçüktür.",
+      "what": "Farklı tercihlerle yayımlanmış birden çok MX ana makinesi yedeklilik gibi görünür, ama tüm adresler aynı küçük blokta duruyorsa büyük olasılıkla aynı kabini, aynı yukarı bağlantıyı ve aynı veri merkezini paylaşırlar. Birini devirecek arızalar genellikle hepsini devirir; dolayısıyla ikinci ana makine bir sunucu hatasına karşı korur, daha büyüğüne karşı değil. Tek konumlu bir posta platformu için bu normaldir ve düzeltilmekten çok bilinmeye değerdir.",
+      "fix": "Yedekliliğin bir konum arızasını atlatması gerekiyorsa, en az bir MX ana makinesini başka bir ağa yerleştirin. İkinci ana makine yalnızca bir sunucu yeniden başlatmasını karşılamak içinse, değişmesi gereken bir şey yok."
+    },
+    "mx-duplicate-preference": {
+      "msg": "İki veya daha fazla MX ana makinesi aynı tercih değerini paylaşıyor: {0} — gönderen sunucular yükü aralarında dağıtacaktır.",
+      "what": "Eşit tercih değerleri bilinçli bir özelliktir: RFC 5321 §5.1, bir göndericinin eşit tercihli ana makineler arasından rastgele seçmesi gerektiğini söyler; bu da gelen postayı aralarına yayar. İki eşdeğer ön uç için istediğiniz budur. Ana makinelerden biri yedek olarak düşünüldüyse istediğiniz bu değildir, çünkü postanızın yarısı sürekli yedeğe gider.",
+      "fix": "Ana makineler eşdeğerse hiçbir şey. Biri geri dönüş noktası olacaksa, ona daha yüksek bir tercih numarası verin — yüksek olan daha az tercih edilen demektir."
+    },
+    "tlsa-published-unsigned": {
+      "msg": "TLSA doğrulanmış bir DNSSEC zinciri olmadan yayımlanmış: {0} — DANE burada koruma sağlamıyor.",
+      "what": "DANE, bir posta sunucusunun sunması gereken sertifikayı DNS'e koyarak çalışır ve ancak o DNS yanıtı kurcalanamıyorsa bir değer taşır. DNSSEC olmadan, sorguyu araya girip yakalayabilen herkes TLSA kaydını sökebilir — bu durumda gönderen sunucu DANE politikası olmayan bir ana makine görür ve yine de teslim eder — ya da onu kendi sertifikasına uyan bir kayıtla değiştirebilir. Kayıt her tanılamada DANE yapılandırılmış gibi görünmeye devam eder; bunu açıkça söylemeye değmesinin nedeni tam da budur: korumaya benziyor ve koruma değil.",
+      "fix": "TLSA kaydının bulunduğu bölgeyi imzalayın ve DS kaydının üst bölgede yayımlanmasını sağlayın. Bu yapılana kadar TLSA kaydı süstür. Bölgeyi imzalamak gündemde değilse, TLSA kaydını kaldırmak onu orada bırakmaktan daha dürüsttür.",
+      "fixCode": "; Bir gönderen sunucu bu kayıt için _25._tcp.mail1.example.com adresini sorgular\n; ve bir anlam taşıması için DNSSEC ile imzalanmış bir bölgede bulunmalıdır:\n_25._tcp.mail1.example.com.    TLSA    3 1 1 ( 87D109DD028655D5370B... )"
+    },
+    "tlsa-malformed": {
+      "msg": "TLSA kaydı hatalı biçimlendirilmiş: {0} — DANE uygulayan bir gönderen sunucu teslimatı reddedebilir.",
+      "what": "Bir TLSA kaydı bir sertifika kullanımı, bir seçici, bir eşleştirme türü ve ilişkilendirme verisinden oluşur; o verinin uzunluğunu eşleştirme türü belirler — SHA-256 için 32 bayt, SHA-512 için 64. Buna uymayan bir kayıt hiçbir sertifikayla eşleştirilemez. DANE altında bu yumuşak bir hata değildir: kullanamayacağı bir TLSA kaydı bulan gönderen sunucu, kimliği doğrulanmamış bir bağlantıya geri dönmek yerine teslimatı başarısız saymak zorundadır; dolayısıyla hatalı bir kayıt postanın ulaşmasını engelleyebilir.",
+      "fix": "Özeti elle düzenlemek yerine kaydı, posta ana makinesinin gerçekte sunduğu sertifikadan yeniden üretin. Eşleştirme türünün, yayımladığınız özetin uzunluğuyla uyuştuğunu denetleyin."
+    },
+    "tlsa-partial-coverage": {
+      "msg": "TLSA, {1} posta ana makinesinden {0} tanesi için yayımlanmış — kaydı olmayanlar kimliği doğrulanmamış bağlantıları kabul eder.",
+      "what": "Bir gönderen sunucu bir MX ana makinesi seçer ve o ana makinenin adı altında bir TLSA kaydı arar. Bulduğu yerde bağlantının kimliği doğrulanır; bulamadığı yerde teslimat, yol üzerindeki bir saldırganın düşürebileceği olağan fırsatçı TLS'e geri döner. Yani kısmi kapsama, saldırganın kaydı olmayan ana makineyi hedeflemesi demektir. Koruma ancak en zayıf MX ana makinesi kadar iyidir.",
+      "fix": "Her MX ana makinesi için bir TLSA kaydı yayımlayın ya da hepsini kapsayana kadar kayıtları kaldırın. Her ana makinenin, o ana makinenin adı altında <code>_25._tcp</code> içinde kendi kaydı olmalıdır."
+    },
+    "dkim-key-not-email": {
+      "msg": "DKIM anahtarı yayımlanmış ama e-postaya uygulanmıyor: {0} — bu alan adının e-posta imzalamasına sayılmaz.",
+      "what": "Bir DKIM anahtar kaydı, ne için kullanılabileceğini sınırlayabilir. <code>s=</code> etiketi anahtarın geçerli olduğu hizmetleri listeler ve başka bir şeyle sınırlanmış bir anahtar — örneğin RFC 8460'ın TLS raporlaması için kullandığı <code>s=tlsrpt</code> — sıradan posta için bir anahtar değildir. <code>k=</code> değeri bu aracın tanımadığı bir algoritmayı adlandıran anahtar da aynı durumdadır: RFC 6376 §3.6.1 doğrulayıcının onu yok saymasını ister. Bu kayıtlar çoğunlukla doğru ve bilinçlidir. Burada listelenmelerinin nedeni, tek DKIM kayıtları bu türden olan bir alan adının, denetimin neden hiçbir imzalama anahtarı bildirmediğini öğrenmesi; kendi kurduğunu bildiği bir seçicide hiçbir şey bulunamadığını duymaması içindir.",
+      "fix": "Sınırlama kasıtlıysa yapılacak bir şey yok. Bu seçicinin sıradan postayı imzalaması gerekiyorduysa, ya <code>s=</code> etiketini kaldırın — etiketin bulunmaması anahtarın her hizmet için geçerli olduğu anlamına gelir — ya da listesine <code>email</code> ekleyin. <code>k=</code> değerini de denetleyin: DKIM için yalnızca <code>rsa</code> ve <code>ed25519</code> tanımlıdır.",
+      "fixCode": "; Başka bir hizmetle sınırlı — geçerli, ama bir e-posta anahtarı değil:\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; E-postaya uygulanır: ya adı verilerek ya da s= tümüyle atlanarak:\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "dkim-key-malformed": {
+      "msg": "DKIM anahtar kaydı hatalı biçimlendirilmiş: {0} — anahtar çözülebilir, ama çevresindeki kayıt ayrıştırılamıyor.",
+      "what": "Bu, çözülemeyen bir anahtardan farklıdır. Buradaki <code>p=</code> değeri gayet iyi olabilir; kusurlu olan, onu içeren kayıttır — etiketin var olduğu ama hiçbir şey adlandırmadığı boş bir <code>h=</code>, <code>s=</code> ya da <code>t=</code> listesi, yinelenmiş bir etiket veya <code>DKIM1</code> olmayan bir <code>v=</code>. RFC 6376 §3.6.1 bu etiketlerin her birini iki nokta üst üste ile ayrılmış boş olmayan bir liste olarak tanımlar ve bir kaydı ayrıştıramayan doğrulayıcı anahtarı tümüyle yok sayma hakkına sahiptir. Seçici yine de yayımlanmış sayılır; çünkü kendi kurduğunuz bir adda bozuk bir kaydın bulunması, hiçbir şeyin bulunmamasından farklı bir sorundur — ama güvenilecek bir şey değildir.",
+      "fix": "Kaydı, imzalama hizmetinizin ürettiğiyle karşılaştırın. Alışılmış nedenler, bir düzenlemeden sonra değersiz kalan bir etiket — arkasında hiçbir şey olmayan <code>s=</code> veya <code>h=</code> — ve iki kez yapıştırılmış bir etikettir. İsteğe bağlı bir etiketi boş bırakmak yerine tümüyle kaldırın: <code>s=</code> yoksa anahtar her hizmet için geçerlidir, <code>h=</code> yoksa her özet kabul edilebilir demektir.",
+      "fixCode": "; Hatalı — etiketler var ama boş:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=; s=; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Doğrusu — ya değerleri yazın ya da etiketleri hiç koymayın:\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {
@@ -928,5 +1076,27 @@
       "ruf": "Adli raporlar (ruf=)",
       "uris": "Rapor hedefleri"
     }
+  },
+  "mx": {
+    "doesNotResolve": "çözümlenmiyor",
+    "notChecked": "denetlenmedi",
+    "cnameTarget": "CNAME hedefi"
+  },
+  "caa": {
+    "issuers": "Sertifika makamları",
+    "wildcard": "Joker karakterler",
+    "iodef": "Şuraya bildir",
+    "none": "yok",
+    "blocksAll": "Hiçbir sertifika makamı yetkili değil",
+    "wildcardBlocked": "Joker karakterli sertifika yok",
+    "wildcardViaIssue": "issue kümesince yönetiliyor",
+    "unknownCritical": "Tanınmayan kritik özellik"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Yayımlanmış, henüz nitelikli değil — DANE ancak doğrulanmış bir DNSSEC zincirinin ardında anlam taşır ve bu sürüm onu doğrulamaz.",
+    "notPublished": "yayımlanmamış",
+    "notChecked": "denetlenmedi",
+    "authenticated": "yayımlanmış · DNSSEC ile doğrulanmış",
+    "unauthenticated": "yayımlanmış · DNSSEC ile doğrulanmamış"
   }
 }

@@ -622,6 +622,170 @@ eq('the hidden remainder is still built',
   elements(R.value('A'.repeat(2000))).some(e => e.classList.contains('rv-rest')), true);
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
+/* ── 11. The deep-checks toggle and its auto-disable ─────────────────── */
+section('11. Deep protocol checks: the large-run rule');
+
+const deepBox = document.getElementById('optDeepChecks');
+const deepNotice = document.getElementById('deepChecksNotice');
+const LIMIT = APP.MAX_DEEP_CHECK_DOMAINS;
+
+const runLimit = (count, { reEnabled = false } = {}) => {
+  APP.resetDeepCheckMemory();
+  // Driven through the same function the checkbox's change handler calls, so
+  // the test exercises the real path rather than a hook that exists for it.
+  if (reEnabled) APP.rememberDeepCheckChoice(true);
+  deepBox.checked = true;
+  deepNotice.style.display = 'none';
+  APP.applyDeepCheckLimit(count);
+  return { checked: deepBox.checked, noticeShown: deepNotice.style.display !== 'none', notice: textOf(deepNotice) };
+};
+
+eq('a small run keeps the deep checks on', runLimit(1).checked, true);
+eq('and shows no notice',                  runLimit(1).noticeShown, false);
+eq('a run exactly at the limit is still on', runLimit(LIMIT).checked, true);
+eq('one domain over the limit turns them off', runLimit(LIMIT + 1).checked, false);
+eq('and says so',                             runLimit(LIMIT + 1).noticeShown, true);
+
+// The notice has to name both numbers. Someone looking at a checkbox they
+// ticked, now clear, needs to know what the rule was and what tripped it.
+const notice = runLimit(200).notice;
+eq('the notice names the limit',       notice.includes(String(LIMIT)), true);
+eq('the notice names the run size',    notice.includes('200'), true);
+eq('the notice is not empty prose',    notice.length > 20, true);
+
+// An explicit re-enable is remembered for the tab session and beats the rule.
+eq('an explicit re-enable survives a large run', runLimit(200, { reEnabled: true }).checked, true);
+eq('and suppresses the notice',                  runLimit(200, { reEnabled: true }).noticeShown, false);
+// ...but only for this session. Nothing is persisted, so a fresh page is
+// back to the default. `PRIVACY.md` promises exactly one localStorage key and
+// this feature must not have added a second.
+eq('the memory is not persisted', runLimit(200).checked, false);
+
+/* ── 12. Protocol-depth detail blocks ────────────────────────────────── */
+section('12. Detail panel: DKIM key, MX health, CAA policy, TLSA');
+
+const keyOf = over => Object.assign({
+  valid: true, version: 'DKIM1', keyType: 'rsa', revoked: false,
+  keyBits: 2048, keyBytes: 294, keyEncoding: 'spki', hashAlgorithms: [],
+  serviceTypes: [], flags: [], testing: false, strictSubdomain: false,
+  notes: '', unknownTags: [], cryptoValidated: null, errors: [],
+}, over);
+
+eq('an RSA key shows its size',   textOf(APP.dkimKeyLine(keyOf({}))).includes('RSA 2048-bit'), true);
+eq('a 1024-bit key shows 1024',   textOf(APP.dkimKeyLine(keyOf({ keyBits: 1024 }))).includes('RSA 1024-bit'), true);
+eq('an ed25519 key names the algorithm',
+  textOf(APP.dkimKeyLine(keyOf({ keyType: 'ed25519', keyBits: null, keyBytes: 32 }))).includes('Ed25519'), true);
+eq('a revoked key says revoked',
+  textOf(APP.dkimKeyLine(keyOf({ revoked: true, keyBits: null }))).includes('revoked'), true);
+eq('an unparseable key says so',
+  textOf(APP.dkimKeyLine(keyOf({ keyBits: null, errors: ['unparseable-key'] }))).includes('does not decode'), true);
+eq('a testing key is flagged',
+  textOf(APP.dkimKeyLine(keyOf({ testing: true }))).includes('testing'), true);
+// A key Web Crypto never looked at must say nothing about Web Crypto. Silence
+// is the record; anything else reads as a verdict we did not reach.
+const unvalidated = textOf(APP.dkimKeyLine(keyOf({ cryptoValidated: null })));
+eq('an unconfirmed key claims nothing about confirmation',
+  /invalid|reject|fail/i.test(unvalidated), false);
+// A bare PKCS#1 key is valid and is displayed exactly like an SPKI one.
+eq('a bare PKCS#1 key renders as a normal key',
+  textOf(APP.dkimKeyLine(keyOf({ keyEncoding: 'pkcs1' }))),
+  textOf(APP.dkimKeyLine(keyOf({ keyEncoding: 'spki' }))));
+eq('a missing key object renders nothing', APP.dkimKeyLine(null), null);
+
+const mxRow = health => ({ mx: ['10 a.example.', '20 b.example.'], advanced: { mxHealth: health } });
+const mxHealth = {
+  hosts: [
+    { host: 'a.example', preference: 10, addresses: ['203.0.113.1'], v4Count: 1, v6Count: 0, resolves: 'yes', isCname: false, inAudited: false },
+    { host: 'b.example', preference: 20, addresses: [], v4Count: 0, v6Count: 0, resolves: 'no', isCname: false, inAudited: false },
+    { host: 'c.example', preference: 30, addresses: [], v4Count: 0, v6Count: 0, resolves: 'unknown', isCname: true, inAudited: false },
+  ],
+  danglingHosts: ['b.example'], cnameHosts: ['c.example'], duplicatePreferences: [],
+  singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [], unknown: true,
+};
+const mxText = textOf(APP.mxDetail(mxRow(mxHealth)));
+eq('a resolving host shows its address', mxText.includes('203.0.113.1'), true);
+eq('a dangling host says it does not resolve', mxText.includes('does not resolve'), true);
+// The distinction the whole resilience argument rests on: a host we could not
+// check must read differently from one that genuinely has no address.
+eq('an unchecked host says "not checked" instead', mxText.includes('not checked'), true);
+eq('and is not described as unresolvable',
+  mxText.split('c.example')[1].includes('does not resolve'), false);
+eq('a CNAME target is named', mxText.includes('CNAME'), true);
+// With the deep checks off there is no audit to show, so the display is
+// exactly what it was before this release.
+eq('without an MX audit the plain list is used',
+  textOf(APP.mxDetail({ mx: ['10 a.example.'], advanced: null })).includes('10 a.example.'), true);
+
+const caaRow = caa => ({ advanced: { caa: Object.assign({ found: true, atDomain: 'example.com', records: [] }, caa) } });
+const openCaa = caaRow({ parsed: [{}], issuers: ['letsencrypt.org'], wildcardIssuers: [], iodef: [], unknownCritical: [], malformed: [], issuanceBlocked: false, wildcardBlocked: false });
+eq('the issuer is shown', textOf(APP.caaDetail(openCaa)).includes('letsencrypt.org'), true);
+// The semantic that is easiest to invert: an absent issuewild set means the
+// issue set governs wildcards, NOT that wildcards are unrestricted.
+const wildText = textOf(APP.caaDetail(openCaa));
+eq('an absent issuewild set says issue governs', wildText.includes('governed by the issue set'), true);
+eq('and never says "none" for wildcards',
+  wildText.split('Wildcards')[1].trim().startsWith('none'), false);
+eq('a blocked policy says no CA is authorized',
+  textOf(APP.caaDetail(caaRow({ parsed: [{}], issuers: [], wildcardIssuers: [], iodef: [], unknownCritical: [], malformed: [], issuanceBlocked: true, wildcardBlocked: false })))
+    .includes('No certificate authority is authorized'), true);
+eq('a blocked wildcard set is named',
+  textOf(APP.caaDetail(caaRow({ parsed: [{}], issuers: ['pki.goog'], wildcardIssuers: [], iodef: [], unknownCritical: [], malformed: [], issuanceBlocked: false, wildcardBlocked: true })))
+    .includes('No wildcard certificates'), true);
+eq('an unknown critical property is surfaced',
+  textOf(APP.caaDetail(caaRow({ parsed: [{}], issuers: ['pki.goog'], wildcardIssuers: [], iodef: [], unknownCritical: ['weirdtag'], malformed: [], issuanceBlocked: false, wildcardBlocked: false })))
+    .includes('weirdtag'), true);
+eq('no CAA means no block', APP.caaDetail({ advanced: { caa: { found: false } } }), null);
+// A result carrying `found` but none of the parsed fields must not throw and
+// take the whole row down with it.
+eq('a partial CAA shape renders nothing rather than throwing',
+  APP.caaDetail({ advanced: { caa: { found: true, records: ['0 issue "x"'], atDomain: 'e.com' } } }), null);
+
+const tlsaRow = hosts => ({ advanced: { tlsa: { hosts, anyPresent: hosts.some(h => h.present), qualified: false } } });
+const tlsaText = textOf(APP.tlsaDetail(tlsaRow([
+  { host: 'a.example', queryName: '_25._tcp.a.example', records: [{ valid: true }], present: true, authenticated: true, unknown: false },
+  { host: 'b.example', queryName: '_25._tcp.b.example', records: [{ valid: true }], present: true, authenticated: false, unknown: false },
+  { host: 'c.example', queryName: '_25._tcp.c.example', records: [], present: false, authenticated: false, unknown: false },
+])));
+// Acceptance criterion 4, at the surface the user actually reads.
+eq('the block says published, not enabled', tlsaText.includes('Published, not yet qualified'), true);
+eq('nothing claims DANE is active or enabled', /DANE is (active|enabled|protecting)/i.test(tlsaText), false);
+eq('an authenticated host is distinguished', tlsaText.includes('DNSSEC-authenticated'), true);
+eq('an unauthenticated host is too', tlsaText.includes('not DNSSEC-authenticated'), true);
+eq('a host without TLSA says not published', tlsaText.includes('not published'), true);
+eq('no TLSA audit renders no block', APP.tlsaDetail({ advanced: null }), null);
+
+/* ── Conflicting SPF records are shown, not summarized away ─────────── */
+const SPF_1 = 'v=spf1 include:_spf.google.com ~all';
+const SPF_2 = 'v=spf1 include:mktomail.com ~all';
+const meter = R.el('span', { className: 'meter' }, 'meter');
+
+const oneSpfText = textOf(APP.spfDetail({ spfRecord: SPF_1, spfRecords: [SPF_1] }, meter));
+eq('a single record renders as before', oneSpfText.includes(SPF_1), true);
+eq('and keeps its lookup meter',        oneSpfText.includes('meter'), true);
+
+// The reported defect: the permerror was right and the panel showed one valid
+// record, so the finding looked unsupported.
+const twoSpfText = textOf(APP.spfDetail({ spfRecord: SPF_1, spfRecords: [SPF_1, SPF_2] }, meter));
+eq('the first conflicting record is shown',  twoSpfText.includes(SPF_1), true);
+eq('the second conflicting record is too',   twoSpfText.includes(SPF_2), true);
+eq('and the set is labelled as conflicting', twoSpfText.includes('conflicting records'), true);
+eq('and says none of them applies',          twoSpfText.includes('none of them applies'), true);
+eq('and names how many',                     twoSpfText.includes('2'), true);
+// The meter is computed from the first record only, so attaching it beside a
+// conflicting set would attribute one record's lookup count to all of them.
+eq('the lookup meter is withheld from a conflicting set',
+  twoSpfText.includes('meter'), false);
+
+// A result from before this field existed must still render.
+eq('a result without spfRecords falls back to spfRecord',
+  textOf(APP.spfDetail({ spfRecord: SPF_1 }, null)).includes(SPF_1), true);
+eq('and no SPF at all renders nothing but the dash the value helper gives',
+  textOf(APP.spfDetail({ spfRecord: '', spfRecords: [] }, null)).includes(SPF_1), false);
+
+eq('one key size renders as a number', APP.dkimKeyBitsCell({ minBits: 2048, maxBits: 2048 }), '2048');
+eq('mixed key sizes render as a range', APP.dkimKeyBitsCell({ minBits: 1024, maxBits: 2048 }), '1024-2048');
+eq('no RSA key renders empty', APP.dkimKeyBitsCell({ minBits: null, maxBits: null }), '');
+
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -14,7 +14,247 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **DKIM public keys are decoded rather than just displayed.** A found selector
+  used to produce only the raw TXT string, leaving the single most actionable
+  fact about the key — its size — sitting decoded-but-unread. `analyzeDkimKey()`
+  now reports algorithm, RSA modulus size, Ed25519 detection, revocation, and
+  the `h=`, `s=`, `t=` and `n=` service tags.
+
+  The modulus size comes from a synchronous DER length walk rather than from Web
+  Crypto, because `crypto.subtle` needs a secure context and `README.md`
+  advertises that opening `index.html` from disk works. The walk accepts both
+  encodings RFC 6376 §3.6.1 and its errata permit — a bare PKCS#1
+  `RSAPublicKey` and one wrapped in a `SubjectPublicKeyInfo` — and the two
+  exports of the same key are asserted to agree on its size.
+
+  Web Crypto is confirmation only, and only for what it can express. It takes
+  `spki` and not `pkcs1`, so a conformant bare key is recorded as "not checked"
+  and stays valid with its size intact; an SPKI key that fails to import is
+  recorded as `key-structure-invalid`, again with the size untouched. The DER
+  walk is authoritative throughout: an implementation's input formats must not
+  decide what the protocol permits, or a perfectly good published key gets
+  reported as unparseable.
+
+  Bare PKCS#1 has fixture coverage and no real-world sample: all 39 keys found
+  across a 15-domain slice — Microsoft, Apple, PayPal, Stripe, NASA, Harvard,
+  Mozilla, the EFF among them — are SPKI. That is the argument for accepting it
+  rather than against: the encoding is conformant and rare, which is exactly the
+  shape of a bug that ships and then misreports one operator's working key with
+  nothing in the sample to catch it.
+
+  The base64 decode is hand-rolled for the same reason — reaching for `atob`
+  would have meant reporting every key on every domain as unparseable in any
+  environment lacking it, which is an assertion about our own runtime dressed up
+  as one about the operator's DNS.
+
+  New findings: `dkim-key-weak` (crit), `dkim-key-1024` (**info**),
+  `dkim-key-revoked`, `dkim-key-unparseable`, `dkim-key-sha1`,
+  `dkim-key-testing`, `dkim-key-mixed`, `dkim-key-not-email`,
+  `dkim-key-malformed`.
+
+  `dkim-key-1024` is informational rather than a warning, and that was settled
+  by counting instead of arguing. Across the 40-domain backtest sample, 35 of
+  66 keys are RSA-1024, on 21 of the 27 domains that publish DKIM at all —
+  Microsoft, GitHub, Apple, PayPal, Stripe and the EFF among them. A warning
+  firing on roughly 78% of audited domains is not a signal. Zero sub-1024 keys
+  were found, which is why `dkim-key-weak` stays critical and stays meaningful.
+
+- **A revoked DKIM selector is reported as revoked, not as absent.** RFC 6376
+  §3.6.1 defines an empty `p=` as key revocation, and the discovery filter
+  discarded exactly those records — so a selector the operator had deliberately
+  retired read as one they had never set up. The two questions are now answered
+  separately rather than by loosening the filter, which would have let a revoked
+  key satisfy "DKIM is present".
+
+- **CAA is parsed into a policy instead of a boolean.** A domain publishing
+  `0 issue ";"` has locked out every certificate authority and one publishing
+  `0 issuewild ";"` has locked out wildcards only; both used to render as the
+  same green dot. `parseCaaRecord()` and the extended `checkCAA()` report
+  issuers, wildcard issuers, `iodef` destinations, unknown critical properties
+  and malformed records. Two semantics are encoded explicitly because both are
+  easy to invert: an `issue` value of `;` forbids all issuance, and an **absent**
+  `issuewild` set means wildcards are governed by `issue` — not that they are
+  unrestricted. Findings: `caa-blocks-all-issuance`, `caa-unknown-critical-tag`,
+  `caa-malformed`, `caa-no-iodef`, `caa-single-issuer`.
+
+- **MX health, from DNS alone.** `auditMxHosts()` resolves every MX target and
+  reports dangling hosts, `CNAME` targets, single points of failure, IPv6
+  coverage, address-block concentration and duplicate preferences. An MX host
+  that does not resolve is a total inbound mail outage and used to read exactly
+  like a healthy mail domain. Nothing connects to port 25 — every conclusion is
+  inferred from DNS. Findings: `mx-dangling` (crit), `mx-cname-target`,
+  `mx-single-host`, `mx-no-ipv6`, `mx-same-prefix`, `mx-duplicate-preference`.
+
+  A host whose lookup fails degrades to `unknown` and is deliberately excluded
+  from `danglingHosts`: a resolver hiccup must never be reported as an outage.
+
+- **TLSA lookup and syntax validation, labelled as published rather than
+  active.** `checkTlsa()` queries `_25._tcp.<mx-host>` and validates usage,
+  selector, matching type and association-data length. `qualified` is hardcoded
+  `false` — DANE is only meaningful behind a validated DNSSEC chain, and this
+  release does not walk one, so nothing in the interface says anything
+  resembling "DANE enabled". Findings: `tlsa-published-unsigned`,
+  `tlsa-malformed`, `tlsa-partial-coverage`.
+
+  The unsigned finding is gated on the AD bit the validating resolver returns
+  for that exact name, not on `qualified`. Gating it on `qualified` would have
+  fired on every domain in the release, telling a correctly signed zone that its
+  DANE was unprotected — a confident verdict with nothing behind it. The AD bit
+  costs no extra query and is read for the MX host's own name, because an MX
+  host usually lives in someone else's zone and the audited domain's DNSSEC
+  status says nothing about it.
+
+- **A "deep protocol checks" toggle, on by default, that turns itself off above
+  50 domains.** MX health and TLSA are the only checks whose cost scales with
+  the audited domain's own configuration, so they are the only ones behind a
+  switch. Above the threshold the box clears itself and an inline notice says
+  why, naming both the limit and the size of the run — deliberately not a toast,
+  because a toast is gone in three seconds and this explains a checkbox the user
+  last saw ticked. Ticking it again runs them anyway, and that choice is
+  remembered **for the browser tab's session only**: persisting it would need a
+  second `localStorage` key, and `PRIVACY.md` states the app writes exactly one
+  value and calls that the entire footprint. A reload restores the default.
+
+- **The detail panel reports what was found.** Each DKIM selector gains a key
+  line (`RSA 2048-bit`, `Ed25519`, `revoked`, `does not decode`); CAA gains a
+  parsed policy block; the MX list is annotated per host with its addresses, or
+  with "does not resolve" or "not checked"; and TLSA gains a block whose first
+  line is "Published, not yet qualified". A key Web Crypto never examined says
+  nothing at all, because "we did not check" is not a finding and must not look
+  like one.
+
+- **Eight CSV columns, appended after the Tree Walk columns**: `DKIM Key Type`,
+  `DKIM Key Bits`, `DKIM Revoked Selectors`, `CAA Issuers`,
+  `CAA Wildcard Issuers`, `MX Dangling`, `MX Host Count`, `TLSA Present`. Every
+  column that existed before 0.4.0 is still at the index it was at, and the
+  export tests now assert that by index rather than by "last" — pinning the tail
+  is what made them fire on this release. With the deep checks off, the MX and
+  TLSA columns say `Unknown` rather than `No`: a domain whose MX hosts were
+  never resolved has no dangling hosts *reported*, which is not the same as
+  having none. An absent `issuewild` set is named as governed by `issue` rather
+  than left blank, since a blank cell reads as "wildcards unrestricted" — the
+  opposite of what the domain published.
+
+### Fixed
+
+- **Protocol-looking TXT is separated from sender-effective policy.** BIMI,
+  MTA-STS and TLS-RPT now retain every recognizable candidate as evidence while
+  counting only records with an exact, leading version field for multiplicity
+  and activation. A valid record beside a malformed, wrong-order candidate no
+  longer disables the valid policy or raises a false multiple-record finding.
+
+- **DKIM validation now covers the complete tag-list boundary without treating
+  unrelated wildcard TXT as a key.** Illegal tag syntax, folding, base64 pad
+  bits, `k=`, `n=`, missing `p=` and version placement all reach an explicit
+  malformed finding, including on revoked or service-scoped records. At the
+  same time, a TXT record that explicitly declares another protocol is ignored:
+  a live check found `gov.uk` synthesizing `v=DMARC1; p=reject` at every tested
+  selector, which the intermediate implementation counted as ten DKIM keys and
+  incorrectly awarded the full 15-point pillar.
+
+- **URI validation follows the imported grammar rather than a dotted-host
+  approximation.** TLS-RPT and CAA `iodef` accept valid IPv6/IPvFuture hosts,
+  quoted and percent-encoded mailboxes, UTF-8 domain names and structured
+  mailto header fields, while rejecting malformed IPv6 placement, invalid
+  percent encoding and forbidden component characters. BIMI keeps its own
+  stricter HTTPS/FQDN profile and enforces DNS label lengths.
+
+- **JSON backtests flush before exiting.** The 0.4.0 selector evidence pushes a
+  40-domain report beyond 64 KiB; an immediate `process.exit()` truncated the
+  piped JSON and made the release's score-diff gate unparsable.
+
+- **DKIM key sizes are the modulus's bit length, not its encoded byte width.**
+  The two differ whenever the leading significant octet is below `0x80`, and the
+  difference lands across this release's own threshold: a conformant 128-byte
+  modulus beginning `0x01` is a 1017-bit key, and reporting it as 1024 both
+  printed a false number and swapped the critical `dkim-key-weak` finding for
+  the informational 1024-bit one. Every real RSA key has the top bit of its
+  modulus set, so all 26 keys across a live ten-domain check are unaffected —
+  which is why this needed constructed keys to find rather than captured ones.
+
+- **The SPKI path now applies the same structural guards as the bare PKCS#1
+  path.** Both envelopes go through one `RSAPublicKey` reader that requires a
+  modulus, a `publicExponent` that ends its sequence, and exact container
+  boundaries at every nesting level, plus an `rsaEncryption` algorithm
+  identifier. Previously the SPKI branch checked only that a modulus INTEGER
+  existed, so a key whose exponent tag had been altered walked cleanly and
+  returned a size — leaving Web Crypto as the only thing that would reject
+  malformed DER, in a walk this release documents as authoritative without it.
+
+- **A domain with more than one SPF record now shows the records it conflicts
+  over.** Reported from the field against `splunk.com`, which really does
+  publish two `v=spf1` records. The `permerror` was correct — RFC 7208 §4.5, and
+  receivers neither merge the records nor pick the stricter one — but only the
+  first match was ever kept, so the panel beside a critical finding showed one
+  perfectly valid record and the second existed nowhere in the result. The
+  reasonable conclusion from that screen was that the tool was wrong, and it was
+  reported as exactly that.
+
+  `analyzeDomain()` now returns `spfRecords` with every match, the detail panel
+  renders the whole conflicting set under "N conflicting records — none of them
+  applies", and the finding names the count the way `dkim-multiple-records`
+  already names its selectors. The lookup meter is withheld from a conflicting
+  set: it is computed from the first record, and shown beside all of them it
+  would attribute one record's lookup count to the rest.
+
+  The `SPF Record` CSV column carries the whole set for the same reason. A count
+  in the `Issues` column says how many records conflict; the records themselves
+  are the evidence, and exporting only the first reproduced the same misleading
+  presentation outside the interface. The column keeps its index, a domain with
+  one record produces a byte-for-byte identical cell, and multiple records are
+  joined with newlines in resolver order — every cell is already quoted
+  unconditionally with embedded quotes doubled, so a newline inside the field is
+  RFC 4180 §2.6 transport and the serializer needed no change.
+
+  `rowHygieneValues()` scans the whole set too. The data columns carry the
+  published bytes verbatim by design, so the `Record Hygiene` column is the only
+  place a bidi override or zero-width character is named — and scanning only the
+  first record let a marker in the second reach the export unannounced.
+
+  Pre-dates this release — the single-match selection has been there since
+  `29f1bbe` — but it is the same defect class 0.4.0 is about, a claim shown
+  without the evidence that supports it, so it is fixed here rather than
+  deferred. Single-record domains are unaffected.
+
+### Changed
+
+- **`dnsTypeNum()` throws on an unknown record type instead of returning the TXT
+  type number.** The old `?? 16` fallback made the function total, and the cost
+  of that totality was the worst answer this codebase can produce: a caller
+  asking for `DS` issued a TXT query, filtered the answers for type 16, found
+  none, and received a plausible-looking empty array — no error, and a confident
+  "nothing published" about a type that was never asked for. `PTR`, `DS`,
+  `DNSKEY` and `TLSA` are added. Every existing call site passes a supported
+  literal, so this is behaviour-preserving for the code that exists and
+  fail-fast for the code that comes next.
+
+  The throw is resolved before the concurrency slot and re-thrown by
+  `optionalCheck()`. Both matter: `fetchDohOnce()`'s own catch would otherwise
+  have reported it as `network-error`, and `optionalCheck()` would have degraded
+  it to a stated "unknown" — either of which restores the silent wrong answer in
+  a different costume.
+
+### Notes
+
+- **No scoring changes.** `WEIGHTS`, `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` are
+  byte-identical to 0.3.0, and every observation above is advisory. Measured
+  across the 40-domain backtest: **zero grade movement and zero score movement**,
+  with the deep checks both off and on. Unlike 0.3.0, where movement was
+  expected and explained, here there should be none and there is none.
+
+- **A domain that was clean did not get worse; the tool got more thorough.**
+  Twenty-one new findings can read as a regression on a domain that previously
+  showed nothing. None of them changes a grade.
+
+- **Query fan-out is measured, and `PRIVACY.md` is updated with the real
+  numbers.** MX health and TLSA cost three queries per MX host plus one more
+  each, so they sit behind a toggle. **That toggle ships on**, and turning it off
+  is what returns the fan-out to 0.3.0's — `cloudflare.com` issues
+  exactly 43 queries on both releases. With them on, the 40-domain sample goes
+  from 31.9 to 39.1 queries per domain. `node tools/backtest.mjs --deep`
+  reproduces it.
 
 ## [0.3.0] — 2026-08-25
 
