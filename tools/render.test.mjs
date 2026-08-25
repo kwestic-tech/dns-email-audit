@@ -631,7 +631,9 @@ const LIMIT = APP.MAX_DEEP_CHECK_DOMAINS;
 
 const runLimit = (count, { reEnabled = false } = {}) => {
   APP.resetDeepCheckMemory();
-  if (reEnabled) APP.setDeepCheckReEnabled();
+  // Driven through the same function the checkbox's change handler calls, so
+  // the test exercises the real path rather than a hook that exists for it.
+  if (reEnabled) APP.rememberDeepCheckChoice(true);
   deepBox.checked = true;
   deepNotice.style.display = 'none';
   APP.applyDeepCheckLimit(count);

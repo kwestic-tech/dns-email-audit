@@ -222,6 +222,19 @@
    * An explicit re-enable wins: having been told the cost and having ticked the
    * box again, the user is not told twice for the rest of the tab session.
    */
+  /**
+   * Record the user's answer to the notice.
+   *
+   * Only a re-enable is remembered. An explicit un-tick needs no memory — the
+   * box is already clear and applyDeepCheckLimit() never ticks it back on — and
+   * recording it would suppress the notice for someone who had never seen it.
+   */
+  function rememberDeepCheckChoice(checked) {
+    if (!checked) return;
+    deepChecksReEnabled = true;
+    $('deepChecksNotice').style.display = 'none';
+  }
+
   function applyDeepCheckLimit(domainCount) {
     var notice = $('deepChecksNotice');
     if (domainCount <= MAX_DEEP_CHECK_DOMAINS || deepChecksReEnabled) {
@@ -1535,15 +1548,7 @@
     $('auditBtn').addEventListener('click', startAudit);
     $('cancelBtn').addEventListener('click', cancelAudit);
     $('fileInput').addEventListener('change', loadFile);
-    // Only a re-enable is remembered. An explicit un-tick needs no memory —
-    // the box is already clear and this code never ticks it back on — and
-    // recording it would suppress the notice for someone who had never seen it.
-    $('optDeepChecks').addEventListener('change', function () {
-      if (this.checked) {
-        deepChecksReEnabled = true;
-        $('deepChecksNotice').style.display = 'none';
-      }
-    });
+    $('optDeepChecks').addEventListener('change', function () { rememberDeepCheckChoice(this.checked); });
     $('examplesBtn').addEventListener('click', loadExample);
     $('clearBtn').addEventListener('click', clearAll);
     $('helpBtn').addEventListener('click', showHelp);
@@ -1610,8 +1615,10 @@
     detailItem: detailItem,
     log: log,
     applyDeepCheckLimit: applyDeepCheckLimit,
+    rememberDeepCheckChoice: rememberDeepCheckChoice,
+    // Models the one thing that clears this memory in production: a reload.
+    // There is no production reset because a fresh page already is one.
     resetDeepCheckMemory: function () { deepChecksReEnabled = false; },
-    setDeepCheckReEnabled: function () { deepChecksReEnabled = true; },
     dkimKeyLine: dkimKeyLine,
     mxDetail: mxDetail,
     caaDetail: caaDetail,
