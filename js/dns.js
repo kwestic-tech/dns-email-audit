@@ -589,7 +589,7 @@
    * agree — which is exactly why all of this had to be established by
    * construction rather than waited for.
    */
-  function derPositiveIntegerBits(bytes, tlv) {
+  function derPositiveInteger(bytes, tlv) {
     var start = tlv.start;
     var length = tlv.length;
     if (length < 1) return null;                                  // empty INTEGER
@@ -605,7 +605,29 @@
     var top = bytes[start];
     var topBits = 0;
     while (top) { topBits++; top >>= 1; }
-    return (length - 1) * 8 + topBits;
+    // The significant range is returned as well as the size, because comparing
+    // two of these needs the octets and not just their width.
+    return { start: start, length: length, bits: (length - 1) * 8 + topBits };
+  }
+
+  /**
+   * Compare two positive integers by their significant octets: -1, 0 or 1.
+   *
+   * Both are already minimally encoded with any sign octet stripped, so the
+   * wider value is the larger one and equal widths compare lexicographically.
+   * That is an exact comparison of arbitrarily large values using nothing but
+   * byte reads — an earlier version compared bit lengths instead and called it
+   * the best available without bignum arithmetic, which was simply wrong: it
+   * accepted `e == n` and any same-width `e > n`.
+   */
+  function compareDerMagnitude(bytes, left, right) {
+    if (left.length !== right.length) return left.length < right.length ? -1 : 1;
+    for (var i = 0; i < left.length; i++) {
+      if (bytes[left.start + i] !== bytes[right.start + i]) {
+        return bytes[left.start + i] < bytes[right.start + i] ? -1 : 1;
+      }
+    }
+    return 0;
   }
 
   // rsaEncryption, OID 1.2.840.113549.1.1.1 — the nine content octets of the
@@ -652,21 +674,21 @@
     if (exponent.end !== sequence.end) return null;
 
     // Both fields are values, not just tags. RFC 8017 3.1 defines `n` and `e`
-    // as positive integers with `e` between 3 and n-1; checking the tag alone
-    // accepted an empty exponent and a negative modulus.
-    var modulusBits = derPositiveIntegerBits(bytes, modulus);
-    var exponentBits = derPositiveIntegerBits(bytes, exponent);
-    if (modulusBits === null || exponentBits === null) return null;
+    // as positive integers with 3 <= e < n; checking the tag alone accepted an
+    // empty exponent and a negative modulus.
+    var modulusValue = derPositiveInteger(bytes, modulus);
+    var exponentValue = derPositiveInteger(bytes, exponent);
+    if (!modulusValue || !exponentValue) return null;
     // Odd, because `e` must be coprime to (p-1)(q-1) and both are even.
-    if ((bytes[exponent.end - 1] & 1) === 0) return null;
+    if ((bytes[exponentValue.start + exponentValue.length - 1] & 1) === 0) return null;
     // At least 3. A single content octet is the only way to encode a value
     // below 128, so nothing wider needs comparing.
-    if (exponent.length === 1 && bytes[exponent.start] < 3) return null;
-    // The upper bound e < n, as far as it can be had without bignum
-    // arithmetic: e < n implies e has no more bits than n. Deliberately not an
-    // attempt to say anything about the modulus's factors.
-    if (exponentBits > modulusBits) return null;
-    return modulusBits;
+    if (exponentValue.length === 1 && bytes[exponentValue.start] < 3) return null;
+    // And strictly below the modulus — compared exactly, octet by octet. This
+    // says nothing about the modulus's factors and needs no arithmetic beyond
+    // byte reads.
+    if (compareDerMagnitude(bytes, exponentValue, modulusValue) >= 0) return null;
+    return modulusValue.bits;
   }
 
   /**

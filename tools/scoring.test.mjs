@@ -2647,6 +2647,31 @@ eq('an exponent wider than the modulus is refused',
 // 3 is the smallest legal exponent and must still be accepted.
 eq('an exponent of 3 is accepted', asKey(pkcs1Of(GOOD_MODULUS, Buffer.from([0x03]))).keyBits, 1024);
 
+// RFC 8017 §3.1 is `3 <= e < n`, and the upper half needs comparing values
+// rather than widths. A bit-length test accepted `e == n` and any same-width
+// `e > n`; both are conformant DER and neither is a usable key. No bignum
+// arithmetic is needed — strip the sign octet, compare lengths, then octets.
+const SIGNIFICANT = GOOD_MODULUS.subarray(GOOD_MODULUS[0] === 0x00 ? 1 : 0);
+const sameWidth = mutate => {
+  const e = Buffer.from(SIGNIFICANT); mutate(e);
+  return (e[0] & 0x80) ? Buffer.concat([Buffer.from([0x00]), e]) : e;
+};
+eq('the exponent fixture really is the same width as the modulus',
+  sameWidth(() => {}).length, GOOD_MODULUS.length);
+eq('an exponent equal to the modulus is refused',
+  asKey(pkcs1Of(GOOD_MODULUS, sameWidth(() => {}))).errors, ['unparseable-key']);
+eq('a same-width exponent greater than the modulus is refused',
+  asKey(pkcs1Of(GOOD_MODULUS, sameWidth(e => { e[e.length - 1] = 0xad; }))).errors, ['unparseable-key']);
+eq('a difference in the LEADING octet is caught too',
+  asKey(pkcs1Of(GOOD_MODULUS, sameWidth(e => { e[0] = 0x82; }))).errors, ['unparseable-key']);
+// The control: same width, strictly smaller, still odd — this one must pass, or
+// the comparison is rejecting valid keys rather than invalid ones.
+eq('a same-width exponent below the modulus is accepted',
+  asKey(pkcs1Of(GOOD_MODULUS, sameWidth(e => { e[0] = 0x7f; }))).keyBits, 1024);
+// And the same rules inside the SPKI envelope.
+eq('an exponent equal to the modulus inside SPKI is refused',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER), GOOD_MODULUS, sameWidth(() => {}))).errors, ['unparseable-key']);
+
 // AlgorithmIdentifier parameters.
 const RSA_OID_ONLY = Buffer.from([0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01]);
 eq('rsaEncryption with NULL parameters is accepted',
