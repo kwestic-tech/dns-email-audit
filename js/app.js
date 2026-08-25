@@ -64,6 +64,10 @@
   }
 
   function dmarcLabel(dmarcStatus) {
+    // 'unknown' is a lookup that failed, not a record that is absent. It gets
+    // its own badge for the same reason 'dkim-unverified' does: presenting an
+    // unexamined control as a missing one is the worse error for an auditor.
+    if (dmarcStatus.status === 'unknown') return t('dmarc.unverified');
     if (dmarcStatus.status === 'permerror') return t('dmarc.permerror');
     if (dmarcStatus.status === 'missing') return t('dmarc.missing');
     // 'present' means receivers cannot act on the record — bad v=, unrecognised
@@ -423,6 +427,83 @@
     ]);
   }
 
+  // Every response kind dohFetch can report, mapped to a translatable label.
+  // Anything not listed falls back to the generic error label.
+  var WALK_STEP_KINDS = {
+    'success': 'dmarc.stepKind.success',
+    'nodata': 'dmarc.stepKind.nodata',
+    'nxdomain': 'dmarc.stepKind.nxdomain',
+    'servfail': 'dmarc.stepKind.servfail',
+    'refused': 'dmarc.stepKind.refused',
+    'timeout': 'dmarc.stepKind.timeout',
+    'network-error': 'dmarc.stepKind.error',
+    'http-error': 'dmarc.stepKind.error',
+    'dns-error': 'dmarc.stepKind.error',
+  };
+
+  /**
+   * The Tree Walk evidence trail (spec §7, OQ-DMARC-06).
+   *
+   * The found-at line always shows, because a policy discovered somewhere
+   * other than the audited name is the single most surprising thing this
+   * release can report and it should never need a click to find. The full step
+   * list is what makes a surprising result explicable and is noise the rest of
+   * the time, so it is expanded when the walk did something worth seeing —
+   * an inherited policy, or a termination other than running out of labels —
+   * and behind a disclosure control otherwise.
+   *
+   * Every DNS-derived name goes through R.value(), so display caps and
+   * sentinel substitution apply here exactly as they do to a record.
+   */
+  function dmarcDiscoveryNode(r) {
+    var d = r.dmarcDiscovery;
+    if (!d) return null;
+    var foundLine = d.applied
+      ? tDns('dmarc.discoveryFoundAt', d.applied.foundAt, d.queries)
+      : t('dmarc.discoveryNotFound', d.queries);
+    // A walk can collect a record at more than one name — that is the whole
+    // point of it — so "a record is here" and "this is the record receivers
+    // apply" are different facts and the list has to say which is which.
+    // Without this, a domain that stops at a psd=y boundary shows two
+    // identical "record" rows and the reader cannot tell them apart.
+    var appliedAt = d.applied ? '_dmarc.' + d.applied.foundAt : null;
+    var steps = (d.steps || []).map(function (step) {
+      // Mapped explicitly rather than interpolated into the key: t() returns
+      // the key itself for a miss, so an unmapped response kind would render
+      // as `dmarc.stepKind.whatever` in the interface instead of falling back.
+      var kindKey = WALK_STEP_KINDS[step.kind] || 'dmarc.stepKind.error';
+      var isApplied = step.selected && step.queryName === appliedAt;
+      return R.el('div', { className: 'walk-step' }, [
+        R.value(step.queryName),
+        R.text(' · '),
+        R.el('span', {
+          className: isApplied ? 'walk-hit walk-applied' : step.selected ? 'walk-hit' : 'walk-miss',
+        }, isApplied ? t('dmarc.stepApplied') : step.selected ? t('dmarc.stepSelected') : t(kindKey)),
+      ]);
+    });
+    var interesting = (d.applied && d.applied.labelsUp > 0) || d.terminated !== 'root';
+    var stepList = R.el('div', { className: 'showme-content', style: interesting ? 'display:block' : null }, [
+      R.el('div', { className: 'showme-lbl' }, t('dmarc.discoverySteps')),
+      R.frag(steps),
+    ]);
+    return R.el('div', { className: 'showme-wrap dmarc-discovery' }, [
+      R.el('small', null, [
+        R.text(foundLine),
+        R.text(' · '),
+        R.text(t('dmarc.terminated.' + d.terminated)),
+      ]),
+      // The shared toggleShowMe() rewrites textContent to the generic
+      // open/close labels, which would silently replace this button's own
+      // wording after one click. Carry the labels on the element so the toggle
+      // can restore the right one.
+      interesting ? null : R.el('button', {
+        className: 'showme-btn', type: 'button',
+        dataset: { openLabel: t('dmarc.showWalk'), closeLabel: t('showme.close') },
+      }, t('dmarc.showWalk')),
+      stepList,
+    ]);
+  }
+
   function detailItem(labelText, valueNode, opts) {
     var o = opts || {};
     return R.el('div', { className: 'detail-item', style: o.style }, [
@@ -540,7 +621,8 @@
       id: rowId,
       dataset: {
         domain: r.domain,
-        dmarc: r.dmarcStatus.status !== 'missing' ? 'yes' : 'no',
+        dmarc: r.dmarcStatus.status === 'unknown' ? 'unknown'
+          : r.dmarcStatus.status !== 'missing' ? 'yes' : 'no',
         dkim: r.dkimStatus.found ? 'yes'
           : (r.dkimStatus.confidence === 'sampled' || r.dkimStatus.confidence === 'not-checked') ? 'unknown' : 'no',
         spf: r.spfStatus.status !== 'missing' ? 'yes' : 'no',
@@ -707,6 +789,7 @@
             r.dmarcAtDomain && r.dmarcAtDomain !== r.domain
               ? R.frag([R.el('br'), R.el('small', null, tDns('dmarc.inheritedFrom', r.dmarcAtDomain))])
               : null,
+            dmarcDiscoveryNode(r),
           ])),
           detailItem(t('labels.dkim'), R.frag(dkimDetails)),
           detailItem(t('labels.verifications'), r.verifications.length
@@ -742,7 +825,9 @@
     var content = btn.nextElementSibling;
     var open = content.style.display !== 'none' && content.style.display !== '';
     content.style.display = open ? 'none' : 'block';
-    btn.textContent = open ? t('showme.open') : t('showme.close');
+    btn.textContent = open
+      ? (btn.dataset.openLabel || t('showme.open'))
+      : (btn.dataset.closeLabel || t('showme.close'));
   }
 
   // The disclosure control for a truncated value (spec §4). Display caps never
@@ -790,7 +875,11 @@
       tile(count(function (r) { return r.emailProvider !== '@none' && r.emailProvider !== '@null-mx'; }), t('stat.haveEmail'), 'c-info', reg),
       tile(count(function (r) { return r.spfStatus && r.spfStatus.status !== 'missing'; }), 'SPF', 'c-ok', reg),
       tile(count(function (r) { return r.dkimStatus && r.dkimStatus.found; }), 'DKIM', 'c-ok', reg),
-      tile(count(function (r) { return r.dmarcStatus && r.dmarcStatus.status !== 'missing'; }), 'DMARC', 'c-ok', reg),
+      // An unverified DMARC control is counted as neither present nor absent —
+      // the tile states what was proven, and this one was not.
+      tile(count(function (r) {
+        return r.dmarcStatus && r.dmarcStatus.status !== 'missing' && r.dmarcStatus.status !== 'unknown';
+      }), 'DMARC', 'c-ok', reg),
       tile(count(function (r) { return r.advanced && r.advanced.bimi && r.advanced.bimi.present; }), 'BIMI', 'c-tip', reg),
       tile(count(function (r) { return r.advanced && r.advanced.mtaSts && r.advanced.mtaSts.present; }), 'MTA-STS', 'c-tip', reg),
       tile(count(function (r) { return r.advanced && r.advanced.tlsRpt && r.advanced.tlsRpt.present; }), 'TLS-RPT', 'c-tip', reg),
@@ -1021,8 +1110,14 @@
         r.advanced?.spfLookups?.count ?? '',
         r.issues.map(function (i) { return issueMessage(i, false); }).join(' | '),
         (r.suggestions || []).map(function (s) { return t('suggestion.' + s.key); }).join(' | '),
-        // Appended last, per the positional-header rule above.
+        // Appended, never inserted, per the positional-header rule above.
         R.hygieneOf(rowHygieneValues(r)).join(' '),
+        // Tree Walk provenance (spec §7). Tokens, not prose: `terminated` is
+        // the same vocabulary js/dns.js reports, so a script consuming this
+        // column does not have to parse a translated sentence.
+        r.dmarcDiscovery && r.dmarcDiscovery.applied ? r.dmarcDiscovery.applied.foundAt : '',
+        r.dmarcDiscovery && r.dmarcDiscovery.applied ? r.dmarcDiscovery.applied.labelsUp : '',
+        r.dmarcDiscovery ? r.dmarcDiscovery.terminated : '',
       ];
     });
 

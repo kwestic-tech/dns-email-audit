@@ -5,7 +5,7 @@
 | Spec version | 0.1 (Draft) |
 | Target release | 0.4.0 |
 | Status | Awaiting review |
-| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md) for rendering, [dmarcbis-tree-walk](dmarcbis-tree-walk.md) for the fixture-resolver test harness |
+| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md) for rendering, [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) for the fixture-resolver test harness |
 | Blocks | [dnssec-evidence](dnssec-evidence.md), which qualifies the DANE conclusions this release produces |
 | Slug for open questions | `DEPTH` |
 | Last updated | 2026-08-20 |
@@ -367,7 +367,7 @@ CAA fixtures: `0 issue "letsencrypt.org"`, `0 issue ";"`,
 unquoted value, and a flags value of 256.
 
 MX and TLSA fixtures use the programmable resolver from
-[dmarcbis-tree-walk](dmarcbis-tree-walk.md) `OQ-DMARC-03`: dangling target,
+[dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) `OQ-DMARC-03`: dangling target,
 CNAME target, single host, IPv4-only, all hosts in one `/24`, duplicate
 preferences, TLSA present on some hosts, malformed TLSA, and a SERVFAIL on one
 host asserting the other hosts still report.

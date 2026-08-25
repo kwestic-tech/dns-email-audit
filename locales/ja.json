@@ -173,6 +173,7 @@
   },
   "dmarc": {
     "missing": "✗ 未設定",
+    "unverified": "⚠ 未確認",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none（監視のみ）",
@@ -181,7 +182,28 @@
     "pctSuffix": "({0}%)",
     "permerror": "🔴 重複レコード",
     "inheritedFrom": "{0} から継承",
-    "testMode": "⚠ {0} (テストモード、未適用)"
+    "testMode": "⚠ {0} (テストモード、未適用)",
+    "discoveryFoundAt": "{1} 回の問い合わせの後、{0} でポリシーが見つかりました",
+    "discoveryNotFound": "{0} 回の問い合わせでポリシーは見つかりませんでした",
+    "discoverySteps": "Tree Walk",
+    "showWalk": "Tree Walk を表示",
+    "stepSelected": "レコード",
+    "stepApplied": "適用されるレコード",
+    "stepKind": {
+      "success": "DMARC レコードなし",
+      "nodata": "TXT レコードなし",
+      "nxdomain": "名前が存在しません",
+      "servfail": "SERVFAIL",
+      "refused": "拒否されました",
+      "timeout": "タイムアウトしました",
+      "error": "問い合わせに失敗しました"
+    },
+    "terminated": {
+      "psd-y": "パブリックサフィックスで停止しました (psd=y)",
+      "psd-n": "組織ドメインで停止しました (psd=n)",
+      "root": "トップレベルドメインまでたどりました",
+      "error": "途中で停止しました — 問い合わせが失敗しました"
+    }
   },
   "dkim": {
     "uncommon": "一般的でない設定 ({0})",
@@ -284,7 +306,10 @@
       "SPF 参照回数",
       "問題点",
       "推奨事項",
-      "レコードの健全性"
+      "レコードの健全性",
+      "DMARC 検出場所",
+      "DMARC 遡ったラベル数",
+      "DMARC 探索の終了理由"
     ],
     "yes": "はい",
     "no": "いいえ",
@@ -327,10 +352,10 @@
       "fixCode": "; 統合前 — 2 つのレコードが存在し、すべて失敗する状態:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; 統合後 — 両方の送信元を含む 1 つのレコード:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
     },
     "dmarc-multiple-records": {
-      "msg": "_dmarc に複数の DMARC レコードが存在します — DMARC が一切適用されず、ドメインがなりすまされる危険があります。",
-      "what": "RFC 7489 §6.6.3 では、DMARC レコードは厳密に 1 つだけ必要とされています。受信者は <code>v=DMARC1</code> タグのないものを無視し、複数存在する場合はポリシー検出を打ち切って DMARC を適用しません。どんなに厳格なポリシーを設定していても完全に無視されるため、保護されているように見えて実際はなりすましが可能です。また、集計レポートも届かなくなるため、問題を把握する手掛かりも失われます。",
-      "fix": "<code>_dmarc</code> にある TXT レコードを 1 つだけ残して他を削除してください。重複したレコードに異なるレポートアドレスが指定されている場合は、1 つの <code>rua=</code> タグ内にカンマ区切りで両方のアドレスを記述します。",
-      "fixCode": "; 修正前 — _dmarc に 2 つのレコードがあり DMARC が無視される状態:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; 修正後 — 1 つのレコードに両方のレポート送信先を指定:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+      "msg": "{0} に複数の DMARC レコードがあります — すべての受信者がそのすべてを無視し、ポリシーは一切適用されません。",
+      "what": "RFC 9989 §4.10 は明確です: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> 受信者はどれか一つを選ぶのではなく、まとめて破棄し、DNS ツリーをさらに上へたどります。この名前より上にも何も公開されていないため、結果としてお使いのドメインには DMARC ポリシーがまったく存在しないことになります。設定は完了しているように見えるにもかかわらずです。集約レポートも届かなくなり、それを知らせてくれる唯一の手がかりも失われます。",
+      "fix": "<code>_dmarc</code> の TXT レコードを一つだけ残して削除してください。重複したレコードが別々のレポート宛先を指している場合は、一つのレコードを残し、両方のアドレスを一つの <code>rua=</code> タグにカンマ区切りで記載してください。",
+      "fixCode": "; 変更前 — _dmarc に 2 件のレコード、どちらも破棄される:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; 変更後 — 1 件のレコードに両方のレポート宛先:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
     },
     "mta-sts-multiple-records": {
       "msg": "複数の MTA-STS レコードが存在します — 送信元はこのドメインに MTA-STS ポリシーがないものとして扱うため、受信時の TLS が強制されません。",
@@ -531,20 +556,20 @@
       "msg": "BIMI レコードの形式が不正か、有効な HTTPS ロゴ URL が含まれていません。"
     },
     "dmarc-version-missing": {
-      "msg": "DMARC レコードが v=DMARC1 で始まっていません。受信側はこれを完全に無視しなければなりません。",
-      "what": "RFC 9989 §5.4 は、<code>v=</code> タグがレコードの最初のタグであることを求めています。これを欠いたレコードは、他に何が書かれていようと DMARC レコードではありません。受信側サーバーはこれを破棄し、お客様のドメインには DMARC ポリシーがないものとして扱います。つまりこのレコードは、実体を伴わない保護の見かけだけを与えていることになります。",
+      "msg": "{0} の DMARC レコードは v=DMARC1 で始まっていません — 受信者はこれを完全に無視しなければなりません。",
+      "what": "RFC 9989 §4.7 は、<code>v=</code> タグがレコードの最初のタグであることを求めています。これを欠いたレコードは、他に何が書かれていようと DMARC レコードではありません。受信側サーバーはこれを破棄し、お客様のドメインには DMARC ポリシーがないものとして扱います。つまりこのレコードは、実体を伴わない保護の見かけだけを与えていることになります。",
       "fix": "レコードを <code>v=DMARC1;</code> で始まり、その後にポリシーが続く形に書き直してください。",
       "fixCode": "; 誤り — バージョンタグがありません:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正しい例:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-not-first": {
-      "msg": "v=DMARC1 は存在しますが最初のタグではありません。受信側はレコード全体を無視しなければなりません。",
-      "what": "RFC 9989 §5.4 は、<code>v=</code> がどこかに存在すればよいのではなく、リストの最初のタグでなければならないと定めています。それ以外のタグの順序は自由なため、レコードを手作業で編集したりスクリプトで組み立てたりする際に間違えやすい箇所です。仕様に従う受信側は解析を中止し、そのドメインを保護なしとして扱います。",
+      "msg": "{0} に v=DMARC1 はありますが最初のタグではありません — 受信者はレコード全体を無視しなければなりません。",
+      "what": "RFC 9989 §4.7 は、<code>v=</code> がどこかに存在すればよいのではなく、リストの最初のタグでなければならないと定めています。それ以外のタグの順序は自由なため、レコードを手作業で編集したりスクリプトで組み立てたりする際に間違えやすい箇所です。仕様に従う受信側は解析を中止し、そのドメインを保護なしとして扱います。",
       "fix": "<code>v=DMARC1;</code> をレコードの先頭に移動してください。他に変更は必要ありません。",
       "fixCode": "; 誤り — v= が先頭にありません:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正しい例:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-bad-value": {
-      "msg": "DMARC のバージョン値が厳密に「DMARC1」ではありません。この値は大文字と小文字を区別するため、レコードは無視されます。",
-      "what": "DMARC レコードのほとんどの値は大文字と小文字を区別しませんが、RFC 9989 §5.4 は <code>v=</code> を例外としています。受け付けられる表記は大文字の <code>DMARC1</code> だけです。<code>v=dmarc1</code> や <code>v=DMARC2</code> ではレコード全体が無視されます。DNS 管理画面が入力値を小文字に変換することが多いため、コピー＆ペーストでよく起きる問題です。",
+      "msg": "{0} の DMARC バージョン値が厳密に「DMARC1」ではありません — この値は大文字小文字を区別し、レコードは無視されます。",
+      "what": "DMARC レコードのほとんどの値は大文字と小文字を区別しませんが、RFC 9989 §4.7 は <code>v=</code> を例外としています。受け付けられる表記は大文字の <code>DMARC1</code> だけです。<code>v=dmarc1</code> や <code>v=DMARC2</code> ではレコード全体が無視されます。DNS 管理画面が入力値を小文字に変換することが多いため、コピー＆ペーストでよく起きる問題です。",
       "fix": "値を厳密に <code>DMARC1</code> に設定し、その後 DNS 管理画面に実際に何が保存されたかを確認してください。",
       "fixCode": "; 誤り — 小文字:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; 正しい例:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
@@ -592,7 +617,7 @@
     },
     "dmarc-external-reporting": {
       "msg": "DMARC レポートが外部ドメイン ({0}) に送られています。そのドメインが認可しない限り、レポートは破棄されます。",
-      "what": "レポートの送信先が組織ドメインの外にある場合 — DMARC ベンダー、コンサルタント、関連会社など — RFC 9990 §4.3 により、受信側ドメインが許可を与えるレコードを公開することが求められます。それがない場合、仕様に準拠した受信側は、その宛先に向けたレポートを警告なく破棄します。認可は宛先ごとに評価されるため、未認可のベンダーがあっても DMARC レコードが壊れることはなく、他のアドレスへのレポートが止まることもありません。その宛先だけが沈黙するだけです。今回の監査ではこのレコードを検証していません。自動的に参照させるには、詳細チェックを有効にしてください。",
+      "what": "レポートの送信先が組織ドメインの外にある場合 — DMARC ベンダー、コンサルタント、関連会社など — RFC 9990 §4 により、受信側ドメインが許可を与えるレコードを公開することが求められます。それがない場合、仕様に準拠した受信側は、その宛先に向けたレポートを警告なく破棄します。認可は宛先ごとに評価されるため、未認可のベンダーがあっても DMARC レコードが壊れることはなく、他のアドレスへのレポートが止まることもありません。その宛先だけが沈黙するだけです。今回の監査ではこのレコードを検証していません。自動的に参照させるには、詳細チェックを有効にしてください。",
       "fix": "送信先ドメインに、<code>&lt;お客様のドメイン&gt;._report._dmarc.&lt;先方のドメイン&gt;</code> という形式で、お客様のドメイン向けの認可レコードを公開するよう依頼してください。",
       "fixCode": "; お客様のレコードはベンダーにレポートを送信しています:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; ベンダー側が自分のゾーンに次を公開する必要があります:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
     },
@@ -601,12 +626,6 @@
       "what": "<code>psd=</code> タグは RFC 9989 で新設され、このドメインがパブリックサフィックスドメインかどうかを DNS Tree Walk に伝えます。受け付ける値はちょうど 3 つ、<code>y</code>、<code>n</code>、<code>u</code>(既定値で、通常の探索が適用されることを意味します)です。無効な値は、受信側がポリシーを見つける方法を制御するタグにおける構文エラーです。",
       "fix": "パブリックサフィックスを運用しているのでなければ、このタグを削除してください。<code>u</code> が既定値であり、通常のドメインにはほぼ例外なくこれが適切です。",
       "fixCode": "; 通常のドメインに psd= は一切不要です:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC が psd=y を宣言していますが、このドメインはパブリックサフィックスではありません。",
-      "what": "<code>psd=y</code> は、この名前がパブリックサフィックスドメイン — <code>.gov.uk</code> のように、無関係な組織が配下に登録するレジストリ階層の名前 — であることを受信側に伝えます。受信側がポリシーを探す際に DNS Tree Walk を止める位置が変わるため、通常の組織ドメインにこれを設定すると、サブドメインに対するポリシーが誤って解決されることがあります。ほとんどの場合、サンプルをそのまま写したことによる誤りです。",
-      "fix": "Public Suffix List に掲載されたパブリックサフィックスを実際に運用しているのでなければ、<code>psd=y</code> を削除してください。",
-      "fixCode": "; タグを削除します:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-removed-tags": {
       "msg": "DMARC レコードに RFC 9989 で削除されたタグが含まれています ({0})。これらはもう何の効果もありません。",
@@ -622,9 +641,15 @@
     },
     "dmarc-external-unauthorized": {
       "msg": "{0} 宛の DMARC レポートは破棄されています。そのドメインがお客様のレポートを認可していません。",
-      "what": "レポートの送信先が組織ドメインの外にある場合、RFC 9990 §4.3 により、受信側ドメインが許可を与えるレコードを公開することが求められます。確認しましたが、存在しませんでした。そのため仕様に準拠した受信側は、{0} 宛のレポートをすべて破棄します。エラーも返らず、バウンスもせず、想定より単にデータが少なくなるだけで、これは「誰にもなりすまされていない」と取り違えられがちです。認可は宛先ごとに確認されるため、レコード内の他のアドレスは通常どおり機能します。破棄されているのはこの宛先だけです。",
+      "what": "レポートの送信先が組織ドメインの外にある場合、RFC 9990 §4 により、受信側ドメインが許可を与えるレコードを公開することが求められます。確認しましたが、存在しませんでした。そのため仕様に準拠した受信側は、{0} 宛のレポートをすべて破棄します。エラーも返らず、バウンスもせず、想定より単にデータが少なくなるだけで、これは「誰にもなりすまされていない」と取り違えられがちです。認可は宛先ごとに確認されるため、レコード内の他のアドレスは通常どおり機能します。破棄されているのはこの宛先だけです。",
       "fix": "{0} の運用者に、お客様のドメイン向けの認可レコードを公開するよう依頼してください。多くのレポートベンダーはドメイン追加時に自動で対応するため、設定したばかりであれば、まずベンダーの管理画面を確認する価値があります。先方でドメインの検証が済んで初めてレコードが現れる場合があります。",
       "fixCode": "; 送信先ドメインが自身のゾーンに次を公開し、\n; レポートを受け入れる対象ドメインを明示します:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; 多数の顧客を受け入れるベンダーは、通常ワイルドカード形式を公開します:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
+    },
+    "dmarc-external-override-mismatch": {
+      "msg": "{0} はレポートを認可したうえで、それを第三者 ({1}) に転送しています — 受信者はどちらの宛先にも送らないため、何も届きません。",
+      "what": "この宛先は認可レコードを正しく公開したうえで、自らの <code>rua=</code> でレポートの送り先を上書きしています。RFC 9990 §4 はこれを認めていますが、上書き先は同じホスト上のアドレスに限られます。この上書きは別の場所を指しています。RFC は結果を明確に述べています: <em>\"if the confirming record includes a URI whose host is again different than the domain publishing that override, the Mail Receiver generating the report MUST NOT generate a report to either the original or the override URI.\"</em> この規則は、転送の連鎖によって第三者が大量のレポートを浴びせられるのを防ぐためのものです。したがってこれは、認可されていない宛先よりも厄介です。設定も認可も済んでいるように見えるのに、準拠した受信者は何も送りません — あなたの宛先にも、相手の宛先にもです。",
+      "fix": "これはあなたではなく、レポート事業者側が直すべきレコードです。事業者に、<code>_report._dmarc</code> レコードから <code>rua=</code> の上書きを削除するか、自社ホスト上のアドレスを指すよう変更するよう依頼してください。それまでは、この宛先にはレポートが届いていないものとして扱い、ほかに機能している <code>rua=</code> アドレスがあるか確認してください。",
+      "fixCode": "; 宛先が自社のゾーンに公開する — オーナー名にあなたのドメインが含まれる点に注意。受信者はこの名前を問い合わせる:\n\n; 壊れている — 上書き先が別のホストなので、何も送信されない:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1; rua=mailto:collector@some-other-host.example;\"\n\n; 問題なし — 事業者自身のホスト上への上書き:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1; rua=mailto:collector@vendor.example;\"\n\n; これも問題なし — 上書きなし。レポートはご自身の rua= アドレスに届く:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1;\""
     },
     "dmarc-external-unverifiable": {
       "msg": "{0} のレポート認可を確認できませんでした。DNS 参照が完了しませんでした。",
@@ -637,6 +662,65 @@
       "what": "このドメインに対する 1 つ以上の DNS 参照が利用可能な応答を返しませんでした。多くはリゾルバーからの SERVFAIL またはタイムアウトです。実際にネームサーバーが壊れている場合もありますが、それと同じくらい、数分で解消する一時的な不調であることも少なくありません。監査の残りの部分は正常に完了しており、結果は正確です。該当するチェックは 0 点として扱われます。このツールが裏づけを取れない評価は、単に厳しいだけの評価よりも価値が低いためです。したがって参照の失敗は、再実行するまでは実際に減点となります。",
       "fix": "まず監査を再実行してください。一時的な障害であれば自然に解消し、減点も戻ります。同じチェックが繰り返し失敗する場合は、該当する名前を直接問い合わせて、ご利用のネームサーバーが応答するかを確認してください。存在しない名前に対して NXDOMAIN ではなく SERVFAIL を返すサーバーでは、この問題が繰り返し発生します。",
       "fixCode": "; 存在しないはずの名前にネームサーバーが応答するかを確認します。\n; 正常なサーバーは NXDOMAIN を返し、異常なサーバーは SERVFAIL を返します:\ndig +short does-not-exist-test.yourdomain.com\n\n; リゾルバーを経由せず、権威サーバーに直接問い合わせます:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    },
+    "dmarc-multiple-records-inherited": {
+      "msg": "{0} に複数の DMARC レコードがあります — すべて無視されます。代わりに {1} のポリシー ({2}) がこのドメインを規定します。",
+      "what": "RFC 9989 §4.10 は、一つの名前に対して複数のレコードが返された場合、そのすべてを破棄します: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> Tree Walk はそのまま上へ進み、受信者が実際に適用するのはツリーのより上位にある有効なレコードです。つまりこのドメインは無防備ではありません。失われたのはローカルな制御です。ここに書いたポリシーは効果を持たず、継承されるポリシーはより弱いかもしれませんし、レポートを別の宛先へ送るかもしれず、上位ドメインが編集されれば予告なく変わることもあります。",
+      "fix": "<code>_dmarc</code> の TXT レコードを一つだけ残して削除してください。一つになれば、継承されたポリシーより優先されます。継承させるつもりだった場合は両方削除し、上位ドメインのポリシーを意図的に適用させてください。",
+      "fixCode": "; 変更前 — ここに 2 件、どちらも破棄され、上位ドメインのポリシーが適用される:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none;\"\n\n; 変更後 — 1 件になり、再びこのドメインを規定する:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-at-apex": {
+      "msg": "DMARC レコードが _dmarc の下ではなくドメイン自体に公開されています — 受信者がそこを見ることは決してありません。",
+      "what": "DMARC ポリシーは <code>yourdomain.com</code> ではなく <code>_dmarc.yourdomain.com</code> という名前に置かれます。RFC 9989 §4.10.1 はポリシー探索について <em>\"starts with a query for a valid DMARC Policy Record at the name created by prepending the label '_dmarc' to the Author Domain\"</em> と述べており、受信者はその名前だけを問い合わせ、ほかは一切見ません。ゾーン頂点に正しく書かれたレコードは見えないままで、そのドメインは DMARC ポリシーがまったくないものとして扱われます。これは DNS の管理画面がホスト欄を黙って無視した場合や、レコードを SPF と同じ欄に貼り付けた場合によく起こります。",
+      "fix": "そのレコードを <code>_dmarc</code> ホストの TXT レコードとして公開し直し、ゾーン頂点からは削除してください。頂点の TXT に取り残された DMARC の文字列は、次に読む人を混乱させる以外の働きをしません。",
+      "fixCode": "; 誤り — ドメイン自体に置いている:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 正しい — _dmarc ホストの下に置く:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-sp": {
+      "msg": "sp= に「{0}」が設定されていますが、これはポリシー値ではありません — サブドメインは代わりに p= に従います。",
+      "what": "RFC 9989 §4.7 が <code>sp=</code> に認めている値は <code>none</code>、<code>quarantine</code>、<code>reject</code> の 3 つだけです。それ以外はポリシーではないため、受信者はこのタグを無視し、サブドメインは <code>p=</code> を継承します。意図より厳しくなることも緩くなることもあり、しかもレコードは、実際には存在しないサブドメイン向けポリシーが意図的に設定されているかのように読めてしまいます。",
+      "fix": "値を修正してください。サブドメインが <code>p=</code> を継承して構わない場合は、<code>sp=</code> を丸ごと削除してください。",
+      "fixCode": "; 誤り — 打ち間違いが黙って無視される:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; 正しい:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
+    },
+    "dmarc-bad-np": {
+      "msg": "np= に「{0}」が設定されていますが、これはポリシー値ではありません — 存在しないサブドメインは代わりに sp= または p= に従います。",
+      "what": "RFC 9989 §4.7 が <code>np=</code> に認めている値は <code>none</code>、<code>quarantine</code>、<code>reject</code> の 3 つだけです。それ以外は無視され、存在しない名前に対するポリシーは <code>sp=</code> を経て <code>p=</code> に戻ります。存在しないサブドメインは攻撃者にとって最も低コストななりすまし対象ですから、設定されているように見えて実際は設定されていないタグは直す価値があります。",
+      "fix": "値を修正するか、<code>np=</code> を削除してフォールバックの連鎖を意図的に働かせてください。",
+      "fixCode": "; 誤り — ポリシー値ではない:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; 正しい:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
+    },
+    "dmarc-bad-adkim": {
+      "msg": "adkim= に「{0}」が設定されています — 有効な値は r と s だけなので、DKIM のアライメントは緩和のままです。",
+      "what": "RFC 9989 §4.7 は DKIM のアライメントに 2 つのモードと 2 つの表記を定めています。緩和が <code>r</code>、厳密が <code>s</code> です。<code>strict</code> や <code>1</code> のような値は認識されず、受信者は緩和に戻します。レコードは書いた人には厳密に見えるのに、実際の動作は緩和という、両方の悪いところを取った状態です。完全一致でなければ通らないとお考えだったアライメントを、組織ドメインのサブドメインが通過できてしまいます。",
+      "fix": "厳密なアライメントには <code>adkim=s</code> を使うか、タグを削除して緩和であることを明示してください。",
+      "fixCode": "; 誤り — 単語で書かれているため無視される:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; 正しい:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
+    },
+    "dmarc-bad-aspf": {
+      "msg": "aspf= に「{0}」が設定されています — 有効な値は r と s だけなので、SPF のアライメントは緩和のままです。",
+      "what": "RFC 9989 §4.7 は SPF のアライメントに 2 つのモードと 2 つの表記を定めています。緩和が <code>r</code>、厳密が <code>s</code> です。認識できない値は無視され、受信者は緩和に戻すため、レコードは実際には備えていない厳格さを主張することになります。緩和アライメントでは、組織ドメインのどのサブドメインでも DMARC 合格の SPF 側の条件を満たせてしまいます。",
+      "fix": "厳密なアライメントには <code>aspf=s</code> を使うか、タグを削除して緩和であることを明示してください。",
+      "fixCode": "; 誤り — 単語で書かれているため無視される:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; 正しい:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
+    },
+    "dmarc-np-not-applied": {
+      "msg": "np={0} は公開されていますが、ここでは適用されません — この名前は存在するため、sp={1} が規定します。",
+      "what": "RFC 9989 §4.10.1 は継承されるポリシーを 2 つに分けています。<code>sp=</code> タグは <em>\"if the Author Domain exists\"</em> の場合に、<code>np=</code> は <em>\"if the Author Domain does not exist\"</em> の場合に適用されます。存在するかどうかは DNS の問題であり、RFC 9989 付録 A.4 は、ある名前に何らかのレコードが存在すればその名前は存在すると述べています。この名前は解決できたので、規定するのは <code>sp=</code> の側です。これは情報提供であり、設定に誤りはありません。ここに表示しているのは、そうしないと報告されたポリシーが、お手元で読めるレコードと矛盾しているように見えてしまうからです。",
+      "fix": "変更は不要です。この厳しいポリシーを実在するサブドメインにも適用したい場合は、<code>sp=</code> を <code>np=</code> と同じ値に設定してください。",
+      "fixCode": "; np= は存在しない名前を、sp= は存在する名前を対象とする:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
+    },
+    "dmarc-unverified": {
+      "msg": "DMARC を確認できませんでした — DNS の問い合わせが失敗しました ({0})。これは DMARC レコードが存在しないこととは異なります。",
+      "what": "RFC 9989 における DMARC ポリシーの探索は、この名前からトップレベルドメインに向かって上へたどることを意味しますが、その問い合わせの一つが応答せずに失敗しました。問い合わせの失敗はレコードが存在しない証拠にはなりません。ポリシーは公開されていて何の問題もない可能性があります。この監査はどちらとも推測しないため、DMARC の得点は保留し、完了しなかったチェックの上に成り立つ評価として印を付けます。この種のリゾルバのエラーはたいてい一時的なものです。",
+      "fix": "監査をもう一度実行してください。このドメインで失敗が続く場合は、別のリゾルバに対して <code>_dmarc</code> を直接問い合わせ、その名前が本当に到達不能なのか、それともこちらの問い合わせがたまたま失敗しただけなのかを確かめてください。",
+      "fixCode": "; シェルからご自身で確認する:\ndig +short TXT _dmarc.yourdomain.com\ndig +short TXT _dmarc.yourdomain.com @1.1.1.1\ndig +short TXT _dmarc.yourdomain.com @8.8.8.8"
+    },
+    "dmarc-at-apex-ignored": {
+      "msg": "_dmarc の下にあるものとは別に、ドメイン自体にも DMARC レコードが残っています — 受信者はそれを読みませんし、{0} にある実際のポリシーに影響はありません。",
+      "what": "DMARC ポリシーは <code>_dmarc.yourdomain.com</code> に置かれ、受信者はその名前だけを問い合わせ、ほかは見ません。このドメイン自身の TXT に、どの受信者も決して見ることのない二つ目の <code>v=DMARC1</code> 文字列があります。実際のポリシーは {0} で見つかったもので、通常どおり適用されます。つまりこれは危険ではなく、整理されていないだけです。多くの場合、レコードを正しい名前へ移した後に古い写しが残ったことを意味します。",
+      "fix": "ドメイン自身の TXT レコードから <code>v=DMARC1</code> の文字列を削除してください。<code>_dmarc</code> の下にあるものはそのままにしてください。",
+      "fixCode": "; これを削除する — 何も読み取らない:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; これを残す — これがポリシー:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "{1} 件のレポート宛先のうち {0} 件だけを確認しました — この監査は 10 件で打ち切ります。未確認: {2}",
+      "what": "レコードには、この監査がたどる数を超えるレポート宛先が書かれています。組織ドメインの外にある宛先はそれぞれ DNS のツリー探索と認可の問い合わせを必要とし、その件数はレコード自身が決めます。ですから監査は、一つのレコードが生み出す DNS トラフィックの量をそのレコードに委ねません。RFC 9990 §3.5 はまさにこれを想定し、レポートは <em>\"up to the Receiver's limits on supported URIs\"</em> の範囲で各 URI に送られると述べています。実際の受信者も独自の上限を設けています。この注意書きは、上の判定が完全な一覧だと受け取られないようにするためのものです。",
+      "fix": "レコードに問題はありません。すべての宛先を監査したい場合は、ドメインを複数回の実行に分けてください。単に時間とともに増えただけであれば、整理する価値があります。読まなくなった宛先も、受信者は送信を試み続けなければなりません。"
     }
   },
   "suggestion": {

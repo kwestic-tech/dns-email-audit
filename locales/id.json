@@ -173,6 +173,7 @@
   },
   "dmarc": {
     "missing": "✗ Tidak ada",
+    "unverified": "⚠ Belum terverifikasi",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none (hanya pemantauan)",
@@ -181,7 +182,28 @@
     "pctSuffix": "({0}%)",
     "permerror": "🔴 Beberapa data",
     "inheritedFrom": "Diwarisi dari {0}",
-    "testMode": "⚠ {0} (mode uji, tidak diterapkan)"
+    "testMode": "⚠ {0} (mode uji, tidak diterapkan)",
+    "discoveryFoundAt": "Kebijakan ditemukan di {0} setelah {1} kueri",
+    "discoveryNotFound": "Tidak ada kebijakan ditemukan dalam {0} kueri",
+    "discoverySteps": "Tree Walk",
+    "showWalk": "Tampilkan Tree Walk",
+    "stepSelected": "rekaman",
+    "stepApplied": "rekaman diterapkan",
+    "stepKind": {
+      "success": "tidak ada rekaman DMARC",
+      "nodata": "tidak ada rekaman TXT",
+      "nxdomain": "nama tidak ada",
+      "servfail": "SERVFAIL",
+      "refused": "ditolak",
+      "timeout": "waktu habis",
+      "error": "kueri gagal"
+    },
+    "terminated": {
+      "psd-y": "berhenti pada sufiks publik (psd=y)",
+      "psd-n": "berhenti pada domain organisasi (psd=n)",
+      "root": "menelusuri hingga domain tingkat atas",
+      "error": "berhenti lebih awal — sebuah kueri gagal"
+    }
   },
   "dkim": {
     "uncommon": "Tidak lazim ({0})",
@@ -284,7 +306,10 @@
       "Kueri SPF",
       "Masalah",
       "Saran",
-      "Kebersihan data"
+      "Kebersihan data",
+      "DMARC ditemukan di",
+      "Label DMARC ke atas",
+      "Akhir penemuan DMARC"
     ],
     "yes": "Ya",
     "no": "Tidak",
@@ -327,10 +352,10 @@
       "fixCode": "; Sebelum — dua data, SPF gagal untuk semuanya:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Sesudah — satu data dengan kedua pengirim:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
     },
     "dmarc-multiple-records": {
-      "msg": "Ditemukan beberapa data DMARC di _dmarc — DMARC sama sekali tidak diterapkan, domain bisa dipalsukan.",
-      "what": "RFC 7489 §6.6.3 mengharuskan tepat satu data DMARC. Penerima membuang apa pun yang tidak memiliki tag <code>v=DMARC1</code>, dan jika tersisa lebih dari satu, penemuan kebijakan dihentikan dan DMARC tidak diterapkan pada pesan. Kebijakan Anda — seketat apa pun — diabaikan sepenuhnya, sehingga domain dapat dipalsukan meski tampak terlindungi. Anda juga berhenti menerima laporan agregat, yang menghilangkan sinyal yang seharusnya memberi tahu bahwa ada yang tidak beres.",
-      "fix": "Hapus semua data TXT di <code>_dmarc</code> kecuali satu. Jika data duplikatnya menyebut alamat laporan yang berbeda, simpan satu data dan cantumkan kedua alamat dalam satu tag <code>rua=</code>, dipisahkan koma.",
-      "fixCode": "; Sebelum — dua data di _dmarc, DMARC diabaikan:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Sesudah — satu data, dua tujuan laporan:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
+      "msg": "Ada beberapa rekaman DMARC di {0} — setiap penerima mengabaikan semuanya, dan tidak ada kebijakan yang berlaku.",
+      "what": "RFC 9989 §4.10 menyatakannya dengan tegas: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> Penerima tidak memilih salah satu — mereka membuang seluruh kumpulannya dan terus menaiki pohon DNS. Di atas nama ini pun tidak ada yang diterbitkan, sehingga hasil akhirnya domain Anda sama sekali tidak memiliki kebijakan DMARC meski tampak terkonfigurasi sepenuhnya. Anda juga berhenti menerima laporan agregat, satu-satunya sinyal yang akan memberi tahu Anda.",
+      "fix": "Hapus semua rekaman TXT di <code>_dmarc</code> kecuali satu. Jika rekaman ganda itu menyebut alamat laporan yang berbeda, simpan satu rekaman dan cantumkan kedua alamat dalam satu tag <code>rua=</code>, dipisahkan koma.",
+      "fixCode": "; Sebelum — dua rekaman di _dmarc, keduanya dibuang:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Sesudah — satu rekaman, kedua tujuan laporan:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
     },
     "mta-sts-multiple-records": {
       "msg": "Ditemukan beberapa data MTA-STS — pengirim memperlakukan domain Anda seolah tidak punya kebijakan MTA-STS, sehingga TLS pada surel masuk tidak diwajibkan.",
@@ -531,20 +556,20 @@
       "msg": "Data BIMI salah format atau tidak memuat URL logo HTTPS yang valid."
     },
     "dmarc-version-missing": {
-      "msg": "Data DMARC tidak diawali v=DMARC1 — penerima wajib mengabaikannya sepenuhnya.",
-      "what": "RFC 9989 §5.4 mensyaratkan tag <code>v=</code> menjadi tag pertama dalam data. Data tanpa tag itu sama sekali bukan data DMARC, apa pun isinya yang lain. Server penerima membuangnya dan memperlakukan domain Anda seolah tidak punya kebijakan DMARC, sehingga datanya memberi Anda tampilan perlindungan tanpa isinya.",
+      "msg": "Rekaman DMARC di {0} tidak diawali v=DMARC1 — penerima harus mengabaikannya sepenuhnya.",
+      "what": "RFC 9989 §4.7 mensyaratkan tag <code>v=</code> menjadi tag pertama dalam data. Data tanpa tag itu sama sekali bukan data DMARC, apa pun isinya yang lain. Server penerima membuangnya dan memperlakukan domain Anda seolah tidak punya kebijakan DMARC, sehingga datanya memberi Anda tampilan perlindungan tanpa isinya.",
       "fix": "Tulis ulang datanya sehingga diawali <code>v=DMARC1;</code> lalu diikuti kebijakan Anda.",
       "fixCode": "; Salah — tanpa tag versi:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Benar:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-not-first": {
-      "msg": "v=DMARC1 ada tetapi bukan tag pertama — penerima wajib mengabaikan seluruh datanya.",
-      "what": "RFC 9989 §5.4 menyatakan <code>v=</code> HARUS menjadi tag pertama dalam daftar, bukan sekadar ada di suatu tempat. Urutan tag lainnya bebas, sehingga hal ini mudah keliru saat data disunting manual atau dirakit oleh skrip. Penerima yang mengikuti spesifikasi berhenti mengurai dan memperlakukan domain sebagai tidak terlindungi.",
+      "msg": "v=DMARC1 ada di {0} tetapi bukan tag pertama — penerima harus mengabaikan seluruh rekaman.",
+      "what": "RFC 9989 §4.7 menyatakan <code>v=</code> HARUS menjadi tag pertama dalam daftar, bukan sekadar ada di suatu tempat. Urutan tag lainnya bebas, sehingga hal ini mudah keliru saat data disunting manual atau dirakit oleh skrip. Penerima yang mengikuti spesifikasi berhenti mengurai dan memperlakukan domain sebagai tidak terlindungi.",
       "fix": "Pindahkan <code>v=DMARC1;</code> ke bagian paling depan data. Tidak ada lagi yang perlu diubah.",
       "fixCode": "; Salah — v= tidak berada di awal:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; Benar:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-bad-value": {
-      "msg": "Nilai versi DMARC tidak persis \"DMARC1\" — nilainya membedakan huruf besar-kecil dan datanya diabaikan.",
-      "what": "Hampir semua nilai dalam data DMARC tidak membedakan huruf besar-kecil, tetapi RFC 9989 §5.4 menjadikan <code>v=</code> sebagai pengecualian: satu-satunya ejaan yang diterima adalah <code>DMARC1</code>, dengan huruf kapital. <code>v=dmarc1</code> atau <code>v=DMARC2</code> menyebabkan seluruh datanya diabaikan. Ini korban umum salin-tempel karena panel DNS sering mengubah nilai menjadi huruf kecil saat dimasukkan.",
+      "msg": "Nilai versi DMARC di {0} tidak persis \"DMARC1\" — nilainya peka huruf besar-kecil dan rekaman itu diabaikan.",
+      "what": "Hampir semua nilai dalam data DMARC tidak membedakan huruf besar-kecil, tetapi RFC 9989 §4.7 menjadikan <code>v=</code> sebagai pengecualian: satu-satunya ejaan yang diterima adalah <code>DMARC1</code>, dengan huruf kapital. <code>v=dmarc1</code> atau <code>v=DMARC2</code> menyebabkan seluruh datanya diabaikan. Ini korban umum salin-tempel karena panel DNS sering mengubah nilai menjadi huruf kecil saat dimasukkan.",
       "fix": "Setel nilainya persis menjadi <code>DMARC1</code> lalu periksa lagi apa yang sebenarnya disimpan panel DNS Anda.",
       "fixCode": "; Salah — huruf kecil:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; Benar:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
@@ -592,7 +617,7 @@
     },
     "dmarc-external-reporting": {
       "msg": "Laporan DMARC dikirim ke domain luar ({0}) — domain itu harus mengotorisasinya atau laporannya dibuang.",
-      "what": "Ketika tujuan laporan berada di luar domain organisasi Anda — vendor DMARC, konsultan, perusahaan afiliasi — RFC 9990 §4.3 mengharuskan domain penerima mempublikasikan data yang memberi izin. Tanpa itu, penerima yang patuh spesifikasi membuang diam-diam laporan yang ditujukan ke alamat tersebut. Otorisasi dinilai per tujuan, jadi vendor yang tidak terotorisasi tidak merusak data DMARC Anda maupun menghentikan laporan ke alamat-alamat lain; hanya tujuan yang satu itu yang menjadi senyap. Audit ini tidak memverifikasi datanya — aktifkan pemeriksaan lanjutan agar dicari secara otomatis.",
+      "what": "Ketika tujuan laporan berada di luar domain organisasi Anda — vendor DMARC, konsultan, perusahaan afiliasi — RFC 9990 §4 mengharuskan domain penerima mempublikasikan data yang memberi izin. Tanpa itu, penerima yang patuh spesifikasi membuang diam-diam laporan yang ditujukan ke alamat tersebut. Otorisasi dinilai per tujuan, jadi vendor yang tidak terotorisasi tidak merusak data DMARC Anda maupun menghentikan laporan ke alamat-alamat lain; hanya tujuan yang satu itu yang menjadi senyap. Audit ini tidak memverifikasi datanya — aktifkan pemeriksaan lanjutan agar dicari secara otomatis.",
       "fix": "Minta domain tujuan mempublikasikan data otorisasi untuk domain Anda, dalam bentuk <code>&lt;domain-anda&gt;._report._dmarc.&lt;domain-mereka&gt;</code>.",
       "fixCode": "; Data Anda mengirim laporan ke sebuah vendor:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; VENDOR harus mempublikasikan ini di zona mereka:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
     },
@@ -601,12 +626,6 @@
       "what": "Tag <code>psd=</code> merupakan hal baru di RFC 9989 dan memberi tahu DNS Tree Walk apakah domain ini merupakan Public Suffix Domain. Tag ini menerima tepat tiga nilai: <code>y</code>, <code>n</code>, dan <code>u</code> (bawaan, artinya penemuan normal berlaku). Nilai yang tidak valid adalah kesalahan sintaksis pada tag yang mengatur cara penerima menemukan kebijakan Anda.",
       "fix": "Hapus tag ini kecuali Anda mengoperasikan sebuah public suffix — <code>u</code> adalah nilai bawaan dan tepat untuk hampir semua domain biasa.",
       "fixCode": "; Domain biasa sama sekali tidak memerlukan psd=:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC menyatakan psd=y tetapi domain ini bukan public suffix.",
-      "what": "<code>psd=y</code> memberi tahu penerima bahwa nama ini adalah Public Suffix Domain — nama setingkat registri seperti <code>.gov.uk</code> yang di bawahnya organisasi-organisasi tak berkaitan melakukan pendaftaran. Ini mengubah di mana DNS Tree Walk berhenti ketika penerima mencari kebijakan, sehingga menyetelnya pada domain organisasi biasa dapat menyebabkan kebijakan Anda ditemukan secara keliru untuk subdomain. Ini hampir selalu kesalahan akibat menyalin contoh.",
-      "fix": "Hapus <code>psd=y</code> kecuali Anda benar-benar mengoperasikan public suffix yang terdaftar di Public Suffix List.",
-      "fixCode": "; Hapus tag ini:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-removed-tags": {
       "msg": "Data DMARC memuat tag yang dihapus oleh RFC 9989 ({0}) — tag itu tidak lagi berfungsi.",
@@ -622,9 +641,15 @@
     },
     "dmarc-external-unauthorized": {
       "msg": "Laporan DMARC ke {0} sedang dibuang — domain tersebut belum mengotorisasi laporan Anda.",
-      "what": "Ketika tujuan laporan berada di luar domain organisasi Anda, RFC 9990 §4.3 mengharuskan domain penerima mempublikasikan data yang memberi izin. Kami sudah mencari, dan data itu tidak ada. Karena itu penerima yang patuh spesifikasi membuang setiap laporan yang ditujukan ke {0}: tidak ada yang error dan tidak ada yang terpental, Anda hanya menerima data lebih sedikit daripada yang Anda kira — dan itu mudah disalahartikan sebagai \"tidak ada yang memalsukan kami\". Otorisasi diperiksa per tujuan, jadi alamat lain di data Anda tetap berfungsi normal; hanya yang satu ini yang dibuang.",
+      "what": "Ketika tujuan laporan berada di luar domain organisasi Anda, RFC 9990 §4 mengharuskan domain penerima mempublikasikan data yang memberi izin. Kami sudah mencari, dan data itu tidak ada. Karena itu penerima yang patuh spesifikasi membuang setiap laporan yang ditujukan ke {0}: tidak ada yang error dan tidak ada yang terpental, Anda hanya menerima data lebih sedikit daripada yang Anda kira — dan itu mudah disalahartikan sebagai \"tidak ada yang memalsukan kami\". Otorisasi diperiksa per tujuan, jadi alamat lain di data Anda tetap berfungsi normal; hanya yang satu ini yang dibuang.",
       "fix": "Minta pengelola {0} mempublikasikan data otorisasi untuk domain Anda. Sebagian besar vendor pelaporan melakukannya otomatis saat Anda menambahkan domain, jadi jika Anda baru saja menyiapkannya, ada baiknya memeriksa dasbor vendor lebih dulu — datanya mungkin baru muncul setelah domain terverifikasi di sisi mereka.",
       "fixCode": "; Domain TUJUAN mempublikasikan ini di zonanya sendiri,\n; menyebutkan domain yang laporannya ia terima:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; Vendor yang menerima banyak pelanggan biasanya mempublikasikan bentuk wildcard:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
+    },
+    "dmarc-external-override-mismatch": {
+      "msg": "{0} mengizinkan laporan Anda lalu mengalihkannya ke pihak ketiga ({1}) — penerima tidak mengirim ke kedua alamat itu, jadi Anda tidak menerima apa pun.",
+      "what": "Tujuan ini menerbitkan rekaman otorisasi dengan benar, lalu memakai <code>rua=</code> miliknya untuk menimpa ke mana laporan Anda harus dikirim — yang diizinkan RFC 9990 §4, tetapi hanya ke alamat pada host yang sama. Penggantian ini mengarah ke tempat lain. RFC menyatakan akibatnya dengan tegas: <em>\"if the confirming record includes a URI whose host is again different than the domain publishing that override, the Mail Receiver generating the report MUST NOT generate a report to either the original or the override URI.\"</em> Aturan ini mencegah rantai pengalihan dipakai untuk membanjiri pihak ketiga. Jadi ini lebih buruk daripada tujuan yang tidak diizinkan: semuanya tampak terkonfigurasi dan disetujui, sementara penerima yang patuh sama sekali tidak mengirim apa pun — baik ke alamat Anda maupun ke alamat mereka.",
+      "fix": "Rekaman ini harus diperbaiki oleh penyedia laporan Anda, bukan oleh Anda. Mintalah mereka menghapus penggantian <code>rua=</code> dari rekaman <code>_report._dmarc</code> mereka, atau mengarahkannya ke alamat pada host mereka sendiri. Sementara itu, anggap tujuan ini tidak menerima laporan dan periksa apakah Anda punya alamat <code>rua=</code> lain yang berfungsi.",
+      "fixCode": "; Diterbitkan oleh TUJUAN, di zona milik vendor sendiri — perhatikan nama owner memuat domain ANDA, karena itulah nama yang dikueri penerima:\n\n; Rusak — penggantian menyebut host lain, jadi tidak ada yang dikirim:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1; rua=mailto:collector@some-other-host.example;\"\n\n; Baik — penggantian pada host milik vendor sendiri:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1; rua=mailto:collector@vendor.example;\"\n\n; Juga baik — tanpa penggantian, laporan dikirim ke alamat rua= Anda sendiri:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1;\""
     },
     "dmarc-external-unverifiable": {
       "msg": "Tidak dapat memverifikasi otorisasi laporan untuk {0} — pencarian DNS tidak selesai.",
@@ -637,6 +662,65 @@
       "what": "Satu atau beberapa pencarian DNS untuk domain ini tidak mengembalikan jawaban yang dapat dipakai, biasanya SERVFAIL atau waktu habis dari resolver. Itu bisa saja server nama yang benar-benar bermasalah, tetapi sama seringnya merupakan gangguan sesaat yang pulih dalam hitungan menit. Sisa audit selesai secara normal dan hasilnya akurat. Pemeriksaan yang terdampak dinilai nol, karena nilai yang tidak bisa dipertanggungjawabkan oleh alat ini lebih rendah nilainya daripada nilai yang sekadar ketat — jadi pencarian yang gagal memang mengurangi poin Anda sampai dijalankan ulang.",
       "fix": "Jalankan ulang audit terlebih dahulu — kegagalan sementara akan pulih sendiri dan poinnya kembali. Jika pemeriksaan yang sama terus gagal, kueri langsung nama yang terdampak untuk melihat apakah server nama Anda menjawabnya. Server yang mengembalikan SERVFAIL alih-alih NXDOMAIN untuk nama yang tidak ada akan memicu ini berulang kali.",
       "fixCode": "; Periksa apakah server nama Anda menjawab nama yang seharusnya tidak ada.\n; Server yang sehat mengembalikan NXDOMAIN; yang bermasalah mengembalikan SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Tanyakan langsung ke server otoritatif Anda, melewati resolver:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    },
+    "dmarc-multiple-records-inherited": {
+      "msg": "Ada beberapa rekaman DMARC di {0} — semuanya diabaikan. Domain ini justru diatur oleh kebijakan di {1} ({2}).",
+      "what": "RFC 9989 §4.10 membuang setiap rekaman ketika lebih dari satu dikembalikan untuk satu nama: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> Tree Walk lalu terus naik, dan yang benar-benar diterapkan penerima adalah rekaman sah yang lebih tinggi di pohon — jadi domain ini tidak tanpa perlindungan. Yang hilang adalah kendali lokal: kebijakan yang Anda tulis di sini tidak berpengaruh, dan kebijakan warisan itu bisa lebih lemah, mengarahkan laporan ke tempat lain, atau berubah tanpa pemberitahuan saat domain induk disunting.",
+      "fix": "Hapus semua rekaman TXT di <code>_dmarc</code> kecuali satu. Begitu tersisa satu, rekaman itu mengalahkan yang diwarisi. Jika Anda memang bermaksud mewarisi, hapus keduanya dan biarkan kebijakan domain induk berlaku secara sengaja.",
+      "fixCode": "; Sebelum — dua rekaman di sini, keduanya dibuang, kebijakan domain induk yang berlaku:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none;\"\n\n; Sesudah — satu rekaman, dan ia kembali mengatur domain ini:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-at-apex": {
+      "msg": "Sebuah rekaman DMARC diterbitkan pada domain itu sendiri, bukan di bawah _dmarc — tidak ada penerima yang akan melihat ke sana.",
+      "what": "Kebijakan DMARC berada pada nama <code>_dmarc.yourdomain.com</code>, bukan pada <code>yourdomain.com</code>. RFC 9989 §4.10.1 menyatakan bahwa penemuan kebijakan <em>\"starts with a query for a valid DMARC Policy Record at the name created by prepending the label '_dmarc' to the Author Domain\"</em> — penerima mengueri nama itu dan tidak ada nama lain. Rekaman yang ditulis dengan benar pada apeks tidak terlihat: domain diperlakukan seolah sama sekali tidak punya kebijakan DMARC. Ini biasanya terjadi ketika panel DNS diam-diam mengabaikan kolom host, atau ketika rekaman ditempelkan ke kotak yang sama dengan SPF.",
+      "fix": "Terbitkan ulang rekaman itu sebagai rekaman TXT pada host <code>_dmarc</code>, lalu hapus dari apeks — untaian DMARC yang tersesat di kumpulan TXT apeks tidak melakukan apa pun selain membingungkan orang berikutnya yang membacanya.",
+      "fixCode": "; Salah — pada domain itu sendiri:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Benar — di bawah host _dmarc:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-sp": {
+      "msg": "sp= disetel ke \"{0}\", yang bukan nilai kebijakan — subdomain justru kembali ke p=.",
+      "what": "RFC 9989 §4.7 hanya mengizinkan tiga nilai untuk <code>sp=</code>: <code>none</code>, <code>quarantine</code>, dan <code>reject</code>. Selain itu bukan kebijakan, sehingga penerima mengabaikan tag tersebut dan subdomain mewarisi <code>p=</code>. Hasilnya bisa lebih ketat atau lebih longgar dari yang Anda maksud, dan rekaman itu terbaca seolah ada kebijakan subdomain yang disengaja padahal tidak ada.",
+      "fix": "Perbaiki nilainya, atau hapus <code>sp=</code> sepenuhnya jika Anda tidak keberatan subdomain mewarisi <code>p=</code>.",
+      "fixCode": "; Salah — salah ketik, diabaikan diam-diam:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; Benar:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
+    },
+    "dmarc-bad-np": {
+      "msg": "np= disetel ke \"{0}\", yang bukan nilai kebijakan — subdomain yang tidak ada justru kembali ke sp= atau p=.",
+      "what": "RFC 9989 §4.7 hanya mengizinkan tiga nilai untuk <code>np=</code>: <code>none</code>, <code>quarantine</code>, dan <code>reject</code>. Selain itu diabaikan, dan kebijakan untuk nama yang tidak ada kembali melalui <code>sp=</code> ke <code>p=</code>. Subdomain yang tidak ada adalah sasaran termurah untuk dipalsukan penyerang, jadi tag yang tampak disetel padahal tidak layak diperbaiki.",
+      "fix": "Perbaiki nilainya, atau hapus <code>np=</code> dan biarkan rantai cadangan berlaku secara sengaja.",
+      "fixCode": "; Salah — bukan nilai kebijakan:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; Benar:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
+    },
+    "dmarc-bad-adkim": {
+      "msg": "adkim= disetel ke \"{0}\" — satu-satunya nilai adalah r dan s, sehingga penyelarasan DKIM tetap longgar.",
+      "what": "RFC 9989 §4.7 mendefinisikan dua mode penyelarasan DKIM dan dua ejaan: <code>r</code> untuk longgar dan <code>s</code> untuk ketat. Nilai seperti <code>strict</code> atau <code>1</code> tidak dikenali, dan penerima kembali ke longgar. Rekaman itu terbaca ketat bagi penulisnya tetapi berperilaku longgar dalam praktik — yang terburuk dari keduanya: subdomain dari domain organisasi Anda bisa lolos penyelarasan padahal Anda mengira hanya kecocokan persis yang bisa.",
+      "fix": "Gunakan <code>adkim=s</code> untuk penyelarasan ketat, atau hapus tag itu untuk menyatakan penyelarasan longgar secara eksplisit.",
+      "fixCode": "; Salah — ditulis lengkap, jadi diabaikan:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; Benar:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
+    },
+    "dmarc-bad-aspf": {
+      "msg": "aspf= disetel ke \"{0}\" — satu-satunya nilai adalah r dan s, sehingga penyelarasan SPF tetap longgar.",
+      "what": "RFC 9989 §4.7 mendefinisikan dua mode penyelarasan SPF dan dua ejaan: <code>r</code> untuk longgar dan <code>s</code> untuk ketat. Nilai yang tidak dikenali diabaikan dan penerima kembali ke longgar, sehingga rekaman itu mengklaim ketegasan yang tidak dimilikinya. Dengan penyelarasan longgar, subdomain mana pun dari domain organisasi Anda dapat memenuhi bagian SPF dari DMARC yang lolos.",
+      "fix": "Gunakan <code>aspf=s</code> untuk penyelarasan ketat, atau hapus tag itu untuk menyatakan penyelarasan longgar secara eksplisit.",
+      "fixCode": "; Salah — ditulis lengkap, jadi diabaikan:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; Benar:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
+    },
+    "dmarc-np-not-applied": {
+      "msg": "np={0} diterbitkan tetapi tidak berlaku di sini — nama ini ada, jadi sp={1} yang mengatur.",
+      "what": "RFC 9989 §4.10.1 membagi kebijakan warisan menjadi dua: tag <code>sp=</code> berlaku <em>\"if the Author Domain exists\"</em> dan <code>np=</code> berlaku <em>\"if the Author Domain does not exist\"</em>. Keberadaan adalah persoalan DNS — Lampiran A.4 RFC 9989 menyatakan bahwa jika ada rekaman apa pun untuk sebuah nama, maka nama itu ada — dan nama ini berhasil diselesaikan, jadi cabang <code>sp=</code> yang mengatur. Ini bersifat informasi: tidak ada yang salah konfigurasi. Ini muncul di sini karena jika tidak, kebijakan yang dilaporkan akan tampak tidak sesuai dengan rekaman yang bisa Anda baca.",
+      "fix": "Tidak perlu perubahan. Jika Anda ingin kebijakan yang lebih ketat ini berlaku juga untuk subdomain yang benar-benar ada, setel <code>sp=</code> agar sama dengan <code>np=</code>.",
+      "fixCode": "; np= mencakup nama yang tidak ada; sp= mencakup nama yang ada:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
+    },
+    "dmarc-unverified": {
+      "msg": "DMARC tidak dapat diperiksa — sebuah kueri DNS gagal ({0}). Ini tidak sama dengan tidak memiliki rekaman DMARC.",
+      "what": "Menemukan kebijakan DMARC menurut RFC 9989 berarti menelusuri dari nama ini naik ke arah domain tingkat atas, dan salah satu kueri itu gagal alih-alih menjawab. Kueri yang gagal bukan bukti bahwa rekamannya tidak ada: kebijakannya bisa saja diterbitkan dan sepenuhnya sehat. Audit ini tidak akan menebak ke arah mana pun, jadi skor DMARC ditahan dan nilainya ditandai sebagai bertumpu pada pemeriksaan yang tidak selesai. Galat resolver semacam ini biasanya sementara.",
+      "fix": "Jalankan audit sekali lagi. Jika masih gagal untuk domain ini, kuerikan <code>_dmarc</code> langsung ke resolver kedua untuk mengetahui apakah namanya memang tidak terjangkau atau justru kueri kami yang sedang sial.",
+      "fixCode": "; Periksa sendiri, dari shell:\ndig +short TXT _dmarc.yourdomain.com\ndig +short TXT _dmarc.yourdomain.com @1.1.1.1\ndig +short TXT _dmarc.yourdomain.com @8.8.8.8"
+    },
+    "dmarc-at-apex-ignored": {
+      "msg": "Ada rekaman DMARC tersesat di domain itu sendiri selain yang di bawah _dmarc — tidak ada penerima yang membacanya, dan kebijakan Anda yang sebenarnya di {0} tidak terpengaruh.",
+      "what": "Kebijakan DMARC berada di <code>_dmarc.yourdomain.com</code>; penerima mengueri nama itu dan tidak ada nama lain. Ada untaian <code>v=DMARC1</code> kedua di kumpulan TXT milik domain ini, yang tidak akan pernah dilihat penerima mana pun. Kebijakan Anda yang sesungguhnya adalah yang ditemukan di {0} dan berlaku seperti biasa — jadi ini soal kerapian, bukan bahaya. Biasanya ini berarti salinan lama tertinggal setelah rekaman dipindahkan ke nama yang benar.",
+      "fix": "Hapus untaian <code>v=DMARC1</code> dari rekaman TXT domain itu sendiri. Biarkan yang di bawah <code>_dmarc</code> persis seperti apa adanya.",
+      "fixCode": "; Hapus ini — tidak ada yang membacanya:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Pertahankan ini — inilah kebijakan Anda:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "Hanya {0} dari {1} tujuan laporan yang diperiksa — audit ini berhenti di 10. Tidak diperiksa: {2}",
+      "what": "Rekaman Anda menyebut lebih banyak tujuan laporan daripada yang akan ditelusuri audit ini. Setiap tujuan di luar domain organisasi Anda memerlukan satu penelusuran pohon DNS ditambah satu kueri otorisasi, dan jumlahnya ditentukan oleh rekaman itu sendiri — jadi audit tidak membiarkan satu rekaman menentukan seberapa banyak lalu lintas DNS yang dihasilkannya. RFC 9990 §3.5 mengantisipasi hal ini, menyatakan laporan dikirim ke setiap URI <em>\"up to the Receiver's limits on supported URIs\"</em>, dan penerima sungguhan pun menerapkan batas mereka sendiri. Pemberitahuan ini ada agar penilaian di atas tidak disalahartikan sebagai daftar yang lengkap.",
+      "fix": "Tidak ada yang salah dengan rekaman itu. Jika Anda ingin semua tujuan diaudit, pisahkan domain ke dalam beberapa proses. Jika daftarnya memang bertambah panjang seiring waktu, ada baiknya dipangkas: tujuan yang tidak lagi Anda baca tetap harus dicoba oleh penerima."
     }
   },
   "suggestion": {

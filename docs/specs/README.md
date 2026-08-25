@@ -44,7 +44,6 @@ rationale, the dependency map, and the group-by-group execution plan.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [dmarcbis-tree-walk](dmarcbis-tree-walk.md) | 0.3.0 | 0.1 | Draft, awaiting review |
 | [dns-protocol-depth](dns-protocol-depth.md) | 0.4.0 | 0.1 | Draft, awaiting review |
 | [dnssec-evidence](dnssec-evidence.md) | 0.5.0 | 0.1 | Draft, awaiting review |
 | [findings-and-remediation](findings-and-remediation.md) | 0.6.0 | 0.1 | Draft, awaiting review |
@@ -83,6 +82,7 @@ precedent, and one spec was superseded outright during implementation.
 | [locale-translation-pipeline](implemented/locale-translation-pipeline.md) | 0.2.1 | [#14](https://github.com/kwestic-tech/dns-email-audit/pull/14) | `ec1983f` | 1.0 (Implemented, superseding design) |
 | [spf-referenced-dkim-selectors](implemented/spf-referenced-dkim-selectors.md) | 0.2.2 | [#15](https://github.com/kwestic-tech/dns-email-audit/pull/15) | `e158020` | 1.0 (Implemented) |
 | [rendering-and-robustness](implemented/rendering-and-robustness.md) | 0.2.3 | [#18](https://github.com/kwestic-tech/dns-email-audit/pull/18) | `6bf8bda` | 1.3 (Implemented) |
+| [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) | 0.3.0 | [#20](https://github.com/kwestic-tech/dns-email-audit/pull/20) | pending merge | 1.2 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in

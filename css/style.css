@@ -393,3 +393,11 @@ td.domain-cell { font-weight: 700; font-size: 12.5px; white-space: nowrap; }
   color: var(--warn);
 }
 .rv-hygiene-item { font-size: 11.5px; color: var(--ink2); }
+
+/* Tree Walk evidence (0.3.0). The step list reuses the .showme-* disclosure
+   so it needs no event wiring of its own. */
+.dmarc-discovery { margin-top: 6px; }
+.dmarc-discovery .walk-step { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.8; color: var(--ink2); }
+.dmarc-discovery .walk-hit { color: var(--ok); font-weight: 600; }
+.dmarc-discovery .walk-miss { color: var(--ink3); }
+.dmarc-discovery .walk-applied { text-decoration: underline; text-underline-offset: 2px; }

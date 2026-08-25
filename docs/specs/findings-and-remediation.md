@@ -324,6 +324,35 @@ whether, for example, CAA should come before or after MTA-STS. Mitigation: the
 graph only encodes dependencies that are technically necessary. Preference
 ordering within a step is severity and effort, which is defensible and visible.
 
+## Referred here by earlier releases
+
+Decisions other specs deliberately deferred to this one, recorded so they are
+not lost between releases.
+
+- **`psd=y` and the score** — referred by `OQ-DMARC-07` (0.3.0). A domain that
+  correctly declares itself a Public Suffix Domain is doing something
+  responsible that nothing currently rewards; one that incorrectly declares
+  `psd=y` is misrepresenting its position in the tree. 0.3.0 deliberately made
+  neither affect the score, under the advisory-before-scoring rule. This spec
+  owns severity, so it decides whether either becomes a finding and at what
+  level.
+- **`dmarc-multiple-records` severity source** — 0.3.0 changed where this
+  finding comes from. Duplicate DMARC records at a queried name no longer
+  terminate discovery: per RFC 9989 §4.10 they are discarded and the walk
+  continues, so a valid record higher in the tree still applies and the status
+  may be `missing` rather than `permerror`. The finding stays **critical** and
+  is raised from `dmarcDiscovery.observed[]` evidence rather than from
+  `dmarcStatus.status`. Any rule in this release's registry that keys on
+  `status === 'permerror'` for DMARC must key on the evidence instead.
+- **Record hygiene as findings** — referred by `OQ-SEC-12` (0.2.3). Bidirectional
+  overrides, zero-width and control characters in a published record are
+  display annotations in 0.2.3, not findings. This spec decides whether they
+  become findings and at what severity.
+- **CSV formula injection** — referred by 0.2.3's Risks section. A cell whose
+  first character makes a spreadsheet execute it is neutralized at export and
+  flagged `formula-leading`; whether that also warrants a finding is this
+  spec's call.
+
 ## Open questions
 
 **OQ-FIND-01: Is the remediation plan the default view, or the alternate?**

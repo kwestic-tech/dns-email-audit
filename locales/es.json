@@ -173,6 +173,7 @@
   },
   "dmarc": {
     "missing": "✗ Faltante",
+    "unverified": "⚠ Sin verificar",
     "reject": "✓ reject",
     "quarantine": "✓ quarantine",
     "none": "⚠ none (monitoreo)",
@@ -181,7 +182,28 @@
     "pctSuffix": "({0} %)",
     "permerror": "🔴 Múltiples registros",
     "inheritedFrom": "Heredado de {0}",
-    "testMode": "⚠ {0} (modo de prueba, no aplicado)"
+    "testMode": "⚠ {0} (modo de prueba, no aplicado)",
+    "discoveryFoundAt": "Política encontrada en {0} tras {1} consultas",
+    "discoveryNotFound": "No se encontró ninguna política en {0} consultas",
+    "discoverySteps": "Tree Walk",
+    "showWalk": "Mostrar el Tree Walk",
+    "stepSelected": "registro",
+    "stepApplied": "registro aplicado",
+    "stepKind": {
+      "success": "sin registro DMARC",
+      "nodata": "sin registros TXT",
+      "nxdomain": "el nombre no existe",
+      "servfail": "SERVFAIL",
+      "refused": "rechazada",
+      "timeout": "tiempo agotado",
+      "error": "consulta fallida"
+    },
+    "terminated": {
+      "psd-y": "detenido en un sufijo público (psd=y)",
+      "psd-n": "detenido en un dominio organizativo (psd=n)",
+      "root": "recorrido hasta el dominio de nivel superior",
+      "error": "detenido antes de tiempo — falló una consulta"
+    }
   },
   "dkim": {
     "uncommon": "Poco común ({0})",
@@ -284,7 +306,10 @@
       "Búsquedas SPF",
       "Problemas",
       "Sugerencias",
-      "Higiene del registro"
+      "Higiene del registro",
+      "DMARC encontrado en",
+      "Etiquetas DMARC hacia arriba",
+      "Fin del descubrimiento DMARC"
     ],
     "yes": "Sí",
     "no": "No",
@@ -327,10 +352,10 @@
       "fixCode": "; Antes — dos registros, SPF falla para todo:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Después — un registro con ambos remitentes:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""
     },
     "dmarc-multiple-records": {
-      "msg": "Múltiples registros DMARC encontrados en _dmarc — DMARC no se aplica en absoluto, el dominio se puede suplantar.",
-      "what": "El RFC 7489 §6.6.3 requiere exactamente un registro DMARC. Los receptores descartan cualquier cosa sin una etiqueta <code>v=DMARC1</code>, y si queda más de uno, la detección de la política finaliza y DMARC no se aplica al mensaje. Tu política — por muy estricta que sea — se ignora por completo, por lo que el dominio es suplantable a la vez que parece estar protegido. También dejarás de recibir informes agregados, lo que elimina la señal que te habría advertido si algo andaba mal.",
-      "fix": "Elimina todos los registros TXT en <code>_dmarc</code> excepto uno. Si los duplicados especifican diferentes direcciones de informe, conserva un registro y enumera ambas direcciones en una sola etiqueta <code>rua=</code>, separadas por una coma.",
-      "fixCode": "; Antes — dos registros en _dmarc, DMARC ignorado:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@tudominio.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Después — un registro, ambos destinos de informe:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@tudominio.com,mailto:reports@vendor.example;\""
+      "msg": "Varios registros DMARC en {0} — todos los receptores los ignoran por completo y no se aplica ninguna política.",
+      "what": "RFC 9989 §4.10 es explícito: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> Los receptores no eligen uno: descartan el conjunto entero y siguen subiendo por el árbol DNS. Por encima de este nombre tampoco hay nada publicado, así que el resultado final es que su dominio no tiene ninguna política DMARC, aunque parezca completamente configurado. Además dejará de recibir informes agregados, que era la única señal que se lo habría advertido.",
+      "fix": "Elimine todos los registros TXT en <code>_dmarc</code> salvo uno. Si los duplicados indican direcciones de informe distintas, conserve un registro y liste ambas direcciones en una sola etiqueta <code>rua=</code>, separadas por una coma.",
+      "fixCode": "; Antes — dos registros en _dmarc, ambos descartados:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none; rua=mailto:reports@vendor.example;\"\n\n; Después — un registro, ambos destinos de informe:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com,mailto:reports@vendor.example;\""
     },
     "mta-sts-multiple-records": {
       "msg": "Múltiples registros MTA-STS encontrados — los remitentes consideran que tu dominio no tiene política MTA-STS, por lo que no se fuerza TLS entrante.",
@@ -531,20 +556,20 @@
       "msg": "El registro BIMI está mal formado o no contiene una URL de logotipo HTTPS válida."
     },
     "dmarc-version-missing": {
-      "msg": "El registro DMARC no empieza por v=DMARC1: los receptores deben ignorarlo por completo.",
-      "what": "El RFC 9989 §5.4 exige que la etiqueta <code>v=</code> sea la primera del registro. Un registro sin ella no es un registro DMARC en absoluto, contenga lo que contenga. Los servidores receptores lo descartan y tratan su dominio como si no tuviera política DMARC, así que el registro le da la apariencia de protección sin nada de su sustancia.",
+      "msg": "El registro DMARC en {0} no empieza por v=DMARC1 — los receptores deben ignorarlo por completo.",
+      "what": "El RFC 9989 §4.7 exige que la etiqueta <code>v=</code> sea la primera del registro. Un registro sin ella no es un registro DMARC en absoluto, contenga lo que contenga. Los servidores receptores lo descartan y tratan su dominio como si no tuviera política DMARC, así que el registro le da la apariencia de protección sin nada de su sustancia.",
       "fix": "Reescriba el registro para que empiece por <code>v=DMARC1;</code> seguido de su política.",
       "fixCode": "; Incorrecto: sin etiqueta de versión:\n_dmarc    TXT    \"p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Correcto:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-not-first": {
-      "msg": "v=DMARC1 está presente pero no es la primera etiqueta: los receptores deben ignorar el registro entero.",
-      "what": "El RFC 9989 §5.4 dice que <code>v=</code> DEBE ser la primera etiqueta de la lista, no simplemente estar presente en alguna parte. Por lo demás, el orden de las etiquetas es libre, lo que hace fácil equivocarse cuando un registro se edita a mano o lo compone un script. Un receptor que sigue la especificación deja de analizar y trata el dominio como desprotegido.",
+      "msg": "v=DMARC1 está presente en {0} pero no es la primera etiqueta — los receptores deben ignorar todo el registro.",
+      "what": "El RFC 9989 §4.7 dice que <code>v=</code> DEBE ser la primera etiqueta de la lista, no simplemente estar presente en alguna parte. Por lo demás, el orden de las etiquetas es libre, lo que hace fácil equivocarse cuando un registro se edita a mano o lo compone un script. Un receptor que sigue la especificación deja de analizar y trata el dominio como desprotegido.",
       "fix": "Mueva <code>v=DMARC1;</code> al principio del registro. No hace falta cambiar nada más.",
       "fixCode": "; Incorrecto: v= no va primero:\n_dmarc    TXT    \"p=reject; v=DMARC1; rua=mailto:dmarc@yourdomain.com;\"\n\n; Correcto:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-version-bad-value": {
-      "msg": "El valor de versión de DMARC no es exactamente «DMARC1»: el valor distingue mayúsculas y minúsculas y el registro se ignora.",
-      "what": "Casi todos los valores de un registro DMARC no distinguen mayúsculas de minúsculas, pero el RFC 9989 §5.4 hace de <code>v=</code> la excepción: la única grafía aceptada es <code>DMARC1</code>, en mayúsculas. <code>v=dmarc1</code> o <code>v=DMARC2</code> hacen que se ignore el registro entero. Es una víctima habitual del copiar y pegar, porque los paneles DNS suelen convertir los valores a minúsculas al introducirlos.",
+      "msg": "El valor de versión DMARC en {0} no es exactamente \"DMARC1\" — el valor distingue mayúsculas y minúsculas, y el registro se ignora.",
+      "what": "Casi todos los valores de un registro DMARC no distinguen mayúsculas de minúsculas, pero el RFC 9989 §4.7 hace de <code>v=</code> la excepción: la única grafía aceptada es <code>DMARC1</code>, en mayúsculas. <code>v=dmarc1</code> o <code>v=DMARC2</code> hacen que se ignore el registro entero. Es una víctima habitual del copiar y pegar, porque los paneles DNS suelen convertir los valores a minúsculas al introducirlos.",
       "fix": "Ponga el valor exactamente en <code>DMARC1</code> y compruebe después qué guardó realmente su panel DNS.",
       "fixCode": "; Incorrecto: en minúsculas:\n_dmarc    TXT    \"v=dmarc1; p=reject;\"\n\n; Correcto:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
@@ -592,7 +617,7 @@
     },
     "dmarc-external-reporting": {
       "msg": "Los informes DMARC van a un dominio externo ({0}): ese dominio debe autorizarlos o los informes se descartan.",
-      "what": "Cuando un destino de informes está fuera de su dominio organizativo —un proveedor DMARC, un consultor, una empresa hermana—, el RFC 9990 §4.3 exige que el dominio receptor publique un registro que conceda el permiso. Sin él, los receptores conformes descartan silenciosamente los informes dirigidos a ese destino. La autorización se evalúa por destino, así que un proveedor no autorizado no rompe su registro DMARC ni impide que los informes lleguen al resto de sus direcciones; simplemente ese destino se queda en silencio. Esta auditoría no verificó el registro: active las comprobaciones avanzadas para que se consulte automáticamente.",
+      "what": "Cuando un destino de informes está fuera de su dominio organizativo —un proveedor DMARC, un consultor, una empresa hermana—, el RFC 9990 §4 exige que el dominio receptor publique un registro que conceda el permiso. Sin él, los receptores conformes descartan silenciosamente los informes dirigidos a ese destino. La autorización se evalúa por destino, así que un proveedor no autorizado no rompe su registro DMARC ni impide que los informes lleguen al resto de sus direcciones; simplemente ese destino se queda en silencio. Esta auditoría no verificó el registro: active las comprobaciones avanzadas para que se consulte automáticamente.",
       "fix": "Pida al dominio de destino que publique un registro de autorización para su dominio, con la forma <code>&lt;su-dominio&gt;._report._dmarc.&lt;dominio-de-ellos&gt;</code>.",
       "fixCode": "; Su registro envía informes a un proveedor:\n_dmarc.yourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:you@vendor.example;\"\n\n; El PROVEEDOR debe publicar esto en su zona:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1\""
     },
@@ -601,12 +626,6 @@
       "what": "La etiqueta <code>psd=</code> es nueva en RFC 9989 e indica al DNS Tree Walk si este dominio es un dominio de sufijo público. Acepta exactamente tres valores: <code>y</code>, <code>n</code> y <code>u</code> (el predeterminado, que significa que se aplica el descubrimiento normal). Un valor no válido es un error de sintaxis en una etiqueta que controla cómo localizan su política los receptores.",
       "fix": "Elimine la etiqueta salvo que opere un sufijo público: <code>u</code> es el valor predeterminado y es el correcto para prácticamente cualquier dominio ordinario.",
       "fixCode": "; Los dominios ordinarios no necesitan psd= en absoluto:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC declara psd=y pero este dominio no es un sufijo público.",
-      "what": "<code>psd=y</code> indica a los receptores que este nombre es un dominio de sufijo público: un nombre de nivel de registro como <code>.gov.uk</code> bajo el cual registran organizaciones sin relación entre sí. Cambia dónde se detiene el DNS Tree Walk cuando los receptores buscan una política, así que ponerlo en un dominio organizativo ordinario puede hacer que su política se descubra incorrectamente para los subdominios. Casi siempre es un error de haber copiado un ejemplo.",
-      "fix": "Elimine <code>psd=y</code> salvo que opere realmente un sufijo público incluido en la Public Suffix List.",
-      "fixCode": "; Elimine la etiqueta:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
     "dmarc-removed-tags": {
       "msg": "El registro DMARC contiene etiquetas eliminadas por el RFC 9989 ({0}): ya no hacen nada.",
@@ -622,9 +641,15 @@
     },
     "dmarc-external-unauthorized": {
       "msg": "Los informes DMARC dirigidos a {0} se están descartando: ese dominio no ha autorizado sus informes.",
-      "what": "Cuando un destino de informes queda fuera de su dominio organizativo, el RFC 9990 §4.3 exige que el dominio receptor publique un registro que conceda el permiso. Lo hemos buscado y no está. Por tanto, los receptores conformes descartan todos los informes dirigidos a {0}: nada da error y nada rebota, simplemente recibe menos datos de los que cree, algo que es fácil confundir con «nadie nos está suplantando». La autorización se comprueba por destino, así que las demás direcciones de su registro siguen funcionando con normalidad; solo se está descartando esta.",
+      "what": "Cuando un destino de informes queda fuera de su dominio organizativo, el RFC 9990 §4 exige que el dominio receptor publique un registro que conceda el permiso. Lo hemos buscado y no está. Por tanto, los receptores conformes descartan todos los informes dirigidos a {0}: nada da error y nada rebota, simplemente recibe menos datos de los que cree, algo que es fácil confundir con «nadie nos está suplantando». La autorización se comprueba por destino, así que las demás direcciones de su registro siguen funcionando con normalidad; solo se está descartando esta.",
       "fix": "Pida al operador de {0} que publique un registro de autorización para su dominio. La mayoría de los proveedores de informes lo hacen automáticamente al añadir un dominio, así que si acaba de configurarlo conviene revisar primero el panel del proveedor: puede que el registro solo aparezca una vez verificado el dominio por su parte.",
       "fixCode": "; El dominio de DESTINO publica esto en su propia zona,\n; nombrando el dominio cuyos informes acepta:\nyourdomain.com._report._dmarc.{0}    TXT    \"v=DMARC1\"\n\n; Los proveedores con muchos clientes suelen publicar la forma con comodín:\n*._report._dmarc.{0}    TXT    \"v=DMARC1\""
+    },
+    "dmarc-external-override-mismatch": {
+      "msg": "{0} autorizó sus informes y luego los redirigió a un tercero ({1}) — los receptores no envían a ninguna de las dos direcciones, así que usted no recibe nada.",
+      "what": "Este destino publicó correctamente el registro de autorización y después usó su <code>rua=</code> para anular a dónde deben ir sus informes — algo que la RFC 9990 §4 permite, pero solo hacia una dirección del mismo host. Esta anulación apunta a otro sitio. La RFC es explícita sobre la consecuencia: <em>\"if the confirming record includes a URI whose host is again different than the domain publishing that override, the Mail Receiver generating the report MUST NOT generate a report to either the original or the override URI.\"</em> La regla existe para impedir que una cadena de redirecciones se use para inundar a un tercero. Así que esto es peor que un destino no autorizado: todo parece configurado y autorizado, y los receptores conformes no envían absolutamente nada, ni a su dirección ni a la de ellos.",
+      "fix": "Este registro lo debe corregir su proveedor de informes, no usted. Pídale que elimine la anulación <code>rua=</code> de su registro <code>_report._dmarc</code>, o que la apunte a una dirección de su propio host. Mientras tanto, dé por hecho que ese destino no recibe informes y compruebe si tiene otra dirección <code>rua=</code> que sí funcione.",
+      "fixCode": "; Publicado por el DESTINO, en la propia zona del proveedor — fíjese en que el nombre del owner lleva SU dominio, porque ese es el nombre que consulta el receptor:\n\n; Roto — la anulación nombra otro host, así que no se envía nada:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1; rua=mailto:collector@some-other-host.example;\"\n\n; Correcto — una anulación en el propio host del proveedor:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1; rua=mailto:collector@vendor.example;\"\n\n; También correcto — sin anulación, los informes van a su propia dirección rua=:\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1;\""
     },
     "dmarc-external-unverifiable": {
       "msg": "No se pudo verificar la autorización de informes para {0}: la consulta DNS no se completó.",
@@ -637,6 +662,65 @@
       "what": "Una o más consultas DNS de este dominio no devolvieron una respuesta utilizable, normalmente un SERVFAIL o un tiempo de espera agotado del resolutor. Puede tratarse de un servidor de nombres realmente averiado, pero con la misma frecuencia es una incidencia pasajera que se resuelve en minutos. El resto de la auditoría se completó con normalidad y es correcto. Las comprobaciones afectadas se puntúan como cero, porque una nota que esta herramienta no puede respaldar vale menos que una nota simplemente estricta: una consulta fallida le cuesta puntos hasta que se vuelva a ejecutar.",
       "fix": "Vuelva a ejecutar la auditoría primero: un fallo transitorio se resuelve solo y los puntos se recuperan. Si las mismas comprobaciones siguen fallando, consulte directamente los nombres afectados para ver si sus servidores de nombres responden. Un servidor que devuelve SERVFAIL en lugar de NXDOMAIN para nombres que no existen provocará esto de forma repetida.",
       "fixCode": "; Compruebe si sus servidores de nombres responden a un nombre que no debería existir.\n; Un servidor sano devuelve NXDOMAIN; uno averiado devuelve SERVFAIL:\ndig +short does-not-exist-test.yourdomain.com\n\n; Pregunte directamente a sus servidores autoritativos, sin pasar por el resolutor:\ndig @ns1.yourprovider.com www.yourdomain.com A"
+    },
+    "dmarc-multiple-records-inherited": {
+      "msg": "Varios registros DMARC en {0} — todos se ignoran. En su lugar rige este dominio la política de {1} ({2}).",
+      "what": "RFC 9989 §4.10 descarta todos los registros cuando se devuelve más de uno para un nombre: <em>\"If multiple DMARC Policy Records are returned for a single target, they are all discarded.\"</em> El Tree Walk continúa entonces hacia arriba, y lo que los receptores aplican de verdad es un registro válido situado más arriba en el árbol, así que este dominio no queda desprotegido. Lo que ha perdido es el control local: la política que escribió aquí no tiene efecto, y la heredada puede ser más débil, dirigir los informes a otro sitio o cambiar sin aviso cuando se edite el dominio padre.",
+      "fix": "Elimine todos los registros TXT en <code>_dmarc</code> salvo uno. En cuanto quede uno solo, tendrá prioridad sobre el heredado. Si su intención era heredar, elimine ambos y deje que la política del dominio padre se aplique de forma deliberada.",
+      "fixCode": "; Antes — dos registros aquí, ambos descartados, rige la política del dominio padre:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n_dmarc    TXT    \"v=DMARC1; p=none;\"\n\n; Después — un registro, y vuelve a regir este dominio:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-at-apex": {
+      "msg": "Hay un registro DMARC publicado en el propio dominio en lugar de bajo _dmarc — ningún receptor mirará nunca ahí.",
+      "what": "Una política DMARC vive en el nombre <code>_dmarc.yourdomain.com</code>, no en <code>yourdomain.com</code>. RFC 9989 §4.10.1 dice que el descubrimiento de la política <em>\"starts with a query for a valid DMARC Policy Record at the name created by prepending the label '_dmarc' to the Author Domain\"</em>: los receptores consultan ese nombre y ningún otro. Un registro correctamente escrito en el ápice es invisible, y el dominio se trata como si no tuviera ninguna política DMARC. Suele ocurrir cuando un panel DNS ignora en silencio el campo de host, o cuando el registro se pega en la misma casilla que el SPF.",
+      "fix": "Vuelva a publicar el registro como registro TXT en el host <code>_dmarc</code> y elimínelo del ápice: una cadena DMARC perdida en el conjunto TXT del ápice no hace nada salvo confundir a quien la lea después.",
+      "fixCode": "; Incorrecto — en el propio dominio:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Correcto — bajo el host _dmarc:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-bad-sp": {
+      "msg": "sp= está fijado en \"{0}\", que no es un valor de política — los subdominios recurren a p= en su lugar.",
+      "what": "RFC 9989 §4.7 admite exactamente tres valores para <code>sp=</code>: <code>none</code>, <code>quarantine</code> y <code>reject</code>. Cualquier otra cosa no es una política, así que los receptores ignoran la etiqueta y los subdominios heredan <code>p=</code>. Eso puede ser más estricto o más laxo de lo que pretendía, y el registro se lee como si hubiera una política de subdominios deliberada cuando no la hay.",
+      "fix": "Corrija el valor, o elimine <code>sp=</code> por completo si le parece bien que los subdominios hereden <code>p=</code>.",
+      "fixCode": "; Incorrecto — errata, se ignora en silencio:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=rejcet;\"\n\n; Correcto:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=reject;\""
+    },
+    "dmarc-bad-np": {
+      "msg": "np= está fijado en \"{0}\", que no es un valor de política — los subdominios inexistentes recurren a sp= o p= en su lugar.",
+      "what": "RFC 9989 §4.7 admite exactamente tres valores para <code>np=</code>: <code>none</code>, <code>quarantine</code> y <code>reject</code>. Cualquier otra cosa se ignora, y la política para nombres que no existen recurre a <code>sp=</code> y luego a <code>p=</code>. Los subdominios inexistentes son lo más barato de suplantar para un atacante, así que merece la pena corregir una etiqueta que parece configurada y no lo está.",
+      "fix": "Corrija el valor, o elimine <code>np=</code> y deje que la cadena de respaldo actúe de forma deliberada.",
+      "fixCode": "; Incorrecto — no es un valor de política:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=nope;\"\n\n; Correcto:\n_dmarc    TXT    \"v=DMARC1; p=reject; np=reject;\""
+    },
+    "dmarc-bad-adkim": {
+      "msg": "adkim= está fijado en \"{0}\" — los únicos valores son r y s, así que la alineación DKIM sigue siendo relajada.",
+      "what": "RFC 9989 §4.7 define dos modos de alineación DKIM y dos grafías: <code>r</code> para relajada y <code>s</code> para estricta. Un valor como <code>strict</code> o <code>1</code> no se reconoce, y los receptores recurren a la relajada. El registro se lee como estricto para quien lo escribió mientras se comporta como relajado en la práctica, que es lo peor de ambos mundos: un subdominio de su dominio organizativo puede superar la alineación cuando usted creía que solo lo lograría una coincidencia exacta.",
+      "fix": "Use <code>adkim=s</code> para alineación estricta, o elimine la etiqueta para declarar la alineación relajada de forma explícita.",
+      "fixCode": "; Incorrecto — escrito por extenso, así que se ignora:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=strict;\"\n\n; Correcto:\n_dmarc    TXT    \"v=DMARC1; p=reject; adkim=s;\""
+    },
+    "dmarc-bad-aspf": {
+      "msg": "aspf= está fijado en \"{0}\" — los únicos valores son r y s, así que la alineación SPF sigue siendo relajada.",
+      "what": "RFC 9989 §4.7 define dos modos de alineación SPF y dos grafías: <code>r</code> para relajada y <code>s</code> para estricta. Un valor no reconocido se ignora y los receptores recurren a la relajada, de modo que el registro afirma un rigor que no tiene. Con alineación relajada, cualquier subdominio de su dominio organizativo puede satisfacer la mitad SPF de un DMARC correcto.",
+      "fix": "Use <code>aspf=s</code> para alineación estricta, o elimine la etiqueta para declarar la alineación relajada de forma explícita.",
+      "fixCode": "; Incorrecto — escrito por extenso, así que se ignora:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=loose;\"\n\n; Correcto:\n_dmarc    TXT    \"v=DMARC1; p=reject; aspf=s;\""
+    },
+    "dmarc-np-not-applied": {
+      "msg": "np={0} está publicado pero no se aplica aquí — este nombre existe, así que rige sp={1}.",
+      "what": "RFC 9989 §4.10.1 divide en dos la política heredada: la etiqueta <code>sp=</code> se aplica <em>\"if the Author Domain exists\"</em> y <code>np=</code> se aplica <em>\"if the Author Domain does not exist\"</em>. La existencia es una cuestión de DNS — el apéndice A.4 de RFC 9989 indica que si existe cualquier registro para un nombre, el nombre existe — y este nombre resolvió, así que rige la rama <code>sp=</code>. Esto es informativo: no hay nada mal configurado. Aparece aquí porque, de lo contrario, la política indicada parecería incoherente con el registro que usted puede leer.",
+      "fix": "No hace falta ningún cambio. Si quería que esta política más estricta se aplicara también a los subdominios reales, ponga <code>sp=</code> con el mismo valor que <code>np=</code>.",
+      "fixCode": "; np= cubre los nombres que no existen; sp= cubre los que sí:\n_dmarc    TXT    \"v=DMARC1; p=reject; sp=quarantine; np=reject;\""
+    },
+    "dmarc-unverified": {
+      "msg": "No se pudo comprobar DMARC — falló una consulta DNS ({0}). Esto no es lo mismo que no tener registro DMARC.",
+      "what": "Descubrir una política DMARC según RFC 9989 significa recorrer el árbol desde este nombre hacia el dominio de nivel superior, y una de esas consultas falló en lugar de responder. Una consulta fallida no es prueba de que falte el registro: la política puede estar publicada y perfectamente sana. Esta auditoría no va a suponer nada en ninguna dirección, así que retiene la puntuación DMARC y marca la nota como apoyada en una comprobación que no llegó a completarse. Los errores de resolutor de este tipo suelen ser transitorios.",
+      "fix": "Vuelva a ejecutar la auditoría. Si sigue fallando para este dominio, consulte <code>_dmarc</code> directamente contra un segundo resolutor para averiguar si el nombre es realmente inalcanzable o si fue nuestra consulta la que tuvo mala suerte.",
+      "fixCode": "; Compruébelo usted mismo, desde una shell:\ndig +short TXT _dmarc.yourdomain.com\ndig +short TXT _dmarc.yourdomain.com @1.1.1.1\ndig +short TXT _dmarc.yourdomain.com @8.8.8.8"
+    },
+    "dmarc-at-apex-ignored": {
+      "msg": "Hay un registro DMARC suelto en el propio dominio además del que está bajo _dmarc — ningún receptor lo lee, y su política real en {0} no se ve afectada.",
+      "what": "Una política DMARC vive en <code>_dmarc.yourdomain.com</code>; los receptores consultan ese nombre y ningún otro. Hay una segunda cadena <code>v=DMARC1</code> en el conjunto TXT propio de este dominio, que ningún receptor mirará jamás. Su política real es la encontrada en {0} y rige con normalidad, así que esto es desorden, no peligro. Suele significar que quedó una copia antigua después de mover el registro al nombre correcto.",
+      "fix": "Elimine la cadena <code>v=DMARC1</code> de los registros TXT del propio dominio. Deje exactamente como está la que se encuentra bajo <code>_dmarc</code>.",
+      "fixCode": "; Elimine esto — nada lo lee:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Conserve esto — esta es su política:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "Solo se comprobaron {0} de {1} destinos de informe — esta auditoría se detiene en 10. Sin comprobar: {2}",
+      "what": "Su registro nombra más destinos de informe de los que esta auditoría va a seguir. Cada uno fuera de su dominio organizativo cuesta un recorrido del árbol DNS más una consulta de autorización, y su número lo fija el propio registro — así que una auditoría no deja que un solo registro decida cuánto tráfico DNS genera. La RFC 9990 §3.5 prevé exactamente esto al decir que los informes van a todas las URI <em>\"up to the Receiver's limits on supported URIs\"</em>, y los receptores reales también imponen sus propios límites. Este aviso existe para que los veredictos de arriba no se confundan con una lista completa.",
+      "fix": "El registro no tiene nada malo. Si quiere auditar todos los destinos, reparta los dominios en varias ejecuciones. Si la lista simplemente ha crecido con el tiempo, conviene podarla: los destinos que ya no lee son destinos que un receptor todavía tiene que intentar."
     }
   },
   "suggestion": {
