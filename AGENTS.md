@@ -138,20 +138,126 @@ detected on the next run. Never hand-edit `translation-status.json`.
 - Never edit while on `main`; branch first.
 - `tmp/` is scratch and git-ignored.
 
-## PR description change log
+## Committing, pushing, and when the PR opens
 
-A pull request description is a living document, not a frozen snapshot taken at
-open time. When a PR goes through external review — Codex, Gemini, or a human —
-the original description stays intact. Updates are **appended, never
-overwritten**.
+**Commit locally as often as the work warrants. Do not push every commit.**
 
-**On opening a PR:** write the description as normal (what changed, why, how it
-was tested). It lives in `pr-description.md`, untracked and listed in
-`.git/info/exclude`, structured like
-[PR #4](https://github.com/kwestic-tech/dns-email-audit/pull/4).
+Local commits are free and they are the right unit of work: one per finished
+step, one per review finding fixed, one per test suite brought green. Push is
+not free — it costs a round trip, it triggers CI, and on a branch that is going
+to be squashed anyway it publishes history that never reaches `main`.
 
-**After any review round that produces new commits:** append a dated entry below
-a `---` separator.
+| | |
+| --- | --- |
+| **Commit** | Freely, locally, throughout. |
+| **Push** | Once the work is tested and reviewed. |
+| **Open the PR** | At the same time, or after. Not before. |
+| **Cut the release** | On the same branch, as the last commit before pushing. |
+| **Merge** | **Squash.** Ian says when. |
+
+**Open the pull request at the end, not the start.** External review reads the
+working tree, not GitHub — Codex is handed a branch and a decision log, not a
+URL. A PR opened before review is a stale review target that has to be kept
+fresh with pushes that exist only to keep it accurate. Opening it when the work
+is done removes that obligation entirely.
+
+**The merge is Ian's call, not a step you run when the gates go green.** Push,
+open the PR, say it is ready, and stop. He will say when to squash and merge.
+
+## Cutting the release on the same branch
+
+**There is no `chore/release-*` branch.** Releases through 0.4.0 used one, which
+meant two pull requests per release: the feature work, then a second PR that
+only bumped a version and flipped some status fields. One branch, one PR, one
+squashed commit is the whole release.
+
+The version bump and the documentation status changes are the **last commit on
+the feature branch**, made after the work is finished and before the push:
+
+1. Finish the work. Gates green: `npm test`, `npm run locale:gate`, and the
+   backtest for anything that could move a score.
+2. Write the release artifacts from the finished state — `CHANGELOG.md`,
+   `README.md`, the PR description. See the section below.
+3. **Cut the release, as its own commit:** bump `package.json`, promote
+   `## [Unreleased]` to `## [<version>] — <date>` and add the compare links,
+   and set the released status in `docs/specs/implemented/<spec>.md`,
+   `docs/specs/README.md`, `ROADMAP.md` and the phase marker in
+   `docs/async-development-handoff.md`.
+4. Push once, open the PR, and stop.
+5. Ian says when to squash and merge. **Tag after the merge**, annotated, on the
+   squashed commit: `git tag -a v<version> -m "<version> — <subject>"`.
+
+Read the assertion count for `README.md` out of a real `npm test` run rather
+than typing it from memory — it drifted from 174 to 489 unnoticed once already.
+
+**One field cannot be known before the merge.** The spec header and the
+`docs/specs/README.md` row have recorded the merge commit SHA, and under this
+flow that SHA does not exist until after Ian merges. Record the **release tag**
+instead: it is known in advance, it is what a reader actually looks for, and it
+survives a rebase. The SHAs already recorded for 0.2.x through 0.4.0 stay as
+they are — they were true when written.
+
+### Moving a spec to `implemented/`
+
+This used to be split across the two branches: the feature PR moved the file and
+the release commit flipped its status. With one branch it is one step, and all
+of it belongs in the release commit described above.
+
+`docs/specs/README.md` says only that "a spec that has shipped moves to
+`implemented/`", which reads as a single tidy rename. It is not. In order:
+
+1. `git mv` the spec into `docs/specs/implemented/`, **and any `fixtures/`
+   directory belonging to it** — keeping the fixtures beside the spec means its
+   own relative links do not change.
+2. Re-depth every link in the moved file: repo-root links gain a level
+   (`../../js` → `../../../js`), siblings already in `implemented/` lose their
+   prefix, and specs still awaiting implementation gain `../`.
+3. Fix inbound references repo-wide, then **run a link check over every
+   markdown file.** The 0.4.0 move broke nine inbound links across `ROADMAP.md`,
+   three sibling specs and the spec index.
+4. Add the **As implemented** section: what was built differently from the spec
+   and why. Preserve the spec's original text — amendments are inline
+   blockquotes pointing at that section, never edits to what the spec said.
+5. Bump the spec version, set the status to released, and add the
+   **Revision history** row.
+
+The exception is a push requested as an **off-machine backup** — when work is
+pausing and the branch should survive the laptop. Ask-driven, not habitual.
+Local commits live in the repository's object store and survive worktree
+removal, but they are not backed up anywhere.
+
+Because the branch is squashed, the *branch* history is working material and the
+*release* artifacts are the deliverable. Which means:
+
+## Release artifacts are written once, at the end, and written well
+
+`CHANGELOG.md`, `README.md` and the PR description are the things a human reads
+afterwards. They are not a running log of what happened on the branch.
+
+**Write them when the work is finished**, from the finished state, in one pass:
+
+- **`CHANGELOG.md`** — what the release does and why, in the voice of the
+  finished thing. Not "added X, then reverted X, then added X differently".
+  A reader wants the decision, not the path to it.
+- **`README.md`** — read the assertion count out of an actual `npm test` run
+  rather than typing it from memory, and re-check any behaviour statement the
+  work changed.
+- **The PR description** — `pr-description.md`, untracked and listed in
+  `.git/info/exclude`, structured like
+  [PR #4](https://github.com/kwestic-tech/dns-email-audit/pull/4). One finished
+  document: what changed, why, how it was verified, with real numbers.
+
+Updating these mid-branch is churn. The decisions, the reversals and the review
+findings belong in the places built to hold them — the spec's **Revision
+history** and **As implemented** sections, and the `CODEX review for PR#<n>.md`
+decision log — not in a PR body edited eleven times.
+
+### When review arrives after the PR is already open
+
+Sometimes it will: a human reviews a PR that is up, or the work turns out to
+need another round. Then, and only then, the description becomes a living
+document and updates are **appended, never overwritten** — a dated entry below a
+`---` separator.
 
 ```
 ## Update — YYYY-MM-DD
@@ -169,7 +275,9 @@ a `---` separator.
   coming to the PR later must be able to see what the submission originally
   claimed as well as what it claims now. If a review reverses a decision, the
   original reasoning stays visible and the update says it was reversed — the
-  same instinct as the Revision history tables in `docs/specs/`.
+  same instinct as the Revision history tables in `docs/specs/`. This applies
+  to a description that has already been published; a description not yet
+  opened is simply rewritten until it is right.
 - **Every declined finding needs a reason**, even a short one. This mirrors the
   Resolved-questions discipline in [`docs/specs/README.md`](docs/specs/README.md):
   the reasoning survives for whoever later wonders why an obvious-looking
@@ -179,6 +287,9 @@ a `---` separator.
   the case — before changing anything. Reviewers in this project have cited
   functions and paths that do not exist. Only confirmed points get fixed, and a
   claim that did not hold up is recorded as such rather than silently ignored.
+- **One update per review round, not per commit.** A round is a set of findings
+  answered together. Fixing four findings is one entry naming four outcomes, not
+  four entries.
 - **Editing the description is its own step**, independent of pushing commits.
   Pushing updates the diff and touches nothing else:
 
@@ -192,3 +303,6 @@ a `---` separator.
 Adding a commit updates none of the release artifacts. See the pull-request
 checklist in [`CONTRIBUTING.md`](CONTRIBUTING.md) for the three that go stale
 silently — `CHANGELOG.md`, this description, and `README.md`.
+
+Push at the end of a round rather than per commit, so what a reviewer reads
+always matches the code, without a push for every intermediate step.

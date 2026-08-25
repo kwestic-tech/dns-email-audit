@@ -137,6 +137,17 @@ Common, welcome additions:
 - **A DKIM selector** — add to `DKIM_SELECTORS` in `js/dns.js`. Each selector costs two DNS queries per domain, so it should be one a real provider uses by default.
 - **A new issue check** — add the detection to `buildIssues()`, then add `issue.<your-key>` to `locales/en.json` with `msg`, and ideally `what`, `fix` and `fixCode` so the "Show me" explainer works.
 
+Commit locally as you go — freely, one commit per finished step. **Do not push
+every commit;** push once the work is tested and reviewed, and integrate with a
+**squash merge**, so intermediate commits never reach `main`. Open the pull
+request at that point rather than at the start: review reads the working tree,
+and a PR opened early is only a stale review target to keep fresh.
+
+**A release is cut on the same branch**, as the last commit before the push —
+there is no separate release branch and no second pull request. See
+[`AGENTS.md`](AGENTS.md#committing-pushing-and-when-the-pr-opens) and
+[Cutting the release](AGENTS.md#cutting-the-release-on-the-same-branch).
+
 Before opening a PR:
 
 ```bash
@@ -146,30 +157,33 @@ npm start          # then click through: run an audit, expand a row,
                    # switch language, export CSV and the HTML report
 ```
 
-**When cutting a release**, read the assertion count out of the `npm test`
-run and update the figure in `README.md`'s command table from that output
-rather than typing it from memory — it drifted from 174 to 489 unnoticed once
-already.
+**When cutting a release** — which happens on the feature branch, as its last
+commit — read the assertion count out of the `npm test` run and update the
+figure in `README.md`'s command table from that output rather than typing it
+from memory. It drifted from 174 to 489 unnoticed once already.
 
-**Every time you push to an open pull request, re-check these three.** Adding a
-commit does not update them, and nothing fails if they go stale — a reviewer
-simply reads something untrue:
+**Write these three from the finished state, once, before the PR opens.** They
+are what a human reads afterwards, not a log of what happened on the branch, and
+nothing fails if they go stale — a reviewer simply reads something untrue.
+If a review round then lands on an open PR, re-check them at the end of that
+round:
 
 | | Why it goes stale |
 | --- | --- |
-| `CHANGELOG.md` | The `## [Unreleased]` section is written once and then forgotten. Later commits on the same branch — review fixes especially — change what the release actually does. |
+| `CHANGELOG.md` | The `## [Unreleased]` section is written once and then forgotten. Later commits on the same branch — review fixes especially — change what the release actually does. Describe the release as it finally is, not the route it took. |
 | The PR description | GitHub keeps the body you opened the PR with. If a review makes you reverse a decision, the body still argues the old one. |
-| `README.md` | The assertion count moves whenever tests are added, and behaviour statements go stale when a review changes behaviour. |
+| `README.md` | The assertion count moves whenever tests are added, and behaviour statements go stale when a review changes behaviour. Read the count out of a real `npm test` run. |
 
 The failure mode is not hypothetical. On PR #18 the body stated that CSV formula
 injection was *"not addressed here"* while a later commit on the same branch
 neutralized it — the description contradicted the diff a reviewer was reading.
 The assertion count in the same body was two revisions behind.
 
-How to update the description — including the rule that review rounds are
-**appended, never overwritten** — is in
-[`AGENTS.md`](AGENTS.md#pr-description-change-log). Do not restate it here; that
-section is the authority for both humans and agents.
+How to write the description — and the rule that a round landing on an
+already-open PR is **appended, never overwritten** — is in
+[`AGENTS.md`](AGENTS.md#release-artifacts-are-written-once-at-the-end-and-written-well).
+Do not restate it here; that section is the authority for both humans and
+agents.
 
 Please also confirm `index.html` still opens correctly straight from disk (`file://`) in English.
 
