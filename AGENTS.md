@@ -152,21 +152,74 @@ to be squashed anyway it publishes history that never reaches `main`.
 | **Commit** | Freely, locally, throughout. |
 | **Push** | Once the work is tested and reviewed. |
 | **Open the PR** | At the same time, or after. Not before. |
-| **Merge** | **Squash** a feature branch — intermediate commits do not reach `main`. **Merge-commit** a `chore/release-*` branch; see below. |
-
-**The release branch is the exception, and the tag is why.** A feature PR is
-squashed, so `main` gets one commit for the whole branch. A release PR is merged
-with a merge commit, and `v<version>` is an annotated tag on **that merge
-commit** — `v0.3.0` is `bdff0ed`, `v0.4.0` is `6d32d80`, both merge commits.
-Squashing a release PR would leave the tag pointing at a structurally different
-kind of commit from every release before it, for no gain: the release branch is
-one commit already.
+| **Cut the release** | On the same branch, as the last commit before pushing. |
+| **Merge** | **Squash.** Ian says when. |
 
 **Open the pull request at the end, not the start.** External review reads the
 working tree, not GitHub — Codex is handed a branch and a decision log, not a
 URL. A PR opened before review is a stale review target that has to be kept
 fresh with pushes that exist only to keep it accurate. Opening it when the work
 is done removes that obligation entirely.
+
+**The merge is Ian's call, not a step you run when the gates go green.** Push,
+open the PR, say it is ready, and stop. He will say when to squash and merge.
+
+## Cutting the release on the same branch
+
+**There is no `chore/release-*` branch.** Releases through 0.4.0 used one, which
+meant two pull requests per release: the feature work, then a second PR that
+only bumped a version and flipped some status fields. One branch, one PR, one
+squashed commit is the whole release.
+
+The version bump and the documentation status changes are the **last commit on
+the feature branch**, made after the work is finished and before the push:
+
+1. Finish the work. Gates green: `npm test`, `npm run locale:gate`, and the
+   backtest for anything that could move a score.
+2. Write the release artifacts from the finished state — `CHANGELOG.md`,
+   `README.md`, the PR description. See the section below.
+3. **Cut the release, as its own commit:** bump `package.json`, promote
+   `## [Unreleased]` to `## [<version>] — <date>` and add the compare links,
+   and set the released status in `docs/specs/implemented/<spec>.md`,
+   `docs/specs/README.md`, `ROADMAP.md` and the phase marker in
+   `docs/async-development-handoff.md`.
+4. Push once, open the PR, and stop.
+5. Ian says when to squash and merge. **Tag after the merge**, annotated, on the
+   squashed commit: `git tag -a v<version> -m "<version> — <subject>"`.
+
+Read the assertion count for `README.md` out of a real `npm test` run rather
+than typing it from memory — it drifted from 174 to 489 unnoticed once already.
+
+**One field cannot be known before the merge.** The spec header and the
+`docs/specs/README.md` row have recorded the merge commit SHA, and under this
+flow that SHA does not exist until after Ian merges. Record the **release tag**
+instead: it is known in advance, it is what a reader actually looks for, and it
+survives a rebase. The SHAs already recorded for 0.2.x through 0.4.0 stay as
+they are — they were true when written.
+
+### Moving a spec to `implemented/`
+
+This used to be split across the two branches: the feature PR moved the file and
+the release commit flipped its status. With one branch it is one step, and all
+of it belongs in the release commit described above.
+
+`docs/specs/README.md` says only that "a spec that has shipped moves to
+`implemented/`", which reads as a single tidy rename. It is not. In order:
+
+1. `git mv` the spec into `docs/specs/implemented/`, **and any `fixtures/`
+   directory belonging to it** — keeping the fixtures beside the spec means its
+   own relative links do not change.
+2. Re-depth every link in the moved file: repo-root links gain a level
+   (`../../js` → `../../../js`), siblings already in `implemented/` lose their
+   prefix, and specs still awaiting implementation gain `../`.
+3. Fix inbound references repo-wide, then **run a link check over every
+   markdown file.** The 0.4.0 move broke nine inbound links across `ROADMAP.md`,
+   three sibling specs and the spec index.
+4. Add the **As implemented** section: what was built differently from the spec
+   and why. Preserve the spec's original text — amendments are inline
+   blockquotes pointing at that section, never edits to what the spec said.
+5. Bump the spec version, set the status to released, and add the
+   **Revision history** row.
 
 The exception is a push requested as an **off-machine backup** — when work is
 pausing and the branch should survive the laptop. Ask-driven, not habitual.

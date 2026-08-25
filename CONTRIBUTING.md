@@ -141,8 +141,12 @@ Commit locally as you go — freely, one commit per finished step. **Do not push
 every commit;** push once the work is tested and reviewed, and integrate with a
 **squash merge**, so intermediate commits never reach `main`. Open the pull
 request at that point rather than at the start: review reads the working tree,
-and a PR opened early is only a stale review target to keep fresh. See
-[`AGENTS.md`](AGENTS.md#committing-pushing-and-when-the-pr-opens).
+and a PR opened early is only a stale review target to keep fresh.
+
+**A release is cut on the same branch**, as the last commit before the push —
+there is no separate release branch and no second pull request. See
+[`AGENTS.md`](AGENTS.md#committing-pushing-and-when-the-pr-opens) and
+[Cutting the release](AGENTS.md#cutting-the-release-on-the-same-branch).
 
 Before opening a PR:
 
@@ -153,10 +157,10 @@ npm start          # then click through: run an audit, expand a row,
                    # switch language, export CSV and the HTML report
 ```
 
-**When cutting a release**, read the assertion count out of the `npm test`
-run and update the figure in `README.md`'s command table from that output
-rather than typing it from memory — it drifted from 174 to 489 unnoticed once
-already.
+**When cutting a release** — which happens on the feature branch, as its last
+commit — read the assertion count out of the `npm test` run and update the
+figure in `README.md`'s command table from that output rather than typing it
+from memory. It drifted from 174 to 489 unnoticed once already.
 
 **Write these three from the finished state, once, before the PR opens.** They
 are what a human reads afterwards, not a log of what happened on the branch, and
