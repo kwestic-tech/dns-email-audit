@@ -159,7 +159,7 @@ single protocol check can observe.
 | `bimi.without-enforcement` | BIMI record present, DMARC `effectivePolicy` is `none` or `testMode` is true | medium | `dmarc.policy-none` |
 | `bimi.without-authority` | BIMI present, no `a=` VMC, enforcement in place | low | none |
 | `mta-sts.without-tls-rpt` | MTA-STS present, TLS-RPT absent | low | none |
-| `tls-rpt.without-transport-policy` | TLS-RPT present, no MTA-STS and no qualified DANE | info | none |
+| `tls-rpt.without-transport-policy` | TLS-RPT present, no MTA-STS, and no MX host reporting `authenticated: true` from `checkTlsa()` | info | none |
 | `dane.without-dnssec` | TLSA published, chain state is not `secure` | medium | `dnssec.unanchored` or `dnssec.insecure` |
 | `dkim.mixed-key-strength` | Selectors on one domain differ in modulus size | low | none |
 | `dkim.weak-with-enforcement` | RSA key at or under 1024 bits while DMARC enforces | high | none |

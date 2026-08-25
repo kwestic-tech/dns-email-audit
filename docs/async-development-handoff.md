@@ -117,7 +117,7 @@ explicit reconciliation rather than being left to default behavior:
 | --- | --- | --- | --- | --- |
 | 1 | `rendering-and-robustness` (0.2.3) | 4/10 | A | Hard prerequisite gate for 0.3.0 and 0.7.0. Must go first regardless of its own score. |
 | 2 | `dmarcbis-tree-walk` (0.3.0) | 7/10 | B (link 1/3) | First link in the protocol-correctness chain; also decides the fixture-resolver mechanism (`OQ-DMARC-03`) that 0.4.0 and 0.5.0 testing reuses. |
-| 3 | `dns-protocol-depth` (0.4.0) | 9/10 | B (link 2/3) | Second link; adds `DS`/`DNSKEY`/`TLSA` transport 0.5.0 needs, and the `TLSA` shape 0.5.0's DANE qualification completes. |
+| 3 | `dns-protocol-depth` (0.4.0) | 9/10 | B (link 2/3) | Second link; adds `DS`/`DNSKEY`/`TLSA` transport 0.5.0 needs, and the per-host `authenticated` evidence 0.5.0 keeps as the honest ceiling for DANE. |
 | 3′ | `local-artifact-validation` (0.7.0) | 5/10 | D (parallel) | Can start as soon as 0.2.3 lands, run alongside the whole B chain. Only sync point is 0.6.0's `Finding` shape (stub it, reconcile later). |
 | 4 | `dnssec-evidence` (0.5.0) | 6/10 | B (link 3/3) | Closes the B chain; needs 0.4.0's transport and TLSA shape. |
 | 5 | `findings-and-remediation` (0.6.0) | 10/10 | C | Highest end-user value in the roadmap, but structurally the most downstream — it reads the output shapes of 0.3.0, 0.4.0, and 0.5.0. Cannot start for real until B is done. |
@@ -218,8 +218,9 @@ tag/reference the release per `CONTRIBUTING.md`'s checklist.
 
 This phase is **sequential by construction**, not by convention — see the
 evaluation doc's Group B analysis for the three confirmed couplings (shared
-fixture-resolver mechanism, transport-type dependency, DANE-qualification
-data dependency). Do not attempt to run these three in parallel; the second
+fixture-resolver mechanism, transport-type dependency, and a DANE data
+dependency that the 0.5.0 spec review resolved by retiring `qualified` rather
+than by satisfying it — see 3c). Do not attempt to run these three in parallel; the second
 and third literally cannot be implemented against a frozen interface until
 the first two exist.
 
@@ -365,7 +366,7 @@ transport dependency 0.5.0 needs), DKIM key decoding via Web Crypto with
 explicit RSA/Ed25519/revoked/unparseable states, structured CAA with the
 `issue`-vs-`issuewild` semantics called out explicitly in the spec, MX health
 (`dangling`, `cname target`, `same-prefix`), and TLSA syntax validation with
-`qualified` hardcoded `false` (the field 0.5.0 completes).
+`qualified` hardcoded `false` — the field 0.5.0 **retires** rather than completes, see 3c.
 
 **On completion:** confirm zero grade movement via
 `node tools/backtest.mjs --json` per the spec's own acceptance criterion 5.
