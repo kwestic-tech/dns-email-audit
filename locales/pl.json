@@ -637,12 +637,6 @@
       "fix": "Usuń ten znacznik, chyba że prowadzisz sufiks publiczny — <code>u</code> jest wartością domyślną i właściwą praktycznie dla każdej zwykłej domeny.",
       "fixCode": "; Zwykłe domeny w ogóle nie potrzebują psd=:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC deklaruje psd=y, ale ta domena nie jest sufiksem publicznym.",
-      "what": "<code>psd=y</code> informuje odbiorców, że dana nazwa jest domeną sufiksu publicznego — nazwą na poziomie rejestru, taką jak <code>.gov.uk</code>, pod którą rejestrują się niepowiązane ze sobą organizacje. Zmienia to miejsce, w którym mechanizm DNS Tree Walk zatrzymuje się przy szukaniu polityki, więc ustawienie tego na zwykłej domenie organizacyjnej może sprawić, że Twoja polityka zostanie błędnie odnaleziona dla subdomen. To niemal zawsze skutek skopiowania przykładu.",
-      "fix": "Usuń <code>psd=y</code>, chyba że faktycznie prowadzisz sufiks publiczny wpisany na listę Public Suffix List.",
-      "fixCode": "; Usuń znacznik:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
     "dmarc-removed-tags": {
       "msg": "Rekord DMARC zawiera znaczniki usunięte przez RFC 9989 ({0}) — nie robią już nic.",
       "what": "RFC 9989 usunęło kilka znaczników przeniesionych z RFC 7489. Odbiorcy stosujący aktualną specyfikację je ignorują. Są nieszkodliwe w tym sensie, że nie zepsują rekordu, ale wprowadzają w błąd: ktoś, kto przeczyta rekord później, założy, że są w mocy.",
@@ -726,6 +720,11 @@
       "what": "Zasada DMARC znajduje się pod <code>_dmarc.yourdomain.com</code>; odbiorcy odpytują tę nazwę i żadną inną. W zestawie TXT samej domeny znajduje się drugi ciąg <code>v=DMARC1</code>, na który żaden odbiorca nigdy nie spojrzy. Rzeczywista zasada to ta znaleziona w {0} i obowiązuje normalnie — to więc bałagan, a nie zagrożenie. Zwykle oznacza to, że stara kopia została po przeniesieniu rekordu pod właściwą nazwę.",
       "fix": "Proszę usunąć ciąg <code>v=DMARC1</code> z rekordów TXT samej domeny. Ten pod <code>_dmarc</code> proszę zostawić dokładnie tak, jak jest.",
       "fixCode": "; To usunąć — nic tego nie czyta:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; To zachować — to jest Pana/Pani zasada:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "Sprawdzono tylko {0} z {1} celów raportowania — ten audyt zatrzymuje się na 10. Niesprawdzone: {2}",
+      "what": "Pana/Pani rekord wskazuje więcej celów raportowania, niż ten audyt zamierza prześledzić. Każdy poza domeną organizacyjną kosztuje przejście drzewa DNS oraz zapytanie autoryzacyjne, a ich liczbę ustala sam rekord — audyt nie pozwala więc, by pojedynczy rekord decydował o tym, ile ruchu DNS generuje. RFC 9990 §3.5 przewiduje dokładnie to, mówiąc, że raporty trafiają do każdego URI <em>\"up to the Receiver's limits on supported URIs\"</em>, a prawdziwi odbiorcy również narzucają własne limity. Ta informacja jest tutaj po to, by powyższych werdyktów nie brać za pełną listę.",
+      "fix": "Z rekordem wszystko w porządku. Jeśli chce Pan/Pani sprawdzić każdy cel, proszę rozdzielić domeny na kilka przebiegów. Jeśli lista po prostu urosła z czasem, warto ją przyciąć: cele, których już Pan/Pani nie czyta, odbiorca wciąż musi próbować."
     }
   },
   "suggestion": {

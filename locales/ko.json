@@ -627,12 +627,6 @@
       "fix": "공개 접미사를 운영하는 것이 아니라면 이 태그를 제거하십시오. <code>u</code>가 기본값이며 사실상 모든 일반 도메인에 적합합니다.",
       "fixCode": "; 일반 도메인에는 psd=가 전혀 필요하지 않습니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC가 psd=y를 선언했지만 이 도메인은 공개 접미사가 아닙니다.",
-      "what": "<code>psd=y</code>는 이 이름이 공개 접미사 도메인 — <code>.gov.uk</code>처럼 서로 무관한 조직들이 그 아래에 등록하는 레지스트리 수준의 이름 — 임을 수신자에게 알립니다. 수신자가 정책을 찾을 때 DNS Tree Walk가 멈추는 지점을 바꾸므로, 일반적인 조직 도메인에 이를 설정하면 하위 도메인에 대한 정책이 잘못 탐색될 수 있습니다. 거의 언제나 예제를 그대로 복사해서 생기는 실수입니다.",
-      "fix": "Public Suffix List에 등재된 공개 접미사를 실제로 운영하는 것이 아니라면 <code>psd=y</code>를 제거하십시오.",
-      "fixCode": "; 태그를 제거합니다:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
     "dmarc-removed-tags": {
       "msg": "DMARC 레코드에 RFC 9989에서 제거된 태그가 있습니다 ({0}). 이제 아무 기능도 하지 않습니다.",
       "what": "RFC 9989은 RFC 7489에서 이어져 온 여러 태그를 제거했습니다. 현행 사양을 구현한 수신자는 이를 무시합니다. 레코드를 망가뜨리지는 않는다는 점에서 무해하지만 오해를 부릅니다. 나중에 레코드를 읽는 사람은 그것이 유효하다고 여길 것이기 때문입니다.",
@@ -716,6 +710,11 @@
       "what": "DMARC 정책은 <code>_dmarc.yourdomain.com</code>에 있으며, 수신자는 그 이름만 조회하고 다른 곳은 보지 않습니다. 이 도메인 자체의 TXT 집합에 어떤 수신자도 결코 보지 않을 두 번째 <code>v=DMARC1</code> 문자열이 있습니다. 실제 정책은 {0}에서 찾은 것이며 정상적으로 적용됩니다. 따라서 이는 위험이 아니라 정리되지 않은 상태입니다. 대개 레코드를 올바른 이름으로 옮긴 뒤 옛 사본이 남은 경우입니다.",
       "fix": "도메인 자체의 TXT 레코드에서 <code>v=DMARC1</code> 문자열을 삭제하십시오. <code>_dmarc</code> 아래의 것은 그대로 두십시오.",
       "fixCode": "; 이것을 삭제 — 아무도 읽지 않음:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 이것을 유지 — 이것이 정책:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "보고 대상 {1}개 중 {0}개만 확인했습니다 — 이 감사는 10개에서 멈춥니다. 확인하지 않음: {2}",
+      "what": "레코드에 이 감사가 따라갈 수보다 많은 보고 대상이 적혀 있습니다. 조직 도메인 밖의 대상은 각각 DNS 트리 순회와 권한 확인 조회를 필요로 하며, 그 개수는 레코드 자체가 정합니다. 따라서 감사는 레코드 하나가 얼마나 많은 DNS 트래픽을 만들지 스스로 결정하도록 두지 않습니다. RFC 9990 §3.5도 바로 이 점을 예상해, 보고서가 <em>\"up to the Receiver's limits on supported URIs\"</em> 범위에서 각 URI로 전달된다고 밝히고 있으며, 실제 수신자도 자체 한도를 둡니다. 이 안내는 위 판정이 전체 목록으로 오해되지 않도록 하기 위한 것입니다.",
+      "fix": "레코드에는 문제가 없습니다. 모든 대상을 감사하시려면 도메인을 여러 번에 나누어 실행하십시오. 목록이 시간이 지나며 늘어난 것뿐이라면 정리할 가치가 있습니다. 더 이상 읽지 않는 대상도 수신자는 여전히 전송을 시도해야 합니다."
     }
   },
   "suggestion": {

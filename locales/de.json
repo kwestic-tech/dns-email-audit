@@ -627,12 +627,6 @@
       "fix": "Entfernen Sie das Tag, sofern Sie kein Public Suffix betreiben — <code>u</code> ist die Voreinstellung und für praktisch jede gewöhnliche Domain richtig.",
       "fixCode": "; Gewöhnliche Domains brauchen psd= überhaupt nicht:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC gibt psd=y an, aber diese Domain ist kein Public Suffix.",
-      "what": "<code>psd=y</code> teilt Empfängern mit, dass dieser Name eine Public Suffix Domain ist — ein Name auf Registry-Ebene wie <code>.gov.uk</code>, unter dem nicht verwandte Organisationen registrieren. Es verändert, wo der DNS Tree Walk endet, wenn Empfänger nach einer Richtlinie suchen; die Angabe bei einer gewöhnlichen organisatorischen Domain kann daher dazu führen, dass Ihre Richtlinie für Subdomains falsch ermittelt wird. Das ist fast immer ein aus einem Beispiel übernommener Fehler.",
-      "fix": "Entfernen Sie <code>psd=y</code>, sofern Sie nicht tatsächlich ein in der Public Suffix List geführtes Public Suffix betreiben.",
-      "fixCode": "; Das Tag entfernen:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
     "dmarc-removed-tags": {
       "msg": "Der DMARC-Eintrag enthält Tags, die RFC 9989 entfernt hat ({0}) — sie bewirken nichts mehr.",
       "what": "RFC 9989 hat mehrere aus RFC 7489 übernommene Tags entfernt. Empfänger, die die aktuelle Spezifikation umsetzen, ignorieren sie. Sie sind insofern harmlos, als sie den Eintrag nicht beschädigen — aber sie sind irreführend: Wer den Eintrag später liest, wird annehmen, dass sie wirksam sind.",
@@ -716,6 +710,11 @@
       "what": "Eine DMARC-Richtlinie liegt bei <code>_dmarc.yourdomain.com</code>; Empfänger fragen diesen Namen ab und sonst keinen. Im TXT-Satz dieser Domain steht eine zweite <code>v=DMARC1</code>-Zeichenkette, die kein Empfänger je ansehen wird. Ihre tatsächliche Richtlinie ist die bei {0} gefundene, und sie gilt normal — das hier ist also unordentlich, nicht gefährlich. Meist ist es eine ältere Kopie, die nach dem Verschieben des Eintrags an den richtigen Namen liegen geblieben ist.",
       "fix": "Löschen Sie die <code>v=DMARC1</code>-Zeichenkette aus den TXT-Einträgen der Domain selbst. Lassen Sie die unter <code>_dmarc</code> genau so, wie sie ist.",
       "fixCode": "; Dies löschen — nichts liest es:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Dies behalten — das ist Ihre Richtlinie:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "Nur {0} von {1} Berichtszielen wurden geprüft — dieses Audit hört bei 10 auf. Nicht geprüft: {2}",
+      "what": "Ihr Eintrag nennt mehr Berichtsziele, als dieses Audit verfolgt. Jedes Ziel außerhalb Ihrer Organisationsdomain kostet einen DNS-Tree-Walk plus eine Autorisierungsabfrage, und ihre Anzahl legt der Eintrag selbst fest — ein Audit lässt also nicht zu, dass ein einzelner Eintrag bestimmt, wie viel DNS-Verkehr er erzeugt. RFC 9990 §3.5 sieht genau das vor und sagt, Berichte gehen an jede URI <em>\"up to the Receiver's limits on supported URIs\"</em>; auch echte Empfänger setzen eigene Grenzen. Dieser Hinweis steht hier, damit die obigen Urteile nicht für eine vollständige Liste gehalten werden.",
+      "fix": "Am Eintrag ist nichts falsch. Wenn Sie jedes Ziel geprüft haben möchten, verteilen Sie die Domains auf mehrere Durchläufe. Ist die Liste einfach über die Zeit gewachsen, lohnt sich Ausmisten: Ziele, die Sie nicht mehr lesen, muss ein Empfänger trotzdem anlaufen."
     }
   },
   "suggestion": {

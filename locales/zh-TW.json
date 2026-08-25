@@ -627,12 +627,6 @@
       "fix": "除非您營運的是公共後綴，否則請移除這個標籤——<code>u</code> 是預設值，幾乎適用於所有一般網域。",
       "fixCode": "; 一般網域完全不需要 psd=：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC 宣告了 psd=y，但這個網域並不是公共後綴。",
-      "what": "<code>psd=y</code> 告訴接收方這個名稱是公共後綴網域——例如 <code>.gov.uk</code> 這類註冊管理機構層級的名稱，互不相關的組織會在其下註冊。它會改變接收方尋找政策時 DNS Tree Walk 的停止位置，因此把它設在一般的組織網域上，可能導致子網域的政策被錯誤地解析出來。這幾乎總是照抄範例造成的失誤。",
-      "fix": "除非您確實營運著 Public Suffix List 中收錄的公共後綴，否則請移除 <code>psd=y</code>。",
-      "fixCode": "; 移除該標籤：\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
     "dmarc-removed-tags": {
       "msg": "DMARC 記錄中含有已被 RFC 9989 移除的標籤（{0}）——它們不再有任何作用。",
       "what": "RFC 9989 移除了若干從 RFC 7489 沿用下來的標籤。實作現行規範的接收方會忽略它們。就「不會破壞記錄」而言它們是無害的，但具有誤導性：日後閱讀這筆記錄的人會以為它們仍然生效。",
@@ -716,6 +710,11 @@
       "what": "DMARC 政策位於 <code>_dmarc.yourdomain.com</code>；接收方只查詢那個名稱，別處一概不看。本網域自己的 TXT 集合中還有第二筆 <code>v=DMARC1</code> 字串，任何接收方都永遠不會去看它。您真正生效的政策是在 {0} 找到的那筆，一切照常 — 所以這只是不夠整潔，並不危險。這通常表示把記錄搬到正確名稱之後，舊的副本被遺留了下來。",
       "fix": "請從網域本身的 TXT 記錄中刪除這筆 <code>v=DMARC1</code> 字串，<code>_dmarc</code> 下的那筆原樣保留。",
       "fixCode": "; 刪除這筆 — 無人讀取：\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; 保留這筆 — 這才是您的政策：\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "{1} 個報告目標中只檢查了 {0} 個 — 本次稽核最多檢查 10 個。未檢查：{2}",
+      "what": "您的記錄列出的報告目標多於本次稽核會跟進的數量。位於組織網域之外的每個目標都需要一次 DNS 樹走訪外加一次授權查詢，而它們的數量由記錄本身決定 — 因此稽核不會讓單筆記錄決定自己產生多少 DNS 流量。RFC 9990 §3.5 正是預見到這一點，說明報告會在 <em>\"up to the Receiver's limits on supported URIs\"</em> 的範圍內送往每個 URI，真實的接收方同樣會設定自己的上限。此提示的存在，是為了避免上面的結論被誤認為是一份完整清單。",
+      "fix": "記錄本身沒有問題。如果您希望稽核每一個目標，請把這些網域分到多次執行中。如果這份清單只是隨時間變長了，那麼值得精簡：您不再查看的目標，接收方仍然必須嘗試投遞。"
     }
   },
   "suggestion": {

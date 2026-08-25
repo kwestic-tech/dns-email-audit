@@ -686,10 +686,15 @@
   }
 
   function analyzeDmarc(dmarc, multiple) {
-    // RFC 9989 §4.7: with multiple records, policy discovery terminates and
-    // DMARC is not applied at all — the domain is unprotected despite looking
-    // configured. Distinct from 'missing' because the fix differs (delete a
-    // duplicate vs. publish a first record).
+    // Legacy, and unreachable from analyzeDomain(): the Tree Walk never passes
+    // `multiple`, because RFC 9989 §4.10 step 2 discards duplicate records at a
+    // name and CONTINUES the walk — a record higher in the tree can still
+    // apply, so a duplicate is no longer a policy verdict. Retained because
+    // analyzeDmarc() is exported and directly constructed in tests, and because
+    // removing a status token is a breaking change to a shape
+    // report-comparison (0.8.0) exports. Do not describe this as current
+    // discovery behaviour; buildIssues() raises the duplicate from the walk's
+    // own observed[] evidence instead.
     if (multiple) return emptyDmarcStatus('permerror');
     if (!dmarc) return emptyDmarcStatus('missing');
 
@@ -861,7 +866,39 @@
    * silence and assumes everything is fine. Kept separate from analyzeDmarc so
    * that function stays pure and domain-agnostic.
    */
-  function findExternalReportDestinations(dmarcStatus, policyDomain, orgDomains) {
+  /** Every report destination host a record names, in RFC 9990 §3.5's order. */
+  function reportDestinationHosts(dmarcStatus) {
+    var seen = new Set();
+    return []
+      .concat(dmarcStatus && dmarcStatus.ruaUris ? dmarcStatus.ruaUris.domains : [])
+      .concat(dmarcStatus && dmarcStatus.rufUris ? dmarcStatus.rufUris.domains : [])
+      .filter(function (dest) {
+        if (!dest || seen.has(dest)) return false;
+        seen.add(dest);
+        return true;
+      });
+  }
+
+  /**
+   * Decide which destinations this audit will examine, and record how many it
+   * declined to.
+   *
+   * The truncation is surfaced rather than silent: showing ten verdicts for a
+   * record naming twenty destinations would imply every URI had been checked,
+   * which is the same "unknown presented as known" error this codebase refuses
+   * everywhere else.
+   */
+  function planReportDestinations(dmarcStatus, policyDomain, orgDomains) {
+    var all = reportDestinationHosts(dmarcStatus);
+    var checked = all.slice(0, MAX_REPORT_DESTINATIONS);
+    return {
+      external: findExternalReportDestinations(dmarcStatus, policyDomain, orgDomains, checked),
+      total: all.length,
+      omitted: all.slice(MAX_REPORT_DESTINATIONS),
+    };
+  }
+
+  function findExternalReportDestinations(dmarcStatus, policyDomain, orgDomains, hosts) {
     if (!dmarcStatus || !policyDomain) return [];
     // RFC 9990 §4 defines the externality test against the ORGANIZATIONAL
     // DOMAIN on both sides, which after this release means the Tree Walk
@@ -873,15 +910,9 @@
       return found || name;
     };
     var org = lookup(policyDomain);
-    var seen = new Set();
-    return []
-      .concat(dmarcStatus.ruaUris ? dmarcStatus.ruaUris.domains : [])
-      .concat(dmarcStatus.rufUris ? dmarcStatus.rufUris.domains : [])
-      .filter(function (dest) {
-        if (!dest || seen.has(dest)) return false;
-        seen.add(dest);
-        return dest !== org && lookup(dest) !== org;
-      });
+    return (hosts || reportDestinationHosts(dmarcStatus)).filter(function (dest) {
+      return dest !== org && lookup(dest) !== org;
+    });
   }
 
   /**
@@ -898,25 +929,23 @@
    */
   // A record's rua=/ruf= list is written by whoever controls the domain being
   // audited, and parseDmarcUriList() caps nothing — so without a bound here the
-  // query count for one domain is set by a third party's record content. Twenty
-  // distinct destinations would be 160 queries. Destinations past the cap fall
-  // back to their bare name, which per findExternalReportDestinations() can only
-  // make one look external: a "verify this" notice rather than a silent pass.
-  var MAX_WALKED_REPORT_DESTINATIONS = 10;
+  // query count for one audit is set by that record's own content.
+  //
+  // The bound has to cover the WHOLE destination-driven workflow. Capping only
+  // the Organizational Domain walks left the authorization lookups uncapped, so
+  // twenty destinations still produced forty authorization queries and the
+  // "bound" was not one. RFC 9990 §3.5 sanctions a limit explicitly — reports
+  // go to every URI "up to the Receiver's limits on supported URIs" — and fixes
+  // the order to apply it in: receivers "MUST evaluate the provided reporting
+  // URIs (see [RFC9989]) in the order given".
+  var MAX_REPORT_DESTINATIONS = 10;
 
   async function resolveDestinationOrgDomains(dmarcStatus, policyDomain, policyOrgDomain, queryOpts) {
     var orgDomains = new Map();
     orgDomains.set(policyDomain, policyOrgDomain);
-    var candidates = [];
-    var seen = new Set([policyOrgDomain]);
-    []
-      .concat(dmarcStatus && dmarcStatus.ruaUris ? dmarcStatus.ruaUris.domains : [])
-      .concat(dmarcStatus && dmarcStatus.rufUris ? dmarcStatus.rufUris.domains : [])
-      .forEach(function (dest) {
-        if (!dest || seen.has(dest)) return;
-        seen.add(dest);
-        if (candidates.length < MAX_WALKED_REPORT_DESTINATIONS) candidates.push(dest);
-      });
+    var candidates = reportDestinationHosts(dmarcStatus)
+      .slice(0, MAX_REPORT_DESTINATIONS)
+      .filter(function (dest) { return dest !== policyOrgDomain; });
     await Promise.all(candidates.map(async function (dest) {
       var discovery = await optionalCheck(function () { return discoverDmarc(dest, queryOpts); }, null);
       // A walk that failed leaves the destination's Organizational Domain
@@ -949,6 +978,55 @@
    * a timeout is not evidence of a missing record, and calling it one would
    * send someone chasing a vendor over our own flaky lookup.
    */
+  /**
+   * Parse one external-authorization TXT record per RFC 9990 §4 step 6.
+   *
+   * > For each record returned, parse the result as a series of "tag=value"
+   * > pairs, i.e., the same overall format as the DMARC Policy Record (see
+   * > Section 4.7 of [RFC9989]).  In particular, the "v=DMARC1" tag is
+   * > mandatory and MUST appear first in the list.  Discard any that do not
+   * > pass this test.  A trailing ";" is optional.
+   *
+   * The `v=DMARC1` test is necessary and NOT sufficient: "parse the result as
+   * a series of tag=value pairs" is part of the same step, so a record whose
+   * remaining syntax is not tag=value must be discarded before step 8 counts
+   * the survivors. Checking only the version tag accepted
+   * `v=DMARC1; this-is-not-a-tag-value-pair` as an authorization.
+   *
+   * Step 9 lets the Report Consumer override the report destination, but "the
+   * overriding URI MUST use the same destination host from the first step".
+   * This tool never sends reports, so the override changes no verdict — it is
+   * captured because an "authorized" result that silently dropped it would be
+   * incomplete evidence about where conformant receivers actually deliver.
+   */
+  function parseReportAuthRecord(record, destinationHost) {
+    var text = String(record || '');
+    if (!validateDmarcVersion(text).valid) return { valid: false, reason: 'version' };
+    var segments = text.split(';');
+    // "A trailing ';' is optional" — so one empty tail segment is allowed, but
+    // an empty segment anywhere else is a syntax error rather than a courtesy.
+    if (segments.length && segments[segments.length - 1].trim() === '') segments.pop();
+    var wellFormed = segments.every(function (segment) {
+      return /^\s*[A-Za-z][A-Za-z0-9_-]*\s*=\s*[^;]*$/.test(segment);
+    });
+    if (!wellFormed) return { valid: false, reason: 'syntax' };
+
+    var rua = parseDmarcTag(text, 'rua');
+    var override = null;
+    var overrideValid = true;
+    if (rua !== null) {
+      var parsed = parseDmarcUriList(rua);
+      var hosts = parsed.uris.filter(function (u) { return u.valid; }).map(function (u) { return u.domain; });
+      override = rua;
+      // Step 9's loop guard. A mismatch does not un-authorize the arrangement;
+      // it means the override itself must be ignored, so it is recorded as
+      // evidence rather than treated as a parse failure.
+      overrideValid = parsed.count > 0 && parsed.valid
+        && hosts.every(function (h) { return h === destinationHost; });
+    }
+    return { valid: true, reason: null, override: override, overrideValid: overrideValid };
+  }
+
   async function checkExternalReportAuth(domain, destinations, queryOpts) {
     var policyDomain = String(domain || '').toLowerCase().replace(/\.$/, '');
     var unique = [];
@@ -958,41 +1036,12 @@
       if (host && !seen.has(host)) { seen.add(host); unique.push(host); }
     });
 
-    // RFC 9990 §4 step 6: "the 'v=DMARC1' tag is mandatory and MUST appear
-    // first in the list. Discard any that do not pass this test."
-    // validateDmarcVersion() owns that rule for policy records already, and a
-    // startsWith() check does not: it accepts `v=DMARC1x`, which is not the
-    // current version and authorizes nothing.
-    var parses = function (record) { return validateDmarcVersion(record).valid; };
-
-    // Step 8, verbatim: "If at least one TXT resource record remains in the
-    // set after parsing, then the external reporting arrangement was
-    // authorized by the Report Consumer."
-    //
-    // This is PERMISSIVE, and deliberately the opposite of the DMARC policy
-    // duplicate rule in discoverDmarc(), where RFC 9989 §4.10 step 2 discards
-    // every record when more than one is returned. The two questions are asked
-    // at different names, for different purposes, by different RFCs, and they
-    // answer them differently. Do not "fix" either one to match the other.
-    async function lookup(queryName) {
-      var response = await dohFetch(queryName, 'TXT', queryOpts);
-      if (response.kind === 'cancelled') throw dnsError('cancelled', queryName, 'TXT');
-      if (response.kind !== 'success' && response.kind !== 'nodata' && response.kind !== 'nxdomain') {
-        throw dnsError(response.kind, queryName, 'TXT', response.httpStatus ? 'HTTP ' + response.httpStatus : '');
-      }
-      var records = response.answers.filter(function (a) { return a.type === 16; })
-        .map(function (a) { return cleanAnswerData(a.data, 'TXT'); });
-      return { kind: response.kind, records: records, authorized: records.filter(parses) };
-    }
-
     return Promise.all(unique.map(async function (host) {
       var exact = policyDomain + '._report._dmarc.' + host;
-      var wildcard = '*._report._dmarc.' + host;
       // RFC 9990 §4 step 4: "If the length of the constructed name exceed DNS
-      // limits, a positive determination of the external reporting relationship
-      // cannot be made; stop." Cannot-determine and not-authorized are
-      // different facts, and this release cares about that distinction
-      // everywhere else.
+      // limits, a positive determination of the external reporting
+      // relationship cannot be made; stop." Cannot-determine and
+      // not-authorized are different facts.
       if (exact.length > 253) {
         return {
           destination: host, state: 'unverifiable', via: null, queryName: exact,
@@ -1000,36 +1049,61 @@
         };
       }
       try {
-        var exactResult = await lookup(exact);
-        if (exactResult.authorized.length) {
+        /* RFC 9990 §4 constructs and queries exactly ONE name (steps 2, 3 and
+           5). A Report Consumer willing to receive reports for any domain
+           publishes `*._report._dmarc.<host>`, and the resolver synthesizes
+           that RRset while answering this query — there is no second lookup to
+           make. Querying the asterisk owner literally is not the algorithm and
+           gets a different question answered: RFC 4592 §2.3 is explicit that
+           "when a wildcard domain name appears in a message's query section, no
+           special processing occurs", so such a query retrieves the literal
+           wildcard node rather than exercising synthesis.
+
+           That distinction changes verdicts, which is why this is not merely a
+           saved query. Wildcard synthesis is suppressed when the queried name
+           already exists, so a destination whose exact owner holds unrelated or
+           malformed TXT data is NOT authorized under RFC 9990 — while a
+           literal wildcard lookup would find `v=DMARC1` and wrongly authorize
+           it. Verified against three live reporting vendors: the constructed
+           query already returns the synthesized answer. */
+        var response = await dohFetch(exact, 'TXT', queryOpts);
+        if (response.kind === 'cancelled') throw dnsError('cancelled', exact, 'TXT');
+        if (response.kind !== 'success' && response.kind !== 'nodata' && response.kind !== 'nxdomain') {
+          throw dnsError(response.kind, exact, 'TXT', response.httpStatus ? 'HTTP ' + response.httpStatus : '');
+        }
+        var records = response.answers.filter(function (a) { return a.type === 16; })
+          .map(function (a) { return cleanAnswerData(a.data, 'TXT'); });
+        var parsed = records.map(function (r) { return parseReportAuthRecord(r, host); });
+        var authorizedAt = parsed.findIndex(function (p) { return p.valid; });
+
+        /* Step 8, verbatim: "If at least one TXT resource record remains in the
+           set after parsing, then the external reporting arrangement was
+           authorized by the Report Consumer."
+
+           Permissive, and deliberately the opposite of the DMARC policy
+           duplicate rule in discoverDmarc(), where RFC 9989 §4.10 step 2
+           discards every record when more than one is returned. The two
+           questions are asked at different names, for different purposes, by
+           different RFCs, and they answer them differently. Do not "fix"
+           either one to match the other. */
+        if (authorizedAt !== -1) {
+          var winner = parsed[authorizedAt];
           return {
             destination: host, state: 'authorized', via: 'exact', queryName: exact,
-            record: exactResult.authorized[0], recordCount: exactResult.authorized.length,
-            exactKind: exactResult.kind,
-          };
-        }
-        var wildcardResult = await lookup(wildcard);
-        if (wildcardResult.authorized.length) {
-          return {
-            destination: host, state: 'authorized', via: 'wildcard', queryName: wildcard,
-            record: wildcardResult.authorized[0], recordCount: wildcardResult.authorized.length,
-            exactKind: exactResult.kind,
+            record: records[authorizedAt],
+            recordCount: parsed.filter(function (p) { return p.valid; }).length,
+            exactKind: response.kind,
+            override: winner.override || null,
+            overrideValid: winner.override ? winner.overrideValid : null,
           };
         }
         // A TXT record that exists but does not parse authorizes nothing —
         // worth distinguishing from nothing at all, because it usually means a
         // truncated or hand-mangled record.
-        //
-        // The response kind is kept because the two misses mean different
-        // things to the operator: NXDOMAIN at the exact name with the record
-        // on the wildcard is ordinary vendor practice, while NOERROR carrying
-        // unrelated TXT data usually means the record went to the wrong name.
-        var malformed = exactResult.records.length || wildcardResult.records.length;
         return {
           destination: host, state: 'unauthorized', via: null, queryName: exact,
-          record: malformed ? (exactResult.records[0] || wildcardResult.records[0]) : '',
-          malformed: !!malformed,
-          exactKind: exactResult.kind, wildcardKind: wildcardResult.kind,
+          record: records[0] || '', malformed: records.length > 0,
+          exactKind: response.kind,
         };
       } catch (e) {
         if (e && e.name === 'AbortError') throw e;
@@ -2003,7 +2077,7 @@
 
   // Each issue carries a key (→ locale lookup) and optional `args` used to
   // fill {0} placeholders in the translated message.
-  function buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, wildcardApex, wildcardDkim, hosting, advanced, domain }) {
+  function buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan, wildcardApex, wildcardDkim, hosting, advanced, domain }) {
     const issues = [];
 
     // Reported by the depth that was actually measured. A wildcard only the
@@ -2241,10 +2315,28 @@
       }
     }
 
-    if (dmarcStatus.psdValid === false) issues.push({ key: 'dmarc-bad-psd', sev: 'warn' });
-    if (dmarcStatus.psd === 'y' && domain && getOrganizationalDomain(domain) === domain) {
-      issues.push({ key: 'dmarc-psd-invalid', sev: 'warn' });
+    if (reportPlan && reportPlan.omitted && reportPlan.omitted.length) {
+      issues.push({
+        key: 'dmarc-report-destinations-truncated', sev: 'info',
+        args: [reportPlan.total - reportPlan.omitted.length, reportPlan.total, reportPlan.omitted.join(', ')],
+      });
     }
+
+    if (dmarcStatus.psdValid === false) issues.push({ key: 'dmarc-bad-psd', sev: 'warn' });
+    /* `dmarc-psd-invalid` was removed here. It asked the Public Suffix List
+       whether a psd=y declaration was justified, which broke OQ-DMARC-04's
+       invariant that no DMARC decision consults the PSL — and, worse, it asked
+       about the AUDITED name rather than the name carrying the applied record.
+       A domain inheriting the valid `_dmarc.gov` PSD record (psd=y, applied
+       from `gov`) is its own PSL organizational domain, so the check fired and
+       called a correct CISA-operated declaration invalid: a false positive on
+       the exact inherited-PSD case this release adds. There is no DNS-only test
+       that disproves a psd= declaration — the declaration is the protocol's own
+       source of truth — and a vendored list snapshot is not evidence strong
+       enough for "this domain is not a public suffix". `dmarc-bad-psd` above
+       still checks the value vocabulary, which is protocol-defined.
+       Reconsidered for 0.6.0, it would have to be explicitly heuristic,
+       informational, and evaluated at `dmarcDiscovery.applied.foundAt`. */
     if (dmarcStatus.removedTags && dmarcStatus.removedTags.length) {
       var stillRemoved = dmarcStatus.removedTags.filter(function (k) { return k !== 'pct'; });
       if (stillRemoved.length) issues.push({ key: 'dmarc-removed-tags', sev: 'info', args: [stillRemoved.join(', ')] });
@@ -2545,7 +2637,8 @@
     const dmarcOrgDomains = await resolveDestinationOrgDomains(
       dmarcStatus, dmarcAtDomain, policyOrgDomain, queryOpts
     );
-    const externalReportDestinations = findExternalReportDestinations(dmarcStatus, dmarcAtDomain, dmarcOrgDomains);
+    const reportPlan = planReportDestinations(dmarcStatus, dmarcAtDomain, dmarcOrgDomains);
+    const externalReportDestinations = reportPlan.external;
 
     // Wildcard TXT synthesis is measured at both depths that matter, because
     // only the deeper one predicts harm. The apex probe (one label) shows a
@@ -2650,7 +2743,7 @@
       };
     }
 
-    const issues = buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, wildcardApex, wildcardDkim, hosting, advanced, domain: d });
+    const issues = buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan, wildcardApex, wildcardDkim, hosting, advanced, domain: d });
     const suggestions = buildSuggestions({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
     const score = calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
     const advScore = opts.advanced ? calcAdvScore(advanced) : null;
@@ -2691,6 +2784,9 @@
     validateDmarcVersion,
     parseDmarcUriList,
     findExternalReportDestinations,
+    reportDestinationHosts,
+    planReportDestinations,
+    parseReportAuthRecord,
     resolveDestinationOrgDomains,
     checkExternalReportAuth,
     discoverDmarc,

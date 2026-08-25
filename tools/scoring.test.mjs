@@ -714,10 +714,17 @@ eq('psd defaults to u',          dm('v=DMARC1; p=reject').psd, 'u');
 eq('psd=y parsed',               dm('v=DMARC1; p=reject; psd=y').psd, 'y');
 eq('psd=maybe flagged',          dm('v=DMARC1; p=reject; psd=maybe').psdValid, false);
 eq('psd=maybe → issue',          keys('v=DMARC1; p=reject; psd=maybe').includes('dmarc-bad-psd'), true);
-eq('psd=y on an org domain → issue',
-  keys('v=DMARC1; p=reject; psd=y', 'example.com').includes('dmarc-psd-invalid'), true);
-eq('psd=y without a domain is not guessed at',
-  keys('v=DMARC1; p=reject; psd=y').includes('dmarc-psd-invalid'), false);
+// `dmarc-psd-invalid` was removed in 0.3.0. It asked the Public Suffix List
+// whether a psd=y declaration was justified — breaking OQ-DMARC-04's rule that
+// no DMARC decision consults the PSL — and asked about the audited name rather
+// than the name carrying the applied record, so it fired on domains inheriting
+// the genuine `_dmarc.gov` PSD policy. There is no DNS-only test that disproves
+// a psd= declaration; the declaration is the protocol's source of truth.
+eq('a psd=y declaration is not second-guessed against the suffix list',
+  keys('v=DMARC1; p=reject; psd=y', 'example.com').includes('dmarc-psd-invalid'), false);
+// The protocol-defined half still applies: `psd=` has a value vocabulary.
+eq('an out-of-vocabulary psd= value is still flagged',
+  keys('v=DMARC1; p=reject; psd=maybe').includes('dmarc-bad-psd'), true);
 
 // ── rua/ruf URI parsing (§5.4)
 const uri = v => D.parseDmarcUriList(v);
@@ -873,19 +880,16 @@ section('23. External report authorization lookup (RFC 9990 §4)');
 // Mirrors the real Cloudflare setup: an exact per-domain record at the vendor,
 // a vendor publishing the wildcard form, a vendor with nothing, a vendor whose
 // record is malformed, and a destination whose lookup fails outright.
-sandbox.fetch = async url => {
-  const name = new URL(url).searchParams.get('name');
-  const txt = {
-    'example.com._report._dmarc.exact-vendor.com': ['"v=DMARC1;"'],
-    '*._report._dmarc.wildcard-vendor.com': ['"v=DMARC1"'],
-    'example.com._report._dmarc.malformed-vendor.com': ['"p=reject; v=DMARC1"'],
-  }[name];
-  if (name.endsWith('broken-vendor.com')) return { ok: true, json: async () => ({ Status: 2 }) };
-  return {
-    ok: true,
-    json: async () => ({ Status: 0, Answer: (txt || []).map(data => ({ type: 16, data })) }),
-  };
-};
+// The wildcard vendor is expressed as a wildcard OWNER, and the fixture
+// resolver synthesizes it while answering the constructed query — which is what
+// a real resolver does, and the only way this test says anything true about
+// RFC 9990's single-query algorithm.
+sandbox.fetch = dohFixture({
+  'example.com._report._dmarc.exact-vendor.com TXT': txt('v=DMARC1;'),
+  '*._report._dmarc.wildcard-vendor.com TXT': txt('v=DMARC1'),
+  'example.com._report._dmarc.malformed-vendor.com TXT': txt('p=reject; v=DMARC1'),
+  'example.com._report._dmarc.broken-vendor.com TXT': 'servfail',
+}, { fallback: 'nodata' });
 
 const auth = await D.checkExternalReportAuth('example.com', [
   'exact-vendor.com', 'wildcard-vendor.com', 'silent-vendor.com',
@@ -899,7 +903,16 @@ eq('query name is the RFC form',     byDest['exact-vendor.com'].queryName,
   'example.com._report._dmarc.exact-vendor.com');
 // Vendors with many customers publish the wildcard rather than one record each.
 eq('wildcard record authorizes',     byDest['wildcard-vendor.com'].state, 'authorized');
-eq('wildcard match is reported',     byDest['wildcard-vendor.com'].via, 'wildcard');
+// There is exactly one query, so 'via' can only ever be the constructed name.
+// A DoH JSON answer carries no evidence of whether the resolver synthesized it
+// from a wildcard, and the old code's second, literal `*` query was not that
+// evidence — it asked a different question (RFC 4592 §2.3).
+eq('a synthesized answer is still reported at the constructed name',
+  byDest['wildcard-vendor.com'].via, 'exact');
+eq('only one query is issued per destination',
+  sandbox.fetch.calls.filter(c => c.includes('wildcard-vendor.com')).length, 1);
+eq('the literal asterisk owner is never queried',
+  sandbox.fetch.calls.some(c => c.startsWith('*.')), false);
 eq('no record → unauthorized',       byDest['silent-vendor.com'].state, 'unauthorized');
 // RFC 9989 §4.7 applies here too: v= must come first, so this does not qualify.
 eq('v= not first → unauthorized',    byDest['malformed-vendor.com'].state, 'unauthorized');
@@ -1895,9 +1908,21 @@ const authFor = async (map, host) => {
 const wildcardOnly = await authFor({
   '*._report._dmarc.wc.example TXT': txt('v=DMARC1'),
 }, 'wc.example');
-eq('wildcard only → authorized', wildcardOnly.state, 'authorized');
-eq('wildcard only → via wildcard', wildcardOnly.via, 'wildcard');
-eq('wildcard only → the exact miss is recorded', wildcardOnly.exactKind, 'nxdomain');
+eq('a wildcard owner authorizes via synthesis', wildcardOnly.state, 'authorized');
+eq('and is answered at the constructed name', wildcardOnly.via, 'exact');
+
+/* RFC 4592 suppresses synthesis when the queried owner exists. So a
+   destination whose exact owner carries unrelated data is NOT authorized under
+   RFC 9990, even though a wildcard with `v=DMARC1` sits beside it — the
+   resolver never synthesizes, so a conformant receiver never sees it. The old
+   second query against the literal `*` owner found that record anyway and
+   authorized the arrangement, which is the verdict-changing half of the bug. */
+const suppressed = await authFor({
+  'src.example._report._dmarc.sup.example TXT': txt('some unrelated txt data'),
+  '*._report._dmarc.sup.example TXT': txt('v=DMARC1'),
+}, 'sup.example');
+eq('an existing owner suppresses the wildcard → unauthorized', suppressed.state, 'unauthorized');
+eq('and the unrelated data is reported as malformed', suppressed.malformed, true);
 
 // Step 8: "If at least one TXT resource record remains in the set after
 // parsing, then the external reporting arrangement was authorized." This is
@@ -1936,10 +1961,48 @@ eq('v= not first → unauthorized (RFC 9990 §4 step 6)', notFirstAuth.state, 'u
 // unrelated TXT data usually means the record went to the wrong name.
 const nodataMiss = await authFor({
   'src.example._report._dmarc.nd.example TXT': 'nodata',
-  '*._report._dmarc.nd.example TXT': 'nodata',
 }, 'nd.example');
 eq('a NODATA miss is distinguished from NXDOMAIN', nodataMiss.exactKind, 'nodata');
-eq('a NODATA miss records the wildcard kind too',  nodataMiss.wildcardKind, 'nodata');
+eq('a NODATA miss is unauthorized, not malformed', nodataMiss.malformed, false);
+
+/* Step 6 requires the record be parsed "as a series of tag=value pairs", not
+   merely that it opens with v=DMARC1. Checking only the version tag accepted
+   anything that started correctly and then said nothing meaningful. */
+eq('a record with junk after v=DMARC1 does not authorize',
+  (await authFor({
+    'src.example._report._dmarc.junk.example TXT': txt('v=DMARC1; this-is-not-a-tag-value-pair'),
+  }, 'junk.example')).state, 'unauthorized');
+eq('a bare v=DMARC1 authorizes',
+  (await authFor({ 'src.example._report._dmarc.bare.example TXT': txt('v=DMARC1') }, 'bare.example')).state, 'authorized');
+eq('an optional trailing semicolon is allowed',
+  (await authFor({ 'src.example._report._dmarc.semi.example TXT': txt('v=DMARC1;') }, 'semi.example')).state, 'authorized');
+eq('an empty segment in the middle is a syntax error',
+  D.parseReportAuthRecord('v=DMARC1; ; rua=mailto:x@a.example', 'a.example').valid, false);
+eq('the parser names the failure reason',
+  D.parseReportAuthRecord('v=DMARC1; nonsense', 'a.example').reason, 'syntax');
+eq('and distinguishes it from a version failure',
+  D.parseReportAuthRecord('p=reject; v=DMARC1', 'a.example').reason, 'version');
+// Step 8 stays permissive: one COMPLETE record among several is enough.
+eq('one complete record among malformed ones still authorizes',
+  (await authFor({
+    'src.example._report._dmarc.mix.example TXT': [...txt('v=DMARC1; nonsense'), ...txt('v=DMARC1; rua=mailto:r@mix.example')],
+  }, 'mix.example')).state, 'authorized');
+
+/* Step 9: the Report Consumer may override the destination, but "the
+   overriding URI MUST use the same destination host from the first step". This
+   tool never sends reports, so the override changes no verdict — it is
+   captured because an authorized result that dropped it would be incomplete
+   evidence about where reports actually go. */
+const override = await authFor({
+  'src.example._report._dmarc.ov.example TXT': txt('v=DMARC1; rua=mailto:reports@ov.example'),
+}, 'ov.example');
+eq('a same-host override is retained', override.override, 'mailto:reports@ov.example');
+eq('and marked valid', override.overrideValid, true);
+const badOverride = await authFor({
+  'src.example._report._dmarc.bo.example TXT': txt('v=DMARC1; rua=mailto:reports@elsewhere.example'),
+}, 'bo.example');
+eq('an override pointing at another host is still authorized', badOverride.state, 'authorized');
+eq('but the override itself is marked invalid', badOverride.overrideValid, false);
 
 sandbox.fetch = dohFixture({ 'src.example._report._dmarc.flap.example TXT': 'servfail' });
 const unverifiable = (await D.checkExternalReportAuth('src.example', ['flap.example'], { retries: 0 }))[0];
@@ -1960,6 +2023,40 @@ const askedAt = (await D.checkExternalReportAuth(inherited.applied.foundAt, ['ve
 eq('the query name uses foundAt, not the audited name',
   askedAt.queryName, 'policy.example._report._dmarc.vendor.example');
 eq('authorization evaluated against the policy domain → authorized', askedAt.state, 'authorized');
+
+/* One cap has to bound the WHOLE destination-driven workflow. Capping only the
+   Organizational Domain walks left authorization uncapped, so the audited
+   record's own text still decided how much resolver work one audit did. */
+const manyDests = Array.from({ length: 20 }, (_, i) => `vendor${i}.example`);
+sandbox.fetch = dohFixture({
+  'big.example NS': ns('ns1.big.example.'),
+  'big.example MX': mx('10 mail.big.example.'),
+  'big.example TXT': txt('v=spf1 -all'),
+  'big.example A': a('203.0.113.1'),
+  'big.example AAAA': 'nodata',
+  '_dmarc.big.example TXT': txt('v=DMARC1; p=reject; rua=' + manyDests.map(d => 'mailto:r@' + d).join(',')),
+});
+const big = await D.analyzeDomain('big.example', { dkim: false, advanced: true, retries: 0 });
+const bigCalls = sandbox.fetch.calls;
+eq('no more than ten destinations are walked',
+  new Set(bigCalls.filter(c => /^_dmarc\.vendor/.test(c)).map(c => c.split(' ')[0].replace(/^_dmarc\./, ''))).size, 10);
+eq('no more than ten authorization queries are issued',
+  bigCalls.filter(c => c.includes('._report._dmarc.')).length, 10);
+eq('one authorization query per destination, never two',
+  bigCalls.filter(c => c.includes('._report._dmarc.')).length,
+  new Set(bigCalls.filter(c => c.includes('._report._dmarc.')).map(c => c.split(' ')[0])).size);
+// The truncation is stated, not implied away.
+const bigKeys = big.issues.map(i => i.key);
+eq('the audit says it stopped short', bigKeys.includes('dmarc-report-destinations-truncated'), true);
+eq('and names how many of how many were checked',
+  big.issues.filter(i => i.key === 'dmarc-report-destinations-truncated')[0].args.slice(0, 2), [10, 20]);
+eq('a record within the cap raises no truncation notice',
+  D.buildIssues({
+    emailProvider: 'Custom', spfStatus: spf('ok'), dkimStatus: { found: true },
+    dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject; rua=mailto:a@v1.example'),
+    dmarcExistence: 'yes', reportPlan: { external: [], total: 1, omitted: [] },
+    hosting: 'Custom', advanced: full, domain: 'small.example',
+  }).map(i => i.key).includes('dmarc-report-destinations-truncated'), false);
 
 /* ── 30. PSL versus Tree Walk divergence ─────────────────────────────── */
 section('30. PSL versus Tree Walk divergence');

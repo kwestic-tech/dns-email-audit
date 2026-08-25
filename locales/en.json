@@ -627,12 +627,6 @@
       "fix": "Remove the tag unless you operate a public suffix — <code>u</code> is the default and is correct for essentially every ordinary domain.",
       "fixCode": "; Ordinary domains do not need psd= at all:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC declares psd=y but this domain is not a public suffix.",
-      "what": "<code>psd=y</code> tells receivers that this name is a Public Suffix Domain — a registry-level name such as <code>.gov.uk</code> under which unrelated organizations register. It changes where the DNS Tree Walk stops when receivers look for a policy, so setting it on an ordinary organizational domain can cause your policy to be discovered incorrectly for subdomains. This is almost always a copied-example mistake.",
-      "fix": "Remove <code>psd=y</code> unless you genuinely operate a public suffix listed in the Public Suffix List.",
-      "fixCode": "; Remove the tag:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
     "dmarc-removed-tags": {
       "msg": "DMARC record contains tags removed by RFC 9989 ({0}) — they no longer do anything.",
       "what": "RFC 9989 removed several tags carried over from RFC 7489. Receivers implementing the current specification ignore them. They are harmless in the sense that they will not break the record, but they are misleading: anyone reading the record later will assume they are in effect.",
@@ -716,6 +710,11 @@
       "what": "A DMARC policy lives at <code>_dmarc.yourdomain.com</code>; receivers query that name and nowhere else. There is a second <code>v=DMARC1</code> string in this domain's own TXT set, which no receiver will ever look at. Your actual policy is the one found at {0} and it governs normally — so this is untidy rather than dangerous. It usually means an older copy was left behind after the record was moved to the right name.",
       "fix": "Delete the <code>v=DMARC1</code> string from the domain's own TXT records. Leave the one under <code>_dmarc</code> exactly as it is.",
       "fixCode": "; Delete this — nothing reads it:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Keep this — this is your policy:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "Only {0} of {1} report destinations were checked — this audit stops at 10. Not checked: {2}",
+      "what": "Your record names more report destinations than this audit will follow. Each one outside your organizational domain costs a DNS tree walk plus an authorization lookup, and the number of them is set by the record itself — so an audit will not let a single record decide how much DNS traffic it generates. RFC 9990 §3.5 anticipates exactly this, saying reports go to every URI <em>\"up to the Receiver's limits on supported URIs\"</em>, and real receivers impose their own limits too. This notice exists so the verdicts above are not mistaken for a complete list.",
+      "fix": "Nothing is wrong with the record. If you want every destination audited, split the domains across separate runs. If the list has simply grown over time, it is worth pruning: destinations you no longer read are destinations a receiver still has to try."
     }
   },
   "suggestion": {

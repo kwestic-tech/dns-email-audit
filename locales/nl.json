@@ -627,12 +627,6 @@
       "fix": "Verwijder de tag tenzij u een public suffix beheert — <code>u</code> is de standaardwaarde en klopt voor vrijwel elk gewoon domein.",
       "fixCode": "; Gewone domeinen hebben psd= helemaal niet nodig:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC verklaart psd=y maar dit domein is geen public suffix.",
-      "what": "<code>psd=y</code> vertelt ontvangers dat deze naam een Public Suffix Domain is — een naam op registryniveau zoals <code>.gov.uk</code> waaronder niet-verwante organisaties registreren. Het verandert waar de DNS Tree Walk stopt wanneer ontvangers naar een beleid zoeken, dus dit instellen op een gewoon organisatiedomein kan ertoe leiden dat uw beleid voor subdomeinen verkeerd wordt gevonden. Dit is vrijwel altijd een fout door een gekopieerd voorbeeld.",
-      "fix": "Verwijder <code>psd=y</code> tenzij u werkelijk een public suffix beheert die op de Public Suffix List staat.",
-      "fixCode": "; Verwijder de tag:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
     "dmarc-removed-tags": {
       "msg": "Het DMARC-record bevat tags die door RFC 9989 zijn verwijderd ({0}) — ze doen niets meer.",
       "what": "RFC 9989 heeft verschillende tags verwijderd die uit RFC 7489 waren overgenomen. Ontvangers die de huidige specificatie implementeren negeren ze. Ze zijn onschadelijk in die zin dat ze het record niet stukmaken, maar ze zijn misleidend: wie het record later leest, gaat ervan uit dat ze van kracht zijn.",
@@ -716,6 +710,11 @@
       "what": "Een DMARC-beleid hoort op <code>_dmarc.yourdomain.com</code>; ontvangers bevragen die naam en geen andere. In de eigen TXT-set van dit domein staat een tweede <code>v=DMARC1</code>-tekenreeks waar geen enkele ontvanger ooit naar kijkt. Uw werkelijke beleid is dat op {0} en het geldt gewoon — dit is dus slordig, niet gevaarlijk. Meestal is het een oudere kopie die bleef staan nadat het record naar de juiste naam was verplaatst.",
       "fix": "Verwijder de <code>v=DMARC1</code>-tekenreeks uit de TXT-records van het domein zelf. Laat die onder <code>_dmarc</code> precies zoals hij is.",
       "fixCode": "; Verwijder dit — niets leest het:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Behoud dit — dit is uw beleid:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "Slechts {0} van de {1} rapportbestemmingen zijn gecontroleerd — deze audit stopt bij 10. Niet gecontroleerd: {2}",
+      "what": "Uw record noemt meer rapportbestemmingen dan deze audit volgt. Elke bestemming buiten uw organisatiedomein kost een DNS-boomwandeling plus een autorisatie-opvraging, en hun aantal wordt door het record zelf bepaald — een audit laat één record dus niet beslissen hoeveel DNS-verkeer het veroorzaakt. RFC 9990 §3.5 voorziet hier precies in: rapporten gaan naar elke URI <em>\"up to the Receiver's limits on supported URIs\"</em>, en echte ontvangers stellen ook hun eigen grenzen. Deze melding staat er zodat de oordelen hierboven niet voor een volledige lijst worden aangezien.",
+      "fix": "Er is niets mis met het record. Wilt u elke bestemming laten controleren, verdeel de domeinen dan over meerdere runs. Is de lijst gewoon in de loop der tijd gegroeid, dan loont snoeien: bestemmingen die u niet meer leest, moet een ontvanger nog steeds proberen."
     }
   },
   "suggestion": {

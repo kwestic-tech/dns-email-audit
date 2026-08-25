@@ -627,12 +627,6 @@
       "fix": "Remova a tag, a menos que você opere um sufixo público — <code>u</code> é o padrão e é o correto para praticamente qualquer domínio comum.",
       "fixCode": "; Domínios comuns não precisam de psd= de forma alguma:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
-    "dmarc-psd-invalid": {
-      "msg": "O DMARC declara psd=y, mas este domínio não é um sufixo público.",
-      "what": "<code>psd=y</code> informa aos receptores que este nome é um Public Suffix Domain — um nome no nível do registro, como <code>.gov.uk</code>, sob o qual organizações sem relação entre si fazem registros. Isso muda onde o DNS Tree Walk para quando os receptores buscam uma política, então definir isso em um domínio organizacional comum pode fazer com que sua política seja descoberta incorretamente para os subdomínios. Quase sempre é um erro de exemplo copiado.",
-      "fix": "Remova <code>psd=y</code>, a menos que você realmente opere um sufixo público listado na Public Suffix List.",
-      "fixCode": "; Remova a tag:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
     "dmarc-removed-tags": {
       "msg": "O registro DMARC contém tags removidas pelo RFC 9989 ({0}) — elas não fazem mais nada.",
       "what": "O RFC 9989 removeu várias tags herdadas do RFC 7489. Receptores que implementam a especificação atual as ignoram. São inofensivas no sentido de que não quebram o registro, mas são enganosas: quem ler o registro depois vai supor que estão em vigor.",
@@ -716,6 +710,11 @@
       "what": "Uma política DMARC fica em <code>_dmarc.yourdomain.com</code>; os destinatários consultam esse nome e nenhum outro. Há uma segunda string <code>v=DMARC1</code> no conjunto TXT do próprio domínio, que nenhum destinatário jamais olhará. Sua política de fato é a encontrada em {0} e ela rege normalmente — então isso é desleixo, não perigo. Em geral significa que uma cópia antiga ficou para trás depois que o registro foi movido para o nome certo.",
       "fix": "Exclua a string <code>v=DMARC1</code> dos registros TXT do próprio domínio. Deixe a que está sob <code>_dmarc</code> exatamente como está.",
       "fixCode": "; Exclua isto — nada lê:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Mantenha isto — esta é a sua política:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "Apenas {0} de {1} destinos de relatório foram verificados — esta auditoria para em 10. Não verificados: {2}",
+      "what": "Seu registro indica mais destinos de relatório do que esta auditoria vai seguir. Cada um fora do seu domínio organizacional custa um percurso da árvore DNS mais uma consulta de autorização, e a quantidade é definida pelo próprio registro — ou seja, uma auditoria não deixa um único registro decidir quanto tráfego DNS ela gera. A RFC 9990 §3.5 prevê exatamente isso ao dizer que os relatórios vão para cada URI <em>\"up to the Receiver's limits on supported URIs\"</em>, e destinatários reais também impõem seus próprios limites. Este aviso existe para que os veredictos acima não sejam confundidos com uma lista completa.",
+      "fix": "Não há nada errado com o registro. Se quiser auditar todos os destinos, divida os domínios em execuções separadas. Se a lista simplesmente cresceu com o tempo, vale podá-la: destinos que você não lê mais continuam sendo destinos que um destinatário ainda precisa tentar."
     }
   },
   "suggestion": {

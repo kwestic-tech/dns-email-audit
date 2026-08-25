@@ -627,12 +627,6 @@
       "fix": "Hapus tag ini kecuali Anda mengoperasikan sebuah public suffix — <code>u</code> adalah nilai bawaan dan tepat untuk hampir semua domain biasa.",
       "fixCode": "; Domain biasa sama sekali tidak memerlukan psd=:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC menyatakan psd=y tetapi domain ini bukan public suffix.",
-      "what": "<code>psd=y</code> memberi tahu penerima bahwa nama ini adalah Public Suffix Domain — nama setingkat registri seperti <code>.gov.uk</code> yang di bawahnya organisasi-organisasi tak berkaitan melakukan pendaftaran. Ini mengubah di mana DNS Tree Walk berhenti ketika penerima mencari kebijakan, sehingga menyetelnya pada domain organisasi biasa dapat menyebabkan kebijakan Anda ditemukan secara keliru untuk subdomain. Ini hampir selalu kesalahan akibat menyalin contoh.",
-      "fix": "Hapus <code>psd=y</code> kecuali Anda benar-benar mengoperasikan public suffix yang terdaftar di Public Suffix List.",
-      "fixCode": "; Hapus tag ini:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
     "dmarc-removed-tags": {
       "msg": "Data DMARC memuat tag yang dihapus oleh RFC 9989 ({0}) — tag itu tidak lagi berfungsi.",
       "what": "RFC 9989 menghapus beberapa tag warisan RFC 7489. Penerima yang menerapkan spesifikasi terkini mengabaikannya. Tag itu tidak berbahaya dalam arti tidak akan merusak datanya, tetapi menyesatkan: siapa pun yang membaca datanya nanti akan mengira tag itu masih berlaku.",
@@ -716,6 +710,11 @@
       "what": "Kebijakan DMARC berada di <code>_dmarc.yourdomain.com</code>; penerima mengueri nama itu dan tidak ada nama lain. Ada untaian <code>v=DMARC1</code> kedua di kumpulan TXT milik domain ini, yang tidak akan pernah dilihat penerima mana pun. Kebijakan Anda yang sesungguhnya adalah yang ditemukan di {0} dan berlaku seperti biasa — jadi ini soal kerapian, bukan bahaya. Biasanya ini berarti salinan lama tertinggal setelah rekaman dipindahkan ke nama yang benar.",
       "fix": "Hapus untaian <code>v=DMARC1</code> dari rekaman TXT domain itu sendiri. Biarkan yang di bawah <code>_dmarc</code> persis seperti apa adanya.",
       "fixCode": "; Hapus ini — tidak ada yang membacanya:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Pertahankan ini — inilah kebijakan Anda:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "Hanya {0} dari {1} tujuan laporan yang diperiksa — audit ini berhenti di 10. Tidak diperiksa: {2}",
+      "what": "Rekaman Anda menyebut lebih banyak tujuan laporan daripada yang akan ditelusuri audit ini. Setiap tujuan di luar domain organisasi Anda memerlukan satu penelusuran pohon DNS ditambah satu kueri otorisasi, dan jumlahnya ditentukan oleh rekaman itu sendiri — jadi audit tidak membiarkan satu rekaman menentukan seberapa banyak lalu lintas DNS yang dihasilkannya. RFC 9990 §3.5 mengantisipasi hal ini, menyatakan laporan dikirim ke setiap URI <em>\"up to the Receiver's limits on supported URIs\"</em>, dan penerima sungguhan pun menerapkan batas mereka sendiri. Pemberitahuan ini ada agar penilaian di atas tidak disalahartikan sebagai daftar yang lengkap.",
+      "fix": "Tidak ada yang salah dengan rekaman itu. Jika Anda ingin semua tujuan diaudit, pisahkan domain ke dalam beberapa proses. Jika daftarnya memang bertambah panjang seiring waktu, ada baiknya dipangkas: tujuan yang tidak lagi Anda baca tetap harus dicoba oleh penerima."
     }
   },
   "suggestion": {

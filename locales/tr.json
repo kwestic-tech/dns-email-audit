@@ -627,12 +627,6 @@
       "fix": "Bir genel son ek (public suffix) işletmiyorsanız etiketi kaldırın — <code>u</code> varsayılandır ve neredeyse her sıradan alan adı için doğrudur.",
       "fixCode": "; Sıradan alan adlarının psd= etiketine hiç ihtiyacı yoktur:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC psd=y bildiriyor, ancak bu alan adı bir genel son ek değil.",
-      "what": "<code>psd=y</code>, alıcılara bu adın bir genel son ek alan adı olduğunu söyler — <code>.gov.uk</code> gibi, altında birbiriyle ilgisiz kuruluşların kayıt yaptırdığı, kayıt kuruluşu düzeyinde bir ad. Alıcılar bir politika ararken DNS Tree Walk'un nerede duracağını değiştirir; dolayısıyla bunu sıradan bir kurumsal alan adında ayarlamak, alt alan adları için politikanızın yanlış keşfedilmesine yol açabilir. Bu neredeyse her zaman kopyalanmış bir örnekten kaynaklanan bir hatadır.",
-      "fix": "Public Suffix List'te yer alan bir genel son eki gerçekten işletmiyorsanız <code>psd=y</code> etiketini kaldırın.",
-      "fixCode": "; Etiketi kaldırın:\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
     "dmarc-removed-tags": {
       "msg": "DMARC kaydı RFC 9989 tarafından kaldırılan etiketler içeriyor ({0}) — artık hiçbir işlevleri yok.",
       "what": "RFC 9989, RFC 7489'dan devralınan birkaç etiketi kaldırdı. Güncel belirtimi uygulayan alıcılar bunları yok sayar. Kaydı bozmayacakları anlamında zararsızdırlar, ancak yanıltıcıdırlar: kaydı sonradan okuyan biri onların yürürlükte olduğunu varsayacaktır.",
@@ -716,6 +710,11 @@
       "what": "Bir DMARC ilkesi <code>_dmarc.yourdomain.com</code> adresinde bulunur; alıcılar yalnızca o adı sorgular, başkasını değil. Bu alan adının kendi TXT kümesinde, hiçbir alıcının asla bakmayacağı ikinci bir <code>v=DMARC1</code> dizesi var. Gerçek ilkeniz {0} adresinde bulunandır ve normal biçimde geçerlidir — yani bu tehlikeli değil, dağınık. Genellikle kayıt doğru ada taşındıktan sonra eski bir kopyanın geride kalmasından kaynaklanır.",
       "fix": "<code>v=DMARC1</code> dizesini alan adının kendi TXT kayıtlarından silin. <code>_dmarc</code> altındakine hiç dokunmayın.",
       "fixCode": "; Bunu silin — kimse okumuyor:\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Bunu koruyun — ilkeniz bu:\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "{1} rapor hedefinden yalnızca {0} tanesi denetlendi — bu denetim 10'da duruyor. Denetlenmeyenler: {2}",
+      "what": "Kaydınız, bu denetimin izleyeceğinden daha fazla rapor hedefi belirtiyor. Kurumsal alan adınızın dışındaki her hedef bir DNS ağaç yürüyüşü ile bir yetkilendirme sorgusuna mal olur ve sayılarını kaydın kendisi belirler — yani bir denetim, tek bir kaydın ne kadar DNS trafiği üreteceğine karar vermesine izin vermez. RFC 9990 §3.5 tam da bunu öngörür ve raporların her URI'ye <em>\"up to the Receiver's limits on supported URIs\"</em> gittiğini söyler; gerçek alıcılar da kendi sınırlarını koyar. Bu uyarı, yukarıdaki sonuçların eksiksiz bir liste sanılmaması için burada.",
+      "fix": "Kayıtta yanlış bir şey yok. Her hedefin denetlenmesini istiyorsanız alan adlarını ayrı çalıştırmalara bölün. Liste zamanla büyüdüyse budamaya değer: artık okumadığınız hedefler, bir alıcının yine de denemek zorunda olduğu hedeflerdir."
     }
   },
   "suggestion": {

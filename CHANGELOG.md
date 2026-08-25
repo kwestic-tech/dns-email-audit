@@ -49,11 +49,25 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   policy, and one for when there is genuinely nothing above.
 
 - **External report authorization is checked against the name the applied
-  record was found at**, and follows RFC 9990 §4 more closely: the `v=DMARC1`
-  tag is validated rather than prefix-matched, so `v=DMARC1x` no longer
-  authorizes anything, and a destination publishing several records is
-  authorized when at least one of them parses (§4 step 8) rather than only the
-  first being examined.
+  record was found at**, and follows RFC 9990 §4 as written. One query is
+  issued, at the single name the RFC constructs — a Report Consumer's wildcard
+  authorization is synthesized by the resolver while answering it, so there is
+  no second lookup to make and querying the asterisk owner directly was never
+  the algorithm. That mattered beyond the saved query: wildcard synthesis is
+  suppressed when the queried name already exists, so a destination whose exact
+  name holds unrelated data is not authorized, where the old fallback found the
+  wildcard beside it and authorized anyway. Records are now parsed in full
+  rather than accepted on the version tag alone (§4 step 6 requires both), the
+  `v=DMARC1` tag is validated rather than prefix-matched so `v=DMARC1x`
+  authorizes nothing, and a destination publishing several records is authorized
+  when at least one **complete** record parses (§4 step 8).
+
+- **The number of report destinations one audit will follow is capped at ten**,
+  in the order the record gives them, and the audit says so when it stops short.
+  Every destination outside your organizational domain costs a tree walk plus an
+  authorization query, and the count is set by the audited record itself — RFC
+  9990 §3.5 anticipates this, delivering to each URI "up to the Receiver's
+  limits on supported URIs".
 
 ### Added
 
@@ -100,6 +114,18 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `tools/backtest.mjs` now reports the DNS query fan-out of every run, so the
   figure `PRIVACY.md` publishes is measured rather than estimated.
+
+### Removed
+
+- **The `dmarc-psd-invalid` finding.** It asked the bundled Public Suffix List
+  whether a `psd=y` declaration was justified — the last place a DMARC decision
+  consulted that list — and it asked about the audited name rather than the name
+  carrying the applied record. A domain inheriting the real `_dmarc.gov` PSD
+  policy is its own PSL organizational domain, so the check fired and called
+  that correct declaration invalid: a false positive on the very case this
+  release adds support for. There is no DNS-only test that disproves a `psd=`
+  declaration, which is the whole reason the tag exists. `dmarc-bad-psd`
+  remains, checking the value vocabulary the RFC actually defines.
 
 ### Fixed
 

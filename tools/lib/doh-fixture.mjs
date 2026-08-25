@@ -55,9 +55,7 @@ export function dohFixture(map, options = {}) {
     const type = TYPE_NAME[params.get('type')] || 'TXT';
     calls.push(`${name} ${type}`);
 
-    const entry = map[`${name} ${type}`] !== undefined ? map[`${name} ${type}`]
-      : map[name] !== undefined ? map[name]
-        : fallback;
+    const entry = resolve(map, name, type, fallback);
     return respond(entry, type);
   };
 
@@ -65,6 +63,40 @@ export function dohFixture(map, options = {}) {
   fetchImpl.callsFor = type => calls.filter(c => c.endsWith(` ${type}`)).map(c => c.split(' ')[0]);
   fetchImpl.reset = () => { calls.length = 0; };
   return fetchImpl;
+}
+
+/**
+ * Look up a name the way a resolver would, including wildcard synthesis.
+ *
+ * RFC 4592 §2.3: "When a wildcard domain name appears in a message's query
+ * section, no special processing occurs." So a fixture cannot test wildcard
+ * behaviour by querying the asterisk owner directly — that retrieves the
+ * literal node. The synthesis has to happen HERE, while answering the real
+ * query, or the test proves nothing about what a resolver would return.
+ *
+ * §4.3.2 step 3c and §2.2.1: synthesis applies only when the queried name does
+ * not itself exist. An owner that exists with unrelated data SUPPRESSES the
+ * wildcard, which is the case that separates an authorized external reporting
+ * arrangement from an unauthorized one.
+ */
+function resolve(map, name, type, fallback) {
+  const exact = map[`${name} ${type}`] !== undefined ? map[`${name} ${type}`]
+    : map[name] !== undefined ? map[name] : undefined;
+  if (exact !== undefined) return exact;
+
+  // The queried name does not exist. Look for the closest enclosing wildcard.
+  const labels = name.split('.');
+  for (let i = 1; i < labels.length; i++) {
+    const parent = labels.slice(i).join('.');
+    // An existing name between the wildcard and the query name also suppresses
+    // synthesis, so stop climbing as soon as one is found.
+    if (i > 1 && (map[parent] !== undefined || map[`${parent} ${type}`] !== undefined)) break;
+    const star = `*.${parent}`;
+    const hit = map[`${star} ${type}`] !== undefined ? map[`${star} ${type}`]
+      : map[star] !== undefined ? map[star] : undefined;
+    if (hit !== undefined) return hit;
+  }
+  return fallback;
 }
 
 function respond(entry, type) {

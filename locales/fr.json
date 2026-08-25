@@ -627,12 +627,6 @@
       "fix": "Supprimez la balise sauf si vous exploitez un suffixe public — <code>u</code> est la valeur par défaut et convient à pratiquement tout domaine ordinaire.",
       "fixCode": "; Les domaines ordinaires n'ont pas du tout besoin de psd= :\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
     },
-    "dmarc-psd-invalid": {
-      "msg": "DMARC déclare psd=y mais ce domaine n'est pas un suffixe public.",
-      "what": "<code>psd=y</code> indique aux destinataires que ce nom est un domaine de suffixe public — un nom de niveau registre tel que <code>.gov.uk</code>, sous lequel s'enregistrent des organisations sans lien entre elles. Cela modifie l'endroit où s'arrête le DNS Tree Walk lorsque les destinataires cherchent une politique : le définir sur un domaine organisationnel ordinaire peut donc conduire à une découverte incorrecte de votre politique pour les sous-domaines. C'est presque toujours une erreur due à la copie d'un exemple.",
-      "fix": "Supprimez <code>psd=y</code> sauf si vous exploitez réellement un suffixe public figurant dans la Public Suffix List.",
-      "fixCode": "; Supprimez la balise :\n_dmarc    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
-    },
     "dmarc-removed-tags": {
       "msg": "L'enregistrement DMARC contient des balises supprimées par la RFC 9989 ({0}) — elles ne font plus rien.",
       "what": "La RFC 9989 a supprimé plusieurs balises héritées de la RFC 7489. Les destinataires qui appliquent la spécification actuelle les ignorent. Elles sont inoffensives au sens où elles ne casseront pas l'enregistrement, mais elles sont trompeuses : quiconque lira l'enregistrement plus tard supposera qu'elles sont en vigueur.",
@@ -716,6 +710,11 @@
       "what": "Une politique DMARC se trouve à <code>_dmarc.yourdomain.com</code> ; les destinataires interrogent ce nom et aucun autre. Il y a une seconde chaîne <code>v=DMARC1</code> dans l'ensemble TXT propre à ce domaine, que jamais aucun destinataire ne regardera. Votre politique réelle est celle trouvée à {0} et elle s'applique normalement — ceci relève donc du désordre, pas du danger. C'est en général une ancienne copie oubliée après le déplacement de l'enregistrement vers le bon nom.",
       "fix": "Supprimez la chaîne <code>v=DMARC1</code> des enregistrements TXT du domaine lui-même. Laissez celle sous <code>_dmarc</code> exactement telle quelle.",
       "fixCode": "; Supprimez ceci — rien ne le lit :\nyourdomain.com    TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\"\n\n; Gardez ceci — c'est votre politique :\n_dmarc            TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\""
+    },
+    "dmarc-report-destinations-truncated": {
+      "msg": "Seules {0} destinations de rapport sur {1} ont été vérifiées — cet audit s'arrête à 10. Non vérifiées : {2}",
+      "what": "Votre enregistrement nomme plus de destinations de rapport que cet audit n'en suivra. Chacune située hors de votre domaine organisationnel coûte un parcours de l'arbre DNS plus une requête d'autorisation, et leur nombre est fixé par l'enregistrement lui-même — un audit ne laisse donc pas un seul enregistrement décider du volume de trafic DNS qu'il génère. La RFC 9990 §3.5 prévoit exactement cela en indiquant que les rapports vont à chaque URI <em>\"up to the Receiver's limits on supported URIs\"</em>, et les destinataires réels imposent eux aussi leurs propres limites. Cet avis existe pour que les verdicts ci-dessus ne soient pas pris pour une liste complète.",
+      "fix": "L'enregistrement n'a rien d'incorrect. Si vous voulez auditer chaque destination, répartissez les domaines sur plusieurs exécutions. Si la liste s'est simplement allongée au fil du temps, il vaut la peine de l'élaguer : les destinations que vous ne lisez plus restent des destinations qu'un destinataire doit tout de même essayer."
     }
   },
   "suggestion": {
