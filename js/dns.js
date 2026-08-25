@@ -562,8 +562,15 @@
       // length no DKIM key has and a sign the input is not DER at all.
       if (count === 0 || count > 4) return null;
       if (pos + 2 + count > bytes.length) return null;
+      // X.690 10.1: the definite length must use the FEWEST possible octets.
+      // A leading zero octet is never the fewest, and neither is the long form
+      // for a value the short form can express. Accepting either let BER
+      // encodings through a walk this release calls authoritative DER — and
+      // two encodings of one key is one more than a canonical form allows.
+      if (bytes[pos + 2] === 0x00) return null;
       length = 0;
       for (var i = 0; i < count; i++) length = (length * 256) + bytes[pos + 2 + i];
+      if (length < 0x80) return null;
       start = pos + 2 + count;
     }
     if (start + length > bytes.length) return null;

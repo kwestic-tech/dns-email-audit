@@ -2668,6 +2668,54 @@ eq('a difference in the LEADING octet is caught too',
 // the comparison is rejecting valid keys rather than invalid ones.
 eq('a same-width exponent below the modulus is accepted',
   asKey(pkcs1Of(GOOD_MODULUS, sameWidth(e => { e[0] = 0x7f; }))).keyBits, 1024);
+/* ── DER length octets must be minimal, at every level ──────────────────
+   X.690 §10.1: the definite length uses the FEWEST possible octets. A leading
+   zero is never the fewest, and neither is the long form for a value the short
+   form can express. Accepting either let BER encodings through a walk this
+   release calls authoritative DER, and gave one key two valid encodings.
+   ───────────────────────────────────────────────────────────────────── */
+// A deliberately non-minimal encoder: `octets` length bytes, whatever the size.
+const longFormTlv = (tag, content, octets) => {
+  const body = Buffer.from(content);
+  const len = [];
+  for (let i = 0, n = body.length; i < octets; i++, n >>= 8) len.unshift(n & 0xff);
+  return Buffer.concat([Buffer.from([tag, 0x80 | octets]), Buffer.from(len), body]);
+};
+// 129 significant octets, so its own length legitimately needs the long form.
+const LONG_MODULUS = wellFormedModulus(129);
+const canonicalKey = derTlv(0x30, Buffer.concat([derTlv(0x02, LONG_MODULUS), derTlv(0x02, EXPONENT)]));
+
+// The control: the same key, canonically encoded, must parse.
+eq('a canonically encoded key parses', asKey(canonicalKey).keyBits, 1032);
+// ...and its modulus really does need the long form, or the fixtures below
+// would not be testing what they claim.
+eq('the long modulus needs long-form length', LONG_MODULUS.length >= 0x80, true);
+
+eq('long form for a short exponent length is refused',
+  asKey(derTlv(0x30, Buffer.concat([derTlv(0x02, LONG_MODULUS), longFormTlv(0x02, EXPONENT, 1)]))).errors,
+  ['unparseable-key']);
+eq('a leading zero length octet on the modulus is refused',
+  asKey(derTlv(0x30, Buffer.concat([longFormTlv(0x02, LONG_MODULUS, 2), derTlv(0x02, EXPONENT)]))).errors,
+  ['unparseable-key']);
+eq('a leading zero length octet on the outer sequence is refused',
+  asKey(longFormTlv(0x30, Buffer.concat([derTlv(0x02, LONG_MODULUS), derTlv(0x02, EXPONENT)]), 2)).errors,
+  ['unparseable-key']);
+eq('long form inside the SPKI envelope is refused too',
+  asKey(derTlv(0x30, Buffer.concat([
+    derTlv(0x30, RSA_OID_DER),
+    derTlv(0x03, Buffer.concat([Buffer.from([0x00]),
+      derTlv(0x30, Buffer.concat([derTlv(0x02, LONG_MODULUS), longFormTlv(0x02, EXPONENT, 1)]))])),
+  ]))).errors, ['unparseable-key']);
+
+// The 127/128 boundary, where the short form stops being legal. Both controls
+// must PASS, or the guard is rejecting canonical encodings rather than BER.
+const shortBody = wellFormedModulus(126);   // < 128 octets: short form required
+eq('a value at the short-form limit parses',
+  asKey(derTlv(0x30, Buffer.concat([derTlv(0x02, shortBody), derTlv(0x02, EXPONENT)]))).keyBits, 1008);
+eq('the short-form fixture is genuinely under 128 octets', shortBody.length < 0x80, true);
+eq('a 128-octet value uses long form and parses',
+  asKey(derTlv(0x30, Buffer.concat([derTlv(0x02, wellFormedModulus(128)), derTlv(0x02, EXPONENT)]))).keyBits, 1024);
+
 // And the same rules inside the SPKI envelope.
 eq('an exponent equal to the modulus inside SPKI is refused',
   asKey(spkiOf(derTlv(0x30, RSA_OID_DER), GOOD_MODULUS, sameWidth(() => {}))).errors, ['unparseable-key']);
