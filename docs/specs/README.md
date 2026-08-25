@@ -44,11 +44,28 @@ rationale, the dependency map, and the group-by-group execution plan.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [dnssec-evidence](dnssec-evidence.md) | 0.5.0 | 0.1 | Draft, awaiting review |
+| [dnssec-evidence](dnssec-evidence.md) | 0.5.0 | 1.0 | **Final — implementation may begin** |
 | [findings-and-remediation](findings-and-remediation.md) | 0.6.0 | 0.1 | Draft, awaiting review |
 | [local-artifact-validation](local-artifact-validation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
 | [report-comparison](report-comparison.md) | 0.8.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.1 | Draft, decision pending |
+
+## Captured evidence
+
+Some decisions cannot be made from reasoning about a protocol, only from
+looking at what a resolver actually returns. Where a review settles a question
+by measurement, the capture is kept beside the spec rather than in the session
+that produced it:
+
+| Directory | Holds |
+| --- | --- |
+| [`fixtures/`](fixtures/) | Captures for specs still being reviewed |
+| [`implemented/fixtures/`](implemented/fixtures/) | Captures for specs that have shipped, moved with their spec |
+
+Two of these exist so far, both for the DNS record types 0.4.0 and 0.5.0 add.
+`OQ-DEPTH-01` and `OQ-DEPTH-05` were settled this way, and so were four of the
+seven questions in [dnssec-evidence](dnssec-evidence.md). A capture states the
+date and the resolver it came from, because both go stale.
 
 ## Excluded — requires a companion app
 
