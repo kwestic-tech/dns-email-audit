@@ -4,8 +4,10 @@
 | --- | --- |
 | Spec version | 1.2 (Implemented) |
 | Target release | 0.3.0 |
-| Status | Implemented |
+| Status | Implemented and released |
+| Released in | `v0.3.0`, 2026-08-25 |
 | Pull request | [#20](https://github.com/kwestic-tech/dns-email-audit/pull/20) |
+| Merge commit | `8c3a36f` (squashed) |
 | Depends on | [rendering-and-robustness](rendering-and-robustness.md) (0.2.3), because this release adds new rendered evidence |
 | Blocks | [findings-and-remediation](../findings-and-remediation.md), which consumes discovery provenance |
 | Slug for open questions | `DMARC` |

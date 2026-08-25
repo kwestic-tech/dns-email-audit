@@ -82,7 +82,7 @@ precedent, and one spec was superseded outright during implementation.
 | [locale-translation-pipeline](implemented/locale-translation-pipeline.md) | 0.2.1 | [#14](https://github.com/kwestic-tech/dns-email-audit/pull/14) | `ec1983f` | 1.0 (Implemented, superseding design) |
 | [spf-referenced-dkim-selectors](implemented/spf-referenced-dkim-selectors.md) | 0.2.2 | [#15](https://github.com/kwestic-tech/dns-email-audit/pull/15) | `e158020` | 1.0 (Implemented) |
 | [rendering-and-robustness](implemented/rendering-and-robustness.md) | 0.2.3 | [#18](https://github.com/kwestic-tech/dns-email-audit/pull/18) | `6bf8bda` | 1.3 (Implemented) |
-| [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) | 0.3.0 | [#20](https://github.com/kwestic-tech/dns-email-audit/pull/20) | pending merge | 1.2 (Implemented) |
+| [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) | 0.3.0 | [#20](https://github.com/kwestic-tech/dns-email-audit/pull/20) | `8c3a36f` | 1.2 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in
