@@ -68,7 +68,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | # | Workstream | State after 0.2.2 | Lands in |
 | --- | --- | --- | --- |
 | 1 | Rendering correctness and robustness | **Done, and rescoped along the way.** The original framing was CSP and XSS hardening; a static site with no session or stored data has no compromise to defend, so the work that survived is output integrity. Shipped in 0.2.3: no markup sink remains under `js/`, interpolation is single-pass, and every class of malformed record has a decided, tested display behavior. | [0.2.3](docs/specs/implemented/rendering-and-robustness.md), released |
-| 2 | RFC 9989 DMARC | **Done.** The bis tag vocabulary, `t=`, `psd=`, inheritance, URI parsing and external report authorization were already implemented; 0.3.0 added the missing half — the RFC 9989 §4.10 DNS Tree Walk, replacing the Public Suffix List for every DMARC decision, with discovery provenance, `psd=` termination, existence-gated `np=`, and misplaced-record diagnosis. | [0.3.0](docs/specs/implemented/dmarcbis-tree-walk.md), implemented |
+| 2 | RFC 9989 DMARC | **Done.** The bis tag vocabulary, `t=`, `psd=`, inheritance, URI parsing and external report authorization were already implemented; 0.3.0 added the missing half — the RFC 9989 §4.10 DNS Tree Walk, replacing the Public Suffix List for every DMARC decision, with discovery provenance, `psd=` termination, existence-gated `np=`, and misplaced-record diagnosis. | [0.3.0](docs/specs/implemented/dmarcbis-tree-walk.md), released |
 | 3 | Anomaly and remediation engine | Not started. Findings are a flat list of localized strings with no severity model, dependencies, or ordering. | [0.6.0](docs/specs/findings-and-remediation.md) |
 | 4 | DKIM, MX, CAA and DANE depth | Foundation improved. Selector discovery is better. Key strength, structured CAA, MX health and TLSA analysis are absent. | [0.4.0](docs/specs/dns-protocol-depth.md) |
 | 5 | DNSSEC depth | Not started. State is the resolver's AD flag plus a bogus probe; no DS or DNSKEY evidence. | [0.5.0](docs/specs/dnssec-evidence.md) |
@@ -108,7 +108,7 @@ Exit condition: no DNS-derived value reaches anything but a text node or an
 allowlisted attribute, every malformation class has a decided and tested
 behavior, and grades are byte-identical to `v0.2.2`.
 
-### 0.3.0: Complete DMARCbis behavior — **implemented**
+### 0.3.0: Complete DMARCbis behavior — **released**
 
 Spec: [`docs/specs/implemented/dmarcbis-tree-walk.md`](docs/specs/implemented/dmarcbis-tree-walk.md)
 

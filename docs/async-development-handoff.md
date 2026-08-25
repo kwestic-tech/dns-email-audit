@@ -225,16 +225,24 @@ the first two exist.
 
 ### 3a. `dmarcbis-tree-walk` (0.3.0)
 
-> **Status, 2026-08-24: implemented.** Spec finalized at `1.1`, then amended to
-> `1.2` — two defects in the spec's own text, both found by transcribing RFC
-> 9989 against the code during implementation and both recorded in its Revision
-> history. `npm test` 1,130 assertions / 0 failures, `npm run locale:gate` 13/13
-> (593/593 keys). Backtested against `v0.2.3`: no DMARC-pillar movement across
+> **Status, 2026-08-25: released as `v0.3.0`.** Merged via [PR #20](https://github.com/kwestic-tech/dns-email-audit/pull/20) (squashed to `8c3a36f`). Spec finalized at `1.1`, then amended to
+> `1.2` across four review rounds — one internal, three by Codex. Every
+> amendment came from transcribing RFC 9989 and RFC 9990 against the code, and
+> all are recorded in the spec's Revision history and **As implemented**
+> section. `npm test` 1,189 assertions / 0 failures, `npm run locale:gate` 13/13
+> (606/606 keys). Backtested against `v0.2.3`: no DMARC-pillar movement across
 > 40 apex domains, one move across 40 subdomains (`www.gov.uk`, F → D, a genuine
-> PSL-versus-Tree-Walk divergence). Fan-out measured at 30.4 → 32.1 queries per
+> PSL-versus-Tree-Walk divergence). Fan-out measured at 30.4 → 32.0 queries per
 > domain and written into `PRIVACY.md`. The spec has moved to
-> [`docs/specs/implemented/`](specs/implemented/dmarcbis-tree-walk.md) with its
-> **As implemented** section.
+> [`docs/specs/implemented/`](specs/implemented/dmarcbis-tree-walk.md).
+>
+> **The lesson worth carrying to 3b.** All four rounds found the same failure
+> mode: a confident verdict the evidence did not support — a failed lookup
+> reported as a missing record, a critical finding raised while a policy
+> governed, a destination reported authorized when receivers would send nothing,
+> and a remediation example naming an owner no receiver queries. 0.4.0 parses
+> `DS`, `DNSKEY` and `TLSA`, where the same mistake reads as "your DNSSEC is
+> broken" on a healthy zone. Budget review rounds accordingly.
 >
 > `OQ-DMARC-03` resolved to a programmable sandbox `fetch`, and the shared
 > helper is `tools/lib/doh-fixture.mjs` — **3b and 3c reuse it rather than
