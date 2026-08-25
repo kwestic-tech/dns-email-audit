@@ -38,7 +38,10 @@
     "www": "Website-Hosting erkennen",
     "wildcard": "Wildcard-TXT-Fehler erkennen",
     "dkimSelectors": "Zusätzliche DKIM-Selektoren",
-    "footer": "DNS über Cloudflare DoH · Keine Datenspeicherung · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Datenschutz</a>"
+    "footer": "DNS über Cloudflare DoH · Keine Datenspeicherung · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Datenschutz</a>",
+    "deepChecks": "Tiefe Protokollprüfungen (MX-Zustand, TLSA)",
+    "deepChecksTitle": "Löst jeden MX-Host auf und sucht nach TLSA-Einträgen; ergänzt rund 7 DNS-Abfragen pro Domain",
+    "deepChecksAutoDisabled": "Tiefe Protokollprüfungen sind für diesen Lauf deaktiviert: Sie ergänzen etwa 7 DNS-Abfragen pro Domain, und dieser Lauf umfasst {1} Domains bei einer Grenze von {0}. Setzen Sie das Häkchen erneut, um sie dennoch auszuführen."
   },
   "help": {
     "title": "Funktionsweise:",
@@ -105,7 +108,9 @@
     "status": "Status",
     "none": "Keiner",
     "na": "N/V",
-    "dash": "—"
+    "dash": "—",
+    "caa": "CAA-Richtlinie",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "{0} weitere Zeichen anzeigen",
@@ -213,7 +218,14 @@
     "viaSpf": "über SPF: {0}",
     "noteWildcard": "Wildcard-TXT-Fehler könnte die Überprüfung stören",
     "noteNotFound": "Kein aktiver DKIM-Schlüssel unter {0} getesteten Selektoren gefunden",
-    "noteNotFoundWithErrors": "Kein aktiver DKIM-Schlüssel unter {0} abgeschlossenen Selektor-Prüfungen gefunden; {1} DNS-Abfragen fehlgeschlagen"
+    "noteNotFoundWithErrors": "Kein aktiver DKIM-Schlüssel unter {0} abgeschlossenen Selektor-Prüfungen gefunden; {1} DNS-Abfragen fehlgeschlagen",
+    "keyLabel": "Schlüssel",
+    "keyRsaBits": "RSA {0} Bit",
+    "keyRevoked": "widerrufen",
+    "keyUnreadable": "lässt sich nicht dekodieren",
+    "keyUnknownType": "unbekannter Schlüsseltyp",
+    "keyStructureInvalid": "Struktur abgelehnt",
+    "keyTesting": "Testmodus"
   },
   "adv": {
     "configured": "✓ Konfiguriert",
@@ -309,7 +321,15 @@
       "Eintragshygiene",
       "DMARC gefunden bei",
       "DMARC Labels aufwärts",
-      "DMARC-Ermittlung beendet"
+      "DMARC-Ermittlung beendet",
+      "DKIM-Schlüsseltyp",
+      "DKIM-Schlüsselgröße (Bit)",
+      "Widerrufene DKIM-Selektoren",
+      "CAA-Aussteller",
+      "CAA-Wildcard-Aussteller",
+      "MX ohne Auflösung",
+      "Anzahl MX-Hosts",
+      "TLSA vorhanden"
     ],
     "yes": "Ja",
     "no": "Nein",
@@ -1043,5 +1063,27 @@
       "ruf": "Forensische Berichte (ruf=)",
       "uris": "Berichtsziele"
     }
+  },
+  "mx": {
+    "doesNotResolve": "löst nicht auf",
+    "notChecked": "nicht geprüft",
+    "cnameTarget": "CNAME-Ziel"
+  },
+  "caa": {
+    "issuers": "Zertifizierungsstellen",
+    "wildcard": "Wildcards",
+    "iodef": "Meldung an",
+    "none": "keine",
+    "blocksAll": "Keine Zertifizierungsstelle ist autorisiert",
+    "wildcardBlocked": "Keine Wildcard-Zertifikate",
+    "wildcardViaIssue": "durch die issue-Menge geregelt",
+    "unknownCritical": "Nicht erkannte kritische Eigenschaft"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Veröffentlicht, noch nicht qualifiziert — DANE ist nur hinter einer validierten DNSSEC-Kette aussagekräftig, und diese Version prüft sie nicht.",
+    "notPublished": "nicht veröffentlicht",
+    "notChecked": "nicht geprüft",
+    "authenticated": "veröffentlicht · DNSSEC-authentifiziert",
+    "unauthenticated": "veröffentlicht · nicht DNSSEC-authentifiziert"
   }
 }

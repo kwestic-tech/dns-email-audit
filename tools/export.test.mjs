@@ -323,8 +323,22 @@ const data = rows[1];
 const hygieneIdx = header.indexOf('Record Hygiene');
 eq('the hygiene column is still present', hygieneIdx !== -1, true);
 eq('the header and data rows are the same length', header.length, data.length);
-eq('the Tree Walk columns are appended after it',
-  header.slice(hygieneIdx), ['Record Hygiene', 'DMARC Found At', 'DMARC Labels Up', 'DMARC Discovery Terminated']);
+// Anchored by index rather than by "last", so the next release appending a
+// column moves nothing here. Pinning the tail is what made this assertion fire
+// on 0.4.0's eight new columns — which is the rule working, not breaking.
+eq('the Tree Walk columns follow the hygiene column',
+  header.slice(hygieneIdx, hygieneIdx + 4),
+  ['Record Hygiene', 'DMARC Found At', 'DMARC Labels Up', 'DMARC Discovery Terminated']);
+// 0.4.0's protocol-depth columns go after those, in their own fixed block.
+eq('the protocol-depth columns are appended after the Tree Walk columns',
+  header.slice(hygieneIdx + 4, hygieneIdx + 12),
+  ['DKIM Key Type', 'DKIM Key Bits', 'DKIM Revoked Selectors', 'CAA Issuers',
+    'CAA Wildcard Issuers', 'MX Dangling', 'MX Host Count', 'TLSA Present']);
+// The whole point of the positional rule: every column that existed before
+// 0.4.0 is still at the index it was at. Checked against English rather than
+// against a count, so an inserted column fails loudly here.
+eq('no pre-0.4.0 column moved', header.indexOf('Record Hygiene'), hygieneIdx);
+eq('the first data column is still the domain', header[0], 'Domain');
 eq('the data column keeps the published bytes exactly',
   data[7], FIXTURES.bidiOverride);
 eq('the raw override character is still in the data column',
@@ -335,8 +349,14 @@ eq('the hygiene column names what was found',
   data[hygieneIdx], 'bidi-override');
 // A row with no discovery object leaves the appended columns empty rather
 // than shifting anything.
-eq('a row without a Tree Walk leaves the new columns empty',
-  data.slice(hygieneIdx + 1), ['', '', '']);
+eq('a row without a Tree Walk leaves those columns empty',
+  data.slice(hygieneIdx + 1, hygieneIdx + 4), ['', '', '']);
+// `advanced` is null on this fixture, so the deep-check columns must say
+// "Unknown" rather than "No". A domain whose MX hosts were never resolved has
+// no dangling hosts *reported*, which is not the same as having none.
+eq('unchecked protocol-depth columns say unknown, never no',
+  data.slice(hygieneIdx + 4, hygieneIdx + 12),
+  ['', '', '', '', '', 'Unknown', 'Unknown', 'Unknown']);
 
 const clean = APP.buildCsvRows([Object.assign({}, row, { spfRecord: 'v=spf1 -all' })]);
 eq('a clean record has an empty hygiene column',

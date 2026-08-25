@@ -38,7 +38,10 @@
     "www": "Detectar hosting del sitio web",
     "wildcard": "Detectar errores de TXT comodín",
     "dkimSelectors": "Selectores DKIM adicionales",
-    "footer": "DNS a través de Cloudflare DoH · Sin datos almacenados · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacidad</a>"
+    "footer": "DNS a través de Cloudflare DoH · Sin datos almacenados · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacidad</a>",
+    "deepChecks": "Comprobaciones profundas de protocolo (estado MX, TLSA)",
+    "deepChecksTitle": "Resuelve cada host MX y busca registros TLSA; añade unas 7 consultas DNS por dominio",
+    "deepChecksAutoDisabled": "Las comprobaciones profundas de protocolo están desactivadas para esta ejecución: añaden unas 7 consultas DNS por dominio, y esta ejecución tiene {1} dominios frente a un límite de {0}. Vuelva a marcar la casilla para ejecutarlas de todos modos."
   },
   "help": {
     "title": "Cómo funciona:",
@@ -105,7 +108,9 @@
     "status": "Estado",
     "none": "Ninguno",
     "na": "N/D",
-    "dash": "—"
+    "dash": "—",
+    "caa": "Política CAA",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "Mostrar {0} caracteres más",
@@ -213,7 +218,14 @@
     "viaSpf": "vía SPF: {0}",
     "noteWildcard": "El error de TXT comodín puede estar interfiriendo",
     "noteNotFound": "No se encontró ninguna clave DKIM activa entre los {0} selectores probados",
-    "noteNotFoundWithErrors": "No se encontró ninguna clave DKIM activa entre las {0} comprobaciones de selectores completadas; fallaron {1} consultas DNS"
+    "noteNotFoundWithErrors": "No se encontró ninguna clave DKIM activa entre las {0} comprobaciones de selectores completadas; fallaron {1} consultas DNS",
+    "keyLabel": "Clave",
+    "keyRsaBits": "RSA de {0} bits",
+    "keyRevoked": "revocada",
+    "keyUnreadable": "no se descodifica",
+    "keyUnknownType": "tipo de clave no reconocido",
+    "keyStructureInvalid": "estructura rechazada",
+    "keyTesting": "modo de pruebas"
   },
   "adv": {
     "configured": "✓ Configurado",
@@ -309,7 +321,15 @@
       "Higiene del registro",
       "DMARC encontrado en",
       "Etiquetas DMARC hacia arriba",
-      "Fin del descubrimiento DMARC"
+      "Fin del descubrimiento DMARC",
+      "Tipo de clave DKIM",
+      "Bits de clave DKIM",
+      "Selectores DKIM revocados",
+      "Emisores CAA",
+      "Emisores CAA de comodines",
+      "MX sin resolver",
+      "Número de host MX",
+      "TLSA publicado"
     ],
     "yes": "Sí",
     "no": "No",
@@ -1043,5 +1063,27 @@
       "ruf": "Informes forenses (ruf=)",
       "uris": "Destinos de informes"
     }
+  },
+  "mx": {
+    "doesNotResolve": "no resuelve",
+    "notChecked": "sin comprobar",
+    "cnameTarget": "destino CNAME"
+  },
+  "caa": {
+    "issuers": "Autoridades de certificación",
+    "wildcard": "Comodines",
+    "iodef": "Informar a",
+    "none": "ninguna",
+    "blocksAll": "Ninguna autoridad de certificación está autorizada",
+    "wildcardBlocked": "Sin certificados comodín",
+    "wildcardViaIssue": "regido por el conjunto issue",
+    "unknownCritical": "Propiedad crítica no reconocida"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Publicado, todavía no cualificado — DANE solo tiene sentido tras una cadena DNSSEC validada, y esta versión no la verifica.",
+    "notPublished": "no publicado",
+    "notChecked": "sin comprobar",
+    "authenticated": "publicado · autenticado con DNSSEC",
+    "unauthenticated": "publicado · no autenticado con DNSSEC"
   }
 }

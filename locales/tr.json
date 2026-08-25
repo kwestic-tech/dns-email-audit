@@ -38,7 +38,10 @@
     "www": "Web sitesi barındırmasını algıla",
     "wildcard": "Joker karakterli TXT kayıtlarını algıla",
     "dkimSelectors": "Ek DKIM seçicileri",
-    "footer": "Cloudflare DoH üzerinden DNS · Veri saklanmaz · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Gizlilik</a>"
+    "footer": "Cloudflare DoH üzerinden DNS · Veri saklanmaz · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Gizlilik</a>",
+    "deepChecks": "Derin protokol denetimleri (MX sağlığı, TLSA)",
+    "deepChecksTitle": "Her MX ana makinesini çözümler ve TLSA kayıtlarını arar; alan adı başına yaklaşık 7 DNS sorgusu ekler",
+    "deepChecksAutoDisabled": "Derin protokol denetimleri bu çalıştırma için kapalı: alan adı başına yaklaşık 7 DNS sorgusu ekliyorlar ve bu çalıştırmada {0} sınırına karşılık {1} alan adı var. Yine de çalıştırmak için kutuyu tekrar işaretleyin."
   },
   "help": {
     "title": "Nasıl çalışır:",
@@ -105,7 +108,9 @@
     "status": "Durum",
     "none": "Yok",
     "na": "Yok",
-    "dash": "—"
+    "dash": "—",
+    "caa": "CAA politikası",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "{0} karakter daha göster",
@@ -213,7 +218,14 @@
     "viaSpf": "SPF üzerinden: {0}",
     "noteWildcard": "Joker karakterli TXT hatası sonucu etkiliyor olabilir",
     "noteNotFound": "Test edilen {0} seçici arasında etkin bir DKIM anahtarı bulunamadı.",
-    "noteNotFoundWithErrors": "Tamamlanan {0} seçici kontrolü arasında etkin bir DKIM anahtarı bulunamadı; {1} DNS sorgusu başarısız oldu."
+    "noteNotFoundWithErrors": "Tamamlanan {0} seçici kontrolü arasında etkin bir DKIM anahtarı bulunamadı; {1} DNS sorgusu başarısız oldu.",
+    "keyLabel": "Anahtar",
+    "keyRsaBits": "RSA {0} bit",
+    "keyRevoked": "iptal edilmiş",
+    "keyUnreadable": "çözülemiyor",
+    "keyUnknownType": "tanınmayan anahtar türü",
+    "keyStructureInvalid": "yapı reddedildi",
+    "keyTesting": "test kipi"
   },
   "adv": {
     "configured": "✓ Yapılandırıldı",
@@ -309,7 +321,15 @@
       "Kayıt hijyeni",
       "DMARC bulunduğu yer",
       "DMARC yukarı etiket sayısı",
-      "DMARC keşfinin bitişi"
+      "DMARC keşfinin bitişi",
+      "DKIM Anahtar Türü",
+      "DKIM Anahtar Biti",
+      "İptal Edilmiş DKIM Seçicileri",
+      "CAA Verenleri",
+      "Joker Karakter için CAA Verenleri",
+      "Çözümlenmeyen MX",
+      "MX Ana Makine Sayısı",
+      "TLSA Yayımlanmış"
     ],
     "yes": "Evet",
     "no": "Hayır",
@@ -1043,5 +1063,27 @@
       "ruf": "Adli raporlar (ruf=)",
       "uris": "Rapor hedefleri"
     }
+  },
+  "mx": {
+    "doesNotResolve": "çözümlenmiyor",
+    "notChecked": "denetlenmedi",
+    "cnameTarget": "CNAME hedefi"
+  },
+  "caa": {
+    "issuers": "Sertifika makamları",
+    "wildcard": "Joker karakterler",
+    "iodef": "Şuraya bildir",
+    "none": "yok",
+    "blocksAll": "Hiçbir sertifika makamı yetkili değil",
+    "wildcardBlocked": "Joker karakterli sertifika yok",
+    "wildcardViaIssue": "issue kümesince yönetiliyor",
+    "unknownCritical": "Tanınmayan kritik özellik"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Yayımlanmış, henüz nitelikli değil — DANE ancak doğrulanmış bir DNSSEC zincirinin ardında anlam taşır ve bu sürüm onu doğrulamaz.",
+    "notPublished": "yayımlanmamış",
+    "notChecked": "denetlenmedi",
+    "authenticated": "yayımlanmış · DNSSEC ile doğrulanmış",
+    "unauthenticated": "yayımlanmış · DNSSEC ile doğrulanmamış"
   }
 }

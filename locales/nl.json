@@ -38,7 +38,10 @@
     "www": "Websitehosting detecteren",
     "wildcard": "Wildcard-TXT-records detecteren",
     "dkimSelectors": "Extra DKIM-selectors",
-    "footer": "DNS via Cloudflare DoH · Geen gegevens opgeslagen · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a>"
+    "footer": "DNS via Cloudflare DoH · Geen gegevens opgeslagen · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a>",
+    "deepChecks": "Diepe protocolcontroles (MX-gezondheid, TLSA)",
+    "deepChecksTitle": "Zoekt elke MX-host op en kijkt naar TLSA-records; voegt ongeveer 7 DNS-query's per domein toe",
+    "deepChecksAutoDisabled": "Diepe protocolcontroles staan uit voor deze run: ze voegen ongeveer 7 DNS-query's per domein toe, en deze run telt {1} domeinen tegen een limiet van {0}. Vink het vakje opnieuw aan om ze toch uit te voeren."
   },
   "help": {
     "title": "Hoe het werkt:",
@@ -105,7 +108,9 @@
     "status": "Status",
     "none": "Geen",
     "na": "N.v.t.",
-    "dash": "—"
+    "dash": "—",
+    "caa": "CAA-beleid",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "{0} tekens meer tonen",
@@ -213,7 +218,14 @@
     "viaSpf": "via SPF: {0}",
     "noteWildcard": "Een wildcard-TXT-bug kan het resultaat verstoren",
     "noteNotFound": "Geen actieve DKIM-sleutel gevonden onder de {0} geteste selectors.",
-    "noteNotFoundWithErrors": "Geen actieve DKIM-sleutel gevonden onder de {0} voltooide selectorcontroles; {1} DNS-query's zijn mislukt."
+    "noteNotFoundWithErrors": "Geen actieve DKIM-sleutel gevonden onder de {0} voltooide selectorcontroles; {1} DNS-query's zijn mislukt.",
+    "keyLabel": "Sleutel",
+    "keyRsaBits": "RSA {0}-bits",
+    "keyRevoked": "ingetrokken",
+    "keyUnreadable": "laat zich niet decoderen",
+    "keyUnknownType": "niet-herkend sleuteltype",
+    "keyStructureInvalid": "structuur geweigerd",
+    "keyTesting": "testmodus"
   },
   "adv": {
     "configured": "✓ Geconfigureerd",
@@ -309,7 +321,15 @@
       "Recordhygiëne",
       "DMARC gevonden op",
       "DMARC labels omhoog",
-      "Einde DMARC-ontdekking"
+      "Einde DMARC-ontdekking",
+      "DKIM-sleuteltype",
+      "DKIM-sleutelbits",
+      "Ingetrokken DKIM-selectors",
+      "CAA-uitgevers",
+      "CAA-uitgevers voor jokers",
+      "MX zonder adres",
+      "Aantal MX-hosts",
+      "TLSA gepubliceerd"
     ],
     "yes": "Ja",
     "no": "Nee",
@@ -1043,5 +1063,27 @@
       "ruf": "Forensische rapporten (ruf=)",
       "uris": "Rapportbestemmingen"
     }
+  },
+  "mx": {
+    "doesNotResolve": "lost niet op",
+    "notChecked": "niet gecontroleerd",
+    "cnameTarget": "CNAME-doel"
+  },
+  "caa": {
+    "issuers": "Certificaatautoriteiten",
+    "wildcard": "Jokers",
+    "iodef": "Melden aan",
+    "none": "geen",
+    "blocksAll": "Geen enkele certificaatautoriteit is gemachtigd",
+    "wildcardBlocked": "Geen jokercertificaten",
+    "wildcardViaIssue": "geregeld door de issue-verzameling",
+    "unknownCritical": "Niet-herkende kritieke eigenschap"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Gepubliceerd, nog niet gekwalificeerd — DANE betekent alleen iets achter een gevalideerde DNSSEC-keten, en die controleert deze versie niet.",
+    "notPublished": "niet gepubliceerd",
+    "notChecked": "niet gecontroleerd",
+    "authenticated": "gepubliceerd · DNSSEC-geauthenticeerd",
+    "unauthenticated": "gepubliceerd · niet DNSSEC-geauthenticeerd"
   }
 }

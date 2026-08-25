@@ -59,11 +59,18 @@ export function loadApp(opts = {}) {
 
   // The ids js/app.js writes into. Created on demand so a test only pays for
   // what it uses.
-  for (const id of ['tableBody', 'statsGrid', 'progressLog', 'toast']) {
+  for (const id of ['tableBody', 'statsGrid', 'progressLog', 'toast', 'deepChecksNotice']) {
     const el = document.createElement(id === 'tableBody' ? 'tbody' : 'div');
     el.id = id;
     document.body.appendChild(el);
   }
+  // The deep-checks toggle is a real checkbox, because the code under test
+  // reads and writes `.checked` on it.
+  const deepChecks = document.createElement('input');
+  deepChecks.id = 'optDeepChecks';
+  deepChecks.type = 'checkbox';
+  deepChecks.checked = true;
+  document.body.appendChild(deepChecks);
 
   return win;
 }

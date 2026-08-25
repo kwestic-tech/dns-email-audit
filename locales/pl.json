@@ -38,7 +38,10 @@
     "www": "Wykrywaj hosting witryny",
     "wildcard": "Wykrywaj wieloznaczne rekordy TXT",
     "dkimSelectors": "Dodatkowe selektory DKIM",
-    "footer": "DNS przez Cloudflare DoH · Bez przechowywania danych · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Prywatność</a>"
+    "footer": "DNS przez Cloudflare DoH · Bez przechowywania danych · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Prywatność</a>",
+    "deepChecks": "Głębokie kontrole protokołów (kondycja MX, TLSA)",
+    "deepChecksTitle": "Rozwiązuje każdy host MX i szuka rekordów TLSA; dodaje około 7 zapytań DNS na domenę",
+    "deepChecksAutoDisabled": "Głębokie kontrole protokołów są wyłączone dla tego przebiegu: dodają około 7 zapytań DNS na domenę, a ten przebieg obejmuje {1} domen przy limicie {0}. Zaznacz pole ponownie, aby mimo to je uruchomić."
   },
   "help": {
     "title": "Jak to działa:",
@@ -105,7 +108,9 @@
     "status": "Status",
     "none": "Brak",
     "na": "Nd.",
-    "dash": "—"
+    "dash": "—",
+    "caa": "Polityka CAA",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "Pokaż o {0} znaków więcej",
@@ -213,7 +218,14 @@
     "viaSpf": "przez SPF: {0}",
     "noteWildcard": "Błąd rekordu TXT z symbolem wieloznacznym może zakłócać wynik",
     "noteNotFound": "Nie znaleziono aktywnego klucza DKIM wśród {0} testowanych selektorów.",
-    "noteNotFoundWithErrors": "Nie znaleziono aktywnego klucza DKIM wśród {0} ukończonych sprawdzeń selektorów; {1} zapytań DNS zakończyło się niepowodzeniem."
+    "noteNotFoundWithErrors": "Nie znaleziono aktywnego klucza DKIM wśród {0} ukończonych sprawdzeń selektorów; {1} zapytań DNS zakończyło się niepowodzeniem.",
+    "keyLabel": "Klucz",
+    "keyRsaBits": "RSA {0} bitów",
+    "keyRevoked": "unieważniony",
+    "keyUnreadable": "nie daje się zdekodować",
+    "keyUnknownType": "nierozpoznany typ klucza",
+    "keyStructureInvalid": "struktura odrzucona",
+    "keyTesting": "tryb testowy"
   },
   "adv": {
     "configured": "✓ Skonfigurowano",
@@ -319,7 +331,15 @@
       "Higiena rekordu",
       "DMARC znaleziony w",
       "Etykiety DMARC w górę",
-      "Zakończenie wykrywania DMARC"
+      "Zakończenie wykrywania DMARC",
+      "Typ klucza DKIM",
+      "Bity klucza DKIM",
+      "Unieważnione selektory DKIM",
+      "Wydawcy CAA",
+      "Wydawcy CAA dla symboli wieloznacznych",
+      "MX bez rozwiązania",
+      "Liczba hostów MX",
+      "TLSA opublikowane"
     ],
     "yes": "Tak",
     "no": "Nie",
@@ -1053,5 +1073,27 @@
       "ruf": "Raporty szczegółowe (ruf=)",
       "uris": "Adresy raportowania"
     }
+  },
+  "mx": {
+    "doesNotResolve": "nie rozwiązuje się",
+    "notChecked": "niesprawdzone",
+    "cnameTarget": "cel CNAME"
+  },
+  "caa": {
+    "issuers": "Urzędy certyfikacji",
+    "wildcard": "Symbole wieloznaczne",
+    "iodef": "Zgłaszać do",
+    "none": "brak",
+    "blocksAll": "Żaden urząd certyfikacji nie jest autoryzowany",
+    "wildcardBlocked": "Brak certyfikatów wieloznacznych",
+    "wildcardViaIssue": "regulowane przez zbiór issue",
+    "unknownCritical": "Nierozpoznana właściwość krytyczna"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Opublikowane, jeszcze niekwalifikowane — DANE ma znaczenie wyłącznie za zweryfikowanym łańcuchem DNSSEC, a to wydanie go nie sprawdza.",
+    "notPublished": "nieopublikowane",
+    "notChecked": "niesprawdzone",
+    "authenticated": "opublikowane · uwierzytelnione przez DNSSEC",
+    "unauthenticated": "opublikowane · nieuwierzytelnione przez DNSSEC"
   }
 }

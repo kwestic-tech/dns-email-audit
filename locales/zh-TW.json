@@ -38,7 +38,10 @@
     "www": "偵測網站託管服務",
     "wildcard": "偵測通配符 TXT 錯誤",
     "dkimSelectors": "額外的 DKIM 選擇器",
-    "footer": "透過 Cloudflare DoH 查詢 DNS · 不儲存任何資料 · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">隱私</a>"
+    "footer": "透過 Cloudflare DoH 查詢 DNS · 不儲存任何資料 · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">隱私</a>",
+    "deepChecks": "深度協定檢查（MX 健康狀況、TLSA）",
+    "deepChecksTitle": "解析每一台 MX 主機並尋找 TLSA 紀錄；每個網域約增加 7 次 DNS 查詢",
+    "deepChecksAutoDisabled": "本次執行已關閉深度協定檢查：它們每個網域約增加 7 次 DNS 查詢，而本次執行有 {1} 個網域，上限為 {0} 個。若仍要執行，請重新勾選該核取方塊。"
   },
   "help": {
     "title": "運作原理：",
@@ -105,7 +108,9 @@
     "status": "狀態",
     "none": "無",
     "na": "不適用",
-    "dash": "—"
+    "dash": "—",
+    "caa": "CAA 政策",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "顯示其餘 {0} 個字元",
@@ -213,7 +218,14 @@
     "viaSpf": "透過 SPF: {0}",
     "noteWildcard": "通配符 TXT 錯誤可能會造成干擾",
     "noteNotFound": "在 {0} 個已測試的選擇器中未找到有效的 DKIM 金鑰",
-    "noteNotFoundWithErrors": "在 {0} 個已完成的選擇器檢查中未找到有效的 DKIM 金鑰；其中 {1} 個 DNS 查詢失敗"
+    "noteNotFoundWithErrors": "在 {0} 個已完成的選擇器檢查中未找到有效的 DKIM 金鑰；其中 {1} 個 DNS 查詢失敗",
+    "keyLabel": "金鑰",
+    "keyRsaBits": "RSA {0} 位元",
+    "keyRevoked": "已撤銷",
+    "keyUnreadable": "無法解碼",
+    "keyUnknownType": "無法辨識的金鑰類型",
+    "keyStructureInvalid": "結構遭拒絕",
+    "keyTesting": "測試模式"
   },
   "adv": {
     "configured": "✓ 已設定",
@@ -309,7 +321,15 @@
       "紀錄衛生狀況",
       "DMARC 發現位置",
       "DMARC 向上標籤數",
-      "DMARC 探索結束原因"
+      "DMARC 探索結束原因",
+      "DKIM 金鑰類型",
+      "DKIM 金鑰位元數",
+      "已撤銷的 DKIM 選擇器",
+      "CAA 簽發者",
+      "萬用字元 CAA 簽發者",
+      "無法解析的 MX",
+      "MX 主機數量",
+      "已發布 TLSA"
     ],
     "yes": "是",
     "no": "否",
@@ -1043,5 +1063,27 @@
       "ruf": "鑑識報告 (ruf=)",
       "uris": "報告接收位址"
     }
+  },
+  "mx": {
+    "doesNotResolve": "無法解析",
+    "notChecked": "未檢查",
+    "cnameTarget": "CNAME 目標"
+  },
+  "caa": {
+    "issuers": "憑證簽發機構",
+    "wildcard": "萬用字元",
+    "iodef": "回報至",
+    "none": "無",
+    "blocksAll": "沒有任何憑證簽發機構獲得授權",
+    "wildcardBlocked": "不允許萬用字元憑證",
+    "wildcardViaIssue": "由 issue 集合管轄",
+    "unknownCritical": "無法辨識的關鍵屬性"
+  },
+  "tlsa": {
+    "publishedNotQualified": "已發布，尚未合格 — DANE 只有在經過驗證的 DNSSEC 信任鏈之後才有意義，而本版本並不驗證該信任鏈。",
+    "notPublished": "未發布",
+    "notChecked": "未檢查",
+    "authenticated": "已發布 · 已通過 DNSSEC 驗證",
+    "unauthenticated": "已發布 · 未通過 DNSSEC 驗證"
   }
 }

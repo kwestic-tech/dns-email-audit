@@ -105,6 +105,37 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   host usually lives in someone else's zone and the audited domain's DNSSEC
   status says nothing about it.
 
+- **A "deep protocol checks" toggle, on by default, that turns itself off above
+  50 domains.** MX health and TLSA are the only checks whose cost scales with
+  the audited domain's own configuration, so they are the only ones behind a
+  switch. Above the threshold the box clears itself and an inline notice says
+  why, naming both the limit and the size of the run — deliberately not a toast,
+  because a toast is gone in three seconds and this explains a checkbox the user
+  last saw ticked. Ticking it again runs them anyway, and that choice is
+  remembered **for the browser tab's session only**: persisting it would need a
+  second `localStorage` key, and `PRIVACY.md` states the app writes exactly one
+  value and calls that the entire footprint. A reload restores the default.
+
+- **The detail panel reports what was found.** Each DKIM selector gains a key
+  line (`RSA 2048-bit`, `Ed25519`, `revoked`, `does not decode`); CAA gains a
+  parsed policy block; the MX list is annotated per host with its addresses, or
+  with "does not resolve" or "not checked"; and TLSA gains a block whose first
+  line is "Published, not yet qualified". A key Web Crypto never examined says
+  nothing at all, because "we did not check" is not a finding and must not look
+  like one.
+
+- **Eight CSV columns, appended after the Tree Walk columns**: `DKIM Key Type`,
+  `DKIM Key Bits`, `DKIM Revoked Selectors`, `CAA Issuers`,
+  `CAA Wildcard Issuers`, `MX Dangling`, `MX Host Count`, `TLSA Present`. Every
+  column that existed before 0.4.0 is still at the index it was at, and the
+  export tests now assert that by index rather than by "last" — pinning the tail
+  is what made them fire on this release. With the deep checks off, the MX and
+  TLSA columns say `Unknown` rather than `No`: a domain whose MX hosts were
+  never resolved has no dangling hosts *reported*, which is not the same as
+  having none. An absent `issuewild` set is named as governed by `issue` rather
+  than left blank, since a blank cell reads as "wildcards unrestricted" — the
+  opposite of what the domain published.
+
 ### Changed
 
 - **`dnsTypeNum()` throws on an unknown record type instead of returning the TXT

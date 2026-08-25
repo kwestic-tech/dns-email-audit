@@ -38,7 +38,10 @@
     "www": "웹사이트 호스팅 감지",
     "wildcard": "와일드카드 TXT 버그 감지",
     "dkimSelectors": "추가 DKIM 셀렉터",
-    "footer": "Cloudflare DoH 기반 DNS 조회 · 데이터 저장 없음 · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">개인정보</a>"
+    "footer": "Cloudflare DoH 기반 DNS 조회 · 데이터 저장 없음 · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">개인정보</a>",
+    "deepChecks": "심층 프로토콜 검사(MX 상태, TLSA)",
+    "deepChecksTitle": "모든 MX 호스트를 조회하고 TLSA 레코드를 찾습니다. 도메인당 약 7건의 DNS 질의가 추가됩니다",
+    "deepChecksAutoDisabled": "이번 실행에서는 심층 프로토콜 검사를 껐습니다. 도메인당 약 7건의 DNS 질의가 추가되는데, 이번 실행은 한도 {0}개에 대해 {1}개 도메인입니다. 그래도 실행하려면 확인란을 다시 선택하십시오."
   },
   "help": {
     "title": "작동 방식:",
@@ -105,7 +108,9 @@
     "status": "상태",
     "none": "없음",
     "na": "해당 없음",
-    "dash": "—"
+    "dash": "—",
+    "caa": "CAA 정책",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "{0}자 더 보기",
@@ -213,7 +218,14 @@
     "viaSpf": "SPF 경유: {0}",
     "noteWildcard": "와일드카드 TXT 버그가 영향을 미치고 있을 수 있습니다",
     "noteNotFound": "테스트한 {0}개의 셀렉터 중 활성화된 DKIM 키를 찾지 못했습니다",
-    "noteNotFoundWithErrors": "{0}개의 셀렉터 검사를 완료했으나 활성화된 DKIM 키를 찾지 못했습니다. ({1}개 DNS 조회 실패)"
+    "noteNotFoundWithErrors": "{0}개의 셀렉터 검사를 완료했으나 활성화된 DKIM 키를 찾지 못했습니다. ({1}개 DNS 조회 실패)",
+    "keyLabel": "키",
+    "keyRsaBits": "RSA {0}비트",
+    "keyRevoked": "폐기됨",
+    "keyUnreadable": "디코딩할 수 없음",
+    "keyUnknownType": "인식할 수 없는 키 유형",
+    "keyStructureInvalid": "구조가 거부됨",
+    "keyTesting": "테스트 모드"
   },
   "adv": {
     "configured": "✓ 설정됨",
@@ -309,7 +321,15 @@
       "레코드 건전성",
       "DMARC 발견 위치",
       "DMARC 상위 레이블 수",
-      "DMARC 탐색 종료 사유"
+      "DMARC 탐색 종료 사유",
+      "DKIM 키 유형",
+      "DKIM 키 비트 수",
+      "폐기된 DKIM 셀렉터",
+      "CAA 발급자",
+      "와일드카드 CAA 발급자",
+      "조회되지 않는 MX",
+      "MX 호스트 수",
+      "TLSA 게시 여부"
     ],
     "yes": "예",
     "no": "아니요",
@@ -1043,5 +1063,27 @@
       "ruf": "포렌식 보고서 (ruf=)",
       "uris": "보고서 대상"
     }
+  },
+  "mx": {
+    "doesNotResolve": "조회되지 않음",
+    "notChecked": "확인하지 않음",
+    "cnameTarget": "CNAME 대상"
+  },
+  "caa": {
+    "issuers": "인증기관",
+    "wildcard": "와일드카드",
+    "iodef": "보고 대상",
+    "none": "없음",
+    "blocksAll": "허가된 인증기관이 없습니다",
+    "wildcardBlocked": "와일드카드 인증서 불가",
+    "wildcardViaIssue": "issue 집합의 적용을 받음",
+    "unknownCritical": "인식할 수 없는 크리티컬 속성"
+  },
+  "tlsa": {
+    "publishedNotQualified": "게시됨, 아직 검증되지 않음 — DANE은 검증된 DNSSEC 체인 뒤에서만 의미가 있으나 이번 릴리스는 이를 확인하지 않습니다.",
+    "notPublished": "게시되지 않음",
+    "notChecked": "확인하지 않음",
+    "authenticated": "게시됨 · DNSSEC으로 인증됨",
+    "unauthenticated": "게시됨 · DNSSEC으로 인증되지 않음"
   }
 }

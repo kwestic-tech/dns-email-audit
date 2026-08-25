@@ -38,7 +38,10 @@
     "www": "Detect website hosting",
     "wildcard": "Detect wildcard TXT records",
     "dkimSelectors": "Additional DKIM selectors",
-    "footer": "DNS via Cloudflare DoH · No data stored · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a>"
+    "footer": "DNS via Cloudflare DoH · No data stored · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a>",
+    "deepChecks": "Deep protocol checks (MX health, TLSA)",
+    "deepChecksTitle": "Resolves every MX host and looks for TLSA records; adds roughly 7 DNS queries per domain",
+    "deepChecksAutoDisabled": "Deep protocol checks are off for this run: they add about 7 DNS queries per domain, and this run has {1} domains against a limit of {0}. Tick the box again to run them anyway."
   },
   "help": {
     "title": "How it works:",
@@ -105,7 +108,9 @@
     "status": "Status",
     "none": "None",
     "na": "N/A",
-    "dash": "—"
+    "dash": "—",
+    "caa": "CAA Policy",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "Show {0} more characters",
@@ -213,7 +218,14 @@
     "viaSpf": "via SPF: {0}",
     "noteWildcard": "Wildcard TXT bug may be interfering",
     "noteNotFound": "No active DKIM key found among {0} tested selectors.",
-    "noteNotFoundWithErrors": "No active DKIM key found among {0} completed selector checks; {1} DNS queries failed."
+    "noteNotFoundWithErrors": "No active DKIM key found among {0} completed selector checks; {1} DNS queries failed.",
+    "keyLabel": "Key",
+    "keyRsaBits": "RSA {0}-bit",
+    "keyRevoked": "revoked",
+    "keyUnreadable": "does not decode",
+    "keyUnknownType": "unrecognized key type",
+    "keyStructureInvalid": "structure rejected",
+    "keyTesting": "testing mode"
   },
   "adv": {
     "configured": "✓ Configured",
@@ -309,7 +321,15 @@
       "Record Hygiene",
       "DMARC Found At",
       "DMARC Labels Up",
-      "DMARC Discovery Terminated"
+      "DMARC Discovery Terminated",
+      "DKIM Key Type",
+      "DKIM Key Bits",
+      "DKIM Revoked Selectors",
+      "CAA Issuers",
+      "CAA Wildcard Issuers",
+      "MX Dangling",
+      "MX Host Count",
+      "TLSA Present"
     ],
     "yes": "Yes",
     "no": "No",
@@ -1043,5 +1063,27 @@
       "ruf": "Forensic reports (ruf=)",
       "uris": "Report destinations"
     }
+  },
+  "mx": {
+    "doesNotResolve": "does not resolve",
+    "notChecked": "not checked",
+    "cnameTarget": "CNAME target"
+  },
+  "caa": {
+    "issuers": "Certificate authorities",
+    "wildcard": "Wildcards",
+    "iodef": "Report to",
+    "none": "none",
+    "blocksAll": "No certificate authority is authorized",
+    "wildcardBlocked": "No wildcard certificates",
+    "wildcardViaIssue": "governed by the issue set",
+    "unknownCritical": "Unrecognized critical property"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Published, not yet qualified — DANE is only meaningful behind a validated DNSSEC chain, which this release does not verify.",
+    "notPublished": "not published",
+    "notChecked": "not checked",
+    "authenticated": "published · DNSSEC-authenticated",
+    "unauthenticated": "published · not DNSSEC-authenticated"
   }
 }

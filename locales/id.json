@@ -38,7 +38,10 @@
     "www": "Deteksi hosting situs web",
     "wildcard": "Deteksi data TXT wildcard",
     "dkimSelectors": "Selektor DKIM tambahan",
-    "footer": "DNS lewat Cloudflare DoH · Tanpa penyimpanan data · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privasi</a>"
+    "footer": "DNS lewat Cloudflare DoH · Tanpa penyimpanan data · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privasi</a>",
+    "deepChecks": "Pemeriksaan protokol mendalam (kesehatan MX, TLSA)",
+    "deepChecksTitle": "Meresolusi setiap host MX dan mencari data TLSA; menambah sekitar 7 kueri DNS per domain",
+    "deepChecksAutoDisabled": "Pemeriksaan protokol mendalam dimatikan untuk proses ini: pemeriksaan itu menambah sekitar 7 kueri DNS per domain, sedangkan proses ini memuat {1} domain terhadap batas {0}. Centang lagi kotaknya untuk tetap menjalankannya."
   },
   "help": {
     "title": "Cara kerjanya:",
@@ -105,7 +108,9 @@
     "status": "Status",
     "none": "Tidak ada",
     "na": "T/A",
-    "dash": "—"
+    "dash": "—",
+    "caa": "Kebijakan CAA",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "Tampilkan {0} karakter lagi",
@@ -213,7 +218,14 @@
     "viaSpf": "via SPF: {0}",
     "noteWildcard": "Bug TXT wildcard mungkin mengganggu hasil",
     "noteNotFound": "Tidak ditemukan kunci DKIM aktif di antara {0} selektor yang diuji.",
-    "noteNotFoundWithErrors": "Tidak ditemukan kunci DKIM aktif di antara {0} pemeriksaan selektor yang selesai; {1} kueri DNS gagal."
+    "noteNotFoundWithErrors": "Tidak ditemukan kunci DKIM aktif di antara {0} pemeriksaan selektor yang selesai; {1} kueri DNS gagal.",
+    "keyLabel": "Kunci",
+    "keyRsaBits": "RSA {0} bit",
+    "keyRevoked": "dicabut",
+    "keyUnreadable": "tidak dapat didekode",
+    "keyUnknownType": "jenis kunci tidak dikenali",
+    "keyStructureInvalid": "struktur ditolak",
+    "keyTesting": "mode uji coba"
   },
   "adv": {
     "configured": "✓ Dikonfigurasi",
@@ -309,7 +321,15 @@
       "Kebersihan data",
       "DMARC ditemukan di",
       "Label DMARC ke atas",
-      "Akhir penemuan DMARC"
+      "Akhir penemuan DMARC",
+      "Jenis Kunci DKIM",
+      "Bit Kunci DKIM",
+      "Selektor DKIM yang Dicabut",
+      "Penerbit CAA",
+      "Penerbit CAA untuk Wildcard",
+      "MX Tidak Teresolusi",
+      "Jumlah Host MX",
+      "TLSA Diterbitkan"
     ],
     "yes": "Ya",
     "no": "Tidak",
@@ -1043,5 +1063,27 @@
       "ruf": "Laporan forensik (ruf=)",
       "uris": "Tujuan laporan"
     }
+  },
+  "mx": {
+    "doesNotResolve": "tidak teresolusi",
+    "notChecked": "tidak diperiksa",
+    "cnameTarget": "target CNAME"
+  },
+  "caa": {
+    "issuers": "Otoritas sertifikat",
+    "wildcard": "Wildcard",
+    "iodef": "Laporkan ke",
+    "none": "tidak ada",
+    "blocksAll": "Tidak ada otoritas sertifikat yang diotorisasi",
+    "wildcardBlocked": "Tidak ada sertifikat wildcard",
+    "wildcardViaIssue": "diatur oleh himpunan issue",
+    "unknownCritical": "Properti kritis tidak dikenali"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Diterbitkan, belum memenuhi syarat — DANE hanya berarti di balik rantai DNSSEC yang tervalidasi, dan rilis ini tidak memverifikasinya.",
+    "notPublished": "tidak diterbitkan",
+    "notChecked": "tidak diperiksa",
+    "authenticated": "diterbitkan · terautentikasi DNSSEC",
+    "unauthenticated": "diterbitkan · tidak terautentikasi DNSSEC"
   }
 }

@@ -38,7 +38,10 @@
     "www": "Detectar hospedagem do site",
     "wildcard": "Detectar registros TXT curinga",
     "dkimSelectors": "Seletores DKIM adicionais",
-    "footer": "DNS via Cloudflare DoH · Nenhum dado armazenado · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacidade</a>"
+    "footer": "DNS via Cloudflare DoH · Nenhum dado armazenado · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacidade</a>",
+    "deepChecks": "Verificações profundas de protocolo (saúde do MX, TLSA)",
+    "deepChecksTitle": "Resolve cada host MX e procura registros TLSA; acrescenta cerca de 7 consultas DNS por domínio",
+    "deepChecksAutoDisabled": "As verificações profundas de protocolo estão desligadas nesta execução: elas acrescentam cerca de 7 consultas DNS por domínio, e esta execução tem {1} domínios diante de um limite de {0}. Marque a caixa novamente para executá-las mesmo assim."
   },
   "help": {
     "title": "Como funciona:",
@@ -105,7 +108,9 @@
     "status": "Status",
     "none": "Nenhum",
     "na": "N/D",
-    "dash": "—"
+    "dash": "—",
+    "caa": "Política CAA",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "Mostrar mais {0} caracteres",
@@ -213,7 +218,14 @@
     "viaSpf": "via SPF: {0}",
     "noteWildcard": "Um bug de TXT curinga pode estar interferindo",
     "noteNotFound": "Nenhuma chave DKIM ativa encontrada entre os {0} seletores testados.",
-    "noteNotFoundWithErrors": "Nenhuma chave DKIM ativa encontrada entre as {0} verificações de seletor concluídas; {1} consultas DNS falharam."
+    "noteNotFoundWithErrors": "Nenhuma chave DKIM ativa encontrada entre as {0} verificações de seletor concluídas; {1} consultas DNS falharam.",
+    "keyLabel": "Chave",
+    "keyRsaBits": "RSA de {0} bits",
+    "keyRevoked": "revogada",
+    "keyUnreadable": "não decodifica",
+    "keyUnknownType": "tipo de chave não reconhecido",
+    "keyStructureInvalid": "estrutura rejeitada",
+    "keyTesting": "modo de teste"
   },
   "adv": {
     "configured": "✓ Configurado",
@@ -309,7 +321,15 @@
       "Higiene do registro",
       "DMARC encontrado em",
       "Rótulos DMARC acima",
-      "Fim da descoberta DMARC"
+      "Fim da descoberta DMARC",
+      "Tipo de chave DKIM",
+      "Bits da chave DKIM",
+      "Seletores DKIM revogados",
+      "Emissores CAA",
+      "Emissores CAA para curingas",
+      "MX sem resolução",
+      "Número de hosts MX",
+      "TLSA publicado"
     ],
     "yes": "Sim",
     "no": "Não",
@@ -1043,5 +1063,27 @@
       "ruf": "Relatórios forenses (ruf=)",
       "uris": "Destinos dos relatórios"
     }
+  },
+  "mx": {
+    "doesNotResolve": "não resolve",
+    "notChecked": "não verificado",
+    "cnameTarget": "destino CNAME"
+  },
+  "caa": {
+    "issuers": "Autoridades certificadoras",
+    "wildcard": "Curingas",
+    "iodef": "Relatar para",
+    "none": "nenhuma",
+    "blocksAll": "Nenhuma autoridade certificadora está autorizada",
+    "wildcardBlocked": "Sem certificados curinga",
+    "wildcardViaIssue": "regido pelo conjunto issue",
+    "unknownCritical": "Propriedade crítica não reconhecida"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Publicado, ainda não qualificado — o DANE só faz sentido atrás de uma cadeia DNSSEC validada, que esta versão não verifica.",
+    "notPublished": "não publicado",
+    "notChecked": "não verificado",
+    "authenticated": "publicado · autenticado por DNSSEC",
+    "unauthenticated": "publicado · não autenticado por DNSSEC"
   }
 }

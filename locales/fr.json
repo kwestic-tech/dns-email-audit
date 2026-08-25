@@ -38,7 +38,10 @@
     "www": "Détecter l'hébergement web",
     "wildcard": "Détecter les bugs de TXT générique (wildcard)",
     "dkimSelectors": "Sélecteurs DKIM supplémentaires",
-    "footer": "DNS via Cloudflare DoH · Aucune donnée stockée · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Confidentialité</a>"
+    "footer": "DNS via Cloudflare DoH · Aucune donnée stockée · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Confidentialité</a>",
+    "deepChecks": "Vérifications de protocole approfondies (santé MX, TLSA)",
+    "deepChecksTitle": "Résout chaque hôte MX et cherche les enregistrements TLSA ; ajoute environ 7 requêtes DNS par domaine",
+    "deepChecksAutoDisabled": "Les vérifications de protocole approfondies sont désactivées pour cette exécution : elles ajoutent environ 7 requêtes DNS par domaine, et cette exécution compte {1} domaines pour une limite de {0}. Recochez la case pour les exécuter quand même."
   },
   "help": {
     "title": "Comment ça marche :",
@@ -105,7 +108,9 @@
     "status": "Statut",
     "none": "Aucun",
     "na": "N/D",
-    "dash": "—"
+    "dash": "—",
+    "caa": "Politique CAA",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "Afficher {0} caractères de plus",
@@ -213,7 +218,14 @@
     "viaSpf": "via SPF : {0}",
     "noteWildcard": "Le bug de TXT générique (wildcard) peut interférer",
     "noteNotFound": "Aucune clé DKIM active trouvée parmi les {0} sélecteurs testés",
-    "noteNotFoundWithErrors": "Aucune clé DKIM active trouvée sur {0} sélecteurs vérifiés ; {1} requêtes DNS ont échoué"
+    "noteNotFoundWithErrors": "Aucune clé DKIM active trouvée sur {0} sélecteurs vérifiés ; {1} requêtes DNS ont échoué",
+    "keyLabel": "Clé",
+    "keyRsaBits": "RSA {0} bits",
+    "keyRevoked": "révoquée",
+    "keyUnreadable": "ne se décode pas",
+    "keyUnknownType": "type de clé non reconnu",
+    "keyStructureInvalid": "structure rejetée",
+    "keyTesting": "mode test"
   },
   "adv": {
     "configured": "✓ Configuré",
@@ -309,7 +321,15 @@
       "Hygiène de l'enregistrement",
       "DMARC trouvé à",
       "Labels DMARC remontés",
-      "Fin de la découverte DMARC"
+      "Fin de la découverte DMARC",
+      "Type de clé DKIM",
+      "Bits de clé DKIM",
+      "Sélecteurs DKIM révoqués",
+      "Émetteurs CAA",
+      "Émetteurs CAA pour les jokers",
+      "MX non résolus",
+      "Nombre d'hôtes MX",
+      "TLSA publié"
     ],
     "yes": "Oui",
     "no": "Non",
@@ -1043,5 +1063,27 @@
       "ruf": "Rapports d'expertise (ruf=)",
       "uris": "Destinations des rapports"
     }
+  },
+  "mx": {
+    "doesNotResolve": "ne résout pas",
+    "notChecked": "non vérifié",
+    "cnameTarget": "cible CNAME"
+  },
+  "caa": {
+    "issuers": "Autorités de certification",
+    "wildcard": "Jokers",
+    "iodef": "Signaler à",
+    "none": "aucune",
+    "blocksAll": "Aucune autorité de certification n'est autorisée",
+    "wildcardBlocked": "Aucun certificat joker",
+    "wildcardViaIssue": "régi par l'ensemble issue",
+    "unknownCritical": "Propriété critique non reconnue"
+  },
+  "tlsa": {
+    "publishedNotQualified": "Publié, pas encore qualifié — DANE n'a de sens que derrière une chaîne DNSSEC validée, que cette version ne vérifie pas.",
+    "notPublished": "non publié",
+    "notChecked": "non vérifié",
+    "authenticated": "publié · authentifié par DNSSEC",
+    "unauthenticated": "publié · non authentifié par DNSSEC"
   }
 }

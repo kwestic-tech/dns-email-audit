@@ -38,7 +38,10 @@
     "www": "Web ホスティングを検出",
     "wildcard": "ワイルドカード TXT バグを検出",
     "dkimSelectors": "追加の DKIM セレクター",
-    "footer": "Cloudflare DoH 経由の DNS 照会 · データ保存なし · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">プライバシー</a>"
+    "footer": "Cloudflare DoH 経由の DNS 照会 · データ保存なし · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">プライバシー</a>",
+    "deepChecks": "詳細プロトコル検査（MX の健全性、TLSA）",
+    "deepChecksTitle": "すべての MX ホストを解決し、TLSA レコードを探します。1 ドメインあたり約 7 件の DNS クエリが加わります",
+    "deepChecksAutoDisabled": "この実行では詳細プロトコル検査を無効にしました。1 ドメインあたり約 7 件の DNS クエリが加わるうえ、この実行は上限 {0} に対して {1} ドメインあります。それでも実行する場合は、チェックボックスを再度オンにしてください。"
   },
   "help": {
     "title": "仕組み：",
@@ -105,7 +108,9 @@
     "status": "ステータス",
     "none": "なし",
     "na": "該当なし",
-    "dash": "—"
+    "dash": "—",
+    "caa": "CAA ポリシー",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "残り {0} 文字を表示",
@@ -213,7 +218,14 @@
     "viaSpf": "SPF 経由: {0}",
     "noteWildcard": "ワイルドカード TXT バグが影響している可能性があります",
     "noteNotFound": "テストした {0} 個のセレクター内に有効な DKIM 鍵が見つかりませんでした",
-    "noteNotFoundWithErrors": "{0} 個のセレクター確認が完了しましたが有効な DKIM 鍵は見つかりませんでした（{1} 件の DNS 照会が失敗）"
+    "noteNotFoundWithErrors": "{0} 個のセレクター確認が完了しましたが有効な DKIM 鍵は見つかりませんでした（{1} 件の DNS 照会が失敗）",
+    "keyLabel": "鍵",
+    "keyRsaBits": "RSA {0} ビット",
+    "keyRevoked": "失効",
+    "keyUnreadable": "デコードできません",
+    "keyUnknownType": "認識できない鍵の種類",
+    "keyStructureInvalid": "構造が拒否されました",
+    "keyTesting": "テストモード"
   },
   "adv": {
     "configured": "✓ 設定済み",
@@ -309,7 +321,15 @@
       "レコードの健全性",
       "DMARC 検出場所",
       "DMARC 遡ったラベル数",
-      "DMARC 探索の終了理由"
+      "DMARC 探索の終了理由",
+      "DKIM 鍵の種類",
+      "DKIM 鍵のビット数",
+      "失効した DKIM セレクター",
+      "CAA 発行者",
+      "ワイルドカードの CAA 発行者",
+      "解決しない MX",
+      "MX ホスト数",
+      "TLSA の公開"
     ],
     "yes": "はい",
     "no": "いいえ",
@@ -1043,5 +1063,27 @@
       "ruf": "詳細レポート (ruf=)",
       "uris": "レポート送信先"
     }
+  },
+  "mx": {
+    "doesNotResolve": "解決しません",
+    "notChecked": "未確認",
+    "cnameTarget": "CNAME の宛先"
+  },
+  "caa": {
+    "issuers": "認証局",
+    "wildcard": "ワイルドカード",
+    "iodef": "報告先",
+    "none": "なし",
+    "blocksAll": "許可されている認証局はありません",
+    "wildcardBlocked": "ワイルドカード証明書は不可",
+    "wildcardViaIssue": "issue の集合に従います",
+    "unknownCritical": "認識できないクリティカルプロパティ"
+  },
+  "tlsa": {
+    "publishedNotQualified": "公開済み、ただし未認定 — DANE は検証済みの DNSSEC チェーンの下でのみ意味を持ちますが、このリリースはそれを検証しません。",
+    "notPublished": "未公開",
+    "notChecked": "未確認",
+    "authenticated": "公開済み · DNSSEC で認証済み",
+    "unauthenticated": "公開済み · DNSSEC で認証されていません"
   }
 }

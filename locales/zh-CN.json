@@ -38,7 +38,10 @@
     "www": "检测网站托管服务",
     "wildcard": "检测通配符 TXT 错误",
     "dkimSelectors": "额外的 DKIM 选择器",
-    "footer": "通过 Cloudflare DoH 查询 DNS · 不存储任何数据 · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">隐私</a>"
+    "footer": "通过 Cloudflare DoH 查询 DNS · 不存储任何数据 · <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">隐私</a>",
+    "deepChecks": "深度协议检查（MX 健康状况、TLSA）",
+    "deepChecksTitle": "解析每一台 MX 主机并查找 TLSA 记录；每个域名约增加 7 次 DNS 查询",
+    "deepChecksAutoDisabled": "本次运行已关闭深度协议检查：它们每个域名约增加 7 次 DNS 查询，而本次运行有 {1} 个域名，上限为 {0} 个。若仍要运行，请重新勾选该复选框。"
   },
   "help": {
     "title": "工作原理：",
@@ -105,7 +108,9 @@
     "status": "状态",
     "none": "无",
     "na": "不适用",
-    "dash": "—"
+    "dash": "—",
+    "caa": "CAA 策略",
+    "tlsa": "TLSA (DANE)"
   },
   "render": {
     "showMore": "显示其余 {0} 个字符",
@@ -213,7 +218,14 @@
     "viaSpf": "通过 SPF: {0}",
     "noteWildcard": "通配符 TXT 错误可能会造成干扰",
     "noteNotFound": "在 {0} 个已测试的选择器中未找到有效的 DKIM 密钥",
-    "noteNotFoundWithErrors": "在 {0} 个已完成的选择器检查中未找到有效的 DKIM 密钥；其中 {1} 个 DNS 查询失败"
+    "noteNotFoundWithErrors": "在 {0} 个已完成的选择器检查中未找到有效的 DKIM 密钥；其中 {1} 个 DNS 查询失败",
+    "keyLabel": "密钥",
+    "keyRsaBits": "RSA {0} 位",
+    "keyRevoked": "已吊销",
+    "keyUnreadable": "无法解码",
+    "keyUnknownType": "无法识别的密钥类型",
+    "keyStructureInvalid": "结构被拒绝",
+    "keyTesting": "测试模式"
   },
   "adv": {
     "configured": "✓ 已配置",
@@ -309,7 +321,15 @@
       "记录卫生状况",
       "DMARC 发现位置",
       "DMARC 向上标签数",
-      "DMARC 探测结束原因"
+      "DMARC 探测结束原因",
+      "DKIM 密钥类型",
+      "DKIM 密钥位数",
+      "已吊销的 DKIM 选择器",
+      "CAA 签发者",
+      "通配符 CAA 签发者",
+      "无法解析的 MX",
+      "MX 主机数量",
+      "已发布 TLSA"
     ],
     "yes": "是",
     "no": "否",
@@ -1043,5 +1063,27 @@
       "ruf": "取证报告 (ruf=)",
       "uris": "报告接收地址"
     }
+  },
+  "mx": {
+    "doesNotResolve": "无法解析",
+    "notChecked": "未检查",
+    "cnameTarget": "CNAME 目标"
+  },
+  "caa": {
+    "issuers": "证书颁发机构",
+    "wildcard": "通配符",
+    "iodef": "报告至",
+    "none": "无",
+    "blocksAll": "没有任何证书颁发机构获得授权",
+    "wildcardBlocked": "不允许通配符证书",
+    "wildcardViaIssue": "由 issue 集合管辖",
+    "unknownCritical": "无法识别的关键属性"
+  },
+  "tlsa": {
+    "publishedNotQualified": "已发布，尚未合格 — DANE 只有在经过验证的 DNSSEC 信任链之后才有意义，而本版本并不验证该信任链。",
+    "notPublished": "未发布",
+    "notChecked": "未检查",
+    "authenticated": "已发布 · 已通过 DNSSEC 认证",
+    "unauthenticated": "已发布 · 未通过 DNSSEC 认证"
   }
 }
