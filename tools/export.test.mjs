@@ -358,6 +358,84 @@ eq('unchecked protocol-depth columns say unknown, never no',
   data.slice(hygieneIdx + 4, hygieneIdx + 12),
   ['', '', '', '', '', 'Unknown', 'Unknown', 'Unknown']);
 
+/* ── The SPF Record column carries the whole conflicting set ─────────── */
+// A count in `Issues` says how many records conflict; the records are the
+// evidence. Exporting only the first reproduced outside the UI the same
+// misleading presentation the detail panel was fixed for.
+const spfIdx = header.indexOf('SPF Record');
+eq('the SPF Record column is still present', spfIdx !== -1, true);
+
+const SPF_ONE = 'v=spf1 include:_spf.google.com ~all';
+const SPF_TWO = 'v=spf1 include:mktomail.com ~all';
+const spfRow = extra => APP.buildCsvRows([Object.assign({}, row, { spfRecord: SPF_ONE }, extra)])[1];
+
+// Single record: byte-for-byte identical whether or not the new field exists,
+// which is every domain that is not in permerror.
+eq('a single record is unchanged by the new field',
+  spfRow({ spfRecords: [SPF_ONE] })[spfIdx], spfRow({})[spfIdx]);
+eq('and is exactly the record itself', spfRow({ spfRecords: [SPF_ONE] })[spfIdx], SPF_ONE);
+eq('a result predating spfRecords still exports', spfRow({})[spfIdx], SPF_ONE);
+eq('no SPF at all is still an empty cell',
+  APP.buildCsvRows([Object.assign({}, row, { spfRecord: '', spfRecords: [] })])[1][spfIdx], '');
+// The whole serialized line is identical too, not just the one cell.
+eq('the serialized row is byte-for-byte unchanged',
+  APP.toCsvText([spfRow({ spfRecords: [SPF_ONE] })]), APP.toCsvText([spfRow({})]));
+
+// Multiple records: joined with newlines, in resolver order.
+eq('both records reach the cell', spfRow({ spfRecords: [SPF_ONE, SPF_TWO] })[spfIdx],
+  SPF_ONE + '\n' + SPF_TWO);
+eq('resolver order is preserved, not sorted',
+  spfRow({ spfRecords: [SPF_TWO, SPF_ONE] })[spfIdx], SPF_TWO + '\n' + SPF_ONE);
+eq('three records join too',
+  spfRow({ spfRecords: [SPF_ONE, SPF_TWO, 'v=spf1 -all'] })[spfIdx],
+  SPF_ONE + '\n' + SPF_TWO + '\n' + 'v=spf1 -all');
+// Only the column moved; the row is still aligned with the header.
+eq('the joined row is still the header length',
+  spfRow({ spfRecords: [SPF_ONE, SPF_TWO] }).length, header.length);
+
+// A newline inside a field is RFC 4180 §2.6 only while the field is quoted.
+const joinedCsv = APP.toCsvText([spfRow({ spfRecords: [SPF_ONE, SPF_TWO] })]);
+eq('the joined cell is quoted, so its newline stays inside the field',
+  joinedCsv.includes('"' + SPF_ONE + '\n' + SPF_TWO + '"'), true);
+
+// CSV-special characters inside a record must survive the join and the quoting.
+// DNS TXT can carry commas and quotes, and a record is published by the domain.
+const SPF_COMMA = 'v=spf1 include:a.example,b.example ~all';
+const SPF_QUOTE = 'v=spf1 include:say"hi".example ~all';
+const SPF_CRLF  = 'v=spf1 include:a.example\r\nb ~all';
+const special = spfRow({ spfRecords: [SPF_COMMA, SPF_QUOTE, SPF_CRLF] });
+eq('a comma inside a record does not split the cell',
+  special[spfIdx], SPF_COMMA + '\n' + SPF_QUOTE + '\n' + SPF_CRLF);
+const specialCsv = APP.toCsvText([special]);
+eq('embedded quotes are doubled, not dropped',
+  specialCsv.includes('say""hi"".example'), true);
+eq('the raw single quote never survives undoubled',
+  specialCsv.includes('say"hi".example'), false);
+// Round-trip through a minimal RFC 4180 reader: the cell must come back
+// identical, commas, quotes, newlines and all.
+const parseCsv = text => {
+  const rows = [[]]; let cell = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cell += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ',') { rows[rows.length - 1].push(cell); cell = ''; }
+    else if (c === '\n') { rows[rows.length - 1].push(cell); cell = ''; rows.push([]); }
+    else cell += c;
+  }
+  rows[rows.length - 1].push(cell);
+  return rows;
+};
+eq('the cell round-trips through an RFC 4180 reader',
+  parseCsv(specialCsv)[0][spfIdx], SPF_COMMA + '\n' + SPF_QUOTE + '\n' + SPF_CRLF);
+eq('and the round-tripped row still has every column',
+  parseCsv(specialCsv)[0].length, header.length);
+eq('a two-record cell round-trips as one field, not two rows',
+  parseCsv(joinedCsv).length, 1);
+
 const clean = APP.buildCsvRows([Object.assign({}, row, { spfRecord: 'v=spf1 -all' })]);
 eq('a clean record has an empty hygiene column',
   clean[1][hygieneIdx], '');

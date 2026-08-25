@@ -154,6 +154,15 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   set: it is computed from the first record, and shown beside all of them it
   would attribute one record's lookup count to the rest.
 
+  The `SPF Record` CSV column carries the whole set for the same reason. A count
+  in the `Issues` column says how many records conflict; the records themselves
+  are the evidence, and exporting only the first reproduced the same misleading
+  presentation outside the interface. The column keeps its index, a domain with
+  one record produces a byte-for-byte identical cell, and multiple records are
+  joined with newlines in resolver order — every cell is already quoted
+  unconditionally with embedded quotes doubled, so a newline inside the field is
+  RFC 4180 §2.6 transport and the serializer needed no change.
+
   Pre-dates this release — the single-match selection has been there since
   `29f1bbe` — but it is the same defect class 0.4.0 is about, a claim shown
   without the evidence that supports it, so it is fixed here rather than

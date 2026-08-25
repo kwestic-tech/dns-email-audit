@@ -705,6 +705,34 @@
     ]);
   }
 
+  /**
+   * The `SPF Record` column: the record, or the whole conflicting set.
+   *
+   * Exporting only the first match reproduced outside the UI exactly the
+   * misleading presentation the panel was fixed for — a count in `Issues` names
+   * how many records conflict, but the records themselves are the evidence, and
+   * a consumer reading the export saw one valid-looking record beside a
+   * permerror.
+   *
+   * Compatibility is preserved as far as it can be. The column keeps its index,
+   * and a domain with one record (every domain not in permerror) produces a
+   * byte-for-byte identical cell — the join is reached only when there is
+   * genuinely more than one record to show. Records are joined with newlines in
+   * resolver order; `toCsvText()` quotes every cell unconditionally and doubles
+   * embedded quotes, so a newline inside the field is already RFC 4180 §2.6
+   * transport and needs nothing here.
+   *
+   * `neutralizeCsvCell()` guards the leading character of the cell, which is the
+   * first record's. Every line of a joined cell begins `v=spf1` by construction
+   * — the set is filtered on that prefix — so no later line can smuggle in a
+   * formula lead.
+   */
+  function spfRecordCell(r) {
+    var records = r.spfRecords || (r.spfRecord ? [r.spfRecord] : []);
+    if (records.length < 2) return r.spfRecord;
+    return records.join('\n');
+  }
+
   /** One cell for a domain's DKIM key sizes: a number, a range, or nothing. */
   function dkimKeyBitsCell(profile) {
     if (!profile || profile.minBits === null) return '';
@@ -1309,7 +1337,7 @@
         r.domain, yes,
         r.score.grade, r.score.pts,
         label(r.dnsProvider), label(r.emailProvider),
-        r.spfStatus.status, r.spfRecord,
+        r.spfStatus.status, spfRecordCell(r),
         r.dkimStatus.found ? yes : (r.dkimStatus.confidence === 'sampled' || r.dkimStatus.confidence === 'not-checked') ? unknown : no,
         (r.dkimStatus.selectors || []).map(function (s) {
           return (s.uncommon ? t('dkim.uncommon', s.queryName) : s.sel + ' — ' + s.queryName) +
@@ -1651,6 +1679,7 @@
     tlsaDetail: tlsaDetail,
     dkimKeyBitsCell: dkimKeyBitsCell,
     spfDetail: spfDetail,
+    spfRecordCell: spfRecordCell,
     MAX_DEEP_CHECK_DOMAINS: MAX_DEEP_CHECK_DOMAINS,
   };
 })(window);
