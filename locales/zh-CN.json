@@ -649,7 +649,7 @@
       "msg": "{0} 授权了您的报告，随后又把它们改投给第三方（{1}）— 接收方两个地址都不会发送，因此您什么也收不到。",
       "what": "该目标正确发布了授权记录，随后用自己的 <code>rua=</code> 覆盖了您的报告应当送往何处 — RFC 9990 §4 允许这样做，但只能指向同一主机上的地址。这个覆盖却指向了别处。RFC 明确写出了后果：<em>\"if the confirming record includes a URI whose host is again different than the domain publishing that override, the Mail Receiver generating the report MUST NOT generate a report to either the original or the override URI.\"</em> 这条规则是为了防止有人用一连串改投去淹没第三方。所以这比一个未授权的目标更糟：一切看起来都已配置并获得授权，而合规的接收方什么都不会发送 — 既不发给您，也不发给他们。",
       "fix": "这条记录该由您的报告服务商来修，而不是您。请他们从 <code>_report._dmarc</code> 记录中删除 <code>rua=</code> 覆盖，或者把它指向他们自己主机上的地址。在此之前，请把这个目标视为收不到报告，并检查您是否还有另一个能正常工作的 <code>rua=</code> 地址。",
-      "fixCode": "; 由目标方发布于 yourdomain.com._report._dmarc.vendor.example\n\n; 有问题 — 覆盖指向了另一个主机，因此什么都不会发送：\n_report._dmarc    TXT    \"v=DMARC1; rua=mailto:collector@some-other-host.example;\"\n\n; 没问题 — 覆盖指向服务商自己的主机：\n_report._dmarc    TXT    \"v=DMARC1; rua=mailto:collector@vendor.example;\"\n\n; 同样没问题 — 完全没有覆盖，报告会送到您自己的 rua= 地址：\n_report._dmarc    TXT    \"v=DMARC1;\""
+      "fixCode": "; 由目标方发布在服务商自己的区域中 — 注意 owner 名称中含有您的域名，因为接收方查询的正是这个名称：\n\n; 有问题 — 覆盖指向了另一个主机，因此什么都不会发送：\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1; rua=mailto:collector@some-other-host.example;\"\n\n; 没问题 — 覆盖指向服务商自己的主机：\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1; rua=mailto:collector@vendor.example;\"\n\n; 同样没问题 — 完全没有覆盖，报告会送到您自己的 rua= 地址：\nyourdomain.com._report._dmarc.vendor.example    TXT    \"v=DMARC1;\""
     },
     "dmarc-external-unverifiable": {
       "msg": "无法验证 {0} 的报告授权——DNS 查询未能完成。",

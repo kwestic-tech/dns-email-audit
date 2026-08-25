@@ -751,6 +751,19 @@ malformed, they SHOULD be ignored"* — ignored, not escalated — so the
 authorization stands and only the override is dropped. `overrideReason`
 separates `cross-host` from `malformed`.
 
+The fix example that shipped with this finding was itself wrong, caught in the
+same review round: its comment named
+`yourdomain.com._report._dmarc.vendor.example` while all three record owners
+read `_report._dmarc`, which in the vendor's zone resolves to
+`_report._dmarc.vendor.example` — the policy-domain prefix missing, so a record
+published exactly as shown could never answer the query RFC 9990 §4 constructs
+(*"Prepend the domain name from which the policy was retrieved"*; the RFC's own
+worked example is `blue.example.com._report._dmarc.red.example.net`). Remediation
+text is part of the deliverable, not decoration around it: an operator following
+it literally would have published a dead record and concluded the tool was
+wrong. All three owners now carry the full name, in English and in all thirteen
+translations.
+
 ## Verification
 
 - `npm test` — 1,130 assertions, 0 failures (972 at `v0.2.3`).
