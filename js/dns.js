@@ -2650,38 +2650,84 @@
      ───────────────────────────────────────────────────────────────────── */
 
   // A dotted LDH host: labels of ALPHA/DIGIT with interior hyphens, at least
-  // two labels so a bare word is not mistaken for a fully qualified name.
+  // two labels so a bare word is not mistaken for a fully qualified name. This
+  // is a BIMI requirement, NOT a URI one — RFC 3986 is happy with `localhost`.
   var FQDN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+\.?$/i;
-  // An addr-spec, kept loose on the local part and strict about the things
-  // that actually distinguish an address from prose: no whitespace, one '@',
-  // and a real domain on the right.
-  var MAILBOX_LOCAL = /^[^\s@,;:<>"'()\[\]\\]+$/;
 
   function isFqdn(host) { return FQDN.test(String(host || '')); }
 
-  /** `mailto:` followed by one addr-spec, with RFC 6068 header fields allowed. */
-  function isMailtoUri(value) {
-    var text = String(value || '').trim();
-    if (text.slice(0, 7).toLowerCase() !== 'mailto:') return false;
-    var address = text.slice(7).split('?')[0];
-    var at = address.lastIndexOf('@');
-    if (at < 1) return false;
-    return MAILBOX_LOCAL.test(address.slice(0, at)) && isFqdn(address.slice(at + 1));
+  /** RFC 3986 §2.1: every '%' must introduce two hex digits. */
+  function hasValidPercentEncoding(text) {
+    var value = String(text || '');
+    for (var i = value.indexOf('%'); i !== -1; i = value.indexOf('%', i + 1)) {
+      if (!/^[0-9a-f]{2}$/i.test(value.substr(i + 1, 2))) return false;
+    }
+    return true;
   }
 
   /**
-   * An http/https URL with a real host. `https://` alone is a scheme and a
-   * pair of slashes, not a URL, and prefix matching cannot tell them apart.
+   * RFC 3986 §3.2.2: host = IP-literal / IPv4address / reg-name.
+   *
+   * An FQDN is one of those shapes and not the definition of one. Requiring a
+   * dotted name here refused `https://[2001:db8::1]/r`, which is a perfectly
+   * good TLS-RPT destination — the FQDN rule belongs to BIMI, which adds it,
+   * and is applied there rather than to every URI this file reads.
    */
-  function isHttpUri(value, httpsOnly) {
+  function isUriHost(host) {
+    var text = String(host || '');
+    if (!text) return false;
+    if (/^\[[0-9a-f:.]+\]$/i.test(text)) return true;                 // IP-literal
+    return /^(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})+$/i.test(text); // reg-name / IPv4
+  }
+
+  /** Split an authority into host and port, keeping an IP-literal intact. */
+  function splitUriAuthority(authority) {
+    var withoutUserinfo = String(authority || '').replace(/^[^@]*@/, '');
+    var match = /^(\[[^\]]*\]|[^:]*)(?::(\d{0,5}))?$/.exec(withoutUserinfo);
+    return match ? { host: match[1], port: match[2] } : null;
+  }
+
+  /**
+   * An http/https URL. `opts.httpsOnly` and `opts.requireFqdn` are the extra
+   * constraints a *consuming protocol* adds — BIMI has both; TLS-RPT and CAA
+   * `iodef` have neither, and applying them everywhere rejected conforming
+   * records.
+   */
+  function isHttpUri(value, opts) {
+    var options = opts || {};
     var text = String(value || '').trim();
-    var match = /^(https?):\/\/([^/?#\s]+)([/?#]\S*)?$/i.exec(text);
+    if (/\s/.test(text) || !hasValidPercentEncoding(text)) return false;
+    var match = /^(https?):\/\/([^/?#]*)([/?#][\s\S]*)?$/i.exec(text);
     if (!match) return false;
-    if (httpsOnly && match[1].toLowerCase() !== 'https') return false;
-    var authority = match[2].replace(/^[^@]*@/, '');           // strip userinfo
-    var host = authority.replace(/:(\d{1,5})$/, '');
-    if (host !== authority && !/^\d{1,5}$/.test(authority.slice(host.length + 1))) return false;
-    return isFqdn(host);
+    if (options.httpsOnly && match[1].toLowerCase() !== 'https') return false;
+    var authority = splitUriAuthority(match[2]);
+    if (!authority || !isUriHost(authority.host)) return false;
+    if (authority.port === '') return false;                          // "host:" with no port
+    if (options.requireFqdn && !isFqdn(authority.host)) return false;
+    return true;
+  }
+
+  /**
+   * RFC 6068 `mailtoURI`. The local part and the domain may both be
+   * percent-encoded, which is how the RFC writes a quoted local part
+   * (`mailto:%22not%40me%22@example.org`) and a domain literal
+   * (`mailto:user@%5B192.0.2.1%5D`) — both conformant, and both refused by a
+   * plain addr-spec regex.
+   */
+  function isMailtoUri(value, opts) {
+    var options = opts || {};
+    var text = String(value || '').trim();
+    if (text.slice(0, 7).toLowerCase() !== 'mailto:') return false;
+    if (/\s/.test(text) || !hasValidPercentEncoding(text)) return false;
+    var to = text.slice(7).split('?')[0];
+    var at = to.lastIndexOf('@');
+    if (at < 1 || at === to.length - 1) return false;
+    var local = to.slice(0, at);
+    var domain = to.slice(at + 1);
+    if (!/^(?:[a-z0-9\-._~!$&'*+,;=:]|%[0-9a-f]{2})+$/i.test(local)) return false;
+    if (options.requireFqdn) return isFqdn(domain);
+    if (/^%5b[\s\S]*%5d$/i.test(domain)) return true;                 // encoded domain-literal
+    return /^(?:[a-z0-9\-._~!$&'*+,;=]|%[0-9a-f]{2})+$/i.test(domain);
   }
 
   /**
@@ -2693,16 +2739,39 @@
    * `id=abc; v=STSv1` validated. A single trailing delimiter is permitted by
    * both ABNFs.
    */
-  function parseOrderedFields(record) {
+  function parseOrderedFields(record, opts) {
+    var options = opts || {};
     var parts = String(record === undefined || record === null ? '' : record).split(';');
     if (parts.length > 1 && parts[parts.length - 1].trim() === '') parts.pop();
     var fields = [];
     for (var i = 0; i < parts.length; i++) {
-      var equals = parts[i].indexOf('=');
+      // `field-delim = *WSP ";" *WSP`, so whitespace belongs to the delimiter.
+      var field = parts[i].trim();
+      var equals = field.indexOf('=');
       if (equals === -1) return null;
-      fields.push({ name: parts[i].slice(0, equals).trim(), value: parts[i].slice(equals + 1).trim() });
+      var name = field.slice(0, equals);
+      var value = field.slice(equals + 1);
+      // MTA-STS and TLS-RPT write their fields as single literals —
+      // `%s"v=STSv1"`, `%s"id="`, `%s"rua="` — and their extensions as
+      // `name "=" value`. None of those admits whitespace around the `=`, so
+      // trimming it accepted `v = STSv1`. BIMI's grammar is looser, hence an
+      // option rather than a blanket rule.
+      if (!options.strictFieldSyntax) { name = name.trim(); value = value.trim(); }
+      fields.push({ name: name, value: value });
     }
     return fields;
+  }
+
+  /**
+   * Records at a protocol's dedicated owner that MENTION its version field.
+   *
+   * Recognition is case-insensitive and order-independent on purpose, while
+   * validation stays exact. That is the point: a record has to be recognizable
+   * as a candidate before it can be diagnosed as a malformed one.
+   */
+  function versionCandidates(records, token) {
+    var pattern = new RegExp('(^|;)\\s*v\\s*=\\s*' + token + '\\s*(;|$)', 'i');
+    return (records || []).filter(function (record) { return pattern.test(String(record || '')); });
   }
 
   function parseTagList(record) {
@@ -2724,7 +2793,14 @@
   // sts-ext-name = (ALPHA / DIGIT) *31(ALPHA / DIGIT / "_" / "-" / ".")
   var EXT_NAME = /^[a-z0-9][a-z0-9_.-]{0,31}$/i;
   // sts-ext-value = 1*(%x21-3A / %x3C-7E) — VCHAR without ';', and no space.
-  var EXT_VALUE = /^[\x21-\x3A\x3C-\x7E]+$/;
+  // sts-ext-value / tlsrpt-ext-value = 1*(%x21-3A / %x3C / %x3E-7E) — VCHAR
+  // excluding ';' (0x3B), '=' (0x3D), SP and controls. The earlier range
+  // included 0x3D, so `ext=a=b` validated in both protocols.
+  var RECORD_EXT_VALUE = /^[\x21-\x3A\x3C\x3E-\x7E]+$/;
+  // BIMI's pinned grammar does not carry the same exclusion, so it keeps the
+  // looser value class rather than inheriting a restriction from a different
+  // specification.
+  var BIMI_EXT_VALUE = /^[\x21-\x3A\x3C-\x7E]+$/;
 
   /**
    * Validate an MTA-STS TXT record against RFC 8461 §3.1.
@@ -2741,25 +2817,28 @@
    * purpose is to catch a control the operator believes is working.
    */
   function validateMtaStsRecord(record) {
-    var fields = parseOrderedFields(record);
+    var fields = parseOrderedFields(record, { strictFieldSyntax: true });
     if (!fields || !fields.length) return { valid: false, id: '', errors: ['invalid-syntax'] };
 
     var seen = Object.create(null);
-    var duplicates = [];
     var syntax = fields[0].name === 'v' && fields[0].value === 'STSv1';
     var id = '';
     for (var i = 0; i < fields.length; i++) {
       var name = fields[i].name;
-      if (seen[name]) duplicates.push(name);
+      // RFC 8461 §3.1: "Parsers MUST accept TXT records ... If any non-repeated
+      // field is duplicated, all entries except for the first SHALL be
+      // ignored." A blanket duplicate rejection is the opposite of that: it
+      // called a conformant record invalid, and then reported the LAST id as
+      // effective — the one every sender discards.
+      if (seen[name]) continue;
       seen[name] = true;
       if (i === 0) continue;
       if (name === 'id') { id = fields[i].value; if (!STS_ID.test(id)) syntax = false; }
-      else if (name === 'v') syntax = false;
-      else if (!EXT_NAME.test(name) || !EXT_VALUE.test(fields[i].value)) syntax = false;
+      else if (name === 'v') continue;
+      else if (!EXT_NAME.test(name) || !RECORD_EXT_VALUE.test(fields[i].value)) syntax = false;
     }
     if (!id) syntax = false;
-    var valid = syntax && !duplicates.length;
-    return { valid: valid, id: id, errors: duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'] };
+    return { valid: syntax, id: id, errors: syntax ? [] : ['invalid-syntax'] };
   }
 
   /**
@@ -2771,32 +2850,39 @@
    * scheme and not a URI.
    */
   function validateTlsRptRecord(record) {
-    var fields = parseOrderedFields(record);
+    var fields = parseOrderedFields(record, { strictFieldSyntax: true });
     if (!fields || !fields.length) return { valid: false, destinations: [], errors: ['invalid-syntax'] };
 
     var seen = Object.create(null);
-    var duplicates = [];
     var syntax = fields[0].name === 'v' && fields[0].value === 'TLSRPTv1';
     var destinations = [];
     var sawRua = false;
     for (var i = 0; i < fields.length; i++) {
       var name = fields[i].name;
-      if (seen[name]) duplicates.push(name);
-      seen[name] = true;
-      if (i === 0) continue;
+      if (i === 0) { seen[name] = true; continue; }
+      // `tlsrpt-record = tlsrpt-version 1*(field-delim tlsrpt-field)` with
+      // `tlsrpt-field = tlsrpt-rua / tlsrpt-extension`, so MORE THAN ONE `rua`
+      // field is grammatical and conformant. Rejecting it discarded a valid
+      // record and threw away the first destination as evidence.
       if (name === 'rua') {
         sawRua = true;
-        destinations = fields[i].value.split(',').map(function (v) { return v.trim(); }).filter(Boolean);
-        if (!destinations.length) syntax = false;
-        destinations.forEach(function (uri) {
-          if (!isMailtoUri(uri) && !isHttpUri(uri, true)) syntax = false;
+        var uris = fields[i].value.split(',').map(function (v) { return v.trim(); }).filter(Boolean);
+        if (!uris.length) syntax = false;
+        uris.forEach(function (uri) {
+          // RFC 8460 imports RFC 3986 whole; it adds no FQDN rule.
+          if (!isMailtoUri(uri) && !isHttpUri(uri, { httpsOnly: true })) syntax = false;
+          destinations.push(uri);
         });
-      } else if (name === 'v') syntax = false;
-      else if (!EXT_NAME.test(name) || !EXT_VALUE.test(fields[i].value)) syntax = false;
+        continue;
+      }
+      // Everything else is non-repeatable: keep the first, ignore later copies.
+      if (seen[name]) continue;
+      seen[name] = true;
+      if (name === 'v') continue;
+      if (!EXT_NAME.test(name) || !RECORD_EXT_VALUE.test(fields[i].value)) syntax = false;
     }
     if (!sawRua) syntax = false;
-    var valid = syntax && !duplicates.length;
-    return { valid: valid, destinations: destinations, errors: duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'] };
+    return { valid: syntax, destinations: destinations, errors: syntax ? [] : ['invalid-syntax'] };
   }
 
   // Indicator formats the BIMI draft registers. SVG Tiny PS, plain or gzipped.
@@ -2838,12 +2924,13 @@
       if (name === 'l') {
         sawLogo = true;
         logo = fields[i].value;
-        if (logo && !(isHttpUri(logo, true) && BIMI_LOGO_SUFFIX.test(logo))) syntax = false;
+        // BIMI is the protocol that adds the FQDN and HTTPS constraints.
+        if (logo && !(isHttpUri(logo, { httpsOnly: true, requireFqdn: true }) && BIMI_LOGO_SUFFIX.test(logo))) syntax = false;
       } else if (name === 'a') {
         authority = fields[i].value;
-        if (authority && !isHttpUri(authority, true)) syntax = false;
+        if (authority && !isHttpUri(authority, { httpsOnly: true, requireFqdn: true })) syntax = false;
       } else if (name === 'v') syntax = false;
-      else if (!EXT_NAME.test(name) || !EXT_VALUE.test(fields[i].value)) syntax = false;
+      else if (!EXT_NAME.test(name) || !BIMI_EXT_VALUE.test(fields[i].value)) syntax = false;
     }
     // `l=` is required; it may be empty, but it may not be absent.
     if (!sawLogo) syntax = false;
@@ -3759,12 +3846,20 @@
     // different route. A key we could not check because the browser has no
     // Web Crypto is NOT here, and must never be — that is cryptoValidated:
     // null, and it means we said nothing, not that the key is bad.
-    var brokenKeys = byCondition(function (k) {
-      return k.errors.indexOf('unparseable-key') !== -1 ||
-        k.errors.indexOf('key-structure-invalid') !== -1 ||
-        k.errors.indexOf('bad-ed25519-length') !== -1;
-    });
+    var DECODE_ERRORS = ['unparseable-key', 'key-structure-invalid', 'bad-ed25519-length'];
+    var hasDecodeError = function (k) {
+      return k.errors.some(function (e) { return DECODE_ERRORS.indexOf(e) !== -1; });
+    };
+    var brokenKeys = byCondition(hasDecodeError);
     if (brokenKeys.length) issues.push({ key: 'dkim-key-unparseable', sev: 'warn', args: [brokenKeys.join(', ')] });
+
+    // Every other way a key record can be invalid. Without this, a record the
+    // analyzer itself marks `valid: false` — an empty `h=`, a duplicated tag, a
+    // bad version — counted as a found key and said nothing at all, so the
+    // audit reported DKIM present on the strength of a record it knew was
+    // malformed.
+    var malformedKeys = byCondition(function (k) { return !k.valid && !hasDecodeError(k); });
+    if (malformedKeys.length) issues.push({ key: 'dkim-key-malformed', sev: 'warn', args: [malformedKeys.join(', ')] });
 
     var testingKeys = byCondition(function (k) { return k.testing; });
     if (testingKeys.length) issues.push({ key: 'dkim-key-testing', sev: 'info', args: [testingKeys.join(', ')] });
@@ -4191,9 +4286,22 @@
       const mtaMatches = mtaStsTxt ? mtaStsTxt.filter(v => startsWithCI(v, 'v=STSv1')) : [];
       const tlsMatches = tlsRptTxt ? tlsRptTxt.filter(v => startsWithCI(v, 'v=TLSRPTv1')) : [];
 
-      const bimiRecord = bimiMatches[0] || '';
-      const mtaRecord = mtaMatches[0] || '';
-      const tlsRecord = tlsMatches[0] || '';
+      // A sender discards a record that does not BEGIN with the version field,
+      // and `present` follows that rule exactly. An auditor must not: the
+      // record exists, at an owner name dedicated to this protocol, and
+      // "nothing is published" and "what is published is not an active policy"
+      // are different facts. Filtering the malformed candidate away before
+      // validation is what suppressed the very findings the strict validators
+      // were added to raise — `l=…; v=BIMI1` simply vanished.
+      const bimiCandidates = versionCandidates(bimiTxt, 'BIMI1');
+      const mtaCandidates = versionCandidates(mtaStsTxt, 'STSv1');
+      const tlsCandidates = versionCandidates(tlsRptTxt, 'TLSRPTv1');
+
+      // Show the sender-compatible record when there is one, and otherwise the
+      // malformed candidate — which is the evidence the operator needs.
+      const bimiRecord = bimiMatches[0] || bimiCandidates[0] || '';
+      const mtaRecord = mtaMatches[0] || mtaCandidates[0] || '';
+      const tlsRecord = tlsMatches[0] || tlsCandidates[0] || '';
       const bimiValidation = validateBimiRecord(bimiRecord);
       const mtaValidation = validateMtaStsRecord(mtaRecord);
       const tlsValidation = validateTlsRptRecord(tlsRecord);
@@ -4204,9 +4312,9 @@
         // conformant, deliberate, and not a configured BIMI logo. Counting it
         // as present would report an indicator the operator said they do not
         // have; counting it as invalid would report a correct record as broken.
-        bimi: { present: bimiMatches.length === 1 && bimiValidation.valid && !bimiValidation.declined, declined: bimiMatches.length === 1 && bimiValidation.declined, advertised: bimiMatches.length === 1, record: bimiRecord, validation: bimiValidation, multiple: bimiMatches.length > 1, unknown: bimiTxt === null },
-        mtaSts: { present: mtaMatches.length === 1 && mtaValidation.valid, advertised: mtaMatches.length === 1, policyVerified: false, record: mtaRecord, validation: mtaValidation, multiple: mtaMatches.length > 1, unknown: mtaStsTxt === null },
-        tlsRpt: { present: tlsMatches.length === 1 && tlsValidation.valid, advertised: tlsMatches.length === 1, record: tlsRecord, validation: tlsValidation, multiple: tlsMatches.length > 1, unknown: tlsRptTxt === null },
+        bimi: { present: bimiMatches.length === 1 && bimiValidation.valid && !bimiValidation.declined, declined: bimiMatches.length === 1 && bimiValidation.declined, advertised: bimiCandidates.length === 1, record: bimiRecord, validation: bimiValidation, multiple: bimiCandidates.length > 1, unknown: bimiTxt === null },
+        mtaSts: { present: mtaMatches.length === 1 && mtaValidation.valid, advertised: mtaCandidates.length === 1, policyVerified: false, record: mtaRecord, validation: mtaValidation, multiple: mtaCandidates.length > 1, unknown: mtaStsTxt === null },
+        tlsRpt: { present: tlsMatches.length === 1 && tlsValidation.valid, advertised: tlsCandidates.length === 1, record: tlsRecord, validation: tlsValidation, multiple: tlsCandidates.length > 1, unknown: tlsRptTxt === null },
         caa: caaResult,
         dnssec: dnssecResult,
         spfLookups,

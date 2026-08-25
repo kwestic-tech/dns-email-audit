@@ -3638,11 +3638,124 @@ eq('and is not sold BIMI in the suggestions',
 const iodef = v => D.summarizeCaa([`0 iodef "${v}"`]).parsed[0].valid;
 eq('a scheme prefix with prose is refused', iodef('mailto:not an address'), false);
 eq('a bare scheme is refused',              iodef('https://'), false);
-eq('a host with no dot is refused',         iodef('mailto:a@b'), false);
+// CAA §4.4 asks for a URL and adds no FQDN rule of its own — that constraint
+// belongs to BIMI, which states it. RFC 6068 permits a bare reg-name here.
+eq('a single-label host is accepted',       iodef('mailto:a@b'), true);
+eq('an encoded quoted local part is accepted',
+  iodef('mailto:%22not%40me%22@example.org'), true);
+eq('an encoded domain literal is accepted', iodef('mailto:user@%5B192.0.2.1%5D'), true);
+eq('an IPv6 literal authority is accepted', iodef('https://[2001:db8::1]/r'), true);
+eq('a malformed percent escape is refused', iodef('https://example.com/%ZZ'), false);
 eq('a real mailto is accepted',             iodef('mailto:sec@example.com'), true);
 eq('a real https URL is accepted',          iodef('https://example.com/report'), true);
 eq('a real http URL is accepted',           iodef('http://example.com/report'), true);
 eq('ftp is still refused',                  iodef('ftp://x.example'), false);
+
+/* ── 42. Repetition, field ABNF, URI profiles, and malformed evidence ─── */
+section('42. Conforming records must not be rejected, malformed ones must not vanish');
+
+// ── Repetition semantics are per-protocol, not a blanket duplicate rule ──
+// RFC 8461 §3.1: "If any non-repeated field is duplicated, all entries except
+// for the first SHALL be ignored" — and that sentence is explicitly about TXT
+// records. A blanket rejection called a conformant record invalid AND reported
+// the last id as effective, which is the one every sender discards.
+const stsDup = D.validateMtaStsRecord('v=STSv1; id=first; id=second');
+eq('a repeated MTA-STS id is still valid', stsDup.valid, true);
+eq('and the FIRST id is effective',        stsDup.id, 'first');
+// RFC 8460 §3: `1*(field-delim tlsrpt-field)` where a field may be a rua, so
+// more than one rua is grammatical. Rejecting it also threw away evidence.
+const rptDup = D.validateTlsRptRecord('v=TLSRPTv1; rua=mailto:a@example.com; rua=https://example.com/r');
+eq('repeated TLS-RPT rua fields are valid', rptDup.valid, true);
+eq('and every destination is kept',
+  rptDup.destinations, ['mailto:a@example.com', 'https://example.com/r']);
+eq('a repeated version field is ignored, not fatal',
+  D.validateMtaStsRecord('v=STSv1; id=abc; v=STSv1').valid, true);
+
+// ── Field ABNF: WSP belongs to the delimiter, and '=' is not a value char ──
+// `sts-version = %s"v=STSv1"` and `sts-id = %s"id="` are single literals.
+eq('whitespace inside an MTA-STS field is refused', D.validateMtaStsRecord('v = STSv1; id = abc').valid, false);
+eq('whitespace inside a TLS-RPT field is refused',
+  D.validateTlsRptRecord('v = TLSRPTv1; rua = mailto:a@e.example').valid, false);
+// ...but `field-delim = *WSP ";" *WSP` means it does surround the delimiter.
+eq('whitespace around the delimiter is permitted', D.validateMtaStsRecord('v=STSv1 ;  id=abc').valid, true);
+eq('and for TLS-RPT too',
+  D.validateTlsRptRecord('v=TLSRPTv1 ;  rua=mailto:a@e.example').valid, true);
+// sts-ext-value / tlsrpt-ext-value = 1*(%x21-3A / %x3C / %x3E-7E): no '='.
+eq('an "=" in an MTA-STS extension value is refused', D.validateMtaStsRecord('v=STSv1; id=abc; ext=a=b').valid, false);
+eq('an "=" in a TLS-RPT extension value is refused',
+  D.validateTlsRptRecord('v=TLSRPTv1; rua=mailto:a@e.example; ext=a=b').valid, false);
+// BIMI's pinned grammar carries no such exclusion, so it must not inherit one.
+eq('BIMI does not inherit the "=" exclusion',
+  D.validateBimiRecord('v=BIMI1; l=https://l.example/x.svg; ext=a=b').valid, true);
+
+// ── URI profiles: the consuming protocol adds the extra constraints ──
+eq('an IPv6 literal is a valid TLS-RPT destination',
+  D.validateTlsRptRecord('v=TLSRPTv1; rua=https://[2001:db8::1]/r').valid, true);
+eq('a malformed percent escape is refused',
+  D.validateTlsRptRecord('v=TLSRPTv1; rua=https://example.com/%ZZ').valid, false);
+eq('an encoded quoted local part is accepted',
+  D.validateTlsRptRecord('v=TLSRPTv1; rua=mailto:%22not%40me%22@example.org').valid, true);
+// BIMI is the protocol that adds HTTPS and FQDN, so it keeps rejecting these.
+eq('BIMI still refuses a single-label host',
+  D.validateBimiRecord('v=BIMI1; l=https://localhost/logo.svg').valid, false);
+eq('BIMI still refuses http',
+  D.validateBimiRecord('v=BIMI1; l=http://logo.example/x.svg').valid, false);
+
+// ── A malformed candidate is evidence, not an absence ──
+// A sender discards a record that does not begin with the version field. An
+// auditor that also discards it reports "nothing published" at an owner name
+// dedicated to the protocol, and withholds the reason senders ignore it.
+const ORDER = {
+  'order.example NS': ns('ns1.order.example.'),
+  'order.example MX': mx('10 mail.order.example.'),
+  'order.example TXT': txt('v=spf1 -all'),
+  'order.example A': a('203.0.113.5'),
+  'order.example AAAA': 'nodata',
+  'default._bimi.order.example TXT': txt('l=https://logo.example/logo.svg; v=BIMI1'),
+  '_mta-sts.order.example TXT': txt('id=abc; v=STSv1'),
+  '_smtp._tls.order.example TXT': txt('rua=mailto:a@example.com; v=TLSRPTv1'),
+};
+sandbox.fetch = dohFixture(ORDER);
+const wrongOrder = await D.analyzeDomain('order.example', { dkim: false, advanced: true, retries: 0 });
+const orderKeys = wrongOrder.issues.map(i => i.key);
+eq('a wrong-order BIMI record is advertised',    wrongOrder.advanced.bimi.advertised, true);
+eq('but not present',                            wrongOrder.advanced.bimi.present, false);
+eq('and raises bimi-invalid',                    orderKeys.includes('bimi-invalid'), true);
+eq('and the record is kept as evidence',
+  wrongOrder.advanced.bimi.record, 'l=https://logo.example/logo.svg; v=BIMI1');
+eq('a wrong-order MTA-STS record raises mta-sts-invalid', orderKeys.includes('mta-sts-invalid'), true);
+eq('and keeps its record',                       wrongOrder.advanced.mtaSts.record, 'id=abc; v=STSv1');
+eq('a wrong-order TLS-RPT record raises tls-rpt-invalid',  orderKeys.includes('tls-rpt-invalid'), true);
+eq('and keeps its record',                       wrongOrder.advanced.tlsRpt.record, 'rua=mailto:a@example.com; v=TLSRPTv1');
+// An owner with genuinely nothing at it must still read as absent.
+sandbox.fetch = dohFixture({
+  'bare42.example NS': ns('ns1.bare42.example.'), 'bare42.example MX': mx('10 mail.bare42.example.'),
+  'bare42.example TXT': txt('v=spf1 -all'), 'bare42.example A': a('203.0.113.5'), 'bare42.example AAAA': 'nodata',
+});
+const bare42 = await D.analyzeDomain('bare42.example', { dkim: false, advanced: true, retries: 0 });
+eq('an empty owner is not advertised',  bare42.advanced.bimi.advertised, false);
+eq('and raises no invalid finding',     bare42.issues.map(i => i.key).includes('bimi-invalid'), false);
+
+// ── A malformed DKIM key record must not pass in silence ──
+const ED25519_KEY = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=';
+const malformedRecord = `v=DKIM1; k=ed25519; h=; p=${ED25519_KEY}`;
+eq('an empty h= makes the record invalid', D.analyzeDkimKey(malformedRecord).valid, false);
+eq('but it still applies to email',        D.analyzeDkimKey(malformedRecord).appliesToEmail, true);
+eq('so it still satisfies discovery',
+  D.dkimRecordSet([{ type: 16, data: `"${malformedRecord}"` }]).keys.length, 1);
+// ...and the silence is what had to end.
+const malformedFindings = tags => keysOf(dkimWith(sel('s1', `${tags}p=${RSA_2048}`)))
+  .filter(k => k === 'dkim-key-malformed' || k === 'dkim-key-unparseable');
+eq('an empty h= raises the malformed finding',  malformedFindings('v=DKIM1; h=; '), ['dkim-key-malformed']);
+eq('an empty s= raises it too',                 malformedFindings('v=DKIM1; s=; '), ['dkim-key-malformed']);
+eq('an empty t= raises it too',                 malformedFindings('v=DKIM1; t=; '), ['dkim-key-malformed']);
+eq('a duplicated tag raises it',                malformedFindings('v=DKIM1; t=y; t=s; '), ['dkim-key-malformed']);
+eq('a bad version raises it',                   malformedFindings('v=DKIM2; '), ['dkim-key-malformed']);
+// The two findings are disjoint: a decode failure is not also "malformed".
+eq('a decode failure raises only the decode finding',
+  keysOf(dkimWith(sel('s1', 'v=DKIM1; p=notbase64!!')))
+    .filter(k => k === 'dkim-key-malformed' || k === 'dkim-key-unparseable'), ['dkim-key-unparseable']);
+eq('and a clean key raises neither',            malformedFindings('v=DKIM1; h=sha256; s=email; '), []);
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

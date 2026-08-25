@@ -863,6 +863,12 @@
       "what": "DKIM 密钥记录可以限制自身的用途。<code>s=</code> 标签列出该密钥适用的服务，而限定给别的用途的密钥 — 例如 RFC 8460 用于 TLS 报告的 <code>s=tlsrpt</code> — 并不是普通邮件的密钥。<code>k=</code> 指定了本工具无法识别的算法的密钥处境相同：RFC 6376 §3.6.1 要求验证方忽略它。这类记录通常是正确且有意为之的。在这里列出，是为了让那些仅有此类 DKIM 记录的域名知道审计为何没有报告签名密钥，而不是被告知在一个自己明明配置过的选择器上什么都没找到。",
       "fix": "如果这项限制是有意的，无需处理。如果这个选择器本应签署普通邮件，请删除 <code>s=</code> 标签（不带该标签表示密钥适用于所有服务），或者在其列表中加入 <code>email</code>。同时检查 <code>k=</code> 的值：DKIM 只定义了 <code>rsa</code> 和 <code>ed25519</code>。",
       "fixCode": "; 限定给其他服务 — 有效，但不是邮件密钥：\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; 适用于邮件：明确写出，或者干脆省略 s=：\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "dkim-key-malformed": {
+      "msg": "DKIM 密钥记录格式有误：{0} — 密钥本身也许能解码，但包裹它的记录无法解析。",
+      "what": "这与无法解码的密钥是两回事。这里的 <code>p=</code> 值可能完全正常；出问题的是它所在的记录 — 标签存在却什么也没指明的空 <code>h=</code>、<code>s=</code> 或 <code>t=</code> 列表，重复出现的标签，或者不是 <code>DKIM1</code> 的 <code>v=</code>。RFC 6376 §3.6.1 将这些标签都定义为以冒号分隔的非空列表，而无法解析记录的验证方有权将该密钥整个忽略。选择器仍然计为已发布，因为在您自己配置的名称上存在一条损坏的记录，与那里什么都没有是两个不同的问题 — 但它并不是可以依靠的东西。",
+      "fix": "把这条记录与签名服务生成的内容比对一下。常见原因是编辑之后留下没有值的标签（<code>s=</code> 或 <code>h=</code> 后面空无一物），以及被粘贴了两次的标签。可选标签宁可整条删除，也不要留空：没有 <code>s=</code> 表示密钥适用于所有服务，没有 <code>h=</code> 表示接受任何散列算法。",
+      "fixCode": "; 格式有误 — 标签在，但内容为空：\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=; s=; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; 正确写法 — 要么写出值，要么干脆省略标签：\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {

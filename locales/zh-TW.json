@@ -863,6 +863,12 @@
       "what": "DKIM 金鑰紀錄可以限制自身的用途。<code>s=</code> 標籤列出該金鑰適用的服務，而限定給其他用途的金鑰 — 例如 RFC 8460 用於 TLS 回報的 <code>s=tlsrpt</code> — 並不是一般郵件的金鑰。<code>k=</code> 指定了本工具無法辨識之演算法的金鑰處境相同：RFC 6376 §3.6.1 要求驗證方忽略它。這類紀錄通常是正確且刻意為之的。在此列出，是為了讓那些只有此類 DKIM 紀錄的網域知道稽核為何沒有回報簽章金鑰，而不是被告知在一個自己明明設定過的選擇器上什麼都沒找到。",
       "fix": "如果這項限制是刻意的，無需處理。如果這個選擇器原本應簽署一般郵件，請移除 <code>s=</code> 標籤（沒有該標籤表示金鑰適用於所有服務），或在其清單中加入 <code>email</code>。同時檢查 <code>k=</code> 的值：DKIM 只定義了 <code>rsa</code> 與 <code>ed25519</code>。",
       "fixCode": "; 限定給其他服務 — 有效，但不是郵件金鑰：\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; 適用於郵件：明確寫出，或者乾脆省略 s=：\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
+    },
+    "dkim-key-malformed": {
+      "msg": "DKIM 金鑰紀錄格式有誤：{0} — 金鑰本身也許能解碼，但包住它的紀錄無法解析。",
+      "what": "這與無法解碼的金鑰是兩回事。這裡的 <code>p=</code> 值可能完全正常；出問題的是它所在的紀錄 — 標籤存在卻什麼也沒指明的空 <code>h=</code>、<code>s=</code> 或 <code>t=</code> 清單，重複出現的標籤，或者不是 <code>DKIM1</code> 的 <code>v=</code>。RFC 6376 §3.6.1 將這些標籤都定義為以冒號分隔的非空清單，而無法解析紀錄的驗證方有權將該金鑰整個忽略。選擇器仍然計為已發布，因為在您自己設定的名稱上存在一筆損壞的紀錄，與那裡什麼都沒有是兩個不同的問題 — 但它並不是可以倚靠的東西。",
+      "fix": "把這筆紀錄與簽署服務產生的內容比對一下。常見原因是編輯之後留下沒有值的標籤（<code>s=</code> 或 <code>h=</code> 後面空無一物），以及被貼上兩次的標籤。選用標籤寧可整筆移除，也不要留空：沒有 <code>s=</code> 表示金鑰適用於所有服務，沒有 <code>h=</code> 表示接受任何雜湊演算法。",
+      "fixCode": "; 格式有誤 — 標籤在，但內容為空：\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=; s=; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; 正確寫法 — 要嘛寫出值，要嘛乾脆省略標籤：\ns2026._domainkey    TXT    \"v=DKIM1; k=rsa; h=sha256; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey    TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {
