@@ -3250,40 +3250,127 @@
      most damaging verdict this tool can produce, so the two parsers are
      written apart rather than factored together.
 
-     Shapes captured from the live resolver before any of this was written:
-     docs/specs/fixtures/dnssec-live-states-0.5.0.md.
+     These parsers read the numeric presentation form this project's one
+     resolver returns, captured before any of this was written in
+     docs/specs/fixtures/dnssec-live-states-0.5.0.md. RFC 4034 also permits
+     algorithm mnemonics in zone-file presentation format; Cloudflare's JSON
+     never emits them, and rather than accept a grammar nothing here can
+     produce, an alphabetic algorithm field is reported as unparseable. That is
+     a deliberate scope statement, not an oversight.
+
+     A note on what `valid` means. It is a statement about the RECORD — the
+     fields parsed, the protocol is 3, the base64 decoded. It is NOT a
+     statement that the key is usable. Whether the key material is even
+     structurally possible for its declared algorithm is `keyStructure`, and
+     whether the key may verify RRsets at all is the zone flag. Collapsing
+     those into one boolean is how a recognized name gets accepted without its
+     registered value grammar, which is the failure 0.4.0 spent three review
+     rounds removing from CAA, MTA-STS and DKIM in turn.
      ───────────────────────────────────────────────────────────────────── */
 
-  // IANA DNSSEC algorithm numbers. These are protocol identifiers, not prose,
-  // and are emitted as-is — the localization contract lists them among the
-  // terms that are never translated.
+  /**
+   * IANA DNS Security Algorithm Numbers, current as of 2026-08-26. Protocol
+   * identifiers, not prose — the localization contract lists them among the
+   * terms that are never translated.
+   *
+   * 18 (MLDSA44) is an early allocation held by an Internet-Draft rather than
+   * an RFC. It is carried because the registry carries it: a resolver could
+   * return it, and reporting the number with no name is worse than reporting
+   * the name the registry gives.
+   */
   var DNSSEC_ALGORITHMS = {
-    1: 'RSAMD5', 3: 'DSA', 5: 'RSASHA1', 6: 'DSA-NSEC3-SHA1',
-    7: 'RSASHA1-NSEC3-SHA1', 8: 'RSASHA256', 10: 'RSASHA512', 12: 'ECC-GOST',
-    13: 'ECDSAP256SHA256', 14: 'ECDSAP384SHA384', 15: 'ED25519', 16: 'ED448',
+    0: 'DELETE', 1: 'RSAMD5', 2: 'DH', 3: 'DSA', 5: 'RSASHA1',
+    6: 'DSA-NSEC3-SHA1', 7: 'RSASHA1-NSEC3-SHA1', 8: 'RSASHA256',
+    10: 'RSASHA512', 12: 'ECC-GOST', 13: 'ECDSAP256SHA256',
+    14: 'ECDSAP384SHA384', 15: 'ED25519', 16: 'ED448', 17: 'SM2SM3',
+    18: 'MLDSA44', 23: 'ECC-GOST12',
+    252: 'INDIRECT', 253: 'PRIVATEDNS', 254: 'PRIVATEOID',
   };
 
   /**
-   * RFC 8624 §3.1. MUST NOT sign: RSAMD5, DSA, DSA-NSEC3-SHA1, ECC-GOST.
-   * NOT RECOMMENDED: the two RSASHA1 variants.
+   * Deprecated for signing. RFC 9905 §3.1 obsoletes RFC 8624's algorithm
+   * table: RSAMD5, DSA and both DSA/RSASHA1-NSEC3 variants are MUST NOT, and
+   * RSASHA1 is likewise no longer permitted for new signing. RFC 9906
+   * deprecates the GOST R 34.10-2001 algorithm and its digest.
    *
-   * Wider than the set the spec enumerates, which named 3, 5, 6 and 7. A tool
-   * that flags RSASHA1 while staying silent about RSAMD5 is not applying a
-   * rule, and RSAMD5 is the algorithm with its own key tag arithmetic below —
-   * it was already unavoidable here.
+   * ECC-GOST12 (23) is NOT here: RFC 9558 registers it as a current
+   * replacement for 12, not as a deprecated algorithm.
    */
   var DEPRECATED_DNSSEC_ALGORITHMS = [1, 3, 5, 6, 7, 12];
 
-  // RFC 4034 §5.1.3 and the IANA digest registry. Digest type 1 is SHA-1,
-  // deprecated by RFC 8624 §3.3; 3 is GOST, likewise.
-  var DNSSEC_DIGESTS = { 1: 'SHA-1', 2: 'SHA-256', 3: 'GOST-R-34.11-94', 4: 'SHA-384' };
-  var DEPRECATED_DNSSEC_DIGESTS = [1, 3];
-  var DNSSEC_DIGEST_LENGTHS = { 1: 20, 2: 32, 3: 32, 4: 48 };
+  /**
+   * IANA DS digest algorithms, current as of 2026-08-26. Types 5 and 6 were
+   * missing here, which meant a one-octet digest declaring type 6 was accepted
+   * as a valid record with no name — a currently registered digest parsed
+   * without its registered grammar, which is exactly what the unknown-value
+   * fallback is NOT for.
+   */
+  var DNSSEC_DIGESTS = {
+    1: 'SHA-1', 2: 'SHA-256', 3: 'GOST-R-34.11-94', 4: 'SHA-384',
+    5: 'GOST-R-34.11-2012', 6: 'SM3',
+  };
+  var DNSSEC_DIGEST_LENGTHS = { 1: 20, 2: 32, 3: 32, 4: 48, 5: 32, 6: 32 };
 
-  // RFC 4034 §2.1.1 and RFC 5011 §2.1.
-  var DNSKEY_FLAG_SEP = 0x0001;      // bit 15: this key is a secure entry point
-  var DNSKEY_FLAG_ZONE = 0x0100;     // bit 7: this key signs RRsets in the zone
-  var DNSKEY_FLAG_REVOKE = 0x0080;   // bit 8: the operator has revoked this key
+  /**
+   * SHA-1 is "deprecated for delegation" per RFC 9905 and the IANA registry —
+   * it must not be used for NEW delegations but remains required for
+   * validating existing ones. GOST R 34.11-94 is deprecated outright by
+   * RFC 9906. Both are reported; neither is a reason to refuse to compute.
+   */
+  var DEPRECATED_DNSSEC_DIGESTS = [1, 3];
+
+  // RFC 4034 §2.1.1 and RFC 5011 §7. Each of these names a BIT, and the
+  // parser reports the bit rather than a role — see parseDnskey().
+  var DNSKEY_FLAG_SEP = 0x0001;      // bit 15: secure entry point, advisory only
+  var DNSKEY_FLAG_ZONE = 0x0100;     // bit 7: this key may verify RRsets in the zone
+  var DNSKEY_FLAG_REVOKE = 0x0080;   // bit 8: RFC 5011 revocation, half of a proof
+
+  /**
+   * Public key lengths that are fixed by their algorithm's specification.
+   * RFC 6605 §4 (ECDSA Q is the uncompressed point x|y, so 64 and 96) and
+   * RFC 8080 §3 (Ed25519 32 octets, Ed448 57).
+   */
+  var DNSKEY_FIXED_KEY_LENGTHS = { 13: 64, 14: 96, 15: 32, 16: 57 };
+
+  // RFC 3110 §2 exponent-and-modulus encoding, used by every RSA algorithm.
+  var RSA_DNSSEC_ALGORITHMS = [1, 5, 7, 8, 10];
+
+  /**
+   * Is this key material structurally possible for the algorithm it declares?
+   *
+   * Three answers, and the third is the point. `'invalid'` means a recognized
+   * algorithm carrying material it cannot possibly be — a one-octet Ed25519
+   * key. `'unknown'` means this build does not know the algorithm's key
+   * grammar, which is an honest thing to say about DSA, GOST, SM2 and ML-DSA
+   * and must never be read as a fault: a DS digest is computed over the raw
+   * RDATA, so a parent and child can agree perfectly about a key whose
+   * internals nothing here can parse.
+   *
+   * Only `'invalid'` disqualifies. Rejecting `'unknown'` would refuse zones
+   * signed to a specification newer than this build, which is the opposite
+   * failure and the one three of 0.4.0's eight rounds were spent undoing.
+   */
+  function dnskeyStructure(algorithm, bytes) {
+    if (!bytes) return 'unknown';
+    var fixed = DNSKEY_FIXED_KEY_LENGTHS[algorithm];
+    if (fixed !== undefined) return bytes.length === fixed ? 'valid' : 'invalid';
+    if (RSA_DNSSEC_ALGORITHMS.indexOf(algorithm) === -1) return 'unknown';
+
+    // RFC 3110 §2: exponent length is one octet, or a zero octet followed by
+    // a two-octet length. Exponent and modulus follow, and both must exist —
+    // a truncated key that leaves no modulus is not an RSA key of any size.
+    if (bytes.length < 1) return 'invalid';
+    var exponentLength = bytes[0];
+    var offset = 1;
+    if (exponentLength === 0) {
+      if (bytes.length < 3) return 'invalid';
+      exponentLength = (bytes[1] << 8) | bytes[2];
+      offset = 3;
+    }
+    if (exponentLength === 0) return 'invalid';
+    if (offset + exponentLength >= bytes.length) return 'invalid';
+    return 'valid';
+  }
 
   /**
    * Split a record into its fixed leading integers and one trailing blob,
@@ -3319,10 +3406,21 @@
    * or a byte outside ASCII cannot be encoded correctly, and writing the wrong
    * bytes anyway would produce a mismatch verdict about the operator's zone
    * that is really a statement about our own encoder.
+   *
+   * ASCII is checked BEFORE case folding, and the order is load-bearing.
+   * JavaScript's toLowerCase() is Unicode case conversion, not the ASCII-only
+   * folding RFC 4034 §6.2 defines: U+212A KELVIN SIGN lowercases to plain
+   * 'k'. Folding first therefore turned a name this function must refuse into
+   * one it accepts, and computed a digest for `k.example` when the caller
+   * asked about `K.example` — a different owner name, which is a different
+   * zone.
    */
   function dnsWireName(domain) {
-    var name = String(domain || '').toLowerCase().replace(/\.$/, '');
-    if (!name) return new Uint8Array([0]);
+    var raw = String(domain || '').replace(/\.$/, '');
+    if (!raw) return new Uint8Array([0]);
+    // Reject anything outside ASCII before any transformation touches it.
+    if (!/^[\x00-\x7f]*$/.test(raw)) return null;
+    var name = raw.toLowerCase();
     var labels = name.split('.');
     var total = 1;
     for (var i = 0; i < labels.length; i++) {
@@ -3335,9 +3433,7 @@
     for (var j = 0; j < labels.length; j++) {
       bytes[out++] = labels[j].length;
       for (var k = 0; k < labels[j].length; k++) {
-        var code = labels[j].charCodeAt(k);
-        if (code > 127) return null;
-        bytes[out++] = code;
+        bytes[out++] = labels[j].charCodeAt(k);
       }
     }
     bytes[out] = 0;
@@ -3359,17 +3455,22 @@
   }
 
   /**
-   * RFC 4034 Appendix B. The key tag is what links a DS to a DNSKEY, so an
-   * off-by-one here does not fail loudly — it reports a spurious mismatch on a
-   * healthy zone, which the spec calls the worst defect this project could
-   * ship. Implemented to the RFC's own pseudocode and checked against the
-   * reference key in RFC 4034 §5.4, whose stated tag is 60485.
+   * The key tag, which is what links a DS to a DNSKEY. An off-by-one here does
+   * not fail loudly — it reports a spurious mismatch on a healthy zone, which
+   * the spec calls the worst defect this project could ship. Checked against
+   * the reference key in RFC 4034 §5.4, whose stated tag is 60485.
    *
-   * Algorithm 1 is Appendix B.1's separate rule: the tag is the most
-   * significant 16 bits of the least significant 24 bits of the modulus, which
-   * in RDATA terms is the third- and second-to-last byte. RSAMD5 is deprecated
-   * and vanishingly rare, and it is implemented anyway because the alternative
-   * is running the general formula over it and reporting a mismatch.
+   * The general case is RFC 4034 Appendix B. Algorithm 1 is NOT: Appendix B.1
+   * is erroneous, and **RFC 6840 §5.5 is the normative text**. B.1 correctly
+   * says the tag is the most significant 16 of the least significant 24 bits
+   * of the modulus and then names the wrong octets for it — "fourth-to-last
+   * and third-to-last", where §5.5 corrects it to the third-to-last and
+   * second-to-last. Implementing the appendix as written would produce a tag
+   * one octet out on every RSAMD5 key, which is to say a mismatch verdict on
+   * every zone still using one.
+   *
+   * The modulus ends the RDATA under RFC 3110's encoding, so the last octets
+   * of the RDATA are the last octets of the modulus.
    */
   function dnskeyKeyTag(rdata, algorithm) {
     if (!rdata) return null;
@@ -3385,6 +3486,19 @@
   /**
    * Parse one DNSKEY presentation string.
    *
+   * Every flag is reported as the bit it is, never as the role it suggests.
+   * `hasSep` is the SEP bit and not "this is the KSK": RFC 6840 §6.2 says the
+   * bit "has no effect on how a DNSKEY may be used" and that validation is
+   * prohibited from consulting it, so a key without SEP may be the only secure
+   * entry point a zone has. `hasRevokeFlag` is the REVOKE bit and not "this
+   * key is revoked": RFC 5011 §2.1 makes a key revoked when a resolver sees it
+   * in a SELF-SIGNED RRset with the bit set, and this release does not
+   * validate RRSIGs, so it holds one half of a two-part proof.
+   *
+   * `hasZoneFlag` is the one flag that does carry a normative consequence —
+   * RFC 4034 §2.1.1 says a key without it MUST NOT verify RRsets — and even
+   * that is reported here and applied where matching happens.
+   *
    * `publicKey` stays the base64 text rather than becoming a byte array. It is
    * the evidence the resolver returned, it survives export and comparison
    * intact, and a 2048-bit key as a Uint8Array serializes into a 259-entry
@@ -3394,8 +3508,8 @@
   function parseDnskey(presentationString) {
     var blank = {
       flags: null, protocol: null, algorithm: null, algorithmName: null,
-      publicKey: '', keyBytes: 0, keyTag: null,
-      isKsk: false, isZoneKey: false, isRevoked: false,
+      publicKey: '', keyBytes: 0, keyTag: null, keyStructure: 'unknown',
+      hasSep: false, hasZoneFlag: false, hasRevokeFlag: false,
       deprecated: false, valid: false, errors: ['unparseable-record'],
     };
     var fields = splitRdataFields(presentationString, 3);
@@ -3409,9 +3523,7 @@
 
     if (!(flags >= 0 && flags <= 0xffff)) errors.push('bad-flags');
     // RFC 4034 §2.1.2: the protocol field MUST have value 3, and a DNSKEY with
-    // any other value MUST be treated as invalid. A recognized field with an
-    // unregistered value is the failure pattern 0.4.0 spent three review
-    // rounds on, so it is checked rather than carried.
+    // any other value MUST be treated as invalid.
     if (protocol !== 3) errors.push('bad-protocol');
     if (!(algorithm >= 0 && algorithm <= 255)) errors.push('bad-algorithm');
 
@@ -3421,6 +3533,8 @@
     else if (!bytes) errors.push('bad-key-encoding');
 
     var valid = errors.length === 0;
+    // Reserved flag bits are ignored on receipt (RFC 4034 §2.1.1). A record
+    // carrying one is parseable, and nothing here rejects it for that.
     var parsed = {
       flags: flags,
       protocol: protocol,
@@ -3432,12 +3546,10 @@
       publicKey: publicKey,
       keyBytes: bytes ? bytes.length : 0,
       keyTag: null,
-      isKsk: valid && (flags & DNSKEY_FLAG_SEP) !== 0,
-      // RFC 4034 §2.1.1: with the zone bit clear the key is some other kind of
-      // public key and MUST NOT be used to verify RRsets. Reported here, and
-      // excluded from anchoring where the DS matching runs.
-      isZoneKey: valid && (flags & DNSKEY_FLAG_ZONE) !== 0,
-      isRevoked: valid && (flags & DNSKEY_FLAG_REVOKE) !== 0,
+      keyStructure: valid ? dnskeyStructure(algorithm, bytes) : 'unknown',
+      hasSep: valid && (flags & DNSKEY_FLAG_SEP) !== 0,
+      hasZoneFlag: valid && (flags & DNSKEY_FLAG_ZONE) !== 0,
+      hasRevokeFlag: valid && (flags & DNSKEY_FLAG_REVOKE) !== 0,
       deprecated: DEPRECATED_DNSSEC_ALGORITHMS.indexOf(algorithm) !== -1,
       valid: valid,
       errors: errors,
@@ -3474,9 +3586,10 @@
     else if (!/^[0-9a-f]+$/.test(digest) || digest.length % 2 !== 0) errors.push('bad-digest');
     else {
       var expected = DNSSEC_DIGEST_LENGTHS[digestType];
-      // Only for a digest type whose length is registered. An unknown type has
-      // no length to check against, and inventing one would reject a record
-      // written to a specification newer than this build.
+      // Every REGISTERED digest type has its length checked, including the two
+      // this build cannot compute. A registered type parsed without its
+      // registered grammar is not forward compatibility, it is a gap. Only a
+      // genuinely unassigned or private-use value is carried unjudged.
       if (expected !== undefined && digest.length / 2 !== expected) errors.push('bad-digest-length');
     }
 
@@ -3492,6 +3605,7 @@
       errors: errors,
     };
   }
+
 
   async function checkDNSSEC(domain, queryOpts) {
     // AD=true means the validating resolver authenticated the answer. If the
@@ -4935,6 +5049,7 @@
     dnsWireName,
     DNSSEC_ALGORITHMS,
     DNSSEC_DIGESTS,
+    dnskeyStructure,
     analyzeDomain,
     checkConnectivity,
     dohFetch,

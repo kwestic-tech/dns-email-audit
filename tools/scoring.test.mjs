@@ -3999,7 +3999,8 @@ const rfcKey = D.parseDnskey(RFC4034_KEY);
 eq('RFC 4034 §5.4 key tag is the RFC\'s stated 60485', rfcKey.keyTag, 60485);
 eq('and it parses as RSASHA1', [rfcKey.algorithm, rfcKey.algorithmName], [5, 'RSASHA1']);
 eq('RSASHA1 is deprecated per RFC 8624 §3.1', rfcKey.deprecated, true);
-eq('a 256-flag key is a zone key and not a SEP', [rfcKey.isZoneKey, rfcKey.isKsk], [true, false]);
+eq('a 256-flag key has the zone bit and not SEP', [rfcKey.hasZoneFlag, rfcKey.hasSep], [true, false]);
+eq('and its RSA key material is structurally possible', rfcKey.keyStructure, 'valid');
 
 // Live keys, captured before the parser existed. The tags below were computed
 // independently of this code and cross-checked against the DS records the
@@ -4012,7 +4013,7 @@ const LIVE = {
 eq('live ECDSAP256SHA256 ZSK tag', D.parseDnskey(LIVE.zsk13).keyTag, 34505);
 eq('live ECDSAP256SHA256 KSK tag', D.parseDnskey(LIVE.ksk13).keyTag, 2371);
 eq('live RSASHA256 ZSK tag',       D.parseDnskey(LIVE.zsk8).keyTag, 61291);
-eq('a 257-flag key is a SEP',      D.parseDnskey(LIVE.ksk13).isKsk, true);
+eq('a 257-flag key has the SEP bit', D.parseDnskey(LIVE.ksk13).hasSep, true);
 eq('RSA-1024 decodes to 132 RDATA key bytes', D.parseDnskey(LIVE.zsk8).keyBytes, 132);
 eq('ECDSA P-256 decodes to 64',    D.parseDnskey(LIVE.zsk13).keyBytes, 64);
 
@@ -4024,23 +4025,46 @@ eq('the public key survives byte-identical', D.parseDnskey(LIVE.ksk13).publicKey
 eq('a key differing only in case parses to a different tag',
   D.parseDnskey(LIVE.ksk13).keyTag === D.parseDnskey(LIVE.ksk13.toLowerCase()).keyTag, false);
 
-// RFC 4034 Appendix B.1: algorithm 1 has its own rule — the most significant
-// 16 bits of the least significant 24 bits of the modulus. The vector is built
-// so the general formula gives 44837 and B.1 gives 4660, which is what makes
-// the assertion prove the special case is reached at all.
-eq('RSAMD5 uses the Appendix B.1 rule', D.parseDnskey('256 3 1 qrvMEjRW').keyTag, 4660);
+// Algorithm 1 has its own rule, and RFC 4034 Appendix B.1 states it WRONG.
+// RFC 6840 §5.5 is the normative text: B.1 correctly says the tag is the most
+// significant 16 of the least significant 24 bits of the modulus, then names
+// the "fourth-to-last and third-to-last" octets for it, where §5.5 corrects
+// that to the third-to-last and second-to-last. The vector below separates
+// all three readings — the general formula gives 44837, the erroneous appendix
+// gives 52242, and the corrected rule gives 4660 — so this assertion fails if
+// the implementation follows the appendix as literally written.
+eq('RSAMD5 follows the RFC 6840 §5.5 correction, not Appendix B.1 as written',
+  D.parseDnskey('256 3 1 qrvMEjRW').keyTag, 4660);
 eq('RSAMD5 is deprecated',              D.parseDnskey('256 3 1 qrvMEjRW').deprecated, true);
 
 // RFC 4034 §2.1.2: the protocol field MUST be 3; anything else is invalid.
 eq('protocol 4 is refused', D.parseDnskey('256 4 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==').errors, ['bad-protocol']);
 eq('an invalid key computes no tag',  D.parseDnskey('256 4 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==').keyTag, null);
 
-// RFC 5011 §2.1 REVOKE, and RFC 4034 §2.1.1's zone bit. Both are reported;
-// neither makes the record unparseable.
-eq('the REVOKE bit is read', D.parseDnskey('385 3 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==').isRevoked, true);
+// Every flag is reported as the bit it is, never as the role it suggests.
+// RFC 5011 §2.1 makes a key revoked when a resolver sees it in a SELF-SIGNED
+// RRset with the bit set; this release does not validate RRSIGs, so it holds
+// one half of that proof and the field is named for the half it holds.
+const revokedKey = D.parseDnskey('385 3 13 ' + LIVE.zsk13.split(' ')[3]);
+eq('the REVOKE bit is reported as a flag, not as a revocation', revokedKey.hasRevokeFlag, true);
+eq('a REVOKE flag does not make the record unparseable', revokedKey.valid, true);
+eq('no field claims the key is revoked', 'isRevoked' in revokedKey, false);
+
+// RFC 6840 §6.2: the SEP bit "has no effect on how a DNSKEY may be used" and
+// validation is prohibited from consulting it, so nothing here may call a SEP
+// key the KSK.
+eq('no field claims a key is the KSK', 'isKsk' in D.parseDnskey(LIVE.ksk13), false);
+
+// RFC 4034 §2.1.1: a key without the zone bit MUST NOT verify RRsets. Reported
+// here; applied where matching happens.
+const nonZone = D.parseDnskey('1 3 13 ' + LIVE.zsk13.split(' ')[3]);
 eq('a key with the zone bit clear is reported, not rejected',
-  [D.parseDnskey('1 3 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==').isZoneKey,
-   D.parseDnskey('1 3 13 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==').valid], [false, true]);
+  [nonZone.hasZoneFlag, nonZone.valid], [false, true]);
+
+// Reserved flag bits are ignored on receipt (RFC 4034 §2.1.1), so a record
+// carrying one still parses.
+eq('a reserved flag bit does not invalidate the record',
+  D.parseDnskey('1280 3 13 ' + LIVE.zsk13.split(' ')[3]).valid, true);
 
 // The registry grows. An algorithm this build has never heard of is reported
 // as its number with no name, not as a broken record.
@@ -4109,6 +4133,91 @@ eq('a DS algorithm over 8 bits is refused',   D.parseDs('60485 999 2 ' + 'ab'.re
 eq('a digest type over 8 bits is refused',    D.parseDs('60485 5 999 ' + 'ab'.repeat(32)).errors, ['bad-digest-type']);
 eq('an empty parenthesised digest is refused', D.parseDs('60485 5 2 ()').errors, ['empty-digest']);
 
+/* ── Key material structure (F2) ─────────────────────────────────────
+   `valid` is a statement about the RECORD. Whether the key material is even
+   structurally possible for the algorithm it declares is a separate fact, and
+   collapsing the two is how a recognized name gets accepted without its
+   registered value grammar — the failure 0.4.0 removed from CAA, MTA-STS and
+   DKIM in three separate rounds.
+
+   Only 'invalid' disqualifies. 'unknown' must never be read as a fault: a DS
+   digest is computed over the raw RDATA, so a parent and child can agree
+   perfectly about a key whose internals nothing here can parse.
+   ──────────────────────────────────────────────────────────────────────── */
+const keyOf = (alg, bytes) => D.parseDnskey(`257 3 ${alg} ${Buffer.alloc(bytes, 0xab).toString('base64')}`);
+
+// RFC 6605 §4: ECDSA Q is the uncompressed point x|y — 64 octets for P-256,
+// 96 for P-384. RFC 8080 §3: Ed25519 is 32 octets, Ed448 is 57.
+eq('ECDSA P-256 at 64 octets is structurally valid', keyOf(13, 64).keyStructure, 'valid');
+eq('ECDSA P-256 at 1 octet is impossible',           keyOf(13, 1).keyStructure, 'invalid');
+eq('ECDSA P-384 at 96 octets is structurally valid', keyOf(14, 96).keyStructure, 'valid');
+eq('ECDSA P-384 carrying a P-256 key is impossible', keyOf(14, 64).keyStructure, 'invalid');
+eq('Ed25519 at 32 octets is structurally valid',     keyOf(15, 32).keyStructure, 'valid');
+eq('Ed25519 at 1 octet is impossible',               keyOf(15, 1).keyStructure, 'invalid');
+eq('Ed448 at 57 octets is structurally valid',       keyOf(16, 57).keyStructure, 'valid');
+eq('Ed448 one octet short is impossible',            keyOf(16, 56).keyStructure, 'invalid');
+
+// A malformed key still parses as a record, and still computes a key tag. That
+// is deliberate: the tag is arithmetic over the RDATA and does not depend on
+// the material meaning anything. What must not happen is the two facts being
+// confused.
+eq('impossible key material still yields a parseable record', keyOf(15, 1).valid, true);
+eq('and it is not silently reported as fine',
+  [keyOf(15, 1).valid, keyOf(15, 1).keyStructure], [true, 'invalid']);
+
+// RFC 3110 §2: exponent length (1 or 3 octets), exponent, then modulus. All
+// three must be present — a truncated key leaving no modulus is not an RSA key
+// of any size.
+const rsa = bytes => D.parseDnskey('257 3 8 ' + Buffer.from(bytes).toString('base64')).keyStructure;
+eq('an RSA key with a real exponent and modulus is valid', rsa([0x03, 1, 0, 1, 0xab, 0xcd]), 'valid');
+eq('an RSA key that is only a length octet is impossible', rsa([0x00]), 'invalid');
+eq('an RSA exponent longer than the key is impossible',    rsa([0x05, 1, 2]), 'invalid');
+eq('an RSA key with no modulus left is impossible',        rsa([0x03, 1, 0, 1]), 'invalid');
+eq('a zero-length RSA exponent is impossible',             rsa([0x00, 0x00, 0x00, 0xab]), 'invalid');
+
+// Algorithms whose key grammar this build does not implement. Reporting
+// 'unknown' is the honest answer; rejecting them would refuse zones signed to
+// a specification newer than this build.
+eq('DSA key grammar is not implemented here',   keyOf(3, 20).keyStructure, 'unknown');
+eq('SM2SM3 key grammar is not implemented',     keyOf(17, 64).keyStructure, 'unknown');
+eq('ML-DSA-44 key grammar is not implemented',  keyOf(18, 1312).keyStructure, 'unknown');
+eq('an unassigned algorithm is unknown, not invalid', keyOf(99, 10).keyStructure, 'unknown');
+
+// The live keys must all pass, or the check is too strict to ship.
+eq('every live key is structurally valid',
+  [LIVE.zsk13, LIVE.ksk13, LIVE.zsk8, RFC4034_KEY].map(r => D.parseDnskey(r).keyStructure),
+  ['valid', 'valid', 'valid', 'valid']);
+
+/* ── Registry currency (F4) ──────────────────────────────────────────── */
+
+// IANA DNS Security Algorithm Numbers, checked 2026-08-26. 17 is RFC 9563,
+// 23 is RFC 9558, and 18 is an early allocation held by an Internet-Draft.
+eq('SM2SM3 is named',     D.DNSSEC_ALGORITHMS[17], 'SM2SM3');
+eq('MLDSA44 is named',    D.DNSSEC_ALGORITHMS[18], 'MLDSA44');
+eq('ECC-GOST12 is named', D.DNSSEC_ALGORITHMS[23], 'ECC-GOST12');
+eq('ECC-GOST12 is a replacement, not a deprecation',
+  D.parseDnskey('257 3 23 ' + Buffer.alloc(64, 0xab).toString('base64')).deprecated, false);
+eq('ECC-GOST (12) is deprecated by RFC 9906',
+  D.parseDnskey('257 3 12 ' + Buffer.alloc(64, 0xab).toString('base64')).deprecated, true);
+
+// Digest types 5 and 6 are registered. Without their lengths, a one-octet
+// digest declaring type 6 was accepted as a valid unnamed record — a
+// registered grammar going unchecked, which is not forward compatibility.
+eq('GOST R 34.11-2012 is named',   D.DNSSEC_DIGESTS[5], 'GOST-R-34.11-2012');
+eq('SM3 is named',                 D.DNSSEC_DIGESTS[6], 'SM3');
+eq('a one-octet SM3 digest is refused',  D.parseDs('1 17 6 ab').errors, ['bad-digest-length']);
+eq('a one-octet GOST-2012 digest is refused', D.parseDs('1 23 5 ab').errors, ['bad-digest-length']);
+eq('a 32-octet SM3 digest is accepted',       D.parseDs('1 17 6 ' + 'ab'.repeat(32)).valid, true);
+eq('a 32-octet GOST-2012 digest is accepted', D.parseDs('1 23 5 ' + 'ab'.repeat(32)).valid, true);
+eq('GOST R 34.11-94 stays deprecated',        D.parseDs('1 12 3 ' + 'ab'.repeat(32)).deprecated, true);
+eq('GOST R 34.11-2012 is not deprecated',     D.parseDs('1 23 5 ' + 'ab'.repeat(32)).deprecated, false);
+eq('SHA-1 is deprecated for delegation',      D.parseDs('1 8 1 ' + 'ab'.repeat(20)).deprecated, true);
+
+// Only a genuinely unassigned or private-use digest type is carried unjudged.
+const unassignedDigest = D.parseDs('60485 5 99 ' + 'ab'.repeat(19));
+eq('an unassigned digest type is carried, not judged',
+  [unassignedDigest.digestType, unassignedDigest.digestName, unassignedDigest.valid], [99, null, true]);
+
 /* ── Canonical owner name (RFC 4034 §5.1.4) ──────────────────────────── */
 
 const wire = name => Array.from(D.dnsWireName(name) || []);
@@ -4128,6 +4237,19 @@ eq('a 63-octet label can',                D.dnsWireName('a'.repeat(63) + '.examp
 eq('an over-long name cannot be encoded',
   D.dnsWireName(new Array(52).join('abcd.') + 'example.com'), null);
 eq('a non-ASCII label cannot be encoded',  D.dnsWireName('münchen.example.com'), null);
+
+// The order of the ASCII check and the case fold is load-bearing, and this is
+// the fixture that proves it. JavaScript's toLowerCase() is Unicode case
+// conversion, not the ASCII-only folding RFC 4034 §6.2 defines: U+212A KELVIN
+// SIGN folds to a plain 'k'. Checking ASCII second therefore turned a name
+// this function must refuse into one it accepted, and computed a digest for
+// `k.example` when the caller asked about `K.example` — a different owner
+// name, which is a different zone.
+eq('U+212A KELVIN SIGN is refused, not folded to ASCII k', D.dnsWireName('\u212A.example'), null);
+eq('while the ASCII name it folds to encodes normally — so the refusal above is a refusal, not a blanket null',
+  [D.dnsWireName('\u212A.example'), wire('k.example')], [null, [1, 107, 7, 101, 120, 97, 109, 112, 108, 101, 0]]);
+eq('U+017F LATIN SMALL LETTER LONG S is refused too', D.dnsWireName('\u017F.example'), null);
+eq('an ASCII uppercase name is still folded normally', wire('K.EXAMPLE'), wire('k.example'));
 eq('an empty label cannot be encoded',     D.dnsWireName('a..example.com'), null);
 
 // RFC 4034 §2.1: flags(2) || protocol(1) || algorithm(1) || public key.
