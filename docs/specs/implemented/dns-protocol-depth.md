@@ -4,9 +4,10 @@
 | --- | --- |
 | Spec version | 1.1 (Implemented) |
 | Target release | 0.4.0 |
-| Status | Implemented, pending release |
+| Status | Implemented and released |
+| Released in | `v0.4.0`, 2026-08-25 |
 | Pull request | [#22](https://github.com/kwestic-tech/dns-email-audit/pull/22) |
-| Merge commit | pending merge |
+| Merge commit | `9bda3ad` (squashed) |
 | Depends on | [rendering-and-robustness](rendering-and-robustness.md) for rendering, [dmarcbis-tree-walk](dmarcbis-tree-walk.md) for the fixture-resolver test harness |
 | Blocks | [dnssec-evidence](../dnssec-evidence.md), which qualifies the DANE conclusions this release produces |
 | Slug for open questions | `DEPTH` |

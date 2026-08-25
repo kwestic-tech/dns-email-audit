@@ -70,7 +70,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 1 | Rendering correctness and robustness | **Done, and rescoped along the way.** The original framing was CSP and XSS hardening; a static site with no session or stored data has no compromise to defend, so the work that survived is output integrity. Shipped in 0.2.3: no markup sink remains under `js/`, interpolation is single-pass, and every class of malformed record has a decided, tested display behavior. | [0.2.3](docs/specs/implemented/rendering-and-robustness.md), released |
 | 2 | RFC 9989 DMARC | **Done.** The bis tag vocabulary, `t=`, `psd=`, inheritance, URI parsing and external report authorization were already implemented; 0.3.0 added the missing half — the RFC 9989 §4.10 DNS Tree Walk, replacing the Public Suffix List for every DMARC decision, with discovery provenance, `psd=` termination, existence-gated `np=`, and misplaced-record diagnosis. | [0.3.0](docs/specs/implemented/dmarcbis-tree-walk.md), released |
 | 3 | Anomaly and remediation engine | Not started. Findings are a flat list of localized strings with no severity model, dependencies, or ordering. | [0.6.0](docs/specs/findings-and-remediation.md) |
-| 4 | DKIM, MX, CAA and DANE depth | **Done.** 0.4.0 decodes DKIM public keys to algorithm and modulus size, parses CAA into a policy with wildcard semantics, resolves every MX target to find dangling and CNAME hosts, and adds TLSA lookup labelled "published, not yet qualified" until 0.5.0 supplies the chain evidence. Every observation is advisory: zero grade movement. | [0.4.0](docs/specs/implemented/dns-protocol-depth.md), implemented |
+| 4 | DKIM, MX, CAA and DANE depth | **Done.** 0.4.0 decodes DKIM public keys to algorithm and modulus size, parses CAA into a policy with wildcard semantics, resolves every MX target to find dangling and CNAME hosts, and adds TLSA lookup labelled "published, not yet qualified" until 0.5.0 supplies the chain evidence. Every observation is advisory: zero grade movement. | [0.4.0](docs/specs/implemented/dns-protocol-depth.md), released |
 | 5 | DNSSEC depth | Not started. State is the resolver's AD flag plus a bogus probe; no DS or DNSKEY evidence. | [0.5.0](docs/specs/dnssec-evidence.md) |
 | 6 | Local MTA-STS and BIMI validation | Not started. Both are validated at the TXT record level only. | [0.7.0](docs/specs/local-artifact-validation.md) |
 | 7 | Local report comparison | Not started. Exports are CSV and static HTML; nothing can be read back. | [0.8.0](docs/specs/report-comparison.md) |
@@ -123,7 +123,7 @@ with no network access. No scoring rule changed; the grade movement the release
 does produce is discovery-only and is explained domain by domain in the spec's
 **Verification** section.
 
-### 0.4.0: DNS-only protocol depth — **implemented**
+### 0.4.0: DNS-only protocol depth — **released**
 
 Spec: [`docs/specs/implemented/dns-protocol-depth.md`](docs/specs/implemented/dns-protocol-depth.md)
 
