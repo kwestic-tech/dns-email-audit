@@ -571,24 +571,37 @@
   }
 
   /**
-   * Bit length of a DER INTEGER, less the leading sign padding.
+   * Bit length of a DER INTEGER that must be positive, non-zero and minimally
+   * encoded — which is what RFC 8017 3.1 requires of both RSA fields. Returns
+   * null for anything else, so a value that is merely tagged INTEGER cannot
+   * pass as a modulus.
    *
-   * Counted from the highest set bit of the first significant octet, not from
-   * the encoded byte width. Those differ whenever the top octet is below 0x80,
-   * and the difference lands on the wrong side of this release's own threshold:
-   * a conformant 128-byte modulus whose leading significant octet is 0x01 is a
-   * 1017-bit key, and reporting it as 1024 both prints a false number and swaps
-   * the critical `dkim-key-weak` finding for the informational 1024-bit one.
+   * The length is counted from the highest set bit of the first significant
+   * octet, not from the encoded byte width. Those differ whenever the top octet
+   * is below 0x80, and the difference lands on the wrong side of this release's
+   * own threshold: a 128-byte modulus whose leading significant octet is 0x01 is
+   * a 1017-bit key, and reporting it as 1024 both prints a false number and
+   * swaps the critical `dkim-key-weak` finding for the informational 1024-bit
+   * one.
    *
    * Real RSA keys have the top bit of the modulus set, so for every key in the
-   * backtest sample the two answers agree — which is exactly why this had to be
-   * fixed by construction rather than waited for.
+   * backtest sample every rule here is satisfied and the two bit-length answers
+   * agree — which is exactly why all of this had to be established by
+   * construction rather than waited for.
    */
-  function derIntegerBits(bytes, tlv) {
+  function derPositiveIntegerBits(bytes, tlv) {
     var start = tlv.start;
     var length = tlv.length;
-    while (length > 0 && bytes[start] === 0x00) { start++; length--; }
-    if (length <= 0) return null;
+    if (length < 1) return null;                                  // empty INTEGER
+    // X.690 8.3.2 encodes sign in the first octet's high bit, so anything with
+    // it set is negative — and RSA has no negative values.
+    if ((bytes[start] & 0x80) !== 0) return null;
+    if (length === 1 && bytes[start] === 0x00) return null;       // zero
+    // Minimal form: a leading 0x00 exists only to keep a high-bit-set value
+    // positive. Any other leading zero is padding DER does not permit, and
+    // silently stripping it would report a size for a non-conformant encoding.
+    if (length > 1 && bytes[start] === 0x00 && (bytes[start + 1] & 0x80) === 0) return null;
+    if (bytes[start] === 0x00) { start++; length--; }             // the one sign octet
     var top = bytes[start];
     var topBits = 0;
     while (top) { topBits++; top >>= 1; }
@@ -599,14 +612,25 @@
   // AlgorithmIdentifier's OBJECT IDENTIFIER.
   var RSA_ENCRYPTION_OID = [0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01];
 
-  /** Does this AlgorithmIdentifier SEQUENCE name rsaEncryption? */
+  /**
+   * Does this AlgorithmIdentifier SEQUENCE name rsaEncryption, correctly?
+   *
+   * RFC 3279 2.3.1 requires the parameters field to be ASN.1 NULL for this
+   * algorithm, and RFC 8017 A.1 says the same. Matching the OID and stopping
+   * there accepted an AlgorithmIdentifier carrying arbitrary parameters — an
+   * OCTET STRING, or nothing at all — which is not the structure the OID
+   * promises.
+   */
   function isRsaAlgorithmIdentifier(bytes, algorithm) {
     var oid = derReadTlv(bytes, algorithm.start);
     if (!oid || oid.tag !== 0x06 || oid.length !== RSA_ENCRYPTION_OID.length) return false;
     for (var i = 0; i < RSA_ENCRYPTION_OID.length; i++) {
       if (bytes[oid.start + i] !== RSA_ENCRYPTION_OID[i]) return false;
     }
-    return true;
+    var parameters = derReadTlv(bytes, oid.end);
+    if (!parameters || parameters.tag !== 0x05 || parameters.length !== 0) return false;
+    // NULL must also END the AlgorithmIdentifier: no trailing members.
+    return parameters.end === algorithm.end;
   }
 
   /**
@@ -626,7 +650,23 @@
     if (!exponent || exponent.tag !== 0x02) return null;
     // The exponent must end the sequence: no trailing content, no third member.
     if (exponent.end !== sequence.end) return null;
-    return derIntegerBits(bytes, modulus);
+
+    // Both fields are values, not just tags. RFC 8017 3.1 defines `n` and `e`
+    // as positive integers with `e` between 3 and n-1; checking the tag alone
+    // accepted an empty exponent and a negative modulus.
+    var modulusBits = derPositiveIntegerBits(bytes, modulus);
+    var exponentBits = derPositiveIntegerBits(bytes, exponent);
+    if (modulusBits === null || exponentBits === null) return null;
+    // Odd, because `e` must be coprime to (p-1)(q-1) and both are even.
+    if ((bytes[exponent.end - 1] & 1) === 0) return null;
+    // At least 3. A single content octet is the only way to encode a value
+    // below 128, so nothing wider needs comparing.
+    if (exponent.length === 1 && bytes[exponent.start] < 3) return null;
+    // The upper bound e < n, as far as it can be had without bignum
+    // arithmetic: e < n implies e has no more bits than n. Deliberately not an
+    // attempt to say anything about the modulus's factors.
+    if (exponentBits > modulusBits) return null;
+    return modulusBits;
   }
 
   /**

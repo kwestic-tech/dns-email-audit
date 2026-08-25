@@ -2465,6 +2465,18 @@ const derTlv = (tag, content) => {
   return Buffer.concat([Buffer.from([tag, 0x80 | len.length]), Buffer.from(len), body]);
 };
 const asKey = buf => key(`v=DKIM1; k=rsa; p=${Buffer.from(buf).toString('base64')}`);
+// A conformant positive DER INTEGER: X.690 §8.3.2 puts the sign in the high bit
+// of the first octet, so a value with that bit set needs a leading 0x00 — which
+// is why a bare `0x80 …` is a NEGATIVE integer and not a 1024-bit modulus at
+// all. RFC 8017 §3.1 requires `n` and `e` to be positive.
+const positiveInteger = buf => ((buf[0] & 0x80) ? Buffer.concat([Buffer.from([0x00]), buf]) : buf);
+// A modulus of `bytes` significant octets whose leading octet is `top`.
+const modulusOf = (bytes, top) =>
+  positiveInteger(Buffer.concat([Buffer.from([top]), Buffer.alloc(bytes - 1, 0xab)]));
+// A well-formed modulus, for fixtures whose defect is meant to be elsewhere —
+// so the assertion proves the reason under test and not an incidental one.
+const wellFormedModulus = bytes => modulusOf(bytes, 0x81);
+
 const spkiBytes = Buffer.from(RSA_2048, 'base64');
 const pkcs1Bytes = Buffer.from(PKCS1_2048, 'base64');
 
@@ -2481,14 +2493,14 @@ eq('trailing bytes after a valid PKCS#1 key are refused',
 // A SEQUENCE holding one INTEGER is not an RSAPublicKey — the publicExponent
 // is required, and without that check any such SEQUENCE would read as a key.
 eq('a SEQUENCE with no publicExponent is refused',
-  asKey(derTlv(0x30, derTlv(0x02, Buffer.alloc(256, 0x81)))).errors, ['unparseable-key']);
+  asKey(derTlv(0x30, derTlv(0x02, wellFormedModulus(256)))).errors, ['unparseable-key']);
 eq('a SEQUENCE of the wrong inner type is refused',
   asKey(derTlv(0x30, derTlv(0x04, Buffer.alloc(16, 0x41)))).errors, ['unparseable-key']);
 // The BIT STRING's first octet counts unused trailing bits; a key is a whole
 // number of bytes, so a non-zero count means this is not the structure claimed.
 const badBitString = derTlv(0x30, Buffer.concat([
   derTlv(0x30, Buffer.from([0x06, 0x01, 0x2a])),
-  derTlv(0x03, Buffer.concat([Buffer.from([0x03]), derTlv(0x30, derTlv(0x02, Buffer.alloc(128, 0x81)))])),
+  derTlv(0x03, Buffer.concat([Buffer.from([0x03]), derTlv(0x30, derTlv(0x02, wellFormedModulus(128)))])),
 ]));
 eq('a BIT STRING with unused bits is refused', asKey(badBitString).errors, ['unparseable-key']);
 eq('an INTEGER at the top level is not a key',
@@ -2517,8 +2529,6 @@ const asSpki = modulus => derTlv(0x30, Buffer.concat([
   derTlv(0x30, RSA_OID_DER),
   derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(modulus)])),
 ]));
-// A modulus of `bytes` octets whose leading octet is `top`.
-const modulusOf = (bytes, top) => Buffer.concat([Buffer.from([top]), Buffer.alloc(bytes - 1, 0xab)]);
 const bitsOf = buf => key(`v=DKIM1; k=rsa; p=${Buffer.from(buf).toString('base64')}`).keyBits;
 
 // Immediately below, at, and above the 1024-bit boundary — both envelopes.
@@ -2529,9 +2539,11 @@ eq('a 1025-bit modulus reports 1025',           bitsOf(asPkcs1(modulusOf(129, 0x
 eq('both envelopes agree at the boundary',
   [128, 129].flatMap(n => [0x01, 0x7f, 0x80].map(t => bitsOf(asSpki(modulusOf(n, t))))),
   [128, 129].flatMap(n => [0x01, 0x7f, 0x80].map(t => bitsOf(asPkcs1(modulusOf(n, t))))));
-// A leading sign-padding octet is still stripped rather than counted.
-eq('sign padding does not inflate the size',
-  bitsOf(asPkcs1(Buffer.concat([Buffer.from([0x00]), modulusOf(128, 0x80)]))), 1024);
+// The permitted sign octet is stripped rather than counted — modulusOf() emits
+// it for any top octet at or above 0x80, so this is the 1024-bit case above
+// seen from the encoding side.
+eq('the sign octet is not counted as key material',
+  [modulusOf(128, 0x80).length, bitsOf(asPkcs1(modulusOf(128, 0x80)))], [129, 1024]);
 
 /* ── SPKI gets the same structural guards as PKCS#1 ─────────────────────
    Both envelopes go through one RSAPublicKey reader. The SPKI path used to
@@ -2555,7 +2567,7 @@ eq('an SPKI exponent that does not end the sequence is refused',
 
 const noExponent = derTlv(0x30, Buffer.concat([
   derTlv(0x30, RSA_OID_DER),
-  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), derTlv(0x30, derTlv(0x02, Buffer.alloc(64, 0x81)))])),
+  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), derTlv(0x30, derTlv(0x02, wellFormedModulus(64)))])),
 ]));
 eq('an SPKI key with no publicExponent is refused', asKey(noExponent).errors, ['unparseable-key']);
 
@@ -2563,22 +2575,22 @@ eq('an SPKI key with no publicExponent is refused', asKey(noExponent).errors, ['
 const ecAlgorithm = derTlv(0x30, Buffer.from([0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01]));
 const notRsa = derTlv(0x30, Buffer.concat([
   ecAlgorithm,
-  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(Buffer.alloc(64, 0x81))])),
+  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(wellFormedModulus(64))])),
 ]));
 eq('a non-RSA algorithm identifier is refused', asKey(notRsa).errors, ['unparseable-key']);
-eq('and an RSA identifier is accepted',         asKey(asSpki(Buffer.alloc(64, 0x81))).keyBits, 512);
+eq('and an RSA identifier is accepted',         asKey(asSpki(wellFormedModulus(64))).keyBits, 512);
 
 // Trailing content at every nesting level.
 eq('trailing bytes inside the BIT STRING are refused',
   asKey(derTlv(0x30, Buffer.concat([
     derTlv(0x30, RSA_OID_DER),
-    derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(Buffer.alloc(64, 0x81)), Buffer.from([0x00])])),
+    derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(wellFormedModulus(64)), Buffer.from([0x00])])),
   ]))).errors, ['unparseable-key']);
 eq('trailing bytes after the BIT STRING are refused',
   asKey(Buffer.concat([
     derTlv(0x30, Buffer.concat([
       derTlv(0x30, RSA_OID_DER),
-      derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(Buffer.alloc(64, 0x81))])),
+      derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(wellFormedModulus(64))])),
       derTlv(0x05, Buffer.alloc(0)),
     ])),
   ])).errors, ['unparseable-key']);
@@ -2586,9 +2598,77 @@ eq('a third INTEGER in the inner sequence is refused',
   asKey(derTlv(0x30, Buffer.concat([
     derTlv(0x30, RSA_OID_DER),
     derTlv(0x03, Buffer.concat([Buffer.from([0x00]), derTlv(0x30, Buffer.concat([
-      derTlv(0x02, Buffer.alloc(64, 0x81)), derTlv(0x02, EXPONENT), derTlv(0x02, EXPONENT),
+      derTlv(0x02, wellFormedModulus(64)), derTlv(0x02, EXPONENT), derTlv(0x02, EXPONENT),
     ]))])),
   ]))).errors, ['unparseable-key']);
+
+/* ── Values, not only tags and boundaries ───────────────────────────────
+   A field that is tagged INTEGER is not yet a modulus, and an OID is not yet
+   an AlgorithmIdentifier. RFC 8017 §3.1 makes `n` and `e` positive integers
+   with `e` between 3 and n-1; RFC 3279 §2.3.1 requires rsaEncryption's
+   parameters to be ASN.1 NULL. Checking only the tags accepted a negative
+   modulus, an empty exponent, and an AlgorithmIdentifier carrying arbitrary
+   parameters — each returning a confident size for a key no implementation
+   would use.
+   ───────────────────────────────────────────────────────────────────── */
+const rawInteger = buf => Buffer.from(buf);   // deliberately NOT sign-corrected
+const pkcs1Of = (modulus, exponent) => derTlv(0x30, Buffer.concat([
+  derTlv(0x02, modulus), derTlv(0x02, exponent === undefined ? EXPONENT : exponent),
+]));
+const spkiOf = (algorithm, modulus, exponent) => derTlv(0x30, Buffer.concat([
+  algorithm,
+  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), pkcs1Of(modulus, exponent)])),
+]));
+const GOOD_MODULUS = wellFormedModulus(128);
+
+// The control: everything below differs from this by one deliberate defect.
+eq('the control key parses', asKey(pkcs1Of(GOOD_MODULUS)).keyBits, 1024);
+
+// Modulus values.
+eq('a negative modulus is refused',
+  asKey(pkcs1Of(rawInteger(Buffer.concat([Buffer.from([0x80]), Buffer.alloc(127, 0xab)])))).errors,
+  ['unparseable-key']);
+eq('a non-minimally encoded modulus is refused',
+  asKey(pkcs1Of(rawInteger(Buffer.concat([Buffer.from([0x00, 0x01]), Buffer.alloc(126, 0xab)])))).errors,
+  ['unparseable-key']);
+eq('a zero modulus is refused',  asKey(pkcs1Of(Buffer.from([0x00]))).errors, ['unparseable-key']);
+eq('an empty modulus is refused', asKey(pkcs1Of(Buffer.alloc(0))).errors, ['unparseable-key']);
+
+// Exponent values.
+eq('an empty exponent is refused',    asKey(pkcs1Of(GOOD_MODULUS, Buffer.alloc(0))).errors, ['unparseable-key']);
+eq('a zero exponent is refused',      asKey(pkcs1Of(GOOD_MODULUS, Buffer.from([0x00]))).errors, ['unparseable-key']);
+eq('an exponent of 1 is refused',     asKey(pkcs1Of(GOOD_MODULUS, Buffer.from([0x01]))).errors, ['unparseable-key']);
+eq('an even exponent is refused',     asKey(pkcs1Of(GOOD_MODULUS, Buffer.from([0x04]))).errors, ['unparseable-key']);
+eq('a negative exponent is refused',  asKey(pkcs1Of(GOOD_MODULUS, rawInteger(Buffer.from([0x80, 0x01])))).errors, ['unparseable-key']);
+// e must be less than n; a bit-length comparison is as far as that goes without
+// bignum arithmetic, and it deliberately says nothing about the factors.
+eq('an exponent wider than the modulus is refused',
+  asKey(pkcs1Of(Buffer.from([0x03]), wellFormedModulus(128))).errors, ['unparseable-key']);
+// 3 is the smallest legal exponent and must still be accepted.
+eq('an exponent of 3 is accepted', asKey(pkcs1Of(GOOD_MODULUS, Buffer.from([0x03]))).keyBits, 1024);
+
+// AlgorithmIdentifier parameters.
+const RSA_OID_ONLY = Buffer.from([0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01]);
+eq('rsaEncryption with NULL parameters is accepted',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER), GOOD_MODULUS)).keyBits, 1024);
+eq('an algorithm with no parameters is refused',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_ONLY), GOOD_MODULUS)).errors, ['unparseable-key']);
+eq('an algorithm with OCTET STRING parameters is refused',
+  asKey(spkiOf(derTlv(0x30, Buffer.concat([RSA_OID_ONLY, derTlv(0x04, Buffer.from([0xaa]))])), GOOD_MODULUS)).errors,
+  ['unparseable-key']);
+eq('an algorithm with a non-empty NULL is refused',
+  asKey(spkiOf(derTlv(0x30, Buffer.concat([RSA_OID_ONLY, derTlv(0x05, Buffer.from([0x00]))])), GOOD_MODULUS)).errors,
+  ['unparseable-key']);
+eq('an algorithm with content after NULL is refused',
+  asKey(spkiOf(derTlv(0x30, Buffer.concat([RSA_OID_DER, derTlv(0x02, Buffer.from([0x01]))])), GOOD_MODULUS)).errors,
+  ['unparseable-key']);
+
+// The same value rules apply inside the SPKI envelope, not only bare PKCS#1.
+eq('a negative modulus inside SPKI is refused',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER),
+    rawInteger(Buffer.concat([Buffer.from([0x80]), Buffer.alloc(127, 0xab)])))).errors, ['unparseable-key']);
+eq('an empty exponent inside SPKI is refused',
+  asKey(spkiOf(derTlv(0x30, RSA_OID_DER), GOOD_MODULUS, Buffer.alloc(0))).errors, ['unparseable-key']);
 
 // Where Web Crypto exists it must now agree with the walk rather than be the
 // only thing that catches these.
