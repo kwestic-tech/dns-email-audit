@@ -138,20 +138,73 @@ detected on the next run. Never hand-edit `translation-status.json`.
 - Never edit while on `main`; branch first.
 - `tmp/` is scratch and git-ignored.
 
-## PR description change log
+## Committing, pushing, and when the PR opens
 
-A pull request description is a living document, not a frozen snapshot taken at
-open time. When a PR goes through external review — Codex, Gemini, or a human —
-the original description stays intact. Updates are **appended, never
-overwritten**.
+**Commit locally as often as the work warrants. Do not push every commit.**
 
-**On opening a PR:** write the description as normal (what changed, why, how it
-was tested). It lives in `pr-description.md`, untracked and listed in
-`.git/info/exclude`, structured like
-[PR #4](https://github.com/kwestic-tech/dns-email-audit/pull/4).
+Local commits are free and they are the right unit of work: one per finished
+step, one per review finding fixed, one per test suite brought green. Push is
+not free — it costs a round trip, it triggers CI, and on a branch that is going
+to be squashed anyway it publishes history that never reaches `main`.
 
-**After any review round that produces new commits:** append a dated entry below
-a `---` separator.
+| | |
+| --- | --- |
+| **Commit** | Freely, locally, throughout. |
+| **Push** | Once the work is tested and reviewed. |
+| **Open the PR** | At the same time, or after. Not before. |
+| **Merge** | **Squash** a feature branch — intermediate commits do not reach `main`. **Merge-commit** a `chore/release-*` branch; see below. |
+
+**The release branch is the exception, and the tag is why.** A feature PR is
+squashed, so `main` gets one commit for the whole branch. A release PR is merged
+with a merge commit, and `v<version>` is an annotated tag on **that merge
+commit** — `v0.3.0` is `bdff0ed`, `v0.4.0` is `6d32d80`, both merge commits.
+Squashing a release PR would leave the tag pointing at a structurally different
+kind of commit from every release before it, for no gain: the release branch is
+one commit already.
+
+**Open the pull request at the end, not the start.** External review reads the
+working tree, not GitHub — Codex is handed a branch and a decision log, not a
+URL. A PR opened before review is a stale review target that has to be kept
+fresh with pushes that exist only to keep it accurate. Opening it when the work
+is done removes that obligation entirely.
+
+The exception is a push requested as an **off-machine backup** — when work is
+pausing and the branch should survive the laptop. Ask-driven, not habitual.
+Local commits live in the repository's object store and survive worktree
+removal, but they are not backed up anywhere.
+
+Because the branch is squashed, the *branch* history is working material and the
+*release* artifacts are the deliverable. Which means:
+
+## Release artifacts are written once, at the end, and written well
+
+`CHANGELOG.md`, `README.md` and the PR description are the things a human reads
+afterwards. They are not a running log of what happened on the branch.
+
+**Write them when the work is finished**, from the finished state, in one pass:
+
+- **`CHANGELOG.md`** — what the release does and why, in the voice of the
+  finished thing. Not "added X, then reverted X, then added X differently".
+  A reader wants the decision, not the path to it.
+- **`README.md`** — read the assertion count out of an actual `npm test` run
+  rather than typing it from memory, and re-check any behaviour statement the
+  work changed.
+- **The PR description** — `pr-description.md`, untracked and listed in
+  `.git/info/exclude`, structured like
+  [PR #4](https://github.com/kwestic-tech/dns-email-audit/pull/4). One finished
+  document: what changed, why, how it was verified, with real numbers.
+
+Updating these mid-branch is churn. The decisions, the reversals and the review
+findings belong in the places built to hold them — the spec's **Revision
+history** and **As implemented** sections, and the `CODEX review for PR#<n>.md`
+decision log — not in a PR body edited eleven times.
+
+### When review arrives after the PR is already open
+
+Sometimes it will: a human reviews a PR that is up, or the work turns out to
+need another round. Then, and only then, the description becomes a living
+document and updates are **appended, never overwritten** — a dated entry below a
+`---` separator.
 
 ```
 ## Update — YYYY-MM-DD
@@ -169,7 +222,9 @@ a `---` separator.
   coming to the PR later must be able to see what the submission originally
   claimed as well as what it claims now. If a review reverses a decision, the
   original reasoning stays visible and the update says it was reversed — the
-  same instinct as the Revision history tables in `docs/specs/`.
+  same instinct as the Revision history tables in `docs/specs/`. This applies
+  to a description that has already been published; a description not yet
+  opened is simply rewritten until it is right.
 - **Every declined finding needs a reason**, even a short one. This mirrors the
   Resolved-questions discipline in [`docs/specs/README.md`](docs/specs/README.md):
   the reasoning survives for whoever later wonders why an obvious-looking
@@ -179,6 +234,9 @@ a `---` separator.
   the case — before changing anything. Reviewers in this project have cited
   functions and paths that do not exist. Only confirmed points get fixed, and a
   claim that did not hold up is recorded as such rather than silently ignored.
+- **One update per review round, not per commit.** A round is a set of findings
+  answered together. Fixing four findings is one entry naming four outcomes, not
+  four entries.
 - **Editing the description is its own step**, independent of pushing commits.
   Pushing updates the diff and touches nothing else:
 
@@ -192,3 +250,6 @@ a `---` separator.
 Adding a commit updates none of the release artifacts. See the pull-request
 checklist in [`CONTRIBUTING.md`](CONTRIBUTING.md) for the three that go stale
 silently — `CHANGELOG.md`, this description, and `README.md`.
+
+Push at the end of a round rather than per commit, so what a reviewer reads
+always matches the code, without a push for every intermediate step.
