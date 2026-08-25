@@ -2080,6 +2080,65 @@
   // RFC 8659 §4 (issue, issuewild, iodef) and RFC 9495 §3 (issuemail,
   // contactemail, contactphone).
   var CAA_KNOWN_TAGS = ['issue', 'issuewild', 'iodef', 'issuemail', 'contactemail', 'contactphone'];
+  // Properties whose Property Value is an issuer-domain-name with optional
+  // parameters: RFC 8659 §4.2 and §4.3, and RFC 9495 §3.
+  var CAA_ISSUER_TAGS = ['issue', 'issuewild', 'issuemail'];
+  // RFC 8659 §4.2: label = (ALPHA / DIGIT) *( *("-") (ALPHA / DIGIT))
+  var CAA_LABEL = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i;
+  // RFC 8659 §4.2: value = *(%x21-3A / %x3C-7E) — VCHAR excluding ';' and SP.
+  var CAA_PARAMETER_VALUE = /^[\x21-\x3A\x3C-\x7E]*$/;
+  // RFC 8659 §4.4: the iodef URL scheme is mailto, http or https.
+  var CAA_IODEF_SCHEMES = ['mailto:', 'http://', 'https://'];
+
+  /**
+   * Validate an `issue` / `issuewild` / `issuemail` Property Value and return
+   * its issuer-domain-name — `''` for a value that authorizes nobody, or null
+   * when the value does not match the grammar at all.
+   *
+   * The distinction matters more than it looks. RFC 8659 §4.2 uses `%%%%%` as
+   * its own example of a malformed value and requires a CA to treat it like an
+   * absent issuer-domain-name, so a domain publishing only that has blocked
+   * issuance. Reading the text before the first semicolon as a CA identity
+   * turned that into "authorized: %%%%%" and reported the policy backwards —
+   * the strongest form of the mistake this release exists to avoid, because it
+   * says a domain is open when the RFC says it is shut.
+   */
+  function parseCaaIssueValue(value) {
+    var text = String(value === undefined || value === null ? '' : value);
+    var semicolon = text.indexOf(';');
+    var domain = (semicolon === -1 ? text : text.slice(0, semicolon)).trim();
+    if (domain) {
+      var labels = domain.split('.');
+      for (var i = 0; i < labels.length; i++) {
+        if (!CAA_LABEL.test(labels[i])) return null;
+      }
+    }
+    if (semicolon !== -1) {
+      var rest = text.slice(semicolon + 1).trim();
+      // A trailing ';' with nothing after it is legal: the parameters section
+      // is optional even once its separator is present.
+      if (rest) {
+        var parameters = rest.split(';');
+        for (var j = 0; j < parameters.length; j++) {
+          var parameter = parameters[j].trim();
+          var equals = parameter.indexOf('=');
+          if (equals < 1) return null;
+          if (!CAA_LABEL.test(parameter.slice(0, equals))) return null;
+          if (!CAA_PARAMETER_VALUE.test(parameter.slice(equals + 1))) return null;
+        }
+      }
+    }
+    return domain.toLowerCase();
+  }
+
+  /** RFC 8659 §4.4: an iodef destination is a mailto, http or https URL. */
+  function isCaaIodefUrl(value) {
+    var text = String(value || '').trim().toLowerCase();
+    for (var i = 0; i < CAA_IODEF_SCHEMES.length; i++) {
+      if (text.indexOf(CAA_IODEF_SCHEMES[i]) === 0 && text.length > CAA_IODEF_SCHEMES[i].length) return true;
+    }
+    return false;
+  }
 
   /**
    * Parse one CAA record from its presentation form: `<flags> <tag> "<value>"`.
@@ -2118,6 +2177,20 @@
     }
 
     var known = CAA_KNOWN_TAGS.indexOf(tag) !== -1;
+
+    // A known tag is a promise about the value's grammar, and until now only
+    // the tag was checked. `contactemail` and `contactphone` are deliberately
+    // NOT validated here: RFC 9495 §4 and §5 define them as an email address
+    // and a phone number, both of which are far easier to reject wrongly than
+    // to check usefully, and a false `caa-malformed` on a real record is worse
+    // than an unvalidated one.
+    var issuer = null;
+    if (known && CAA_ISSUER_TAGS.indexOf(tag) !== -1) {
+      issuer = parseCaaIssueValue(value);
+      if (issuer === null) errors.push('bad-issue-value');
+    }
+    if (known && tag === 'iodef' && !isCaaIodefUrl(value)) errors.push('bad-iodef-url');
+
     return {
       flags: flags,
       // RFC 8659 §4.1: bit 0, the most significant bit, is the Issuer Critical
@@ -2128,22 +2201,28 @@
       tag: tag,
       value: value,
       known: known,
+      // The validated issuer-domain-name: '' authorizes nobody, null means the
+      // value did not parse. Never a guess at what the operator might have
+      // meant.
+      issuer: issuer,
       valid: errors.length === 0,
       errors: errors,
     };
-  }
-
-  /** The issuer-domain-name half of an issue/issuewild value, before any parameters. */
-  function caaIssuerName(value) {
-    return String(value || '').split(';')[0].trim().toLowerCase();
   }
 
   function summarizeCaa(records) {
     var parsed = records.map(parseCaaRecord);
     var issueRecords = parsed.filter(function (r) { return r.tag === 'issue'; });
     var wildRecords = parsed.filter(function (r) { return r.tag === 'issuewild'; });
-    var issuers = issueRecords.map(function (r) { return caaIssuerName(r.value); }).filter(Boolean);
-    var wildcardIssuers = wildRecords.map(function (r) { return caaIssuerName(r.value); }).filter(Boolean);
+    // Only a record that PARSED contributes an issuer. A malformed value is an
+    // absent issuer-domain-name per RFC 8659 §4.2, which is why it can block
+    // issuance rather than authorize a CA whose name is nonsense.
+    var namedIssuers = function (group) {
+      return group.filter(function (r) { return r.valid && r.issuer; })
+        .map(function (r) { return r.issuer; });
+    };
+    var issuers = namedIssuers(issueRecords);
+    var wildcardIssuers = namedIssuers(wildRecords);
 
     return {
       parsed: parsed,
@@ -2230,7 +2309,28 @@
       };
     }
 
-    var hosts = await Promise.all(entries.map(async function (entry) {
+    // Distinct delivery targets. Two MX records naming the same exchange at
+    // different preferences are one host, one point of failure and one set of
+    // lookups — mapping records straight to audits queried it twice, counted it
+    // twice in the CSV, and suppressed `mx-single-host` on a domain that has
+    // exactly one. The records themselves stay in `entries` for the preference
+    // analysis, which is about the records and not the targets.
+    var targets = [];
+    var byHost = Object.create(null);
+    entries.forEach(function (entry) {
+      var target = byHost[entry.host];
+      if (target) { target.preferences.push(entry.preference); return; }
+      target = { host: entry.host, preference: entry.preference, preferences: [entry.preference] };
+      byHost[entry.host] = target;
+      targets.push(target);
+    });
+    // The lowest preference is the one a sender reaches first, so it is the one
+    // that describes the target.
+    targets.forEach(function (target) {
+      target.preference = Math.min.apply(null, target.preferences);
+    });
+
+    var hosts = await Promise.all(targets.map(async function (entry) {
       var UNKNOWN = {};
       var results = await Promise.all([
         optionalCheck(function () { return dohQuery(entry.host, 'A', queryOpts); }, UNKNOWN),
@@ -2244,6 +2344,9 @@
       return {
         host: entry.host,
         preference: entry.preference,
+        // Every preference this host is published at. One host at two
+        // preferences is still one host, and the duplication is evidence.
+        preferences: entry.preferences,
         addresses: addresses,
         v4Count: v4 ? v4.length : 0,
         v6Count: v6 ? v6.length : 0,
@@ -2343,9 +2446,24 @@
     var usage = Number(match[1]);
     var selector = Number(match[2]);
     var matchingType = Number(match[3]);
-    var data = match[4].replace(/^\(\s*/, '').replace(/\s*\)$/, '').replace(/\s+/g, '').toLowerCase();
 
     var errors = [];
+    // The wrapper is either absent or one balanced outer pair. Stripping each
+    // side independently accepted `( ABCD…` and `ABCD… )` alike, which defeats
+    // the syntactic contract of a parser written specifically for this
+    // presentation form.
+    var body = match[4].trim();
+    var opened = body.charAt(0) === '(';
+    var closed = body.length > 1 && body.charAt(body.length - 1) === ')';
+    if (opened !== closed) {
+      return {
+        usage: usage, selector: selector, matchingType: matchingType,
+        data: '', valid: false, errors: ['unbalanced-parentheses'],
+      };
+    }
+    if (opened) body = body.slice(1, -1);
+    var data = body.replace(/\s+/g, '').toLowerCase();
+
     // RFC 6698 §2.1.1–2.1.3, and RFC 7671 §4 for the SMTP-usable subset.
     if (!(usage >= 0 && usage <= 3)) errors.push('bad-usage');
     if (!(selector >= 0 && selector <= 1)) errors.push('bad-selector');

@@ -2906,6 +2906,66 @@ eq('malformed keeps the raw text', caaFull.malformed, ['garbage']);
 eq('issuer parameters are stripped',
   D.summarizeCaa(['0 issue "letsencrypt.org; validationmethods=dns-01"']).issuers, ['letsencrypt.org']);
 
+/* ── A known tag promises a value grammar ───────────────────────────────
+   RFC 8659 §4.2 uses `%%%%%` as its own example of a malformed issue value and
+   requires a CA to treat it like an absent issuer-domain-name. Reading the text
+   before the first semicolon as a CA identity reported the policy backwards:
+   a domain that has blocked issuance was shown as authorizing a CA called
+   `%%%%%`.
+   ───────────────────────────────────────────────────────────────────── */
+const malformedIssue = D.summarizeCaa(['0 issue "%%%%%"']);
+eq('the RFC\'s own malformed example is not an issuer', malformedIssue.issuers, []);
+eq('and it blocks issuance',                             malformedIssue.issuanceBlocked, true);
+eq('and it is reported malformed',                       malformedIssue.malformed, ['0 issue "%%%%%"']);
+eq('the record itself is invalid',                       malformedIssue.parsed[0].valid, false);
+eq('and says why',                                       malformedIssue.parsed[0].errors, ['bad-issue-value']);
+// issuewild has the same grammar and the same consequence.
+eq('a malformed issuewild blocks wildcards',
+  D.summarizeCaa(['0 issue "pki.goog"', '0 issuewild "%%%%%"']).wildcardBlocked, true);
+// RFC 9495 §3 gives issuemail the same syntax.
+eq('a malformed issuemail is invalid',
+  D.summarizeCaa(['0 issuemail "%%%%%"']).parsed[0].errors, ['bad-issue-value']);
+
+// NOT overcorrected: a malformed record alongside a valid one leaves the valid
+// issuer authorized, because that record still matches the grammar.
+const mixedCaa = D.summarizeCaa(['0 issue "%%%%%"', '0 issue "letsencrypt.org"']);
+eq('a valid issuer survives a malformed sibling', mixedCaa.issuers, ['letsencrypt.org']);
+eq('and issuance is not blocked',                 mixedCaa.issuanceBlocked, false);
+eq('while the malformed record is still named',   mixedCaa.malformed, ['0 issue "%%%%%"']);
+
+// Controls that must remain valid, or the grammar is rejecting real policies.
+eq('a plain LDH issuer is valid',        D.summarizeCaa(['0 issue "letsencrypt.org"']).issuers, ['letsencrypt.org']);
+eq('a hyphenated label is valid',        D.summarizeCaa(['0 issue "sectigo-ca.example"']).issuers, ['sectigo-ca.example']);
+eq('a digit-leading label is valid',     D.summarizeCaa(['0 issue "1trust.example"']).issuers, ['1trust.example']);
+eq('parameters are accepted',
+  D.summarizeCaa(['0 issue "letsencrypt.org; validationmethods=dns-01"']).issuers, ['letsencrypt.org']);
+eq('multiple parameters are accepted',
+  D.summarizeCaa(['0 issue "ca.example; a=1; b=2"']).parsed[0].valid, true);
+eq('a trailing semicolon with no parameters is valid',
+  D.summarizeCaa(['0 issue "ca.example;"']).parsed[0].valid, true);
+eq('an empty value still authorizes nobody, and is not malformed',
+  [D.summarizeCaa(['0 issue ""']).issuanceBlocked, D.summarizeCaa(['0 issue ""']).malformed], [true, []]);
+eq('a bare ";" is still the blocking form, not a malformed one',
+  [D.summarizeCaa(['0 issue ";"']).issuanceBlocked, D.summarizeCaa(['0 issue ";"']).malformed], [true, []]);
+// Grammar violations that must be caught.
+eq('a trailing-hyphen label is refused',   D.summarizeCaa(['0 issue "ca-.example"']).parsed[0].valid, false);
+eq('a leading-hyphen label is refused',    D.summarizeCaa(['0 issue "-ca.example"']).parsed[0].valid, false);
+eq('an empty label is refused',            D.summarizeCaa(['0 issue "ca..example"']).parsed[0].valid, false);
+eq('a parameter without "=" is refused',   D.summarizeCaa(['0 issue "ca.example; nope"']).parsed[0].valid, false);
+eq('a space inside a parameter value is refused',
+  D.summarizeCaa(['0 issue "ca.example; a=b c"']).parsed[0].valid, false);
+
+// RFC 8659 §4.4: iodef takes mailto, http or https and nothing else.
+eq('an ftp iodef is refused',      D.summarizeCaa(['0 iodef "ftp://x.example"']).parsed[0].errors, ['bad-iodef-url']);
+eq('a scheme-less iodef is refused', D.summarizeCaa(['0 iodef "x.example"']).parsed[0].valid, false);
+eq('a mailto iodef is valid',      D.summarizeCaa(['0 iodef "mailto:sec@example.com"']).parsed[0].valid, true);
+eq('an https iodef is valid',      D.summarizeCaa(['0 iodef "https://example.com/r"']).parsed[0].valid, true);
+eq('an http iodef is valid',       D.summarizeCaa(['0 iodef "http://example.com/r"']).parsed[0].valid, true);
+// Deliberately unvalidated — RFC 9495 §4/§5 define these loosely enough that a
+// false "malformed" on a real record would be worse than no check.
+eq('contactemail is not grammar-checked',  D.summarizeCaa(['0 contactemail "anything at all"']).parsed[0].valid, true);
+eq('contactphone is not grammar-checked',  D.summarizeCaa(['0 contactphone "+1 555 0100"']).parsed[0].valid, true);
+
 sandbox.fetch = dohFixture({ 'caa.example CAA': caa('0 issue "letsencrypt.org"') });
 const caaWalk = await D.checkCAA('caa.example', { retries: 0, noCache: true });
 eq('checkCAA keeps its original shape', [caaWalk.found, caaWalk.atDomain], [true, 'caa.example']);
@@ -2992,6 +3052,53 @@ eq('the failed host is unknown',          flakyMx.hosts[1].resolves, 'unknown');
 eq('an unknown host is NOT dangling',     flakyMx.danglingHosts, []);
 eq('and the audit says it is incomplete', flakyMx.unknown, true);
 
+// Two MX records naming the same exchange are ONE delivery target: one point
+// of failure, one set of lookups, one row. Mapping records straight to audits
+// queried it twice, counted it twice, and suppressed `mx-single-host` on a
+// domain that has exactly one host.
+sandbox.fetch = dohFixture({
+  'dup.example A': a('203.0.113.10'), 'dup.example AAAA': 'nodata', 'dup.example CNAME': 'nodata',
+});
+const dupTarget = await D.auditMxHosts(
+  ['10 dup.example.', '20 dup.example.'], 'example.com', { retries: 0, noCache: true });
+eq('one exchange at two preferences is one host',  dupTarget.hosts.length, 1);
+eq('and is still a single point of failure',       dupTarget.singleHost, true);
+eq('and both preferences survive as evidence',     dupTarget.hosts[0].preferences, [10, 20]);
+eq('and the host is described by the preferred one', dupTarget.hosts[0].preference, 10);
+eq('and it is queried once per type, not twice',   sandbox.fetch.calls.length, 3);
+eq('the finding names the single host',
+  D.buildIssues({ emailProvider: 'X', spfStatus: { status: 'ok', warnings: [] },
+    dkimStatus: { found: false, selectors: [], confidence: 'observed' },
+    dmarcStatus: { status: 'ok', policy: 'reject', warnings: [] }, reportPlan: { external: [] },
+    externalReportDestinations: [], advanced: { mxHealth: dupTarget }, domain: 'example.com',
+  }).filter(i => i.key === 'mx-single-host').length, 1);
+// Trailing-dot and case differences are the same name, so they are one target.
+sandbox.fetch = dohFixture({
+  'mixed.example A': a('203.0.113.11'), 'mixed.example AAAA': 'nodata', 'mixed.example CNAME': 'nodata',
+});
+eq('case and trailing dot do not split a target',
+  (await D.auditMxHosts(['10 Mixed.Example.', '20 mixed.example'], 'example.com',
+    { retries: 0, noCache: true })).hosts.length, 1);
+// Two genuinely different hosts stay two, or the deduplication is too eager.
+sandbox.fetch = dohFixture({
+  'x1.example A': a('203.0.113.20'), 'x1.example AAAA': 'nodata', 'x1.example CNAME': 'nodata',
+  'x2.example A': a('198.51.100.20'), 'x2.example AAAA': 'nodata', 'x2.example CNAME': 'nodata',
+});
+const twoTargets = await D.auditMxHosts(
+  ['10 x1.example.', '20 x2.example.'], 'example.com', { retries: 0, noCache: true });
+eq('two distinct hosts remain two',       twoTargets.hosts.length, 2);
+eq('and are not a single point',          twoTargets.singleHost, false);
+eq('and each carries one preference',
+  twoTargets.hosts.map(h => h.preferences), [[10], [20]]);
+// Duplicate PREFERENCES are about the records, not the targets, so a repeated
+// host at one preference is still reported as a duplicate preference.
+sandbox.fetch = dohFixture({
+  'same.example A': a('203.0.113.30'), 'same.example AAAA': 'nodata', 'same.example CNAME': 'nodata',
+});
+eq('duplicate preferences are still counted from the records',
+  (await D.auditMxHosts(['10 same.example.', '10 same.example.'], 'example.com',
+    { retries: 0, noCache: true })).duplicatePreferences, [10]);
+
 // A null MX never reaches this function, but an empty list must not throw.
 eq('no MX records is not an error', (await D.auditMxHosts([], 'example.com', { retries: 0, noCache: true })).hosts, []);
 
@@ -3028,6 +3135,25 @@ eq('matching type 3 is out of range',
 eq('non-hex data is flagged',
   D.parseTlsaRecord('3 1 1 ( ZZZZ )').errors, ['bad-association-data']);
 eq('an empty record is unparseable', D.parseTlsaRecord('').errors, ['unparseable-record']);
+
+// The wrapper is either absent or one balanced pair. Stripping each side
+// independently accepted both halves of a broken record, which defeats the
+// syntactic contract of a parser written for exactly this presentation form.
+eq('an opening parenthesis with no close is refused',
+  D.parseTlsaRecord('3 1 1 ( ' + 'AB'.repeat(32)).errors, ['unbalanced-parentheses']);
+eq('a closing parenthesis with no open is refused',
+  D.parseTlsaRecord('3 1 1 ' + 'AB'.repeat(32) + ' )').errors, ['unbalanced-parentheses']);
+eq('an unbalanced record reports no digest',
+  D.parseTlsaRecord('3 1 1 ( ' + 'AB'.repeat(32)).data, '');
+eq('a lone opening parenthesis is refused',
+  D.parseTlsaRecord('3 1 1 (').errors, ['unbalanced-parentheses']);
+// Both controls must still pass, or the check is rejecting real records.
+eq('a balanced pair is still accepted',
+  D.parseTlsaRecord('3 1 1 ( ' + 'AB'.repeat(32) + ' )').valid, true);
+eq('no parentheses at all is still accepted',
+  D.parseTlsaRecord('3 1 1 ' + 'AB'.repeat(32)).valid, true);
+eq('an empty balanced pair fails on its data, not its wrapper',
+  D.parseTlsaRecord('3 1 1 ( )').errors, ['bad-association-data']);
 
 const DIGEST = 'A6EB48052B5A83AA9D40E71CEAA20F6818C3A632D3B182A6246501B64D63724D';
 sandbox.fetch = dohFixture({
