@@ -570,12 +570,63 @@
     return { tag: tag, start: start, length: length, end: start + length };
   }
 
-  /** Bit length of a DER INTEGER, less the leading sign padding. */
+  /**
+   * Bit length of a DER INTEGER, less the leading sign padding.
+   *
+   * Counted from the highest set bit of the first significant octet, not from
+   * the encoded byte width. Those differ whenever the top octet is below 0x80,
+   * and the difference lands on the wrong side of this release's own threshold:
+   * a conformant 128-byte modulus whose leading significant octet is 0x01 is a
+   * 1017-bit key, and reporting it as 1024 both prints a false number and swaps
+   * the critical `dkim-key-weak` finding for the informational 1024-bit one.
+   *
+   * Real RSA keys have the top bit of the modulus set, so for every key in the
+   * backtest sample the two answers agree — which is exactly why this had to be
+   * fixed by construction rather than waited for.
+   */
   function derIntegerBits(bytes, tlv) {
     var start = tlv.start;
     var length = tlv.length;
     while (length > 0 && bytes[start] === 0x00) { start++; length--; }
-    return length > 0 ? length * 8 : null;
+    if (length <= 0) return null;
+    var top = bytes[start];
+    var topBits = 0;
+    while (top) { topBits++; top >>= 1; }
+    return (length - 1) * 8 + topBits;
+  }
+
+  // rsaEncryption, OID 1.2.840.113549.1.1.1 — the nine content octets of the
+  // AlgorithmIdentifier's OBJECT IDENTIFIER.
+  var RSA_ENCRYPTION_OID = [0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01];
+
+  /** Does this AlgorithmIdentifier SEQUENCE name rsaEncryption? */
+  function isRsaAlgorithmIdentifier(bytes, algorithm) {
+    var oid = derReadTlv(bytes, algorithm.start);
+    if (!oid || oid.tag !== 0x06 || oid.length !== RSA_ENCRYPTION_OID.length) return false;
+    for (var i = 0; i < RSA_ENCRYPTION_OID.length; i++) {
+      if (bytes[oid.start + i] !== RSA_ENCRYPTION_OID[i]) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Read `RSAPublicKey ::= SEQUENCE { modulus INTEGER, publicExponent INTEGER }`
+   * out of a SEQUENCE already located, and return the modulus bit length.
+   *
+   * One helper for both envelopes on purpose. The bare PKCS#1 path checked the
+   * exponent and its boundary while the SPKI path checked neither, so an SPKI
+   * key whose exponent tag had been altered walked cleanly and reported a size —
+   * leaving an optional browser API as the only thing that would reject
+   * malformed DER, in a function documented as authoritative without it.
+   */
+  function derReadRsaPublicKey(bytes, sequence) {
+    var modulus = derReadTlv(bytes, sequence.start);
+    if (!modulus || modulus.tag !== 0x02) return null;
+    var exponent = derReadTlv(bytes, modulus.end);
+    if (!exponent || exponent.tag !== 0x02) return null;
+    // The exponent must end the sequence: no trailing content, no third member.
+    if (exponent.end !== sequence.end) return null;
+    return derIntegerBits(bytes, modulus);
   }
 
   /**
@@ -612,28 +663,28 @@
     var first = derReadTlv(bytes, outer.start);
     if (!first) return null;
 
+    // Bare PKCS#1: the outer SEQUENCE *is* the RSAPublicKey.
     if (first.tag === 0x02) {
-      // Bare PKCS#1. The publicExponent must follow the modulus and end the
-      // sequence — otherwise any SEQUENCE beginning with an INTEGER would be
-      // read as a key.
-      var exponent = derReadTlv(bytes, first.end);
-      if (!exponent || exponent.tag !== 0x02 || exponent.end !== outer.end) return null;
-      var pkcs1Bits = derIntegerBits(bytes, first);
+      var pkcs1Bits = derReadRsaPublicKey(bytes, outer);
       return pkcs1Bits === null ? null : { bits: pkcs1Bits, encoding: 'pkcs1' };
     }
 
+    // SPKI: SEQUENCE { AlgorithmIdentifier, BIT STRING { RSAPublicKey } }.
+    // Every container boundary is checked, so no nesting level may carry
+    // trailing content, and the algorithm is confirmed to be RSA rather than
+    // assumed from the shape.
     if (first.tag !== 0x30) return null;
+    if (!isRsaAlgorithmIdentifier(bytes, first)) return null;
     var bitString = derReadTlv(bytes, first.end);
     if (!bitString || bitString.tag !== 0x03 || bitString.length < 1) return null;
+    if (bitString.end !== outer.end) return null;
     // First content octet of a BIT STRING counts the unused trailing bits. A
     // key is a whole number of bytes, so anything but zero means this is not
     // the structure we think it is.
     if (bytes[bitString.start] !== 0x00) return null;
     var inner = derReadTlv(bytes, bitString.start + 1);
-    if (!inner || inner.tag !== 0x30) return null;
-    var modulus = derReadTlv(bytes, inner.start);
-    if (!modulus || modulus.tag !== 0x02) return null;
-    var spkiBits = derIntegerBits(bytes, modulus);
+    if (!inner || inner.tag !== 0x30 || inner.end !== bitString.end) return null;
+    var spkiBits = derReadRsaPublicKey(bytes, inner);
     return spkiBits === null ? null : { bits: spkiBits, encoding: 'spki' };
   }
 

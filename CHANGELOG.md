@@ -138,6 +138,24 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **DKIM key sizes are the modulus's bit length, not its encoded byte width.**
+  The two differ whenever the leading significant octet is below `0x80`, and the
+  difference lands across this release's own threshold: a conformant 128-byte
+  modulus beginning `0x01` is a 1017-bit key, and reporting it as 1024 both
+  printed a false number and swapped the critical `dkim-key-weak` finding for
+  the informational 1024-bit one. Every real RSA key has the top bit of its
+  modulus set, so all 26 keys across a live ten-domain check are unaffected —
+  which is why this needed constructed keys to find rather than captured ones.
+
+- **The SPKI path now applies the same structural guards as the bare PKCS#1
+  path.** Both envelopes go through one `RSAPublicKey` reader that requires a
+  modulus, a `publicExponent` that ends its sequence, and exact container
+  boundaries at every nesting level, plus an `rsaEncryption` algorithm
+  identifier. Previously the SPKI branch checked only that a modulus INTEGER
+  existed, so a key whose exponent tag had been altered walked cleanly and
+  returned a size — leaving Web Crypto as the only thing that would reject
+  malformed DER, in a walk this release documents as authoritative without it.
+
 - **A domain with more than one SPF record now shows the records it conflicts
   over.** Reported from the field against `splunk.com`, which really does
   publish two `v=spf1` records. The `permerror` was correct — RFC 7208 §4.5, and
@@ -162,6 +180,11 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   joined with newlines in resolver order — every cell is already quoted
   unconditionally with embedded quotes doubled, so a newline inside the field is
   RFC 4180 §2.6 transport and the serializer needed no change.
+
+  `rowHygieneValues()` scans the whole set too. The data columns carry the
+  published bytes verbatim by design, so the `Record Hygiene` column is the only
+  place a bidi override or zero-width character is named — and scanning only the
+  first record let a marker in the second reach the export unannounced.
 
   Pre-dates this release — the single-match selection has been there since
   `29f1bbe` — but it is the same defect class 0.4.0 is about, a claim shown
@@ -200,8 +223,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Query fan-out is measured, and `PRIVACY.md` is updated with the real
   numbers.** MX health and TLSA cost three queries per MX host plus one more
-  each, so they sit behind a `deepChecks` option and are off unless asked for.
-  With them off the fan-out is unchanged from 0.3.0 — `cloudflare.com` issues
+  each, so they sit behind a toggle. **That toggle ships on**, and turning it off
+  is what returns the fan-out to 0.3.0's — `cloudflare.com` issues
   exactly 43 queries on both releases. With them on, the 40-domain sample goes
   from 31.9 to 39.1 queries per domain. `node tools/backtest.mjs --deep`
   reproduces it.

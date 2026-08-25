@@ -755,7 +755,14 @@
    * what those bytes contained.
    */
   function rowHygieneValues(r) {
-    var values = [r.domain, r.spfRecord, r.dmarcRecord]
+    // Every conflicting SPF record, not just the first. The `SPF Record` cell
+    // now exports the whole set, so a bidi override or zero-width character in
+    // the second record would otherwise reach the export with nothing in the
+    // `Record Hygiene` column naming it — the data columns carry the published
+    // bytes verbatim by design, and that column is the only place the warning
+    // lives. `spfRecord` stays as the fallback for a result predating the set.
+    var spfValues = (r.spfRecords && r.spfRecords.length) ? r.spfRecords : [r.spfRecord];
+    var values = [r.domain, r.dmarcRecord].concat(spfValues)
       .concat(r.ns || [], r.mx || [], r.verifications || []);
     (r.dkimStatus && r.dkimStatus.selectors || []).forEach(function (s) {
       values.push(s.value, s.cname, s.queryName);

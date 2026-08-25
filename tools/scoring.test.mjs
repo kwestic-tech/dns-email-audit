@@ -2500,6 +2500,102 @@ eq('a single byte is not a key', asKey(Buffer.from([0x30])).errors, ['unparseabl
 eq('an oversized length prefix is refused',
   asKey(Buffer.from([0x30, 0x85, 0x01, 0x02, 0x03, 0x04, 0x05, 0x02, 0x01, 0x01])).errors, ['unparseable-key']);
 
+/* ── The reported size is the modulus's bit length, not its byte width ──
+   These differ whenever the leading significant octet is below 0x80, and the
+   difference straddles this release's own threshold: `dkim-key-weak` is
+   critical below 1024 and `dkim-key-1024` is informational at exactly 1024.
+   Every real RSA key has the top bit set, so the two answers agree on every key
+   in the backtest sample — which is why this needs constructed keys rather than
+   captured ones.
+   ───────────────────────────────────────────────────────────────────── */
+const EXPONENT = Buffer.from([0x01, 0x00, 0x01]);
+const RSA_OID_DER = Buffer.from([0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00]);
+// modulus -> a bare PKCS#1 RSAPublicKey
+const asPkcs1 = modulus => derTlv(0x30, Buffer.concat([derTlv(0x02, modulus), derTlv(0x02, EXPONENT)]));
+// modulus -> the same key wrapped in a SubjectPublicKeyInfo
+const asSpki = modulus => derTlv(0x30, Buffer.concat([
+  derTlv(0x30, RSA_OID_DER),
+  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(modulus)])),
+]));
+// A modulus of `bytes` octets whose leading octet is `top`.
+const modulusOf = (bytes, top) => Buffer.concat([Buffer.from([top]), Buffer.alloc(bytes - 1, 0xab)]);
+const bitsOf = buf => key(`v=DKIM1; k=rsa; p=${Buffer.from(buf).toString('base64')}`).keyBits;
+
+// Immediately below, at, and above the 1024-bit boundary — both envelopes.
+eq('a 1017-bit modulus reports 1017, not 1024', bitsOf(asPkcs1(modulusOf(128, 0x01))), 1017);
+eq('a 1023-bit modulus reports 1023',           bitsOf(asPkcs1(modulusOf(128, 0x7f))), 1023);
+eq('a 1024-bit modulus reports 1024',           bitsOf(asPkcs1(modulusOf(128, 0x80))), 1024);
+eq('a 1025-bit modulus reports 1025',           bitsOf(asPkcs1(modulusOf(129, 0x01))), 1025);
+eq('both envelopes agree at the boundary',
+  [128, 129].flatMap(n => [0x01, 0x7f, 0x80].map(t => bitsOf(asSpki(modulusOf(n, t))))),
+  [128, 129].flatMap(n => [0x01, 0x7f, 0x80].map(t => bitsOf(asPkcs1(modulusOf(n, t))))));
+// A leading sign-padding octet is still stripped rather than counted.
+eq('sign padding does not inflate the size',
+  bitsOf(asPkcs1(Buffer.concat([Buffer.from([0x00]), modulusOf(128, 0x80)]))), 1024);
+
+/* ── SPKI gets the same structural guards as PKCS#1 ─────────────────────
+   Both envelopes go through one RSAPublicKey reader. The SPKI path used to
+   check only that a modulus INTEGER existed, so a key whose exponent had been
+   altered walked cleanly and returned a size — leaving Web Crypto as the only
+   thing that would reject malformed DER, in a walk documented as authoritative
+   without it. These are mutations of a REAL key, one byte at a time.
+   ───────────────────────────────────────────────────────────────────── */
+const realSpki = Buffer.from(RSA_512, 'base64');
+const expAt = realSpki.lastIndexOf(Buffer.from([0x02, 0x03, 0x01, 0x00, 0x01]));
+eq('the exponent was located in the real key', expAt > 0, true);
+eq('the unmutated real key still parses', asKey(realSpki).keyBits, 512);
+
+const mutate = (at, byte) => { const b = Buffer.from(realSpki); b[at] = byte; return b; };
+eq('an SPKI exponent that is not an INTEGER is refused',
+  asKey(mutate(expAt, 0x04)).errors, ['unparseable-key']);
+eq('and reports no size',            asKey(mutate(expAt, 0x04)).keyBits, null);
+// Truncating the exponent leaves trailing content inside the inner sequence.
+eq('an SPKI exponent that does not end the sequence is refused',
+  asKey(mutate(expAt + 1, 0x02)).errors, ['unparseable-key']);
+
+const noExponent = derTlv(0x30, Buffer.concat([
+  derTlv(0x30, RSA_OID_DER),
+  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), derTlv(0x30, derTlv(0x02, Buffer.alloc(64, 0x81)))])),
+]));
+eq('an SPKI key with no publicExponent is refused', asKey(noExponent).errors, ['unparseable-key']);
+
+// ecPublicKey, 1.2.840.10045.2.1 — a well-formed SPKI that is not an RSA key.
+const ecAlgorithm = derTlv(0x30, Buffer.from([0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01]));
+const notRsa = derTlv(0x30, Buffer.concat([
+  ecAlgorithm,
+  derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(Buffer.alloc(64, 0x81))])),
+]));
+eq('a non-RSA algorithm identifier is refused', asKey(notRsa).errors, ['unparseable-key']);
+eq('and an RSA identifier is accepted',         asKey(asSpki(Buffer.alloc(64, 0x81))).keyBits, 512);
+
+// Trailing content at every nesting level.
+eq('trailing bytes inside the BIT STRING are refused',
+  asKey(derTlv(0x30, Buffer.concat([
+    derTlv(0x30, RSA_OID_DER),
+    derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(Buffer.alloc(64, 0x81)), Buffer.from([0x00])])),
+  ]))).errors, ['unparseable-key']);
+eq('trailing bytes after the BIT STRING are refused',
+  asKey(Buffer.concat([
+    derTlv(0x30, Buffer.concat([
+      derTlv(0x30, RSA_OID_DER),
+      derTlv(0x03, Buffer.concat([Buffer.from([0x00]), asPkcs1(Buffer.alloc(64, 0x81))])),
+      derTlv(0x05, Buffer.alloc(0)),
+    ])),
+  ])).errors, ['unparseable-key']);
+eq('a third INTEGER in the inner sequence is refused',
+  asKey(derTlv(0x30, Buffer.concat([
+    derTlv(0x30, RSA_OID_DER),
+    derTlv(0x03, Buffer.concat([Buffer.from([0x00]), derTlv(0x30, Buffer.concat([
+      derTlv(0x02, Buffer.alloc(64, 0x81)), derTlv(0x02, EXPONENT), derTlv(0x02, EXPONENT),
+    ]))])),
+  ]))).errors, ['unparseable-key']);
+
+// Where Web Crypto exists it must now agree with the walk rather than be the
+// only thing that catches these.
+const walkAndCrypto = await D.validateDkimKeyStructure(
+  key(`v=DKIM1; p=${RSA_512}`), `v=DKIM1; p=${RSA_512}`);
+eq('a real SPKI key is confirmed by both', [walkAndCrypto.keyBits, walkAndCrypto.cryptoValidated], [512, true]);
+
 eq('t=y is testing',         key(`v=DKIM1; t=y; p=${RSA_2048}`).testing, true);
 eq('t=y:s sets both flags',  [key(`v=DKIM1; t=y:s; p=${RSA_2048}`).testing, key(`v=DKIM1; t=y:s; p=${RSA_2048}`).strictSubdomain], [true, true]);
 eq('t=s alone is not testing', key(`v=DKIM1; t=s; p=${RSA_2048}`).testing, false);
@@ -2821,6 +2917,17 @@ eq('and names the selector and size',
 // most audited domains and teach people to ignore the critical line above.
 eq('a 1024-bit key is informational, not a warning',
   sevOf(dkimWith(sel('s1', `v=DKIM1; p=${RSA_1024}`)), 'dkim-key-1024'), 'info');
+// The size fix carried into the findings: `dkim-key-weak` is critical below
+// 1024 and `dkim-key-1024` is informational at exactly 1024, so a modulus
+// reported by byte width rather than bit length crossed the boundary the wrong
+// way. Helpers come from section 34.
+const bitsFinding = buf => keysOf(dkimWith(sel('s1', `v=DKIM1; k=rsa; p=${Buffer.from(buf).toString('base64')}`)))
+  .filter(k => k === 'dkim-key-weak' || k === 'dkim-key-1024');
+eq('a 1017-bit key is critical, not informational', bitsFinding(asPkcs1(modulusOf(128, 0x01))), ['dkim-key-weak']);
+eq('a 1023-bit key is critical too',                bitsFinding(asPkcs1(modulusOf(128, 0x7f))), ['dkim-key-weak']);
+eq('a 1024-bit key is informational',               bitsFinding(asPkcs1(modulusOf(128, 0x80))), ['dkim-key-1024']);
+eq('the same holds through the SPKI envelope',      bitsFinding(asSpki(modulusOf(128, 0x01))), ['dkim-key-weak']);
+
 eq('a 2048-bit key raises nothing',
   keysOf(dkimWith(sel('s1', `v=DKIM1; p=${RSA_2048}`))).filter(k => k.startsWith('dkim-key')), []);
 eq('selectors are grouped onto one line',

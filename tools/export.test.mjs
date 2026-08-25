@@ -436,6 +436,32 @@ eq('and the round-tripped row still has every column',
 eq('a two-record cell round-trips as one field, not two rows',
   parseCsv(joinedCsv).length, 1);
 
+// Record hygiene must cover every record the export now carries. A marker in
+// the SECOND conflicting record reached the raw cell with nothing in the
+// Record Hygiene column naming it, because only the first was scanned.
+const hygieneIdx2 = header.indexOf('Record Hygiene');
+const secondDirty = APP.buildCsvRows([Object.assign({}, row, {
+  spfRecord: SPF_ONE,
+  spfRecords: [SPF_ONE, FIXTURES.bidiOverride],
+})])[1];
+eq('a marker in a non-first SPF record is still exported raw',
+  secondDirty[spfIdx].includes('‮'), true);
+eq('and the hygiene column names it',
+  secondDirty[hygieneIdx2].includes('bidi-override'), true);
+// A clean first record must not mask a dirty later one, and vice versa.
+eq('a marker in the first record is still caught',
+  APP.buildCsvRows([Object.assign({}, row, {
+    spfRecord: FIXTURES.bidiOverride, spfRecords: [FIXTURES.bidiOverride, SPF_ONE],
+  })])[1][hygieneIdx2].includes('bidi-override'), true);
+eq('two clean conflicting records report no hygiene marker',
+  APP.buildCsvRows([Object.assign({}, row, {
+    spfRecord: SPF_ONE, spfRecords: [SPF_ONE, SPF_TWO],
+  })])[1][hygieneIdx2], '');
+// The fallback for a result that predates spfRecords still scans spfRecord.
+eq('a result without spfRecords still has its record scanned',
+  APP.buildCsvRows([Object.assign({}, row, { spfRecord: FIXTURES.bidiOverride })])[1][hygieneIdx2]
+    .includes('bidi-override'), true);
+
 const clean = APP.buildCsvRows([Object.assign({}, row, { spfRecord: 'v=spf1 -all' })]);
 eq('a clean record has an empty hygiene column',
   clean[1][hygieneIdx], '');
