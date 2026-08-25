@@ -2989,6 +2989,79 @@ eq('every finding in this release has English text',
 eq('the guard exercises all 21 new findings',
   [...depthEmitted].filter(k => /^(dkim-key|caa-|mx-|tlsa-)/.test(k)).length, 21);
 
+/* ── 40. Conflicting SPF records keep their evidence ─────────────────── */
+section('40. Multiple SPF records are reported WITH the records');
+
+// Reported from the field against splunk.com, which really does publish two
+// v=spf1 records. The permerror was correct; the panel beside it showed one
+// perfectly valid record, because every match after the first was discarded
+// here and existed nowhere in the result. A critical finding with its evidence
+// withheld reads as a bug in this tool — which is exactly how it was reported.
+const SPF_A = 'v=spf1 include:_spf.google.com include:_spf.xactlycorp.com ~all';
+const SPF_B = 'v=spf1 include:mktomail.com include:stspg-customer.com ~all';
+
+sandbox.fetch = dohFixture({
+  'twospf.example NS': ns('ns1.twospf.example.'),
+  'twospf.example MX': mx('10 mail.twospf.example.'),
+  'twospf.example TXT': [...txt(SPF_A), ...txt(SPF_B)],
+  'twospf.example A': a('203.0.113.5'),
+  'twospf.example AAAA': 'nodata',
+  '_dmarc.twospf.example TXT': txt('v=DMARC1; p=reject; rua=mailto:d@twospf.example'),
+});
+const twoSpf = await D.analyzeDomain('twospf.example', { dkim: false, retries: 0 });
+eq('two records is still a permerror',   twoSpf.spfStatus.status, 'permerror');
+eq('and still critical',                 twoSpf.spfStatus.cls, 'crit');
+eq('every conflicting record is kept',   twoSpf.spfRecords, [SPF_A, SPF_B]);
+eq('spfRecord still names the first',    twoSpf.spfRecord, SPF_A);
+// The finding evidences itself at row level too, the way dkim-multiple-records
+// already names its selectors.
+eq('the finding counts the records',
+  twoSpf.issues.find(i => i.key === 'spf-multiple-records').args, [2]);
+// Nothing in the record contents may be judged: no record applies at all, so a
+// warning about `~all` or a missing provider include would be about a record
+// receivers never reach.
+eq('no content warning is drawn from a record that does not apply',
+  twoSpf.spfStatus.warnings, ['spf-multiple-records']);
+
+sandbox.fetch = dohFixture({
+  'threespf.example NS': ns('ns1.threespf.example.'),
+  'threespf.example MX': mx('10 mail.threespf.example.'),
+  'threespf.example TXT': [...txt(SPF_A), ...txt(SPF_B), ...txt('v=spf1 -all')],
+  'threespf.example A': a('203.0.113.5'),
+  'threespf.example AAAA': 'nodata',
+});
+const threeSpf = await D.analyzeDomain('threespf.example', { dkim: false, retries: 0 });
+eq('three records are all kept',   threeSpf.spfRecords.length, 3);
+eq('and the count says three',
+  threeSpf.issues.find(i => i.key === 'spf-multiple-records').args, [3]);
+
+// The single-record path is untouched: one record, no finding, no behaviour
+// change for the overwhelming majority of domains.
+sandbox.fetch = dohFixture({
+  'onespf.example NS': ns('ns1.onespf.example.'),
+  'onespf.example MX': mx('10 mail.onespf.example.'),
+  'onespf.example TXT': txt(SPF_A),
+  'onespf.example A': a('203.0.113.5'),
+  'onespf.example AAAA': 'nodata',
+});
+const oneSpf = await D.analyzeDomain('onespf.example', { dkim: false, retries: 0 });
+eq('one record is not a permerror',  oneSpf.spfStatus.status !== 'permerror', true);
+eq('and spfRecords holds just it',   oneSpf.spfRecords, [SPF_A]);
+eq('and raises no multiple finding',
+  oneSpf.issues.map(i => i.key).includes('spf-multiple-records'), false);
+
+// A domain with no SPF at all must not report an empty record as a conflict.
+sandbox.fetch = dohFixture({
+  'nospf.example NS': ns('ns1.nospf.example.'),
+  'nospf.example MX': mx('10 mail.nospf.example.'),
+  'nospf.example TXT': txt('google-site-verification=abc'),
+  'nospf.example A': a('203.0.113.5'),
+  'nospf.example AAAA': 'nodata',
+});
+const noSpf = await D.analyzeDomain('nospf.example', { dkim: false, retries: 0 });
+eq('no SPF means an empty record list', noSpf.spfRecords, []);
+eq('and the status is missing, not permerror', noSpf.spfStatus.status, 'missing');
+
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);

@@ -136,6 +136,29 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   than left blank, since a blank cell reads as "wildcards unrestricted" — the
   opposite of what the domain published.
 
+### Fixed
+
+- **A domain with more than one SPF record now shows the records it conflicts
+  over.** Reported from the field against `splunk.com`, which really does
+  publish two `v=spf1` records. The `permerror` was correct — RFC 7208 §4.5, and
+  receivers neither merge the records nor pick the stricter one — but only the
+  first match was ever kept, so the panel beside a critical finding showed one
+  perfectly valid record and the second existed nowhere in the result. The
+  reasonable conclusion from that screen was that the tool was wrong, and it was
+  reported as exactly that.
+
+  `analyzeDomain()` now returns `spfRecords` with every match, the detail panel
+  renders the whole conflicting set under "N conflicting records — none of them
+  applies", and the finding names the count the way `dkim-multiple-records`
+  already names its selectors. The lookup meter is withheld from a conflicting
+  set: it is computed from the first record, and shown beside all of them it
+  would attribute one record's lookup count to the rest.
+
+  Pre-dates this release — the single-match selection has been there since
+  `29f1bbe` — but it is the same defect class 0.4.0 is about, a claim shown
+  without the evidence that supports it, so it is fixed here rather than
+  deferred. Single-record domains are unaffected.
+
 ### Changed
 
 - **`dnsTypeNum()` throws on an unknown record type instead of returning the TXT

@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Blisko limitu",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "zapytań DNS",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} sprzeczne rekordy — żaden z nich nie obowiązuje:"
   },
   "dmarc": {
     "missing": "✗ Brak",
@@ -376,7 +377,7 @@
       "fixCode": "; Pusty MX — informuje nadawców, że ta domena nie przyjmuje poczty:\n@    MX     0 .\n\n; SPF — blokuje wszystkich nadawców:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — odrzuca każdą sfałszowaną wiadomość:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Znaleziono wiele rekordów SPF — SPF zawodzi trwale (permerror) dla całej poczty z tej domeny.",
+      "msg": "Znaleziono {0} rekordy SPF — SPF zawodzi trwale (permerror) dla całej poczty z tej domeny i żaden z nich nie obowiązuje.",
       "what": "RFC 7208 §4.5 dopuszcza dokładnie jeden rekord TXT <code>v=spf1</code> na domenę. Gdy odbiorca znajdzie dwa, zwraca <code>permerror</code> i przerywa — nie scala ich ani nie wybiera surowszego. W praktyce jest to gorsze niż brak SPF: rekord wygląda poprawnie w panelu DNS, ale każda wiadomość z Twojej domeny nie przechodzi uwierzytelnienia SPF. Zwykle dzieje się tak, gdy wdrażana jest druga usługa pocztowa, która dodaje własny rekord zamiast edytować istniejący.",
       "fix": "Połącz rekordy w jeden. Weź wszystkie mechanizmy <code>include:</code>, <code>ip4:</code> i <code>ip6:</code> ze wszystkich rekordów, umieść je w pojedynczym rekordzie <code>v=spf1</code> i usuń pozostałe. Podczas łączenia pilnuj limitu 10 zapytań — scalanie rekordów to częsty sposób na jego przekroczenie.",
       "fixCode": "; Przed — dwa rekordy, SPF zawodzi dla wszystkiego:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Po — jeden rekord z obydwoma nadawcami:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

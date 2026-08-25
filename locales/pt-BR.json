@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Perto do limite",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "consultas DNS",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} registros em conflito — nenhum deles se aplica:"
   },
   "dmarc": {
     "missing": "✗ Ausente",
@@ -366,7 +367,7 @@
       "fixCode": "; MX nulo — informa aos remetentes que este domínio não aceita e-mail:\n@    MX     0 .\n\n; SPF — bloqueia todos os remetentes:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — rejeita qualquer e-mail falsificado:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Vários registros SPF encontrados — o SPF falha permanentemente (permerror) para todo e-mail deste domínio.",
+      "msg": "{0} registros SPF encontrados — o SPF falha permanentemente (permerror) para todo e-mail deste domínio, e nenhum deles se aplica.",
       "what": "O RFC 7208 §4.5 permite exatamente um registro TXT <code>v=spf1</code> por domínio. Quando um receptor encontra dois, ele retorna <code>permerror</code> e para — ele não junta os dois e não escolhe o mais rígido. O efeito prático é pior do que não ter SPF nenhum: seu registro parece correto no painel de DNS, mas toda mensagem do seu domínio falha na autenticação SPF. Isso costuma acontecer quando um segundo serviço de e-mail é adicionado e cria o próprio registro em vez de editar o existente.",
       "fix": "Junte os registros em um só. Pegue todos os mecanismos <code>include:</code>, <code>ip4:</code> e <code>ip6:</code> de todos os registros, coloque-os em um único registro <code>v=spf1</code> e exclua os demais. Fique de olho no limite de 10 consultas ao juntar — combinar registros é uma forma comum de estourá-lo.",
       "fixCode": "; Antes — dois registros, SPF falha para tudo:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Depois — um registro com os dois remetentes:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

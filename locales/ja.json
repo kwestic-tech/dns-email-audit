@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ 制限間近",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "DNS 参照回数",
-    "permerror": "🔴 恒久的なエラー (Permerror)"
+    "permerror": "🔴 恒久的なエラー (Permerror)",
+    "conflictingRecords": "競合するレコードが {0} 件 — どれも適用されません:"
   },
   "dmarc": {
     "missing": "✗ 未設定",
@@ -366,7 +367,7 @@
       "fixCode": "; Null MX — このドメインがメールを受信しないことを送信元に通知:\n@    MX     0 .\n\n; SPF — すべての送信元をブロック:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — なりすましメールを拒否:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "複数の SPF レコードが存在します — このドメインからのすべてのメールで SPF が永久エラー (permerror) になります。",
+      "msg": "SPF レコードが {0} 件存在します — このドメインからのすべてのメールで SPF が永久エラー (permerror) になり、どのレコードも適用されません。",
       "what": "RFC 7208 §4.5 では、1 つのドメインにつき 1 つの <code>v=spf1</code> TXT レコードのみが許可されています。受信サーバーが 2 つのレコードを検出すると、<code>permerror</code> を返して処理を停止します（統合されたり、より厳しい方が選ばれたりはしません）。実害は SPF が全くない状態よりも深刻です。DNS 管理画面では正常に見えても、ドメインから送信されるすべてのメールが SPF 認証に失敗します。新しいメールサービスを導入する際、既存レコードを編集せず新しく追加してしまうことが原因でよく発生します。",
       "fix": "レコードを 1 つに統合してください。すべてのレコードから <code>include:</code>、<code>ip4:</code>、<code>ip6:</code> などのメカニズムを抜き出し、単一の <code>v=spf1</code> レコードにまとめてから他のレコードを削除します。統合時は 10 回の参照制限を超えないよう注意してください。",
       "fixCode": "; 統合前 — 2 つのレコードが存在し、すべて失敗する状態:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; 統合後 — 両方の送信元を含む 1 つのレコード:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

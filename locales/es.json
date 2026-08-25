@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Cerca del límite",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "búsquedas DNS",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} registros en conflicto — ninguno de ellos se aplica:"
   },
   "dmarc": {
     "missing": "✗ Faltante",
@@ -366,7 +367,7 @@
       "fixCode": "; MX nulo — indica a los remitentes que este dominio no acepta correo:\n@    MX     0 .\n\n; SPF — bloquear a todos los remitentes:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — rechazar cualquier correo suplantado:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Múltiples registros SPF encontrados — SPF falla permanentemente (permerror) para todo el correo de este dominio.",
+      "msg": "{0} registros SPF encontrados — SPF falla permanentemente (permerror) para todo el correo de este dominio, y ninguno de ellos se aplica.",
       "what": "El RFC 7208 §4.5 permite exactamente un registro TXT <code>v=spf1</code> por dominio. Cuando un receptor encuentra dos, devuelve <code>permerror</code> y se detiene — no los combina ni elige el más estricto. El efecto práctico es peor que no tener SPF en absoluto: tu registro parece correcto en el panel DNS, pero cada mensaje de tu dominio falla la autenticación SPF. Esto suele suceder cuando se incorpora un segundo servicio de correo y añade su propio registro en lugar de editar el existente.",
       "fix": "Combina los registros en uno solo. Toma cada mecanismo <code>include:</code>, <code>ip4:</code> e <code>ip6:</code> de todos los registros, colócalos en un único registro <code>v=spf1</code> y elimina los demás. Vigila el límite de 10 búsquedas al combinar — combinar registros es una forma común de superarlo.",
       "fixCode": "; Antes — dos registros, SPF falla para todo:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Después — un registro con ambos remitentes:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

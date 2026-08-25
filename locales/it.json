@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Vicino al limite",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "ricerche DNS",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} record in conflitto — nessuno di essi si applica:"
   },
   "dmarc": {
     "missing": "✗ Mancante",
@@ -366,7 +367,7 @@
       "fixCode": "@    MX     0 .\n@    TXT    \"v=spf1 -all\"\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Trovati più record SPF — provoca un errore permanente (permerror) per tutte le e-mail inviate.",
+      "msg": "Trovati {0} record SPF — provoca un errore permanente (permerror) per tutte le e-mail inviate, e nessuno dei record si applica.",
       "what": "L'RFC 7208 vieta la presenza di più record <code>v=spf1</code>. Questo causa il fallimento sistematico dell'autenticazione SPF.",
       "fix": "Unisci tutti i meccanismi in un unico record TXT.",
       "fixCode": "@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

@@ -679,6 +679,32 @@
     ]);
   }
 
+  /**
+   * The SPF record, or every conflicting record when there is more than one.
+   *
+   * With two `v=spf1` records the domain is in permerror and **none of them
+   * applies** — RFC 7208 §4.5, and receivers do not merge them or pick the
+   * stricter one. Showing only the first made the critical finding look
+   * unsupported: a valid-looking record sat next to "Multiple SPF records
+   * found", and the reasonable conclusion from that screen was that the tool
+   * was wrong. Both records are the evidence; without them an operator cannot
+   * tell which one to delete.
+   *
+   * The lookup meter is deliberately attached only in the single-record case.
+   * It is computed from the first record, and beside a conflicting set it would
+   * silently attribute one record's lookup count to all of them.
+   */
+  function spfDetail(r, spfMeterNode) {
+    var records = r.spfRecords || (r.spfRecord ? [r.spfRecord] : []);
+    if (records.length < 2) return R.frag([R.value(r.spfRecord), spfMeterNode]);
+    return R.frag([
+      R.el('div', { className: 'spf-conflict-note' }, t('spf.conflictingRecords', records.length)),
+      R.frag(records.map(function (record) {
+        return R.el('div', { className: 'spf-conflict-record' }, R.value(record));
+      })),
+    ]);
+  }
+
   /** One cell for a domain's DKIM key sizes: a number, a range, or nothing. */
   function dkimKeyBitsCell(profile) {
     if (!profile || profile.minBits === null) return '';
@@ -966,7 +992,7 @@
           detailItem(t('labels.mx'), mxDetail(r)),
           detailItem(
             t('labels.spf') + (spfMeterNode ? ' · ' + t('labels.spfLookups') : ''),
-            R.frag([R.value(r.spfRecord), spfMeterNode])
+            spfDetail(r, spfMeterNode)
           ),
           detailItem(t('labels.dmarc'), R.frag([
             R.value(r.dmarcRecord),
@@ -1624,6 +1650,7 @@
     caaDetail: caaDetail,
     tlsaDetail: tlsaDetail,
     dkimKeyBitsCell: dkimKeyBitsCell,
+    spfDetail: spfDetail,
     MAX_DEEP_CHECK_DOMAINS: MAX_DEEP_CHECK_DOMAINS,
   };
 })(window);

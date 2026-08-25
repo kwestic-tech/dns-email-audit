@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Sınıra yakın",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "DNS sorgusu",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} çakışan kayıt — hiçbiri geçerli değil:"
   },
   "dmarc": {
     "missing": "✗ Eksik",
@@ -366,7 +367,7 @@
       "fixCode": "; Boş MX — gönderenlere bu alan adının posta kabul etmediğini bildirir:\n@    MX     0 .\n\n; SPF — tüm göndericileri engeller:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — taklit edilen tüm postayı reddeder:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Birden fazla SPF kaydı bulundu — bu alan adından gönderilen tüm posta için SPF kalıcı olarak başarısız (permerror).",
+      "msg": "{0} SPF kaydı bulundu — bu alan adından gönderilen tüm posta için SPF kalıcı olarak başarısız (permerror) ve kayıtların hiçbiri geçerli değil.",
       "what": "RFC 7208 §4.5, alan adı başına tam olarak bir <code>v=spf1</code> TXT kaydına izin verir. Bir alıcı iki kayıt bulduğunda <code>permerror</code> döndürür ve durur — kayıtları birleştirmez, daha katı olanı da seçmez. Pratik etkisi, hiç SPF olmamasından daha kötüdür: kaydınız DNS panelinde doğru görünür, ama alan adınızdan çıkan her ileti SPF kimlik doğrulamasından geçemez. Bu genellikle ikinci bir posta hizmeti devreye alınırken mevcut kaydı düzenlemek yerine kendi kaydını eklemesiyle olur.",
       "fix": "Kayıtları tek bir kayıtta birleştirin. Tüm kayıtlardaki <code>include:</code>, <code>ip4:</code> ve <code>ip6:</code> mekanizmalarını alıp tek bir <code>v=spf1</code> kaydına koyun ve diğerlerini silin. Birleştirirken 10 sorgu sınırına dikkat edin — kayıtları birleştirmek bu sınırı aşmanın yaygın bir yoludur.",
       "fixCode": "; Önce — iki kayıt, SPF her şey için başarısız:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Sonra — her iki göndericiyi içeren tek kayıt:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

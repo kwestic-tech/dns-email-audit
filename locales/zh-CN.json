@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ 接近限制",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "DNS 查询次数",
-    "permerror": "🔴 永久错误 (Permerror)"
+    "permerror": "🔴 永久错误 (Permerror)",
+    "conflictingRecords": "{0} 条相互冲突的记录 — 没有任何一条生效："
   },
   "dmarc": {
     "missing": "✗ 缺少",
@@ -366,7 +367,7 @@
       "fixCode": "; Null MX — 告知发送方此域名不接收邮件：\n@    MX     0 .\n\n; SPF — 拦截所有发送者：\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — 拒绝任何冒用的邮件：\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "发现多条 SPF 记录 — 导致来自此域名的所有邮件发生 SPF 永久错误 (permerror)。",
+      "msg": "发现 {0} 条 SPF 记录 — 导致来自此域名的所有邮件发生 SPF 永久错误 (permerror)，且没有任何一条生效。",
       "what": "RFC 7208 §4.5 规定每个域名严格仅允许一条 <code>v=spf1</code> TXT 记录。当接收方找到两条记录时，会返回 <code>permerror</code> 并停止验证 — 它不会合并记录，也不会选择较严格的一条。实际后果比完全没有 SPF 更糟糕：您的记录在 DNS 面板中看起来正确，但来自您域名的每一封邮件都会在 SPF 验证中失败。这通常发生在引入第二个邮件服务时，直接添加了自己的记录而非编辑现有记录。",
       "fix": "将记录合并为一条。将所有记录中的每个 <code>include:</code>、<code>ip4:</code> 和 <code>ip6:</code> 机制整合到单个 <code>v=spf1</code> 记录中，并删除其他记录。合并时请注意 10 次查询的限制 — 组合记录是超出限制的常见原因。",
       "fixCode": "; 合并前 — 两条记录，所有邮件的 SPF 都会失败：\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; 合并后 — 包含两个发送者的单条记录：\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

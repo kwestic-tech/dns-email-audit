@@ -181,7 +181,8 @@ window.__I18N_EN__ = {
     "meterNear": "{0}/10 ⚠ Near limit",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "DNS lookups",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} conflicting records — none of them applies:"
   },
   "dmarc": {
     "missing": "✗ Missing",
@@ -373,7 +374,7 @@ window.__I18N_EN__ = {
       "fixCode": "; Null MX — tells senders this domain accepts no mail:\n@    MX     0 .\n\n; SPF — block all senders:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — reject any spoofed mail:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Multiple SPF records found — SPF fails permanently (permerror) for all mail from this domain.",
+      "msg": "{0} SPF records found — SPF fails permanently (permerror) for all mail from this domain, and none of them applies.",
       "what": "RFC 7208 §4.5 allows exactly one <code>v=spf1</code> TXT record per domain. When a receiver finds two, it returns <code>permerror</code> and stops — it does not merge them, and it does not pick the stricter one. The practical effect is worse than having no SPF at all: your record looks correct in the DNS panel, but every message from your domain fails SPF authentication. This usually happens when a second mail service is onboarded and adds its own record instead of editing the existing one.",
       "fix": "Merge the records into one. Take every <code>include:</code>, <code>ip4:</code> and <code>ip6:</code> mechanism from all records, put them in a single <code>v=spf1</code> record, and delete the others. Watch the 10-lookup limit while merging — combining records is a common way to exceed it.",
       "fixCode": "; Before — two records, SPF fails for everything:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; After — one record with both senders:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

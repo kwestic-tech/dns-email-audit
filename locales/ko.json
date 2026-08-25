@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ 제한 임박",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "DNS 조회 횟수",
-    "permerror": "🔴 영구 오류 (Permerror)"
+    "permerror": "🔴 영구 오류 (Permerror)",
+    "conflictingRecords": "충돌하는 레코드 {0}개 — 어느 것도 적용되지 않습니다:"
   },
   "dmarc": {
     "missing": "✗ 누락됨",
@@ -366,7 +367,7 @@
       "fixCode": "; Null MX — 이 도메인이 메일을 받지 않음을 발신자에게 알림:\n@    MX     0 .\n\n; SPF — 모든 발신자 차단:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — 위조된 메일 완전 거부:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "복수의 SPF 레코드가 발견되었습니다 — 이 도메인에서 발송되는 모든 메일의 SPF가 영구 오류(permerror)로 실패합니다.",
+      "msg": "SPF 레코드가 {0}개 발견되었습니다 — 이 도메인에서 발송되는 모든 메일의 SPF가 영구 오류(permerror)로 실패하며, 어느 레코드도 적용되지 않습니다.",
       "what": "RFC 7208 §4.5에 따르면 도메인당 정확히 하나의 <code>v=spf1</code> TXT 레코드만 허용됩니다. 수신자가 2개의 레코드를 발견하면 <code>permerror</code>를 반환하고 검사를 중단합니다(병합하거나 더 엄격한 것을 선택하지 않음). 실질적인 피해는 SPF가 아예 없는 것보다 심각합니다. DNS 관리판에서는 정상처럼 보이지만 도메인에서 나가는 모든 메일이 SPF 인증에 실패합니다. 새로운 메일 서비스를 추가할 때 기존 레코드를 수정하지 않고 새 레코드를 추가할 때 주로 발생합니다.",
       "fix": "레코드를 하나로 병합하세요. 모든 레코드에 포함된 <code>include:</code>, <code>ip4:</code>, <code>ip6:</code> 메커니즘을 단일 <code>v=spf1</code> 레코드에 모으고 나머지는 삭제하세요. 병합 시 10회 조회 제한을 넘지 않도록 주의하세요.",
       "fixCode": "; 수정 전 — 2개의 레코드로 인해 모든 SPF 검사가 실패하는 상태:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; 수정 후 — 두 발신자를 모두 포함한 단일 레코드:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

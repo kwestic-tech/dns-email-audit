@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ 接近限制",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "DNS 查詢次數",
-    "permerror": "🔴 永久錯誤 (Permerror)"
+    "permerror": "🔴 永久錯誤 (Permerror)",
+    "conflictingRecords": "{0} 筆相互衝突的紀錄 — 沒有任何一筆生效："
   },
   "dmarc": {
     "missing": "✗ 缺少",
@@ -366,7 +367,7 @@
       "fixCode": "; Null MX — 告知傳送方此網域不接收郵件：\n@    MX     0 .\n\n; SPF — 封鎖所有傳送者：\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — 拒絕任何冒用的郵件：\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "發現多重 SPF 紀錄 — 導致來自此網域的所有郵件發生 SPF 永久錯誤 (permerror)。",
+      "msg": "發現 {0} 筆 SPF 紀錄 — 導致來自此網域的所有郵件發生 SPF 永久錯誤 (permerror)，且沒有任何一筆生效。",
       "what": "RFC 7208 §4.5 規定每個網域嚴格僅允許一個 <code>v=spf1</code> TXT 紀錄。當接收方找到兩個紀錄時，會回傳 <code>permerror</code> 並停止驗證 — 它不會合併紀錄，也不會選擇較嚴格的一個。實際後果比完全沒有 SPF 更糟糕：您的紀錄在 DNS 面板中看起來正確，但來自您網域的每封郵件都會在 SPF 驗證中失敗。這通常發生在導入第二個郵件服務時，直接新增了自己的紀錄而非編輯現有紀錄。",
       "fix": "將紀錄合併為一個。將所有紀錄中的每個 <code>include:</code>、<code>ip4:</code> 與 <code>ip6:</code> 機制整合到單一 <code>v=spf1</code> 紀錄中，並刪除其他紀錄。合併時請注意 10 次查詢的限制 — 組合紀錄是超出限制的常見原因。",
       "fixCode": "; 合併前 — 兩條紀錄，所有郵件的 SPF 都會失敗：\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; 合併後 — 包含兩個傳送者的單一紀錄：\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Mendekati batas",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "pencarian DNS",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} data yang saling bertentangan — tidak satu pun yang berlaku:"
   },
   "dmarc": {
     "missing": "✗ Tidak ada",
@@ -366,7 +367,7 @@
       "fixCode": "; MX kosong — memberi tahu pengirim bahwa domain ini tidak menerima surel:\n@    MX     0 .\n\n; SPF — blokir semua pengirim:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — tolak semua surel palsu:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Ditemukan beberapa data SPF — SPF gagal permanen (permerror) untuk semua surel dari domain ini.",
+      "msg": "Ditemukan {0} data SPF — SPF gagal permanen (permerror) untuk semua surel dari domain ini, dan tidak satu pun yang berlaku.",
       "what": "RFC 7208 §4.5 mengizinkan tepat satu data TXT <code>v=spf1</code> per domain. Ketika penerima menemukan dua, ia mengembalikan <code>permerror</code> dan berhenti — ia tidak menggabungkannya dan tidak memilih yang lebih ketat. Efek praktisnya lebih buruk daripada tidak punya SPF sama sekali: data Anda tampak benar di panel DNS, tetapi setiap pesan dari domain Anda gagal autentikasi SPF. Ini biasanya terjadi ketika layanan surel kedua ditambahkan dan membuat datanya sendiri alih-alih menyunting yang sudah ada.",
       "fix": "Gabungkan datanya menjadi satu. Ambil setiap mekanisme <code>include:</code>, <code>ip4:</code>, dan <code>ip6:</code> dari semua data, taruh dalam satu data <code>v=spf1</code>, lalu hapus sisanya. Perhatikan batas 10 pencarian saat menggabungkan — menggabungkan data adalah cara umum untuk melampauinya.",
       "fixCode": "; Sebelum — dua data, SPF gagal untuk semuanya:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Sesudah — satu data dengan kedua pengirim:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Nahe am Limit",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "DNS-Abfragen",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} widersprüchliche Einträge — keiner davon gilt:"
   },
   "dmarc": {
     "missing": "✗ Fehlt",
@@ -366,7 +367,7 @@
       "fixCode": "; Null MX — teilt Sendern mit, dass diese Domain keine Mails akzeptiert:\n@    MX     0 .\n\n; SPF — alle Sender blockieren:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — alle gefälschten Mails ablehnen:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Mehrere SPF-Einträge gefunden — SPF schlägt für alle Mails dieser Domain dauerhaft fehl (permerror).",
+      "msg": "{0} SPF-Einträge gefunden — SPF schlägt für alle Mails dieser Domain dauerhaft fehl (permerror), und keiner der Einträge gilt.",
       "what": "RFC 7208 §4.5 erlaubt genau einen <code>v=spf1</code> TXT-Eintrag pro Domain. Wenn ein Empfänger zwei findet, gibt er <code>permerror</code> zurück und bricht ab — er führt sie weder zusammen noch wählt er den strengeren aus. Das ist in der Praxis schlimmer als gar kein SPF: Ihr Eintrag sieht im DNS-Panel korrekt aus, aber jede Nachricht Ihrer Domain schlägt bei der SPF-Authentifizierung fehl.",
       "fix": "Führen Sie die Einträge zu einem einzigen zusammen. Nehmen Sie jeden <code>include:</code>-, <code>ip4:</code>- und <code>ip6:</code>-Mechanismus aus allen Einträgen, fügen Sie sie in einen einzelnen <code>v=spf1</code>-Eintrag ein und löschen Sie die anderen. Achten Sie beim Zusammenführen auf das Limit von 10 Abfragen.",
       "fixCode": "; Vorher — zwei Einträge, SPF schlägt für alles fehl:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Nachher — ein Eintrag mit beiden Sendern:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

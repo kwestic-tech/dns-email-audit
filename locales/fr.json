@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Proche de la limite",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "recherches DNS",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} enregistrements en conflit — aucun d'eux ne s'applique :"
   },
   "dmarc": {
     "missing": "✗ Manquant",
@@ -366,7 +367,7 @@
       "fixCode": "; Null MX — indique qu'aucun e-mail n'est accepté :\n@    MX     0 .\n\n; SPF — bloquer tous les expéditeurs :\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — rejeter tout e-mail usurpé :\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Plusieurs enregistrements SPF trouvés — SPF échoue systématiquement (permerror) pour tous les e-mails de ce domaine.",
+      "msg": "{0} enregistrements SPF trouvés — SPF échoue systématiquement (permerror) pour tous les e-mails de ce domaine, et aucun d'eux ne s'applique.",
       "what": "La RFC 7208 §4.5 autorise exactement un seul enregistrement TXT <code>v=spf1</code> par domaine. Quand un destinataire en trouve deux, il renvoie une erreur <code>permerror</code> sans les fusionner. Résultat : chaque message échoue la vérification SPF. Cela se produit souvent lors de l'ajout d'un nouveau service e-mail au lieu d'éditer l'enregistrement existant.",
       "fix": "Fusionnez les enregistrements en un seul. Regroupez tous les mécanismes <code>include:</code>, <code>ip4:</code> et <code>ip6:</code> dans une seule entrée <code>v=spf1</code> et supprimez les autres. Veillez à ne pas dépasser la limite des 10 recherches DNS.",
       "fixCode": "; Avant — deux enregistrements, SPF échoue partout :\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Après — un seul enregistrement avec les deux services :\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

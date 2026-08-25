@@ -754,6 +754,34 @@ eq('an unauthenticated host is too', tlsaText.includes('not DNSSEC-authenticated
 eq('a host without TLSA says not published', tlsaText.includes('not published'), true);
 eq('no TLSA audit renders no block', APP.tlsaDetail({ advanced: null }), null);
 
+/* ── Conflicting SPF records are shown, not summarized away ─────────── */
+const SPF_1 = 'v=spf1 include:_spf.google.com ~all';
+const SPF_2 = 'v=spf1 include:mktomail.com ~all';
+const meter = R.el('span', { className: 'meter' }, 'meter');
+
+const oneSpfText = textOf(APP.spfDetail({ spfRecord: SPF_1, spfRecords: [SPF_1] }, meter));
+eq('a single record renders as before', oneSpfText.includes(SPF_1), true);
+eq('and keeps its lookup meter',        oneSpfText.includes('meter'), true);
+
+// The reported defect: the permerror was right and the panel showed one valid
+// record, so the finding looked unsupported.
+const twoSpfText = textOf(APP.spfDetail({ spfRecord: SPF_1, spfRecords: [SPF_1, SPF_2] }, meter));
+eq('the first conflicting record is shown',  twoSpfText.includes(SPF_1), true);
+eq('the second conflicting record is too',   twoSpfText.includes(SPF_2), true);
+eq('and the set is labelled as conflicting', twoSpfText.includes('conflicting records'), true);
+eq('and says none of them applies',          twoSpfText.includes('none of them applies'), true);
+eq('and names how many',                     twoSpfText.includes('2'), true);
+// The meter is computed from the first record only, so attaching it beside a
+// conflicting set would attribute one record's lookup count to all of them.
+eq('the lookup meter is withheld from a conflicting set',
+  twoSpfText.includes('meter'), false);
+
+// A result from before this field existed must still render.
+eq('a result without spfRecords falls back to spfRecord',
+  textOf(APP.spfDetail({ spfRecord: SPF_1 }, null)).includes(SPF_1), true);
+eq('and no SPF at all renders nothing but the dash the value helper gives',
+  textOf(APP.spfDetail({ spfRecord: '', spfRecords: [] }, null)).includes(SPF_1), false);
+
 eq('one key size renders as a number', APP.dkimKeyBitsCell({ minBits: 2048, maxBits: 2048 }), '2048');
 eq('mixed key sizes render as a range', APP.dkimKeyBitsCell({ minBits: 1024, maxBits: 2048 }), '1024-2048');
 eq('no RSA key renders empty', APP.dkimKeyBitsCell({ minBits: null, maxBits: null }), '');

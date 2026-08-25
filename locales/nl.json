@@ -174,7 +174,8 @@
     "meterNear": "{0}/10 ⚠ Bijna aan de limiet",
     "meterOk": "{0}/10 ✓",
     "meterSuffix": "DNS-lookups",
-    "permerror": "🔴 Permerror"
+    "permerror": "🔴 Permerror",
+    "conflictingRecords": "{0} conflicterende records — geen ervan is van toepassing:"
   },
   "dmarc": {
     "missing": "✗ Ontbreekt",
@@ -366,7 +367,7 @@
       "fixCode": "; Null-MX — vertelt verzenders dat dit domein geen e-mail accepteert:\n@    MX     0 .\n\n; SPF — blokkeer alle verzenders:\n@    TXT    \"v=spf1 -all\"\n\n; DMARC — weiger alle vervalste e-mail:\n_dmarc    TXT    \"v=DMARC1; p=reject;\""
     },
     "spf-multiple-records": {
-      "msg": "Meerdere SPF-records gevonden — SPF faalt permanent (permerror) voor alle e-mail vanaf dit domein.",
+      "msg": "{0} SPF-records gevonden — SPF faalt permanent (permerror) voor alle e-mail vanaf dit domein, en geen ervan is van toepassing.",
       "what": "RFC 7208 §4.5 staat precies één <code>v=spf1</code> TXT-record per domein toe. Vindt een ontvanger er twee, dan geeft hij <code>permerror</code> terug en stopt — hij voegt ze niet samen en kiest ook niet de striktste. Het praktische effect is erger dan helemaal geen SPF hebben: uw record oogt correct in het DNS-paneel, maar elk bericht vanaf uw domein zakt voor de SPF-authenticatie. Dit gebeurt meestal wanneer een tweede maildienst wordt aangesloten en een eigen record toevoegt in plaats van het bestaande aan te passen.",
       "fix": "Voeg de records samen tot één. Neem elk <code>include:</code>-, <code>ip4:</code>- en <code>ip6:</code>-mechanisme uit alle records, zet ze in één <code>v=spf1</code>-record en verwijder de rest. Let bij het samenvoegen op de limiet van 10 lookups — records samenvoegen is een veelvoorkomende manier om eroverheen te gaan.",
       "fixCode": "; Voor — twee records, SPF faalt voor alles:\n@    TXT    \"v=spf1 include:_spf.google.com -all\"\n@    TXT    \"v=spf1 include:sendgrid.net -all\"\n\n; Na — één record met beide verzenders:\n@    TXT    \"v=spf1 include:_spf.google.com include:sendgrid.net -all\""

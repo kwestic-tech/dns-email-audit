@@ -2833,7 +2833,7 @@
 
   // Each issue carries a key (→ locale lookup) and optional `args` used to
   // fill {0} placeholders in the translated message.
-  function buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan, wildcardApex, wildcardDkim, hosting, advanced, domain }) {
+  function buildIssues({ emailProvider, spfStatus, spfRecords, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan, wildcardApex, wildcardDkim, hosting, advanced, domain }) {
     const issues = [];
 
     // Reported by the depth that was actually measured. A wildcard only the
@@ -2849,7 +2849,13 @@
     // Multiple-record failures come first: the fix ("delete the duplicate")
     // differs from the missing-record fix ("publish one"), and a domain in this
     // state must not also be told its record is absent.
-    if (spfStatus.status === 'permerror') issues.push({ key: 'spf-multiple-records', sev: 'crit' });
+    // The count is part of the evidence: "Multiple SPF records found" with a
+    // single valid-looking record beside it reads as a bug in this tool, which
+    // is how it was reported. Saying "2" costs nothing and matches how
+    // `dkim-multiple-records` already names its selectors.
+    if (spfStatus.status === 'permerror') {
+      issues.push({ key: 'spf-multiple-records', sev: 'crit', args: [(spfRecords || []).length || 2] });
+    }
     else if (spfStatus.status === 'missing') issues.push({ key: 'spf-missing', sev: 'crit' });
 
     // Content warnings are moot on a permerror — the record never evaluates, and
@@ -3498,6 +3504,13 @@
     const spfMatches = txt.filter(v => startsWithCI(v, 'v=spf1'));
     const spfRecord = spfMatches[0] || '';
     const spfMultiple = spfMatches.length > 1;
+    // Every matching record is kept, not just the first. `spfRecord` alone made
+    // `spf-multiple-records` an unevidenced accusation: the finding is critical
+    // and correct, and the panel beside it showed one perfectly valid record,
+    // because the second was discarded here and existed nowhere in the result.
+    // An operator could not see which records conflicted or where to look, and
+    // the honest conclusion from that screen is that the tool is wrong.
+    const spfRecords = spfMatches;
     const spfStatus = analyzeSpf(spfRecord, emailProvider, spfMultiple);
     const verifications = txt.filter(v => startsWithCI(v, 'google-site-verification') || startsWithCI(v, 'apple-domain'));
 
@@ -3670,14 +3683,14 @@
       }
     }
 
-    const issues = buildIssues({ emailProvider, spfStatus, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan, wildcardApex, wildcardDkim, hosting, advanced, domain: d });
+    const issues = buildIssues({ emailProvider, spfStatus, spfRecords, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan, wildcardApex, wildcardDkim, hosting, advanced, domain: d });
     const suggestions = buildSuggestions({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
     const score = calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
     const advScore = opts.advanced ? calcAdvScore(advanced) : null;
 
     return {
       domain: d, ns, mx, txt, aRec, aaaaRec, dnsProvider, emailProvider,
-      spfRecord, spfStatus, dmarcRecord, dmarcStatus, dmarcDiscovery, dmarcExistence,
+      spfRecord, spfRecords, spfStatus, dmarcRecord, dmarcStatus, dmarcDiscovery, dmarcExistence,
       // Retained as an alias of dmarcDiscovery.applied.foundAt for one release
       // so the CSV export and the saved report keep working, then removed.
       dmarcAtDomain, organizationalDomain, dkimStatus,
