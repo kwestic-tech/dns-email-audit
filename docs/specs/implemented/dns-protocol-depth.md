@@ -596,14 +596,53 @@ and `caa-no-iodef` split from the CAA block, and the MX findings separated
 concentration from redundancy. No finding was added that the design did not
 already describe.
 
+**9. What review changed, and what that says about the design.** This release
+went through **eight** review rounds after the implementation was "done" — 0.3.0
+took four — and every one found something real. The detail lives in the
+untracked `CODEX review for PR#22.md` decision log; what belongs here is the
+shape, because it is a property of the spec and not of the session.
+
+**Six of the eight were in the DER key walk**, each sitting underneath a
+boundary the previous round had drawn:
+
+| Round | Found | Underneath |
+| --- | --- | --- |
+| 1 | byte width reported as bit length | accepting both envelopes |
+| 1 | SPKI missing the PKCS#1 guards | accepting both envelopes |
+| 2 | tags checked, values not | the strict structure guards |
+| 3 | `e < n` compared by width, not value | the strict value guards |
+| 4 | non-minimal DER lengths accepted | the exact value comparison |
+| 5 | modulus parity unchecked | the canonical-encoding guards |
+
+Rounds 6 to 8 moved outward from DER to the other parsers and found the same
+pattern in a different costume: **a recognized name accepted without its
+registered value grammar.** CAA read `%%%%%` as a certificate authority where
+RFC 8659 §4.2 uses that exact string as its example of a value that BLOCKS
+issuance — the policy reported inverted. MTA-STS and TLS-RPT were tag-bag
+lookups that could not express "the version field comes first", so
+`id=abc; v=STSv1` validated. DKIM counted `s=tlsrpt` keys as email signing keys.
+
+**Three rounds found the opposite failure**, which is the one to expect when
+tightening: validators rejecting *conforming* records. A blanket duplicate-field
+rule contradicted RFC 8461 §3.1 and RFC 8460 §3; an FQDN-only URI check refused
+`https://[2001:db8::1]/r`. Both were settled by reading the RFC text — one of
+them after a reply declining the finding had already been drafted from memory.
+
+**The design lesson, for `dnssec-evidence` and anything else parsing records
+here:** a structural check that is locally consistent is not finished. Validate
+the encoding, then the values, then the relationships between them — and when a
+field name is recognized, validate what its specification says the value may be.
+"A key is published" and "that key signs your mail" are different claims, and
+only the second answers the question this audit asks.
+
 **8. Verification.** `npm test` passes 1,813 assertions across the five suites,
 up from 1,189 at 0.3.0; `npm run locale:gate` passes 13/13 at 724/724 keys. The
 backtest shows **zero grade movement and zero score movement** against `v0.3.0`
 on the 40-domain sample, with the deep checks both off and on, and `WEIGHTS`,
 `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` byte-identical — acceptance criterion 5.
-Fan-out is 31.9 queries per domain with the deep checks off, unchanged from
-0.3.0 (`cloudflare.com` issues exactly 43 on both releases), and 39.1 with them
-on; `PRIVACY.md` carries both numbers and its storage table is untouched,
+Fan-out is about 32 queries per domain with the deep checks off, unchanged from
+0.3.0 (`cloudflare.com` issues exactly 43 on both releases), and about 39 with
+them on, where the same domain issues 59; `PRIVACY.md` carries both numbers and its storage table is untouched,
 because the toggle's session memory is a module variable and not a second
 `localStorage` key.
 
@@ -632,5 +671,5 @@ confirms them against real DNS.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-08-20 | Initial draft. |
-| 1.1 | 2026-08-25 | Implemented. Two amendments, both in the same direction — the spec had let an implementation's capabilities stand in for the protocol's rules. The DER walk was written as SPKI-only, which would have reported a conformant bare PKCS#1 key as unparseable because `crypto.subtle.importKey` does not accept that encoding; and `cryptoValidated: false` for an absent Web Crypto collapsed "not checked" into "failed", contradicting the same paragraph's own rule. Three further notes recorded: the `tlsa-published-unsigned` finding is gated on the resolver's AD bit rather than on `qualified`, which would otherwise have fired on every domain in the release; base64 is decoded in-file rather than with `atob`; and the renderer was hardened against partial result shapes. See **As implemented**. |
+| 1.1 | 2026-08-25 | Implemented, then hardened across eight review rounds — see **As implemented** item 9 for what they found and why the shape matters. Two spec amendments, both in the same direction — the spec had let an implementation's capabilities stand in for the protocol's rules. The DER walk was written as SPKI-only, which would have reported a conformant bare PKCS#1 key as unparseable because `crypto.subtle.importKey` does not accept that encoding; and `cryptoValidated: false` for an absent Web Crypto collapsed "not checked" into "failed", contradicting the same paragraph's own rule. Three further notes recorded: the `tlsa-published-unsigned` finding is gated on the resolver's AD bit rather than on `qualified`, which would otherwise have fired on every domain in the release; base64 is decoded in-file rather than with `atob`; and the renderer was hardened against partial result shapes. See **As implemented**. |
 | 1.0 | 2026-08-25 | Final. Resolved all seven open questions. Two were settled with measurement rather than argument: `OQ-DEPTH-01`'s resolver shapes were captured before any parser was designed, and immediately found that `TLSA` comes back parenthesised where `DS` does not — a difference that would have produced a silently empty digest; and `OQ-DEPTH-05`'s 1024-bit threshold was decided by counting real keys, which showed 53% of keys on the sample are RSA-1024, so a warning would fire on most audited domains and the finding drops to informational. `OQ-DEPTH-02` takes the draft's third option, a DER walk for size with Web Crypto validation where available, which also keeps the analysis synchronous. `OQ-DEPTH-03` and `OQ-DEPTH-06` were decided by Ian; the former's "remember the user's choice" is explicitly session-scoped, because persisting it would need a second `localStorage` key and falsify `PRIVACY.md`'s "exactly one value" claim. Every code reference in the draft was re-pointed — all fifteen were stale, the spec having been written against 0.2.2 — and each referenced function was confirmed to still exist. |

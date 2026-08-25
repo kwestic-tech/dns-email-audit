@@ -60,7 +60,7 @@ ordinary run of one domain makes them, and the 39-per-domain and 59-for-
 they switch themselves off and the interface says so; you can tick the box again
 to run them anyway, and that choice lasts for the browser tab's session.
 
-Turning them off returns the fan-out to exactly what 0.3.0 issued: **31.9
+Turning them off returns the fan-out to exactly what 0.3.0 issued: **about 32
 queries per domain** on the 40-domain sample, and **43** for `cloudflare.com`.
 That comparison is measured rather than assumed — 0.3.0 and 0.4.0 were run back
 to back and both issue exactly 43 for that domain with the checks off.

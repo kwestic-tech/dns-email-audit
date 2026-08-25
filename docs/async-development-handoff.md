@@ -289,16 +289,34 @@ to `docs/specs/implemented/`.
 ### 3b. `dns-protocol-depth` (0.4.0)
 
 > **Status, 2026-08-25: implemented, pending release.** Spec finalized at `1.0`,
-> then amended to `1.1` — see its **As implemented** section. `npm test` 1,466
-> assertions / 0 failures, `npm run locale:gate` 13/13 (715/715 keys).
+> then amended to `1.1` — see its **As implemented** section. `npm test` 1,813
+> assertions / 0 failures, `npm run locale:gate` 13/13 (724/724 keys).
 > Backtested against `v0.3.0`: **zero grade movement and zero score movement**
 > across the 40-domain sample with the deep checks both off and on, which is the
 > expected result here and unlike 0.3.0, where movement was expected and
-> explained. Fan-out measured at 31.9 queries per domain with the deep checks
-> off — unchanged from 0.3.0, `cloudflare.com` issues exactly 43 on both — and
-> 39.1 with them on; both are written into `PRIVACY.md`. The spec has moved to
+> explained. Fan-out measured at about 32 queries per domain with the deep
+> checks off — unchanged from 0.3.0, `cloudflare.com` issues exactly 43 on both
+> — and about 39 with them on, where the same domain issues 59; all of it is
+> written into `PRIVACY.md`. The spec has moved to
 > [`docs/specs/implemented/`](specs/implemented/dns-protocol-depth.md) with its
 > fixtures.
+>
+> **Budget for far more review than 3a needed.** 0.3.0 took four rounds; this
+> took **eight**, and every one found something real. Six were in the DER key
+> walk alone, each underneath a boundary the previous round had drawn: accept
+> both envelopes → exact bit length → strict structure → strict values → exact
+> `e < n` → canonical lengths → odd modulus. The lesson for 3c, which parses
+> `DS` and `DNSKEY` records of its own: **a structural check that is locally
+> consistent is not finished.** Validate the encoding, then the values, then the
+> relationships between them, and expect the next layer to exist.
+>
+> **The other three rounds found the opposite failure**, and it is the one to
+> watch when tightening: validators that rejected *conforming* records. A
+> blanket duplicate-field rule contradicted RFC 8461 §3.1 and RFC 8460 §3, which
+> require the first entry to win and permit repeated `rua` respectively; an
+> FQDN-only URI check refused `https://[2001:db8::1]/r`. Both were caught by
+> reading the RFC text rather than reasoning from familiarity — one of them
+> after I had drafted a reply declining the finding.
 >
 > **The 3a lesson held, and cost two corrections.** Both were the same shape it
 > warned about — a confident verdict the evidence did not support. The
