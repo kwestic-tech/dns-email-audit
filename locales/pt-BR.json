@@ -857,6 +857,12 @@
       "msg": "O TLSA está publicado para {0} de {1} hosts de e-mail — os que não têm aceitam conexões não autenticadas.",
       "what": "Um servidor remetente escolhe um host MX e procura um registro TLSA sob o nome desse host. Onde encontra um, a conexão é autenticada; onde não encontra, a entrega recai no TLS oportunista comum, que um atacante no caminho pode rebaixar. Então cobertura parcial significa que o atacante simplesmente mira o host que não tem registro. A proteção só é tão boa quanto o host MX mais fraco.",
       "fix": "Publique um registro TLSA para cada host MX, ou remova os registros até conseguir cobrir todos. Cada host precisa do seu próprio, sob <code>_25._tcp</code> no nome daquele host."
+    },
+    "dkim-key-not-email": {
+      "msg": "Chave DKIM publicada mas não aplicável ao e-mail: {0} — ela não conta para a assinatura de e-mail deste domínio.",
+      "what": "Um registro de chave DKIM pode restringir para que serve. A tag <code>s=</code> lista os serviços aos quais a chave se aplica, e uma chave limitada a outra coisa — por exemplo <code>s=tlsrpt</code>, que a RFC 8460 usa para relatórios TLS — não é uma chave para e-mail comum. Uma chave cujo <code>k=</code> nomeia um algoritmo que esta ferramenta não reconhece está na mesma situação: a RFC 6376 §3.6.1 exige que um verificador a ignore. Esses registros costumam estar corretos e ser deliberados. Eles aparecem aqui para que um domínio cujos únicos registros DKIM sejam desse tipo saiba por que a auditoria não relata nenhuma chave de assinatura, em vez de ouvir que nada foi encontrado em um seletor que ele sabe ter configurado.",
+      "fix": "Nada, se a restrição for intencional. Se este seletor deveria assinar e-mail comum, remova a tag <code>s=</code> — a ausência dela significa que a chave vale para todos os serviços — ou inclua <code>email</code> na lista. Confira também o valor de <code>k=</code>: para DKIM só estão definidos <code>rsa</code> e <code>ed25519</code>.",
+      "fixCode": "; Limitada a outro serviço — válida, mas não é uma chave de e-mail:\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Aplica-se ao e-mail, nomeando-o ou omitindo s= por completo:\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {

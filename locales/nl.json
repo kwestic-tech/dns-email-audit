@@ -857,6 +857,12 @@
       "msg": "TLSA is gepubliceerd voor {0} van de {1} e-mailhosts — de hosts zonder accepteren niet-geauthenticeerde verbindingen.",
       "what": "Een verzendende server kiest een MX-host en zoekt onder de naam van die host naar een TLSA-record. Waar hij er een vindt, is de verbinding geauthenticeerd; waar niet, valt de bezorging terug op gewone opportunistische TLS, die een aanvaller op het pad kan afzwakken. Gedeeltelijke dekking betekent dus dat een aanvaller simpelweg de host zonder record kiest. De bescherming is niet beter dan de zwakste MX-host.",
       "fix": "Publiceer een TLSA-record voor elke MX-host, of verwijder de records tot u ze allemaal kunt dekken. Elke host heeft een eigen record nodig, onder <code>_25._tcp</code> bij de naam van die host."
+    },
+    "dkim-key-not-email": {
+      "msg": "DKIM-sleutel gepubliceerd maar niet van toepassing op e-mail: {0} — hij telt niet mee voor de e-mailondertekening van dit domein.",
+      "what": "Een DKIM-sleutelrecord kan beperken waarvoor hij gebruikt mag worden. Een <code>s=</code>-tag somt de diensten op waarvoor de sleutel geldt, en een sleutel die tot iets anders beperkt is — bijvoorbeeld <code>s=tlsrpt</code>, dat RFC 8460 voor TLS-rapportage gebruikt — is geen sleutel voor gewone post. Een sleutel waarvan de <code>k=</code> een algoritme noemt dat dit hulpmiddel niet kent, staat er net zo voor: RFC 6376 §3.6.1 verplicht een verifiëerder hem te negeren. Deze records zijn meestal correct en bewust. Ze staan hier zodat een domein waarvan de enige DKIM-records van dit soort zijn, hoort waarom de audit geen ondertekeningssleutel meldt, in plaats van te horen dat er niets is gevonden onder een selector die de beheerder zelf heeft ingericht.",
+      "fix": "Niets, als de beperking bedoeld is. Moest deze selector gewone post ondertekenen, verwijder dan de <code>s=</code>-tag — ontbreken betekent dat de sleutel voor elke dienst geldt — of neem <code>email</code> op in de lijst. Controleer ook de <code>k=</code>-waarde: voor DKIM zijn alleen <code>rsa</code> en <code>ed25519</code> gedefinieerd.",
+      "fixCode": "; Beperkt tot een andere dienst — geldig, maar geen e-mailsleutel:\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Geldt voor e-mail, door die te noemen of door s= helemaal weg te laten:\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {

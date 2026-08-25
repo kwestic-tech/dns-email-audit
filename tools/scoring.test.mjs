@@ -3478,6 +3478,172 @@ const noSpf = await D.analyzeDomain('nospf.example', { dkim: false, retries: 0 }
 eq('no SPF means an empty record list', noSpf.spfRecords, []);
 eq('and the status is missing, not permerror', noSpf.spfStatus.status, 'missing');
 
+/* ── 41. A recognized field name promises a value grammar ────────────── */
+section('41. Registered value grammars: DKIM applicability, MTA-STS, TLS-RPT, BIMI');
+
+// ── DKIM: published key-shaped record vs. usable for THIS domain's email ──
+// `k=bogus` and `s=tlsrpt` are conformant records that RFC 6376 §3.6.1 tells a
+// verifier to ignore for email. Counting them satisfied DKIM discovery and
+// reported a signing key where none applies.
+const appliesToEmail = tags => D.analyzeDkimKey(`${tags}p=${RSA_2048}`).appliesToEmail;
+const discovered = tags => D.dkimRecordSet([{ type: 16, data: `"${tags}p=${RSA_2048}"` }]).keys.length > 0;
+
+eq('an unrecognized k= does not apply to email', appliesToEmail('k=bogus; '), false);
+eq('and does not satisfy discovery',             discovered('k=bogus; '), false);
+eq('but is not called malformed',                D.analyzeDkimKey(`k=bogus; p=${RSA_2048}`).errors, []);
+eq('it is recorded as a restriction instead',
+  D.analyzeDkimKey(`k=bogus; p=${RSA_2048}`).restrictions, ['unsupported-key-type']);
+
+eq('s=tlsrpt does not apply to email',  appliesToEmail('s=tlsrpt; '), false);
+eq('and does not satisfy discovery',    discovered('s=tlsrpt; '), false);
+eq('and is a restriction, not an error',
+  D.analyzeDkimKey(`s=tlsrpt; p=${RSA_2048}`).restrictions, ['service-not-email']);
+
+// Controls that must all still apply to email.
+eq('s=email applies',            appliesToEmail('s=email; '), true);
+eq('s=* applies',                appliesToEmail('s=*; '), true);
+eq('an absent s= defaults to *', appliesToEmail(''), true);
+eq('s=email:tlsrpt applies',     appliesToEmail('s=email:tlsrpt; '), true);
+eq('and all four satisfy discovery',
+  ['s=email; ', 's=*; ', '', 's=email:tlsrpt; '].map(discovered), [true, true, true, true]);
+
+// h=: an unknown hash name is an extension, not a defect — but a list offering
+// no hash this verifier knows is a key it cannot use.
+eq('h=sha999 alone does not apply',      appliesToEmail('h=sha999; '), false);
+eq('and is a restriction, not an error',
+  D.analyzeDkimKey(`h=sha999; p=${RSA_2048}`).restrictions, ['no-supported-hash']);
+eq('h=sha999:sha256 applies',            appliesToEmail('h=sha999:sha256; '), true);
+eq('and keeps the extension token',
+  D.analyzeDkimKey(`h=sha999:sha256; p=${RSA_2048}`).hashAlgorithms, ['sha999', 'sha256']);
+eq('an unknown t= flag is kept as an extension',
+  D.analyzeDkimKey(`t=y:custom; p=${RSA_2048}`).flags, ['y', 'custom']);
+
+// A PRESENT list tag may not be empty; an ABSENT one is a different thing.
+eq('an empty h= is malformed',  D.analyzeDkimKey(`h=; p=${RSA_2048}`).errors, ['invalid-tag-list']);
+eq('an empty s= is malformed',  D.analyzeDkimKey(`s=; p=${RSA_2048}`).errors, ['invalid-tag-list']);
+eq('an empty t= is malformed',  D.analyzeDkimKey(`t=; p=${RSA_2048}`).errors, ['invalid-tag-list']);
+eq('an absent h= is not malformed', D.analyzeDkimKey(`p=${RSA_2048}`).errors, []);
+eq('and reports no hash list',      D.analyzeDkimKey(`p=${RSA_2048}`).hashAlgorithms, []);
+
+// The line this fix must NOT cross: a key meant for email that happens to be
+// broken still counts as found, so `dkim-key-unparseable` keeps firing. Turning
+// a warning about a broken key into "no DKIM at all" is a worse answer.
+eq('an unparseable key still applies to email', D.analyzeDkimKey('p=notbase64!!').appliesToEmail, true);
+eq('and still satisfies discovery',
+  D.dkimRecordSet([{ type: 16, data: '"v=DKIM1; p=notbase64!!"' }]).keys.length, 1);
+eq('a revoked key applies to nothing', D.analyzeDkimKey('v=DKIM1; p=').appliesToEmail, false);
+
+// The unusable records are surfaced, not silently dropped.
+sandbox.fetch = dohFixture({
+  'tlsrpt._domainkey.svc.example TXT': txt(`v=DKIM1; k=rsa; s=tlsrpt; p=${RSA_2048}`),
+});
+const scoped = await D.checkDKIM('svc.example', false, ['tlsrpt'], '@custom-unknown', false, '', { retries: 0, noCache: true });
+eq('a scoped-only domain reports no email DKIM', scoped.found, false);
+// A record exists at that name, so "No Domain Key Found" would contradict the
+// finding that describes it.
+eq('but the selector is not reported missing',   scoped.missingSelectors.length, 0);
+// The same applies to a selector holding only a revocation.
+sandbox.fetch = dohFixture({ 'old._domainkey.rev.example TXT': txt('v=DKIM1; p=') });
+const revokedOnly = await D.checkDKIM('rev.example', false, ['old'], '@custom-unknown', false, '', { retries: 0, noCache: true });
+eq('a revoked-only selector is not reported missing either', revokedOnly.missingSelectors.length, 0);
+eq('it is reported as revoked',                              revokedOnly.revokedSelectors.map(r => r.sel), ['old']);
+// ...but a selector with genuinely nothing at it is still reported missing.
+sandbox.fetch = dohFixture({});
+eq('an empty selector is still reported missing',
+  (await D.checkDKIM('none.example', false, ['ghost'], '@custom-unknown', false, '', { retries: 0, noCache: true }))
+    .missingSelectors.map(m => m.sel), ['ghost']);
+eq('it is reported as inapplicable instead',
+  scoped.unusableSelectors.map(u => u.sel), ['tlsrpt']);
+eq('and the finding says so',
+  D.buildIssues({ emailProvider: 'X', spfStatus: { status: 'ok', warnings: [] }, dkimStatus: scoped,
+    dmarcStatus: { status: 'ok', policy: 'reject', warnings: [] }, reportPlan: { external: [] },
+    externalReportDestinations: [], advanced: {}, domain: 'svc.example',
+  }).filter(i => i.key === 'dkim-key-not-email').map(i => i.args), [['tlsrpt']]);
+
+// ── MTA-STS (RFC 8461 §3.1) ──
+const sts = r => D.validateMtaStsRecord(r).valid;
+eq('a canonical MTA-STS record is valid',   sts('v=STSv1; id=20260817'), true);
+eq('a trailing delimiter is permitted',     sts('v=STSv1; id=abc;'), true);
+eq('a valid extension is permitted',        sts('v=STSv1; id=abc; ext_1=ok'), true);
+eq('the version must come first',           sts('id=abc; v=STSv1'), false);
+eq('the version is case-sensitive',         sts('v=stsv1; id=abc'), false);
+eq('an id with a hyphen is refused',        sts('v=STSv1; id=has-hyphen'), false);
+eq('a 33-character id is refused',          sts(`v=STSv1; id=${'a'.repeat(33)}`), false);
+eq('a 32-character id is accepted',         sts(`v=STSv1; id=${'a'.repeat(32)}`), true);
+eq('a bare fragment is not an extension',   sts('v=STSv1; id=abc; garbage'), false);
+eq('a missing id is still refused',         sts('v=STSv1'), false);
+// A bare fragment is rejected for having no "=" at all, which never reaches
+// the extension grammar. These do reach it: a well-formed field whose NAME or
+// VALUE breaks the ABNF.
+eq('an extension name with a space is refused',  sts('v=STSv1; id=abc; bad name=x'), false);
+eq('an extension value with a space is refused', sts('v=STSv1; id=abc; ext=has space'), false);
+eq('an empty extension value is refused',        sts('v=STSv1; id=abc; ext='), false);
+eq('an over-long extension name is refused',     sts(`v=STSv1; id=abc; ${'e'.repeat(33)}=x`), false);
+eq('a dotted extension name is accepted',        sts('v=STSv1; id=abc; a.b-c_d=x'), true);
+
+// ── TLS-RPT (RFC 8460 §3) ──
+const rpt = r => D.validateTlsRptRecord(r).valid;
+eq('a canonical TLS-RPT record is valid',   rpt('v=TLSRPTv1; rua=mailto:tls@example.com'), true);
+eq('an https destination is valid',         rpt('v=TLSRPTv1; rua=https://example.com/r'), true);
+eq('a comma-separated pair is valid',       rpt('v=TLSRPTv1; rua=mailto:a@e.example,https://e.example/r'), true);
+eq('the version must come first',           rpt('rua=mailto:a@example.com; v=TLSRPTv1'), false);
+eq('the version is case-sensitive',         rpt('v=tlsrptv1; rua=mailto:a@e.example'), false);
+eq('a scheme prefix is not a URI',          rpt('v=TLSRPTv1; rua=mailto:not an address'), false);
+eq('a bare fragment is not an extension',   rpt('v=TLSRPTv1; rua=https://example.com/x; garbage'), false);
+eq('a missing rua is still refused',        rpt('v=TLSRPTv1'), false);
+eq('an extension value with a space is refused',
+  rpt('v=TLSRPTv1; rua=mailto:a@e.example; ext=has space'), false);
+eq('a valid extension is accepted',
+  rpt('v=TLSRPTv1; rua=mailto:a@e.example; ext_1=ok'), true);
+
+// ── BIMI (draft-brand-indicators-for-message-identification §4.3) ──
+const bimi = r => D.validateBimiRecord(r);
+eq('an active BIMI record is valid',        bimi('v=BIMI1; l=https://logo.example/x.svg').valid, true);
+eq('and is not a declination',              bimi('v=BIMI1; l=https://logo.example/x.svg').declined, false);
+// The draft's explicit "we publish no indicator" — a conformant record that
+// was previously reported invalid.
+eq('an empty l= is a valid declination',    bimi('v=BIMI1; l=').valid, true);
+eq('and is flagged as declined',            bimi('v=BIMI1; l=').declined, true);
+eq('an absent l= is still invalid',         bimi('v=BIMI1').valid, false);
+eq('the version is case-sensitive',         bimi('v=bimi1; l=https://logo.example/x.svg').valid, false);
+eq('the version must come first',           bimi('l=https://logo.example/x.svg; v=BIMI1').valid, false);
+eq('a scheme with no host is refused',      bimi('v=BIMI1; l=https://').valid, false);
+eq('a PNG indicator is refused',            bimi('v=BIMI1; l=https://logo.example/x.png').valid, false);
+eq('an SVGZ indicator is accepted',         bimi('v=BIMI1; l=https://logo.example/x.svgz').valid, true);
+eq('an https authority is accepted',
+  bimi('v=BIMI1; l=https://l.example/x.svg; a=https://a.example/c.pem').valid, true);
+eq('an http logo is still refused',         bimi('v=BIMI1; l=http://logo.example/x.svg').valid, false);
+eq('an extension value with a space is refused',
+  bimi('v=BIMI1; l=https://l.example/x.svg; ext=has space').valid, false);
+eq('a valid extension is accepted',
+  bimi('v=BIMI1; l=https://l.example/x.svg; ext_1=ok').valid, true);
+eq('a malformed authority URL is refused',
+  bimi('v=BIMI1; l=https://l.example/x.svg; a=https://').valid, false);
+
+// A declination is neither "present" nor "invalid" once it reaches the result.
+const bimiDeclined = { advertised: true, present: false, declined: true, multiple: false, unknown: false };
+eq('a declination raises no bimi-invalid finding',
+  D.buildIssues({ emailProvider: 'X', spfStatus: { status: 'ok', warnings: [] },
+    dkimStatus: { found: true, selectors: [], confidence: 'observed' },
+    dmarcStatus: { status: 'ok', policy: 'reject', warnings: [] }, reportPlan: { external: [] },
+    externalReportDestinations: [], advanced: { bimi: bimiDeclined }, domain: 'e.example',
+  }).map(i => i.key).includes('bimi-invalid'), false);
+eq('and is not sold BIMI in the suggestions',
+  D.buildSuggestions({ emailProvider: 'X', spfStatus: { status: 'ok' },
+    dkimStatus: { found: true }, dmarcStatus: { status: 'ok', policy: 'reject' },
+    advanced: { bimi: bimiDeclined },
+  }).map(t => t.key).some(k => k.startsWith('bimi')), false);
+
+// ── CAA iodef is a URL, not a prefix ──
+const iodef = v => D.summarizeCaa([`0 iodef "${v}"`]).parsed[0].valid;
+eq('a scheme prefix with prose is refused', iodef('mailto:not an address'), false);
+eq('a bare scheme is refused',              iodef('https://'), false);
+eq('a host with no dot is refused',         iodef('mailto:a@b'), false);
+eq('a real mailto is accepted',             iodef('mailto:sec@example.com'), true);
+eq('a real https URL is accepted',          iodef('https://example.com/report'), true);
+eq('a real http URL is accepted',           iodef('http://example.com/report'), true);
+eq('ftp is still refused',                  iodef('ftp://x.example'), false);
+
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);

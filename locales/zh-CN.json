@@ -857,6 +857,12 @@
       "msg": "TLSA 只为 {1} 台邮件主机中的 {0} 台发布 — 没有 TLSA 的主机会接受未经认证的连接。",
       "what": "发信服务器会挑选一台 MX 主机，并在该主机名下查找 TLSA 记录。找得到，连接就经过认证；找不到，投递就退回到普通的机会性 TLS，而路径上的攻击者可以将其降级。所以覆盖不全就意味着攻击者只需盯上那台没有记录的主机。这份保护的强度，只等于最弱的那台 MX 主机。",
       "fix": "为每一台 MX 主机都发布 TLSA 记录，或者在能够全部覆盖之前先撤下这些记录。每台主机都需要自己的记录，位于该主机名下的 <code>_25._tcp</code>。"
+    },
+    "dkim-key-not-email": {
+      "msg": "已发布 DKIM 密钥，但不适用于邮件：{0} — 它不计入此域名的邮件签名。",
+      "what": "DKIM 密钥记录可以限制自身的用途。<code>s=</code> 标签列出该密钥适用的服务，而限定给别的用途的密钥 — 例如 RFC 8460 用于 TLS 报告的 <code>s=tlsrpt</code> — 并不是普通邮件的密钥。<code>k=</code> 指定了本工具无法识别的算法的密钥处境相同：RFC 6376 §3.6.1 要求验证方忽略它。这类记录通常是正确且有意为之的。在这里列出，是为了让那些仅有此类 DKIM 记录的域名知道审计为何没有报告签名密钥，而不是被告知在一个自己明明配置过的选择器上什么都没找到。",
+      "fix": "如果这项限制是有意的，无需处理。如果这个选择器本应签署普通邮件，请删除 <code>s=</code> 标签（不带该标签表示密钥适用于所有服务），或者在其列表中加入 <code>email</code>。同时检查 <code>k=</code> 的值：DKIM 只定义了 <code>rsa</code> 和 <code>ed25519</code>。",
+      "fixCode": "; 限定给其他服务 — 有效，但不是邮件密钥：\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; 适用于邮件：明确写出，或者干脆省略 s=：\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {

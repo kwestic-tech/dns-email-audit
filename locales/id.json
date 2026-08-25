@@ -857,6 +857,12 @@
       "msg": "TLSA diterbitkan untuk {0} dari {1} host surel — host yang tanpa TLSA menerima sambungan tanpa autentikasi.",
       "what": "Server pengirim memilih satu host MX lalu mencari data TLSA di bawah nama host itu. Di tempat ia menemukannya, sambungannya terautentikasi; di tempat ia tidak menemukannya, pengiriman mundur ke TLS oportunistik biasa, yang bisa diturunkan oleh penyerang di jalur. Jadi cakupan sebagian berarti penyerang tinggal membidik host yang tidak punya data itu. Perlindungannya hanya sebaik host MX yang paling lemah.",
       "fix": "Terbitkan data TLSA untuk setiap host MX, atau hapus datanya sampai Anda bisa mencakup semuanya. Setiap host memerlukan datanya sendiri, di bawah <code>_25._tcp</code> pada nama host tersebut."
+    },
+    "dkim-key-not-email": {
+      "msg": "Kunci DKIM diterbitkan tetapi tidak berlaku untuk surel: {0} — kunci itu tidak dihitung dalam penandatanganan surel domain ini.",
+      "what": "Sebuah data kunci DKIM dapat membatasi penggunaannya. Tag <code>s=</code> mendaftar layanan yang berlaku bagi kunci tersebut, dan kunci yang dibatasi pada hal lain — misalnya <code>s=tlsrpt</code>, yang dipakai RFC 8460 untuk pelaporan TLS — bukanlah kunci untuk surel biasa. Kunci yang <code>k=</code>-nya menyebut algoritme yang tidak dikenali alat ini berada pada posisi yang sama: RFC 6376 §3.6.1 mewajibkan verifikator mengabaikannya. Data seperti ini biasanya benar dan disengaja. Ia dicantumkan di sini agar domain yang seluruh data DKIM-nya berjenis ini tahu mengapa audit tidak melaporkan kunci penandatanganan, alih-alih diberi tahu bahwa tidak ada apa pun pada selektor yang jelas-jelas ia siapkan sendiri.",
+      "fix": "Tidak perlu apa-apa jika pembatasan itu memang disengaja. Jika selektor ini dimaksudkan menandatangani surel biasa, hapus tag <code>s=</code> — ketiadaannya berarti kunci berlaku untuk setiap layanan — atau masukkan <code>email</code> ke dalam daftarnya. Periksa juga nilai <code>k=</code>: untuk DKIM hanya <code>rsa</code> dan <code>ed25519</code> yang didefinisikan.",
+      "fixCode": "; Dibatasi pada layanan lain — sah, tetapi bukan kunci surel:\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Berlaku untuk surel, dengan menyebutnya atau menghilangkan s= sama sekali:\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {

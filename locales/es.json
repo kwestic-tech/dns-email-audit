@@ -857,6 +857,12 @@
       "msg": "TLSA está publicado para {0} de {1} host de correo — los que no lo tienen aceptan conexiones no autenticadas.",
       "what": "Un servidor emisor elige un host MX y busca un registro TLSA bajo el nombre de ese host. Donde lo encuentra, la conexión queda autenticada; donde no, la entrega recae en el TLS oportunista de siempre, que un atacante en el camino puede degradar. Así que una cobertura parcial significa que el atacante simplemente apunta al host que no tiene registro. La protección solo es tan buena como el host MX más débil.",
       "fix": "Publique un registro TLSA para cada host MX, o retire los registros hasta que pueda cubrirlos todos. Cada host necesita el suyo, bajo <code>_25._tcp</code> en el nombre de ese host."
+    },
+    "dkim-key-not-email": {
+      "msg": "Clave DKIM publicada pero no aplicable al correo: {0} — no cuenta para la firma de correo de este dominio.",
+      "what": "Un registro de clave DKIM puede restringir para qué se usa. La etiqueta <code>s=</code> enumera los servicios a los que se aplica la clave, y una clave limitada a otra cosa — por ejemplo <code>s=tlsrpt</code>, que RFC 8460 usa para los informes TLS — no es una clave para el correo ordinario. Una clave cuyo <code>k=</code> nombra un algoritmo que esta herramienta no reconoce está en la misma situación: RFC 6376 §3.6.1 exige que un verificador la ignore. Estos registros suelen ser correctos y deliberados. Se enumeran aquí para que un dominio cuyos únicos registros DKIM sean de este tipo sepa por qué la auditoría no informa de ninguna clave de firma, en vez de que se le diga que no se encontró nada en un selector que sabe que configuró.",
+      "fix": "Nada, si la restricción es intencionada. Si este selector debía firmar correo ordinario, elimine la etiqueta <code>s=</code> — su ausencia significa que la clave se aplica a todos los servicios — o incluya <code>email</code> en su lista. Revise también el valor de <code>k=</code>: para DKIM solo están definidos <code>rsa</code> y <code>ed25519</code>.",
+      "fixCode": "; Limitada a otro servicio — válida, pero no es una clave de correo:\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Se aplica al correo, nombrándolo u omitiendo s= por completo:\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {

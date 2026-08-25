@@ -867,6 +867,12 @@
       "msg": "TLSA jest opublikowane dla {0} z {1} hostów pocztowych — hosty bez niego przyjmują połączenia nieuwierzytelnione.",
       "what": "Serwer nadawczy wybiera host MX i szuka rekordu TLSA pod nazwą tego hosta. Tam, gdzie go znajdzie, połączenie jest uwierzytelnione; tam, gdzie nie, dostarczanie schodzi do zwykłego oportunistycznego TLS, który atakujący na trasie może zdegradować. Częściowe pokrycie oznacza więc, że atakujący po prostu bierze na cel hosta bez rekordu. Ochrona jest warta tyle, co najsłabszy host MX.",
       "fix": "Opublikuj rekord TLSA dla każdego hosta MX albo usuń rekordy, dopóki nie zdołasz pokryć wszystkich. Każdy host potrzebuje własnego rekordu, pod <code>_25._tcp</code> przy nazwie tego hosta."
+    },
+    "dkim-key-not-email": {
+      "msg": "Klucz DKIM opublikowany, ale nie dotyczy poczty: {0} — nie liczy się do podpisywania poczty tej domeny.",
+      "what": "Rekord klucza DKIM może ograniczać, do czego wolno go używać. Znacznik <code>s=</code> wymienia usługi, których klucz dotyczy, a klucz ograniczony do czegoś innego — na przykład <code>s=tlsrpt</code>, którego RFC 8460 używa do raportowania TLS — nie jest kluczem do zwykłej poczty. Klucz, którego <code>k=</code> wskazuje algorytm nieznany temu narzędziu, jest w tej samej sytuacji: RFC 6376 §3.6.1 nakazuje weryfikatorowi go zignorować. Takie rekordy zwykle są poprawne i zamierzone. Znajdują się tutaj po to, by domena, której jedyne rekordy DKIM są tego rodzaju, dowiedziała się, dlaczego audyt nie zgłasza klucza podpisującego, zamiast usłyszeć, że pod świadomie skonfigurowanym selektorem nic nie znaleziono.",
+      "fix": "Nic, jeśli ograniczenie jest zamierzone. Jeśli ten selektor miał podpisywać zwykłą pocztę, usuń znacznik <code>s=</code> — jego brak oznacza, że klucz dotyczy każdej usługi — albo dodaj <code>email</code> do jego listy. Sprawdź też wartość <code>k=</code>: dla DKIM zdefiniowano wyłącznie <code>rsa</code> i <code>ed25519</code>.",
+      "fixCode": "; Ograniczony do innej usługi — poprawny, ale to nie klucz pocztowy:\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Dotyczy poczty — przez wskazanie jej albo przez pominięcie s=:\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {

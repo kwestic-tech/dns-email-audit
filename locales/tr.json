@@ -857,6 +857,12 @@
       "msg": "TLSA, {1} posta ana makinesinden {0} tanesi için yayımlanmış — kaydı olmayanlar kimliği doğrulanmamış bağlantıları kabul eder.",
       "what": "Bir gönderen sunucu bir MX ana makinesi seçer ve o ana makinenin adı altında bir TLSA kaydı arar. Bulduğu yerde bağlantının kimliği doğrulanır; bulamadığı yerde teslimat, yol üzerindeki bir saldırganın düşürebileceği olağan fırsatçı TLS'e geri döner. Yani kısmi kapsama, saldırganın kaydı olmayan ana makineyi hedeflemesi demektir. Koruma ancak en zayıf MX ana makinesi kadar iyidir.",
       "fix": "Her MX ana makinesi için bir TLSA kaydı yayımlayın ya da hepsini kapsayana kadar kayıtları kaldırın. Her ana makinenin, o ana makinenin adı altında <code>_25._tcp</code> içinde kendi kaydı olmalıdır."
+    },
+    "dkim-key-not-email": {
+      "msg": "DKIM anahtarı yayımlanmış ama e-postaya uygulanmıyor: {0} — bu alan adının e-posta imzalamasına sayılmaz.",
+      "what": "Bir DKIM anahtar kaydı, ne için kullanılabileceğini sınırlayabilir. <code>s=</code> etiketi anahtarın geçerli olduğu hizmetleri listeler ve başka bir şeyle sınırlanmış bir anahtar — örneğin RFC 8460'ın TLS raporlaması için kullandığı <code>s=tlsrpt</code> — sıradan posta için bir anahtar değildir. <code>k=</code> değeri bu aracın tanımadığı bir algoritmayı adlandıran anahtar da aynı durumdadır: RFC 6376 §3.6.1 doğrulayıcının onu yok saymasını ister. Bu kayıtlar çoğunlukla doğru ve bilinçlidir. Burada listelenmelerinin nedeni, tek DKIM kayıtları bu türden olan bir alan adının, denetimin neden hiçbir imzalama anahtarı bildirmediğini öğrenmesi; kendi kurduğunu bildiği bir seçicide hiçbir şey bulunamadığını duymaması içindir.",
+      "fix": "Sınırlama kasıtlıysa yapılacak bir şey yok. Bu seçicinin sıradan postayı imzalaması gerekiyorduysa, ya <code>s=</code> etiketini kaldırın — etiketin bulunmaması anahtarın her hizmet için geçerli olduğu anlamına gelir — ya da listesine <code>email</code> ekleyin. <code>k=</code> değerini de denetleyin: DKIM için yalnızca <code>rsa</code> ve <code>ed25519</code> tanımlıdır.",
+      "fixCode": "; Başka bir hizmetle sınırlı — geçerli, ama bir e-posta anahtarı değil:\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; E-postaya uygulanır: ya adı verilerek ya da s= tümüyle atlanarak:\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {

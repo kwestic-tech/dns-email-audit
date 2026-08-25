@@ -857,6 +857,12 @@
       "msg": "TLSA 只為 {1} 台郵件主機中的 {0} 台發布 — 沒有 TLSA 的主機會接受未經驗證的連線。",
       "what": "寄信伺服器會挑選一台 MX 主機，並在該主機名稱底下尋找 TLSA 紀錄。找得到，連線就經過驗證；找不到，遞送就退回到一般的機會性 TLS，而路徑上的攻擊者可以將其降級。所以涵蓋不全就意味著攻擊者只需盯上那台沒有紀錄的主機。這份保護的強度，只等於最弱的那台 MX 主機。",
       "fix": "請為每一台 MX 主機都發布 TLSA 紀錄，或者在能夠全部涵蓋之前先撤下這些紀錄。每台主機都需要自己的紀錄，位於該主機名稱底下的 <code>_25._tcp</code>。"
+    },
+    "dkim-key-not-email": {
+      "msg": "已發布 DKIM 金鑰，但不適用於郵件：{0} — 它不計入此網域的郵件簽章。",
+      "what": "DKIM 金鑰紀錄可以限制自身的用途。<code>s=</code> 標籤列出該金鑰適用的服務，而限定給其他用途的金鑰 — 例如 RFC 8460 用於 TLS 回報的 <code>s=tlsrpt</code> — 並不是一般郵件的金鑰。<code>k=</code> 指定了本工具無法辨識之演算法的金鑰處境相同：RFC 6376 §3.6.1 要求驗證方忽略它。這類紀錄通常是正確且刻意為之的。在此列出，是為了讓那些只有此類 DKIM 紀錄的網域知道稽核為何沒有回報簽章金鑰，而不是被告知在一個自己明明設定過的選擇器上什麼都沒找到。",
+      "fix": "如果這項限制是刻意的，無需處理。如果這個選擇器原本應簽署一般郵件，請移除 <code>s=</code> 標籤（沒有該標籤表示金鑰適用於所有服務），或在其清單中加入 <code>email</code>。同時檢查 <code>k=</code> 的值：DKIM 只定義了 <code>rsa</code> 與 <code>ed25519</code>。",
+      "fixCode": "; 限定給其他服務 — 有效，但不是郵件金鑰：\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; 適用於郵件：明確寫出，或者乾脆省略 s=：\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {

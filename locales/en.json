@@ -857,6 +857,12 @@
       "msg": "TLSA is published for {0} of {1} mail hosts — the hosts without it accept unauthenticated connections.",
       "what": "A sending server picks an MX host and looks for a TLSA record under that host's name. Where it finds one, the connection is authenticated; where it does not, delivery falls back to ordinary opportunistic TLS, which an attacker on the path can downgrade. So partial coverage means an attacker simply targets the host that has no record. The protection is only as good as its weakest MX host.",
       "fix": "Publish a TLSA record for every MX host, or remove the records until you can cover all of them. Each host needs its own record, under <code>_25._tcp</code> at that host's name."
+    },
+    "dkim-key-not-email": {
+      "msg": "DKIM key published but not applicable to email: {0} — it does not count toward this domain's email signing.",
+      "what": "A DKIM key record can restrict what it may be used for. An <code>s=</code> tag lists the services the key applies to, and a key scoped to something else — <code>s=tlsrpt</code>, for example, which RFC 8460 uses for TLS reporting — is not a key for ordinary mail. A key whose <code>k=</code> names an algorithm this tool does not recognize is in the same position: RFC 6376 §3.6.1 says a verifier must ignore it. These records are usually correct and deliberate. They are listed here so that a domain whose only DKIM records are of this kind is told why the audit reports no signing key, instead of being told nothing was found at a selector the operator knows they configured.",
+      "fix": "Nothing, if the restriction is intended. If this selector was meant to sign ordinary mail, either remove the <code>s=</code> tag — an absent tag means the key applies to every service — or include <code>email</code> in its list. Check the <code>k=</code> value too: only <code>rsa</code> and <code>ed25519</code> are defined for DKIM.",
+      "fixCode": "; Scoped to another service — valid, but not an email key:\ntlsrpt._domainkey    TXT    \"v=DKIM1; k=rsa; s=tlsrpt; p=MIIBIjANBgkqhkiG9w0B...\"\n\n; Applies to email, either by naming it or by omitting s= entirely:\ns2026._domainkey     TXT    \"v=DKIM1; k=rsa; s=email; p=MIIBIjANBgkqhkiG9w0B...\"\ns2027._domainkey     TXT    \"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0B...\""
     }
   },
   "suggestion": {

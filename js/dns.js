@@ -481,16 +481,23 @@
   function dkimRecordSet(answers) {
     var keys = [];
     var revoked = [];
+    var unusable = [];
     (answers || []).filter(function (answer) { return answer.type === 16; })
       .forEach(function (answer) {
         var value = cleanAnswerData(answer.data, 'TXT');
         var tags = parseTagList(value).tags;
         if (!Object.prototype.hasOwnProperty.call(tags, 'p')) return;
         if (tags.v && tags.v.toLowerCase() !== 'dkim1') return;
-        if (tags.p.length > 0) keys.push(value);
-        else revoked.push(value);
+        if (tags.p.length === 0) { revoked.push(value); return; }
+        // Key-shaped is not the same as usable. A record with an unrecognized
+        // `k=`, a service list that excludes email, or a hash list this
+        // verifier cannot use is published and conformant — and answering "yes,
+        // DKIM is configured" on the strength of it is a claim about signing
+        // that the record does not support.
+        if (analyzeDkimKey(value).appliesToEmail) keys.push(value);
+        else unusable.push(value);
       });
-    return { keys: keys, revoked: revoked };
+    return { keys: keys, revoked: revoked, unusable: unusable };
   }
 
   /* ── DKIM public key analysis (RFC 6376 3.6.1, RFC 8463) ──────────────
@@ -503,6 +510,31 @@
      ───────────────────────────────────────────────────────────────────── */
 
   var DKIM_KEY_TAGS = ['v', 'h', 'k', 'n', 'p', 's', 't'];
+  // RFC 6376 §3.6.1 registers these hash names; a verifier that supports
+  // neither has nothing to verify with.
+  var DKIM_SUPPORTED_HASHES = ['sha1', 'sha256'];
+  // hyphenated-word = ALPHA *(ALPHA / DIGIT / "-") — the extension token shape
+  // shared by the h=, s= and t= vocabularies.
+  var DKIM_TOKEN = /^[a-z](?:[a-z0-9-]*[a-z0-9])?$/i;
+
+  /**
+   * Split a colon-separated DKIM tag list, or null if it is not one.
+   *
+   * A PRESENT tag with an empty value is malformed — `h=` and `s=` are lists of
+   * at least one entry, and an empty one says nothing while looking like a
+   * restriction. An ABSENT tag is a different thing entirely and never reaches
+   * here: `s=` defaults to `*`, and `h=` defaults to every algorithm.
+   */
+  function parseDkimTagList(value, allowStar) {
+    var entries = String(value === undefined || value === null ? '' : value).split(':')
+      .map(function (part) { return part.trim().toLowerCase(); });
+    if (!entries.length || entries.some(function (entry) { return entry === ''; })) return null;
+    for (var i = 0; i < entries.length; i++) {
+      if (allowStar && entries[i] === '*') continue;
+      if (!DKIM_TOKEN.test(entries[i])) return null;
+    }
+    return entries;
+  }
 
   var BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
@@ -791,9 +823,21 @@
     }
     if (parsed.duplicates.length) errors.push('duplicate-tags');
 
+    // Reasons a well-formed record still cannot sign this domain's email.
+    // Kept apart from `errors` on purpose: none of these is a malformed record,
+    // and telling an operator their key is broken when they deliberately scoped
+    // it to another service would be the same false verdict in a new place.
+    var restrictions = [];
+
     var keyType = Object.prototype.hasOwnProperty.call(tags, 'k')
       ? tags.k.trim().toLowerCase() : 'rsa';
-    if (keyType !== 'rsa' && keyType !== 'ed25519') keyType = 'unknown';
+    if (keyType !== 'rsa' && keyType !== 'ed25519') {
+      keyType = 'unknown';
+      // RFC 6376 §3.6.1: "Unrecognized key types MUST be ignored." Ignored is
+      // not malformed — the record may be perfectly valid for a verifier that
+      // knows the type. It simply cannot be counted as a key we can use.
+      restrictions.push('unsupported-key-type');
+    }
 
     var hasP = Object.prototype.hasOwnProperty.call(tags, 'p');
     var rawKey = hasP ? tags.p : '';
@@ -828,12 +872,40 @@
       }
     }
 
-    var splitList = function (value) {
-      return String(value || '').split(':')
-        .map(function (part) { return part.trim().toLowerCase(); })
-        .filter(Boolean);
-    };
-    var flags = splitList(tags.t);
+    // Each list tag is validated only when PRESENT. An unknown but well-formed
+    // token is an extension and stays in the reported list rather than being
+    // called malformed — RFC 6376 is explicit that the vocabularies are
+    // extensible.
+    var hashAlgorithms = [];
+    if (Object.prototype.hasOwnProperty.call(tags, 'h')) {
+      hashAlgorithms = parseDkimTagList(tags.h, false) || [];
+      if (!hashAlgorithms.length) errors.push('invalid-tag-list');
+      else if (!hashAlgorithms.some(function (h) { return DKIM_SUPPORTED_HASHES.indexOf(h) !== -1; })) {
+        // Well-formed, and it offers this verifier nothing to work with.
+        restrictions.push('no-supported-hash');
+      }
+    }
+
+    var serviceTypes = [];
+    if (Object.prototype.hasOwnProperty.call(tags, 's')) {
+      serviceTypes = parseDkimTagList(tags.s, true) || [];
+      if (!serviceTypes.length) errors.push('invalid-tag-list');
+      // RFC 6376 §3.6.1: a verifier MUST ignore a key record whose service
+      // type list does not include the service being verified. `s=tlsrpt`
+      // (RFC 8460) is a legitimate restriction and a perfectly good record —
+      // it is simply not a key for ordinary email, and counting it as one is
+      // how this audit came to report DKIM found where none applies.
+      else if (serviceTypes.indexOf('email') === -1 && serviceTypes.indexOf('*') === -1) {
+        restrictions.push('service-not-email');
+      }
+    }
+
+    var flags = [];
+    if (Object.prototype.hasOwnProperty.call(tags, 't')) {
+      flags = parseDkimTagList(tags.t, false) || [];
+      if (!flags.length) errors.push('invalid-tag-list');
+    }
+
     var unknownTags = Object.keys(tags).filter(function (name) {
       return DKIM_KEY_TAGS.indexOf(name) === -1;
     });
@@ -849,8 +921,8 @@
       // It is NOT a quality signal — both are valid — but it explains why Web
       // Crypto confirmed one key and stayed silent about another.
       keyEncoding: keyEncoding,
-      hashAlgorithms: splitList(tags.h),
-      serviceTypes: splitList(tags.s),
+      hashAlgorithms: hashAlgorithms,
+      serviceTypes: serviceTypes,
       flags: flags,
       testing: flags.indexOf('y') !== -1,
       strictSubdomain: flags.indexOf('s') !== -1,
@@ -858,6 +930,17 @@
       unknownTags: unknownTags,
       cryptoValidated: null,
       errors: errors,
+      restrictions: restrictions,
+      // Does this record APPLY to ordinary email for this domain?
+      //
+      // Deliberately not "is it well-formed". A key with a truncated `p=` was
+      // meant for email and is broken, so it still counts as DKIM found and is
+      // reported broken by `dkim-key-unparseable` — dropping it here would
+      // silently convert a warning about a broken key into "no DKIM at all",
+      // which is a worse answer and a regression of an existing finding. What
+      // this excludes is the record that is perfectly good and simply not for
+      // this purpose: an unrecognized `k=`, or `s=` scoped to another service.
+      appliesToEmail: !revoked && restrictions.length === 0,
     };
   }
 
@@ -985,20 +1068,21 @@
       var notSynthesized = function (value) { return !(synthesized && synthesized.has(value)); };
       var set = dkimRecordSet(result.answers);
       var keys = set.keys.filter(notSynthesized);
+      var unusable = set.unusable.filter(notSynthesized);
       // A revoked key stops the walk as surely as a live one does. It is an
       // answer — the operator published it on purpose to retire the selector —
       // and continuing past it would report the selector as absent, which reads
       // as "you never set this up" rather than "you turned this off".
       var revoked = set.revoked.filter(notSynthesized);
-      if (keys.length || revoked.length) {
-        return { sel: selector, queryName: queryName, keys: keys, revoked: revoked, cname: firstCname };
+      if (keys.length || revoked.length || unusable.length) {
+        return { sel: selector, queryName: queryName, keys: keys, revoked: revoked, unusable: unusable, cname: firstCname };
       }
       var cnameAnswer = result.answers.find(function (answer) { return answer.type === 5; });
       if (!cnameAnswer) break;
       name = cleanAnswerData(cnameAnswer.data, 'CNAME').toLowerCase().replace(/\.$/, '');
       if (!firstCname) firstCname = name;
     }
-    return { sel: selector, queryName: queryName, keys: [], revoked: [], cname: firstCname };
+    return { sel: selector, queryName: queryName, keys: [], revoked: [], unusable: [], cname: firstCname };
   }
 
   async function checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive, spfRecord, queryOpts) {
@@ -1014,6 +1098,7 @@
     const duplicated = [];
     const failedSelectors = [];
     const revokedSelectors = [];
+    const unusableSelectors = [];
     for (var offset = 0; offset < selectorList.length; offset += DKIM_SCAN_BATCH_SIZE) {
       var batch = selectorList.slice(offset, offset + DKIM_SCAN_BATCH_SIZE);
       var checks = await Promise.all(batch.map(async function (selector) {
@@ -1021,16 +1106,22 @@
           return await inspectDkimSelector(domain, selector, queryOpts, synthesized);
         } catch (error) {
           if (error && error.name === 'AbortError') throw error;
-          return { sel: selector, keys: [], revoked: [], cname: '', error: true };
+          return { sel: selector, keys: [], revoked: [], unusable: [], cname: '', error: true };
         }
       }));
-      for (const { sel, queryName, keys, revoked, cname, error } of checks) {
+      for (const { sel, queryName, keys, revoked, unusable, cname, error } of checks) {
         if (error) { failedSelectors.push(sel); continue; }
         // Reported whether or not a live key was also found, because a revoked
         // record left behind next to a working one is a different situation
         // from a selector that is only a revocation.
         (revoked || []).forEach(function (value) {
           revokedSelectors.push({ sel: sel, queryName: queryName, value: value });
+        });
+        // Published here, and not a key this domain's email can be verified
+        // with. Reported so the operator sees why the selector did not count,
+        // rather than being told nothing was found at a name they configured.
+        (unusable || []).forEach(function (value) {
+          unusableSelectors.push({ sel: sel, queryName: queryName, value: value, key: analyzeDkimKey(value) });
         });
         // RFC 6376 §3.6.2.2: key records MUST be unique per selector; with more
         // than one the result is undefined, so verification may fail depending on
@@ -1047,7 +1138,12 @@
             viaSpf: spfSources.get(sel) || '',
             key: analyzeDkimKey(keys[0]),
           });
-        } else if (suppliedSelectors.has(sel)) {
+        } else if (suppliedSelectors.has(sel) && !(revoked || []).length && !(unusable || []).length) {
+          // Only when NOTHING was published here. A selector carrying a revoked
+          // key or one scoped to another service has a record at that name, and
+          // reporting "No Domain Key Found" alongside a finding that describes
+          // the record contradicts itself — the operator is told in one line
+          // that the name is empty and in the next what it contains.
           missingSelectors.push({ sel: sel, queryName: queryName, cname: cname });
         }
       }
@@ -1060,9 +1156,9 @@
     const keyProfile = summarizeDkimKeys(found);
 
     if (!found.length) {
-      return { found: false, selectors: [], missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, revokedSelectors, keyProfile, confidence: 'sampled', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: wildcardDkim ? 'noteWildcard' : failedSelectors.length ? 'noteNotFoundWithErrors' : 'noteNotFound' };
+      return { found: false, selectors: [], missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, revokedSelectors, unusableSelectors, keyProfile, confidence: 'sampled', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: wildcardDkim ? 'noteWildcard' : failedSelectors.length ? 'noteNotFoundWithErrors' : 'noteNotFound' };
     }
-    return { found: true, selectors: found, missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, revokedSelectors, keyProfile, confidence: 'observed', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: '' };
+    return { found: true, selectors: found, missingSelectors, testedSelectors: selectorList, failedSelectors, duplicated, revokedSelectors, unusableSelectors, keyProfile, confidence: 'observed', scanMode: comprehensive ? 'comprehensive' : 'provider-aware', note: '' };
   }
 
   /**
@@ -2077,8 +2173,10 @@
      identically to `0 issue "letsencrypt.org"`.
      ───────────────────────────────────────────────────────────────────── */
 
-  // RFC 8659 §4 (issue, issuewild, iodef) and RFC 9495 §3 (issuemail,
-  // contactemail, contactphone).
+  // RFC 8659 §4 defines issue, issuewild and iodef; RFC 9495 §3 defines
+  // issuemail. `contactemail` and `contactphone` are NOT from RFC 9495 — the
+  // IANA CAA registry attributes both to CA/Browser Forum documents, and an
+  // earlier comment here cited the wrong source for them.
   var CAA_KNOWN_TAGS = ['issue', 'issuewild', 'iodef', 'issuemail', 'contactemail', 'contactphone'];
   // Properties whose Property Value is an issuer-domain-name with optional
   // parameters: RFC 8659 §4.2 and §4.3, and RFC 9495 §3.
@@ -2087,8 +2185,8 @@
   var CAA_LABEL = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i;
   // RFC 8659 §4.2: value = *(%x21-3A / %x3C-7E) — VCHAR excluding ';' and SP.
   var CAA_PARAMETER_VALUE = /^[\x21-\x3A\x3C-\x7E]*$/;
-  // RFC 8659 §4.4: the iodef URL scheme is mailto, http or https.
-  var CAA_IODEF_SCHEMES = ['mailto:', 'http://', 'https://'];
+  // RFC 8659 §4.4: the iodef value is a URL using the mailto, http or https
+  // scheme. The scheme list is the start of the check, not the whole of it.
 
   /**
    * Validate an `issue` / `issuewild` / `issuemail` Property Value and return
@@ -2131,13 +2229,15 @@
     return domain.toLowerCase();
   }
 
-  /** RFC 8659 §4.4: an iodef destination is a mailto, http or https URL. */
+  /**
+   * RFC 8659 §4.4: an iodef destination is a mailto, http or https **URL**.
+   *
+   * A scheme prefix is not a URL. `mailto:not an address` starts with a
+   * supported scheme and is not a destination anything can report to, so the
+   * whole value goes through the same validators the other records use.
+   */
   function isCaaIodefUrl(value) {
-    var text = String(value || '').trim().toLowerCase();
-    for (var i = 0; i < CAA_IODEF_SCHEMES.length; i++) {
-      if (text.indexOf(CAA_IODEF_SCHEMES[i]) === 0 && text.length > CAA_IODEF_SCHEMES[i].length) return true;
-    }
-    return false;
+    return isMailtoUri(value) || isHttpUri(value, false);
   }
 
   /**
@@ -2180,10 +2280,11 @@
 
     // A known tag is a promise about the value's grammar, and until now only
     // the tag was checked. `contactemail` and `contactphone` are deliberately
-    // NOT validated here: RFC 9495 §4 and §5 define them as an email address
-    // and a phone number, both of which are far easier to reject wrongly than
-    // to check usefully, and a false `caa-malformed` on a real record is worse
-    // than an unvalidated one.
+    // NOT validated here. Neither affects the derived issuance posture, both
+    // are defined by CA/Browser Forum documents rather than by an RFC this
+    // file otherwise tracks, and a partial mailbox or telephone parser is far
+    // easier to reject wrongly than to check usefully — a false
+    // `caa-malformed` on a real record is worse than an unvalidated one.
     var issuer = null;
     if (known && CAA_ISSUER_TAGS.indexOf(tag) !== -1) {
       issuer = parseCaaIssueValue(value);
@@ -2540,6 +2641,70 @@
     };
   }
 
+  /* ── Shared value grammars ────────────────────────────────────────────
+     A recognized field name is a promise about its value. Several validators
+     here checked the name and took the value on trust, which is how CAA came
+     to report `%%%%%` as a certificate authority. These are the value checks
+     those promises need — deliberately structural, never proving that a
+     mailbox receives mail or that a URL resolves.
+     ───────────────────────────────────────────────────────────────────── */
+
+  // A dotted LDH host: labels of ALPHA/DIGIT with interior hyphens, at least
+  // two labels so a bare word is not mistaken for a fully qualified name.
+  var FQDN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+\.?$/i;
+  // An addr-spec, kept loose on the local part and strict about the things
+  // that actually distinguish an address from prose: no whitespace, one '@',
+  // and a real domain on the right.
+  var MAILBOX_LOCAL = /^[^\s@,;:<>"'()\[\]\\]+$/;
+
+  function isFqdn(host) { return FQDN.test(String(host || '')); }
+
+  /** `mailto:` followed by one addr-spec, with RFC 6068 header fields allowed. */
+  function isMailtoUri(value) {
+    var text = String(value || '').trim();
+    if (text.slice(0, 7).toLowerCase() !== 'mailto:') return false;
+    var address = text.slice(7).split('?')[0];
+    var at = address.lastIndexOf('@');
+    if (at < 1) return false;
+    return MAILBOX_LOCAL.test(address.slice(0, at)) && isFqdn(address.slice(at + 1));
+  }
+
+  /**
+   * An http/https URL with a real host. `https://` alone is a scheme and a
+   * pair of slashes, not a URL, and prefix matching cannot tell them apart.
+   */
+  function isHttpUri(value, httpsOnly) {
+    var text = String(value || '').trim();
+    var match = /^(https?):\/\/([^/?#\s]+)([/?#]\S*)?$/i.exec(text);
+    if (!match) return false;
+    if (httpsOnly && match[1].toLowerCase() !== 'https') return false;
+    var authority = match[2].replace(/^[^@]*@/, '');           // strip userinfo
+    var host = authority.replace(/:(\d{1,5})$/, '');
+    if (host !== authority && !/^\d{1,5}$/.test(authority.slice(host.length + 1))) return false;
+    return isFqdn(host);
+  }
+
+  /**
+   * Split a record into ordered `{ name, value }` fields, or null if any field
+   * is not `name=value`.
+   *
+   * Ordered, because RFC 8461 §3.1 and RFC 8460 §3 both require the version
+   * field FIRST — a fact an unordered tag map cannot express, which is why
+   * `id=abc; v=STSv1` validated. A single trailing delimiter is permitted by
+   * both ABNFs.
+   */
+  function parseOrderedFields(record) {
+    var parts = String(record === undefined || record === null ? '' : record).split(';');
+    if (parts.length > 1 && parts[parts.length - 1].trim() === '') parts.pop();
+    var fields = [];
+    for (var i = 0; i < parts.length; i++) {
+      var equals = parts[i].indexOf('=');
+      if (equals === -1) return null;
+      fields.push({ name: parts[i].slice(0, equals).trim(), value: parts[i].slice(equals + 1).trim() });
+    }
+    return fields;
+  }
+
   function parseTagList(record) {
     var tags = {};
     var duplicates = [];
@@ -2554,27 +2719,144 @@
     return { tags: tags, duplicates: duplicates };
   }
 
+  // RFC 8461 §3.1: sts-id = 1*32(ALPHA / DIGIT). No hyphens, no 33rd character.
+  var STS_ID = /^[a-z0-9]{1,32}$/i;
+  // sts-ext-name = (ALPHA / DIGIT) *31(ALPHA / DIGIT / "_" / "-" / ".")
+  var EXT_NAME = /^[a-z0-9][a-z0-9_.-]{0,31}$/i;
+  // sts-ext-value = 1*(%x21-3A / %x3C-7E) — VCHAR without ';', and no space.
+  var EXT_VALUE = /^[\x21-\x3A\x3C-\x7E]+$/;
+
+  /**
+   * Validate an MTA-STS TXT record against RFC 8461 §3.1.
+   *
+   * Ordered and anchored, not a tag-bag lookup. The ABNF puts the version
+   * FIRST and writes it `%s"STSv1"`, which is case-SENSITIVE — so
+   * `id=abc; v=STSv1` and `v=stsv1` are both unusable and both previously
+   * validated. `id` is 1–32 alphanumerics: `has-hyphen` is not one, nor is a
+   * 33-character string. A bare `garbage` field is not an extension; the
+   * extension grammar requires a name and a value, so it cannot be dropped
+   * silently.
+   *
+   * Getting this wrong suppressed `mta-sts-invalid` — a finding whose entire
+   * purpose is to catch a control the operator believes is working.
+   */
   function validateMtaStsRecord(record) {
-    var parsed = parseTagList(record);
-    var valid = parsed.tags.v && parsed.tags.v.toLowerCase() === 'stsv1' && !!parsed.tags.id && !parsed.duplicates.length;
-    return { valid: valid, id: parsed.tags.id || '', errors: parsed.duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'] };
+    var fields = parseOrderedFields(record);
+    if (!fields || !fields.length) return { valid: false, id: '', errors: ['invalid-syntax'] };
+
+    var seen = Object.create(null);
+    var duplicates = [];
+    var syntax = fields[0].name === 'v' && fields[0].value === 'STSv1';
+    var id = '';
+    for (var i = 0; i < fields.length; i++) {
+      var name = fields[i].name;
+      if (seen[name]) duplicates.push(name);
+      seen[name] = true;
+      if (i === 0) continue;
+      if (name === 'id') { id = fields[i].value; if (!STS_ID.test(id)) syntax = false; }
+      else if (name === 'v') syntax = false;
+      else if (!EXT_NAME.test(name) || !EXT_VALUE.test(fields[i].value)) syntax = false;
+    }
+    if (!id) syntax = false;
+    var valid = syntax && !duplicates.length;
+    return { valid: valid, id: id, errors: duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'] };
   }
 
+  /**
+   * Validate a TLS-RPT TXT record against RFC 8460 §3.
+   *
+   * Same shape as MTA-STS: version first, `%s"TLSRPTv1"` case-sensitive, and
+   * every `rua` destination a real `https:` or `mailto:` URI. Prefix matching
+   * accepted `mailto:not an address`, which is a string beginning with a
+   * scheme and not a URI.
+   */
   function validateTlsRptRecord(record) {
-    var parsed = parseTagList(record);
-    var destinations = String(parsed.tags.rua || '').split(',').map(function (v) { return v.trim(); }).filter(Boolean);
-    var validDestination = destinations.length && destinations.every(function (v) { return /^(mailto:|https:)/i.test(v); });
-    var valid = parsed.tags.v && parsed.tags.v.toLowerCase() === 'tlsrptv1' && validDestination && !parsed.duplicates.length;
-    return { valid: !!valid, destinations: destinations, errors: parsed.duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'] };
+    var fields = parseOrderedFields(record);
+    if (!fields || !fields.length) return { valid: false, destinations: [], errors: ['invalid-syntax'] };
+
+    var seen = Object.create(null);
+    var duplicates = [];
+    var syntax = fields[0].name === 'v' && fields[0].value === 'TLSRPTv1';
+    var destinations = [];
+    var sawRua = false;
+    for (var i = 0; i < fields.length; i++) {
+      var name = fields[i].name;
+      if (seen[name]) duplicates.push(name);
+      seen[name] = true;
+      if (i === 0) continue;
+      if (name === 'rua') {
+        sawRua = true;
+        destinations = fields[i].value.split(',').map(function (v) { return v.trim(); }).filter(Boolean);
+        if (!destinations.length) syntax = false;
+        destinations.forEach(function (uri) {
+          if (!isMailtoUri(uri) && !isHttpUri(uri, true)) syntax = false;
+        });
+      } else if (name === 'v') syntax = false;
+      else if (!EXT_NAME.test(name) || !EXT_VALUE.test(fields[i].value)) syntax = false;
+    }
+    if (!sawRua) syntax = false;
+    var valid = syntax && !duplicates.length;
+    return { valid: valid, destinations: destinations, errors: duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'] };
   }
 
+  // Indicator formats the BIMI draft registers. SVG Tiny PS, plain or gzipped.
+  var BIMI_LOGO_SUFFIX = /\.svgz?(\?[^#]*)?(#.*)?$/i;
+
+  /**
+   * Validate a BIMI TXT record against draft-brand-indicators-for-message-
+   * identification §4.3 (revision as of 2026-08; BIMI is still an
+   * Internet-Draft, so this is pinned deliberately and a later revision should
+   * be a deliberate change here and in the fixtures).
+   *
+   * Three things the previous version could not express:
+   *
+   *  - `l=` PRESENT AND EMPTY is a valid, explicit declination to publish an
+   *    indicator. `parsed.tags.l || ''` collapsed that into "missing", so a
+   *    conformant record was reported invalid.
+   *  - `v=BIMI1` is case-sensitive and must come first, so `v=bimi1` and
+   *    `l=…; v=BIMI1` are both unusable and both validated before.
+   *  - `https://` is a scheme and two slashes. A logo URL needs a real host,
+   *    and an indicator needs an SVG suffix — a `.png` is not one.
+   */
   function validateBimiRecord(record) {
-    var parsed = parseTagList(record);
-    var logo = parsed.tags.l || '';
-    var authority = parsed.tags.a || '';
-    var valid = parsed.tags.v && parsed.tags.v.toLowerCase() === 'bimi1' && /^https:\/\//i.test(logo) &&
-      (!authority || /^https:\/\//i.test(authority)) && !parsed.duplicates.length;
-    return { valid: !!valid, logo: logo, authority: authority, errors: parsed.duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'] };
+    var fields = parseOrderedFields(record);
+    if (!fields || !fields.length) {
+      return { valid: false, logo: '', authority: '', declined: false, errors: ['invalid-syntax'] };
+    }
+
+    var seen = Object.create(null);
+    var duplicates = [];
+    var syntax = fields[0].name === 'v' && fields[0].value === 'BIMI1';
+    var logo = '';
+    var authority = '';
+    var sawLogo = false;
+    for (var i = 0; i < fields.length; i++) {
+      var name = fields[i].name;
+      if (seen[name]) duplicates.push(name);
+      seen[name] = true;
+      if (i === 0) continue;
+      if (name === 'l') {
+        sawLogo = true;
+        logo = fields[i].value;
+        if (logo && !(isHttpUri(logo, true) && BIMI_LOGO_SUFFIX.test(logo))) syntax = false;
+      } else if (name === 'a') {
+        authority = fields[i].value;
+        if (authority && !isHttpUri(authority, true)) syntax = false;
+      } else if (name === 'v') syntax = false;
+      else if (!EXT_NAME.test(name) || !EXT_VALUE.test(fields[i].value)) syntax = false;
+    }
+    // `l=` is required; it may be empty, but it may not be absent.
+    if (!sawLogo) syntax = false;
+    var valid = syntax && !duplicates.length;
+    return {
+      valid: valid,
+      logo: logo,
+      authority: authority,
+      // An explicit "we publish no indicator", which is a conformant record and
+      // not a broken one. The caller decides what to show; this only reports it.
+      declined: valid && sawLogo && !logo,
+      errors: duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'],
+    };
   }
 
   async function resolveWebsite(domain, queryOpts) {
@@ -3377,7 +3659,9 @@
     if (advanced?.tlsRpt?.multiple) issues.push({ key: 'tls-rpt-multiple-records', sev: 'warn' });
     else if (advanced?.tlsRpt?.advertised && !advanced.tlsRpt.present) issues.push({ key: 'tls-rpt-invalid', sev: 'warn' });
     if (advanced?.bimi?.multiple) issues.push({ key: 'bimi-multiple-records', sev: 'warn' });
-    else if (advanced?.bimi?.advertised && !advanced.bimi.present) issues.push({ key: 'bimi-invalid', sev: 'warn' });
+    // A declination is a valid record that asserts no indicator, so it is
+    // neither present nor invalid.
+    else if (advanced?.bimi?.advertised && !advanced.bimi.present && !advanced.bimi.declined) issues.push({ key: 'bimi-invalid', sev: 'warn' });
     if (dkimStatus?.duplicated?.length) {
       issues.push({ key: 'dkim-multiple-records', sev: 'warn', args: [dkimStatus.duplicated.join(', ')] });
     }
@@ -3450,6 +3734,18 @@
     }
     var thousandKeys = byCondition(function (k) { return k.keyBits === 1024; });
     if (thousandKeys.length) issues.push({ key: 'dkim-key-1024', sev: 'info', args: [thousandKeys.join(', ')] });
+
+    // Published at a selector, and not a key this domain's ordinary email can be
+    // verified with — an unrecognized `k=`, or an `s=` scoped to another
+    // service such as RFC 8460's `tlsrpt`. Informational because the record is
+    // conformant and very likely deliberate; it is here so that a domain whose
+    // only DKIM records are inapplicable is told why the audit found none,
+    // rather than being told nothing exists at a name they configured.
+    if (dkimStatus?.unusableSelectors?.length) {
+      issues.push({ key: 'dkim-key-not-email', sev: 'info', args: [
+        dkimStatus.unusableSelectors.map(function (r) { return r.sel; }).join(', '),
+      ] });
+    }
 
     if (dkimStatus?.revokedSelectors?.length) {
       issues.push({ key: 'dkim-key-revoked', sev: 'warn', args: [
@@ -3606,6 +3902,7 @@
     // record is there. Telling someone to publish a record they already have
     // is worse than saying nothing.
     if (advanced.bimi?.unknown) { /* not verified — cannot advise */ }
+    else if (advanced.bimi?.declined) { /* the domain said no on purpose — do not sell it */ }
     else if (advanced.bimi?.multiple) { /* duplicate already raised as an issue */ }
     else if (!advanced.bimi?.present && dmarcEnforced && dkimStatus.found) tips.push({ key: 'bimiEligible', guide: 'bimi' });
     else if (!advanced.bimi?.present && hasEmail) tips.push({ key: 'bimiPrereq', guide: 'bimi' });
@@ -3902,7 +4199,12 @@
       const tlsValidation = validateTlsRptRecord(tlsRecord);
 
       advanced = {
-        bimi: { present: bimiMatches.length === 1 && bimiValidation.valid, advertised: bimiMatches.length === 1, record: bimiRecord, validation: bimiValidation, multiple: bimiMatches.length > 1, unknown: bimiTxt === null },
+        // `present` means an indicator is actually asserted. A valid record with
+        // an empty `l=` is the draft's explicit declination to publish one —
+        // conformant, deliberate, and not a configured BIMI logo. Counting it
+        // as present would report an indicator the operator said they do not
+        // have; counting it as invalid would report a correct record as broken.
+        bimi: { present: bimiMatches.length === 1 && bimiValidation.valid && !bimiValidation.declined, declined: bimiMatches.length === 1 && bimiValidation.declined, advertised: bimiMatches.length === 1, record: bimiRecord, validation: bimiValidation, multiple: bimiMatches.length > 1, unknown: bimiTxt === null },
         mtaSts: { present: mtaMatches.length === 1 && mtaValidation.valid, advertised: mtaMatches.length === 1, policyVerified: false, record: mtaRecord, validation: mtaValidation, multiple: mtaMatches.length > 1, unknown: mtaStsTxt === null },
         tlsRpt: { present: tlsMatches.length === 1 && tlsValidation.valid, advertised: tlsMatches.length === 1, record: tlsRecord, validation: tlsValidation, multiple: tlsMatches.length > 1, unknown: tlsRptTxt === null },
         caa: caaResult,
