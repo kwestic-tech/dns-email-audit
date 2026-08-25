@@ -2411,10 +2411,94 @@ eq('non-base64 is unparseable',
   key('v=DKIM1; k=rsa; p=not base64 at all!!').errors, ['unparseable-key']);
 eq('a missing p= is named',  key('v=DKIM1; k=rsa').errors, ['missing-p']);
 
-// RFC 6376 requires SubjectPublicKeyInfo. A bare PKCS#1 blob is refused rather
-// than measured, so the DER walk and Web Crypto can never disagree on a size.
-eq('a bare PKCS#1 key is refused',
-  key('v=DKIM1; k=rsa; p=MIGJAoGBAJiYDX+w0tysy1TZwR8+tzkaPubU4WnbdWgp4dsIwRhsyNIBMusjpix5/Jbvvrq').errors, ['unparseable-key']);
+/* ── Both RSA envelopes are conformant ──────────────────────────────────
+   RFC 6376 §3.6.1 describes the p= value as a DER-encoded RSAPublicKey, and
+   the errata clarify that it MAY be wrapped in a SubjectPublicKeyInfo. So a
+   bare PKCS#1 key is valid, not a curiosity — and it must not be refused just
+   because crypto.subtle.importKey takes 'spki' and not 'pkcs1'. Letting an
+   API's input formats decide what the protocol permits would report a
+   perfectly good published key as unparseable.
+
+   Both envelopes below are the SAME four keys, exported by openssl two ways,
+   so the sizes must agree exactly across the pair.
+   ───────────────────────────────────────────────────────────────────────── */
+const PKCS1_512 = 'MEgCQQDb8CwdIwtBuTeqKMYcyUrQ+jUimxAQ6nY2iBvz1bSbuEqK/9u/YsPqS0K3h9mhfcmxvQxSWKYWjOR6g7XjFGxRAgMBAAE=';
+const PKCS1_1024 = 'MIGJAoGBAJiYDX+w0tysy1TZwR8+tzkaPubU4WnbdWgp4dsIwRhsyNIBMusjpix5/JbvvrTNbAeZvaRnu0ICeWcs68fvmSYV2r6rpUfBo4fUxlCQH4XlVpVTa5/eI7nSvbf4VTkJvo3c26i9Njy/Nj+c8ja9RL8UJe616oZSK4UrC20LygRLAgMBAAE=';
+const PKCS1_2048 = 'MIIBCgKCAQEAtdBGhkB+ys0FdTPY1/X59sh1kPlfMwovaF7w0uAdPijJvb28RVHRcZW0vfp2txuyZZ3qNAV2C/2nv+zVr/bld2flVPdmnCSdAoUXi9ZQpH20zzwj8bcGrU6v/sH4xC7BLRH7P8KQ4K3suhuSLpaK0KLC+oGdD7DZ3DyeFyHeMWcR9RJin3LhZMP0rVP3e6PHNd2XwW+zPJRjuQR6yACuOLyXhBvZtD+Frs6/mtKF8HyaO9/Zs/bqrw3v5qjuC6hi2VnlUbS+zWL9fZp3xh7lf2FaztehaVHcvUO2HOGAFGWci3jtwD2owSvw/Laqq0UTInQ/vcVZf/1QNJGiZ0tEIQIDAQAB';
+const PKCS1_4096 = 'MIICCgKCAgEA2GKwg8r1UzfnPgxUSjTck7Teu3YNAVasv1+fDj6bqNa1QAKqziKGhTUAd4NFb71ELSblrRIMmADzXEpgwEbWdGo0wMZYeXGzMATRifC1vjnBxeThGKeNtI6+wU3w3kcl+vmSVXS6oxD98bWzt2A0uqJo0uA54xnVhjoH4HG/LiKZFjLUhI6EAjjE46fmfoBGcLAOI82c7EmusMe8Xy0HcLk8Vepj3GhYO3ZS0ajgbPxNV7FjBUz9Z5wk8vdX2HFdf1/Dwfv3Kb6QOduj7MEU7RV1W4mRiYzsjZdrOqAQZSLrpxPx+Z73NRjxA0Q7t1rWCtFMP8wZ2xAK/F75FJmBi6j8urEpBt1S4xyNbaw3p/Ed7xpD4Zj3hd9vmWPGozqUP9Y9TJ3BBaR5vfDFvHl/e8ezpRcafyCH59GTmXq2j34ISjr6zRo5Y0jmdaPUXqgf2C+b8yw7Y0ut1Q3dhxQoca+Nb/REedy3tvxc2aY+uUIo80W06SoopPp3Lm8uk4u8t/t+IWjtGf7hKZgcmFPEmro1MK/1YmMnYg7ejjKEv2LBpF8m7QpZFTGEFd9/u02OkMYuM866nezPXvEKSnAkvmWDCkzwZhsBaIkihXmemKe1QhvAuk6dEVzmnHWUFAZnTErHu9TZ1Fpw6yJNw8QOkmrZ28Ji++HHu65vbzrvFWECAwEAAQ==';
+
+eq('bare PKCS#1 512 is read',   key(`v=DKIM1; k=rsa; p=${PKCS1_512}`).keyBits, 512);
+eq('bare PKCS#1 1024 is read',  key(`v=DKIM1; k=rsa; p=${PKCS1_1024}`).keyBits, 1024);
+eq('bare PKCS#1 2048 is read',  key(`v=DKIM1; k=rsa; p=${PKCS1_2048}`).keyBits, 2048);
+eq('bare PKCS#1 4096 is read',  key(`v=DKIM1; k=rsa; p=${PKCS1_4096}`).keyBits, 4096);
+eq('a bare PKCS#1 key is valid', key(`v=DKIM1; k=rsa; p=${PKCS1_2048}`).valid, true);
+eq('and raises no errors',       key(`v=DKIM1; k=rsa; p=${PKCS1_2048}`).errors, []);
+
+// The two encodings of one key must never disagree about its size.
+eq('both envelopes agree on every size',
+  [PKCS1_512, PKCS1_1024, PKCS1_2048, PKCS1_4096].map(p => key(`v=DKIM1; k=rsa; p=${p}`).keyBits),
+  [RSA_512, RSA_1024, RSA_2048, RSA_4096].map(p => key(`v=DKIM1; k=rsa; p=${p}`).keyBits));
+
+// The envelope is recorded as evidence — it explains why Web Crypto confirms
+// one key and stays silent about the other. It is not a quality signal.
+eq('SPKI is identified',   key(`v=DKIM1; k=rsa; p=${RSA_2048}`).keyEncoding, 'spki');
+eq('PKCS#1 is identified', key(`v=DKIM1; k=rsa; p=${PKCS1_2048}`).keyEncoding, 'pkcs1');
+eq('ed25519 has no RSA envelope', key(`v=DKIM1; k=ed25519; p=${ED25519_32}`).keyEncoding, null);
+
+// Web Crypto is confirmation, never a downgrade. A bare key it cannot express
+// comes back "not checked" — and still valid, with its size intact.
+const pkcs1Validated = await D.validateDkimKeyStructure(key(`v=DKIM1; p=${PKCS1_2048}`), `v=DKIM1; p=${PKCS1_2048}`);
+eq('a bare key is not sent to Web Crypto', pkcs1Validated.cryptoValidated, null);
+eq('lack of confirmation leaves it valid', pkcs1Validated.valid, true);
+eq('and never marks it unparseable',       pkcs1Validated.errors, []);
+eq('and leaves the DER-derived size alone', pkcs1Validated.keyBits, 2048);
+
+/* ── Malformed DER is still refused ─────────────────────────────────────
+   Accepting both envelopes must not turn the walk into a shrug. These are
+   built rather than pasted so the exact defect under test is visible.
+   ───────────────────────────────────────────────────────────────────── */
+const derTlv = (tag, content) => {
+  const body = Buffer.from(content);
+  if (body.length < 0x80) return Buffer.concat([Buffer.from([tag, body.length]), body]);
+  const len = [];
+  for (let n = body.length; n > 0; n >>= 8) len.unshift(n & 0xff);
+  return Buffer.concat([Buffer.from([tag, 0x80 | len.length]), Buffer.from(len), body]);
+};
+const asKey = buf => key(`v=DKIM1; k=rsa; p=${Buffer.from(buf).toString('base64')}`);
+const spkiBytes = Buffer.from(RSA_2048, 'base64');
+const pkcs1Bytes = Buffer.from(PKCS1_2048, 'base64');
+
+eq('a truncated SPKI key is unparseable',
+  key(`v=DKIM1; k=rsa; p=${RSA_2048.slice(0, 100)}`).errors, ['unparseable-key']);
+eq('a truncated PKCS#1 key is unparseable',
+  key(`v=DKIM1; k=rsa; p=${PKCS1_2048.slice(0, 100)}`).errors, ['unparseable-key']);
+// A valid key with junk appended parses as far as the outer SEQUENCE, so
+// without a length check it would report a confident 2048 for an unusable blob.
+eq('trailing bytes after a valid SPKI key are refused',
+  asKey(Buffer.concat([spkiBytes, Buffer.from([0x00])])).errors, ['unparseable-key']);
+eq('trailing bytes after a valid PKCS#1 key are refused',
+  asKey(Buffer.concat([pkcs1Bytes, Buffer.from([0x00])])).errors, ['unparseable-key']);
+// A SEQUENCE holding one INTEGER is not an RSAPublicKey — the publicExponent
+// is required, and without that check any such SEQUENCE would read as a key.
+eq('a SEQUENCE with no publicExponent is refused',
+  asKey(derTlv(0x30, derTlv(0x02, Buffer.alloc(256, 0x81)))).errors, ['unparseable-key']);
+eq('a SEQUENCE of the wrong inner type is refused',
+  asKey(derTlv(0x30, derTlv(0x04, Buffer.alloc(16, 0x41)))).errors, ['unparseable-key']);
+// The BIT STRING's first octet counts unused trailing bits; a key is a whole
+// number of bytes, so a non-zero count means this is not the structure claimed.
+const badBitString = derTlv(0x30, Buffer.concat([
+  derTlv(0x30, Buffer.from([0x06, 0x01, 0x2a])),
+  derTlv(0x03, Buffer.concat([Buffer.from([0x03]), derTlv(0x30, derTlv(0x02, Buffer.alloc(128, 0x81)))])),
+]));
+eq('a BIT STRING with unused bits is refused', asKey(badBitString).errors, ['unparseable-key']);
+eq('an INTEGER at the top level is not a key',
+  asKey(derTlv(0x02, Buffer.alloc(8, 0x01))).errors, ['unparseable-key']);
+eq('random bytes are not a key', asKey(Buffer.alloc(64, 0xab)).errors, ['unparseable-key']);
+eq('a single byte is not a key', asKey(Buffer.from([0x30])).errors, ['unparseable-key']);
+// An over-long DER length prefix is not something any real key carries, and
+// reading it would mean trusting a length field that cannot be satisfied.
+eq('an oversized length prefix is refused',
+  asKey(Buffer.from([0x30, 0x85, 0x01, 0x02, 0x03, 0x04, 0x05, 0x02, 0x01, 0x01])).errors, ['unparseable-key']);
 
 eq('t=y is testing',         key(`v=DKIM1; t=y; p=${RSA_2048}`).testing, true);
 eq('t=y:s sets both flags',  [key(`v=DKIM1; t=y:s; p=${RSA_2048}`).testing, key(`v=DKIM1; t=y:s; p=${RSA_2048}`).strictSubdomain], [true, true]);

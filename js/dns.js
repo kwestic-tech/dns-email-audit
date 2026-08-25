@@ -579,25 +579,50 @@
   }
 
   /**
-   * Walk an RSA public key to its modulus and return the modulus size in bits.
+   * Walk an RSA public key to its modulus. Returns { bits, encoding } or null.
    *
-   * SPKI only — SEQUENCE { AlgorithmIdentifier, BIT STRING { RSAPublicKey } } —
-   * which is the encoding RFC 6376 3.6.1 requires by reference to RFC 5280.
-   * A bare PKCS#1 RSAPublicKey is deliberately NOT accepted even though it
-   * would be trivial to read here: a verifier following RFC 6376 rejects it, so
-   * reading a size out of it would report a working key size for a key that
-   * verifies nowhere. It also has to be refused for this walk and Web Crypto to
-   * agree, and a size that depends on which of the two ran is worse than none.
+   * BOTH envelopes are valid DKIM key encodings and both are accepted:
    *
-   * Returns null for anything else, and null is reported as unparseable rather
-   * than guessed at.
+   *   pkcs1  RSAPublicKey ::= SEQUENCE { modulus INTEGER, publicExponent INTEGER }
+   *   spki   SEQUENCE { AlgorithmIdentifier, BIT STRING { RSAPublicKey } }
+   *
+   * RFC 6376 3.6.1 describes the `p=` value as a DER-encoded `RSAPublicKey`,
+   * and the errata clarify that it MAY be wrapped in a SubjectPublicKeyInfo.
+   * So a bare PKCS#1 key is conformant, not a curiosity to be tolerated.
+   *
+   * An earlier version of this function refused the bare form so that the walk
+   * and Web Crypto could never disagree. That had the dependency backwards:
+   * `crypto.subtle.importKey` accepts 'spki' and not 'pkcs1', and letting an
+   * implementation's import surface decide what the protocol permits would have
+   * reported a perfectly valid published key as unparseable. The DER walk is
+   * authoritative for the size; Web Crypto confirms only what it can express.
+   *
+   * Returns null for anything that is not one of these two structures, and null
+   * is reported as unparseable rather than guessed at.
    */
-  function rsaModulusBits(bytes) {
+  function rsaPublicKeyShape(bytes) {
     if (!bytes) return null;
     var outer = derReadTlv(bytes, 0);
     if (!outer || outer.tag !== 0x30) return null;
+    // DER encodes exactly one top-level value. Trailing bytes mean this is not
+    // a key, and without this check a truncated blob whose prefix happens to
+    // parse would yield a confident size for something unusable.
+    if (outer.end !== bytes.length) return null;
+
     var first = derReadTlv(bytes, outer.start);
-    if (!first || first.tag !== 0x30) return null;
+    if (!first) return null;
+
+    if (first.tag === 0x02) {
+      // Bare PKCS#1. The publicExponent must follow the modulus and end the
+      // sequence — otherwise any SEQUENCE beginning with an INTEGER would be
+      // read as a key.
+      var exponent = derReadTlv(bytes, first.end);
+      if (!exponent || exponent.tag !== 0x02 || exponent.end !== outer.end) return null;
+      var pkcs1Bits = derIntegerBits(bytes, first);
+      return pkcs1Bits === null ? null : { bits: pkcs1Bits, encoding: 'pkcs1' };
+    }
+
+    if (first.tag !== 0x30) return null;
     var bitString = derReadTlv(bytes, first.end);
     if (!bitString || bitString.tag !== 0x03 || bitString.length < 1) return null;
     // First content octet of a BIT STRING counts the unused trailing bits. A
@@ -608,7 +633,8 @@
     if (!inner || inner.tag !== 0x30) return null;
     var modulus = derReadTlv(bytes, inner.start);
     if (!modulus || modulus.tag !== 0x02) return null;
-    return derIntegerBits(bytes, modulus);
+    var spkiBits = derIntegerBits(bytes, modulus);
+    return spkiBits === null ? null : { bits: spkiBits, encoding: 'spki' };
   }
 
   /**
@@ -646,6 +672,7 @@
     var bytes = null;
     var keyBytes = null;
     var keyBits = null;
+    var keyEncoding = null;
     if (hasP && !revoked) {
       bytes = base64ToBytes(rawKey);
       if (bytes === null) {
@@ -657,8 +684,12 @@
           // an SPKI structure, so there is no modulus and keyBits stays null.
           if (keyBytes !== 32) errors.push('bad-ed25519-length');
         } else if (keyType === 'rsa') {
-          keyBits = rsaModulusBits(bytes);
-          if (keyBits === null) errors.push('unparseable-key');
+          var shape = rsaPublicKeyShape(bytes);
+          if (shape === null) errors.push('unparseable-key');
+          else {
+            keyBits = shape.bits;
+            keyEncoding = shape.encoding;
+          }
         }
       }
     }
@@ -680,6 +711,10 @@
       revoked: revoked,
       keyBits: keyBits,
       keyBytes: keyBytes,
+      // Which of the two conformant RSA envelopes this key uses, as evidence.
+      // It is NOT a quality signal — both are valid — but it explains why Web
+      // Crypto confirmed one key and stayed silent about another.
+      keyEncoding: keyEncoding,
       hashAlgorithms: splitList(tags.h),
       serviceTypes: splitList(tags.s),
       flags: flags,
@@ -695,15 +730,24 @@
   /**
    * Optional structural confirmation through Web Crypto.
    *
-   * Never lowers a verdict. A missing `crypto.subtle` leaves `cryptoValidated`
-   * null — "we did not check" — and an import failure records
-   * `key-structure-invalid` while the DER-derived size stays exactly as it was.
-   * The size was read without the browser's help and does not become less true
-   * because the browser declined to confirm it.
+   * Confirmation only, and only for the encoding Web Crypto can express. It
+   * never lowers a verdict reached without it:
+   *
+   *  - no `crypto.subtle` → `cryptoValidated` stays null, "we did not check"
+   *  - a bare PKCS#1 key → also null. `importKey` takes 'spki' and not
+   *    'pkcs1', so there is nothing here to confirm a conformant bare key
+   *    with, and silence is the honest record. Treating that silence as a
+   *    failure would report a valid published key as broken on the strength of
+   *    an API's input formats.
+   *  - an SPKI key that fails to import → `key-structure-invalid`, with the
+   *    DER-derived size left exactly as it was. The size was read without the
+   *    browser's help and does not become less true because the browser
+   *    declined to confirm it.
    */
   async function validateDkimKeyStructure(key, txtValue) {
     var subtle = typeof crypto !== 'undefined' && crypto && crypto.subtle;
     if (!subtle || key.keyType !== 'rsa' || key.revoked || key.keyBits === null) return key;
+    if (key.keyEncoding !== 'spki') return key;
     var bytes = base64ToBytes(parseTagList(txtValue).tags.p);
     if (!bytes) return key;
     try {

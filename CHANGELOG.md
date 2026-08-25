@@ -24,13 +24,30 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   The modulus size comes from a synchronous DER length walk rather than from Web
   Crypto, because `crypto.subtle` needs a secure context and `README.md`
-  advertises that opening `index.html` from disk works. Web Crypto still runs
-  where it exists, as confirmation only: a key it cannot import is recorded as
-  `key-structure-invalid` with the size intact, and a browser without it records
-  "not checked" rather than a verdict. The base64 decode is hand-rolled for the
-  same reason — reaching for `atob` would have meant reporting every key on
-  every domain as unparseable in any environment lacking it, which is an
-  assertion about our own runtime dressed up as one about the operator's DNS.
+  advertises that opening `index.html` from disk works. The walk accepts both
+  encodings RFC 6376 §3.6.1 and its errata permit — a bare PKCS#1
+  `RSAPublicKey` and one wrapped in a `SubjectPublicKeyInfo` — and the two
+  exports of the same key are asserted to agree on its size.
+
+  Web Crypto is confirmation only, and only for what it can express. It takes
+  `spki` and not `pkcs1`, so a conformant bare key is recorded as "not checked"
+  and stays valid with its size intact; an SPKI key that fails to import is
+  recorded as `key-structure-invalid`, again with the size untouched. The DER
+  walk is authoritative throughout: an implementation's input formats must not
+  decide what the protocol permits, or a perfectly good published key gets
+  reported as unparseable.
+
+  Bare PKCS#1 has fixture coverage and no real-world sample: all 39 keys found
+  across a 15-domain slice — Microsoft, Apple, PayPal, Stripe, NASA, Harvard,
+  Mozilla, the EFF among them — are SPKI. That is the argument for accepting it
+  rather than against: the encoding is conformant and rare, which is exactly the
+  shape of a bug that ships and then misreports one operator's working key with
+  nothing in the sample to catch it.
+
+  The base64 decode is hand-rolled for the same reason — reaching for `atob`
+  would have meant reporting every key on every domain as unparseable in any
+  environment lacking it, which is an assertion about our own runtime dressed up
+  as one about the operator's DNS.
 
   New findings: `dkim-key-weak` (crit), `dkim-key-1024` (**info**),
   `dkim-key-revoked`, `dkim-key-unparseable`, `dkim-key-sha1`,
