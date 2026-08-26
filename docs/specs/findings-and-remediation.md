@@ -159,8 +159,7 @@ single protocol check can observe.
 | `bimi.without-enforcement` | BIMI record present, DMARC `effectivePolicy` is `none` or `testMode` is true | medium | `dmarc.policy-none` |
 | `bimi.without-authority` | BIMI present, no `a=` VMC, enforcement in place | low | none |
 | `mta-sts.without-tls-rpt` | MTA-STS present, TLS-RPT absent | low | none |
-| `tls-rpt.without-transport-policy` | TLS-RPT present, no MTA-STS and no qualified DANE | info | none |
-| `dane.without-dnssec` | TLSA published, chain state is not `secure` | medium | `dnssec.unanchored` or `dnssec.insecure` |
+| `tls-rpt.without-transport-policy` | TLS-RPT present, no MTA-STS, and no MX host reporting `authenticated: true` from `checkTlsa()` | info | none |
 | `dkim.mixed-key-strength` | Selectors on one domain differ in modulus size | low | none |
 | `dkim.weak-with-enforcement` | RSA key at or under 1024 bits while DMARC enforces | high | none |
 | `dmarc.external-report-unauthorized` | `rua`/`ruf` destination has not published authorization | medium | none |
@@ -168,8 +167,15 @@ single protocol check can observe.
 | `mx.dangling-with-enforcement` | An MX host does not resolve on a domain that enforces DMARC | critical | none |
 | `defensive.contradictory` | Null MX published alongside a permissive SPF or an MX-referencing SPF | medium | none |
 | `spf.redundant-with-enforcement` | SPF authorizes a large block while DMARC enforces | medium | none |
-| `dnssec.unanchored-with-dane` | Zone signed, no DS, TLSA published | high | none |
 | `reporting.blind` | No `rua` anywhere and no TLS-RPT | medium | none |
+
+There is deliberately no audited-domain DNSSEC/DANE combination in this table.
+TLSA lives beneath each MX host, often in a different zone, so the audited
+domain's `secure`, `insecure` or `unanchored` state says nothing about that
+record. The existing `tlsa-published-unsigned` issue already uses the applicable
+fact: the resolver's per-host `checkTlsa().authenticated` result. It migrates to
+the Finding type with the other existing issues; this release must not duplicate
+it as `dane.without-dnssec` or escalate it from an unrelated zone's state.
 
 `defensive.contradictory` deserves a note. A domain with a null MX is declaring it
 receives no mail, which `calcScore()` already treats as a separate rubric at
@@ -273,7 +279,8 @@ Behavioral fixtures, each a synthetic audit context:
 | No SPF, no DKIM, no DMARC | Plan orders authentication before policy |
 | BIMI with `p=none` | `bimi.without-enforcement`, marked blocked by `dmarc.policy-none` |
 | BIMI with `p=reject; t=y` | Same finding; test mode is not enforcement |
-| TLSA on an `unanchored` zone | `dane.without-dnssec` and `dnssec.unanchored-with-dane` |
+| Audited domain unanchored, MX-host TLSA authenticated | no DANE/DNSSEC cross-zone finding |
+| Audited domain secure, MX-host TLSA unauthenticated | migrated `tlsa-published-unsigned`; no dependency on audited-domain DNSSEC |
 | MTA-STS without TLS-RPT | `mta-sts.without-tls-rpt` at low severity |
 | Dangling MX with `p=reject` | `mx.dangling-with-enforcement` critical |
 | Null MX with `v=spf1 mx -all` | `defensive.contradictory` |

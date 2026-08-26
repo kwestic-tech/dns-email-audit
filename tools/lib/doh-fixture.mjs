@@ -43,6 +43,42 @@ export const caa = (...records) => records.map(v => ({ type: 257, data: v }));
 export const tlsa = (...records) => records.map(v => ({ type: 52, data: v }));
 
 /**
+ * `DS` and `DNSKEY` answers, in the two different shapes the same resolver
+ * returns for them — captured in
+ * `docs/specs/implemented/fixtures/doh-shapes-0.4.0.md` and extended in
+ * `docs/specs/fixtures/dnssec-live-states-0.5.0.md`.
+ *
+ * Neither builder normalizes its argument, and that is the point. A `DS`
+ * digest is lowercase hex; a `DNSKEY` public key is case-sensitive base64
+ * containing `+`, `/` and `=`. A fixture that tidied either one would hide the
+ * defect most likely to ship here — a parser that lowercases the key field,
+ * destroying it, so that every digest fails to match and a healthy zone is
+ * reported as a broken chain. Write the record exactly as the resolver sends
+ * it.
+ */
+export const ds = (...records) => records.map(v => ({ type: 43, data: v }));
+export const dnskey = (...records) => records.map(v => ({ type: 48, data: v }));
+
+/**
+ * The `RRSIG` that rides along with a `do=1` answer.
+ *
+ * Every DNSSEC-relevant query this project makes sets `do=1`, and the resolver
+ * returns the signature beside the record it signs: `Answer: [43, 46]` for a
+ * `DS` query, `[48, 48, 46]` for `DNSKEY`. A parser that reads the answer array
+ * without filtering on the numeric type treats `DS 8 2 3600 1788794710 …` as a
+ * DS record — key tag `NaN`, digest `3600…` — which raises no error and matches
+ * no key, and so reports a mismatched chain on every signed domain audited.
+ *
+ * This builder exists so a fixture can carry that companion record and prove
+ * the filter is there. It is the same trap as the `_dane` CNAME beside a TLSA
+ * answer, which is why `cname()` is used the same way in section 37.
+ *
+ * Note the timestamps: Cloudflare's JSON returns RRSIG inception and expiration
+ * as Unix seconds, not the `YYYYMMDDHHMMSS` of a zone file.
+ */
+export const rrsig = (...records) => records.map(v => ({ type: 46, data: v }));
+
+/**
  * Build a `fetch` implementation from a fixture map.
  *
  * The map is keyed `"<name> <TYPE>"` (or just `"<name>"` to answer every type
@@ -66,6 +102,17 @@ export function dohFixture(map, options = {}) {
     const name = normalize(params.get('name'));
     const type = TYPE_NAME[params.get('type')] || 'TXT';
     calls.push(`${name} ${type}`);
+
+    // A `cd=1` re-query can be answered differently from the same name and
+    // type without it. That difference IS the bogus signature — a SERVFAIL
+    // that succeeds with checking disabled means validation failed rather than
+    // the zone being unsigned — so a fixture has to be able to express it.
+    // Key a variant as "<name> <TYPE> cd"; without one, cd falls back to the
+    // ordinary entry, so every existing fixture behaves exactly as before.
+    if (params.get('cd') === '1') {
+      const cdEntry = map[`${name} ${type} cd`];
+      if (cdEntry !== undefined) return respond(cdEntry, type);
+    }
 
     const entry = resolve(map, name, type, fallback);
     return respond(entry, type);

@@ -740,15 +740,19 @@ eq('no CAA means no block', APP.caaDetail({ advanced: { caa: { found: false } } 
 eq('a partial CAA shape renders nothing rather than throwing',
   APP.caaDetail({ advanced: { caa: { found: true, records: ['0 issue "x"'], atDomain: 'e.com' } } }), null);
 
-const tlsaRow = hosts => ({ advanced: { tlsa: { hosts, anyPresent: hosts.some(h => h.present), qualified: false } } });
+const tlsaRow = hosts => ({ advanced: { tlsa: { hosts, anyPresent: hosts.some(h => h.present) } } });
 const tlsaText = textOf(APP.tlsaDetail(tlsaRow([
   { host: 'a.example', queryName: '_25._tcp.a.example', records: [{ valid: true }], present: true, authenticated: true, unknown: false },
   { host: 'b.example', queryName: '_25._tcp.b.example', records: [{ valid: true }], present: true, authenticated: false, unknown: false },
   { host: 'c.example', queryName: '_25._tcp.c.example', records: [], present: false, authenticated: false, unknown: false },
 ])));
 // Acceptance criterion 4, at the surface the user actually reads.
-eq('the block says published, not enabled', tlsaText.includes('Published, not yet qualified'), true);
+eq('the block says published, not active', tlsaText.includes('Published, not proven active'), true);
 eq('nothing claims DANE is active or enabled', /DANE is (active|enabled|protecting)/i.test(tlsaText), false);
+// The heading no longer scopes itself to "this release", which stopped being
+// true the moment the flag it referred to was retired rather than completed.
+eq('the heading makes no promise about a later release',
+  /this release|not yet|qualified/i.test(tlsaText), false);
 eq('an authenticated host is distinguished', tlsaText.includes('DNSSEC-authenticated'), true);
 eq('an unauthenticated host is too', tlsaText.includes('not DNSSEC-authenticated'), true);
 eq('a host without TLSA says not published', tlsaText.includes('not published'), true);
@@ -785,6 +789,102 @@ eq('and no SPF at all renders nothing but the dash the value helper gives',
 eq('one key size renders as a number', APP.dkimKeyBitsCell({ minBits: 2048, maxBits: 2048 }), '2048');
 eq('mixed key sizes render as a range', APP.dkimKeyBitsCell({ minBits: 1024, maxBits: 2048 }), '1024-2048');
 eq('no RSA key renders empty', APP.dkimKeyBitsCell({ minBits: null, maxBits: null }), '');
+
+/* ── DNSSEC chain detail (spec §8) ────────────────────────────────────
+   Acceptance criteria 1 and 2, at the surface a user actually reads: no
+   `secure` claim assembled from local evidence, and every claim attributed on
+   screen rather than only in the data model.
+   ──────────────────────────────────────────────────────────────────────── */
+section('DNSSEC chain detail');
+
+const dnssecRow = dnssec => ({ advanced: { dnssec } });
+const SECURE = {
+  signed: true, state: 'secure', resolverValidated: true,
+  keys: [
+    { keyTag: 2371, algorithm: 13, algorithmName: 'ECDSAP256SHA256', hasSep: true, hasZoneFlag: true, hasRevokeFlag: false },
+    { keyTag: 34505, algorithm: 13, algorithmName: 'ECDSAP256SHA256', hasSep: false, hasZoneFlag: true, hasRevokeFlag: false },
+  ],
+  ds: [{ keyTag: 2371, digestType: 2, digestName: 'SHA-256', match: 'confirmed' }],
+  anchorConfirmed: true, orphanDs: [],
+  chain: [
+    { claim: 'resolver-ad', source: 'resolver', detail: { ad: true } },
+    { claim: 'link-checked', source: 'local', detail: { child: 'e.com', link: 'child-dnskey-to-parent-ds' } },
+    { claim: 'ds-confirms-dnskey', source: 'local', detail: { keyTag: 2371, digestName: 'SHA-256', anchors: true } },
+  ],
+};
+const secureText = textOf(APP.dnssecDetail(dnssecRow(SECURE)));
+
+eq('the state is named', secureText.includes('validated by the resolver'), true);
+eq('both keys are listed', [secureText.includes('2371'), secureText.includes('34505')], [true, true]);
+// RFC 6840 §6.2 — the SEP bit is advisory and must not be shown as "KSK".
+eq('the SEP bit is named as a flag, not as a role',
+  [secureText.includes('SEP'), /\bKSK\b|\bZSK\b/.test(secureText)], [true, false]);
+eq('the DS record and its verdict are shown', secureText.includes('SHA-256'), true);
+
+// Criterion 2: attribution is visible, and the two kinds of evidence are
+// distinguishable on screen.
+eq('the resolver claim is attributed to the resolver', secureText.includes('Resolver'), true);
+eq('the local computation is attributed as computed here', secureText.includes('Computed here'), true);
+// OQ-SEC9-03: showing one link without naming it implies a completeness the
+// tool does not have.
+eq('the panel states which single link was checked', secureText.includes('one link checked'), true);
+
+/* ── The states this release exists to expose ────────────────────────── */
+
+const unanchoredText = textOf(APP.dnssecDetail(dnssecRow({
+  signed: false, state: 'unanchored', resolverValidated: false,
+  keys: SECURE.keys, ds: [], chain: [{ claim: 'resolver-ad', source: 'resolver', detail: { ad: false } }],
+})));
+eq('an unanchored zone is not described as unsigned',
+  [unanchoredText.includes('no DS record'), /Not signed/.test(unanchoredText)], [true, false]);
+
+const mismatchText = textOf(APP.dnssecDetail(dnssecRow({
+  signed: false, state: 'mismatch', resolverValidated: false, keys: SECURE.keys,
+  ds: [{ keyTag: 34800, digestType: 2, digestName: 'SHA-256', match: 'no-matching-key' }],
+  chain: [{ claim: 'ds-no-matching-key', source: 'local', detail: { keyTag: 34800 } }],
+})));
+eq('a mismatch names the offending DS record', mismatchText.includes('34800'), true);
+eq('and reuses the match vocabulary rather than a second wording',
+  mismatchText.includes('no published key carries this tag'), true);
+
+// Missing evidence is stated, not inferred from an empty list.
+const partialText = textOf(APP.dnssecDetail(dnssecRow({
+  signed: false, state: 'insecure', keys: [], ds: [],
+  chain: [{ claim: 'lookup-incomplete', source: 'local', detail: { query: 'ds', kind: 'servfail' } }],
+})));
+eq('an incomplete lookup says which query and why',
+  [partialText.includes('ds'), partialText.includes('servfail')], [true, true]);
+
+/* ── Partial shapes render less rather than throwing ─────────────────── */
+
+// 0.4.0 saved only { signed, state }. One thrown render takes down the whole
+// table row, so this must degrade rather than fail — the rule from
+// dns-protocol-depth's As implemented item 4.
+eq('a 0.4.0-shaped result still renders its state',
+  textOf(APP.dnssecDetail(dnssecRow({ signed: false, state: 'insecure' }))).includes('Not signed'), true);
+eq('a result with no state renders nothing', APP.dnssecDetail(dnssecRow({ signed: false })), null);
+eq('no DNSSEC audit renders no block', APP.dnssecDetail({ advanced: null }), null);
+
+/* ── The dot ─────────────────────────────────────────────────────────── */
+
+// Amber covers exactly the two states where real work is not yet protecting
+// anything. `bogus` and `indeterminate` stay grey: amber reads as "nearly
+// there", and neither of those is.
+eq('the dot is amber for unanchored and mismatch only',
+  ['secure', 'insecure', 'unanchored', 'mismatch', 'bogus', 'indeterminate']
+    .map(state => APP.dnssecDot({ dnssec: { state, signed: state === 'secure' } }).partial),
+  [false, false, true, true, false, false]);
+eq('only a validated chain counts as configured',
+  ['secure', 'unanchored', 'mismatch']
+    .map(state => APP.dnssecDot({ dnssec: { state, signed: state === 'secure' } }).ok),
+  [true, false, false]);
+// "Not configured" is simply false for a signed-but-unanchored zone, and worse
+// than false for one whose validation is failing.
+eq('every state that needs its own wording gets one',
+  ['secure', 'insecure', 'unanchored', 'mismatch', 'bogus', 'indeterminate']
+    .map(state => APP.dnssecDot({ dnssec: { state } }).label === null),
+  [true, true, false, false, false, false]);
+eq('a missing DNSSEC result still yields a dot', APP.dnssecDot({}).ok, false);
 
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);

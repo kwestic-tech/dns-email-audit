@@ -388,6 +388,42 @@
 
   /* ── Row rendering ──────────────────────────────────────────────────── */
 
+  /**
+   * The state token as a phrase, or null when the state has no special name.
+   *
+   * `insecure` deliberately returns null so it keeps the shared "Not
+   * configured" wording every other pillar uses. The other four get their own,
+   * because "Not configured" is simply false for a zone that is signed but
+   * unanchored, and worse than false for one whose validation is failing.
+   */
+  function dnssecStateLabel(dnssec) {
+    var state = dnssec && dnssec.state;
+    if (!state || state === 'secure' || state === 'insecure') return null;
+    return t('dnssec.state.' + state);
+  }
+
+  /**
+   * One dot descriptor for DNSSEC, shared by the compact strip and the full
+   * one so the two cannot drift.
+   *
+   * `partial` drives the amber treatment that already exists for a duplicated
+   * record, and it covers exactly `unanchored` and `mismatch` — the two states
+   * where the operator has done real work that is not yet protecting anything.
+   * `bogus` and `indeterminate` stay grey: amber reads as "nearly there", and
+   * neither of those is. The `done` count is untouched, because amber is not
+   * configured.
+   */
+  function dnssecDot(adv) {
+    var dnssec = adv && adv.dnssec;
+    var state = dnssec && dnssec.state;
+    return {
+      key: 'DNSSEC',
+      ok: !!(dnssec && dnssec.signed),
+      partial: state === 'unanchored' || state === 'mismatch',
+      label: dnssecStateLabel(dnssec),
+    };
+  }
+
   function advMiniDots(adv) {
     if (!adv) return R.text(t('labels.dash'));
     var items = [
@@ -395,13 +431,14 @@
       { key: 'MTA-STS', ok: adv.mtaSts && adv.mtaSts.policyVerified, partial: adv.mtaSts && adv.mtaSts.present, dup: adv.mtaSts && adv.mtaSts.multiple },
       { key: 'TLS-RPT', ok: adv.tlsRpt && adv.tlsRpt.present, dup: adv.tlsRpt && adv.tlsRpt.multiple },
       { key: 'CAA', ok: adv.caa && adv.caa.found },
-      { key: 'DNSSEC', ok: adv.dnssec && adv.dnssec.signed },
+      dnssecDot(adv),
     ];
     var done = items.filter(function (i) { return i.ok; }).length;
     var dots = items.map(function (i) {
       // A duplicated record is not simply absent — it reads amber so the
       // operator can tell "never set up" from "set up twice, silently off".
-      var state = i.ok ? t('adv.configured') : i.partial ? t('adv.unverified') : i.dup ? t('adv.duplicated') : t('adv.notConfigured');
+      var state = i.label ? i.label
+        : i.ok ? t('adv.configured') : i.partial ? t('adv.unverified') : i.dup ? t('adv.duplicated') : t('adv.notConfigured');
       var color = i.ok ? 'var(--ok)' : (i.partial || i.dup) ? 'var(--warn)' : '#cbd5e1';
       return R.el('span', {
         title: i.key + ': ' + state,
@@ -440,10 +477,13 @@
           ? t('adv.tip.caaOn', adv.caa.atDomain, (adv.caa.records || []).slice(0, 2).join(', '))
           : t('adv.tip.caaOff'),
       },
-      {
-        key: 'DNSSEC', ok: adv.dnssec && adv.dnssec.signed,
-        tip: adv.dnssec && adv.dnssec.signed ? t('adv.tip.dnssecOn') : t('adv.tip.dnssecOff'),
-      },
+      Object.assign(dnssecDot(adv), {
+        // The tooltip is the state, not a remedy. What to do about it is the
+        // finding's job, and repeating it here would put two differently
+        // worded instructions on one screen.
+        tip: adv.dnssec && adv.dnssec.signed ? t('adv.tip.dnssecOn')
+          : dnssecStateLabel(adv.dnssec) || t('adv.tip.dnssecOff'),
+      }),
     ];
     var dots = items.map(function (i) {
       return R.el('span', {
@@ -651,20 +691,104 @@
   }
 
   /**
+   * The DNSSEC chain, and where each part of the verdict came from.
+   *
+   * This block is acceptance criterion 2: every claim is attributed to the
+   * resolver or to local computation, and the attribution is on screen rather
+   * than only in the data model. Without it the interface would show a verdict
+   * assembled from two very different kinds of evidence and let the reader
+   * assume they were the same kind.
+   *
+   * It also states which link was checked. Showing one link of a chain without
+   * naming it implies the tool walked the whole thing to the root, which it
+   * does not — `OQ-SEC9-03`.
+   *
+   * Every collection defaults. A saved report from 0.4.0 carries only
+   * `{ signed, state }`, and this has to render the state and stop rather than
+   * throw: one thrown render takes down the entire table row.
+   */
+  function dnssecDetail(r) {
+    var dnssec = r.advanced && r.advanced.dnssec;
+    if (!dnssec || !dnssec.state) return null;
+    var keys = dnssec.keys || [];
+    var ds = dnssec.ds || [];
+    var chain = dnssec.chain || [];
+
+    var line = function (label, node) {
+      return R.el('div', null, [R.el('span', null, label + ':'), R.text(' '), node]);
+    };
+
+    // Flags are named for the bit, never for the role: RFC 6840 §6.2 forbids
+    // reading SEP as "this is the KSK", and RFC 5011 §2.1 needs a signature
+    // check this release does not make before calling a key revoked.
+    var keyLine = function (key) {
+      var flags = [];
+      if (key.hasSep) flags.push(t('dnssec.flag.sep'));
+      if (key.hasRevokeFlag) flags.push(t('dnssec.flag.revoke'));
+      return R.el('div', null, [
+        R.el('code', null, R.text(String(key.keyTag))),
+        R.text(' · ' + (key.algorithmName || String(key.algorithm))),
+        flags.length ? R.text(' · ' + flags.join(', ')) : null,
+      ]);
+    };
+
+    var dsLine = function (record) {
+      return R.el('div', null, [
+        R.el('code', null, R.text(String(record.keyTag))),
+        R.text(' · ' + (record.digestName || String(record.digestType)) + ' — '),
+        R.el('span', null, t('dnssec.match.' + record.match)),
+      ]);
+    };
+
+    // The chain reads as a short list of claims, each prefixed by who is
+    // making it. DS verdicts reuse the match vocabulary rather than a second
+    // parallel set of strings that could describe the same fact differently.
+    var chainLine = function (entry) {
+      var detail = entry.detail || {};
+      var claim;
+      if (entry.claim === 'resolver-ad') {
+        claim = t(detail.ad ? 'dnssec.claim.authenticated' : 'dnssec.claim.notAuthenticated');
+      } else if (entry.claim === 'ds-confirms-dnskey') {
+        claim = t('dnssec.claim.dsConfirms', String(detail.keyTag), detail.digestName || '');
+      } else if (entry.claim === 'ds-no-matching-key' || entry.claim === 'ds-digest-mismatch' || entry.claim === 'ds-unverifiable') {
+        claim = t('dnssec.claim.dsVerdict', String(detail.keyTag),
+          t('dnssec.match.' + (detail.match || entry.claim.slice(3))));
+      } else if (entry.claim === 'lookup-incomplete') {
+        claim = t('dnssec.claim.lookupIncomplete', detail.query, detail.kind);
+      } else {
+        claim = t('dnssec.claim.' + entry.claim);
+      }
+      return R.el('div', null, [
+        R.el('small', null, t('dnssec.source.' + entry.source)),
+        R.text(' — '),
+        R.el('span', null, claim),
+      ]);
+    };
+
+    return R.frag([
+      line(t('dnssec.status'), R.el('strong', null, t('dnssec.state.' + dnssec.state))),
+      keys.length ? line(t('dnssec.keys'), R.frag(keys.map(keyLine))) : null,
+      ds.length ? line(t('dnssec.ds'), R.frag(ds.map(dsLine))) : null,
+      chain.length ? line(t('dnssec.chain'), R.frag(chain.map(chainLine))) : null,
+    ]);
+  }
+
+  /**
    * TLSA, phrased as published rather than as active.
    *
    * The wording here is the whole point of the block. DANE protects nothing
-   * unless the record is carried by a validated DNSSEC chain, and this release
-   * does not walk one — so the strongest thing this may ever say is
-   * "published", and it says whether the resolver authenticated the answer
-   * separately from that.
+   * unless the record is carried by a validated DNSSEC chain, and that chain
+   * belongs to the MX host'"'"'s zone rather than to the audited domain — so the
+   * strongest thing this may ever say is "published", with the resolver'"'"'s
+   * per-host authentication reported separately from it. 0.5.0 retired the
+   * `qualified` flag rather than completing it; see OQ-SEC9-07.
    */
   function tlsaDetail(r) {
     var tlsa = r.advanced && r.advanced.tlsa;
     var hosts = (tlsa && tlsa.hosts) || [];
     if (!hosts.length) return null;
     return R.frag([
-      R.el('div', null, R.el('em', null, t('tlsa.publishedNotQualified'))),
+      R.el('div', null, R.el('em', null, t('tlsa.published'))),
       R.frag(hosts.map(function (h) {
         var state = h.unknown ? t('tlsa.notChecked')
           : !h.present ? t('tlsa.notPublished')
@@ -1038,6 +1162,7 @@
           ])),
           detailItem(t('labels.dkim'), R.frag(dkimDetails)),
           caaDetail(r) ? detailItem(t('labels.caa'), caaDetail(r)) : null,
+          dnssecDetail(r) ? detailItem(t('labels.dnssec'), dnssecDetail(r)) : null,
           tlsaDetail(r) ? detailItem(t('labels.tlsa'), tlsaDetail(r)) : null,
           detailItem(t('labels.verifications'), r.verifications.length
             ? R.list(r.verifications, { sep: 'br' })
@@ -1683,6 +1808,8 @@
     dkimKeyLine: dkimKeyLine,
     mxDetail: mxDetail,
     caaDetail: caaDetail,
+    dnssecDetail: dnssecDetail,
+    dnssecDot: dnssecDot,
     tlsaDetail: tlsaDetail,
     dkimKeyBitsCell: dkimKeyBitsCell,
     spfDetail: spfDetail,

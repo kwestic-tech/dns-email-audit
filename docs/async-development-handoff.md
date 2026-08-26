@@ -117,7 +117,7 @@ explicit reconciliation rather than being left to default behavior:
 | --- | --- | --- | --- | --- |
 | 1 | `rendering-and-robustness` (0.2.3) | 4/10 | A | Hard prerequisite gate for 0.3.0 and 0.7.0. Must go first regardless of its own score. |
 | 2 | `dmarcbis-tree-walk` (0.3.0) | 7/10 | B (link 1/3) | First link in the protocol-correctness chain; also decides the fixture-resolver mechanism (`OQ-DMARC-03`) that 0.4.0 and 0.5.0 testing reuses. |
-| 3 | `dns-protocol-depth` (0.4.0) | 9/10 | B (link 2/3) | Second link; adds `DS`/`DNSKEY`/`TLSA` transport 0.5.0 needs, and the `TLSA` shape 0.5.0's DANE qualification completes. |
+| 3 | `dns-protocol-depth` (0.4.0) | 9/10 | B (link 2/3) | Second link; adds `DS`/`DNSKEY`/`TLSA` transport 0.5.0 needs, and the per-host `authenticated` evidence 0.5.0 keeps as the honest ceiling for DANE. |
 | 3′ | `local-artifact-validation` (0.7.0) | 5/10 | D (parallel) | Can start as soon as 0.2.3 lands, run alongside the whole B chain. Only sync point is 0.6.0's `Finding` shape (stub it, reconcile later). |
 | 4 | `dnssec-evidence` (0.5.0) | 6/10 | B (link 3/3) | Closes the B chain; needs 0.4.0's transport and TLSA shape. |
 | 5 | `findings-and-remediation` (0.6.0) | 10/10 | C | Highest end-user value in the roadmap, but structurally the most downstream — it reads the output shapes of 0.3.0, 0.4.0, and 0.5.0. Cannot start for real until B is done. |
@@ -218,8 +218,9 @@ tag/reference the release per `CONTRIBUTING.md`'s checklist.
 
 This phase is **sequential by construction**, not by convention — see the
 evaluation doc's Group B analysis for the three confirmed couplings (shared
-fixture-resolver mechanism, transport-type dependency, DANE-qualification
-data dependency). Do not attempt to run these three in parallel; the second
+fixture-resolver mechanism, transport-type dependency, and a DANE data
+dependency that the 0.5.0 spec review resolved by retiring `qualified` rather
+than by satisfying it — see 3c). Do not attempt to run these three in parallel; the second
 and third literally cannot be implemented against a frozen interface until
 the first two exist.
 
@@ -365,7 +366,7 @@ transport dependency 0.5.0 needs), DKIM key decoding via Web Crypto with
 explicit RSA/Ed25519/revoked/unparseable states, structured CAA with the
 `issue`-vs-`issuewild` semantics called out explicitly in the spec, MX health
 (`dangling`, `cname target`, `same-prefix`), and TLSA syntax validation with
-`qualified` hardcoded `false` (the field 0.5.0 completes).
+`qualified` hardcoded `false` — the field 0.5.0 **retires** rather than completes, see 3c.
 
 **On completion:** confirm zero grade movement via
 `node tools/backtest.mjs --json` per the spec's own acceptance criterion 5.
@@ -373,37 +374,72 @@ Move to `docs/specs/implemented/`.
 
 ### 3c. `dnssec-evidence` (0.5.0)
 
-**Cannot start until 3b's `dnsTypeNum()` change and TLSA shape are merged** —
-this is the tightest coupling in the roadmap; don't attempt a head start
-against a moving 0.4.0 interface.
+> **Status, 2026-08-26: release metadata finalized for `v0.5.0` via
+> [PR #25](https://github.com/kwestic-tech/dns-email-audit/pull/25).** The tag
+> identifies the squashed release commit; the implemented spec records the tag
+> rather than a branch-history SHA.
+
+**The spec is `1.5 (Implemented)` as of 2026-08-26 and all open questions are
+resolved.** Read it, not this summary, and read
+[`docs/specs/fixtures/dnssec-live-states-0.5.0.md`](specs/implemented/fixtures/dnssec-live-states-0.5.0.md)
+beside it — the review overturned several things this section used to
+prescribe, and the corrections came from measurement rather than argument.
+
+The implementation dependency on 3b's `dnsTypeNum()` change and TLSA shape is
+closed: 0.4.0 released first, and 0.5.0 was built against that stable contract.
 
 **Highest-stakes correctness requirement in the whole roadmap:** the RFC 4034
 Appendix B key-tag algorithm must match the RFC's own reference values
-exactly. The spec's own risk section states this plainly: an off-by-one here
-produces a false "your DNSSEC is broken" verdict on a healthy zone, which the
-spec calls "the most damaging defect this project could ship." Do not treat
-the key-tag fixture table as optional coverage — it's the load-bearing test in
-this phase.
+exactly. An off-by-one produces a false "your DNSSEC is broken" verdict on a
+healthy zone, which the spec calls "the most damaging defect this project could
+ship." Do not treat the key-tag fixture table as optional coverage — it's the
+load-bearing test in this phase. The algorithm was implemented during the spec
+review and verified against seven live zones, so the arithmetic is known
+tractable; the risk that survives is in the parsers feeding it.
 
-**Decide before finalizing:**
-- `OQ-SEC9-01` (is `unanchored` warning or critical) — draft says warning;
-  confirm.
-- `OQ-SEC9-04` (should the resolver be configurable) — draft says no, keep
-  fixed to Cloudflare; this interacts with `PRIVACY.md`'s single-destination
-  claim, so treat "no" as the default unless there's a strong reason
-  otherwise.
-- `OQ-SEC9-06` (how the six-state model fits the existing binary dot in the
-  advanced strip) — draft proposes an amber state matching the existing
-  duplicate-record precedent; confirm the visual treatment before wiring up
-  `js/app.js`.
+**Three ways to ship that defect, all found during review, all cheap to
+avoid:**
 
-**Key correctness surface:** the six-state model (`secure`, `insecure`,
-`unanchored`, `mismatch`, `bogus`, `indeterminate`) replacing the current
-four, local DS-to-DNSKEY digest matching via Web Crypto, explicit
-`resolver`-vs-`local` attribution on every claim (the spec is emphatic that
-the interface must never assemble a `secure` claim from local evidence
-alone), and `qualified = dnssec.state === 'secure' && dnssec.resolverValidated`
-feeding back into 0.4.0's TLSA output.
+1. **Parse an RRSIG as a DS record.** A `do=1` answer returns the RRSIG beside
+   the record it signs. Filter on `a.type === 43` and `a.type === 48`. Skip
+   this and every signed domain reports `mismatch`.
+2. **Lowercase the DNSKEY base64.** `parseTlsaRecord()`'s normalization is
+   right for a hex digest and destroys a key. `parseDs()` may reuse it;
+   `parseDnskey()` may not.
+3. **Let local evidence into the state classifier.** See below.
+
+**Key correctness surface:** the state model is **two axes, not one enum**.
+`state` derives from the resolver's AD flag and from what is published;
+per-DS digest matching is a separate axis that never reaches `signed`. The
+draft ANDed them, and measured against live DNS that flips `paypal.com` — in
+the backtest sample, validating, delivering mail, publishing one good DS beside
+one orphan — to `mismatch`, costing it 15 points and the A tier. The classifier
+is **ordered**, and the order is normative: `dnssec-failed.org` satisfies three
+conditions at once. `mismatch` requires positive local proof and is reachable
+only when AD is already false, which is what makes "no grade moves" provable
+rather than hoped for.
+
+Also in scope: explicit `resolver`-vs-`local` attribution on every claim (the
+interface must never assemble a `secure` claim from local evidence alone —
+`servfail.nl` is the live proof that it could), and **retiring** `qualified`
+from `checkTlsa()`. This section previously prescribed
+`qualified = dnssec.state === 'secure' && dnssec.resolverValidated`; that is
+**wrong and must not be implemented**. It applies the audited domain's chain
+state to a TLSA record in an MX host's unrelated zone, undoing 0.4.0's **As
+implemented** item 2, and no arrangement of this release's evidence can make
+the field mean more than the per-host AD bit, because local matching never
+validates RRSIGs. Each host reports `authenticated: true | false | null`.
+
+**Decided, not open** — `OQ-SEC9-01` warning, `OQ-SEC9-04` resolver stays
+fixed, `OQ-SEC9-06` amber via the existing `partial` field, `OQ-SEC9-07`
+`qualified` retired. Reasoning is in the spec's Resolved questions; don't
+re-litigate.
+
+**Two release artifacts that go stale silently here:** `PRIVACY.md` carries
+four *measured* fan-out figures and this release adds two queries per domain —
+re-measure, don't do arithmetic. And two existing `locales/en.json` keys change
+(`tlsa.publishedNotQualified`, `adv.tip.dnssecOff`), which marks them stale in
+all thirteen locales.
 
 **On completion:** assert `dnssec.signed` is unchanged for every backtest
 domain against 0.4.0 (spec's own acceptance criterion 6 — zero grade

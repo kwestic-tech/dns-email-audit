@@ -16,6 +16,115 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Nothing yet.
 
+## [0.5.0] — 2026-08-26
+
+### Added
+
+- **DNSSEC is six states rather than a boolean, and the two new ones are the
+  point.** The chain state came from one bit: the resolver's authenticated-data
+  flag on an `NS` probe, plus a `cd=1` re-query to tell a bogus chain from an
+  unsigned one. A zone that is signed but has no `DS` record at its parent, and
+  a zone whose `DS` and `DNSKEY` have drifted apart during a key rollover, both
+  rendered identically to a zone that had never been signed — telling an
+  operator who had done the work that they had not.
+
+  `checkDNSSEC()` now queries the child's `DNSKEY` set and the parent's `DS` set
+  alongside the existing probe, and classifies through an ordered six-rule
+  table: `bogus`, `indeterminate`, `secure`, `unanchored`, `mismatch`,
+  `insecure`. The order is normative — `dnssec-failed.org` satisfies three of
+  those rules at once.
+
+  Measured on the 40-domain backtest sample, `atlassian.com` is signed with no
+  `DS` at its parent and had been reported as having no DNSSEC.
+
+- **The `DS` records are matched against the `DNSKEY` set locally, with Web
+  Crypto.** RFC 4034 §5.1.4's digest over the canonical owner name and the
+  DNSKEY RDATA, with the RFC 4034 Appendix B key tag — and RFC 6840 §5.5 for
+  algorithm 1, whose calculation Appendix B states incorrectly. Verified against
+  RFC 4034 §5.4, RFC 4509 §2.3 and RFC 6605 §§6.1–6.2's published vectors.
+
+- **Nine findings, each naming what to do.** `dnssec-unanchored` (warn),
+  `dnssec-mismatch` (crit), `dnssec-ds-orphan` (info),
+  `dnssec-deprecated-algorithm` (warn), `dnssec-deprecated-digest` (info),
+  `dnssec-revoke-flag` (info), and three that report a `DS` confirming a key
+  that cannot anchor a delegation. The generic "enable DNSSEC" suggestion no
+  longer fires on a zone that is already signed, where it contradicted the
+  finding printed directly above it.
+
+- **A detail panel that says where each part of the verdict came from.** The
+  keys, the `DS` records with their match verdicts, and an evidence list in
+  which every line is attributed either to the resolver or to computation done
+  in the browser. It also names the single link that was checked, because
+  showing one link of a chain without naming it implies the tool walked the
+  whole thing to the root, which it does not.
+
+- **`node tools/backtest.mjs --dnssec-states`**, a live check of one named
+  domain per state against the classifier. The 40-domain `SAMPLE` is untouched:
+  it is a longitudinal score baseline, and mixing deliberately-broken test zones
+  into it would change what its histogram means.
+
+### Changed
+
+- **`checkTlsa()`'s `qualified` flag is retired rather than completed.** 0.4.0
+  introduced it as the stronger claim that the chain had been walked and
+  verified, expecting this release to supply it. A TLSA record lives at
+  `_25._tcp.<host>`, usually in a zone unrelated to the audited domain, so the
+  audited domain's chain evidence says nothing about it — and local
+  `DS`-to-`DNSKEY` matching never validates signatures, so it can never exceed
+  the per-host authenticated-data bit already recorded. A second field that can
+  only ever equal the first is a claim rather than a distinction. Each TLSA host
+  reports `authenticated: true | false | null` and nothing more.
+
+- **The DNSSEC dot tells the truth in every state.** Its tooltip read "Not
+  detected — enable DNSSEC in your DNS provider" for every non-signed state,
+  which is false for a signed-but-unanchored zone and worse than false for one
+  whose validation is failing. `unanchored` and `mismatch` also read amber,
+  matching the existing treatment for a duplicated record.
+
+- **The IANA algorithm and DS digest registries are current**, including
+  algorithms 17, 18 and 23 and digest types 5 and 6, with deprecation following
+  RFC 9905 and RFC 9906 rather than the superseded RFC 8624. A one-octet SM3
+  digest previously parsed as a valid record with no name.
+
+- **`DNSKEY` records are validated against their algorithm's key grammar.**
+  `257 3 15 AA==` — a one-octet Ed25519 key — parsed as valid and computed a key
+  tag. Structure is now reported separately from whether the record parsed, with
+  `unknown` reserved for algorithms whose key format this build does not
+  implement, so a zone signed to a newer specification is never called broken.
+
+- **Fan-out rises by exactly two queries per domain.** `PRIVACY.md` carries the
+  re-measured figures: about 41 per domain with the default options and 61 for
+  `cloudflare.com`, or about 34 and 45 with the deep protocol checks off.
+
+### Fixed
+
+- **A genuinely bogus zone now reaches its own critical finding.** A validating
+  resolver returns SERVFAIL for the core NS probe when DNSSEC validation fails,
+  so the audit previously threw before `checkDNSSEC()` could report `bogus`.
+  The integrated path now retains the validating verdict and uses `cd=1` only
+  to retrieve the diagnostic records needed to render the row. Ordinary core
+  lookup failures remain fatal.
+
+- **A DNSSEC verdict can no longer be assembled from local evidence alone.**
+  `servfail.nl` publishes a `DS` that confirms its `DNSKEY` by SHA-256 and a
+  full key set, and the zone is bogus. The resolver's flag remains the
+  validation signal; the local arithmetic explains the parent-to-child
+  relationship and nothing more.
+
+- **A key tag matching nothing is not a broken chain.** `paypal.com` publishes
+  one `DS` that confirms its key and one that matches nothing, and validates
+  perfectly — RFC 6840 §5.11 permits exactly that. An earlier design would have
+  reported it as a mismatch, costing it 15 points and the A tier.
+
+### Verification
+
+`npm test` passes 2,121 assertions, up from 1,813 at 0.4.0. `npm run
+locale:gate` passes 13/13 at 771/771 keys. The backtest against `v0.4.0` shows
+**zero grade, score and `dnssec.signed` movement** across the 40-domain sample,
+with `WEIGHTS`, `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` byte-identical — the
+classifier reaches its new states only when the resolver's flag is already
+false, so `signed` is unchanged by construction rather than by measurement.
+
 ## [0.4.0] — 2026-08-25
 
 ### Added
@@ -937,7 +1046,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.2...v0.2.3

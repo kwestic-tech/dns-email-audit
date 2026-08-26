@@ -2,16 +2,16 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.1 (Implemented) |
+| Spec version | 1.2 (Implemented) |
 | Target release | 0.4.0 |
 | Status | Implemented and released |
 | Released in | `v0.4.0`, 2026-08-25 |
 | Pull request | [#22](https://github.com/kwestic-tech/dns-email-audit/pull/22) |
 | Merge commit | `9bda3ad` (squashed) |
 | Depends on | [rendering-and-robustness](rendering-and-robustness.md) for rendering, [dmarcbis-tree-walk](dmarcbis-tree-walk.md) for the fixture-resolver test harness |
-| Blocks | [dnssec-evidence](../dnssec-evidence.md), which qualifies the DANE conclusions this release produces |
+| Blocks | [dnssec-evidence](dnssec-evidence.md), which reviewed this release's `qualified` flag and **retired** it — see the 1.2 row in Revision history |
 | Slug for open questions | `DEPTH` |
-| Last updated | 2026-08-25 |
+| Last updated | 2026-08-26 |
 
 ## Problem
 
@@ -535,7 +535,7 @@ publish authenticated TLSA and correctly raise nothing.
 `authenticated` and `qualified` are deliberately separate and both are kept.
 The AD bit is a validating resolver's assertion; `qualified` is the stronger
 claim that the chain was walked and verified, which
-[dnssec-evidence](../dnssec-evidence.md) supplies. Nothing in this release calls
+[dnssec-evidence](dnssec-evidence.md) supplies. Nothing in this release calls
 DANE active, and the interface's first line stays "published, not yet
 qualified" — acceptance criterion 4 holds at the surface the user actually
 reads, not only in the data model.
@@ -672,5 +672,6 @@ confirms them against real DNS.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-08-20 | Initial draft. |
+| 1.2 | 2026-08-26 | No implementation change. Recorded because **As implemented** item 2 makes a forward statement that is no longer true: it says `qualified` is "the stronger claim that the chain was walked and verified, which dnssec-evidence supplies". The 0.5.0 spec review concluded the opposite and retired the field. Two reasons, and item 2 had already established the first: a TLSA record lives at `_25._tcp.<mx-host>`, usually in a zone unrelated to the audited domain, so the audited domain's chain evidence says nothing about it — and local DS-to-DNSKEY matching never validates RRSIGs, so it can never exceed the resolver's per-host AD verdict that this release already records. The per-host `authenticated` field item 2 introduced is therefore the honest ceiling, and it stands unchanged. Everything item 2 says about *this* release remains correct; only its expectation of 0.5.0 was wrong. See `OQ-SEC9-07` in [dnssec-evidence](dnssec-evidence.md). |
 | 1.1 | 2026-08-25 | Implemented, then hardened across eight review rounds — see **As implemented** item 9 for what they found and why the shape matters. Two spec amendments, both in the same direction — the spec had let an implementation's capabilities stand in for the protocol's rules. The DER walk was written as SPKI-only, which would have reported a conformant bare PKCS#1 key as unparseable because `crypto.subtle.importKey` does not accept that encoding; and `cryptoValidated: false` for an absent Web Crypto collapsed "not checked" into "failed", contradicting the same paragraph's own rule. Three further notes recorded: the `tlsa-published-unsigned` finding is gated on the resolver's AD bit rather than on `qualified`, which would otherwise have fired on every domain in the release; base64 is decoded in-file rather than with `atob`; and the renderer was hardened against partial result shapes. See **As implemented**. |
 | 1.0 | 2026-08-25 | Final. Resolved all seven open questions. Two were settled with measurement rather than argument: `OQ-DEPTH-01`'s resolver shapes were captured before any parser was designed, and immediately found that `TLSA` comes back parenthesised where `DS` does not — a difference that would have produced a silently empty digest; and `OQ-DEPTH-05`'s 1024-bit threshold was decided by counting real keys, which showed 53% of keys on the sample are RSA-1024, so a warning would fire on most audited domains and the finding drops to informational. `OQ-DEPTH-02` takes the draft's third option, a DER walk for size with Web Crypto validation where available, which also keeps the analysis synchronous. `OQ-DEPTH-03` and `OQ-DEPTH-06` were decided by Ian; the former's "remember the user's choice" is explicitly session-scoped, because persisting it would need a second `localStorage` key and falsify `PRIVACY.md`'s "exactly one value" claim. Every code reference in the draft was re-pointed — all fifteen were stale, the spec having been written against 0.2.2 — and each referenced function was confirmed to still exist. |

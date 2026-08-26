@@ -110,7 +110,8 @@
     "na": "Nd.",
     "dash": "—",
     "caa": "Polityka CAA",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "Łańcuch DNSSEC"
   },
   "render": {
     "showMore": "Pokaż o {0} znaków więcej",
@@ -573,6 +574,43 @@
     },
     "dnssec-indeterminate": {
       "msg": "Nie udało się ustalić stanu DNSSEC, ponieważ zapytanie walidujące zawiodło. Punktowane jako niepodpisane. Uruchom audyt ponownie — zwykle to przejściowy problem resolwera. Jeśli powtarza się to dla domeny, co do której masz potwierdzenie u rejestratora lub dostawcy DNS, że jest podpisana, zgłoś to na GitHubie, podając domenę, rejestratora/dostawcę DNS oraz zrzut ekranu pokazujący włączony DNSSEC."
+    },
+    "dnssec-unanchored": {
+      "msg": "Twoja strefa jest podpisana, ale strefa nadrzędna nie publikuje rekordu DS — DNSSEC niczego nie chroni, dopóki nie opublikujesz go u swojego rejestratora.",
+      "what": "DNSSEC działa jak łańcuch, a podpisanie strefy to dopiero połowa pracy. Rejestrator musi opublikować w strefie nadrzędnej rekord DS wskazujący na Twój klucz podpisujący. Bez niego resolvery nie mają powodu ufać Twoim podpisom i traktują strefę jako niepodpisaną — każdy rekord widoczny tutaj nadal można sfałszować w tranzycie, dokładnie tak, jakbyś nigdy niczego nie podpisał.",
+      "fix": "Poproś dostawcę DNS o rekord DS i opublikuj go u rejestratora domeny. Większość rejestratorów nazywa to <em>DNSSEC</em> w ustawieniach domeny. Poczekaj na wygaśnięcie starych TTL i uruchom ten audyt ponownie — łańcuch działa, gdy tylko strefa nadrzędna zwróci rekord DS."
+    },
+    "dnssec-mismatch": {
+      "msg": "Rekord DS w strefie nadrzędnej nie pasuje do żadnego klucza publikowanego przez Twoją strefę — resolvery weryfikujące odrzucą tę domenę.",
+      "what": "Rekord DS w strefie nadrzędnej jest odciskiem jednego z Twoich rekordów DNSKEY. Gdy się nie zgadzają, resolver weryfikujący nie może zbudować łańcucha i zamiast Twoich rekordów zwraca błąd. To gorsze niż brak podpisu: poczta i ruch WWW przestają działać dla wszystkich, których resolver weryfikuje, a wygląda to na awarię, nie na błąd konfiguracji.",
+      "fix": "Niemal zawsze odpowiada za to wymiana klucza przerwana w połowie. Opublikuj DNSKEY, na który wskazuje obecny rekord DS, albo zaktualizuj rekord DS u rejestratora tak, aby odpowiadał kluczowi, którym podpisujesz teraz. Nie przerywaj po prostu podpisywania, dopóki rekord DS jest opublikowany — awaria pozostanie taka sama."
+    },
+    "dnssec-ds-orphan": {
+      "msg": "Rekord DS {0} w strefie nadrzędnej nie pasuje do żadnego klucza w Twojej strefie. Łańcuch nadal weryfikuje się przez inny rekord DS, więc nic nie jest zepsute.",
+      "what": "Strefa nadrzędna może zawierać kilka rekordów DS, a standard wprost dopuszcza, by jeden z nich wskazywał na klucz, który nie jest już publikowany. Tutaj inny rekord DS pasuje do aktywnego klucza, więc weryfikacja się udaje i dziś nic Cię to nie kosztuje. Zwykle to pozostałość po wymianie klucza, której nikt nie posprzątał.",
+      "fix": "Usuń nieaktualny rekord DS u rejestratora, gdy będziesz mieć pewność, że wskazywany klucz zniknął na dobre. Nie ma pośpiechu — pozostawienie go jest nieszkodliwe, ale utrudnia analizę przy kolejnej wymianie klucza."
+    },
+    "dnssec-deprecated-algorithm": {
+      "msg": "Twoja strefa jest podpisana przestarzałym algorytmem: {0}.",
+      "what": "Algorytmy podpisu są wycofywane wraz z upływem czasu. Przestarzały nadal weryfikuje się dzisiaj, ponieważ resolvery muszą nadal sprawdzać istniejące delegacje, ale nie wolno go już używać do nowych podpisów, a wsparcie w końcu zostanie usunięte. RSASHA1 i rodzina DSA to typowe przypadki.",
+      "fix": "Poproś dostawcę DNS o przeniesienie strefy na aktualny algorytm. <code>ECDSAP256SHA256</code> to typowy wybór i daje znacznie mniejsze rekordy niż RSA. Zmiana modyfikuje rekord DS, więc nowy musi trafić do rejestratora w tej samej operacji."
+    },
+    "dnssec-deprecated-digest": {
+      "msg": "Twój rekord DS używa przestarzałego typu skrótu: {0}.",
+      "what": "Rekord DS identyfikuje klucz za pomocą jego skrótu. SHA-1 jest nadal akceptowany przy weryfikacji istniejących delegacji, ale nie wolno go używać do nowych, a GOST R 34.11-94 jest przestarzały całkowicie. Dziś niczego to nie psuje.",
+      "fix": "Poproś rejestratora o zastąpienie rekordu DS wersją SHA-256. Dostawca DNS wygeneruje go z klucza, który już masz, więc wymiana klucza nie jest potrzebna — zmienia się tylko rekord DS w strefie nadrzędnej."
+    },
+    "dnssec-revoke-flag": {
+      "msg": "DNSKEY {0} jest opublikowany z ustawioną flagą REVOKE. Potwierdzenie unieważnienia wymaga sprawdzenia podpisu, którego ten audyt nie wykonuje."
+    },
+    "dnssec-key-algorithm-ineligible": {
+      "msg": "Rekord DS {0} wskazuje na klucz, którego algorytmu nie wolno używać do podpisywania strefy, więc delegacja nie może zostać zakotwiczona."
+    },
+    "dnssec-key-not-zone-key": {
+      "msg": "Rekord DS {0} wskazuje na klucz nieoznaczony jako klucz strefy: nie może on weryfikować rekordów, a delegacja nie może zostać zakotwiczona."
+    },
+    "dnssec-key-malformed": {
+      "msg": "Rekord DS {0} wskazuje na klucz, którego materiał jest nieprawidłowy dla jego algorytmu, więc żaden resolver nie może go użyć."
     },
     "mta-sts-invalid": {
       "msg": "Rekord TXT MTA-STS jest nieprawidłowo sformułowany albo brakuje w nim wymaganego znacznika id=."
@@ -1103,10 +1141,49 @@
     "unknownCritical": "Nierozpoznana właściwość krytyczna"
   },
   "tlsa": {
-    "publishedNotQualified": "Opublikowane, jeszcze niekwalifikowane — DANE ma znaczenie wyłącznie za zweryfikowanym łańcuchem DNSSEC, a to wydanie go nie sprawdza.",
+    "published": "Opublikowano, ale nie potwierdzono działania — DANE chroni połączenie tylko wtedy, gdy rekord TLSA jest osadzony w zweryfikowanym łańcuchu DNSSEC. Przy każdym serwerze pocztowym poniżej podano, czy resolver uwierzytelnił jego własną odpowiedź.",
     "notPublished": "nieopublikowane",
     "notChecked": "niesprawdzone",
     "authenticated": "opublikowane · uwierzytelnione przez DNSSEC",
     "unauthenticated": "opublikowane · nieuwierzytelnione przez DNSSEC"
+  },
+  "dnssec": {
+    "status": "Stan",
+    "keys": "Klucze",
+    "ds": "Rekordy DS",
+    "chain": "Dowody",
+    "state": {
+      "secure": "Podpisana i zweryfikowana przez resolver",
+      "insecure": "Niepodpisana",
+      "unanchored": "Podpisana, ale strefa nadrzędna nie publikuje rekordu DS",
+      "mismatch": "Rekord DS nie pasuje do żadnego klucza tej strefy",
+      "bogus": "Weryfikacja się nie powodzi",
+      "indeterminate": "Nie udało się ustalić"
+    },
+    "flag": {
+      "sep": "flaga SEP",
+      "revoke": "flaga REVOKE"
+    },
+    "match": {
+      "confirmed": "pasuje do opublikowanego klucza",
+      "no-matching-key": "żaden opublikowany klucz nie ma tego znacznika",
+      "digest-mismatch": "nie pasuje do klucza o tym znaczniku",
+      "unverifiable-digest-type": "tego typu skrótu nie da się tutaj obliczyć",
+      "unverifiable": "nie udało się sprawdzić"
+    },
+    "source": {
+      "resolver": "Resolver",
+      "local": "Obliczone tutaj"
+    },
+    "claim": {
+      "authenticated": "zgłasza tę odpowiedź jako uwierzytelnioną",
+      "notAuthenticated": "nie zgłasza tej odpowiedzi jako uwierzytelnionej",
+      "resolver-bogus": "odpowiada tylko przy wyłączonej weryfikacji, więc weryfikacja się nie powodzi",
+      "resolver-unreachable": "nie zwrócił użytecznej odpowiedzi",
+      "link-checked": "sprawdzono jedno ogniwo: DNSKEY tej strefy wobec rekordu DS strefy nadrzędnej",
+      "dsConfirms": "DS {0} pasuje do opublikowanego klucza według {1}",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "zapytanie {0} nie zostało zakończone ({1})"
+    }
   }
 }

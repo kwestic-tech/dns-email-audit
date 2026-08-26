@@ -110,7 +110,8 @@
     "na": "不适用",
     "dash": "—",
     "caa": "CAA 策略",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "DNSSEC 信任链"
   },
   "render": {
     "showMore": "显示其余 {0} 个字符",
@@ -563,6 +564,43 @@
     },
     "dnssec-indeterminate": {
       "msg": "由于验证查询失败，无法确定 DNSSEC 状态。按未签名计分。请重新运行审计——这通常是解析器的临时问题。如果某个您已在注册商或 DNS 服务商处确认已签名的域名反复出现此情况，请在 GitHub 上提交 issue，附上域名、您的注册商或 DNS 服务商，以及一张显示 DNSSEC 已启用的截图。"
+    },
+    "dnssec-unanchored": {
+      "msg": "您的区域已签名，但父区域未发布 DS 记录 — 在您到注册商处发布它之前，DNSSEC 不保护任何内容。",
+      "what": "DNSSEC 以信任链的方式运作，给区域签名只是其中一半。您的注册商必须在父区域中发布一条指向您签名密钥的 DS 记录。没有它，解析器没有理由信任您的签名，会把该区域当作未签名处理 — 这里显示的每一条记录仍可能在传输途中被伪造，就和您从未签名过一样。",
+      "fix": "向您的 DNS 服务商索取 DS 记录，然后在域名注册商处发布。大多数注册商在域名设置中把它标为 <em>DNSSEC</em>。等旧的 TTL 过期后重新运行本次审计 — 父区域返回 DS 记录时，信任链即刻生效。"
+    },
+    "dnssec-mismatch": {
+      "msg": "父区域的 DS 记录与您区域发布的任何密钥都不匹配 — 执行验证的解析器将拒绝该域名。",
+      "what": "父区域中的 DS 记录是您某条 DNSKEY 记录的指纹。两者不一致时，执行验证的解析器无法构建信任链，会返回失败而不是您的记录。这比未签名更糟：所有解析器执行验证的用户都会遇到邮件和网页中断，而且看起来像服务故障而非配置错误。",
+      "fix": "这几乎总是中途停下的密钥轮换所致。请发布当前 DS 记录所指向的 DNSKEY，或在注册商处把 DS 记录更新为您现在用于签名的密钥。不要在 DS 记录仍在发布时直接停止签名 — 同样的故障会保留下来。"
+    },
+    "dnssec-ds-orphan": {
+      "msg": "父区域的 DS 记录 {0} 与您区域中的任何密钥都不匹配。您的信任链仍通过另一条 DS 记录验证通过，因此并未出错。",
+      "what": "父区域可以包含多条 DS 记录，标准明确允许其中一条指向已不再发布的密钥。这里另一条 DS 记录与一个有效密钥匹配，验证因此成功，目前不会造成任何损失。它通常是某次密钥轮换后无人清理的遗留物。",
+      "fix": "确认该记录所指的密钥已彻底弃用后，在注册商处删除这条过期的 DS 记录。不必着急 — 留着无害，但会让下一次密钥轮换更难梳理。"
+    },
+    "dnssec-deprecated-algorithm": {
+      "msg": "您的区域使用已弃用的算法签名：{0}。",
+      "what": "签名算法会随着时间推移被淘汰。已弃用的算法今天仍能通过验证，因为解析器必须继续验证既有的委派，但它不得再用于新的签名，支持最终也会被移除。RSASHA1 和 DSA 系列是常见情形。",
+      "fix": "请 DNS 服务商把该区域迁移到当前算法。<code>ECDSAP256SHA256</code> 是常用选择，生成的记录远小于 RSA。迁移会改变您的 DS 记录，因此新记录必须在同一次操作中送达注册商。"
+    },
+    "dnssec-deprecated-digest": {
+      "msg": "您的 DS 记录使用了已弃用的摘要类型：{0}。",
+      "what": "DS 记录通过密钥的哈希值来标识密钥。SHA-1 在验证既有委派时仍被接受，但不得用于新的委派；GOST R 34.11-94 则已完全弃用。这在今天不会导致任何故障。",
+      "fix": "请注册商把 DS 记录替换为 SHA-256 版本。您的 DNS 服务商可以用现有密钥生成，因此无需轮换密钥 — 只有父区域中的 DS 记录发生变化。"
+    },
+    "dnssec-revoke-flag": {
+      "msg": "DNSKEY {0} 在发布时设置了 REVOKE 标志。确认吊销需要本次审计不执行的签名校验。"
+    },
+    "dnssec-key-algorithm-ineligible": {
+      "msg": "DS 记录 {0} 指向的密钥，其算法不得用于区域签名，因此该委派无法锚定。"
+    },
+    "dnssec-key-not-zone-key": {
+      "msg": "DS 记录 {0} 指向的密钥未被标记为区域密钥：它不得验证记录，该委派也无法锚定。"
+    },
+    "dnssec-key-malformed": {
+      "msg": "DS 记录 {0} 指向的密钥，其密钥材料对所声明的算法无效，因此任何解析器都无法使用它。"
     },
     "mta-sts-invalid": {
       "msg": "MTA-STS TXT 记录格式错误或缺少必要的 id= 标签。"
@@ -1093,10 +1131,49 @@
     "unknownCritical": "无法识别的关键属性"
   },
   "tlsa": {
-    "publishedNotQualified": "已发布，尚未合格 — DANE 只有在经过验证的 DNSSEC 信任链之后才有意义，而本版本并不验证该信任链。",
+    "published": "已发布，但未证实生效 — 只有当 TLSA 记录处于已验证的 DNSSEC 信任链中时，DANE 才能保护连接。下方每个邮件主机都会显示解析器是否已验证该主机自身的应答。",
     "notPublished": "未发布",
     "notChecked": "未检查",
     "authenticated": "已发布 · 已通过 DNSSEC 认证",
     "unauthenticated": "已发布 · 未通过 DNSSEC 认证"
+  },
+  "dnssec": {
+    "status": "状态",
+    "keys": "密钥",
+    "ds": "DS 记录",
+    "chain": "依据",
+    "state": {
+      "secure": "已签名，且已由解析器验证",
+      "insecure": "未签名",
+      "unanchored": "已签名，但父区域未发布 DS 记录",
+      "mismatch": "DS 记录与本区域的任何密钥都不匹配",
+      "bogus": "验证正在失败",
+      "indeterminate": "无法判定"
+    },
+    "flag": {
+      "sep": "SEP 标志",
+      "revoke": "REVOKE 标志"
+    },
+    "match": {
+      "confirmed": "与一个已发布的密钥匹配",
+      "no-matching-key": "没有已发布的密钥带有此标签",
+      "digest-mismatch": "与带有此标签的密钥不匹配",
+      "unverifiable-digest-type": "此摘要类型无法在此计算",
+      "unverifiable": "无法核对"
+    },
+    "source": {
+      "resolver": "解析器",
+      "local": "本地计算"
+    },
+    "claim": {
+      "authenticated": "报告此应答已通过认证",
+      "notAuthenticated": "未报告此应答已通过认证",
+      "resolver-bogus": "仅在关闭验证时才应答，因此验证正在失败",
+      "resolver-unreachable": "未返回可用的应答",
+      "link-checked": "仅核对了一个环节：本区域的 DNSKEY 与父区域的 DS 记录",
+      "dsConfirms": "DS {0} 通过 {1} 与一个已发布的密钥匹配",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "{0} 查询未完成（{1}）"
+    }
   }
 }

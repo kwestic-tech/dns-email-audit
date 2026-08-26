@@ -2609,14 +2609,22 @@
      record provides no protection whatsoever while looking exactly like
      protection.
 
-     Two separate facts, deliberately not merged. `authenticated` is the AD bit
-     the validating resolver returned for this exact name, which is real
-     evidence and is what the unsigned finding is gated on — without it the
-     finding would announce "your TLSA is unprotected" on a correctly signed
-     zone purely because this release had not looked. `qualified` is the
-     stronger claim that the chain was walked and verified, which
-     dnssec-evidence (0.5.0) supplies; it stays false here, and every string
-     the interface shows says "published", never "enabled".
+     `authenticated` is the AD bit the validating resolver returned for this
+     exact name — real evidence, gated per host, and what the unsigned finding
+     fires on. Without it the finding would announce "your TLSA is unprotected"
+     on a correctly signed zone purely because nothing had looked.
+
+     0.4.0 kept a second flag, `qualified`, for the stronger claim that the
+     chain had been walked and verified, expecting dnssec-evidence to supply
+     it. **0.5.0 retired the flag instead of completing it** (`OQ-SEC9-07`).
+     A TLSA record lives at `_25._tcp.<host>`, usually in a zone unrelated to
+     the audited domain, so the audited domain's chain evidence says nothing
+     about it — and local DS-to-DNSKEY matching never validates RRSIGs, so it
+     can never exceed the per-host AD bit already recorded here. A second field
+     that can only ever equal the first is a claim, not a distinction.
+
+     So `authenticated` is the ceiling, per host, and every string the
+     interface shows says "published", never "enabled".
      ───────────────────────────────────────────────────────────────────── */
 
   var TLSA_MATCHING_LENGTHS = { 1: 32, 2: 64 };   // SHA-256, SHA-512; 0 is a full cert, any length
@@ -2720,18 +2728,12 @@
       anyPresent: present.length > 0,
       // Every host that publishes TLSA does so under an authenticated chain.
       // Evidence, not a verdict: it is what the `tlsa-published-unsigned`
-      // finding is gated on, and it is deliberately NOT the same thing as
-      // `qualified`.
+      // finding is gated on. This is the strongest true statement available
+      // about a record in someone else's zone.
       allAuthenticated: present.length > 0 && present.every(function (h) { return h.authenticated === true; }),
       unauthenticatedHosts: present.filter(function (h) { return h.authenticated === false; })
         .map(function (h) { return h.host; }),
       unknown: hosts.some(function (h) { return h.unknown; }),
-      // Stays false until dnssec-evidence (0.5.0) walks the DS/DNSKEY chain.
-      // The AD bit above says a validating resolver authenticated the answer,
-      // which is good evidence and not the same as having verified the chain
-      // ourselves — so nothing in this release calls DANE active, and the
-      // interface says "published", never "enabled".
-      qualified: false,
     };
   }
 
@@ -3241,19 +3243,892 @@
     return { loop: true, chain: chain, addresses: [] };
   }
 
+  /* ── DNSSEC record parsing (RFC 4034) ──────────────────────────────────
+     Two presentation forms from one resolver, and they must not share a
+     normalizer. A DS digest is hex, so folding its case is free. A DNSKEY
+     public key is base64 — case-carrying, with `+`, `/` and `=` in it — and
+     folding its case destroys it silently: every digest then fails to match
+     and a perfectly healthy zone is reported as a broken chain. That is the
+     most damaging verdict this tool can produce, so the two parsers are
+     written apart rather than factored together.
+
+     These parsers read the numeric presentation form this project's one
+     resolver returns, captured before any of this was written in
+     docs/specs/fixtures/dnssec-live-states-0.5.0.md. RFC 4034 also permits
+     algorithm mnemonics in zone-file presentation format; Cloudflare's JSON
+     never emits them, and rather than accept a grammar nothing here can
+     produce, an alphabetic algorithm field is reported as unparseable. That is
+     a deliberate scope statement, not an oversight.
+
+     A note on what `valid` means. It is a statement about the RECORD — the
+     fields parsed, the protocol is 3, the base64 decoded. It is NOT a
+     statement that the key is usable. Whether the key material is even
+     structurally possible for its declared algorithm is `keyStructure`, and
+     whether the key may verify RRsets at all is the zone flag. Collapsing
+     those into one boolean is how a recognized name gets accepted without its
+     registered value grammar, which is the failure 0.4.0 spent three review
+     rounds removing from CAA, MTA-STS and DKIM in turn.
+     ───────────────────────────────────────────────────────────────────── */
+
+  /**
+   * IANA DNS Security Algorithm Numbers, current as of 2026-08-26. Protocol
+   * identifiers, not prose — the localization contract lists them among the
+   * terms that are never translated.
+   *
+   * 18 (MLDSA44) is an early allocation held by an Internet-Draft rather than
+   * an RFC. It is carried because the registry carries it: a resolver could
+   * return it, and reporting the number with no name is worse than reporting
+   * the name the registry gives.
+   */
+  var DNSSEC_ALGORITHMS = {
+    0: 'DELETE', 1: 'RSAMD5', 2: 'DH', 3: 'DSA', 5: 'RSASHA1',
+    6: 'DSA-NSEC3-SHA1', 7: 'RSASHA1-NSEC3-SHA1', 8: 'RSASHA256',
+    10: 'RSASHA512', 12: 'ECC-GOST', 13: 'ECDSAP256SHA256',
+    14: 'ECDSAP384SHA384', 15: 'ED25519', 16: 'ED448', 17: 'SM2SM3',
+    18: 'MLDSA44', 23: 'ECC-GOST12',
+    252: 'INDIRECT', 253: 'PRIVATEDNS', 254: 'PRIVATEOID',
+  };
+
+  /**
+   * The IANA registry's Zone Signing column is a separate protocol fact from
+   * whether this build recognizes an algorithm's key grammar. The complete
+   * named registry is recorded here: false is an affirmative prohibition,
+   * while an absent value remains unknown for an unassigned future number.
+   * Only algorithms marked true may contribute usable anchoring evidence.
+   */
+  var DNSSEC_ZONE_SIGNING = {
+    0: false, 1: false, 2: false, 3: true, 5: true, 6: true, 7: true,
+    8: true, 10: true, 12: true, 13: true, 14: true, 15: true, 16: true,
+    17: true, 18: true, 23: true, 252: false, 253: true, 254: true,
+  };
+
+  function dnssecAlgorithmEligibility(algorithm) {
+    if (!Object.prototype.hasOwnProperty.call(DNSSEC_ZONE_SIGNING, algorithm)) return 'unknown';
+    return DNSSEC_ZONE_SIGNING[algorithm] ? 'eligible' : 'ineligible';
+  }
+
+  /**
+   * Deprecated for signing. RFC 9905 §3.1 obsoletes RFC 8624's algorithm
+   * table: RSAMD5, DSA and both DSA/RSASHA1-NSEC3 variants are MUST NOT, and
+   * RSASHA1 is likewise no longer permitted for new signing. RFC 9906
+   * deprecates the GOST R 34.10-2001 algorithm and its digest.
+   *
+   * ECC-GOST12 (23) is NOT here: RFC 9558 registers it as a current
+   * replacement for 12, not as a deprecated algorithm.
+   */
+  var DEPRECATED_DNSSEC_ALGORITHMS = [1, 3, 5, 6, 7, 12];
+
+  /**
+   * IANA DS digest algorithms, current as of 2026-08-26. Types 5 and 6 were
+   * missing here, which meant a one-octet digest declaring type 6 was accepted
+   * as a valid record with no name — a currently registered digest parsed
+   * without its registered grammar, which is exactly what the unknown-value
+   * fallback is NOT for.
+   */
+  var DNSSEC_DIGESTS = {
+    // 0 is reserved by RFC 3658 and marked "Not for use" by IANA. Named so it
+    // reads as reserved rather than as an unassigned future type, and NOT
+    // rejected: RFC 3658 reserves the value without saying a DS carrying it is
+    // invalid, and inventing that rule is not this parser's to invent.
+    0: 'RESERVED',
+    1: 'SHA-1', 2: 'SHA-256', 3: 'GOST-R-34.11-94', 4: 'SHA-384',
+    5: 'GOST-R-34.11-2012', 6: 'SM3',
+  };
+  var DNSSEC_DIGEST_LENGTHS = { 1: 20, 2: 32, 3: 32, 4: 48, 5: 32, 6: 32 };
+
+  /**
+   * The IANA DS registry's **"Use for DNSSEC Validation"** column.
+   *
+   * That column, and not the delegation one, is the applicable fact here. This
+   * tool inspects delegations that already exist; it does not create them. The
+   * two columns genuinely disagree — SHA-1 is `MUST NOT` for creating a
+   * delegation and `RECOMMENDED` for validating one, with "Implement for
+   * DNSSEC Validation: MUST" beside it — so reading the delegation column would
+   * mark every SHA-1 anchor in use as prohibited and contradict §3's whole
+   * argument for computing SHA-1 in the first place.
+   *
+   * Affirmative `MUST NOT` is the only thing recorded as a prohibition: 0
+   * (reserved) and 3 (GOST R 34.11-94, deprecated by RFC 9906). Everything
+   * assigned and permitted at any strength — RECOMMENDED or MAY — is eligible.
+   * Unassigned, reserved and private-use values are `unknown`, because the
+   * registry makes no per-value determination for them.
+   */
+  var DNSSEC_DIGEST_VALIDATION_USE = { 0: false, 1: true, 2: true, 3: false, 4: true, 5: true, 6: true };
+
+  function dnssecDigestEligibility(digestType) {
+    if (!Object.prototype.hasOwnProperty.call(DNSSEC_DIGEST_VALIDATION_USE, digestType)) return 'unknown';
+    return DNSSEC_DIGEST_VALIDATION_USE[digestType] ? 'eligible' : 'ineligible';
+  }
+
+  /**
+   * Name the ranges as well as the assignments, so a reserved or private-use
+   * value cannot read as a possible future assignment. RFC 9904 reserves
+   * 128–252 and sets 253–254 aside for private use; 7–127 and 255 are genuinely
+   * unassigned and are the only values that get no name at all.
+   */
+  function dnssecDigestName(digestType) {
+    if (Object.prototype.hasOwnProperty.call(DNSSEC_DIGESTS, digestType)) return DNSSEC_DIGESTS[digestType];
+    if (digestType >= 128 && digestType <= 252) return 'RESERVED';
+    if (digestType >= 253 && digestType <= 254) return 'PRIVATE-USE';
+    return null;
+  }
+
+  /**
+   * SHA-1 is "deprecated for delegation" per RFC 9905 and the IANA registry —
+   * it must not be used for NEW delegations but remains required for
+   * validating existing ones. GOST R 34.11-94 is deprecated outright by
+   * RFC 9906. Both are reported; neither is a reason to refuse to compute.
+   */
+  var DEPRECATED_DNSSEC_DIGESTS = [1, 3];
+
+  // RFC 4034 §2.1.1 and RFC 5011 §7. Each of these names a BIT, and the
+  // parser reports the bit rather than a role — see parseDnskey().
+  var DNSKEY_FLAG_SEP = 0x0001;      // bit 15: secure entry point, advisory only
+  var DNSKEY_FLAG_ZONE = 0x0100;     // bit 7: this key may verify RRsets in the zone
+  var DNSKEY_FLAG_REVOKE = 0x0080;   // bit 8: RFC 5011 revocation, half of a proof
+
+  /**
+   * Public key lengths that are fixed by their algorithm's specification.
+   * RFC 6605 §4 (ECDSA Q is the uncompressed point x|y, so 64 and 96) and
+   * RFC 8080 §3 (Ed25519 32 octets, Ed448 57).
+   */
+  var DNSKEY_FIXED_KEY_LENGTHS = { 13: 64, 14: 96, 15: 32, 16: 57 };
+
+  // RFC 3110 §2 exponent-and-modulus encoding, used by every RSA algorithm.
+  var RSA_DNSSEC_ALGORITHMS = [1, 5, 7, 8, 10];
+
+  /**
+   * Minimum modulus in octets, per the RFC that defines each algorithm.
+   *
+   * RFC 3110 §3 sets 512 bits for the RSA/SHA-1 family, and RFC 5702 §2.1
+   * repeats it for RSA/SHA-256 — but **§2.2 raises the floor to 1024 bits for
+   * RSA/SHA-512**, and a single shared minimum silently drops that. It is the
+   * permissive direction, so it breaks no real zone; it is also the same shape
+   * as every finding this review series has produced — a recognized algorithm
+   * accepted without the value constraint its own specification states. The
+   * ceiling is 4096 bits everywhere.
+   */
+  var RSA_MIN_MODULUS_BYTES = { 1: 64, 5: 64, 7: 64, 8: 64, 10: 128 };
+  var RSA_MAX_MODULUS_BYTES = 512;
+
+  /**
+   * Is this key material structurally possible for the algorithm it declares?
+   *
+   * Three answers, and the third is the point. `'invalid'` means a recognized
+   * algorithm carrying material it cannot possibly be — a one-octet Ed25519
+   * key. `'unknown'` means this build does not know the algorithm's key
+   * grammar, which is an honest thing to say about DSA, GOST, SM2 and ML-DSA
+   * and must never be read as a fault: a DS digest is computed over the raw
+   * RDATA, so a parent and child can agree perfectly about a key whose
+   * internals nothing here can parse.
+   *
+   * Only `'invalid'` disqualifies. Rejecting `'unknown'` would refuse zones
+   * signed to a specification newer than this build, which is the opposite
+   * failure and the one three of 0.4.0's eight rounds were spent undoing.
+   */
+  function dnskeyStructure(algorithm, bytes) {
+    if (!bytes) return 'unknown';
+    var fixed = DNSKEY_FIXED_KEY_LENGTHS[algorithm];
+    if (fixed !== undefined) return bytes.length === fixed ? 'valid' : 'invalid';
+    if (RSA_DNSSEC_ALGORITHMS.indexOf(algorithm) === -1) return 'unknown';
+
+    // RFC 3110 §2: lengths 1–255 use the one-octet form; only longer
+    // exponents use zero plus a two-octet length. Exponent and modulus are
+    // unsigned integers with no leading zero octets, and each is limited to
+    // 4096 bits. The modulus floor is per-algorithm — see
+    // RSA_MIN_MODULUS_BYTES, where RFC 5702 §2.2 raises RSA/SHA-512 to 1024.
+    if (bytes.length < 1) return 'invalid';
+    var exponentLength = bytes[0];
+    var offset = 1;
+    if (exponentLength === 0) {
+      if (bytes.length < 3) return 'invalid';
+      exponentLength = (bytes[1] << 8) | bytes[2];
+      offset = 3;
+      if (exponentLength <= 255) return 'invalid';
+    }
+    if (exponentLength === 0 || exponentLength > 512) return 'invalid';
+    if (offset + exponentLength >= bytes.length) return 'invalid';
+    var modulusOffset = offset + exponentLength;
+    var modulusLength = bytes.length - modulusOffset;
+    var minimumModulus = RSA_MIN_MODULUS_BYTES[algorithm] || 64;
+    if (modulusLength < minimumModulus || modulusLength > RSA_MAX_MODULUS_BYTES) return 'invalid';
+    if (bytes[offset] === 0 || bytes[modulusOffset] === 0) return 'invalid';
+    return 'valid';
+  }
+
+  /**
+   * Split a record into its fixed leading integers and one trailing blob,
+   * unwrapping the optional parenthesis pair around the blob.
+   *
+   * The balanced-pair rule is `parseTlsaRecord()`'s, and for the same reason:
+   * stripping each side independently accepts `( ABCD` and `ABCD )` alike,
+   * which defeats the point of a parser written for a presentation form. What
+   * is deliberately NOT shared is case folding — see the block comment above.
+   */
+  function splitRdataFields(presentationString, leadingFields) {
+    var text = String(presentationString || '').trim();
+    var pattern = new RegExp('^' + new Array(leadingFields + 1).join('(\\d+)\\s+') + '([\\s\\S]+)$');
+    var match = pattern.exec(text);
+    if (!match) return null;
+    var body = match[leadingFields + 1].trim();
+    var opened = body.charAt(0) === '(';
+    var closed = body.length > 1 && body.charAt(body.length - 1) === ')';
+    if (opened !== closed) return { unbalanced: true };
+    if (opened) body = body.slice(1, -1);
+    return {
+      numbers: match.slice(1, leadingFields + 1).map(Number),
+      body: body.replace(/\s+/g, ''),
+    };
+  }
+
+  /**
+   * A domain name in DNS wire format: each label prefixed by its length byte,
+   * lowercased, terminated by a zero byte. RFC 4034 §5.1.4 hashes this ahead
+   * of the DNSKEY RDATA, so an error here is an error in every digest.
+   *
+   * Returns null rather than guessing. A label over 63 octets, a name over 255,
+   * or a byte outside ASCII cannot be encoded correctly, and writing the wrong
+   * bytes anyway would produce a mismatch verdict about the operator's zone
+   * that is really a statement about our own encoder.
+   *
+   * ASCII is checked BEFORE case folding, and the order is load-bearing.
+   * JavaScript's toLowerCase() is Unicode case conversion, not the ASCII-only
+   * folding RFC 4034 §6.2 defines: U+212A KELVIN SIGN lowercases to plain
+   * 'k'. Folding first therefore turned a name this function must refuse into
+   * one it accepts, and computed a digest for `k.example` when the caller
+   * asked about `K.example` — a different owner name, which is a different
+   * zone.
+   */
+  function dnsWireName(domain) {
+    var raw = String(domain || '').replace(/\.$/, '');
+    if (!raw) return new Uint8Array([0]);
+    // Reject anything outside ASCII before any transformation touches it.
+    if (!/^[\x00-\x7f]*$/.test(raw)) return null;
+    var name = raw.toLowerCase();
+    var labels = name.split('.');
+    var total = 1;
+    for (var i = 0; i < labels.length; i++) {
+      if (!labels[i].length || labels[i].length > 63) return null;
+      total += 1 + labels[i].length;
+    }
+    if (total > 255) return null;
+    var bytes = new Uint8Array(total);
+    var out = 0;
+    for (var j = 0; j < labels.length; j++) {
+      bytes[out++] = labels[j].length;
+      for (var k = 0; k < labels[j].length; k++) {
+        bytes[out++] = labels[j].charCodeAt(k);
+      }
+    }
+    bytes[out] = 0;
+    return bytes;
+  }
+
+  /** RFC 4034 §2.1: flags(2) || protocol(1) || algorithm(1) || public key. */
+  function dnskeyRdata(key) {
+    if (!key || !key.valid) return null;
+    var publicKey = base64ToBytes(key.publicKey);
+    if (!publicKey) return null;
+    var rdata = new Uint8Array(4 + publicKey.length);
+    rdata[0] = (key.flags >> 8) & 0xff;
+    rdata[1] = key.flags & 0xff;
+    rdata[2] = key.protocol;
+    rdata[3] = key.algorithm;
+    rdata.set(publicKey, 4);
+    return rdata;
+  }
+
+  /**
+   * The key tag, which is what links a DS to a DNSKEY. An off-by-one here does
+   * not fail loudly — it reports a spurious mismatch on a healthy zone, which
+   * the spec calls the worst defect this project could ship. Checked against
+   * the reference key in RFC 4034 §5.4, whose stated tag is 60485.
+   *
+   * The general case is RFC 4034 Appendix B. Algorithm 1 is NOT: Appendix B.1
+   * is erroneous, and **RFC 6840 §5.5 is the normative text**. B.1 correctly
+   * says the tag is the most significant 16 of the least significant 24 bits
+   * of the modulus and then names the wrong octets for it — "fourth-to-last
+   * and third-to-last", where §5.5 corrects it to the third-to-last and
+   * second-to-last. Implementing the appendix as written would produce a tag
+   * one octet out on every RSAMD5 key, which is to say a mismatch verdict on
+   * every zone still using one.
+   *
+   * The modulus ends the RDATA under RFC 3110's encoding, so the last octets
+   * of the RDATA are the last octets of the modulus.
+   */
+  function dnskeyKeyTag(rdata, algorithm) {
+    if (!rdata) return null;
+    if (algorithm === 1) return rdata.length < 3 ? 0 : (rdata[rdata.length - 3] << 8) + rdata[rdata.length - 2];
+    var accumulator = 0;
+    for (var i = 0; i < rdata.length; i++) {
+      accumulator += (i & 1) ? rdata[i] : rdata[i] << 8;
+    }
+    accumulator += (accumulator >> 16) & 0xffff;
+    return accumulator & 0xffff;
+  }
+
+  /**
+   * Parse one DNSKEY presentation string.
+   *
+   * Every flag is reported as the bit it is, never as the role it suggests.
+   * `hasSep` is the SEP bit and not "this is the KSK": RFC 6840 §6.2 says the
+   * bit "has no effect on how a DNSKEY may be used" and that validation is
+   * prohibited from consulting it, so a key without SEP may be the only secure
+   * entry point a zone has. `hasRevokeFlag` is the REVOKE bit and not "this
+   * key is revoked": RFC 5011 §2.1 makes a key revoked when a resolver sees it
+   * in a SELF-SIGNED RRset with the bit set, and this release does not
+   * validate RRSIGs, so it holds one half of a two-part proof.
+   *
+   * `hasZoneFlag` is the one flag that does carry a normative consequence —
+   * RFC 4034 §2.1.1 says a key without it MUST NOT verify RRsets — and even
+   * that is reported here and applied where matching happens.
+   *
+   * `publicKey` stays the base64 text rather than becoming a byte array. It is
+   * the evidence the resolver returned, it survives export and comparison
+   * intact, and a 2048-bit key as a Uint8Array serializes into a 259-entry
+   * object in every report this result reaches. `dnskeyRdata()` decodes it
+   * where bytes are actually needed.
+   */
+  function parseDnskey(presentationString) {
+    var blank = {
+      flags: null, protocol: null, algorithm: null, algorithmName: null,
+      algorithmEligibility: 'unknown',
+      publicKey: '', keyBytes: 0, keyTag: null, keyStructure: 'unknown',
+      hasSep: false, hasZoneFlag: false, hasRevokeFlag: false,
+      deprecated: false, valid: false, errors: ['unparseable-record'],
+    };
+    var fields = splitRdataFields(presentationString, 3);
+    if (!fields) return blank;
+    if (fields.unbalanced) return Object.assign({}, blank, { errors: ['unbalanced-parentheses'] });
+
+    var flags = fields.numbers[0];
+    var protocol = fields.numbers[1];
+    var algorithm = fields.numbers[2];
+    var errors = [];
+
+    if (!(flags >= 0 && flags <= 0xffff)) errors.push('bad-flags');
+    // RFC 4034 §2.1.2: the protocol field MUST have value 3, and a DNSKEY with
+    // any other value MUST be treated as invalid.
+    if (protocol !== 3) errors.push('bad-protocol');
+    if (!(algorithm >= 0 && algorithm <= 255)) errors.push('bad-algorithm');
+
+    var publicKey = fields.body;
+    var bytes = publicKey ? base64ToBytes(publicKey) : null;
+    if (!publicKey) errors.push('empty-key');
+    else if (!bytes) errors.push('bad-key-encoding');
+
+    var valid = errors.length === 0;
+    // Reserved flag bits are ignored on receipt (RFC 4034 §2.1.1). A record
+    // carrying one is parseable, and nothing here rejects it for that.
+    var parsed = {
+      flags: flags,
+      protocol: protocol,
+      algorithm: algorithm,
+      // An unregistered algorithm number is not an error. The registry grows,
+      // and a resolver may return a key this build has never heard of; the
+      // honest report is the number with no name beside it.
+      algorithmName: DNSSEC_ALGORITHMS[algorithm] || null,
+      algorithmEligibility: dnssecAlgorithmEligibility(algorithm),
+      publicKey: publicKey,
+      keyBytes: bytes ? bytes.length : 0,
+      keyTag: null,
+      keyStructure: valid ? dnskeyStructure(algorithm, bytes) : 'unknown',
+      hasSep: valid && (flags & DNSKEY_FLAG_SEP) !== 0,
+      hasZoneFlag: valid && (flags & DNSKEY_FLAG_ZONE) !== 0,
+      hasRevokeFlag: valid && (flags & DNSKEY_FLAG_REVOKE) !== 0,
+      deprecated: DEPRECATED_DNSSEC_ALGORITHMS.indexOf(algorithm) !== -1,
+      valid: valid,
+      errors: errors,
+    };
+    if (valid) parsed.keyTag = dnskeyKeyTag(dnskeyRdata(parsed), algorithm);
+    return parsed;
+  }
+
+  /** Parse one DS presentation string. RFC 4034 §5.1. */
+  function parseDs(presentationString) {
+    var blank = {
+      keyTag: null, algorithm: null, algorithmName: null,
+      algorithmEligibility: 'unknown',
+      digestType: null, digestName: null, digestEligibility: 'unknown', digest: '',
+      deprecated: false, valid: false, errors: ['unparseable-record'],
+    };
+    var fields = splitRdataFields(presentationString, 3);
+    if (!fields) return blank;
+    if (fields.unbalanced) return Object.assign({}, blank, { errors: ['unbalanced-parentheses'] });
+
+    var keyTag = fields.numbers[0];
+    var algorithm = fields.numbers[1];
+    var digestType = fields.numbers[2];
+    var errors = [];
+
+    if (!(keyTag >= 0 && keyTag <= 0xffff)) errors.push('bad-key-tag');
+    if (!(algorithm >= 0 && algorithm <= 255)) errors.push('bad-algorithm');
+    if (!(digestType >= 0 && digestType <= 255)) errors.push('bad-digest-type');
+
+    // Hex, so folding the case is safe and necessary: Cloudflare returns this
+    // lowercase and dns.google returns it uppercase, and the comparison this
+    // feeds is a string equality.
+    var digest = fields.body.toLowerCase();
+    if (!digest) errors.push('empty-digest');
+    else if (!/^[0-9a-f]+$/.test(digest) || digest.length % 2 !== 0) errors.push('bad-digest');
+    else {
+      var expected = DNSSEC_DIGEST_LENGTHS[digestType];
+      // Every REGISTERED digest type has its length checked, including the two
+      // this build cannot compute. A registered type parsed without its
+      // registered grammar is not forward compatibility, it is a gap. Only a
+      // genuinely unassigned or private-use value is carried unjudged.
+      if (expected !== undefined && digest.length / 2 !== expected) errors.push('bad-digest-length');
+    }
+
+    return {
+      keyTag: keyTag,
+      algorithm: algorithm,
+      algorithmName: DNSSEC_ALGORITHMS[algorithm] || null,
+      algorithmEligibility: dnssecAlgorithmEligibility(algorithm),
+      digestType: digestType,
+      digestName: dnssecDigestName(digestType),
+      // The registry's own determination, kept beside the digest rather than
+      // folded into whether this build happens to implement the hash. An
+      // affirmative prohibition must never be reported as "we could not
+      // compute it" — that is R2-F1's defect in the digest registry.
+      digestEligibility: dnssecDigestEligibility(digestType),
+      digest: digest,
+      deprecated: DEPRECATED_DNSSEC_DIGESTS.indexOf(digestType) !== -1,
+      valid: errors.length === 0,
+      errors: errors,
+    };
+  }
+
+
+  /* ── Local DS-to-DNSKEY matching (RFC 4034 §5.1.4) ─────────────────────
+     The one piece of this release that computes rather than reports. Its
+     output feeds findings and never the state classifier: §4's rules derive
+     `state` from the resolver's AD verdict and from what is published, so
+     nothing here can demote a zone Cloudflare validated. `servfail.nl` is why
+     — its DS confirms its KSK by SHA-256 and the zone is bogus.
+
+     Every failure path lands on `unverifiable`, never on `digest-mismatch`.
+     A mismatch verdict tells an operator their DNSSEC is broken, and the only
+     thing entitled to say that is arithmetic that actually ran.
+     ───────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Digest types this build can actually compute, mapped to their Web Crypto
+   * names. SHA-1 is here deliberately: it is a registered `SubtleCrypto.digest`
+   * algorithm available in every current engine, and declining to compute a
+   * digest the runtime handles perfectly well would report an unknown where a
+   * known was available — inside the honesty mechanism itself.
+   *
+   * Absent, and therefore `unverifiable-digest-type`: 3 (GOST R 34.11-94),
+   * 5 (GOST R 34.11-2012) and 6 (SM3), none of which Web Crypto implements,
+   * and 0, which IANA reserves. Reserved is not the same as unassigned, so it
+   * is named rather than carried as a possible future type — but RFC 3658
+   * reserves the value without stating that a DS using it is invalid, so it is
+   * not rejected either. Not computable is the whole claim.
+   */
+  var DNSSEC_DIGEST_WEBCRYPTO = { 1: 'SHA-1', 2: 'SHA-256', 4: 'SHA-384' };
+
+  function bytesToHex(bytes) {
+    var out = '';
+    for (var i = 0; i < bytes.length; i++) {
+      out += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16);
+    }
+    return out;
+  }
+
+  /**
+   * Hash, or say we could not. Never throws.
+   *
+   * Capability is tested by executing, not asserted in advance — the 1.0 spec
+   * declined SHA-1 on a belief about browser support that was simply false. A
+   * runtime that rejects an algorithm, or has no `crypto.subtle` at all,
+   * produces null here and `unverifiable` above. It must never produce a
+   * mismatch, because "our environment could not hash this" and "your zone is
+   * broken" are different sentences.
+   */
+  async function dnssecDigestHex(webCryptoName, input) {
+    var subtle = typeof crypto !== 'undefined' && crypto && crypto.subtle;
+    if (!subtle) return null;
+    try {
+      var digest = await subtle.digest(webCryptoName, input);
+      return bytesToHex(new Uint8Array(digest));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Can this key anchor a delegation, setting the digest aside?
+   *
+   * Three facts, each from its own authority, and none of them the digest:
+   * the IANA Zone Signing column, RFC 4034 §2.1.1's zone bit, and whether the
+   * key material is structurally possible for its algorithm. The REVOKE flag
+   * is deliberately absent — RFC 5011 §2.1 needs a validated self-signature
+   * this release does not compute, so the flag is reported and concluded from
+   * nowhere.
+   */
+  function anchorFactsUsable(algorithmEligibility, hasZoneFlag, keyStructure) {
+    return algorithmEligibility === 'eligible' && hasZoneFlag === true && keyStructure !== 'invalid';
+  }
+
+  function dnskeyCanAnchor(key) {
+    return !!key && anchorFactsUsable(key.algorithmEligibility, key.hasZoneFlag, key.keyStructure);
+  }
+
+  /**
+   * Match one DS record against the child's DNSKEY set.
+   *
+   * RFC 4034 §5.1.4: the digest is taken over the canonical owner name in wire
+   * format followed by the DNSKEY RDATA. Both sides of the comparison are
+   * lowercase hex — Cloudflare returns the digest lowercase and dns.google
+   * returns it uppercase, and a case-sensitive compare would report mismatch
+   * on every domain if the resolver were ever made configurable.
+   *
+   * A key tag is not unique. Every DNSKEY sharing the tag and algorithm is
+   * tried, and the DS confirms if any of them hashes correctly.
+   *
+   * **The order of the checks is part of the contract.** Candidate selection
+   * comes before digest capability, because "no key carries that tag and
+   * algorithm" is established without hashing anything: deciding capability
+   * first reported `unverifiable-digest-type` for an orphan DS whose digest
+   * this build cannot compute, hiding orphan evidence behind a local
+   * limitation and changing the verdict on an absent key according to what
+   * hashes happen to be implemented.
+   *
+   * **A proven confirmation is never revoked.** A digest failure on a later
+   * candidate used to return `unverifiable` even when an earlier candidate had
+   * already confirmed, which made the verdict depend on array order. The
+   * precedence is now fixed and total: any confirmation wins; failing that a
+   * computation failure is `unverifiable`; `digest-mismatch` requires that
+   * every candidate which could be rebuilt was hashed and none matched.
+   */
+  async function matchDsToDnskeys(ds, keys, domain) {
+    var result = {
+      keyTag: ds ? ds.keyTag : null,
+      algorithm: ds ? ds.algorithm : null,
+      digestType: ds ? ds.digestType : null,
+      digestEligibility: ds ? ds.digestEligibility : 'unknown',
+      matchedKeyTag: null,
+      matchedKeyIndex: null,
+      match: 'unverifiable',
+      unverifiableReason: null,
+      matchedKeyAlgorithmEligibility: null,
+      matchedKeyHasZoneFlag: null,
+      matchedKeyStructure: null,
+      matchedKeyHasRevokeFlag: null,
+      computedLocally: true,
+    };
+
+    // A DS that did not parse, and an owner name the encoder refused, are both
+    // statements about our own inputs. Neither is evidence about the zone, and
+    // each says which it was — four different failures shared one token before
+    // this, and a detail panel could not tell an operator which had happened.
+    if (!ds || !ds.valid) {
+      result.unverifiableReason = 'invalid-ds';
+      return result;
+    }
+    var owner = dnsWireName(domain);
+    if (!owner) {
+      result.unverifiableReason = 'invalid-owner';
+      return result;
+    }
+
+    // Candidates are selected on tag and algorithm alone. An ineligible or
+    // malformed key stays a candidate on purpose: "a DS confirms a key that
+    // cannot anchor" is a finding this release owes the operator, and it is
+    // unreachable if such keys are filtered out before hashing.
+    var candidates = [];
+    for (var c = 0; c < (keys || []).length; c++) {
+      var key = keys[c];
+      if (key && key.valid && key.keyTag === ds.keyTag && key.algorithm === ds.algorithm) {
+        candidates.push({ key: key, index: c });
+      }
+    }
+    if (!candidates.length) {
+      result.match = 'no-matching-key';
+      result.unverifiableReason = null;
+      return result;
+    }
+
+    var webCryptoName = DNSSEC_DIGEST_WEBCRYPTO[ds.digestType];
+    if (!webCryptoName) {
+      result.match = 'unverifiable-digest-type';
+      return result;
+    }
+
+    var confirming = [];
+    var digestsComputed = 0;
+    var computationFailed = false;
+    for (var i = 0; i < candidates.length; i++) {
+      var rdata = dnskeyRdata(candidates[i].key);
+      // A candidate whose RDATA cannot be rebuilt is not evidence of anything.
+      // It is skipped, and the counters below stop the skip becoming a verdict.
+      if (!rdata) continue;
+      var input = new Uint8Array(owner.length + rdata.length);
+      input.set(owner, 0);
+      input.set(rdata, owner.length);
+      var computed = await dnssecDigestHex(webCryptoName, input);
+      // The runtime refused the algorithm it advertised. Recorded, not
+      // returned: an earlier candidate may already have proved the match, and
+      // a completed proof cannot be undone by failing to inspect another key.
+      if (computed === null) { computationFailed = true; continue; }
+      digestsComputed++;
+      if (computed === ds.digest) confirming.push(candidates[i]);
+    }
+
+    if (confirming.length) {
+      // On a key tag collision, report the key that could actually anchor.
+      // Both hashed correctly; saying so about the usable one is the stronger
+      // true statement, and it is what keeps `anchorConfirmed` honest.
+      var chosen = confirming.filter(function (entry) { return dnskeyCanAnchor(entry.key); })[0] || confirming[0];
+      result.match = 'confirmed';
+      result.matchedKeyTag = chosen.key.keyTag;
+      // The tag alone cannot identify which candidate was selected — every key
+      // in a collision set shares it by definition, and RFC 4034 Appendix B
+      // says so explicitly. The index into the DNSKEY set is what points at
+      // the key that actually supplied the eligibility facts below.
+      result.matchedKeyIndex = chosen.index;
+      result.matchedKeyAlgorithmEligibility = chosen.key.algorithmEligibility;
+      result.matchedKeyHasZoneFlag = chosen.key.hasZoneFlag;
+      result.matchedKeyStructure = chosen.key.keyStructure;
+      result.matchedKeyHasRevokeFlag = chosen.key.hasRevokeFlag;
+      return result;
+    }
+
+    // Nothing confirmed. Everything from here is a reason, and only the last
+    // one is a statement about the operator's zone.
+    if (computationFailed) {
+      result.unverifiableReason = 'runtime-unavailable';
+      return result;
+    }
+    if (!digestsComputed) {
+      result.unverifiableReason = 'unbuildable-key';
+      return result;
+    }
+    result.match = 'digest-mismatch';
+    result.unverifiableReason = null;
+    return result;
+  }
+
+  /**
+   * Does this DS match actually anchor the delegation?
+   *
+   * The whole rule in one place. `dnskeyCanAnchor()` is the same rule read off
+   * a key object; both defer to `anchorFactsUsable()` for the key half. Stated
+   * twice they drift — a mutation disqualifying a REVOKE-flagged key was once
+   * caught by only one of the two.
+   */
+  function matchConfirmsAnchor(match) {
+    return !!match && match.match === 'confirmed' &&
+      match.digestEligibility !== 'ineligible' &&
+      anchorFactsUsable(match.matchedKeyAlgorithmEligibility,
+        match.matchedKeyHasZoneFlag, match.matchedKeyStructure);
+  }
+
+  async function matchDsSet(dsRecords, keys, domain) {
+    var matches = [];
+    for (var i = 0; i < (dsRecords || []).length; i++) {
+      matches.push(await matchDsToDnskeys(dsRecords[i], keys, domain));
+    }
+    return {
+      ds: matches,
+      // The same rule as dnskeyCanAnchor(), read off the published match
+      // fields rather than off the key object. Both call anchorFactsUsable()
+      // rather than restating the three conditions: written twice, they drift,
+      // and a mutation that disqualified a REVOKE-flagged key was caught by
+      // only one of the two before they were joined.
+      anchorConfirmed: matches.some(matchConfirmsAnchor),
+      orphanDs: matches.filter(function (m) { return m.match === 'no-matching-key'; })
+        .map(function (m) { return m.keyTag; }),
+    };
+  }
+
+  /**
+   * A definite answer, as opposed to one that never arrived.
+   *
+   * `success` or `nodata` only, which is exactly what 0.4.0's `checkDNSSEC()`
+   * accepted before rule 2 below inherited it. NXDOMAIN on the NS probe stays
+   * `indeterminate` rather than becoming `insecure`: both score zero, but
+   * `indeterminate` is what marks the DNSSEC pillar unproven in
+   * `unprovenPillars()`, and quietly moving a domain out of that set would
+   * change what the interface reports about a check that did not run.
+   */
+  function dnssecLookupStatus(result) {
+    return {
+      completed: result.kind === 'success' || result.kind === 'nodata',
+      kind: result.kind,
+    };
+  }
+
+  /**
+   * DNSSEC chain state, and the evidence behind it.
+   *
+   * Two axes, and keeping them apart is the whole design. `secure` comes only
+   * from the resolver's AD verdict. The DS-to-DNSKEY arithmetic can diagnose
+   * a definite mismatch when AD is already false, but it can never promote a
+   * zone to secure or demote one the resolver authenticated.
+   * `servfail.nl` is why: its DS confirms its KSK by SHA-256, its DNSKEY set is
+   * published, and the zone is bogus. Local evidence agreeing is not the same
+   * as the chain validating.
+   *
+   * **This function must never throw.** It is the only entry in the
+   * `Promise.all` at the advanced-checks call site with no `optionalCheck()`
+   * wrapper, and that is safe only because it reads `dohFetch()`'s `.kind`
+   * rather than calling `requireUsable()`. Keep it that way, or add the
+   * wrapper — `optionalCheck()` re-throws `DnsTypeError`, so a typo in a
+   * record type still fails loudly either way.
+   */
   async function checkDNSSEC(domain, queryOpts) {
-    // AD=true means the validating resolver authenticated the answer. If the
-    // normal query SERVFAILs but succeeds with checking disabled, the chain is
-    // bogus rather than merely unsigned.
-    const validated = await dohFetch(domain, 'NS', Object.assign({}, queryOpts, { dnssec: true }));
-    if (validated.kind === 'success' || validated.kind === 'nodata') {
-      return { signed: validated.ad, state: validated.ad ? 'secure' : 'insecure' };
-    }
+    var dnssecOpts = Object.assign({}, queryOpts, { dnssec: true });
+    // The DS record is owned by the child name and served by the parent zone,
+    // so one query at the child name is the correct and only lookup.
+    var answers = await Promise.all([
+      dohFetch(domain, 'NS', dnssecOpts),
+      dohFetch(domain, 'DS', dnssecOpts),
+      dohFetch(domain, 'DNSKEY', dnssecOpts),
+    ]);
+    var validated = answers[0];
+    var dsAnswer = answers[1];
+    var keyAnswer = answers[2];
+
+    var lookups = {
+      ns: dnssecLookupStatus(validated),
+      ds: dnssecLookupStatus(dsAnswer),
+      dnskey: dnssecLookupStatus(keyAnswer),
+    };
+
+    // Filter on the numeric type. A `do=1` answer carries the RRSIG beside the
+    // record it signs, and an unfiltered parser reads `DS 8 2 3600 …` as a DS
+    // record with key tag NaN — no error, matching no key, and a mismatch
+    // verdict on every signed domain audited.
+    var keys = keyAnswer.answers.filter(function (a) { return a.type === 48; })
+      .map(function (a) { return parseDnskey(cleanAnswerData(a.data, 'DNSKEY')); });
+    var dsRecords = dsAnswer.answers.filter(function (a) { return a.type === 43; })
+      .map(function (a) { return parseDs(cleanAnswerData(a.data, 'DS')); });
+
+    var matched = await matchDsSet(dsRecords, keys, domain);
+    // The published `ds` array is the parse and the verdict together, so a
+    // reader never has to join two lists by index to see why a record was
+    // judged the way it was.
+    var ds = dsRecords.map(function (record, i) { return Object.assign({}, record, matched.ds[i]); });
+
+    var chain = [];
+    var state = null;
+
+    // ── Rule 1: bogus ────────────────────────────────────────────────────
+    // A SERVFAIL that resolves with checking disabled is the resolver saying
+    // validation failed, which outranks every local observation below.
+    // `dnssec-failed.org` satisfies rules 1, 2 and 5 at once.
     if (validated.kind === 'servfail') {
-      const unchecked = await dohFetch(domain, 'NS', Object.assign({}, queryOpts, { dnssec: true, checkingDisabled: true }));
-      if (unchecked.kind === 'success' || unchecked.kind === 'nodata') return { signed: false, state: 'bogus' };
+      var unchecked = await dohFetch(domain, 'NS',
+        Object.assign({}, dnssecOpts, { checkingDisabled: true }));
+      if (unchecked.kind === 'success' || unchecked.kind === 'nodata') {
+        state = 'bogus';
+        chain.push({ claim: 'resolver-bogus', source: 'resolver', detail: { kind: validated.kind } });
+      }
     }
-    return { signed: false, state: 'indeterminate', error: validated.kind };
+
+    // ── Rules 2 and 3: the resolver's own verdict ────────────────────────
+    if (state === null && !lookups.ns.completed) {
+      state = 'indeterminate';
+      chain.push({ claim: 'resolver-unreachable', source: 'resolver', detail: { kind: validated.kind } });
+    }
+    if (state === null) {
+      chain.push({ claim: 'resolver-ad', source: 'resolver', detail: { ad: validated.ad === true } });
+      if (validated.ad === true) state = 'secure';
+    }
+
+    // ── Rules 4, 5 and 6: what the child and parent publish ──────────────
+    // Reachable only when AD is false, which is what makes `signed` identical
+    // to 0.4.0 by construction rather than by measurement.
+    if (state === null) {
+      var determinate = ds.filter(function (m) {
+        return m.match === 'confirmed' || m.match === 'digest-mismatch' || m.match === 'no-matching-key';
+      });
+      var anyConfirmed = ds.some(function (m) { return m.match === 'confirmed'; });
+
+      if (lookups.dnskey.completed && keys.length && lookups.ds.completed && !dsRecords.length) {
+        state = 'unanchored';
+      } else if (lookups.ds.completed && lookups.dnskey.completed &&
+        dsRecords.length && keys.length && determinate.length && !anyConfirmed) {
+        // Positive local proof only. A DS set that merely could not be checked,
+        // or one whose only confirmation was against a key that cannot anchor,
+        // falls to the residual below rather than raising the alarm.
+        state = 'mismatch';
+      } else {
+        state = 'insecure';
+      }
+    }
+
+    // ── Attribution ──────────────────────────────────────────────────────
+    // OQ-SEC9-03: exactly one link is checked when both answers arrived, and
+    // the chain says which one. If either lookup failed, claiming the link was
+    // checked would contradict the `lookup-incomplete` evidence below.
+    if (lookups.ds.completed && lookups.dnskey.completed) {
+      chain.push({ claim: 'link-checked', source: 'local', detail: { child: domain, link: 'child-dnskey-to-parent-ds' } });
+    }
+    ds.forEach(function (record) {
+      if (record.match === 'confirmed') {
+        chain.push({
+          claim: 'ds-confirms-dnskey', source: 'local',
+          detail: { keyTag: record.keyTag, digestName: record.digestName, anchors: matchConfirmsAnchor(record) },
+        });
+      } else if (record.match === 'no-matching-key' || record.match === 'digest-mismatch') {
+        chain.push({ claim: 'ds-' + record.match, source: 'local', detail: { keyTag: record.keyTag } });
+      } else {
+        chain.push({
+          claim: 'ds-unverifiable', source: 'local',
+          detail: { keyTag: record.keyTag, match: record.match, reason: record.unverifiableReason },
+        });
+      }
+    });
+    // Missing evidence is stated rather than left to be inferred from an empty
+    // array. This is what keeps the residual rule honest: an `insecure` proved
+    // by two empty answers and an `insecure` where neither query returned are
+    // the same verdict from different amounts of evidence.
+    ['ds', 'dnskey'].forEach(function (query) {
+      if (!lookups[query].completed) {
+        chain.push({ claim: 'lookup-incomplete', source: 'local', detail: { query: query, kind: lookups[query].kind } });
+      }
+    });
+
+    var deprecatedAlgorithms = [];
+    keys.concat(ds).forEach(function (record) {
+      if (record.deprecated && record.algorithm !== null &&
+        deprecatedAlgorithms.indexOf(record.algorithm) === -1 &&
+        DEPRECATED_DNSSEC_ALGORITHMS.indexOf(record.algorithm) !== -1) {
+        deprecatedAlgorithms.push(record.algorithm);
+      }
+    });
+    var deprecatedDigests = [];
+    ds.forEach(function (record) {
+      if (DEPRECATED_DNSSEC_DIGESTS.indexOf(record.digestType) !== -1 &&
+        deprecatedDigests.indexOf(record.digestType) === -1) {
+        deprecatedDigests.push(record.digestType);
+      }
+    });
+
+    var evidence = lookups.ds.completed && lookups.dnskey.completed ? 'complete'
+      : lookups.ds.completed || lookups.dnskey.completed ? 'partial' : 'none';
+
+    return {
+      // Unchanged contract: `signed` is true exactly when the resolver
+      // authenticated the answer, so every consumer from calcScore() to the
+      // CSV reads what it read at 0.4.0.
+      signed: state === 'secure',
+      state: state,
+      resolverValidated: validated.ad === true,
+      keys: keys,
+      ds: ds,
+      anchorConfirmed: matched.anchorConfirmed,
+      orphanDs: matched.orphanDs,
+      chain: chain,
+      deprecatedAlgorithms: deprecatedAlgorithms,
+      deprecatedDigests: deprecatedDigests,
+      lookups: lookups,
+      evidence: evidence,
+      error: state === 'indeterminate' ? validated.kind : undefined,
+    };
   }
 
   function parseSpfTerms(spf) {
@@ -4216,11 +5091,11 @@
     /* ── TLSA / DANE ──────────────────────────────────────────────────── */
     if (advanced?.tlsa?.anyPresent) {
       var tlsa = advanced.tlsa;
-      // Gated on evidence, not on `qualified`. `qualified` is false for every
-      // domain in this release because the chain has not been walked, so
-      // firing on it would tell a correctly signed zone that its DANE is
-      // unprotected — a confident verdict with nothing behind it, which is the
-      // exact failure this whole release is written to avoid.
+      // Gated on the per-host AD bit, which is the only chain fact that
+      // applies to a name in someone else's zone. The audited domain's own
+      // DNSSEC state is deliberately NOT consulted here: it would tell a
+      // correctly signed zone that its DANE is unprotected, or the reverse,
+      // on evidence about an unrelated zone.
       if (tlsa.unauthenticatedHosts.length) {
         issues.push({ key: 'tlsa-published-unsigned', sev: 'warn', args: [tlsa.unauthenticatedHosts.join(', ')] });
       }
@@ -4238,8 +5113,63 @@
       }
     }
 
-    if (advanced?.dnssec?.state === 'bogus') issues.push({ key: 'dnssec-bogus', sev: 'crit' });
-    else if (advanced?.dnssec?.state === 'indeterminate') issues.push({ key: 'dnssec-indeterminate', sev: 'warn' });
+    /* ── DNSSEC ───────────────────────────────────────────────────────
+       The state findings are mutually exclusive and follow the classifier's
+       own order, so a domain is told one thing about its chain rather than
+       three. `unanchored` and `mismatch` are the two this release exists to
+       expose: both rendered as "DNSSEC not detected" before it, which told an
+       operator who had signed their zone that they had not.
+       ─────────────────────────────────────────────────────────────────── */
+    var dnssec = advanced?.dnssec;
+    if (dnssec?.state === 'bogus') issues.push({ key: 'dnssec-bogus', sev: 'crit' });
+    else if (dnssec?.state === 'indeterminate') issues.push({ key: 'dnssec-indeterminate', sev: 'warn' });
+    else if (dnssec?.state === 'mismatch') issues.push({ key: 'dnssec-mismatch', sev: 'crit' });
+    else if (dnssec?.state === 'unanchored') issues.push({ key: 'dnssec-unanchored', sev: 'warn' });
+
+    if (dnssec) {
+      // Informational, and deliberately so. RFC 6840 §5.11 permits a DS whose
+      // key is absent from the DNSKEY RRset, and `paypal.com` publishes one
+      // beside a confirming DS while validating perfectly. Reported because an
+      // operator usually wants to tidy it; never as a fault.
+      if (dnssec.anchorConfirmed && dnssec.orphanDs?.length) {
+        issues.push({ key: 'dnssec-ds-orphan', sev: 'info', args: [dnssec.orphanDs.join(', ')] });
+      }
+      if (dnssec.deprecatedAlgorithms?.length) {
+        issues.push({
+          key: 'dnssec-deprecated-algorithm', sev: 'warn',
+          args: [dnssec.deprecatedAlgorithms.map(function (a) { return DNSSEC_ALGORITHMS[a] || a; }).join(', ')],
+        });
+      }
+      if (dnssec.deprecatedDigests?.length) {
+        issues.push({
+          key: 'dnssec-deprecated-digest', sev: 'info',
+          args: [dnssec.deprecatedDigests.map(function (d) { return DNSSEC_DIGESTS[d] || d; }).join(', ')],
+        });
+      }
+
+      // Facts about a key a DS actually confirmed. Each is a reason the
+      // delegation does not anchor despite the digest matching, and each is
+      // reported separately because they have different remedies — except the
+      // REVOKE flag, which is reported and concluded from nowhere.
+      var confirmed = (dnssec.ds || []).filter(function (d) { return d.match === 'confirmed'; });
+      var pushKeyFinding = function (key, predicate, severity) {
+        var tags = confirmed.filter(predicate).map(function (d) { return d.matchedKeyTag; });
+        if (tags.length) issues.push({ key: key, sev: severity, args: [tags.join(', ')] });
+      };
+      pushKeyFinding('dnssec-key-algorithm-ineligible',
+        function (d) { return d.matchedKeyAlgorithmEligibility === 'ineligible'; }, 'warn');
+      pushKeyFinding('dnssec-key-not-zone-key',
+        function (d) { return d.matchedKeyHasZoneFlag === false; }, 'warn');
+      pushKeyFinding('dnssec-key-malformed',
+        function (d) { return d.matchedKeyStructure === 'invalid'; }, 'warn');
+
+      // RFC 5011 §2.1 makes a key revoked only when a resolver sees it in a
+      // self-signed RRset with the bit set. This release does not validate
+      // RRSIGs, so the finding names the flag and stops there.
+      var revoked = (dnssec.keys || []).filter(function (k) { return k.hasRevokeFlag; })
+        .map(function (k) { return k.keyTag; });
+      if (revoked.length) issues.push({ key: 'dnssec-revoke-flag', sev: 'info', args: [revoked.join(', ')] });
+    }
 
     // Name the checks that could not be completed. An audit that quietly omits
     // a control looks identical to one where the control is fine, so the gap
@@ -4296,7 +5226,10 @@
     if (!advanced.mtaSts?.unknown && !advanced.mtaSts?.present && !advanced.mtaSts?.multiple && hasEmail) tips.push({ key: 'mta-sts', guide: 'mta-sts' });
     if (!advanced.tlsRpt?.unknown && !advanced.tlsRpt?.present && !advanced.tlsRpt?.multiple && hasEmail) tips.push({ key: 'tls-rpt', guide: 'tls-rpt' });
     if (!advanced.caa?.unknown && !advanced.caa?.found) tips.push({ key: 'caa', guide: 'caa' });
-    if (advanced.dnssec?.state !== 'indeterminate' && !advanced.dnssec?.signed) tips.push({ key: 'dnssec', guide: 'dnssec' });
+    // "Enable DNSSEC" is wrong advice for a zone that is already signed. An
+    // `unanchored` or `mismatch` domain has signed and has a specific finding
+    // telling it what to finish, so the generic tip would contradict it.
+    if (advanced.dnssec?.state === 'insecure') tips.push({ key: 'dnssec', guide: 'dnssec' });
 
     return tips;
   }
@@ -4411,10 +5344,26 @@
 
   async function analyzeDomain(domain, opts) {
     const d = domain.toLowerCase().trim();
-    const queryOpts = { signal: opts.signal };
+    let queryOpts = { signal: opts.signal };
+    let dnssecPreflight = null;
 
     // Probe NS first — NXDOMAIN (Status 3) means the domain isn't registered
-    const nsResult = await dohFetch(d, 'NS', queryOpts);
+    let nsResult = await dohFetch(d, 'NS', queryOpts);
+    // A validating resolver deliberately returns SERVFAIL for a bogus chain.
+    // Treating that like an ordinary core-query failure made the critical
+    // `dnssec-bogus` finding unreachable in the application: the audit threw
+    // here before the DNSSEC classifier ran. When advanced checks are enabled,
+    // establish that verdict first and, only for a confirmed bogus chain,
+    // retrieve the remaining diagnostic records with checking disabled. The
+    // DNSSEC result still comes from the validating query; cd=1 merely lets the
+    // rest of the row exist so the operator can see the failure and its data.
+    if (nsResult.kind === 'servfail' && opts.advanced) {
+      dnssecPreflight = await checkDNSSEC(d, queryOpts);
+      if (dnssecPreflight.state === 'bogus') {
+        queryOpts = Object.assign({}, queryOpts, { checkingDisabled: true });
+        nsResult = await dohFetch(d, 'NS', queryOpts);
+      }
+    }
     requireUsable(nsResult, d, 'NS');
     const ns = nsResult.answers.filter(a => a.type === 2).map(a => a.data.replace(/^"|"$/g, '').trim());
     if (nsResult.status === 3) {
@@ -4547,7 +5496,7 @@
         optionalCheck(() => dohQuery(`_smtp._tls.${d}`, 'TXT', queryOpts), null),
         optionalCheck(() => checkCAA(d, queryOpts),
           error => ({ found: false, records: [], atDomain: null, unknown: true, error: (error && error.kind) || 'dns-error' })),
-        checkDNSSEC(d, queryOpts),
+        dnssecPreflight ? Promise.resolve(dnssecPreflight) : checkDNSSEC(d, queryOpts),
         spfRecord
           ? optionalCheck(() => countSpfLookups(spfRecord, d, queryOpts),
             error => ({ count: 0, warning: false, error: false, voidLookups: 0, cycles: [], indeterminate: true, unknown: true, queryError: (error && error.kind) || 'dns-error' }))
@@ -4627,7 +5576,7 @@
           () => ({ hosts: [], danglingHosts: [], cnameHosts: [], duplicatePreferences: [], singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [], unknown: true }));
         const tlsaHosts = mxHealth.hosts.map(h => h.host);
         const tlsa = await optionalCheck(() => checkTlsa(tlsaHosts, queryOpts),
-          () => ({ hosts: [], anyPresent: false, qualified: false, unknown: true }));
+          () => ({ hosts: [], anyPresent: false, allAuthenticated: false, unauthenticatedHosts: [], unknown: true }));
         advanced.mxHealth = mxHealth;
         advanced.tlsa = tlsa;
       }
@@ -4669,7 +5618,32 @@
     auditMxHosts,
     parseTlsaRecord,
     checkTlsa,
+    checkDNSSEC,
     dnsTypeNum,
+    // Exported so the test harness can assert its own type map has not drifted
+    // from this one. A fixture keyed for a type the transport cannot query is
+    // unreachable; a transport type the harness does not know is answered as
+    // TXT and silently mis-keyed. Both are the failure dnsTypeNum() throws to
+    // prevent, arriving through the tests instead of through production.
+    DNS_TYPES,
+    parseDnskey,
+    parseDs,
+    dnskeyRdata,
+    dnskeyKeyTag,
+    dnsWireName,
+    DNSSEC_ALGORITHMS,
+    DNSSEC_ZONE_SIGNING,
+    DNSSEC_DIGESTS,
+    dnssecAlgorithmEligibility,
+    dnskeyStructure,
+    dnskeyCanAnchor,
+    anchorFactsUsable,
+    matchConfirmsAnchor,
+    dnssecDigestEligibility,
+    dnssecDigestName,
+    matchDsToDnskeys,
+    matchDsSet,
+    DNSSEC_DIGEST_WEBCRYPTO,
     analyzeDomain,
     checkConnectivity,
     dohFetch,
