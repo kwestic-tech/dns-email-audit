@@ -740,15 +740,19 @@ eq('no CAA means no block', APP.caaDetail({ advanced: { caa: { found: false } } 
 eq('a partial CAA shape renders nothing rather than throwing',
   APP.caaDetail({ advanced: { caa: { found: true, records: ['0 issue "x"'], atDomain: 'e.com' } } }), null);
 
-const tlsaRow = hosts => ({ advanced: { tlsa: { hosts, anyPresent: hosts.some(h => h.present), qualified: false } } });
+const tlsaRow = hosts => ({ advanced: { tlsa: { hosts, anyPresent: hosts.some(h => h.present) } } });
 const tlsaText = textOf(APP.tlsaDetail(tlsaRow([
   { host: 'a.example', queryName: '_25._tcp.a.example', records: [{ valid: true }], present: true, authenticated: true, unknown: false },
   { host: 'b.example', queryName: '_25._tcp.b.example', records: [{ valid: true }], present: true, authenticated: false, unknown: false },
   { host: 'c.example', queryName: '_25._tcp.c.example', records: [], present: false, authenticated: false, unknown: false },
 ])));
 // Acceptance criterion 4, at the surface the user actually reads.
-eq('the block says published, not enabled', tlsaText.includes('Published, not yet qualified'), true);
+eq('the block says published, not active', tlsaText.includes('Published, not proven active'), true);
 eq('nothing claims DANE is active or enabled', /DANE is (active|enabled|protecting)/i.test(tlsaText), false);
+// The heading no longer scopes itself to "this release", which stopped being
+// true the moment the flag it referred to was retired rather than completed.
+eq('the heading makes no promise about a later release',
+  /this release|not yet|qualified/i.test(tlsaText), false);
 eq('an authenticated host is distinguished', tlsaText.includes('DNSSEC-authenticated'), true);
 eq('an unauthenticated host is too', tlsaText.includes('not DNSSEC-authenticated'), true);
 eq('a host without TLSA says not published', tlsaText.includes('not published'), true);

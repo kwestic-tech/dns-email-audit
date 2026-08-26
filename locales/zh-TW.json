@@ -1093,7 +1093,7 @@
     "unknownCritical": "無法辨識的關鍵屬性"
   },
   "tlsa": {
-    "publishedNotQualified": "已發布，尚未合格 — DANE 只有在經過驗證的 DNSSEC 信任鏈之後才有意義，而本版本並不驗證該信任鏈。",
+    "published": "已發布，但未證實生效 — 只有當 TLSA 記錄位於已驗證的 DNSSEC 信任鏈中時，DANE 才能保護連線。下方每個郵件主機都會顯示解析器是否已驗證該主機自身的回應。",
     "notPublished": "未發布",
     "notChecked": "未檢查",
     "authenticated": "已發布 · 已通過 DNSSEC 驗證",

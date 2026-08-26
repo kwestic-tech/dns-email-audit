@@ -2609,14 +2609,22 @@
      record provides no protection whatsoever while looking exactly like
      protection.
 
-     Two separate facts, deliberately not merged. `authenticated` is the AD bit
-     the validating resolver returned for this exact name, which is real
-     evidence and is what the unsigned finding is gated on — without it the
-     finding would announce "your TLSA is unprotected" on a correctly signed
-     zone purely because this release had not looked. `qualified` is the
-     stronger claim that the chain was walked and verified, which
-     dnssec-evidence (0.5.0) supplies; it stays false here, and every string
-     the interface shows says "published", never "enabled".
+     `authenticated` is the AD bit the validating resolver returned for this
+     exact name — real evidence, gated per host, and what the unsigned finding
+     fires on. Without it the finding would announce "your TLSA is unprotected"
+     on a correctly signed zone purely because nothing had looked.
+
+     0.4.0 kept a second flag, `qualified`, for the stronger claim that the
+     chain had been walked and verified, expecting dnssec-evidence to supply
+     it. **0.5.0 retired the flag instead of completing it** (`OQ-SEC9-07`).
+     A TLSA record lives at `_25._tcp.<host>`, usually in a zone unrelated to
+     the audited domain, so the audited domain's chain evidence says nothing
+     about it — and local DS-to-DNSKEY matching never validates RRSIGs, so it
+     can never exceed the per-host AD bit already recorded here. A second field
+     that can only ever equal the first is a claim, not a distinction.
+
+     So `authenticated` is the ceiling, per host, and every string the
+     interface shows says "published", never "enabled".
      ───────────────────────────────────────────────────────────────────── */
 
   var TLSA_MATCHING_LENGTHS = { 1: 32, 2: 64 };   // SHA-256, SHA-512; 0 is a full cert, any length
@@ -2720,18 +2728,12 @@
       anyPresent: present.length > 0,
       // Every host that publishes TLSA does so under an authenticated chain.
       // Evidence, not a verdict: it is what the `tlsa-published-unsigned`
-      // finding is gated on, and it is deliberately NOT the same thing as
-      // `qualified`.
+      // finding is gated on. This is the strongest true statement available
+      // about a record in someone else's zone.
       allAuthenticated: present.length > 0 && present.every(function (h) { return h.authenticated === true; }),
       unauthenticatedHosts: present.filter(function (h) { return h.authenticated === false; })
         .map(function (h) { return h.host; }),
       unknown: hosts.some(function (h) { return h.unknown; }),
-      // Stays false until dnssec-evidence (0.5.0) walks the DS/DNSKEY chain.
-      // The AD bit above says a validating resolver authenticated the answer,
-      // which is good evidence and not the same as having verified the chain
-      // ourselves — so nothing in this release calls DANE active, and the
-      // interface says "published", never "enabled".
-      qualified: false,
     };
   }
 
@@ -5086,11 +5088,11 @@
     /* ── TLSA / DANE ──────────────────────────────────────────────────── */
     if (advanced?.tlsa?.anyPresent) {
       var tlsa = advanced.tlsa;
-      // Gated on evidence, not on `qualified`. `qualified` is false for every
-      // domain in this release because the chain has not been walked, so
-      // firing on it would tell a correctly signed zone that its DANE is
-      // unprotected — a confident verdict with nothing behind it, which is the
-      // exact failure this whole release is written to avoid.
+      // Gated on the per-host AD bit, which is the only chain fact that
+      // applies to a name in someone else's zone. The audited domain's own
+      // DNSSEC state is deliberately NOT consulted here: it would tell a
+      // correctly signed zone that its DANE is unprotected, or the reverse,
+      // on evidence about an unrelated zone.
       if (tlsa.unauthenticatedHosts.length) {
         issues.push({ key: 'tlsa-published-unsigned', sev: 'warn', args: [tlsa.unauthenticatedHosts.join(', ')] });
       }
@@ -5497,7 +5499,7 @@
           () => ({ hosts: [], danglingHosts: [], cnameHosts: [], duplicatePreferences: [], singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [], unknown: true }));
         const tlsaHosts = mxHealth.hosts.map(h => h.host);
         const tlsa = await optionalCheck(() => checkTlsa(tlsaHosts, queryOpts),
-          () => ({ hosts: [], anyPresent: false, qualified: false, unknown: true }));
+          () => ({ hosts: [], anyPresent: false, allAuthenticated: false, unauthenticatedHosts: [], unknown: true }));
         advanced.mxHealth = mxHealth;
         advanced.tlsa = tlsa;
       }

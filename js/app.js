@@ -654,17 +654,18 @@
    * TLSA, phrased as published rather than as active.
    *
    * The wording here is the whole point of the block. DANE protects nothing
-   * unless the record is carried by a validated DNSSEC chain, and this release
-   * does not walk one — so the strongest thing this may ever say is
-   * "published", and it says whether the resolver authenticated the answer
-   * separately from that.
+   * unless the record is carried by a validated DNSSEC chain, and that chain
+   * belongs to the MX host'"'"'s zone rather than to the audited domain — so the
+   * strongest thing this may ever say is "published", with the resolver'"'"'s
+   * per-host authentication reported separately from it. 0.5.0 retired the
+   * `qualified` flag rather than completing it; see OQ-SEC9-07.
    */
   function tlsaDetail(r) {
     var tlsa = r.advanced && r.advanced.tlsa;
     var hosts = (tlsa && tlsa.hosts) || [];
     if (!hosts.length) return null;
     return R.frag([
-      R.el('div', null, R.el('em', null, t('tlsa.publishedNotQualified'))),
+      R.el('div', null, R.el('em', null, t('tlsa.published'))),
       R.frag(hosts.map(function (h) {
         var state = h.unknown ? t('tlsa.notChecked')
           : !h.present ? t('tlsa.notPublished')

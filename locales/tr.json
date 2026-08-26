@@ -1093,7 +1093,7 @@
     "unknownCritical": "Tanınmayan kritik özellik"
   },
   "tlsa": {
-    "publishedNotQualified": "Yayımlanmış, henüz nitelikli değil — DANE ancak doğrulanmış bir DNSSEC zincirinin ardında anlam taşır ve bu sürüm onu doğrulamaz.",
+    "published": "Yayımlandı, ancak etkin olduğu kanıtlanmadı — DANE bir bağlantıyı yalnızca TLSA kaydı doğrulanmış bir DNSSEC zinciriyle taşındığında korur. Aşağıdaki her posta sunucusu için çözümleyicinin kendi yanıtını doğrulayıp doğrulamadığı belirtilir.",
     "notPublished": "yayımlanmamış",
     "notChecked": "denetlenmedi",
     "authenticated": "yayımlanmış · DNSSEC ile doğrulanmış",

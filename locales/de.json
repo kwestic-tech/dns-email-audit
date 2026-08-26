@@ -1093,7 +1093,7 @@
     "unknownCritical": "Nicht erkannte kritische Eigenschaft"
   },
   "tlsa": {
-    "publishedNotQualified": "Veröffentlicht, noch nicht qualifiziert — DANE ist nur hinter einer validierten DNSSEC-Kette aussagekräftig, und diese Version prüft sie nicht.",
+    "published": "Veröffentlicht, aber nicht nachweislich aktiv — DANE schützt eine Verbindung nur dann, wenn der TLSA-Eintrag durch eine validierte DNSSEC-Kette abgesichert ist. Bei jedem Mailhost unten steht, ob der Resolver dessen eigene Antwort authentifiziert hat.",
     "notPublished": "nicht veröffentlicht",
     "notChecked": "nicht geprüft",
     "authenticated": "veröffentlicht · DNSSEC-authentifiziert",

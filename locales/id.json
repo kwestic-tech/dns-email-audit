@@ -1093,7 +1093,7 @@
     "unknownCritical": "Properti kritis tidak dikenali"
   },
   "tlsa": {
-    "publishedNotQualified": "Diterbitkan, belum memenuhi syarat — DANE hanya berarti di balik rantai DNSSEC yang tervalidasi, dan rilis ini tidak memverifikasinya.",
+    "published": "Dipublikasikan, belum terbukti aktif — DANE hanya melindungi koneksi jika data TLSA didukung oleh rantai DNSSEC yang tervalidasi. Setiap host surel di bawah ini menunjukkan apakah resolver mengautentikasi jawabannya sendiri.",
     "notPublished": "tidak diterbitkan",
     "notChecked": "tidak diperiksa",
     "authenticated": "diterbitkan · terautentikasi DNSSEC",

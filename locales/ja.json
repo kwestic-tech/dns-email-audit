@@ -1093,7 +1093,7 @@
     "unknownCritical": "認識できないクリティカルプロパティ"
   },
   "tlsa": {
-    "publishedNotQualified": "公開済み、ただし未認定 — DANE は検証済みの DNSSEC チェーンの下でのみ意味を持ちますが、このリリースはそれを検証しません。",
+    "published": "公開済みですが、有効であることは確認されていません — DANE は、TLSA レコードが検証済みの DNSSEC チェーンによって保護されている場合にのみ接続を保護します。以下の各メールホストには、リゾルバーがそのホスト自身の応答を認証したかどうかを表示します。",
     "notPublished": "未公開",
     "notChecked": "未確認",
     "authenticated": "公開済み · DNSSEC で認証済み",

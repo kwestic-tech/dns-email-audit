@@ -596,9 +596,11 @@ proof. There is therefore no arrangement of this release's evidence under which
 `qualified` means more than `authenticated` already means, and keeping a second
 field that can only ever equal the first is how a distinction becomes a claim.
 
-`tlsa.publishedNotQualified` is rewritten accordingly; its current text is
-scoped to "this release does not verify", which stops being true in a way the
-string does not capture. Per host: `tlsa.authenticated` and
+`tlsa.publishedNotQualified` is **renamed** to `tlsa.published` and rewritten.
+Renamed rather than only rewritten because acceptance criterion 8 says
+`qualified` must not appear anywhere in `js/app.js`, and the key name itself
+did. Its old text was also scoped to "this release does not verify", which
+stopped being true the moment the flag was retired rather than completed. Per host: `tlsa.authenticated` and
 `tlsa.unauthenticated` already exist and carry the meaning. The
 `tlsa-published-unsigned` finding keeps firing on `authenticated === false`,
 exactly as 0.4.0 shipped it.
@@ -663,7 +665,7 @@ them.
 English string marks it `kwestic:stale` in all thirteen locales and requires
 re-translation in the same change:
 
-- `tlsa.publishedNotQualified` — rewritten or removed with `qualified` (§6).
+- `tlsa.publishedNotQualified` — renamed to `tlsa.published` and rewritten (§6).
 - `adv.tip.dnssecOff` — currently "Not detected", which is now wrong for four of
   the six states.
 
@@ -785,8 +787,11 @@ for all 40 must be identical to `v0.4.0`.
    is not a KSK, the REVOKE bit is not a revocation, a parsed record is not a
    usable key, and an algorithm whose key grammar is unimplemented is `unknown`
    rather than invalid.
-8. `qualified` no longer appears in `checkTlsa()`'s result or anywhere in
-   `js/app.js`, and no string implies the tool verified DANE for an MX host.
+8. `qualified` no longer appears in `checkTlsa()`'s result, no code path in
+   `js/app.js` reads it, and no string implies the tool verified DANE for an MX
+   host. A comment recording *why* the flag was retired is not a violation —
+   the criterion is about live claims, and a note that stops someone
+   reinstating the field serves it rather than breaching it.
 9. `PRIVACY.md`'s fan-out figures are **re-measured**, not adjusted by
    arithmetic. Two queries per domain are added, and the document states 39 for
    a typical domain, 59 for `cloudflare.com`, and 32 and 43 with the deep checks

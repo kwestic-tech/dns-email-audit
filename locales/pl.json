@@ -1103,7 +1103,7 @@
     "unknownCritical": "Nierozpoznana właściwość krytyczna"
   },
   "tlsa": {
-    "publishedNotQualified": "Opublikowane, jeszcze niekwalifikowane — DANE ma znaczenie wyłącznie za zweryfikowanym łańcuchem DNSSEC, a to wydanie go nie sprawdza.",
+    "published": "Opublikowano, ale nie potwierdzono działania — DANE chroni połączenie tylko wtedy, gdy rekord TLSA jest osadzony w zweryfikowanym łańcuchu DNSSEC. Przy każdym serwerze pocztowym poniżej podano, czy resolver uwierzytelnił jego własną odpowiedź.",
     "notPublished": "nieopublikowane",
     "notChecked": "niesprawdzone",
     "authenticated": "opublikowane · uwierzytelnione przez DNSSEC",

@@ -1093,7 +1093,7 @@
     "unknownCritical": "Proprietà critica non riconosciuta"
   },
   "tlsa": {
-    "publishedNotQualified": "Pubblicato, non ancora qualificato — DANE ha senso solo dietro una catena DNSSEC validata, che questa versione non verifica.",
+    "published": "Pubblicato, attività non dimostrata — DANE protegge una connessione solo quando il record TLSA è sostenuto da una catena DNSSEC validata. Ogni server di posta elencato sotto indica se il resolver ha autenticato la propria risposta.",
     "notPublished": "non pubblicato",
     "notChecked": "non verificato",
     "authenticated": "pubblicato · autenticato con DNSSEC",

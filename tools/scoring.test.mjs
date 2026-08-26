@@ -3103,7 +3103,7 @@ eq('duplicate preferences are still counted from the records',
 eq('no MX records is not an error', (await D.auditMxHosts([], 'example.com', { retries: 0, noCache: true })).hosts, []);
 
 /* ── 37. TLSA and DANE (RFC 6698, RFC 7671) ──────────────────────────── */
-section('37. TLSA published, not yet qualified');
+section('37. TLSA published, with per-host authentication');
 
 // The parenthesised uppercase shape the resolver actually returns. A parser
 // written for the DS shape splits this to ['3','1','1','('] and reads the
@@ -3170,10 +3170,14 @@ eq('an unsigned answer is not',        tlsaResult.hosts[1].authenticated, false)
 eq('a host without TLSA is absent',    tlsaResult.hosts[2].present, false);
 eq('anyPresent is true',               tlsaResult.anyPresent, true);
 eq('unauthenticated hosts are named',  tlsaResult.unauthenticatedHosts, ['unsigned.example']);
-// Acceptance criterion 4: nothing in this release may claim DANE is active.
-eq('qualified is false even when every host is signed', tlsaResult.qualified, false);
-eq('and stays false with a fully signed set',
-  (await D.checkTlsa(['signed.example'], { retries: 0, noCache: true })).qualified, false);
+// `qualified` is RETIRED, not set false — OQ-SEC9-07. A TLSA record lives in
+// the MX host's zone, so the audited domain's chain evidence says nothing about
+// it, and local DS-to-DNSKEY matching never validates RRSIGs and so can never
+// exceed the per-host AD bit. A field that can only ever equal another is a
+// claim rather than a distinction, so the result no longer carries it at all.
+eq('the result carries no qualified field', 'qualified' in tlsaResult, false);
+eq('and none appears on a fully signed set either',
+  'qualified' in (await D.checkTlsa(['signed.example'], { retries: 0, noCache: true })), false);
 eq('a fully signed set is recorded as such',
   (await D.checkTlsa(['signed.example'], { retries: 0, noCache: true })).allAuthenticated, true);
 
@@ -3357,7 +3361,7 @@ eq('the dead MX host is found',     deepOn.advanced.mxHealth.danglingHosts, ['de
 eq('and reported as critical',      deepOn.issues.find(i => i.key === 'mx-dangling').sev, 'crit');
 eq('TLSA runs for every MX host',   deepOn.advanced.tlsa.hosts.length, 2);
 eq('and finds the published record', deepOn.advanced.tlsa.anyPresent, true);
-eq('DANE is never called qualified', deepOn.advanced.tlsa.qualified, false);
+eq('the audit result carries no qualified field', 'qualified' in deepOn.advanced.tlsa, false);
 // The measured cost of the toggle, which PRIVACY.md has to state.
 eq('deep checks cost 3 queries per MX host plus 1 TLSA each',
   sandbox.fetch.calls.length - queriesWithout, 8);

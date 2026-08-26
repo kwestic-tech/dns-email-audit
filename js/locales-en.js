@@ -1100,7 +1100,7 @@ window.__I18N_EN__ = {
     "unknownCritical": "Unrecognized critical property"
   },
   "tlsa": {
-    "publishedNotQualified": "Published, not yet qualified — DANE is only meaningful behind a validated DNSSEC chain, which this release does not verify.",
+    "published": "Published, not proven active — DANE protects a connection only when the TLSA record is carried by a validated DNSSEC chain. Each mail host below reports whether the resolver authenticated its own answer.",
     "notPublished": "not published",
     "notChecked": "not checked",
     "authenticated": "published · DNSSEC-authenticated",

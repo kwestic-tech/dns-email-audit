@@ -1093,7 +1093,7 @@
     "unknownCritical": "Niet-herkende kritieke eigenschap"
   },
   "tlsa": {
-    "publishedNotQualified": "Gepubliceerd, nog niet gekwalificeerd — DANE betekent alleen iets achter een gevalideerde DNSSEC-keten, en die controleert deze versie niet.",
+    "published": "Gepubliceerd, niet aantoonbaar actief — DANE beschermt een verbinding alleen wanneer het TLSA-record door een gevalideerde DNSSEC-keten wordt gedragen. Bij elke mailhost hieronder staat of de resolver het eigen antwoord heeft geauthenticeerd.",
     "notPublished": "niet gepubliceerd",
     "notChecked": "niet gecontroleerd",
     "authenticated": "gepubliceerd · DNSSEC-geauthenticeerd",
