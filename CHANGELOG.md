@@ -12,6 +12,10 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > upstream after you pull. From 1.0.0 onward, a key rename will be treated as a
 > breaking change and will only happen in a major release.
 
+## [Unreleased]
+
+Nothing yet.
+
 ## [0.5.0] — 2026-08-26
 
 ### Added
@@ -94,6 +98,13 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A genuinely bogus zone now reaches its own critical finding.** A validating
+  resolver returns SERVFAIL for the core NS probe when DNSSEC validation fails,
+  so the audit previously threw before `checkDNSSEC()` could report `bogus`.
+  The integrated path now retains the validating verdict and uses `cd=1` only
+  to retrieve the diagnostic records needed to render the row. Ordinary core
+  lookup failures remain fatal.
+
 - **A DNSSEC verdict can no longer be assembled from local evidence alone.**
   `servfail.nl` publishes a `DS` that confirms its `DNSKEY` by SHA-256 and a
   full key set, and the zone is bogus. The resolver's flag remains the
@@ -107,7 +118,7 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Verification
 
-`npm test` passes 2,117 assertions, up from 1,813 at 0.4.0. `npm run
+`npm test` passes 2,121 assertions, up from 1,813 at 0.4.0. `npm run
 locale:gate` passes 13/13 at 771/771 keys. The backtest against `v0.4.0` shows
 **zero grade, score and `dnssec.signed` movement** across the 40-domain sample,
 with `WEIGHTS`, `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` byte-identical — the
@@ -1035,7 +1046,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.2...v0.2.3

@@ -46,10 +46,10 @@ sent to Cloudflare and are subject to Cloudflare's privacy policy.
 | **SPF authorized range size** | Classifies every `ip4:`/`ip6:` block by how much address space it authorizes, on separate tables per family — IPv4 by host count, IPv6 by allocation tier, so a `/64` is read as the standard single-subnet allocation it is (RFC 4291 §2.5.4) rather than as 2^64 hosts. Advisory: it reports size, not ownership. |
 | **SPF redundancy** | Flags `a`/`mx` mechanisms whose resolved addresses an `ip4:`/`ip6:` block in the same record already authorizes, so the lookup they spend can be reclaimed against the 10-lookup limit. Requires *both* address families to be covered before recommending removal. Advisory. |
 | **DKIM** | Tests common, provider-associated, user-supplied, or comprehensive catalog selectors; follows CNAME delegation and requires an active public key. |
-| **DMARC** | Validates against RFC 9989 (DMARCbis): record uniqueness, strict `v=` placement and casing, the full tag set (`p`, `sp`, `np`, `adkim`, `aspf`, `fo`, `rua`, `ruf`, `psd`, `t`), report-URI syntax, and tags the new RFC removed (`pct`, `rf`, `ri`) or does not define; discovers inherited organizational-domain policies with the Public Suffix List. |
+| **DMARC** | Validates against RFC 9989 (DMARCbis): record uniqueness, strict `v=` placement and casing, the full tag set (`p`, `sp`, `np`, `adkim`, `aspf`, `fo`, `rua`, `ruf`, `psd`, `t`), report-URI syntax, and tags the new RFC removed (`pct`, `rf`, `ri`) or does not define; discovers inherited organizational-domain policies with the RFC 9989 DNS Tree Walk. |
 | **DMARC test mode** | Detects `t=y`, which tells receivers not to apply the policy — so `p=reject; t=y` is reported and scored as `none` rather than as enforcement. |
 | **DMARC report authorization** | For report destinations outside your organizational domain, checks whether that domain published the `_report._dmarc` record (RFC 9990 §4.3), including the wildcard form. Without it receivers discard those reports silently. |
-| **DNSSEC** | Six states — secure, insecure, signed-but-unanchored, DS/DNSKEY mismatch, bogus and indeterminate — from the resolver's authenticated-data flag, with the child's `DNSKEY` set matched against the parent's `DS` records locally by Web Crypto. Every claim is attributed to the resolver or to local computation. |
+| **DNSSEC** | Six states — secure, insecure, signed-but-unanchored, DS/DNSKEY mismatch, bogus and indeterminate — from the resolver's authenticated-data flag, with the child's `DNSKEY` set matched against the parent's `DS` records locally by Web Crypto. Every claim is attributed to the resolver or to local computation. When validation itself causes SERVFAIL, the audit preserves that bogus verdict and uses checking-disabled responses only to render the diagnostic row. |
 | **CAA** | Walks up the domain tree to find the effective certificate-authority restrictions. |
 | **MTA-STS** | Validates discovery-record uniqueness and syntax, including the required `id=` tag. |
 | **TLS-RPT** | Validates uniqueness, syntax, and the required supported `rua=` destination. |
@@ -280,7 +280,7 @@ JSON files from disk, so translated interfaces require HTTP.
 | --- | --- |
 | `npm start` | Start the dependency-free development server on port 8080. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Run locale validation plus 2,117 parser, protocol, scoring, rendering, export and CSP assertions. |
+| `npm test` | Run locale validation plus 2,121 parser, protocol, scoring, rendering, export and CSP assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `js/locales-en.js` after editing `locales/en.json`. |

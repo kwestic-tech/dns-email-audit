@@ -374,16 +374,14 @@ Move to `docs/specs/implemented/`.
 
 ### 3c. `dnssec-evidence` (0.5.0)
 
-**The spec is `1.0 (Final)` as of 2026-08-25 and all seven open questions are
+**The spec is `1.5 (Implemented)` as of 2026-08-26 and all open questions are
 resolved.** Read it, not this summary, and read
 [`docs/specs/fixtures/dnssec-live-states-0.5.0.md`](specs/implemented/fixtures/dnssec-live-states-0.5.0.md)
 beside it — the review overturned several things this section used to
 prescribe, and the corrections came from measurement rather than argument.
 
-**Cannot start until 3b's `dnsTypeNum()` change and TLSA shape are merged** —
-this is the tightest coupling in the roadmap; don't attempt a head start
-against a moving 0.4.0 interface. As of 0.4.0 being released, that gate is
-open.
+The implementation dependency on 3b's `dnsTypeNum()` change and TLSA shape is
+closed: 0.4.0 released first, and 0.5.0 was built against that stable contract.
 
 **Highest-stakes correctness requirement in the whole roadmap:** the RFC 4034
 Appendix B key-tag algorithm must match the RFC's own reference values
