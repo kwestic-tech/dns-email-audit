@@ -4483,6 +4483,23 @@ eq('a DS set that only mismatches anchors nothing',
 eq('and a mismatch is not reported as an orphan',
   (await D.matchDsSet([D.parseDs('60485 5 2 ' + 'ab'.repeat(32))], rfcKeySet, OWNER)).orphanDs, []);
 
+// Candidates that exist but cannot be hashed must not become a verdict. A key
+// object claiming to be valid whose material will not decode is skipped, and
+// skipping every candidate has to land on `unverifiable` — reporting
+// `digest-mismatch` there announces a broken chain from arithmetic that never
+// ran. parseDnskey() cannot produce such a key today; a saved report from
+// another release or a caller building key objects by hand can.
+const undecodable = {
+  valid: true, keyTag: 60485, algorithm: 5, protocol: 3, flags: 256,
+  publicKey: 'not!base64!', algorithmEligibility: 'eligible',
+  hasZoneFlag: true, keyStructure: 'valid', hasRevokeFlag: false,
+};
+eq('a candidate whose RDATA cannot be rebuilt yields no RDATA', D.dnskeyRdata(undecodable), null);
+eq('and skipping every candidate is unverifiable, never a mismatch',
+  (await matchOne(RFC4509_DS, [undecodable])).match, 'unverifiable');
+eq('one good key beside an unhashable one still confirms',
+  (await matchOne(RFC4509_DS, [undecodable, ...rfcKeySet])).match, 'confirmed');
+
 /* ── dnskeyCanAnchor, directly ───────────────────────────────────────── */
 
 eq('the anchoring predicate needs all three affirmative facts',

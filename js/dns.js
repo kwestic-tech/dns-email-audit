@@ -3782,8 +3782,12 @@
     }
 
     var confirming = [];
+    var digestsComputed = 0;
     for (var i = 0; i < candidates.length; i++) {
       var rdata = dnskeyRdata(candidates[i]);
+      // A candidate whose RDATA cannot be rebuilt is not evidence of anything.
+      // It is skipped, and `digestsComputed` is what stops the skip becoming a
+      // verdict further down.
       if (!rdata) continue;
       var input = new Uint8Array(owner.length + rdata.length);
       input.set(owner, 0);
@@ -3793,8 +3797,17 @@
       // not the operator's, and it stops the whole comparison rather than
       // falling through to a mismatch.
       if (computed === null) return result;
+      digestsComputed++;
       if (computed === ds.digest) confirming.push(candidates[i]);
     }
+
+    // Candidates existed and not one of them could be hashed. Without this the
+    // empty `confirming` list below reads as `digest-mismatch` — a broken-chain
+    // verdict on the strength of arithmetic that never ran, which is the exact
+    // thing this function's own contract forbids. `parseDnskey()` cannot
+    // currently produce such a candidate; a saved report from another release
+    // or a caller building key objects by hand can.
+    if (!digestsComputed) return result;
 
     if (!confirming.length) {
       result.match = 'digest-mismatch';
