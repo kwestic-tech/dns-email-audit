@@ -376,7 +376,7 @@ Move to `docs/specs/implemented/`.
 
 **The spec is `1.0 (Final)` as of 2026-08-25 and all seven open questions are
 resolved.** Read it, not this summary, and read
-[`docs/specs/fixtures/dnssec-live-states-0.5.0.md`](specs/fixtures/dnssec-live-states-0.5.0.md)
+[`docs/specs/fixtures/dnssec-live-states-0.5.0.md`](specs/implemented/fixtures/dnssec-live-states-0.5.0.md)
 beside it — the review overturned several things this section used to
 prescribe, and the corrections came from measurement rather than argument.
 

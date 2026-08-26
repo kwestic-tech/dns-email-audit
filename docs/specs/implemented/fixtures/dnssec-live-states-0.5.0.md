@@ -6,7 +6,7 @@ only resolver this project talks to. Cross-checked against `dns.google` where
 noted.
 
 Companion to
-[`implemented/fixtures/doh-shapes-0.4.0.md`](../implemented/fixtures/doh-shapes-0.4.0.md),
+[`implemented/fixtures/doh-shapes-0.4.0.md`](doh-shapes-0.4.0.md),
 which captured the *presentation* shapes of `DS`, `DNSKEY` and `TLSA`. This
 file captures the *states*, because the six-state classifier cannot be reviewed
 against reasoning alone — three of the states below were found only by looking.
@@ -65,7 +65,7 @@ response is `false` both when the parent proves there is no DS and when nothing
 was established — it does not distinguish the two.
 
 The evidence that *would* distinguish them lives in the Authority section, which
-`fetchDohOnce()` at [`js/dns.js:170`](../../../js/dns.js) does not return: it
+`fetchDohOnce()` at [`js/dns.js:170`](../../../../js/dns.js) does not return: it
 keeps `Answer`, `AD`, `Status` and nothing else.
 
 ## 4. `secure` and locally-confirmed are independent — proof
@@ -106,7 +106,7 @@ it — and it publishes one good DS beside one orphan, the ordinary appearance o
 a key rollover or a stale registrar record.
 
 `paypal.com` is in the 40-domain backtest sample in
-[`tools/backtest.mjs`](../../../tools/backtest.mjs).
+[`tools/backtest.mjs`](../../../../tools/backtest.mjs).
 
 Note also that `dns.google` returns the digest in **uppercase** hex where
 Cloudflare returns lowercase. Not a live concern — the resolver is fixed — but

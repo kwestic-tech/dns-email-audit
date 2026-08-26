@@ -49,7 +49,7 @@ sent to Cloudflare and are subject to Cloudflare's privacy policy.
 | **DMARC** | Validates against RFC 9989 (DMARCbis): record uniqueness, strict `v=` placement and casing, the full tag set (`p`, `sp`, `np`, `adkim`, `aspf`, `fo`, `rua`, `ruf`, `psd`, `t`), report-URI syntax, and tags the new RFC removed (`pct`, `rf`, `ri`) or does not define; discovers inherited organizational-domain policies with the Public Suffix List. |
 | **DMARC test mode** | Detects `t=y`, which tells receivers not to apply the policy — so `p=reject; t=y` is reported and scored as `none` rather than as enforcement. |
 | **DMARC report authorization** | For report destinations outside your organizational domain, checks whether that domain published the `_report._dmarc` record (RFC 9990 §4.3), including the wildcard form. Without it receivers discard those reports silently. |
-| **DNSSEC** | Distinguishes secure, insecure, bogus, and indeterminate validation results using the resolver's authenticated-data response. |
+| **DNSSEC** | Six states — secure, insecure, signed-but-unanchored, DS/DNSKEY mismatch, bogus and indeterminate — from the resolver's authenticated-data flag, with the child's `DNSKEY` set matched against the parent's `DS` records locally by Web Crypto. Every claim is attributed to the resolver or to local computation. |
 | **CAA** | Walks up the domain tree to find the effective certificate-authority restrictions. |
 | **MTA-STS** | Validates discovery-record uniqueness and syntax, including the required `id=` tag. |
 | **TLS-RPT** | Validates uniqueness, syntax, and the required supported `rua=` destination. |
@@ -280,7 +280,7 @@ JSON files from disk, so translated interfaces require HTTP.
 | --- | --- |
 | `npm start` | Start the dependency-free development server on port 8080. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Run locale validation plus 1,813 parser, protocol, scoring, rendering, export and CSP assertions. |
+| `npm test` | Run locale validation plus 2,117 parser, protocol, scoring, rendering, export and CSP assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `js/locales-en.js` after editing `locales/en.json`. |
@@ -418,7 +418,10 @@ keeping audit logic independent from translation work.
 - DNS, email-provider, and hosting detection use public records and heuristics;
   unusual or private infrastructure may be labeled custom or unknown.
 - DNSSEC status reflects validation performed by the configured Cloudflare DoH
-  resolver rather than an independent local validating resolver.
+  resolver rather than an independent local validating resolver. The `DS`-to-
+  `DNSKEY` digest matching this tool performs locally is diagnostic evidence
+  beside that verdict, never a substitute for it: signatures are not verified,
+  so a zone whose DS matches perfectly can still be failing validation.
 
 ## Contributing
 

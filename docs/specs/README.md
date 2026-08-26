@@ -44,7 +44,6 @@ rationale, the dependency map, and the group-by-group execution plan.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [dnssec-evidence](dnssec-evidence.md) | 0.5.0 | 1.4 | **Final — implementation in progress** |
 | [findings-and-remediation](findings-and-remediation.md) | 0.6.0 | 0.1 | Draft, awaiting review |
 | [local-artifact-validation](local-artifact-validation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
 | [report-comparison](report-comparison.md) | 0.8.0 | 0.1 | Draft, awaiting review |
@@ -59,12 +58,14 @@ that produced it:
 
 | Directory | Holds |
 | --- | --- |
-| [`fixtures/`](fixtures/) | Captures for specs still being reviewed |
-| [`implemented/fixtures/`](implemented/fixtures/) | Captures for specs that have shipped, moved with their spec |
+| [`implemented/fixtures/`](implemented/fixtures/) | Captures for the specs they belong to, moved with the spec |
 
-Two of these exist so far, both for the DNS record types 0.4.0 and 0.5.0 add.
+A `fixtures/` directory alongside a spec still under review holds the same
+thing before the move; none exists at present.
+
+Two exist so far, both for the DNS record types 0.4.0 and 0.5.0 add.
 `OQ-DEPTH-01` and `OQ-DEPTH-05` were settled this way, and so were four of the
-seven questions in [dnssec-evidence](dnssec-evidence.md). A capture states the
+eight questions in [dnssec-evidence](implemented/dnssec-evidence.md). A capture states the
 date and the resolver it came from, because both go stale.
 
 ## Excluded — requires a companion app
@@ -100,6 +101,7 @@ precedent, and one spec was superseded outright during implementation.
 | [rendering-and-robustness](implemented/rendering-and-robustness.md) | 0.2.3 | [#18](https://github.com/kwestic-tech/dns-email-audit/pull/18) | `6bf8bda` | 1.3 (Implemented) |
 | [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) | 0.3.0 | [#20](https://github.com/kwestic-tech/dns-email-audit/pull/20) | `8c3a36f` | 1.2 (Implemented) |
 | [dns-protocol-depth](implemented/dns-protocol-depth.md) | 0.4.0 | [#22](https://github.com/kwestic-tech/dns-email-audit/pull/22) | `9bda3ad` | 1.2 (Implemented) |
+| [dnssec-evidence](implemented/dnssec-evidence.md) | 0.5.0 | _pending_ | _pending_ | 1.4 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in

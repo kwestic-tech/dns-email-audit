@@ -28,20 +28,30 @@ exists.
 ### What Cloudflare can see
 
 Auditing one domain is **not** a single DNS query. A full audit fans out into
-roughly 39 queries for a typical domain with the **default options**, and more
+roughly 41 queries for a typical domain with the **default options**, and more
 when the comprehensive DKIM scan is enabled. For example, auditing
-`cloudflare.com` with the defaults issues 59 queries.
+`cloudflare.com` with the defaults issues 61 queries.
 
 These are measured numbers, not estimates: `node tools/backtest.mjs` reports
 the fan-out of every run it makes, and the figures above were taken from a
-40-domain sample at release 0.4.0. Two earlier corrections are worth keeping
-visible. The text before 0.3.0 said 30 and 32; re-measuring at `v0.2.3` showed
+40-domain sample at release 0.5.0. 0.5.0 added exactly **two** queries per
+domain — a `DNSKEY` and a `DS` lookup for the audited name — and that figure is
+per-domain and deterministic: `cloudflare.com` measured 43 at 0.4.0 and 45 at
+0.5.0 with the deep checks off, both times.
+
+The 40-domain totals moved by less than 80 between the two releases, which is
+not a contradiction: DKIM selector discovery varies with what each domain
+publishes at the moment it is asked, so the sample average carries more
+run-to-run noise than two queries per domain. **Trust the per-domain figure
+over a difference between two sample totals.** Three earlier corrections are
+worth keeping visible. The text before 0.3.0 said 30 and 32; re-measuring at `v0.2.3` showed
 the `cloudflare.com` figure had been 42 for some time, so part of that rise was
 a stale number being corrected rather than new traffic, with the Tree Walk
 accounting for the rest. The 0.3.0 text then said 46, and the same domain with
 0.4.0's deep checks *off* measures 43 — running 0.3.0 and 0.4.0 back to back
 gives 43 for both, so that movement is the domain's own DNS changing under us,
-not the app asking for less.
+not the app asking for less. The 0.5.0 rise from 43 to 45 is the opposite kind
+of change: two named queries the app now always makes.
 
 That is the general lesson: this number is a property of the domains as much as
 of the app. Re-measure rather than trusting this paragraph if you need it to be
@@ -55,19 +65,20 @@ queries per MX host to resolve it and probe for a `CNAME`, plus one `TLSA` query
 per host.
 
 **They are on by default.** The checkbox in the options row ships ticked, so an
-ordinary run of one domain makes them, and the 39-per-domain and 59-for-
+ordinary run of one domain makes them, and the 41-per-domain and 61-for-
 `cloudflare.com` figures above are the numbers with them on. Above 50 domains
 they switch themselves off and the interface says so; you can tick the box again
 to run them anyway, and that choice lasts for the browser tab's session.
 
-Turning them off returns the fan-out to exactly what 0.3.0 issued: **about 32
-queries per domain** on the 40-domain sample, and **43** for `cloudflare.com`.
-That comparison is measured rather than assumed — 0.3.0 and 0.4.0 were run back
-to back and both issue exactly 43 for that domain with the checks off.
+Turning them off leaves **about 34 queries per domain** on the 40-domain sample
+and **45** for `cloudflare.com`. That is 0.3.0's and 0.4.0's shared figure of 43
+plus 0.5.0's two DNSSEC lookups, which are not part of the deep checks and
+cannot be switched off: they are how the chain state is established at all.
 
 Those queries cover more than the name you typed. They include:
 
-- The domain itself (`NS`, `MX`, `A`, `AAAA`, `TXT`, `CAA`, `DNSSEC`).
+- The domain itself (`NS`, `MX`, `A`, `AAAA`, `TXT`, `CAA`, and for DNSSEC a
+  `DNSKEY` and a `DS` alongside the existing `NS` probe).
 - **With the deep protocol checks enabled — which is the default** — each MX
   host by name: an `A`, an `AAAA` and a `CNAME` query per host, plus
   `_25._tcp.<mx-host>` for its `TLSA` record. These names belong to whoever runs the domain's mail, which is

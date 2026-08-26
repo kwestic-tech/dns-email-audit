@@ -59,6 +59,7 @@ and an unverifiable result is marked rather than hidden.
 | 0.2.0 | Version corrected to `0.2.0`, community health files, package metadata | [repository-hygiene](docs/specs/implemented/repository-hygiene.md) |
 | 0.2.1 | XLIFF-based locale pipeline, thirteen locales complete, five new languages | [locale-translation-pipeline](docs/specs/implemented/locale-translation-pipeline.md) |
 | 0.2.2 | DKIM selectors for vendors named in the domain's own SPF record | [spf-referenced-dkim-selectors](docs/specs/implemented/spf-referenced-dkim-selectors.md) |
+| 0.5.0 | DNSSEC chain evidence: six states, local DS-to-DNSKEY matching, attributed claims | [dnssec-evidence](docs/specs/implemented/dnssec-evidence.md) |
 
 `0.1.0` and the work merged as PRs #1 through #7 predate the spec process and are
 documented in [`CHANGELOG.md`](CHANGELOG.md) only.
@@ -71,7 +72,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 2 | RFC 9989 DMARC | **Done.** The bis tag vocabulary, `t=`, `psd=`, inheritance, URI parsing and external report authorization were already implemented; 0.3.0 added the missing half — the RFC 9989 §4.10 DNS Tree Walk, replacing the Public Suffix List for every DMARC decision, with discovery provenance, `psd=` termination, existence-gated `np=`, and misplaced-record diagnosis. | [0.3.0](docs/specs/implemented/dmarcbis-tree-walk.md), released |
 | 3 | Anomaly and remediation engine | Not started. Findings are a flat list of localized strings with no severity model, dependencies, or ordering. | [0.6.0](docs/specs/findings-and-remediation.md) |
 | 4 | DKIM, MX, CAA and DANE depth | **Done.** 0.4.0 decodes DKIM public keys to algorithm and modulus size, parses CAA into a policy with wildcard semantics, resolves every MX target to find dangling and CNAME hosts, and adds TLSA lookup, reported per host as DNSSEC-authenticated or not on the strength of the resolver's AD bit for that host's own name. 0.5.0 reviewed and **retired** the `qualified` flag rather than completing it: a TLSA record lives in the MX host's zone, which the audited domain's chain evidence says nothing about, and local DS-to-DNSKEY matching never validates RRSIGs and so cannot exceed the resolver's per-host verdict (`OQ-SEC9-07`). Every observation is advisory: zero grade movement. | [0.4.0](docs/specs/implemented/dns-protocol-depth.md), released |
-| 5 | DNSSEC depth | Not started. State is the resolver's AD flag plus a bogus probe; no DS or DNSKEY evidence. | [0.5.0](docs/specs/dnssec-evidence.md) |
+| 5 | DNSSEC depth | **Done.** 0.5.0 queries the child `DNSKEY` set and the parent `DS` set, matches the digests locally with Web Crypto, and replaces the four-state model with six — separating a signed-but-unanchored zone and a DS/DNSKEY mismatch from a zone that was never signed. The resolver's AD flag remains the validation signal, and every claim is attributed to it or to local computation. | [0.5.0](docs/specs/implemented/dnssec-evidence.md), released |
 | 6 | Local MTA-STS and BIMI validation | Not started. Both are validated at the TXT record level only. | [0.7.0](docs/specs/local-artifact-validation.md) |
 | 7 | Local report comparison | Not started. Exports are CSV and static HTML; nothing can be read back. | [0.8.0](docs/specs/report-comparison.md) |
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
@@ -136,9 +137,9 @@ third-party access.
 Exit condition: new checks ship advisory first and enter scoring only after a
 backtest shows the grade distribution shift is intended.
 
-### 0.5.0: DNSSEC evidence
+### 0.5.0: DNSSEC evidence — **released**
 
-Spec: [`docs/specs/dnssec-evidence.md`](docs/specs/dnssec-evidence.md)
+Spec: [`docs/specs/implemented/dnssec-evidence.md`](docs/specs/implemented/dnssec-evidence.md)
 
 Queries child DNSKEY and parent DS records, matches DS digests against DNSKEY
 material with Web Crypto, and distinguishes secure, insecure delegation,
@@ -146,9 +147,13 @@ signed-but-unanchored, mismatch, bogus, and indeterminate. The resolver's AD fla
 remains the validation signal; this release adds transparent evidence beside it
 rather than claiming the browser is an independent validating resolver.
 
-Exit condition: the interface never labels a chain secure solely because DNSKEY
-records exist, and each conclusion is attributed to either the resolver or local
-computation.
+Exit condition, met: the interface never labels a chain secure solely because
+DNSKEY records exist — `servfail.nl` confirms its DS locally and is bogus, which
+is why the two axes stay separate — and each conclusion is attributed to the
+resolver or to local computation, on screen. `checkTlsa()`'s `qualified` flag
+was reviewed and **retired** rather than completed: a TLSA record lives in the
+MX host's zone, which the audited domain's chain evidence says nothing about.
+Zero grade, score and `dnssec.signed` movement against `v0.4.0`.
 
 ### 0.6.0: Anomaly and remediation roadmap
 

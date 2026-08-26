@@ -2,11 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.4 (Final) |
+| Spec version | 1.4 (Implemented) |
 | Target release | 0.5.0 |
-| Status | Final — implementation may begin |
-| Depends on | [dns-protocol-depth](implemented/dns-protocol-depth.md) for `DS`, `DNSKEY` and `TLSA` transport support, the `DnsTypeError` re-throw in `optionalCheck()`, and the per-host `authenticated` field on `checkTlsa()` |
-| Blocks | [findings-and-remediation](findings-and-remediation.md), whose DANE conditions read `checkTlsa()`'s per-host `authenticated` evidence. **Not** the audited domain's chain state — see `OQ-SEC9-07`. |
+| Status | Implemented and released |
+| Released in | `v0.5.0`, 2026-08-26 |
+| Pull request | _filled at merge_ |
+| Merge commit | _filled at merge_ |
+| Depends on | [dns-protocol-depth](dns-protocol-depth.md) for `DS`, `DNSKEY` and `TLSA` transport support, the `DnsTypeError` re-throw in `optionalCheck()`, and the per-host `authenticated` field on `checkTlsa()` |
+| Blocks | [findings-and-remediation](../findings-and-remediation.md), whose DANE conditions read `checkTlsa()`'s per-host `authenticated` evidence. **Not** the audited domain's chain state — see `OQ-SEC9-07`. |
 | Slug for open questions | `SEC9` |
 | Evidence | [fixtures/dnssec-live-states-0.5.0.md](fixtures/dnssec-live-states-0.5.0.md) |
 | Last updated | 2026-08-26 |
@@ -16,12 +19,12 @@
 DNSSEC carries 15 of the 100 available points on an active mail domain and 25
 of 100 on a parked one, and it gates the entire A tier. A domain cannot reach
 `A`, `A+` or `A++` without it, per `requiresDnssec` in `GRADE_THRESHOLDS` at
-[`js/dns.js:3615`](../../js/dns.js). That is a defensible weighting, because an
+[`js/dns.js:3615`](../../../js/dns.js). That is a defensible weighting, because an
 unsigned zone means every record the tool just examined can be forged in
 transit.
 
 The evidence behind that decision is one bit. `checkDNSSEC()` at
-[`js/dns.js:3244`](../../js/dns.js) issues an NS query with `do=1`, reads the AD
+[`js/dns.js:3244`](../../../js/dns.js) issues an NS query with `do=1`, reads the AD
 flag from the resolver's response, and returns `secure` or `insecure`. On
 SERVFAIL it re-queries with `cd=1`, and a success there means the chain is bogus
 rather than merely unsigned. That is a clever and correct use of the resolver,
@@ -39,7 +42,7 @@ completely different.
 parent. The tool tells their operators, today, that they have not enabled
 DNSSEC.
 
-There is also a forward dependency. [dns-protocol-depth](implemented/dns-protocol-depth.md)
+There is also a forward dependency. [dns-protocol-depth](dns-protocol-depth.md)
 adds TLSA records but hardcodes `qualified: false`, because a TLSA record
 without a validated chain above it provides no protection. `OQ-SEC9-07` settles
 what becomes of that flag, and the answer is not the one the draft assumed.
@@ -108,7 +111,7 @@ and `a.type === 48`, exactly as `checkTlsa()` filters `52` to survive the shared
 `_dane` CNAME.
 
 *`checkDNSSEC()` must stay unable to throw.* It is the only entry in the
-`Promise.all` at [`js/dns.js:4544`](../../js/dns.js) with no `optionalCheck()`
+`Promise.all` at [`js/dns.js:4544`](../../../js/dns.js) with no `optionalCheck()`
 wrapper, and that is safe today only because it reads `dohFetch()`'s `.kind`
 and never calls `requireUsable()`. The new queries follow the same discipline:
 read `.kind`, never `requireUsable()`. If that ever becomes inconvenient, add
@@ -205,7 +208,7 @@ MTA-STS and DKIM in three separate rounds. Before the split, `257 3 15 AA==` —
 a one-octet Ed25519 key — parsed as `valid: true` and computed a key tag.
 
 **`parseDs()` may reuse `parseTlsaRecord()`'s normalization. `parseDnskey()` may
-not.** The idiom at [`js/dns.js:2660`](../../js/dns.js) is
+not.** The idiom at [`js/dns.js:2660`](../../../js/dns.js) is
 `body.replace(/\s+/g, '').toLowerCase()`, which is right for a hex digest and
 fatal for base64: the DNSKEY key field is case-sensitive and contains `+`, `/`
 and `=`. Lowercasing it destroys the key, every digest then fails to match, and
@@ -222,7 +225,7 @@ first thing to revisit if `OQ-SEC9-04` is ever reopened.
 
 Measured shapes are in
 [fixtures/dnssec-live-states-0.5.0.md](fixtures/dnssec-live-states-0.5.0.md) and
-[implemented/fixtures/doh-shapes-0.4.0.md](implemented/fixtures/doh-shapes-0.4.0.md):
+[implemented/fixtures/doh-shapes-0.4.0.md](fixtures/doh-shapes-0.4.0.md):
 `DS` is four whitespace-separated fields with lowercase unparenthesised hex;
 `DNSKEY` is four fields with contiguous case-sensitive base64, unwrapped at
 every observed length including 2048-bit RSA. Parentheses are handled defensively
@@ -491,10 +494,10 @@ diagnosis it cannot support.
 `signed = (state === 'secure')`, and `secure` holds exactly when AD is true. So
 `signed` is byte-identical to 0.4.0 for every domain, by construction rather
 than by measurement, and `state === 'indeterminate'` marks the same set of
-pillars unproven at [`js/dns.js:4327`](../../js/dns.js). `calcScore()` at
-[`js/dns.js:4335`](../../js/dns.js), `gradeFor()` at
-[`js/dns.js:3697`](../../js/dns.js) and `unprovenPillars()` at
-[`js/dns.js:4319`](../../js/dns.js) need no change. Acceptance criterion 6 is a
+pillars unproven at [`js/dns.js:4327`](../../../js/dns.js). `calcScore()` at
+[`js/dns.js:4335`](../../../js/dns.js), `gradeFor()` at
+[`js/dns.js:3697`](../../../js/dns.js) and `unprovenPillars()` at
+[`js/dns.js:4319`](../../../js/dns.js) need no change. Acceptance criterion 6 is a
 theorem about this table, and the backtest confirms it rather than establishing
 it.
 
@@ -557,7 +560,7 @@ from a lookup that established nothing. Cloudflare returns `AD: false` on
 there in the Authority section, because the answer describes an insecure
 delegation. The flag is therefore false in both cases and separates nothing.
 The evidence that would separate them lives in the Authority section, which
-`fetchDohOnce()` at [`js/dns.js:170`](../../js/dns.js) does not return.
+`fetchDohOnce()` at [`js/dns.js:170`](../../../js/dns.js) does not return.
 Surfacing it is a transport change with one consumer, and it is not made here.
 
 The `chain` array is the honesty mechanism. It reads, in the interface, as a
@@ -629,7 +632,7 @@ returns `bogus` correctly, and `analyzeDomain()` never completes.
 
 This has been true since the finding shipped in 0.4.0 and is **not changed
 here** — making a core lookup non-fatal is a resilience decision belonging to
-[resilient-optional-checks](implemented/resilient-optional-checks.md), which
+[resilient-optional-checks](resilient-optional-checks.md), which
 deliberately keeps the core NS/MX/TXT lookups fatal, and reversing it would
 change what every failed audit in the tool reports. It is recorded because the
 finding's presence in this table would otherwise imply an operator can see it.
@@ -645,15 +648,15 @@ reserved for demonstrably broken validation: `mismatch` and `bogus`
 
 ### 8. Interface
 
-The DNSSEC dot in the advanced strip at [`js/app.js:398`](../../js/app.js) and
-[`js/app.js:444`](../../js/app.js) gains an amber state for `unanchored` and
+The DNSSEC dot in the advanced strip at [`js/app.js:398`](../../../js/app.js) and
+[`js/app.js:444`](../../../js/app.js) gains an amber state for `unanchored` and
 `mismatch`, using the existing `partial` field that already drives the amber
-treatment for duplicated records at [`js/app.js:402`](../../js/app.js) and
-[`js/app.js:450`](../../js/app.js). The `done/5` count is unchanged: amber is not
+treatment for duplicated records at [`js/app.js:402`](../../../js/app.js) and
+[`js/app.js:450`](../../../js/app.js). The `done/5` count is unchanged: amber is not
 configured. Everything else — keys, DS records, match verdicts, the chain array
 — lives in the detail panel (`OQ-SEC9-06`).
 
-The CSV cell at [`js/app.js:1365`](../../js/app.js) already emits
+The CSV cell at [`js/app.js:1365`](../../../js/app.js) already emits
 `dnssec.state` as a token when the domain is not signed, so `unanchored` and
 `mismatch` appear there without a schema change. That is a behaviour change for
 anything consuming the column and it is deliberate: tokens, not prose, is the
@@ -663,6 +666,125 @@ Renderers default their collections and return nothing on an unrecognized
 shape, per 0.4.0's **As implemented** item 4. A saved report from an earlier
 release has no `keys` or `ds` array, and must render less rather than taking the
 row down.
+
+## As implemented
+
+**1. `qualified` was retired, not completed — and that is the release's headline
+divergence from its own inheritance.** 0.4.0's **As implemented** item 2 kept
+`authenticated` and `qualified` as separate fields and said this release would
+supply the second. It does not. A TLSA record lives at `_25._tcp.<host>`,
+usually in a zone unrelated to the audited domain, so the audited domain's chain
+evidence says nothing about it — and local DS-to-DNSKEY matching never validates
+RRSIGs, so it can never exceed the per-host AD bit 0.4.0 already recorded. A
+field that can only ever equal another is a claim rather than a distinction.
+
+The knock-on work was larger than the deletion: five active documents pointed
+future work at the field, and two of them expressed the same cross-zone
+inference in words that did not contain the string `qualified`. Searching for
+an identifier finds references to it; it does not find the idea.
+
+**2. `dnssec-bogus` is reachable in the classifier and not in the interface.**
+A validating resolver SERVFAILs *every* query for a bogus zone, including the
+core NS lookup, which `requireUsable()` turns into a throw that discards the
+whole audit before `checkDNSSEC()` is consulted. Measured on
+`dnssec-failed.org` and `servfail.nl`: the classifier returns `bogus` correctly
+and `analyzeDomain()` never completes.
+
+True since the finding shipped in 0.4.0, and deliberately not changed here —
+making a core lookup non-fatal belongs to
+[resilient-optional-checks](resilient-optional-checks.md), which keeps NS, MX
+and TXT fatal on purpose, and reversing it would change what every failed audit
+reports. `--dnssec-states` prints the limitation on every run so the two rows do
+not read as a classifier defect.
+
+**3. The classifier tests the resolver's completion semantics exactly as 0.4.0
+defined them.** `completed` means `success` or `nodata`; NXDOMAIN on the NS
+probe stays `indeterminate` rather than becoming `insecure`. Both score zero,
+but only `indeterminate` marks the pillar unproven in `unprovenPillars()`, and
+promoting NXDOMAIN would have moved a domain out of that set — a change to what
+the interface reports about a check that did not run, arriving as a side effect
+of a refactor. Mutation-tested.
+
+**4. The anchoring rule is written once and read from two angles.** It existed
+twice — over a key object and inlined over the published match fields — and a
+mutation disqualifying a REVOKE-flagged key was caught by only *one* of the two
+tests. `anchorFactsUsable()` now holds it, with `dnskeyCanAnchor()` and
+`matchConfirmsAnchor()` as adapters, plus an assertion walking the whole 18-cell
+fact space to prove the two agree.
+
+**5. The digest-eligibility clause is unreachable and kept anyway.** Every
+affirmatively prohibited digest type is also one Web Crypto cannot compute, so
+that half of the anchoring rule cannot be reached through the matcher — mutating
+it away failed nothing. It is kept because a future registry entry can be both
+computable and prohibited, and it is now tested directly through the exported
+`matchConfirmsAnchor()` rather than left as protection nothing exercises.
+
+**6. `buildSuggestions()` changed, which §7 does not mention.** The generic
+"enable DNSSEC" tip fired on every unsigned domain, which on an `unanchored`
+zone is wrong advice printed directly beneath a finding telling the operator to
+finish what they started. It now fires only on `insecure`.
+
+**7. Nine findings and 611 locale keys, against an estimate of 60 to 90.** The
+1.1 estimate was raised from the draft's 25–35 precisely because 0.4.0 had
+undershot; it undershot again. The interface strings — six state descriptions,
+five match verdicts, a claim vocabulary and the attribution labels — are the
+bulk, and they exist because acceptance criterion 2 requires attribution to be
+visible rather than merely recorded.
+
+**8. What review changed, and the shape it kept.** Five rounds after the spec
+reached Final, and the same defect wore a different costume in four of them:
+**a recognized name accepted without the value constraint its own specification
+states.**
+
+| Round | Where it landed |
+| --- | --- |
+| 1 | A one-octet Ed25519 key parsed as `valid` and computed a key tag |
+| 2 | Four algorithms IANA marks `Zone Signing: N` could still anchor |
+| 2 | RSA structure checked field presence, not RFC 3110's grammar |
+| 3 | One RSA modulus floor for five algorithms; RFC 5702 §2.2 sets a second |
+| 4 | A proven confirmation revoked by a later candidate failing to hash |
+
+Round 3's arrived **inside the fix written to close the pattern**, which is the
+part worth carrying forward. 0.4.0's item 9 already says a structural check that
+is locally consistent is not finished. This release adds the sharper form:
+**citing an RFC is not the check — the check is whether the RFC cited is the one
+that defines the value being validated.** RFC 3110 defines the RSA encoding for
+all five algorithms and the key-size limits for neither SHA-2 one.
+
+Two method notes, both cheap and both would have caught a real defect:
+
+- **Grep for the idea, not the identifier** — see item 1.
+- **A tightened validator needs live-corpus evidence in the same commit.** 153
+  real keys across 62 zones took one command, and it is what separates
+  "stricter" from "rejects conforming records".
+
+**9. Four assertions in this release could not fail.** Two found by me, one by
+the review, one by mutation testing: a `Uint8Array` compared against an `Array`;
+`matchedKey === 60485` where both candidates were forced to that tag; a
+`digest-mismatch` fixture whose null fields failed the predicate anyway; and
+"the state findings are mutually exclusive", which is structurally guaranteed
+because `state` holds one value. **An assertion that cannot fail is
+indistinguishable from one that passes**, and only mutation reveals which it is.
+
+**10. Verification.** `npm test` passes **2,117** assertions across the five
+suites, up from 1,813 at 0.4.0; `npm run locale:gate` passes 13/13 at 771/771
+keys. The backtest against a `v0.4.0` worktree shows **zero grade, zero score
+and zero `dnssec.signed` movement** on the 40-domain sample, with `WEIGHTS`,
+`PARKED_WEIGHTS` and `GRADE_THRESHOLDS` byte-identical. That is a theorem about
+the rule table rather than a property of the sample: rules 4, 5 and 6 are
+reachable only when the resolver's AD flag is already false, and
+`signed === (state === 'secure')`. It was also measured directly against the
+released `v0.4.0` `checkDNSSEC()` across 49 live domains — zero differences.
+
+Three domains in that comparison gained a diagnosis they did not have:
+`quad9.net`, `fsf.org` and **`atlassian.com`, which is in the backtest sample**
+— signed, no DS at the parent, and reported until now as having no DNSSEC.
+
+Fan-out rises by exactly two queries per domain, measured per domain rather than
+inferred from a sample total: `cloudflare.com` goes 43 → 45 with the deep checks
+off and 59 → 61 with them on. The 40-domain aggregate moved by less than the
+arithmetic predicts, because DKIM selector discovery varies between runs — which
+is why `PRIVACY.md` now states the per-domain figure as the trustworthy one.
 
 ## Localization impact
 
@@ -698,7 +820,7 @@ All thirteen locales in the same change.
 `parseDnskey()`, `parseDs()`, the key tag algorithm and the digest matcher are
 pure and test in the existing `node:vm` sandbox. `crypto` is **already** a
 sandbox global — 0.4.0 added it at
-[`tools/scoring.test.mjs:21`](../../tools/scoring.test.mjs) for the DKIM key
+[`tools/scoring.test.mjs:21`](../../../tools/scoring.test.mjs) for the DKIM key
 work — so no harness change is needed. `atob` is still deliberately absent, and
 the base64 decoder written in-file for 0.4.0 is reused rather than reaching for
 it.
@@ -759,7 +881,7 @@ pillar on a domain the resolver had just validated — a grade movement produced
 by a lookup that has no bearing on the verdict.
 
 **Live coverage** is a new `--dnssec-states` mode in
-[`tools/backtest.mjs`](../../tools/backtest.mjs), carrying the named domains
+[`tools/backtest.mjs`](../../../tools/backtest.mjs), carrying the named domains
 below. The 40-domain `SAMPLE` is **not** modified: it is a longitudinal score
 baseline compared release to release, and mixing deliberately-broken test zones
 into it would change what its histogram means. The two lists are complementary —
@@ -817,7 +939,7 @@ for all 40 must be identical to `v0.4.0`.
    deprecation set cites RFC 9905/9906 rather than the obsoleted RFC 8624.
 11. No active document directs future work at `qualified`. `ROADMAP.md`,
    `docs/async-development-handoff.md` and
-   [findings-and-remediation](findings-and-remediation.md) read per-host
+   [findings-and-remediation](../findings-and-remediation.md) read per-host
    `authenticated` instead.
 12. `npm test` and `npm run locale:gate` pass, 13/13 locales complete.
 
@@ -841,7 +963,7 @@ answer array carries an RRSIG.
 
 **Presentation-format variance.** Largely discharged. The draft deferred to
 `OQ-DEPTH-01`, which captured the shapes in
-[implemented/fixtures/doh-shapes-0.4.0.md](implemented/fixtures/doh-shapes-0.4.0.md);
+[implemented/fixtures/doh-shapes-0.4.0.md](fixtures/doh-shapes-0.4.0.md);
 this review extended the capture to 2048-bit RSA keys and to the RRSIG
 companions. Residual: only Cloudflare has been observed, which is what
 `OQ-SEC9-04` keeps fixed, and the parsers reject unexpected shapes with an error
@@ -896,14 +1018,14 @@ normalization the draft did not specify. §3 normalizes regardless.
 validates it, so it is `secure` and earns its points. Reducing its score is a
 scoring change, which this release does not make. Whether 0.6.0 introduces a
 partial-credit DNSSEC pillar is deferred to
-[findings-and-remediation](findings-and-remediation.md), which is where severity
+[findings-and-remediation](../findings-and-remediation.md), which is where severity
 and confidence get a model.
 
 **OQ-SEC9-06: How much belongs in the collapsed row versus the detail panel?**
 *Amber in the dot, everything else in the panel.* Consistent with the
 duplicate-record precedent, and it needs no new rendering concept: the existing
-`partial` field already drives amber at [`js/app.js:402`](../../js/app.js) and
-[`js/app.js:450`](../../js/app.js). See §8.
+`partial` field already drives amber at [`js/app.js:402`](../../../js/app.js) and
+[`js/app.js:450`](../../../js/app.js). See §8.
 
 **OQ-SEC9-07: What becomes of `checkTlsa()`'s `qualified` flag?**
 *It is retired.* Raised during the 1.0 review; resolved by Ian. The draft's §6
