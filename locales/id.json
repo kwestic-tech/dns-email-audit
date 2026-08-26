@@ -564,6 +564,43 @@
     "dnssec-indeterminate": {
       "msg": "Status DNSSEC tidak dapat ditentukan karena kueri validasi gagal. Dinilai sebagai tidak ditandatangani. Jalankan ulang audit — ini biasanya masalah resolver yang sementara. Jika terus terjadi pada domain yang sudah Anda pastikan ditandatangani di registrar atau penyedia DNS Anda, buka issue di GitHub dengan menyertakan domainnya, registrar/penyedia DNS Anda, dan tangkapan layar yang menunjukkan DNSSEC aktif."
     },
+    "dnssec-unanchored": {
+      "msg": "Zona Anda sudah ditandatangani, tetapi zona induk tidak memublikasikan data DS — DNSSEC tidak melindungi apa pun sampai Anda memublikasikannya di registrar.",
+      "what": "DNSSEC bekerja sebagai rantai, dan menandatangani zona baru separuh pekerjaan. Registrar Anda harus memublikasikan data DS di zona induk yang menunjuk ke kunci penanda tangan Anda. Tanpa itu, resolver tidak punya alasan memercayai tanda tangan Anda dan memperlakukan zona sebagai tidak ditandatangani — jadi setiap data di sini tetap bisa dipalsukan saat transit, persis seperti jika Anda tidak pernah menandatangani apa pun.",
+      "fix": "Mintalah data DS kepada penyedia DNS Anda, lalu publikasikan di registrar domain. Sebagian besar registrar menyebutnya <em>DNSSEC</em> pada pengaturan domain. Tunggu TTL lama kedaluwarsa dan jalankan audit ini lagi — rantai aktif begitu zona induk menjawab dengan data DS."
+    },
+    "dnssec-mismatch": {
+      "msg": "Data DS di zona induk tidak cocok dengan kunci mana pun yang dipublikasikan zona Anda — resolver yang memvalidasi akan menolak domain ini.",
+      "what": "Data DS di zona induk adalah sidik jari salah satu data DNSKEY Anda. Ketika keduanya berbeda, resolver yang memvalidasi tidak dapat membangun rantai dan mengembalikan kegagalan alih-alih data Anda. Itu lebih buruk daripada tidak ditandatangani: surel dan lalu lintas web putus bagi semua orang yang resolvernya memvalidasi, dan tampak seperti gangguan layanan alih-alih salah konfigurasi.",
+      "fix": "Hampir selalu ini pergantian kunci yang berhenti di tengah jalan. Publikasikan DNSKEY yang ditunjuk data DS saat ini, atau perbarui data DS di registrar agar cocok dengan kunci yang Anda pakai menandatangani sekarang. Jangan sekadar berhenti menandatangani selama data DS masih dipublikasikan — kegagalannya tetap sama."
+    },
+    "dnssec-ds-orphan": {
+      "msg": "Data DS {0} di zona induk tidak cocok dengan kunci mana pun di zona Anda. Rantai Anda tetap tervalidasi lewat data DS lain, jadi tidak ada yang rusak.",
+      "what": "Zona induk boleh memuat beberapa data DS, dan standarnya secara tegas mengizinkan salah satunya menunjuk ke kunci yang tidak lagi dipublikasikan. Di sini data DS lain cocok dengan kunci aktif, sehingga validasi berhasil dan hal ini tidak merugikan Anda hari ini. Biasanya ini sisa pergantian kunci yang tidak dibereskan.",
+      "fix": "Hapus data DS usang di registrar Anda setelah yakin kunci yang disebutkan benar-benar hilang. Tidak mendesak — membiarkannya tidak berbahaya, tetapi menyulitkan penalaran saat pergantian kunci berikutnya."
+    },
+    "dnssec-deprecated-algorithm": {
+      "msg": "Zona Anda ditandatangani dengan algoritma usang: {0}.",
+      "what": "Algoritma penandatanganan dipensiunkan seiring usia. Algoritma usang masih tervalidasi hari ini, karena resolver wajib terus memverifikasi delegasi yang sudah ada, tetapi tidak boleh dipakai untuk penandatanganan baru dan dukungannya akhirnya akan dicabut. RSASHA1 dan keluarga DSA adalah kasus yang lazim.",
+      "fix": "Mintalah penyedia DNS Anda memindahkan zona ke algoritma terkini. <code>ECDSAP256SHA256</code> adalah pilihan yang lazim dan menghasilkan data yang jauh lebih kecil daripada RSA. Pergantian ini mengubah data DS Anda, jadi yang baru harus sampai ke registrar dalam operasi yang sama."
+    },
+    "dnssec-deprecated-digest": {
+      "msg": "Data DS Anda memakai jenis digest usang: {0}.",
+      "what": "Data DS mengidentifikasi kunci Anda lewat hash-nya. SHA-1 masih diterima untuk memvalidasi delegasi yang sudah ada, tetapi tidak boleh dipakai untuk yang baru, dan GOST R 34.11-94 sudah usang sepenuhnya. Hal ini tidak merusak apa pun hari ini.",
+      "fix": "Mintalah registrar mengganti data DS dengan versi SHA-256. Penyedia DNS Anda dapat membuatnya dari kunci yang sudah ada, jadi pergantian kunci tidak diperlukan — hanya data DS di zona induk yang berubah."
+    },
+    "dnssec-revoke-flag": {
+      "msg": "DNSKEY {0} dipublikasikan dengan tanda REVOKE aktif. Memastikan pencabutan memerlukan pemeriksaan tanda tangan yang tidak dilakukan audit ini."
+    },
+    "dnssec-key-algorithm-ineligible": {
+      "msg": "Data DS {0} menunjuk ke kunci yang algoritmanya tidak boleh dipakai menandatangani zona, sehingga delegasi tidak dapat ditambatkan."
+    },
+    "dnssec-key-not-zone-key": {
+      "msg": "Data DS {0} menunjuk ke kunci yang tidak ditandai sebagai kunci zona: kunci itu tidak boleh memverifikasi data dan delegasi tidak dapat ditambatkan."
+    },
+    "dnssec-key-malformed": {
+      "msg": "Data DS {0} menunjuk ke kunci yang materinya tidak sah untuk algoritmanya, sehingga tidak ada resolver yang dapat memakainya."
+    },
     "mta-sts-invalid": {
       "msg": "Data TXT MTA-STS salah format atau tidak memuat tag id= yang wajib."
     },

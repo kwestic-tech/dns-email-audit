@@ -564,6 +564,43 @@
     "dnssec-indeterminate": {
       "msg": "L'état DNSSEC n'a pas pu être déterminé car la requête de validation a échoué. Noté comme non signé. Relancez l'audit — il s'agit généralement d'un incident passager du résolveur. Si cela se reproduit sur un domaine que vous avez confirmé comme signé chez votre bureau d'enregistrement ou votre fournisseur DNS, ouvrez un ticket GitHub en indiquant le domaine, votre bureau d'enregistrement ou fournisseur DNS et une capture d'écran montrant DNSSEC activé."
     },
+    "dnssec-unanchored": {
+      "msg": "Votre zone est signée, mais la zone parente ne publie aucun enregistrement DS — DNSSEC ne protège rien tant que vous ne l'avez pas publié chez votre registrar.",
+      "what": "DNSSEC fonctionne comme une chaîne, et signer votre zone n'en est que la moitié. Votre registrar doit publier dans la zone parente un enregistrement DS qui pointe vers votre clé de signature. Sans lui, les résolveurs n'ont aucune raison de faire confiance à vos signatures et traitent la zone comme non signée : chaque enregistrement affiché ici reste donc falsifiable en transit, exactement comme si vous n'aviez jamais rien signé.",
+      "fix": "Demandez l'enregistrement DS à votre hébergeur DNS, puis publiez-le chez votre registrar. La plupart des registrars l'appellent <em>DNSSEC</em> dans les paramètres du domaine. Attendez l'expiration des anciens TTL et relancez cet audit : la chaîne est active dès que la zone parente répond avec l'enregistrement DS."
+    },
+    "dnssec-mismatch": {
+      "msg": "L'enregistrement DS de la zone parente ne correspond à aucune clé publiée par votre zone — les résolveurs validants refuseront ce domaine.",
+      "what": "L'enregistrement DS de votre zone parente est une empreinte de l'un de vos enregistrements DNSKEY. Lorsqu'ils divergent, un résolveur validant ne peut pas construire la chaîne et renvoie une erreur au lieu de vos enregistrements. C'est pire que de ne pas être signé : la messagerie et le web tombent pour tous ceux dont le résolveur valide, et cela ressemble à une panne plutôt qu'à une erreur de configuration.",
+      "fix": "Il s'agit presque toujours d'un renouvellement de clé interrompu à mi-parcours. Publiez le DNSKEY vers lequel pointe l'enregistrement DS actuel, ou mettez à jour le DS chez votre registrar pour qu'il corresponde à la clé avec laquelle vous signez maintenant. N'arrêtez pas simplement de signer tant que le DS est encore publié : la panne resterait identique."
+    },
+    "dnssec-ds-orphan": {
+      "msg": "L'enregistrement DS {0} de la zone parente ne correspond à aucune clé de votre zone. Votre chaîne reste validée par un autre DS, rien n'est donc cassé.",
+      "what": "Une zone parente peut porter plusieurs enregistrements DS, et la norme autorise explicitement l'un d'eux à pointer vers une clé qui n'est plus publiée. Ici, un autre DS correspond à une clé active : la validation aboutit et cela ne vous coûte rien aujourd'hui. C'est en général un reliquat d'un renouvellement de clé que personne n'a nettoyé.",
+      "fix": "Supprimez l'enregistrement DS obsolète chez votre registrar une fois certain que la clé qu'il nomme a définitivement disparu. Rien ne presse : le laisser est sans danger, mais cela complique le raisonnement lors du prochain renouvellement."
+    },
+    "dnssec-deprecated-algorithm": {
+      "msg": "Votre zone signe avec un algorithme obsolète : {0}.",
+      "what": "Les algorithmes de signature sont retirés à mesure qu'ils vieillissent. Un algorithme obsolète valide encore aujourd'hui, car les résolveurs doivent continuer à vérifier les délégations existantes, mais il ne peut plus servir à signer et sa prise en charge finira par disparaître. RSASHA1 et la famille DSA sont les cas courants.",
+      "fix": "Demandez à votre hébergeur DNS de basculer la zone vers un algorithme actuel. <code>ECDSAP256SHA256</code> est le choix habituel et produit des enregistrements bien plus petits que RSA. Ce changement modifie votre enregistrement DS : le nouveau doit donc parvenir à votre registrar dans la même opération."
+    },
+    "dnssec-deprecated-digest": {
+      "msg": "Votre enregistrement DS utilise un type d'empreinte obsolète : {0}.",
+      "what": "L'enregistrement DS identifie votre clé par une empreinte de celle-ci. SHA-1 reste accepté pour valider les délégations déjà en place, mais ne doit plus servir pour de nouvelles, et GOST R 34.11-94 est totalement obsolète. Rien ne casse aujourd'hui.",
+      "fix": "Demandez à votre registrar de remplacer l'enregistrement DS par un DS en SHA-256. Votre hébergeur DNS peut le générer à partir de la clé existante : aucun renouvellement de clé n'est nécessaire, seul le DS de la zone parente change."
+    },
+    "dnssec-revoke-flag": {
+      "msg": "Le DNSKEY {0} est publié avec l'indicateur REVOKE activé. Confirmer une révocation exige une vérification de signature que cet audit n'effectue pas."
+    },
+    "dnssec-key-algorithm-ineligible": {
+      "msg": "L'enregistrement DS {0} pointe vers une clé dont l'algorithme ne peut pas servir à signer une zone : la délégation ne peut donc pas être ancrée."
+    },
+    "dnssec-key-not-zone-key": {
+      "msg": "L'enregistrement DS {0} pointe vers une clé qui n'est pas marquée comme clé de zone : elle ne peut vérifier aucun enregistrement et la délégation ne peut pas être ancrée."
+    },
+    "dnssec-key-malformed": {
+      "msg": "L'enregistrement DS {0} pointe vers une clé dont le matériel n'est pas valide pour son algorithme : aucun résolveur ne peut l'utiliser."
+    },
     "mta-sts-invalid": {
       "msg": "L'enregistrement TXT MTA-STS est malformé ou la balise id= obligatoire est manquante."
     },

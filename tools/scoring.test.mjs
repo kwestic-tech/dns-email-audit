@@ -4896,6 +4896,158 @@ eq('and only AD true ever produces secure',
   [[true, true], [true, true], [false, false], [false, false], [false, false]]);
 }
 
+/* ── 48. DNSSEC findings (spec §7) ────────────────────────────────────
+   Step 6. The state findings follow the classifier's own order and are
+   mutually exclusive, so a domain is told one thing about its chain rather
+   than three. `unanchored` and `mismatch` are the two this release exists to
+   surface: both rendered as "DNSSEC not detected" before it, which told an
+   operator who had signed their zone that they had not.
+   ──────────────────────────────────────────────────────────────────────── */
+section('48. DNSSEC findings');
+{
+const dnssecIssues = dnssec => D.buildIssues({
+  emailProvider: 'Google Workspace',
+  spfStatus: spf('ok'),
+  dkimStatus: { found: true },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject'),
+  hosting: 'Custom',
+  advanced: Object.assign({}, full, { dnssec }),
+}).filter(i => i.key.startsWith('dnssec-'));
+
+const keysFor = dnssec => dnssecIssues(dnssec).map(i => i.key);
+const base = extra => Object.assign({
+  signed: false, state: 'insecure', keys: [], ds: [],
+  anchorConfirmed: false, orphanDs: [], deprecatedAlgorithms: [], deprecatedDigests: [],
+}, extra);
+
+/* ── The state findings, one per domain ──────────────────────────────── */
+
+eq('unanchored is a warning', dnssecIssues(base({ state: 'unanchored' }))
+  .map(i => [i.key, i.sev]), [['dnssec-unanchored', 'warn']]);
+eq('mismatch is critical', dnssecIssues(base({ state: 'mismatch' }))
+  .map(i => [i.key, i.sev]), [['dnssec-mismatch', 'crit']]);
+eq('bogus is unchanged from 0.4.0', keysFor(base({ state: 'bogus' })), ['dnssec-bogus']);
+eq('indeterminate is unchanged from 0.4.0', keysFor(base({ state: 'indeterminate' })), ['dnssec-indeterminate']);
+eq('a secure zone raises no state finding', keysFor(base({ state: 'secure', signed: true })), []);
+eq('an insecure zone raises no state finding either — the suggestion covers it',
+  keysFor(base({ state: 'insecure' })), []);
+
+// The full state-to-finding mapping. An earlier version of this asserted the
+// findings were "mutually exclusive", which no mutation could ever break: the
+// classifier produces one `state` value and the if/else chain reads it once,
+// so exclusivity is structural rather than tested. What is worth pinning is
+// the mapping itself — which state raises what, and at which severity.
+eq('every state maps to exactly one finding, or to none',
+  ['secure', 'insecure', 'unanchored', 'mismatch', 'bogus', 'indeterminate']
+    .map(state => [state, dnssecIssues(base({ state, signed: state === 'secure' }))
+      .filter(i => ['dnssec-bogus', 'dnssec-indeterminate', 'dnssec-mismatch', 'dnssec-unanchored'].includes(i.key))
+      .map(i => i.key + '/' + i.sev)]),
+  [['secure', []], ['insecure', []], ['unanchored', ['dnssec-unanchored/warn']],
+   ['mismatch', ['dnssec-mismatch/crit']], ['bogus', ['dnssec-bogus/crit']],
+   ['indeterminate', ['dnssec-indeterminate/warn']]]);
+
+/* ── The orphan DS: the paypal.com case ──────────────────────────────── */
+
+// RFC 6840 §5.11 permits a DS whose key is absent, and paypal.com publishes
+// one beside a confirming DS while validating perfectly. Informational, and
+// only when something else actually anchors.
+const orphan = dnssecIssues(base({ state: 'secure', signed: true, anchorConfirmed: true, orphanDs: [34800] }));
+eq('an orphan beside a confirmed DS is informational',
+  orphan.map(i => [i.key, i.sev]), [['dnssec-ds-orphan', 'info']]);
+eq('and it names the key tag', orphan[0].args, ['34800']);
+eq('an orphan with nothing anchoring raises no orphan finding — that is a mismatch',
+  keysFor(base({ state: 'mismatch', anchorConfirmed: false, orphanDs: [34800] })), ['dnssec-mismatch']);
+
+/* ── Deprecation ─────────────────────────────────────────────────────── */
+
+const deprecatedAlg = dnssecIssues(base({ state: 'secure', signed: true, deprecatedAlgorithms: [5, 7] }));
+eq('a deprecated algorithm is a warning', deprecatedAlg.map(i => [i.key, i.sev]),
+  [['dnssec-deprecated-algorithm', 'warn']]);
+// Named, not numbered: "RSASHA1" tells an operator what to search for.
+eq('and it names the algorithms rather than numbering them',
+  deprecatedAlg[0].args, ['RSASHA1, RSASHA1-NSEC3-SHA1']);
+const deprecatedDigest = dnssecIssues(base({ state: 'secure', signed: true, deprecatedDigests: [1] }));
+eq('a deprecated digest is informational', deprecatedDigest.map(i => [i.key, i.sev]),
+  [['dnssec-deprecated-digest', 'info']]);
+eq('and it names the digest', deprecatedDigest[0].args, ['SHA-1']);
+
+/* ── Facts about a key a DS confirmed ────────────────────────────────── */
+
+const confirmedWith = extra => base({
+  state: 'insecure',
+  ds: [Object.assign({
+    match: 'confirmed', matchedKeyTag: 1234,
+    matchedKeyAlgorithmEligibility: 'eligible',
+    matchedKeyHasZoneFlag: true, matchedKeyStructure: 'valid',
+  }, extra)],
+});
+eq('a DS confirming a non-zone-signing algorithm is a warning',
+  dnssecIssues(confirmedWith({ matchedKeyAlgorithmEligibility: 'ineligible' }))
+    .map(i => [i.key, i.sev, i.args]), [['dnssec-key-algorithm-ineligible', 'warn', ['1234']]]);
+eq('a DS confirming a key with the zone bit clear is a warning',
+  keysFor(confirmedWith({ matchedKeyHasZoneFlag: false })), ['dnssec-key-not-zone-key']);
+eq('a DS confirming structurally impossible material is a warning',
+  keysFor(confirmedWith({ matchedKeyStructure: 'invalid' })), ['dnssec-key-malformed']);
+eq('a DS confirming a perfectly good key raises nothing',
+  keysFor(confirmedWith({})), []);
+// Unknown is not a fault — an algorithm whose grammar this build cannot parse
+// must not be reported as broken.
+eq('an unknown structure or eligibility raises nothing',
+  keysFor(confirmedWith({ matchedKeyStructure: 'unknown', matchedKeyAlgorithmEligibility: 'unknown' })), []);
+// Only a CONFIRMED match carries these facts. The matcher leaves them null on
+// any other verdict, so this fixture is deliberately INCONSISTENT — a
+// digest-mismatch carrying populated key facts — because that is the shape the
+// `confirmed` filter exists to defend against. Written with null fields the
+// assertion passes whether or not the filter is there.
+eq('a non-confirming DS raises no key finding, even carrying key facts',
+  keysFor(base({ state: 'insecure', ds: [{
+    match: 'digest-mismatch', matchedKeyTag: 1234,
+    matchedKeyAlgorithmEligibility: 'ineligible',
+    matchedKeyHasZoneFlag: false, matchedKeyStructure: 'invalid',
+  }] })), []);
+
+// RFC 5011 §2.1 makes a key revoked only when a resolver sees it in a
+// self-signed RRset. This release does not validate RRSIGs, so the finding
+// names the flag and stops there — and it never blocks anchoring.
+const revoked = dnssecIssues(base({
+  state: 'secure', signed: true, anchorConfirmed: true,
+  keys: [{ keyTag: 999, hasRevokeFlag: true }, { keyTag: 111, hasRevokeFlag: false }],
+}));
+eq('a REVOKE flag is informational and names only the flagged key',
+  revoked.map(i => [i.key, i.sev, i.args]), [['dnssec-revoke-flag', 'info', ['999']]]);
+
+/* ── The suggestion must not contradict the finding ──────────────────── */
+
+const tipsFor = dnssec => D.buildSuggestions({
+  emailProvider: 'Google Workspace',
+  spfStatus: spf('ok'),
+  dkimStatus: { found: true },
+  dmarcStatus: D.analyzeDmarc('v=DMARC1; p=reject'),
+  advanced: Object.assign({}, full, { dnssec }),
+}).map(t => t.key);
+
+// "Enable DNSSEC" is wrong advice for a zone that is already signed, and it
+// would sit directly beneath a finding telling the operator what to finish.
+eq('an unsigned zone is told to enable DNSSEC', tipsFor(base({ state: 'insecure' })).includes('dnssec'), true);
+eq('an unanchored zone is NOT told to enable DNSSEC — it already has',
+  tipsFor(base({ state: 'unanchored' })).includes('dnssec'), false);
+eq('nor is a mismatched one', tipsFor(base({ state: 'mismatch' })).includes('dnssec'), false);
+eq('nor a bogus one', tipsFor(base({ state: 'bogus' })).includes('dnssec'), false);
+eq('an indeterminate zone is still not told, as at 0.4.0',
+  tipsFor(base({ state: 'indeterminate' })).includes('dnssec'), false);
+eq('a secure zone is not told either',
+  tipsFor(base({ state: 'secure', signed: true })).includes('dnssec'), false);
+
+/* ── Every finding has a message in every locale ─────────────────────── */
+
+const localeKeys = JSON.parse(readFileSync(`${REPO}/locales/en.json`, 'utf8')).issue;
+eq('every DNSSEC finding this release can raise has an English message',
+  ['dnssec-unanchored', 'dnssec-mismatch', 'dnssec-ds-orphan', 'dnssec-deprecated-algorithm',
+   'dnssec-deprecated-digest', 'dnssec-revoke-flag', 'dnssec-key-algorithm-ineligible',
+   'dnssec-key-not-zone-key', 'dnssec-key-malformed']
+    .filter(k => !localeKeys[k] || !localeKeys[k].msg), []);
+}
+
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);

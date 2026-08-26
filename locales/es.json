@@ -564,6 +564,43 @@
     "dnssec-indeterminate": {
       "msg": "El estado de DNSSEC no se pudo determinar porque la consulta de validación falló. Se puntúa como no firmado. Vuelve a ejecutar la auditoría: suele ser un problema transitorio del resolutor. Si sigue ocurriendo en un dominio que has confirmado que está firmado en tu registrador o proveedor de DNS, abre una incidencia en GitHub con el dominio, tu registrador/proveedor de DNS y una captura de pantalla que muestre DNSSEC activado."
     },
+    "dnssec-unanchored": {
+      "msg": "Su zona está firmada, pero la zona superior no publica ningún registro DS: DNSSEC no protege nada mientras no lo publique en su registrador.",
+      "what": "DNSSEC funciona como una cadena, y firmar su zona es solo la mitad del trabajo. Su registrador debe publicar en la zona superior un registro DS que apunte a su clave de firma. Sin él, los resolutores no tienen motivo para confiar en sus firmas y tratan la zona como si no estuviera firmada, de modo que cualquier registro de aquí sigue siendo falsificable en tránsito, exactamente igual que si nunca hubiera firmado nada.",
+      "fix": "Pida el registro DS a su proveedor de DNS y publíquelo en su registrador de dominios. La mayoría de los registradores lo llaman <em>DNSSEC</em> en la configuración del dominio. Espere a que caduquen los TTL antiguos y vuelva a ejecutar esta auditoría: la cadena queda activa en cuanto la zona superior responde con el registro DS."
+    },
+    "dnssec-mismatch": {
+      "msg": "El registro DS de la zona superior no coincide con ninguna clave que publique su zona: los resolutores validadores rechazarán este dominio.",
+      "what": "El registro DS de su zona superior es una huella de uno de sus registros DNSKEY. Cuando no coinciden, un resolutor validador no puede construir la cadena y devuelve un error en lugar de sus registros. Eso es peor que no estar firmado: el correo y el tráfico web dejan de funcionar para todo el que valide, y parece una caída del servicio en lugar de un error de configuración.",
+      "fix": "Casi siempre se debe a un cambio de clave que se quedó a medias. Publique el DNSKEY al que apunta el registro DS actual, o actualice el DS en su registrador para que coincida con la clave con la que firma ahora. No deje simplemente de firmar mientras el DS siga publicado: el fallo seguiría igual."
+    },
+    "dnssec-ds-orphan": {
+      "msg": "El registro DS {0} de la zona superior no coincide con ninguna clave de su zona. Su cadena sigue validando por otro registro DS, así que no hay nada roto.",
+      "what": "Una zona superior puede llevar varios registros DS, y el estándar permite expresamente que uno de ellos apunte a una clave que ya no se publica. Aquí otro DS coincide con una clave activa, por lo que la validación funciona y esto no le cuesta nada hoy. Suele ser un resto de un cambio de clave que nadie limpió después.",
+      "fix": "Elimine el registro DS obsoleto en su registrador cuando esté seguro de que la clave que nombra ha desaparecido definitivamente. No hay prisa: dejarlo es inofensivo, pero complica razonar sobre el siguiente cambio de clave."
+    },
+    "dnssec-deprecated-algorithm": {
+      "msg": "Su zona firma con un algoritmo obsoleto: {0}.",
+      "what": "Los algoritmos de firma se retiran a medida que envejecen. Uno obsoleto todavía valida hoy, porque los resolutores deben seguir verificando las delegaciones que ya existen, pero no puede usarse para firmar de nuevo y su compatibilidad acabará retirándose. RSASHA1 y la familia DSA son los casos habituales.",
+      "fix": "Pida a su proveedor de DNS que migre la zona a un algoritmo actual. <code>ECDSAP256SHA256</code> es la opción habitual y genera registros mucho más pequeños que RSA. El cambio modifica su registro DS, así que el nuevo debe llegar a su registrador en la misma operación."
+    },
+    "dnssec-deprecated-digest": {
+      "msg": "Su registro DS usa un tipo de resumen obsoleto: {0}.",
+      "what": "El registro DS identifica su clave mediante un resumen de esta. SHA-1 todavía se acepta para validar delegaciones que ya existen, pero no debe usarse para nuevas, y GOST R 34.11-94 está obsoleto por completo. Esto no rompe nada hoy.",
+      "fix": "Pida a su registrador que sustituya el registro DS por uno SHA-256. Su proveedor de DNS puede generarlo a partir de la clave que ya tiene, así que no hace falta cambiar de clave: solo cambia el registro DS de la zona superior."
+    },
+    "dnssec-revoke-flag": {
+      "msg": "El DNSKEY {0} se publica con el indicador REVOKE activado. Confirmar una revocación exige una comprobación de firma que esta auditoría no realiza."
+    },
+    "dnssec-key-algorithm-ineligible": {
+      "msg": "El registro DS {0} apunta a una clave cuyo algoritmo no puede usarse para firmar una zona, por lo que la delegación no puede anclarse."
+    },
+    "dnssec-key-not-zone-key": {
+      "msg": "El registro DS {0} apunta a una clave que no está marcada como clave de zona, por lo que no puede verificar registros y la delegación no puede anclarse."
+    },
+    "dnssec-key-malformed": {
+      "msg": "El registro DS {0} apunta a una clave cuyo material no es válido para su algoritmo, por lo que ningún resolutor puede usarla."
+    },
     "mta-sts-invalid": {
       "msg": "El registro TXT de MTA-STS está mal formado o le falta la etiqueta id= requerida."
     },

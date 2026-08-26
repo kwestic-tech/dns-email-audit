@@ -564,6 +564,43 @@
     "dnssec-indeterminate": {
       "msg": "Não foi possível determinar o status do DNSSEC porque a consulta de validação falhou. Pontuado como não assinado. Execute a auditoria novamente — normalmente é um problema temporário do resolvedor. Se continuar acontecendo em um domínio que você confirmou estar assinado no seu registrador ou provedor de DNS, abra uma issue no GitHub com o domínio, seu registrador/provedor de DNS e uma captura de tela mostrando o DNSSEC ativado."
     },
+    "dnssec-unanchored": {
+      "msg": "Sua zona está assinada, mas a zona superior não publica nenhum registro DS — o DNSSEC não protege nada enquanto você não publicá-lo no seu registrador.",
+      "what": "O DNSSEC funciona como uma cadeia, e assinar sua zona é apenas metade do trabalho. Seu registrador precisa publicar na zona superior um registro DS que aponte para sua chave de assinatura. Sem ele, os resolvedores não têm motivo para confiar nas suas assinaturas e tratam a zona como não assinada — ou seja, qualquer registro mostrado aqui continua podendo ser falsificado em trânsito, exatamente como se você nunca tivesse assinado nada.",
+      "fix": "Peça o registro DS ao seu provedor de DNS e publique-o no registrador do domínio. A maioria dos registradores chama isso de <em>DNSSEC</em> nas configurações do domínio. Aguarde os TTLs antigos expirarem e execute esta auditoria de novo — a cadeia fica ativa assim que a zona superior responder com o registro DS."
+    },
+    "dnssec-mismatch": {
+      "msg": "O registro DS da zona superior não corresponde a nenhuma chave publicada pela sua zona — resolvedores que validam vão recusar este domínio.",
+      "what": "O registro DS na zona superior é uma impressão digital de um dos seus registros DNSKEY. Quando os dois divergem, um resolvedor que valida não consegue montar a cadeia e devolve um erro em vez dos seus registros. Isso é pior do que não estar assinado: e-mail e tráfego web param para todos cujo resolvedor valida, e parece uma queda de serviço em vez de um erro de configuração.",
+      "fix": "Quase sempre é uma troca de chave que parou no meio. Publique o DNSKEY para o qual o registro DS atual aponta, ou atualize o DS no registrador para corresponder à chave com que você assina agora. Não simplesmente pare de assinar enquanto o DS continuar publicado — a falha permanece a mesma."
+    },
+    "dnssec-ds-orphan": {
+      "msg": "O registro DS {0} da zona superior não corresponde a nenhuma chave da sua zona. Sua cadeia continua validando por outro DS, então nada está quebrado.",
+      "what": "Uma zona superior pode conter vários registros DS, e o padrão permite explicitamente que um deles aponte para uma chave que não é mais publicada. Aqui outro DS corresponde a uma chave ativa, então a validação funciona e isso não custa nada hoje. Costuma ser resquício de uma troca de chave que ninguém limpou depois.",
+      "fix": "Remova o registro DS obsoleto no seu registrador quando tiver certeza de que a chave indicada desapareceu de vez. Não há pressa — deixá-lo é inofensivo, mas dificulta o raciocínio na próxima troca de chave."
+    },
+    "dnssec-deprecated-algorithm": {
+      "msg": "Sua zona assina com um algoritmo obsoleto: {0}.",
+      "what": "Algoritmos de assinatura são aposentados conforme envelhecem. Um obsoleto ainda valida hoje, porque os resolvedores precisam continuar verificando delegações já existentes, mas não pode mais ser usado para assinar e o suporte acabará sendo retirado. RSASHA1 e a família DSA são os casos comuns.",
+      "fix": "Peça ao seu provedor de DNS para migrar a zona para um algoritmo atual. <code>ECDSAP256SHA256</code> é a escolha habitual e gera registros muito menores que o RSA. A troca altera seu registro DS, então o novo precisa chegar ao registrador na mesma operação."
+    },
+    "dnssec-deprecated-digest": {
+      "msg": "Seu registro DS usa um tipo de digest obsoleto: {0}.",
+      "what": "O registro DS identifica sua chave por um hash dela. O SHA-1 ainda é aceito para validar delegações já existentes, mas não deve ser usado em novas, e o GOST R 34.11-94 está obsoleto por completo. Isso não quebra nada hoje.",
+      "fix": "Peça ao registrador para substituir o registro DS por um SHA-256. Seu provedor de DNS pode gerá-lo a partir da chave que você já tem, então não é preciso trocar de chave — muda apenas o DS na zona superior."
+    },
+    "dnssec-revoke-flag": {
+      "msg": "O DNSKEY {0} está publicado com o sinalizador REVOKE ativado. Confirmar uma revogação exige uma verificação de assinatura que esta auditoria não realiza."
+    },
+    "dnssec-key-algorithm-ineligible": {
+      "msg": "O registro DS {0} aponta para uma chave cujo algoritmo não pode ser usado para assinar uma zona, então a delegação não pode ser ancorada."
+    },
+    "dnssec-key-not-zone-key": {
+      "msg": "O registro DS {0} aponta para uma chave que não está marcada como chave de zona: ela não pode verificar registros e a delegação não pode ser ancorada."
+    },
+    "dnssec-key-malformed": {
+      "msg": "O registro DS {0} aponta para uma chave cujo material é inválido para o seu algoritmo, de modo que nenhum resolvedor consegue usá-la."
+    },
     "mta-sts-invalid": {
       "msg": "O registro TXT do MTA-STS está malformado ou não tem a tag id= obrigatória."
     },

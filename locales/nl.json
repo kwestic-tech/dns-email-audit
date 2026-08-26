@@ -564,6 +564,43 @@
     "dnssec-indeterminate": {
       "msg": "De DNSSEC-status kon niet worden vastgesteld omdat de validerende query is mislukt. Beoordeeld als niet-ondertekend. Voer de audit opnieuw uit — dit is meestal een tijdelijk resolverprobleem. Blijft het gebeuren bij een domein waarvan u bij uw registrar of DNS-provider hebt bevestigd dat het ondertekend is, open dan een issue op GitHub met het domein, uw registrar/DNS-provider en een schermafbeelding waarop DNSSEC ingeschakeld staat."
     },
+    "dnssec-unanchored": {
+      "msg": "Uw zone is ondertekend, maar de bovenliggende zone publiceert geen DS-record — DNSSEC beschermt niets zolang u het niet bij uw registrar publiceert.",
+      "what": "DNSSEC werkt als een keten, en het ondertekenen van uw zone is daarvan slechts de helft. Uw registrar moet in de bovenliggende zone een DS-record publiceren dat naar uw ondertekeningssleutel verwijst. Zonder dat record hebben resolvers geen reden om uw handtekeningen te vertrouwen en behandelen zij de zone als niet-ondertekend: elk record hier blijft dus onderweg vervalsbaar, precies alsof u nooit iets had ondertekend.",
+      "fix": "Vraag het DS-record op bij uw DNS-provider en publiceer het bij uw domeinregistrar. De meeste registrars noemen dit <em>DNSSEC</em> in de domeininstellingen. Wacht tot de oude TTL's zijn verlopen en voer deze controle opnieuw uit: de keten is actief zodra de bovenliggende zone het DS-record teruggeeft."
+    },
+    "dnssec-mismatch": {
+      "msg": "Het DS-record van de bovenliggende zone komt met geen enkele sleutel uit uw zone overeen — validerende resolvers zullen dit domein weigeren.",
+      "what": "Het DS-record in uw bovenliggende zone is een vingerafdruk van een van uw DNSKEY-records. Komen ze niet overeen, dan kan een validerende resolver de keten niet opbouwen en geeft die een fout terug in plaats van uw records. Dat is erger dan niet ondertekend zijn: e-mail en webverkeer vallen uit voor iedereen wiens resolver valideert, en het lijkt op een storing in plaats van een configuratiefout.",
+      "fix": "Bijna altijd gaat het om een sleutelwissel die halverwege is blijven steken. Publiceer de DNSKEY waarnaar het huidige DS-record verwijst, of werk het DS-record bij uw registrar bij zodat het overeenkomt met de sleutel waarmee u nu ondertekent. Stop niet zomaar met ondertekenen zolang het DS-record nog gepubliceerd is: de storing blijft dan bestaan."
+    },
+    "dnssec-ds-orphan": {
+      "msg": "DS-record {0} van de bovenliggende zone komt met geen enkele sleutel in uw zone overeen. Uw keten valideert nog via een ander DS-record, dus er is niets stuk.",
+      "what": "Een bovenliggende zone mag meerdere DS-records bevatten, en de standaard staat uitdrukkelijk toe dat er één naar een sleutel verwijst die niet meer gepubliceerd wordt. Hier komt een ander DS-record overeen met een actieve sleutel, dus de validatie slaagt en dit kost u vandaag niets. Meestal is het een restant van een sleutelwissel dat niemand heeft opgeruimd.",
+      "fix": "Verwijder het verouderde DS-record bij uw registrar zodra u zeker weet dat de genoemde sleutel definitief weg is. Haast is niet nodig: laten staan is ongevaarlijk, maar het maakt de volgende sleutelwissel lastiger te overzien."
+    },
+    "dnssec-deprecated-algorithm": {
+      "msg": "Uw zone ondertekent met een verouderd algoritme: {0}.",
+      "what": "Ondertekeningsalgoritmen worden na verloop van tijd uitgefaseerd. Een verouderd algoritme valideert vandaag nog, omdat resolvers bestaande delegaties moeten blijven verifiëren, maar het mag niet meer voor nieuwe ondertekening worden gebruikt en de ondersteuning verdwijnt uiteindelijk. RSASHA1 en de DSA-familie zijn de gebruikelijke gevallen.",
+      "fix": "Vraag uw DNS-provider de zone over te zetten naar een actueel algoritme. <code>ECDSAP256SHA256</code> is de gebruikelijke keuze en levert veel kleinere records op dan RSA. De overgang wijzigt uw DS-record, dus het nieuwe moet in dezelfde handeling bij uw registrar terechtkomen."
+    },
+    "dnssec-deprecated-digest": {
+      "msg": "Uw DS-record gebruikt een verouderd digesttype: {0}.",
+      "what": "Het DS-record identificeert uw sleutel via een hash daarvan. SHA-1 wordt nog geaccepteerd voor het valideren van bestaande delegaties, maar mag niet voor nieuwe worden gebruikt, en GOST R 34.11-94 is volledig verouderd. Vandaag gaat hierdoor niets stuk.",
+      "fix": "Vraag uw registrar het DS-record te vervangen door een SHA-256-record. Uw DNS-provider kan het uit de bestaande sleutel genereren, dus een sleutelwissel is niet nodig: alleen het DS-record in de bovenliggende zone verandert."
+    },
+    "dnssec-revoke-flag": {
+      "msg": "DNSKEY {0} is gepubliceerd met de REVOKE-vlag gezet. Een intrekking bevestigen vereist een handtekeningcontrole die deze audit niet uitvoert."
+    },
+    "dnssec-key-algorithm-ineligible": {
+      "msg": "DS-record {0} verwijst naar een sleutel waarvan het algoritme niet voor het ondertekenen van een zone gebruikt mag worden, waardoor de delegatie niet verankerd kan worden."
+    },
+    "dnssec-key-not-zone-key": {
+      "msg": "DS-record {0} verwijst naar een sleutel die niet als zonesleutel is gemarkeerd: die mag geen records verifiëren en de delegatie kan niet verankerd worden."
+    },
+    "dnssec-key-malformed": {
+      "msg": "DS-record {0} verwijst naar een sleutel waarvan het materiaal ongeldig is voor het bijbehorende algoritme, zodat geen enkele resolver hem kan gebruiken."
+    },
     "mta-sts-invalid": {
       "msg": "Het MTA-STS TXT-record is onjuist opgemaakt of mist de verplichte id=-tag."
     },

@@ -564,6 +564,43 @@
     "dnssec-indeterminate": {
       "msg": "Doğrulama sorgusu başarısız olduğu için DNSSEC durumu belirlenemedi. İmzasız olarak puanlandı. Denetimi yeniden çalıştırın — bu genellikle geçici bir çözümleyici sorunudur. Kayıt kuruluşunuzda veya DNS sağlayıcınızda imzalı olduğunu doğruladığınız bir alan adında tekrarlanıyorsa, alan adını, kayıt kuruluşunuzu/DNS sağlayıcınızı ve DNSSEC'in etkin olduğunu gösteren bir ekran görüntüsünü ekleyerek GitHub'da bir sorun kaydı açın."
     },
+    "dnssec-unanchored": {
+      "msg": "Bölgeniz imzalı, ancak üst bölge hiçbir DS kaydı yayımlamıyor — siz kayıt şirketinizde yayımlayana kadar DNSSEC hiçbir şeyi korumaz.",
+      "what": "DNSSEC bir zincir olarak çalışır ve bölgenizi imzalamak bunun yalnızca yarısıdır. Kayıt şirketinizin, üst bölgede imzalama anahtarınızı gösteren bir DS kaydı yayımlaması gerekir. O olmadan çözümleyicilerin imzalarınıza güvenmek için hiçbir nedeni olmaz ve bölgeyi imzasız kabul ederler; burada görünen her kayıt, hiç imzalamamışsınız gibi aktarım sırasında sahtelenebilir durumda kalır.",
+      "fix": "DS kaydını DNS sağlayıcınızdan isteyin ve alan adı kayıt şirketinizde yayımlayın. Çoğu kayıt şirketi bunu alan adı ayarlarında <em>DNSSEC</em> olarak adlandırır. Eski TTL sürelerinin dolmasını bekleyin ve bu denetimi yeniden çalıştırın — üst bölge DS kaydıyla yanıt verdiği anda zincir etkinleşir."
+    },
+    "dnssec-mismatch": {
+      "msg": "Üst bölgedeki DS kaydı, bölgenizin yayımladığı hiçbir anahtarla eşleşmiyor — doğrulama yapan çözümleyiciler bu alan adını reddedecek.",
+      "what": "Üst bölgedeki DS kaydı, DNSKEY kayıtlarınızdan birinin parmak izidir. İkisi uyuşmadığında doğrulama yapan bir çözümleyici zinciri kuramaz ve kayıtlarınız yerine bir hata döndürür. Bu, hiç imzalanmamış olmaktan daha kötüdür: çözümleyicisi doğrulama yapan herkes için e-posta ve web trafiği kesilir ve bu bir yapılandırma hatasından çok kesinti gibi görünür.",
+      "fix": "Bunun nedeni neredeyse her zaman yarıda kalmış bir anahtar değişimidir. Ya mevcut DS kaydının gösterdiği DNSKEY kaydını yayımlayın ya da kayıt şirketinizdeki DS kaydını şu anda imzaladığınız anahtarla eşleşecek biçimde güncelleyin. DS kaydı yayımdayken imzalamayı öylece bırakmayın — aynı arıza sürer."
+    },
+    "dnssec-ds-orphan": {
+      "msg": "Üst bölgedeki {0} numaralı DS kaydı, bölgenizdeki hiçbir anahtarla eşleşmiyor. Zinciriniz başka bir DS kaydı üzerinden doğrulanmaya devam ediyor, yani bozuk bir şey yok.",
+      "what": "Bir üst bölge birden çok DS kaydı taşıyabilir ve standart, bunlardan birinin artık yayımlanmayan bir anahtarı göstermesine açıkça izin verir. Burada başka bir DS kaydı etkin bir anahtarla eşleşiyor, dolayısıyla doğrulama başarılı oluyor ve bu bugün size hiçbir şeye mal olmuyor. Genellikle kimsenin temizlemediği bir anahtar değişiminden kalmadır.",
+      "fix": "Adı geçen anahtarın tamamen ortadan kalktığından emin olduğunuzda eski DS kaydını kayıt şirketinizde silin. Acelesi yok — bırakmak zararsızdır, ancak bir sonraki anahtar değişimini anlamayı zorlaştırır."
+    },
+    "dnssec-deprecated-algorithm": {
+      "msg": "Bölgeniz kullanımdan kaldırılmış bir algoritmayla imzalanıyor: {0}.",
+      "what": "İmzalama algoritmaları eskidikçe kullanımdan kaldırılır. Kaldırılmış bir algoritma bugün hâlâ doğrulanır, çünkü çözümleyicilerin var olan yetkilendirmeleri doğrulamayı sürdürmesi gerekir; ancak yeni imzalama için kullanılamaz ve desteği er ya da geç kaldırılacaktır. RSASHA1 ve DSA ailesi tipik örneklerdir.",
+      "fix": "DNS sağlayıcınızdan bölgeyi güncel bir algoritmaya taşımasını isteyin. <code>ECDSAP256SHA256</code> alışılmış seçimdir ve RSA'ya göre çok daha küçük kayıtlar üretir. Bu geçiş DS kaydınızı değiştirir, dolayısıyla yenisinin aynı işlem sırasında kayıt şirketinize ulaşması gerekir."
+    },
+    "dnssec-deprecated-digest": {
+      "msg": "DS kaydınız kullanımdan kaldırılmış bir özet türü kullanıyor: {0}.",
+      "what": "DS kaydı, anahtarınızı onun özeti üzerinden tanımlar. SHA-1 var olan yetkilendirmelerin doğrulanmasında hâlâ kabul edilir, ancak yenilerinde kullanılmamalıdır; GOST R 34.11-94 ise tamamen kullanımdan kaldırılmıştır. Bu bugün hiçbir şeyi bozmaz.",
+      "fix": "Kayıt şirketinizden DS kaydını SHA-256 kullanan bir kayıtla değiştirmesini isteyin. DNS sağlayıcınız bunu elinizdeki anahtardan üretebilir, dolayısıyla anahtar değişimi gerekmez — yalnızca üst bölgedeki DS kaydı değişir."
+    },
+    "dnssec-revoke-flag": {
+      "msg": "DNSKEY {0} REVOKE bayrağı ayarlanmış olarak yayımlanmış. Bir iptali doğrulamak, bu denetimin yapmadığı bir imza kontrolü gerektirir."
+    },
+    "dnssec-key-algorithm-ineligible": {
+      "msg": "{0} numaralı DS kaydı, algoritması bölge imzalamada kullanılamayan bir anahtarı gösteriyor; bu nedenle yetkilendirme çapalanamaz."
+    },
+    "dnssec-key-not-zone-key": {
+      "msg": "{0} numaralı DS kaydı, bölge anahtarı olarak işaretlenmemiş bir anahtarı gösteriyor: bu anahtar kayıtları doğrulayamaz ve yetkilendirme çapalanamaz."
+    },
+    "dnssec-key-malformed": {
+      "msg": "{0} numaralı DS kaydı, materyali algoritması için geçersiz olan bir anahtarı gösteriyor; bu yüzden hiçbir çözümleyici onu kullanamaz."
+    },
     "mta-sts-invalid": {
       "msg": "MTA-STS TXT kaydı hatalı biçimlendirilmiş veya zorunlu id= etiketi eksik."
     },

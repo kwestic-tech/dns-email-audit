@@ -5110,8 +5110,63 @@
       }
     }
 
-    if (advanced?.dnssec?.state === 'bogus') issues.push({ key: 'dnssec-bogus', sev: 'crit' });
-    else if (advanced?.dnssec?.state === 'indeterminate') issues.push({ key: 'dnssec-indeterminate', sev: 'warn' });
+    /* ── DNSSEC ───────────────────────────────────────────────────────
+       The state findings are mutually exclusive and follow the classifier's
+       own order, so a domain is told one thing about its chain rather than
+       three. `unanchored` and `mismatch` are the two this release exists to
+       expose: both rendered as "DNSSEC not detected" before it, which told an
+       operator who had signed their zone that they had not.
+       ─────────────────────────────────────────────────────────────────── */
+    var dnssec = advanced?.dnssec;
+    if (dnssec?.state === 'bogus') issues.push({ key: 'dnssec-bogus', sev: 'crit' });
+    else if (dnssec?.state === 'indeterminate') issues.push({ key: 'dnssec-indeterminate', sev: 'warn' });
+    else if (dnssec?.state === 'mismatch') issues.push({ key: 'dnssec-mismatch', sev: 'crit' });
+    else if (dnssec?.state === 'unanchored') issues.push({ key: 'dnssec-unanchored', sev: 'warn' });
+
+    if (dnssec) {
+      // Informational, and deliberately so. RFC 6840 §5.11 permits a DS whose
+      // key is absent from the DNSKEY RRset, and `paypal.com` publishes one
+      // beside a confirming DS while validating perfectly. Reported because an
+      // operator usually wants to tidy it; never as a fault.
+      if (dnssec.anchorConfirmed && dnssec.orphanDs?.length) {
+        issues.push({ key: 'dnssec-ds-orphan', sev: 'info', args: [dnssec.orphanDs.join(', ')] });
+      }
+      if (dnssec.deprecatedAlgorithms?.length) {
+        issues.push({
+          key: 'dnssec-deprecated-algorithm', sev: 'warn',
+          args: [dnssec.deprecatedAlgorithms.map(function (a) { return DNSSEC_ALGORITHMS[a] || a; }).join(', ')],
+        });
+      }
+      if (dnssec.deprecatedDigests?.length) {
+        issues.push({
+          key: 'dnssec-deprecated-digest', sev: 'info',
+          args: [dnssec.deprecatedDigests.map(function (d) { return DNSSEC_DIGESTS[d] || d; }).join(', ')],
+        });
+      }
+
+      // Facts about a key a DS actually confirmed. Each is a reason the
+      // delegation does not anchor despite the digest matching, and each is
+      // reported separately because they have different remedies — except the
+      // REVOKE flag, which is reported and concluded from nowhere.
+      var confirmed = (dnssec.ds || []).filter(function (d) { return d.match === 'confirmed'; });
+      var pushKeyFinding = function (key, predicate, severity) {
+        var tags = confirmed.filter(predicate).map(function (d) { return d.matchedKeyTag; });
+        if (tags.length) issues.push({ key: key, sev: severity, args: [tags.join(', ')] });
+      };
+      pushKeyFinding('dnssec-key-algorithm-ineligible',
+        function (d) { return d.matchedKeyAlgorithmEligibility === 'ineligible'; }, 'warn');
+      pushKeyFinding('dnssec-key-not-zone-key',
+        function (d) { return d.matchedKeyHasZoneFlag === false; }, 'warn');
+      pushKeyFinding('dnssec-key-malformed',
+        function (d) { return d.matchedKeyStructure === 'invalid'; }, 'warn');
+
+      // RFC 5011 §2.1 makes a key revoked only when a resolver sees it in a
+      // self-signed RRset with the bit set. This release does not validate
+      // RRSIGs, so the finding names the flag and stops there.
+      var revoked = (dnssec.keys || []).filter(function (k) { return k.hasRevokeFlag; })
+        .map(function (k) { return k.keyTag; });
+      if (revoked.length) issues.push({ key: 'dnssec-revoke-flag', sev: 'info', args: [revoked.join(', ')] });
+    }
 
     // Name the checks that could not be completed. An audit that quietly omits
     // a control looks identical to one where the control is fine, so the gap
@@ -5168,7 +5223,10 @@
     if (!advanced.mtaSts?.unknown && !advanced.mtaSts?.present && !advanced.mtaSts?.multiple && hasEmail) tips.push({ key: 'mta-sts', guide: 'mta-sts' });
     if (!advanced.tlsRpt?.unknown && !advanced.tlsRpt?.present && !advanced.tlsRpt?.multiple && hasEmail) tips.push({ key: 'tls-rpt', guide: 'tls-rpt' });
     if (!advanced.caa?.unknown && !advanced.caa?.found) tips.push({ key: 'caa', guide: 'caa' });
-    if (advanced.dnssec?.state !== 'indeterminate' && !advanced.dnssec?.signed) tips.push({ key: 'dnssec', guide: 'dnssec' });
+    // "Enable DNSSEC" is wrong advice for a zone that is already signed. An
+    // `unanchored` or `mismatch` domain has signed and has a specific finding
+    // telling it what to finish, so the generic tip would contradict it.
+    if (advanced.dnssec?.state === 'insecure') tips.push({ key: 'dnssec', guide: 'dnssec' });
 
     return tips;
   }

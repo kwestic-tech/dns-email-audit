@@ -571,6 +571,43 @@ window.__I18N_EN__ = {
     "dnssec-indeterminate": {
       "msg": "DNSSEC status could not be determined because the validating query failed. Scored as unsigned. Re-run the audit — this is usually a transient resolver issue. If it keeps happening on a domain you have confirmed is signed at your registrar or DNS provider, open a GitHub issue with the domain, your registrar/DNS provider, and a screenshot showing DNSSEC enabled."
     },
+    "dnssec-unanchored": {
+      "msg": "Your zone is signed but the parent publishes no DS record — DNSSEC protects nothing until you publish it at your registrar.",
+      "what": "DNSSEC works as a chain, and signing your zone is only half of it. Your registrar has to publish a DS record in the parent zone that points at your signing key. Without it, resolvers have no reason to trust your signatures and treat the zone as unsigned — so every record here can still be forged in transit, exactly as if you had never signed anything.",
+      "fix": "Ask your DNS provider for the DS record, then publish it with your domain registrar. Most registrars label this <em>DNSSEC</em> in the domain settings. Wait for the old TTLs to expire and re-run this audit — the chain is live once the parent answers with the DS."
+    },
+    "dnssec-mismatch": {
+      "msg": "The DS record at the parent matches no key your zone publishes — validating resolvers will refuse this domain.",
+      "what": "The DS record at your parent zone is a fingerprint of one of your DNSKEY records. When they disagree, a validating resolver cannot build the chain and returns a failure instead of your records. That is worse than being unsigned: mail and web traffic break for everyone whose resolver validates, and it looks like an outage rather than a configuration error.",
+      "fix": "This is almost always a key rollover that stopped halfway. Either publish the DNSKEY the current DS points at, or update the DS at your registrar to match the key you are signing with now. Do not simply stop signing while the DS is still published — that leaves the same failure in place."
+    },
+    "dnssec-ds-orphan": {
+      "msg": "DS record {0} at the parent matches no key in your zone. Your chain still validates through another DS, so nothing is broken.",
+      "what": "A parent zone can carry several DS records, and the standard explicitly allows one of them to point at a key that is no longer published. Another DS matches a live key here, so validation succeeds and this costs you nothing today. It is usually left over from a key rollover that nobody tidied up afterwards.",
+      "fix": "Remove the stale DS record at your registrar once you are sure the key it names is gone for good. There is no urgency — leaving it in place is harmless, but it makes the next rollover harder to reason about."
+    },
+    "dnssec-deprecated-algorithm": {
+      "msg": "Your zone signs with a deprecated algorithm: {0}.",
+      "what": "Signing algorithms are retired as they age. A deprecated one still validates today, because resolvers are required to keep verifying delegations that already exist, but it may no longer be used for new signing and support will eventually be withdrawn. RSASHA1 and the DSA family are the usual cases.",
+      "fix": "Ask your DNS provider to roll the zone onto a current algorithm. <code>ECDSAP256SHA256</code> is the common choice and produces far smaller records than RSA. The rollover changes your DS record, so the new one has to reach your registrar as part of the same operation."
+    },
+    "dnssec-deprecated-digest": {
+      "msg": "Your DS record uses a deprecated digest type: {0}.",
+      "what": "The DS record identifies your key by a hash of it. SHA-1 is still accepted for validating delegations that already exist, but it must not be used for new ones, and GOST R 34.11-94 is deprecated outright. This does not break anything today.",
+      "fix": "Ask your registrar to replace the DS record with a SHA-256 one. Your DNS provider can generate it from the key you already have, so no key rollover is needed — only the DS at the parent changes."
+    },
+    "dnssec-revoke-flag": {
+      "msg": "DNSKEY {0} is published with the REVOKE flag set. Confirming a revocation needs a signature check this audit does not perform."
+    },
+    "dnssec-key-algorithm-ineligible": {
+      "msg": "DS record {0} points at a key whose algorithm may not be used to sign a zone, so the delegation cannot anchor."
+    },
+    "dnssec-key-not-zone-key": {
+      "msg": "DS record {0} points at a key that is not marked as a zone key, so it may not verify records and the delegation cannot anchor."
+    },
+    "dnssec-key-malformed": {
+      "msg": "DS record {0} points at a key whose material is not valid for its algorithm, so no resolver can use it."
+    },
     "mta-sts-invalid": {
       "msg": "The MTA-STS TXT record is malformed or missing its required id= tag."
     },

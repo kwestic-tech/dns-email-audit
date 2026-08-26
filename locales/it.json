@@ -564,6 +564,43 @@
     "dnssec-indeterminate": {
       "msg": "Non è stato possibile determinare lo stato DNSSEC perché la query di validazione è fallita. Valutato come non firmato. Ripeta l'audit: di solito è un problema temporaneo del resolver. Se continua a succedere su un dominio che ha confermato essere firmato presso il suo registrar o provider DNS, apra una issue su GitHub indicando il dominio, il registrar o provider DNS e uno screenshot che mostri DNSSEC attivo."
     },
+    "dnssec-unanchored": {
+      "msg": "La tua zona è firmata, ma la zona superiore non pubblica alcun record DS: DNSSEC non protegge nulla finché non lo pubblichi presso il tuo registrar.",
+      "what": "DNSSEC funziona come una catena e firmare la zona è solo metà del lavoro. Il registrar deve pubblicare nella zona superiore un record DS che punti alla tua chiave di firma. Senza di esso i resolver non hanno motivo di fidarsi delle tue firme e trattano la zona come non firmata: ogni record mostrato qui resta quindi falsificabile in transito, esattamente come se non avessi mai firmato nulla.",
+      "fix": "Chiedi il record DS al tuo provider DNS e pubblicalo presso il registrar del dominio. La maggior parte dei registrar lo indica come <em>DNSSEC</em> nelle impostazioni del dominio. Attendi la scadenza dei vecchi TTL e ripeti questo controllo: la catena è attiva non appena la zona superiore risponde con il record DS."
+    },
+    "dnssec-mismatch": {
+      "msg": "Il record DS della zona superiore non corrisponde ad alcuna chiave pubblicata dalla tua zona: i resolver che validano rifiuteranno questo dominio.",
+      "what": "Il record DS nella zona superiore è un'impronta di uno dei tuoi record DNSKEY. Quando i due non coincidono, un resolver che valida non riesce a costruire la catena e restituisce un errore al posto dei tuoi record. È peggio che non essere firmati: posta e traffico web si interrompono per chiunque usi un resolver che valida, e sembra un guasto anziché un errore di configurazione.",
+      "fix": "Quasi sempre si tratta di un cambio di chiave rimasto a metà. Pubblica il DNSKEY a cui punta il record DS attuale, oppure aggiorna il DS presso il registrar perché corrisponda alla chiave con cui firmi adesso. Non limitarti a smettere di firmare mentre il DS è ancora pubblicato: il guasto resterebbe identico."
+    },
+    "dnssec-ds-orphan": {
+      "msg": "Il record DS {0} della zona superiore non corrisponde ad alcuna chiave della tua zona. La catena continua a validare tramite un altro DS, quindi non c'è nulla di rotto.",
+      "what": "Una zona superiore può contenere più record DS e lo standard consente esplicitamente che uno di essi punti a una chiave non più pubblicata. Qui un altro DS corrisponde a una chiave attiva, quindi la validazione riesce e oggi questo non ti costa nulla. Di solito è un residuo di un cambio di chiave che nessuno ha ripulito.",
+      "fix": "Rimuovi il record DS obsoleto presso il registrar quando sei certo che la chiave indicata sia sparita definitivamente. Non c'è fretta: lasciarlo è innocuo, ma rende più difficile ragionare sul prossimo cambio di chiave."
+    },
+    "dnssec-deprecated-algorithm": {
+      "msg": "La tua zona firma con un algoritmo deprecato: {0}.",
+      "what": "Gli algoritmi di firma vengono ritirati con l'invecchiamento. Uno deprecato valida ancora oggi, perché i resolver devono continuare a verificare le deleghe già esistenti, ma non può più essere usato per nuove firme e prima o poi il supporto verrà rimosso. RSASHA1 e la famiglia DSA sono i casi tipici.",
+      "fix": "Chiedi al tuo provider DNS di migrare la zona a un algoritmo attuale. <code>ECDSAP256SHA256</code> è la scelta abituale e produce record molto più piccoli di RSA. Il cambio modifica il record DS, quindi quello nuovo deve arrivare al registrar nella stessa operazione."
+    },
+    "dnssec-deprecated-digest": {
+      "msg": "Il tuo record DS usa un tipo di digest deprecato: {0}.",
+      "what": "Il record DS identifica la chiave tramite un hash della stessa. SHA-1 è ancora accettato per validare deleghe già esistenti, ma non deve essere usato per quelle nuove, e GOST R 34.11-94 è deprecato del tutto. Oggi questo non rompe nulla.",
+      "fix": "Chiedi al registrar di sostituire il record DS con uno SHA-256. Il tuo provider DNS può generarlo dalla chiave che hai già, quindi non serve alcun cambio di chiave: cambia solo il DS nella zona superiore."
+    },
+    "dnssec-revoke-flag": {
+      "msg": "Il DNSKEY {0} è pubblicato con il flag REVOKE attivo. Confermare una revoca richiede una verifica di firma che questo controllo non esegue."
+    },
+    "dnssec-key-algorithm-ineligible": {
+      "msg": "Il record DS {0} punta a una chiave il cui algoritmo non può essere usato per firmare una zona, quindi la delega non può essere ancorata."
+    },
+    "dnssec-key-not-zone-key": {
+      "msg": "Il record DS {0} punta a una chiave non contrassegnata come chiave di zona: non può verificare record e la delega non può essere ancorata."
+    },
+    "dnssec-key-malformed": {
+      "msg": "Il record DS {0} punta a una chiave il cui materiale non è valido per il suo algoritmo, quindi nessun resolver può usarla."
+    },
     "mta-sts-invalid": {
       "msg": "Il record TXT MTA-STS è errato o manca il tag id=."
     },

@@ -564,6 +564,43 @@
     "dnssec-indeterminate": {
       "msg": "Der DNSSEC-Status konnte nicht ermittelt werden, weil die validierende Abfrage fehlschlug. Bewertet als nicht signiert. Führen Sie das Audit erneut aus — meist ist das ein vorübergehendes Resolver-Problem. Tritt es bei einer Domain wiederholt auf, die bei Ihrem Registrar oder DNS-Anbieter nachweislich signiert ist, eröffnen Sie ein GitHub-Issue mit der Domain, Ihrem Registrar bzw. DNS-Anbieter und einem Screenshot, der DNSSEC als aktiviert zeigt."
     },
+    "dnssec-unanchored": {
+      "msg": "Ihre Zone ist signiert, aber die übergeordnete Zone veröffentlicht keinen DS-Eintrag — DNSSEC schützt nichts, solange Sie ihn nicht bei Ihrem Registrar hinterlegen.",
+      "what": "DNSSEC funktioniert als Kette, und das Signieren Ihrer Zone ist nur die Hälfte davon. Ihr Registrar muss in der übergeordneten Zone einen DS-Eintrag veröffentlichen, der auf Ihren Signaturschlüssel verweist. Ohne ihn haben Resolver keinen Grund, Ihren Signaturen zu vertrauen, und behandeln die Zone als unsigniert — jeder Eintrag hier lässt sich also weiterhin auf dem Transportweg fälschen, genau als hätten Sie nie etwas signiert.",
+      "fix": "Fordern Sie den DS-Eintrag bei Ihrem DNS-Anbieter an und hinterlegen Sie ihn bei Ihrem Domain-Registrar. Die meisten Registrare bezeichnen dies in den Domain-Einstellungen als <em>DNSSEC</em>. Warten Sie, bis die alten TTLs abgelaufen sind, und führen Sie diese Prüfung erneut aus — die Kette ist aktiv, sobald die übergeordnete Zone den DS-Eintrag liefert."
+    },
+    "dnssec-mismatch": {
+      "msg": "Der DS-Eintrag der übergeordneten Zone passt zu keinem Schlüssel, den Ihre Zone veröffentlicht — validierende Resolver werden diese Domain zurückweisen.",
+      "what": "Der DS-Eintrag in Ihrer übergeordneten Zone ist ein Fingerabdruck eines Ihrer DNSKEY-Einträge. Stimmen die beiden nicht überein, kann ein validierender Resolver die Kette nicht aufbauen und liefert statt Ihrer Einträge einen Fehler zurück. Das ist schlimmer als gar keine Signatur: E-Mail und Web brechen für alle zusammen, deren Resolver validiert, und es sieht nach einem Ausfall statt nach einem Konfigurationsfehler aus.",
+      "fix": "Fast immer steckt ein Schlüsselwechsel dahinter, der auf halbem Weg stehen geblieben ist. Veröffentlichen Sie entweder den DNSKEY, auf den der aktuelle DS-Eintrag verweist, oder aktualisieren Sie den DS-Eintrag beim Registrar auf den Schlüssel, mit dem Sie jetzt signieren. Hören Sie nicht einfach auf zu signieren, solange der DS-Eintrag noch veröffentlicht ist — der Fehler bleibt dadurch bestehen."
+    },
+    "dnssec-ds-orphan": {
+      "msg": "Der DS-Eintrag {0} der übergeordneten Zone passt zu keinem Schlüssel in Ihrer Zone. Ihre Kette validiert weiterhin über einen anderen DS-Eintrag, es ist also nichts defekt.",
+      "what": "Eine übergeordnete Zone darf mehrere DS-Einträge führen, und der Standard erlaubt ausdrücklich, dass einer davon auf einen nicht mehr veröffentlichten Schlüssel verweist. Hier passt ein anderer DS-Eintrag zu einem aktiven Schlüssel, die Validierung gelingt also und dies kostet Sie heute nichts. Meist ist es ein Überbleibsel eines Schlüsselwechsels, das niemand aufgeräumt hat.",
+      "fix": "Entfernen Sie den veralteten DS-Eintrag bei Ihrem Registrar, sobald Sie sicher sind, dass der genannte Schlüssel endgültig weg ist. Eile ist nicht geboten — er richtet keinen Schaden an, erschwert aber das Nachvollziehen des nächsten Schlüsselwechsels."
+    },
+    "dnssec-deprecated-algorithm": {
+      "msg": "Ihre Zone signiert mit einem veralteten Algorithmus: {0}.",
+      "what": "Signaturalgorithmen werden mit zunehmendem Alter ausgemustert. Ein veralteter Algorithmus validiert heute noch, weil Resolver bestehende Delegierungen weiterhin prüfen müssen, darf aber für neue Signaturen nicht mehr verwendet werden, und die Unterstützung wird irgendwann eingestellt. RSASHA1 und die DSA-Familie sind die üblichen Fälle.",
+      "fix": "Bitten Sie Ihren DNS-Anbieter, die Zone auf einen aktuellen Algorithmus umzustellen. <code>ECDSAP256SHA256</code> ist die übliche Wahl und erzeugt deutlich kleinere Einträge als RSA. Der Wechsel ändert Ihren DS-Eintrag, der neue muss also im selben Zuge zu Ihrem Registrar gelangen."
+    },
+    "dnssec-deprecated-digest": {
+      "msg": "Ihr DS-Eintrag verwendet einen veralteten Digest-Typ: {0}.",
+      "what": "Der DS-Eintrag identifiziert Ihren Schlüssel über dessen Hashwert. SHA-1 wird für die Validierung bereits bestehender Delegierungen weiterhin akzeptiert, darf für neue aber nicht mehr verwendet werden, und GOST R 34.11-94 ist vollständig veraltet. Heute bricht dadurch nichts.",
+      "fix": "Bitten Sie Ihren Registrar, den DS-Eintrag durch einen SHA-256-Eintrag zu ersetzen. Ihr DNS-Anbieter kann ihn aus dem vorhandenen Schlüssel erzeugen, ein Schlüsselwechsel ist also nicht nötig — es ändert sich nur der DS-Eintrag in der übergeordneten Zone."
+    },
+    "dnssec-revoke-flag": {
+      "msg": "DNSKEY {0} ist mit gesetztem REVOKE-Flag veröffentlicht. Eine Sperrung zu bestätigen erfordert eine Signaturprüfung, die diese Prüfung nicht durchführt."
+    },
+    "dnssec-key-algorithm-ineligible": {
+      "msg": "Der DS-Eintrag {0} verweist auf einen Schlüssel, dessen Algorithmus nicht zum Signieren einer Zone verwendet werden darf; die Delegierung kann daher nicht verankert werden."
+    },
+    "dnssec-key-not-zone-key": {
+      "msg": "Der DS-Eintrag {0} verweist auf einen Schlüssel, der nicht als Zonenschlüssel gekennzeichnet ist; er darf keine Einträge prüfen und die Delegierung kann nicht verankert werden."
+    },
+    "dnssec-key-malformed": {
+      "msg": "Der DS-Eintrag {0} verweist auf einen Schlüssel, dessen Material für seinen Algorithmus ungültig ist; kein Resolver kann ihn verwenden."
+    },
     "mta-sts-invalid": {
       "msg": "Der MTA-STS-TXT-Record ist fehlerhaft oder es fehlt der erforderliche id=-Tag."
     },
