@@ -110,7 +110,8 @@
     "na": "Nd.",
     "dash": "—",
     "caa": "Polityka CAA",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "Łańcuch DNSSEC"
   },
   "render": {
     "showMore": "Pokaż o {0} znaków więcej",
@@ -1145,5 +1146,44 @@
     "notChecked": "niesprawdzone",
     "authenticated": "opublikowane · uwierzytelnione przez DNSSEC",
     "unauthenticated": "opublikowane · nieuwierzytelnione przez DNSSEC"
+  },
+  "dnssec": {
+    "status": "Stan",
+    "keys": "Klucze",
+    "ds": "Rekordy DS",
+    "chain": "Dowody",
+    "state": {
+      "secure": "Podpisana i zweryfikowana przez resolver",
+      "insecure": "Niepodpisana",
+      "unanchored": "Podpisana, ale strefa nadrzędna nie publikuje rekordu DS",
+      "mismatch": "Rekord DS nie pasuje do żadnego klucza tej strefy",
+      "bogus": "Weryfikacja się nie powodzi",
+      "indeterminate": "Nie udało się ustalić"
+    },
+    "flag": {
+      "sep": "flaga SEP",
+      "revoke": "flaga REVOKE"
+    },
+    "match": {
+      "confirmed": "pasuje do opublikowanego klucza",
+      "no-matching-key": "żaden opublikowany klucz nie ma tego znacznika",
+      "digest-mismatch": "nie pasuje do klucza o tym znaczniku",
+      "unverifiable-digest-type": "tego typu skrótu nie da się tutaj obliczyć",
+      "unverifiable": "nie udało się sprawdzić"
+    },
+    "source": {
+      "resolver": "Resolver",
+      "local": "Obliczone tutaj"
+    },
+    "claim": {
+      "authenticated": "zgłasza tę odpowiedź jako uwierzytelnioną",
+      "notAuthenticated": "nie zgłasza tej odpowiedzi jako uwierzytelnionej",
+      "resolver-bogus": "odpowiada tylko przy wyłączonej weryfikacji, więc weryfikacja się nie powodzi",
+      "resolver-unreachable": "nie zwrócił użytecznej odpowiedzi",
+      "link-checked": "sprawdzono jedno ogniwo: DNSKEY tej strefy wobec rekordu DS strefy nadrzędnej",
+      "dsConfirms": "DS {0} pasuje do opublikowanego klucza według {1}",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "zapytanie {0} nie zostało zakończone ({1})"
+    }
   }
 }

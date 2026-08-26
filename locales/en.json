@@ -110,7 +110,8 @@
     "na": "N/A",
     "dash": "—",
     "caa": "CAA Policy",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "DNSSEC Chain"
   },
   "render": {
     "showMore": "Show {0} more characters",
@@ -1135,5 +1136,44 @@
     "notChecked": "not checked",
     "authenticated": "published · DNSSEC-authenticated",
     "unauthenticated": "published · not DNSSEC-authenticated"
+  },
+  "dnssec": {
+    "status": "Status",
+    "keys": "Keys",
+    "ds": "DS records",
+    "chain": "Evidence",
+    "state": {
+      "secure": "Signed, and validated by the resolver",
+      "insecure": "Not signed",
+      "unanchored": "Signed, but the parent publishes no DS record",
+      "mismatch": "The DS record matches no key this zone publishes",
+      "bogus": "Validation is failing",
+      "indeterminate": "Could not be determined"
+    },
+    "flag": {
+      "sep": "SEP flag",
+      "revoke": "REVOKE flag"
+    },
+    "match": {
+      "confirmed": "matches a published key",
+      "no-matching-key": "no published key carries this tag",
+      "digest-mismatch": "does not match the key carrying this tag",
+      "unverifiable-digest-type": "this digest type cannot be computed here",
+      "unverifiable": "could not be checked"
+    },
+    "source": {
+      "resolver": "Resolver",
+      "local": "Computed here"
+    },
+    "claim": {
+      "authenticated": "reports this answer as authenticated",
+      "notAuthenticated": "does not report this answer as authenticated",
+      "resolver-bogus": "answers only when validation is disabled, so validation is failing",
+      "resolver-unreachable": "did not return a usable answer",
+      "link-checked": "one link checked: this zone’s DNSKEY against the parent’s DS record",
+      "dsConfirms": "DS {0} matches a published key by {1}",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "the {0} lookup did not complete ({1})"
+    }
   }
 }

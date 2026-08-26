@@ -110,7 +110,8 @@
     "na": "해당 없음",
     "dash": "—",
     "caa": "CAA 정책",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "DNSSEC 체인"
   },
   "render": {
     "showMore": "{0}자 더 보기",
@@ -1135,5 +1136,44 @@
     "notChecked": "확인하지 않음",
     "authenticated": "게시됨 · DNSSEC으로 인증됨",
     "unauthenticated": "게시됨 · DNSSEC으로 인증되지 않음"
+  },
+  "dnssec": {
+    "status": "상태",
+    "keys": "키",
+    "ds": "DS 레코드",
+    "chain": "근거",
+    "state": {
+      "secure": "서명되었으며 리졸버가 검증했습니다",
+      "insecure": "서명되지 않았습니다",
+      "unanchored": "서명되었으나 상위 영역이 DS 레코드를 게시하지 않습니다",
+      "mismatch": "DS 레코드가 이 영역의 어떤 키와도 일치하지 않습니다",
+      "bogus": "검증이 실패하고 있습니다",
+      "indeterminate": "판별할 수 없었습니다"
+    },
+    "flag": {
+      "sep": "SEP 플래그",
+      "revoke": "REVOKE 플래그"
+    },
+    "match": {
+      "confirmed": "게시된 키와 일치합니다",
+      "no-matching-key": "이 태그를 가진 게시된 키가 없습니다",
+      "digest-mismatch": "이 태그를 가진 키와 일치하지 않습니다",
+      "unverifiable-digest-type": "이 다이제스트 유형은 여기서 계산할 수 없습니다",
+      "unverifiable": "확인할 수 없었습니다"
+    },
+    "source": {
+      "resolver": "리졸버",
+      "local": "여기서 계산함"
+    },
+    "claim": {
+      "authenticated": "이 응답을 인증됨으로 보고합니다",
+      "notAuthenticated": "이 응답을 인증됨으로 보고하지 않습니다",
+      "resolver-bogus": "검증을 끈 경우에만 응답하므로 검증이 실패하고 있습니다",
+      "resolver-unreachable": "사용할 수 있는 응답을 반환하지 않았습니다",
+      "link-checked": "확인한 연결은 하나뿐입니다: 이 영역의 DNSKEY와 상위 영역의 DS 레코드",
+      "dsConfirms": "DS {0}이(가) {1}을(를) 통해 게시된 키와 일치합니다",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "{0} 조회가 완료되지 않았습니다 ({1})"
+    }
   }
 }

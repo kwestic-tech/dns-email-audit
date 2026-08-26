@@ -110,7 +110,8 @@
     "na": "不適用",
     "dash": "—",
     "caa": "CAA 政策",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "DNSSEC 信任鏈"
   },
   "render": {
     "showMore": "顯示其餘 {0} 個字元",
@@ -1135,5 +1136,44 @@
     "notChecked": "未檢查",
     "authenticated": "已發布 · 已通過 DNSSEC 驗證",
     "unauthenticated": "已發布 · 未通過 DNSSEC 驗證"
+  },
+  "dnssec": {
+    "status": "狀態",
+    "keys": "金鑰",
+    "ds": "DS 記錄",
+    "chain": "依據",
+    "state": {
+      "secure": "已簽章，且已由解析器驗證",
+      "insecure": "未簽章",
+      "unanchored": "已簽章，但父區域未發布 DS 記錄",
+      "mismatch": "DS 記錄與本區域的任何金鑰都不相符",
+      "bogus": "驗證正在失敗",
+      "indeterminate": "無法判定"
+    },
+    "flag": {
+      "sep": "SEP 旗標",
+      "revoke": "REVOKE 旗標"
+    },
+    "match": {
+      "confirmed": "與一個已發布的金鑰相符",
+      "no-matching-key": "沒有已發布的金鑰帶有此標籤",
+      "digest-mismatch": "與帶有此標籤的金鑰不相符",
+      "unverifiable-digest-type": "此摘要類型無法在此計算",
+      "unverifiable": "無法核對"
+    },
+    "source": {
+      "resolver": "解析器",
+      "local": "在此計算"
+    },
+    "claim": {
+      "authenticated": "回報此回應已通過驗證",
+      "notAuthenticated": "未回報此回應已通過驗證",
+      "resolver-bogus": "僅在關閉驗證時才回應，因此驗證正在失敗",
+      "resolver-unreachable": "未傳回可用的回應",
+      "link-checked": "僅核對了一個環節：本區域的 DNSKEY 與父區域的 DS 記錄",
+      "dsConfirms": "DS {0} 透過 {1} 與一個已發布的金鑰相符",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "{0} 查詢未完成（{1}）"
+    }
   }
 }

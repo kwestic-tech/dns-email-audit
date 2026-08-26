@@ -110,7 +110,8 @@
     "na": "N/D",
     "dash": "—",
     "caa": "Política CAA",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "Cadeia DNSSEC"
   },
   "render": {
     "showMore": "Mostrar mais {0} caracteres",
@@ -1135,5 +1136,44 @@
     "notChecked": "não verificado",
     "authenticated": "publicado · autenticado por DNSSEC",
     "unauthenticated": "publicado · não autenticado por DNSSEC"
+  },
+  "dnssec": {
+    "status": "Situação",
+    "keys": "Chaves",
+    "ds": "Registros DS",
+    "chain": "Evidências",
+    "state": {
+      "secure": "Assinada e validada pelo resolvedor",
+      "insecure": "Não assinada",
+      "unanchored": "Assinada, mas a zona superior não publica nenhum registro DS",
+      "mismatch": "O registro DS não corresponde a nenhuma chave desta zona",
+      "bogus": "A validação está falhando",
+      "indeterminate": "Não foi possível determinar"
+    },
+    "flag": {
+      "sep": "sinalizador SEP",
+      "revoke": "sinalizador REVOKE"
+    },
+    "match": {
+      "confirmed": "corresponde a uma chave publicada",
+      "no-matching-key": "nenhuma chave publicada tem esta etiqueta",
+      "digest-mismatch": "não corresponde à chave com esta etiqueta",
+      "unverifiable-digest-type": "este tipo de digest não pode ser calculado aqui",
+      "unverifiable": "não foi possível verificar"
+    },
+    "source": {
+      "resolver": "Resolvedor",
+      "local": "Calculado aqui"
+    },
+    "claim": {
+      "authenticated": "informa esta resposta como autenticada",
+      "notAuthenticated": "não informa esta resposta como autenticada",
+      "resolver-bogus": "só responde com a validação desativada, portanto a validação está falhando",
+      "resolver-unreachable": "não devolveu uma resposta utilizável",
+      "link-checked": "um elo verificado: o DNSKEY desta zona contra o registro DS da zona superior",
+      "dsConfirms": "DS {0} corresponde a uma chave publicada por {1}",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "a consulta {0} não foi concluída ({1})"
+    }
   }
 }

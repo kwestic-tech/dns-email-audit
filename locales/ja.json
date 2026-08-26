@@ -110,7 +110,8 @@
     "na": "該当なし",
     "dash": "—",
     "caa": "CAA ポリシー",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "DNSSEC チェーン"
   },
   "render": {
     "showMore": "残り {0} 文字を表示",
@@ -1135,5 +1136,44 @@
     "notChecked": "未確認",
     "authenticated": "公開済み · DNSSEC で認証済み",
     "unauthenticated": "公開済み · DNSSEC で認証されていません"
+  },
+  "dnssec": {
+    "status": "状態",
+    "keys": "鍵",
+    "ds": "DS レコード",
+    "chain": "根拠",
+    "state": {
+      "secure": "署名済みで、リゾルバーが検証済みです",
+      "insecure": "署名されていません",
+      "unanchored": "署名済みですが、親ゾーンが DS レコードを公開していません",
+      "mismatch": "DS レコードがこのゾーンのどの鍵とも一致しません",
+      "bogus": "検証が失敗しています",
+      "indeterminate": "判定できませんでした"
+    },
+    "flag": {
+      "sep": "SEP フラグ",
+      "revoke": "REVOKE フラグ"
+    },
+    "match": {
+      "confirmed": "公開されている鍵と一致します",
+      "no-matching-key": "このタグを持つ公開鍵はありません",
+      "digest-mismatch": "このタグを持つ鍵と一致しません",
+      "unverifiable-digest-type": "このダイジェスト種別はここでは計算できません",
+      "unverifiable": "確認できませんでした"
+    },
+    "source": {
+      "resolver": "リゾルバー",
+      "local": "ここで計算"
+    },
+    "claim": {
+      "authenticated": "この応答を認証済みとして報告しています",
+      "notAuthenticated": "この応答を認証済みとして報告していません",
+      "resolver-bogus": "検証を無効にした場合のみ応答するため、検証が失敗しています",
+      "resolver-unreachable": "利用できる応答を返しませんでした",
+      "link-checked": "確認したのは 1 つの連結のみ: このゾーンの DNSKEY と親ゾーンの DS レコード",
+      "dsConfirms": "DS {0} は {1} により公開されている鍵と一致します",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "{0} の問い合わせが完了しませんでした ({1})"
+    }
   }
 }

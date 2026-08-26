@@ -110,7 +110,8 @@
     "na": "Yok",
     "dash": "—",
     "caa": "CAA politikası",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "DNSSEC zinciri"
   },
   "render": {
     "showMore": "{0} karakter daha göster",
@@ -1135,5 +1136,44 @@
     "notChecked": "denetlenmedi",
     "authenticated": "yayımlanmış · DNSSEC ile doğrulanmış",
     "unauthenticated": "yayımlanmış · DNSSEC ile doğrulanmamış"
+  },
+  "dnssec": {
+    "status": "Durum",
+    "keys": "Anahtarlar",
+    "ds": "DS kayıtları",
+    "chain": "Kanıtlar",
+    "state": {
+      "secure": "İmzalı ve çözümleyici tarafından doğrulanmış",
+      "insecure": "İmzalanmamış",
+      "unanchored": "İmzalı, ancak üst bölge hiçbir DS kaydı yayımlamıyor",
+      "mismatch": "DS kaydı bu bölgenin hiçbir anahtarıyla eşleşmiyor",
+      "bogus": "Doğrulama başarısız oluyor",
+      "indeterminate": "Belirlenemedi"
+    },
+    "flag": {
+      "sep": "SEP bayrağı",
+      "revoke": "REVOKE bayrağı"
+    },
+    "match": {
+      "confirmed": "yayımlanmış bir anahtarla eşleşiyor",
+      "no-matching-key": "yayımlanmış hiçbir anahtar bu etikete sahip değil",
+      "digest-mismatch": "bu etiketi taşıyan anahtarla eşleşmiyor",
+      "unverifiable-digest-type": "bu özet türü burada hesaplanamaz",
+      "unverifiable": "denetlenemedi"
+    },
+    "source": {
+      "resolver": "Çözümleyici",
+      "local": "Burada hesaplandı"
+    },
+    "claim": {
+      "authenticated": "bu yanıtı kimliği doğrulanmış olarak bildiriyor",
+      "notAuthenticated": "bu yanıtı kimliği doğrulanmış olarak bildirmiyor",
+      "resolver-bogus": "yalnızca doğrulama kapalıyken yanıt veriyor, yani doğrulama başarısız oluyor",
+      "resolver-unreachable": "kullanılabilir bir yanıt döndürmedi",
+      "link-checked": "bir halka denetlendi: bu bölgenin DNSKEY kaydına karşılık üst bölgenin DS kaydı",
+      "dsConfirms": "DS {0}, {1} ile yayımlanmış bir anahtarla eşleşiyor",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "{0} sorgusu tamamlanmadı ({1})"
+    }
   }
 }

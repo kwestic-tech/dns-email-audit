@@ -110,7 +110,8 @@
     "na": "N/D",
     "dash": "—",
     "caa": "Politique CAA",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "Chaîne DNSSEC"
   },
   "render": {
     "showMore": "Afficher {0} caractères de plus",
@@ -1135,5 +1136,44 @@
     "notChecked": "non vérifié",
     "authenticated": "publié · authentifié par DNSSEC",
     "unauthenticated": "publié · non authentifié par DNSSEC"
+  },
+  "dnssec": {
+    "status": "État",
+    "keys": "Clés",
+    "ds": "Enregistrements DS",
+    "chain": "Éléments de preuve",
+    "state": {
+      "secure": "Signée et validée par le résolveur",
+      "insecure": "Non signée",
+      "unanchored": "Signée, mais la zone parente ne publie aucun enregistrement DS",
+      "mismatch": "L'enregistrement DS ne correspond à aucune clé de cette zone",
+      "bogus": "La validation échoue",
+      "indeterminate": "N'a pas pu être déterminé"
+    },
+    "flag": {
+      "sep": "indicateur SEP",
+      "revoke": "indicateur REVOKE"
+    },
+    "match": {
+      "confirmed": "correspond à une clé publiée",
+      "no-matching-key": "aucune clé publiée ne porte cette étiquette",
+      "digest-mismatch": "ne correspond pas à la clé portant cette étiquette",
+      "unverifiable-digest-type": "ce type d'empreinte ne peut pas être calculé ici",
+      "unverifiable": "n'a pas pu être vérifié"
+    },
+    "source": {
+      "resolver": "Résolveur",
+      "local": "Calculé ici"
+    },
+    "claim": {
+      "authenticated": "signale cette réponse comme authentifiée",
+      "notAuthenticated": "ne signale pas cette réponse comme authentifiée",
+      "resolver-bogus": "ne répond que lorsque la validation est désactivée : la validation échoue donc",
+      "resolver-unreachable": "n'a pas renvoyé de réponse exploitable",
+      "link-checked": "un maillon vérifié : le DNSKEY de cette zone face à l'enregistrement DS de la zone parente",
+      "dsConfirms": "DS {0} correspond à une clé publiée via {1}",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "la requête {0} ne s'est pas terminée ({1})"
+    }
   }
 }

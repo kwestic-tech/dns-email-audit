@@ -110,7 +110,8 @@
     "na": "N/V",
     "dash": "—",
     "caa": "CAA-Richtlinie",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "DNSSEC-Kette"
   },
   "render": {
     "showMore": "{0} weitere Zeichen anzeigen",
@@ -1135,5 +1136,44 @@
     "notChecked": "nicht geprüft",
     "authenticated": "veröffentlicht · DNSSEC-authentifiziert",
     "unauthenticated": "veröffentlicht · nicht DNSSEC-authentifiziert"
+  },
+  "dnssec": {
+    "status": "Status",
+    "keys": "Schlüssel",
+    "ds": "DS-Einträge",
+    "chain": "Belege",
+    "state": {
+      "secure": "Signiert und vom Resolver validiert",
+      "insecure": "Nicht signiert",
+      "unanchored": "Signiert, aber die übergeordnete Zone veröffentlicht keinen DS-Eintrag",
+      "mismatch": "Der DS-Eintrag passt zu keinem Schlüssel dieser Zone",
+      "bogus": "Die Validierung schlägt fehl",
+      "indeterminate": "Konnte nicht ermittelt werden"
+    },
+    "flag": {
+      "sep": "SEP-Flag",
+      "revoke": "REVOKE-Flag"
+    },
+    "match": {
+      "confirmed": "passt zu einem veröffentlichten Schlüssel",
+      "no-matching-key": "kein veröffentlichter Schlüssel trägt dieses Tag",
+      "digest-mismatch": "passt nicht zum Schlüssel mit diesem Tag",
+      "unverifiable-digest-type": "dieser Digest-Typ kann hier nicht berechnet werden",
+      "unverifiable": "konnte nicht geprüft werden"
+    },
+    "source": {
+      "resolver": "Resolver",
+      "local": "Hier berechnet"
+    },
+    "claim": {
+      "authenticated": "meldet diese Antwort als authentifiziert",
+      "notAuthenticated": "meldet diese Antwort nicht als authentifiziert",
+      "resolver-bogus": "antwortet nur bei deaktivierter Validierung, die Validierung schlägt also fehl",
+      "resolver-unreachable": "hat keine verwertbare Antwort geliefert",
+      "link-checked": "ein Glied geprüft: der DNSKEY dieser Zone gegen den DS-Eintrag der übergeordneten Zone",
+      "dsConfirms": "DS {0} passt per {1} zu einem veröffentlichten Schlüssel",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "die {0}-Abfrage wurde nicht abgeschlossen ({1})"
+    }
   }
 }

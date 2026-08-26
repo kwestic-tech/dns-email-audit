@@ -110,7 +110,8 @@
     "na": "N/D",
     "dash": "—",
     "caa": "Política CAA",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "Cadena DNSSEC"
   },
   "render": {
     "showMore": "Mostrar {0} caracteres más",
@@ -1135,5 +1136,44 @@
     "notChecked": "sin comprobar",
     "authenticated": "publicado · autenticado con DNSSEC",
     "unauthenticated": "publicado · no autenticado con DNSSEC"
+  },
+  "dnssec": {
+    "status": "Estado",
+    "keys": "Claves",
+    "ds": "Registros DS",
+    "chain": "Evidencia",
+    "state": {
+      "secure": "Firmada y validada por el resolutor",
+      "insecure": "Sin firmar",
+      "unanchored": "Firmada, pero la zona superior no publica ningún registro DS",
+      "mismatch": "El registro DS no coincide con ninguna clave de esta zona",
+      "bogus": "La validación está fallando",
+      "indeterminate": "No se pudo determinar"
+    },
+    "flag": {
+      "sep": "indicador SEP",
+      "revoke": "indicador REVOKE"
+    },
+    "match": {
+      "confirmed": "coincide con una clave publicada",
+      "no-matching-key": "ninguna clave publicada lleva esta etiqueta",
+      "digest-mismatch": "no coincide con la clave que lleva esta etiqueta",
+      "unverifiable-digest-type": "este tipo de resumen no se puede calcular aquí",
+      "unverifiable": "no se pudo comprobar"
+    },
+    "source": {
+      "resolver": "Resolutor",
+      "local": "Calculado aquí"
+    },
+    "claim": {
+      "authenticated": "informa de esta respuesta como autenticada",
+      "notAuthenticated": "no informa de esta respuesta como autenticada",
+      "resolver-bogus": "solo responde con la validación desactivada, así que la validación está fallando",
+      "resolver-unreachable": "no devolvió una respuesta utilizable",
+      "link-checked": "un eslabón comprobado: el DNSKEY de esta zona frente al registro DS de la zona superior",
+      "dsConfirms": "DS {0} coincide con una clave publicada mediante {1}",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "la consulta {0} no se completó ({1})"
+    }
   }
 }

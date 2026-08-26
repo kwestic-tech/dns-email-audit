@@ -110,7 +110,8 @@
     "na": "T/A",
     "dash": "—",
     "caa": "Kebijakan CAA",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "Rantai DNSSEC"
   },
   "render": {
     "showMore": "Tampilkan {0} karakter lagi",
@@ -1135,5 +1136,44 @@
     "notChecked": "tidak diperiksa",
     "authenticated": "diterbitkan · terautentikasi DNSSEC",
     "unauthenticated": "diterbitkan · tidak terautentikasi DNSSEC"
+  },
+  "dnssec": {
+    "status": "Status",
+    "keys": "Kunci",
+    "ds": "Data DS",
+    "chain": "Bukti",
+    "state": {
+      "secure": "Ditandatangani dan tervalidasi oleh resolver",
+      "insecure": "Tidak ditandatangani",
+      "unanchored": "Ditandatangani, tetapi zona induk tidak memublikasikan data DS",
+      "mismatch": "Data DS tidak cocok dengan kunci mana pun di zona ini",
+      "bogus": "Validasi gagal",
+      "indeterminate": "Tidak dapat ditentukan"
+    },
+    "flag": {
+      "sep": "tanda SEP",
+      "revoke": "tanda REVOKE"
+    },
+    "match": {
+      "confirmed": "cocok dengan kunci yang dipublikasikan",
+      "no-matching-key": "tidak ada kunci terpublikasi yang memakai tag ini",
+      "digest-mismatch": "tidak cocok dengan kunci bertag ini",
+      "unverifiable-digest-type": "jenis digest ini tidak dapat dihitung di sini",
+      "unverifiable": "tidak dapat diperiksa"
+    },
+    "source": {
+      "resolver": "Resolver",
+      "local": "Dihitung di sini"
+    },
+    "claim": {
+      "authenticated": "melaporkan jawaban ini sebagai terautentikasi",
+      "notAuthenticated": "tidak melaporkan jawaban ini sebagai terautentikasi",
+      "resolver-bogus": "hanya menjawab saat validasi dimatikan, jadi validasi gagal",
+      "resolver-unreachable": "tidak mengembalikan jawaban yang dapat dipakai",
+      "link-checked": "satu mata rantai diperiksa: DNSKEY zona ini terhadap data DS zona induk",
+      "dsConfirms": "DS {0} cocok dengan kunci terpublikasi melalui {1}",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "kueri {0} tidak selesai ({1})"
+    }
   }
 }

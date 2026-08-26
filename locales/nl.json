@@ -110,7 +110,8 @@
     "na": "N.v.t.",
     "dash": "—",
     "caa": "CAA-beleid",
-    "tlsa": "TLSA (DANE)"
+    "tlsa": "TLSA (DANE)",
+    "dnssec": "DNSSEC-keten"
   },
   "render": {
     "showMore": "{0} tekens meer tonen",
@@ -1135,5 +1136,44 @@
     "notChecked": "niet gecontroleerd",
     "authenticated": "gepubliceerd · DNSSEC-geauthenticeerd",
     "unauthenticated": "gepubliceerd · niet DNSSEC-geauthenticeerd"
+  },
+  "dnssec": {
+    "status": "Status",
+    "keys": "Sleutels",
+    "ds": "DS-records",
+    "chain": "Bewijs",
+    "state": {
+      "secure": "Ondertekend en gevalideerd door de resolver",
+      "insecure": "Niet ondertekend",
+      "unanchored": "Ondertekend, maar de bovenliggende zone publiceert geen DS-record",
+      "mismatch": "Het DS-record komt met geen enkele sleutel van deze zone overeen",
+      "bogus": "De validatie mislukt",
+      "indeterminate": "Kon niet worden vastgesteld"
+    },
+    "flag": {
+      "sep": "SEP-vlag",
+      "revoke": "REVOKE-vlag"
+    },
+    "match": {
+      "confirmed": "komt overeen met een gepubliceerde sleutel",
+      "no-matching-key": "geen gepubliceerde sleutel draagt dit label",
+      "digest-mismatch": "komt niet overeen met de sleutel met dit label",
+      "unverifiable-digest-type": "dit digesttype kan hier niet worden berekend",
+      "unverifiable": "kon niet worden gecontroleerd"
+    },
+    "source": {
+      "resolver": "Resolver",
+      "local": "Hier berekend"
+    },
+    "claim": {
+      "authenticated": "meldt dit antwoord als geauthenticeerd",
+      "notAuthenticated": "meldt dit antwoord niet als geauthenticeerd",
+      "resolver-bogus": "antwoordt alleen met uitgeschakelde validatie, dus de validatie mislukt",
+      "resolver-unreachable": "gaf geen bruikbaar antwoord terug",
+      "link-checked": "één schakel gecontroleerd: de DNSKEY van deze zone tegen het DS-record van de bovenliggende zone",
+      "dsConfirms": "DS {0} komt via {1} overeen met een gepubliceerde sleutel",
+      "dsVerdict": "DS {0} {1}",
+      "lookupIncomplete": "de {0}-opvraging is niet voltooid ({1})"
+    }
   }
 }
