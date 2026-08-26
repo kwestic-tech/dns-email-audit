@@ -374,6 +374,11 @@ Move to `docs/specs/implemented/`.
 
 ### 3c. `dnssec-evidence` (0.5.0)
 
+> **Status, 2026-08-26: release metadata finalized for `v0.5.0` via
+> [PR #25](https://github.com/kwestic-tech/dns-email-audit/pull/25).** The tag
+> identifies the squashed release commit; the implemented spec records the tag
+> rather than a branch-history SHA.
+
 **The spec is `1.5 (Implemented)` as of 2026-08-26 and all open questions are
 resolved.** Read it, not this summary, and read
 [`docs/specs/fixtures/dnssec-live-states-0.5.0.md`](specs/implemented/fixtures/dnssec-live-states-0.5.0.md)

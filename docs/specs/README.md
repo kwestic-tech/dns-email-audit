@@ -88,7 +88,7 @@ the shipped code differs from what its spec asked for. Those divergences are the
 reason these documents are worth keeping: several of them are now binding
 precedent, and one spec was superseded outright during implementation.
 
-| Spec | Released in | PR | Merge commit | Spec version |
+| Spec | Released in | PR | Merge commit / release tag | Spec version |
 | --- | --- | --- | --- | --- |
 | [resilient-optional-checks](implemented/resilient-optional-checks.md) | 0.2.0 | [#8](https://github.com/kwestic-tech/dns-email-audit/pull/8) | `e74b47b` | 1.0 (Implemented) |
 | [wildcard-txt-depth](implemented/wildcard-txt-depth.md) | 0.2.0 | [#9](https://github.com/kwestic-tech/dns-email-audit/pull/9) | `b41b50d` | 1.0 (Implemented) |
@@ -101,7 +101,7 @@ precedent, and one spec was superseded outright during implementation.
 | [rendering-and-robustness](implemented/rendering-and-robustness.md) | 0.2.3 | [#18](https://github.com/kwestic-tech/dns-email-audit/pull/18) | `6bf8bda` | 1.3 (Implemented) |
 | [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) | 0.3.0 | [#20](https://github.com/kwestic-tech/dns-email-audit/pull/20) | `8c3a36f` | 1.2 (Implemented) |
 | [dns-protocol-depth](implemented/dns-protocol-depth.md) | 0.4.0 | [#22](https://github.com/kwestic-tech/dns-email-audit/pull/22) | `9bda3ad` | 1.2 (Implemented) |
-| [dnssec-evidence](implemented/dnssec-evidence.md) | 0.5.0 | _pending_ | _pending_ | 1.5 (Implemented) |
+| [dnssec-evidence](implemented/dnssec-evidence.md) | 0.5.0 | [#25](https://github.com/kwestic-tech/dns-email-audit/pull/25) | `v0.5.0` | 1.5 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in

@@ -6,8 +6,8 @@
 | Target release | 0.5.0 |
 | Status | Implemented and released |
 | Released in | `v0.5.0`, 2026-08-26 |
-| Pull request | _filled at merge_ |
-| Merge commit | _filled at merge_ |
+| Pull request | [#25](https://github.com/kwestic-tech/dns-email-audit/pull/25) |
+| Release tag | `v0.5.0` |
 | Depends on | [dns-protocol-depth](dns-protocol-depth.md) for `DS`, `DNSKEY` and `TLSA` transport support, the `DnsTypeError` re-throw in `optionalCheck()`, and the per-host `authenticated` field on `checkTlsa()` |
 | Blocks | [findings-and-remediation](../findings-and-remediation.md), whose DANE conditions read `checkTlsa()`'s per-host `authenticated` evidence. **Not** the audited domain's chain state — see `OQ-SEC9-07`. |
 | Slug for open questions | `SEC9` |
