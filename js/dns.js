@@ -3354,6 +3354,20 @@
   var RSA_DNSSEC_ALGORITHMS = [1, 5, 7, 8, 10];
 
   /**
+   * Minimum modulus in octets, per the RFC that defines each algorithm.
+   *
+   * RFC 3110 §3 sets 512 bits for the RSA/SHA-1 family, and RFC 5702 §2.1
+   * repeats it for RSA/SHA-256 — but **§2.2 raises the floor to 1024 bits for
+   * RSA/SHA-512**, and a single shared minimum silently drops that. It is the
+   * permissive direction, so it breaks no real zone; it is also the same shape
+   * as every finding this review series has produced — a recognized algorithm
+   * accepted without the value constraint its own specification states. The
+   * ceiling is 4096 bits everywhere.
+   */
+  var RSA_MIN_MODULUS_BYTES = { 1: 64, 5: 64, 7: 64, 8: 64, 10: 128 };
+  var RSA_MAX_MODULUS_BYTES = 512;
+
+  /**
    * Is this key material structurally possible for the algorithm it declares?
    *
    * Three answers, and the third is the point. `'invalid'` means a recognized
@@ -3377,7 +3391,8 @@
     // RFC 3110 §2: lengths 1–255 use the one-octet form; only longer
     // exponents use zero plus a two-octet length. Exponent and modulus are
     // unsigned integers with no leading zero octets, and each is limited to
-    // 4096 bits. Section 3 gives the modulus a 512-bit protocol minimum.
+    // 4096 bits. The modulus floor is per-algorithm — see
+    // RSA_MIN_MODULUS_BYTES, where RFC 5702 §2.2 raises RSA/SHA-512 to 1024.
     if (bytes.length < 1) return 'invalid';
     var exponentLength = bytes[0];
     var offset = 1;
@@ -3391,7 +3406,8 @@
     if (offset + exponentLength >= bytes.length) return 'invalid';
     var modulusOffset = offset + exponentLength;
     var modulusLength = bytes.length - modulusOffset;
-    if (modulusLength < 64 || modulusLength > 512) return 'invalid';
+    var minimumModulus = RSA_MIN_MODULUS_BYTES[algorithm] || 64;
+    if (modulusLength < minimumModulus || modulusLength > RSA_MAX_MODULUS_BYTES) return 'invalid';
     if (bytes[offset] === 0 || bytes[modulusOffset] === 0) return 'invalid';
     return 'valid';
   }

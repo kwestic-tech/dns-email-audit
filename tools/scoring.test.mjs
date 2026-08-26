@@ -4189,6 +4189,21 @@ eq('an RSA modulus below 512 bits is outside the protocol range',
   rsa([...rsaExponent, ...Buffer.alloc(63, 0xab)]), 'invalid');
 eq('an RSA modulus above 4096 bits is outside the protocol range',
   rsa([...rsaExponent, ...Buffer.alloc(513, 0xab)]), 'invalid');
+
+// The modulus floor is per-algorithm, not shared. RFC 3110 §3 sets 512 bits
+// for the RSA/SHA-1 family and RFC 5702 §2.1 repeats it for RSA/SHA-256, but
+// **§2.2 raises RSA/SHA-512 to 1024 bits**. A single shared minimum drops that
+// constraint silently — permissive, so it breaks no real zone, and still a
+// recognized algorithm accepted without the limit its own RFC states.
+const rsaAlg = (algorithm, modulusBytes) =>
+  D.parseDnskey(`257 3 ${algorithm} ` + Buffer.from(
+    [...rsaExponent, ...Buffer.alloc(modulusBytes, 0xab)]).toString('base64')).keyStructure;
+eq('RSA/SHA-256 accepts the RFC 5702 §2.1 floor of 512 bits', rsaAlg(8, 64), 'valid');
+eq('RSA/SHA-1 accepts the RFC 3110 §3 floor of 512 bits',     rsaAlg(5, 64), 'valid');
+eq('RSA/SHA-512 refuses 512 bits — RFC 5702 §2.2 requires 1024', rsaAlg(10, 64), 'invalid');
+eq('RSA/SHA-512 refuses one octet below its floor',           rsaAlg(10, 127), 'invalid');
+eq('RSA/SHA-512 accepts its 1024-bit floor',                  rsaAlg(10, 128), 'valid');
+eq('RSA/SHA-512 still refuses above 4096 bits',               rsaAlg(10, 513), 'invalid');
 eq('an RSA exponent above 4096 bits is outside the protocol range',
   rsa([0x00, 0x02, 0x01, ...Buffer.alloc(513, 0xab), ...Buffer.alloc(64, 0xab)]), 'invalid');
 eq('the extended exponent form is accepted when the exponent exceeds 255 octets',
