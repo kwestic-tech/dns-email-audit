@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.1 (Final) |
+| Spec version | 1.2 (Final) |
 | Target release | 0.5.0 |
 | Status | Final — implementation may begin |
 | Depends on | [dns-protocol-depth](implemented/dns-protocol-depth.md) for `DS`, `DNSKEY` and `TLSA` transport support, the `DnsTypeError` re-throw in `optionalCheck()`, and the per-host `authenticated` field on `checkTlsa()` |
@@ -119,10 +119,11 @@ so a typo in a record type still fails loudly either way.
 
 ```js
 function parseDnskey(presentationString) → {
-  flags: number,          // 256 ZSK, 257 KSK (SEP bit 0x0001)
+  flags: number,          // raw bits; Zone 0x0100, REVOKE 0x0080, SEP 0x0001
   protocol: number,       // must be 3
   algorithm: number,
   algorithmName: string,  // token, not English
+  algorithmEligibility: 'eligible' | 'ineligible' | 'unknown',
   publicKey: string,      // base64 as published — see below
   keyBytes: number,
   keyTag: number,         // RFC 4034 Appendix B; RFC 6840 §5.5 for algorithm 1
@@ -139,6 +140,7 @@ function parseDs(presentationString) → {
   keyTag: number,
   algorithm: number,
   algorithmName: string,
+  algorithmEligibility: 'eligible' | 'ineligible' | 'unknown',
   digestType: number,
   digestName: string,
   digest: string,         // lowercase hex
@@ -174,15 +176,21 @@ material is even structurally possible for its declared algorithm is
 
 Checked: ECDSA P-256 and P-384 at 64 and 96 octets (RFC 6605 §4 — Q is the
 uncompressed point `x|y`), Ed25519 at 32 and Ed448 at 57 (RFC 8080 §3), and the
-RSA family's exponent-and-modulus encoding (RFC 3110 §2). DSA, GOST, SM2 and
-ML-DSA are `unknown`.
+RSA family's canonical exponent-and-modulus encoding (RFC 3110 §§2–3),
+including its length form, prohibition on leading zero octets and 4096-bit
+limits. DSA, GOST, SM2 and ML-DSA are `unknown`.
 
-**Only `invalid` disqualifies.** `unknown` must never be read as a fault: a DS
-digest is computed over the raw RDATA, so a parent and child can agree
-perfectly about a key whose internals nothing here can parse. Rejecting
-`unknown` would refuse zones signed to a specification newer than this build,
-which is the opposite failure — the one three of 0.4.0's eight rounds were
-spent undoing.
+**Structure and algorithm eligibility are independent.** An `invalid` structure
+disqualifies. An `unknown` structure must never be read as a fault: a DS digest
+is computed over the raw RDATA, so a parent and child can agree perfectly about
+a key whose internals nothing here can parse. Separately, the IANA registry's
+Zone Signing column gives `algorithmEligibility`: `eligible` for an affirmative
+`Y`, `ineligible` for an affirmative `N`, and `unknown` for an unassigned number
+this build cannot judge. Only affirmative `eligible` may contribute to
+`anchorConfirmed`; `unknown` produces neither confirmation nor mismatch.
+Algorithms 0 (DELETE), 1 (RSAMD5), 2 (DH), and 252 (INDIRECT) are named but
+explicitly ineligible. Recognition, structural parsing, deprecation, and zone-
+signing eligibility remain four separate facts.
 
 Collapsing these facts into one boolean is how a recognized name gets accepted
 without its registered value grammar, the failure 0.4.0 removed from CAA,
@@ -237,8 +245,9 @@ modulus, then names the "fourth-to-last and third-to-last" octets for it, where
 appendix as literally written puts every RSAMD5 tag one octet out, which is a
 mismatch verdict on every zone still using one.
 
-Algorithm and digest tokens are emitted as identifiers, translated in
-`js/app.js`. Both registries are carried in full, current as of 2026-08-26,
+Algorithm and digest tokens are emitted as identifiers and rendered by
+`js/app.js` inside localized surrounding prose; the identifiers themselves are
+never translated. Both registries are carried in full, current as of 2026-08-26,
 including **algorithm 17** (SM2SM3, RFC 9563), **18** (ML-DSA-44, an early
 allocation held by an Internet-Draft), **23** (ECC-GOST12, RFC 9558) and
 **digest types 5 and 6** (GOST R 34.11-2012 and SM3, both 32 octets). Every
@@ -299,6 +308,7 @@ Result per DS:
        | 'unverifiable-digest-type' | 'unverifiable',
   // Facts about the key the digest matched, kept beside the match and never
   // folded into it.
+  matchedKeyAlgorithmEligibility: 'eligible' | 'ineligible' | 'unknown' | null,
   matchedKeyHasZoneFlag: boolean | null,
   matchedKeyStructure: 'valid' | 'invalid' | 'unknown' | null,
   matchedKeyHasRevokeFlag: boolean | null,
@@ -320,6 +330,11 @@ it.
 
 So the digest result stands on its own, and the eligibility facts sit beside it:
 
+- **Algorithm not usable for zone signing.** IANA marks algorithms 0, 1, 2 and
+  252 `Zone Signing: N` and states that only zone-signing algorithms may appear
+  in DNSKEY, RRSIG and DS records. A recognized mnemonic or parseable key
+  grammar does not override that registry fact. An unassigned algorithm is
+  `unknown`, not silently eligible.
 - **Zone flag clear.** RFC 4034 §2.1.1 is normative — the key MUST NOT verify
   RRsets. Demonstrably ineligible, from a bit this release can read.
 - **`keyStructure: 'invalid'`.** A recognized algorithm carrying impossible
@@ -328,7 +343,7 @@ So the digest result stands on its own, and the eligibility facts sit beside it:
   validated self-signature this release does not compute, so the flag is
   reported and nothing is concluded from it.
 
-The first two exclude a key from `anchorConfirmed`. The third does not. A DS
+The first three exclude a key from `anchorConfirmed`. The fourth does not. A DS
 matching only an ineligible key falls to the residual rule 6 of §4 rather than
 producing `mismatch` — raising a critical alarm on a zone that may simply be
 mid-rollover is the `paypal.com` failure in a new costume.
@@ -337,6 +352,7 @@ Derived from the set:
 
 ```js
 anchorConfirmed = ds.some(d => d.match === 'confirmed' &&
+                              d.matchedKeyAlgorithmEligibility === 'eligible' &&
                               d.matchedKeyHasZoneFlag === true &&
                               d.matchedKeyStructure !== 'invalid')
 orphanDs        = ds.filter(d => d.match === 'no-matching-key').map(d => d.keyTag)
@@ -530,6 +546,7 @@ exactly as 0.4.0 shipped it.
 | `dnssec-deprecated-algorithm` | any key on a deprecated algorithm | warn |
 | `dnssec-deprecated-digest` | any DS on digest type 1 | info |
 | `dnssec-revoke-flag` | REVOKE bit set on a published key. Worded as the flag, never as "revoked" — RFC 5011 §2.1 needs a self-signature this release does not validate | info |
+| `dnssec-key-algorithm-ineligible` | A DS confirms a key whose algorithm is affirmatively not usable for zone signing in the IANA registry | warn |
 | `dnssec-key-not-zone-key` | A DS confirms a key whose zone bit is clear, so RFC 4034 §2.1.1 forbids it verifying RRsets | warn |
 | `dnssec-key-malformed` | A DS confirms a key whose `keyStructure` is `invalid` | warn |
 | `dnssec-bogus`, `dnssec-indeterminate` | unchanged from 0.4.0 | crit, warn |
@@ -565,9 +582,9 @@ row down.
 ## Localization impact
 
 Roughly 60 to 90 new keys: six state descriptions, five DS match verdicts,
-algorithm and digest names, `issue.<key>.msg` / `.what` / `.fix` and where
-useful `.fixCode` for the six new findings, the chain attribution labels, and
-detail panel headings.
+localized labels surrounding the unmodified algorithm and digest identifiers,
+`issue.<key>.msg` / `.what` / `.fix` and where useful `.fixCode` for the new
+findings, the chain attribution labels, and detail panel headings.
 
 The draft estimated 25 to 35. That estimate is raised deliberately: 0.4.0
 estimated "roughly fifteen new findings" and 40 to 60 keys and shipped 23
@@ -806,12 +823,14 @@ reports `authenticated: true | false | null` and nothing more. See §6.
 
 **OQ-SEC9-08: Does a DS matching only an ineligible key produce `mismatch`?**
 *No. It falls to the residual rule 6.* Raised by the round-1 review of the 1.0
-spec. Three eligibility facts sit beside the digest verdict rather than inside
-it — the zone flag (RFC 4034 §2.1.1, demonstrably ineligible), `keyStructure`
-(impossible material cannot be usable evidence), and the REVOKE flag (RFC 5011
-§2.1 needs a self-signature this release does not compute, so nothing is
-concluded). The first two exclude a key from `anchorConfirmed`; none of the
-three produces `mismatch`, because raising a critical alarm on a zone that may
+spec. Four eligibility facts sit beside the digest verdict rather than inside
+it — the IANA Zone Signing classification, the zone flag (RFC 4034 §2.1.1),
+`keyStructure` (impossible material cannot be usable evidence), and the REVOKE
+flag (RFC 5011 §2.1 needs a self-signature this release does not compute, so
+nothing is concluded). An affirmatively ineligible algorithm, a clear zone bit,
+or an invalid structure excludes a key from `anchorConfirmed`; `unknown` does
+not become a fault but also cannot become affirmative eligibility. None of the
+four produces `mismatch`, because raising a critical alarm on a zone that may
 be mid-rollover is the `paypal.com` failure in a different costume. See §3.
 
 ## Revision history
@@ -819,5 +838,6 @@ be mid-rollover is the `paypal.com` failure in a different costume. See §3.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-08-20 | Initial draft. |
+| 1.2 | 2026-08-26 | Amended after the Codex review of the round-1 corrections. The IANA refresh had carried four named algorithms that the same registry marks `Zone Signing: N`, but the matcher could still count them as anchors; `algorithmEligibility` now preserves that independent registry fact and `anchorConfirmed` requires an affirmative `eligible`. The RSA structure check had implemented only field presence while citing RFC 3110's full grammar; it now requires the canonical exponent-length form, rejects leading zero octets, and enforces the 4096-bit exponent and 512–4096-bit modulus protocol limits. Two stale role/localization statements were corrected, and the remaining audited-domain DANE findings were removed from the 0.6.0 draft because the already-shipped per-MX-host `authenticated` evidence is the only chain fact that applies to TLSA. |
 | 1.1 | 2026-08-26 | Amended after the round-1 review of the Final spec, which returned seven findings; amended rather than deferred to **As implemented** because each one changes promised behaviour or result shape, and `docs/specs/README.md` says a Final spec discovered to be wrong is amended and re-versioned rather than allowed to diverge. **The classifier could not tell a missing DS from a failed DS lookup** — both leave an empty array, so rule 4 would have reported `unanchored` on a lookup that never returned, which is the unknown-as-absent defect reappearing inside the classifier written to remove it; per-query `lookups` status now gates rules 4 and 5, and the aggregate `evidence` survives only as a derived summary. **A recognized algorithm accepted impossible key material**: `257 3 15 AA==`, a one-octet Ed25519 key, parsed as valid and computed a key tag, so `keyStructure` now separates the record from the key with `unknown` reserved for grammars this build does not implement. **Two fields claimed more than they observed** — `isKsk` became `hasSep` (RFC 6840 §6.2: the SEP bit has no effect on how a key may be used and validation is prohibited from consulting it) and `isRevoked` became `hasRevokeFlag` (RFC 5011 §2.1 requires a self-signed RRset this release does not validate). **The registries were stale**: algorithms 17, 18 and 23 and digest types 5 and 6 were missing, so a one-octet SM3 digest parsed as a valid unnamed record; RFC 8624 is superseded by RFC 9905 and RFC 9906. **`dnsWireName()` folded case before checking ASCII**, so U+212A KELVIN SIGN became a plain `k` and encoded a different owner name than the caller asked about. **Retiring `qualified` left five active documents pointing at a deleted field**, now corrected. The review also found that §3's reason for declining SHA-1 was false — `SubtleCrypto.digest` supports it; GOST R 34.11-94 is the type that cannot be computed — so a SHA-1 DS is now computed and reported with `deprecated: true` rather than presented as an unknown where a known was available. Two corrections came from the RFCs rather than from either party: RFC 6840 §5.5 makes RFC 4034 Appendix B.1's algorithm-1 key tag erroneous, and §5.11 supplies normative support for the existential `anchorConfirmed` that 1.0 had justified only from `paypal.com`. `OQ-SEC9-08` added. Evidence: [fixtures/dnssec-live-states-0.5.0.md](fixtures/dnssec-live-states-0.5.0.md). |
 | 1.0 | 2026-08-25 | Final. The state model was rebuilt: the draft defined `secure` as AD true **and** a local DS confirmation, which let local evidence demote a zone the resolver had validated. Measured against live DNS, that flips `paypal.com` — already in the backtest sample, validating, delivering mail — to `mismatch`, costing 15 points and the A tier, and so failed the draft's own acceptance criterion 6. `state` and local `dsMatch` are now separate axes, the classifier is ordered rather than a table of independent conditions (`dnssec-failed.org` satisfied three of them at once), `mismatch` requires positive proof and is reachable only when AD is already false, and the resulting invariant makes "no grade moves" a theorem rather than a hope. `OQ-SEC9-07` was raised and retires `qualified` outright: §6 would have qualified an MX host's TLSA record from the audited domain's chain state, undoing 0.4.0's **As implemented** item 2, and no arrangement of this release's evidence can make the field mean more than the per-host AD bit, because local matching never validates RRSIGs. `dsAuthenticated` and `unknown` are dropped — the first because Cloudflare returns AD false on an authenticated denial of DS, measured on `amazon.com`, so it separates nothing; the second because nothing would have read it. Three transport and parsing rules added from live capture: filter answers on the numeric type or every signed domain reports `mismatch` from its own RRSIG; never lowercase the DNSKEY base64; keep `checkDNSSEC()` unable to throw, since it is the only unwrapped entry in its `Promise.all`. Live domains were found for every state, so the draft's "if one can be found" is replaced by a named `--dnssec-states` backtest mode that leaves the longitudinal `SAMPLE` untouched. All six code references were re-pointed — all six were stale, the draft having been written against 0.2.2 — the Problem section corrected to state DNSSEC's 25-point weight on parked domains, the sandbox no longer asked to add a `crypto` global that 0.4.0 already added, the localization estimate raised from 25–35 to 60–90 keys with two existing keys marked for rewrite, and `PRIVACY.md`'s four measured fan-out figures added to the acceptance criteria. Evidence: [fixtures/dnssec-live-states-0.5.0.md](fixtures/dnssec-live-states-0.5.0.md). |

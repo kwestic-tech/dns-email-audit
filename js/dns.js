@@ -3288,6 +3288,24 @@
   };
 
   /**
+   * The IANA registry's Zone Signing column is a separate protocol fact from
+   * whether this build recognizes an algorithm's key grammar. The complete
+   * named registry is recorded here: false is an affirmative prohibition,
+   * while an absent value remains unknown for an unassigned future number.
+   * Only algorithms marked true may contribute usable anchoring evidence.
+   */
+  var DNSSEC_ZONE_SIGNING = {
+    0: false, 1: false, 2: false, 3: true, 5: true, 6: true, 7: true,
+    8: true, 10: true, 12: true, 13: true, 14: true, 15: true, 16: true,
+    17: true, 18: true, 23: true, 252: false, 253: true, 254: true,
+  };
+
+  function dnssecAlgorithmEligibility(algorithm) {
+    if (!Object.prototype.hasOwnProperty.call(DNSSEC_ZONE_SIGNING, algorithm)) return 'unknown';
+    return DNSSEC_ZONE_SIGNING[algorithm] ? 'eligible' : 'ineligible';
+  }
+
+  /**
    * Deprecated for signing. RFC 9905 §3.1 obsoletes RFC 8624's algorithm
    * table: RSAMD5, DSA and both DSA/RSASHA1-NSEC3 variants are MUST NOT, and
    * RSASHA1 is likewise no longer permitted for new signing. RFC 9906
@@ -3356,9 +3374,10 @@
     if (fixed !== undefined) return bytes.length === fixed ? 'valid' : 'invalid';
     if (RSA_DNSSEC_ALGORITHMS.indexOf(algorithm) === -1) return 'unknown';
 
-    // RFC 3110 §2: exponent length is one octet, or a zero octet followed by
-    // a two-octet length. Exponent and modulus follow, and both must exist —
-    // a truncated key that leaves no modulus is not an RSA key of any size.
+    // RFC 3110 §2: lengths 1–255 use the one-octet form; only longer
+    // exponents use zero plus a two-octet length. Exponent and modulus are
+    // unsigned integers with no leading zero octets, and each is limited to
+    // 4096 bits. Section 3 gives the modulus a 512-bit protocol minimum.
     if (bytes.length < 1) return 'invalid';
     var exponentLength = bytes[0];
     var offset = 1;
@@ -3366,9 +3385,14 @@
       if (bytes.length < 3) return 'invalid';
       exponentLength = (bytes[1] << 8) | bytes[2];
       offset = 3;
+      if (exponentLength <= 255) return 'invalid';
     }
-    if (exponentLength === 0) return 'invalid';
+    if (exponentLength === 0 || exponentLength > 512) return 'invalid';
     if (offset + exponentLength >= bytes.length) return 'invalid';
+    var modulusOffset = offset + exponentLength;
+    var modulusLength = bytes.length - modulusOffset;
+    if (modulusLength < 64 || modulusLength > 512) return 'invalid';
+    if (bytes[offset] === 0 || bytes[modulusOffset] === 0) return 'invalid';
     return 'valid';
   }
 
@@ -3508,6 +3532,7 @@
   function parseDnskey(presentationString) {
     var blank = {
       flags: null, protocol: null, algorithm: null, algorithmName: null,
+      algorithmEligibility: 'unknown',
       publicKey: '', keyBytes: 0, keyTag: null, keyStructure: 'unknown',
       hasSep: false, hasZoneFlag: false, hasRevokeFlag: false,
       deprecated: false, valid: false, errors: ['unparseable-record'],
@@ -3543,6 +3568,7 @@
       // and a resolver may return a key this build has never heard of; the
       // honest report is the number with no name beside it.
       algorithmName: DNSSEC_ALGORITHMS[algorithm] || null,
+      algorithmEligibility: dnssecAlgorithmEligibility(algorithm),
       publicKey: publicKey,
       keyBytes: bytes ? bytes.length : 0,
       keyTag: null,
@@ -3562,6 +3588,7 @@
   function parseDs(presentationString) {
     var blank = {
       keyTag: null, algorithm: null, algorithmName: null,
+      algorithmEligibility: 'unknown',
       digestType: null, digestName: null, digest: '',
       deprecated: false, valid: false, errors: ['unparseable-record'],
     };
@@ -3597,6 +3624,7 @@
       keyTag: keyTag,
       algorithm: algorithm,
       algorithmName: DNSSEC_ALGORITHMS[algorithm] || null,
+      algorithmEligibility: dnssecAlgorithmEligibility(algorithm),
       digestType: digestType,
       digestName: DNSSEC_DIGESTS[digestType] || null,
       digest: digest,
@@ -5048,7 +5076,9 @@
     dnskeyKeyTag,
     dnsWireName,
     DNSSEC_ALGORITHMS,
+    DNSSEC_ZONE_SIGNING,
     DNSSEC_DIGESTS,
+    dnssecAlgorithmEligibility,
     dnskeyStructure,
     analyzeDomain,
     checkConnectivity,

@@ -3998,7 +3998,7 @@ const RFC4034_KEY = '256 3 5 AQOeiiR0GOMYkDshWoSKz9XzfwJr1AYtsmx3TGkJaNXVbfi/2pH
 const rfcKey = D.parseDnskey(RFC4034_KEY);
 eq('RFC 4034 §5.4 key tag is the RFC\'s stated 60485', rfcKey.keyTag, 60485);
 eq('and it parses as RSASHA1', [rfcKey.algorithm, rfcKey.algorithmName], [5, 'RSASHA1']);
-eq('RSASHA1 is deprecated per RFC 8624 §3.1', rfcKey.deprecated, true);
+eq('RSASHA1 is deprecated per RFC 9905 §3.1', rfcKey.deprecated, true);
 eq('a 256-flag key has the zone bit and not SEP', [rfcKey.hasZoneFlag, rfcKey.hasSep], [true, false]);
 eq('and its RSA key material is structurally possible', rfcKey.keyStructure, 'valid');
 
@@ -4069,7 +4069,9 @@ eq('a reserved flag bit does not invalidate the record',
 // The registry grows. An algorithm this build has never heard of is reported
 // as its number with no name, not as a broken record.
 const future = D.parseDnskey('257 3 250 oJMRESz5E4gYzS/q6XDrvU1qMPYIjCWzJaOau8XNEZeqCYKD5ar0IRd8KqXXFJkqmVfRvMGPmM1x8fGAa2XhSA==');
-eq('an unregistered algorithm keeps its number', [future.algorithm, future.algorithmName, future.valid], [250, null, true]);
+eq('an unregistered algorithm keeps its number',
+  [future.algorithm, future.algorithmName, future.algorithmEligibility, future.valid],
+  [250, null, 'unknown', true]);
 
 eq('a non-record is unparseable',       D.parseDnskey('not a dnskey').errors, ['unparseable-record']);
 eq('an empty string is unparseable',    D.parseDnskey('').errors, ['unparseable-record']);
@@ -4165,15 +4167,32 @@ eq('impossible key material still yields a parseable record', keyOf(15, 1).valid
 eq('and it is not silently reported as fine',
   [keyOf(15, 1).valid, keyOf(15, 1).keyStructure], [true, 'invalid']);
 
-// RFC 3110 §2: exponent length (1 or 3 octets), exponent, then modulus. All
-// three must be present — a truncated key leaving no modulus is not an RSA key
-// of any size.
+// RFC 3110 §2: exponent length (1 or 3 octets), exponent, then modulus. The
+// long form is canonical only above 255 octets, neither integer may have a
+// leading zero, and each is capped at 4096 bits. Section 3 sets the modulus
+// protocol range to 512–4096 bits.
 const rsa = bytes => D.parseDnskey('257 3 8 ' + Buffer.from(bytes).toString('base64')).keyStructure;
-eq('an RSA key with a real exponent and modulus is valid', rsa([0x03, 1, 0, 1, 0xab, 0xcd]), 'valid');
+const rsaExponent = [0x03, 1, 0, 1];
+eq('a canonical RSA key at the 512-bit modulus floor is valid',
+  rsa([...rsaExponent, ...Buffer.alloc(64, 0xab)]), 'valid');
 eq('an RSA key that is only a length octet is impossible', rsa([0x00]), 'invalid');
 eq('an RSA exponent longer than the key is impossible',    rsa([0x05, 1, 2]), 'invalid');
 eq('an RSA key with no modulus left is impossible',        rsa([0x03, 1, 0, 1]), 'invalid');
 eq('a zero-length RSA exponent is impossible',             rsa([0x00, 0x00, 0x00, 0xab]), 'invalid');
+eq('the extended exponent length is noncanonical at 255 octets or fewer',
+  rsa([0x00, 0x00, 0x03, 1, 0, 1, ...Buffer.alloc(64, 0xab)]), 'invalid');
+eq('an RSA exponent may not have a leading zero',
+  rsa([0x03, 0, 1, 1, ...Buffer.alloc(64, 0xab)]), 'invalid');
+eq('an RSA modulus may not have a leading zero',
+  rsa([...rsaExponent, 0, ...Buffer.alloc(63, 0xab)]), 'invalid');
+eq('an RSA modulus below 512 bits is outside the protocol range',
+  rsa([...rsaExponent, ...Buffer.alloc(63, 0xab)]), 'invalid');
+eq('an RSA modulus above 4096 bits is outside the protocol range',
+  rsa([...rsaExponent, ...Buffer.alloc(513, 0xab)]), 'invalid');
+eq('an RSA exponent above 4096 bits is outside the protocol range',
+  rsa([0x00, 0x02, 0x01, ...Buffer.alloc(513, 0xab), ...Buffer.alloc(64, 0xab)]), 'invalid');
+eq('the extended exponent form is accepted when the exponent exceeds 255 octets',
+  rsa([0x00, 0x01, 0x00, ...Buffer.alloc(256, 0xab), ...Buffer.alloc(64, 0xab)]), 'valid');
 
 // Algorithms whose key grammar this build does not implement. Reporting
 // 'unknown' is the honest answer; rejecting them would refuse zones signed to
@@ -4199,6 +4218,24 @@ eq('ECC-GOST12 is a replacement, not a deprecation',
   D.parseDnskey('257 3 23 ' + Buffer.alloc(64, 0xab).toString('base64')).deprecated, false);
 eq('ECC-GOST (12) is deprecated by RFC 9906',
   D.parseDnskey('257 3 12 ' + Buffer.alloc(64, 0xab).toString('base64')).deprecated, true);
+
+// The IANA Zone Signing column is eligibility evidence, not a synonym for a
+// known mnemonic or a key grammar this build happens to implement. DELETE,
+// RSAMD5, DH and INDIRECT are named but explicitly not zone-signing algorithms.
+eq('the full named registry carries its Zone Signing classification',
+  Object.entries(D.DNSSEC_ALGORITHMS).map(([algorithm]) =>
+    [Number(algorithm), D.dnssecAlgorithmEligibility(Number(algorithm))]),
+  [[0, 'ineligible'], [1, 'ineligible'], [2, 'ineligible'], [3, 'eligible'],
+   [5, 'eligible'], [6, 'eligible'], [7, 'eligible'], [8, 'eligible'],
+   [10, 'eligible'], [12, 'eligible'], [13, 'eligible'], [14, 'eligible'],
+   [15, 'eligible'], [16, 'eligible'], [17, 'eligible'], [18, 'eligible'],
+   [23, 'eligible'], [252, 'ineligible'], [253, 'eligible'], [254, 'eligible']]);
+eq('a recognized non-zone-signing DNSKEY is explicitly ineligible',
+  D.parseDnskey('257 3 1 qrvMEjRW').algorithmEligibility, 'ineligible');
+eq('a DS carries the same algorithm eligibility fact',
+  D.parseDs('1 1 2 ' + 'ab'.repeat(32)).algorithmEligibility, 'ineligible');
+eq('an unassigned DS algorithm remains unknown rather than ineligible',
+  D.parseDs('1 99 2 ' + 'ab'.repeat(32)).algorithmEligibility, 'unknown');
 
 // Digest types 5 and 6 are registered. Without their lengths, a one-octet
 // digest declaring type 6 was accepted as a valid unnamed record — a
