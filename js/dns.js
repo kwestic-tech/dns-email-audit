@@ -3335,6 +3335,43 @@
   var DNSSEC_DIGEST_LENGTHS = { 1: 20, 2: 32, 3: 32, 4: 48, 5: 32, 6: 32 };
 
   /**
+   * The IANA DS registry's **"Use for DNSSEC Validation"** column.
+   *
+   * That column, and not the delegation one, is the applicable fact here. This
+   * tool inspects delegations that already exist; it does not create them. The
+   * two columns genuinely disagree — SHA-1 is `MUST NOT` for creating a
+   * delegation and `RECOMMENDED` for validating one, with "Implement for
+   * DNSSEC Validation: MUST" beside it — so reading the delegation column would
+   * mark every SHA-1 anchor in use as prohibited and contradict §3's whole
+   * argument for computing SHA-1 in the first place.
+   *
+   * Affirmative `MUST NOT` is the only thing recorded as a prohibition: 0
+   * (reserved) and 3 (GOST R 34.11-94, deprecated by RFC 9906). Everything
+   * assigned and permitted at any strength — RECOMMENDED or MAY — is eligible.
+   * Unassigned, reserved and private-use values are `unknown`, because the
+   * registry makes no per-value determination for them.
+   */
+  var DNSSEC_DIGEST_VALIDATION_USE = { 0: false, 1: true, 2: true, 3: false, 4: true, 5: true, 6: true };
+
+  function dnssecDigestEligibility(digestType) {
+    if (!Object.prototype.hasOwnProperty.call(DNSSEC_DIGEST_VALIDATION_USE, digestType)) return 'unknown';
+    return DNSSEC_DIGEST_VALIDATION_USE[digestType] ? 'eligible' : 'ineligible';
+  }
+
+  /**
+   * Name the ranges as well as the assignments, so a reserved or private-use
+   * value cannot read as a possible future assignment. RFC 9904 reserves
+   * 128–252 and sets 253–254 aside for private use; 7–127 and 255 are genuinely
+   * unassigned and are the only values that get no name at all.
+   */
+  function dnssecDigestName(digestType) {
+    if (Object.prototype.hasOwnProperty.call(DNSSEC_DIGESTS, digestType)) return DNSSEC_DIGESTS[digestType];
+    if (digestType >= 128 && digestType <= 252) return 'RESERVED';
+    if (digestType >= 253 && digestType <= 254) return 'PRIVATE-USE';
+    return null;
+  }
+
+  /**
    * SHA-1 is "deprecated for delegation" per RFC 9905 and the IANA registry —
    * it must not be used for NEW delegations but remains required for
    * validating existing ones. GOST R 34.11-94 is deprecated outright by
@@ -3610,7 +3647,7 @@
     var blank = {
       keyTag: null, algorithm: null, algorithmName: null,
       algorithmEligibility: 'unknown',
-      digestType: null, digestName: null, digest: '',
+      digestType: null, digestName: null, digestEligibility: 'unknown', digest: '',
       deprecated: false, valid: false, errors: ['unparseable-record'],
     };
     var fields = splitRdataFields(presentationString, 3);
@@ -3647,7 +3684,12 @@
       algorithmName: DNSSEC_ALGORITHMS[algorithm] || null,
       algorithmEligibility: dnssecAlgorithmEligibility(algorithm),
       digestType: digestType,
-      digestName: DNSSEC_DIGESTS[digestType] || null,
+      digestName: dnssecDigestName(digestType),
+      // The registry's own determination, kept beside the digest rather than
+      // folded into whether this build happens to implement the hash. An
+      // affirmative prohibition must never be reported as "we could not
+      // compute it" — that is R2-F1's defect in the digest registry.
+      digestEligibility: dnssecDigestEligibility(digestType),
       digest: digest,
       deprecated: DEPRECATED_DNSSEC_DIGESTS.indexOf(digestType) !== -1,
       valid: errors.length === 0,
@@ -3742,14 +3784,32 @@
    *
    * A key tag is not unique. Every DNSKEY sharing the tag and algorithm is
    * tried, and the DS confirms if any of them hashes correctly.
+   *
+   * **The order of the checks is part of the contract.** Candidate selection
+   * comes before digest capability, because "no key carries that tag and
+   * algorithm" is established without hashing anything: deciding capability
+   * first reported `unverifiable-digest-type` for an orphan DS whose digest
+   * this build cannot compute, hiding orphan evidence behind a local
+   * limitation and changing the verdict on an absent key according to what
+   * hashes happen to be implemented.
+   *
+   * **A proven confirmation is never revoked.** A digest failure on a later
+   * candidate used to return `unverifiable` even when an earlier candidate had
+   * already confirmed, which made the verdict depend on array order. The
+   * precedence is now fixed and total: any confirmation wins; failing that a
+   * computation failure is `unverifiable`; `digest-mismatch` requires that
+   * every candidate which could be rebuilt was hashed and none matched.
    */
   async function matchDsToDnskeys(ds, keys, domain) {
     var result = {
       keyTag: ds ? ds.keyTag : null,
       algorithm: ds ? ds.algorithm : null,
       digestType: ds ? ds.digestType : null,
-      matchedKey: null,
+      digestEligibility: ds ? ds.digestEligibility : 'unknown',
+      matchedKeyTag: null,
+      matchedKeyIndex: null,
       match: 'unverifiable',
+      unverifiableReason: null,
       matchedKeyAlgorithmEligibility: null,
       matchedKeyHasZoneFlag: null,
       matchedKeyStructure: null,
@@ -3758,14 +3818,16 @@
     };
 
     // A DS that did not parse, and an owner name the encoder refused, are both
-    // statements about our own inputs. Neither is evidence about the zone.
-    if (!ds || !ds.valid) return result;
+    // statements about our own inputs. Neither is evidence about the zone, and
+    // each says which it was — four different failures shared one token before
+    // this, and a detail panel could not tell an operator which had happened.
+    if (!ds || !ds.valid) {
+      result.unverifiableReason = 'invalid-ds';
+      return result;
+    }
     var owner = dnsWireName(domain);
-    if (!owner) return result;
-
-    var webCryptoName = DNSSEC_DIGEST_WEBCRYPTO[ds.digestType];
-    if (!webCryptoName) {
-      result.match = 'unverifiable-digest-type';
+    if (!owner) {
+      result.unverifiableReason = 'invalid-owner';
       return result;
     }
 
@@ -3773,70 +3835,94 @@
     // malformed key stays a candidate on purpose: "a DS confirms a key that
     // cannot anchor" is a finding this release owes the operator, and it is
     // unreachable if such keys are filtered out before hashing.
-    var candidates = (keys || []).filter(function (key) {
-      return key && key.valid && key.keyTag === ds.keyTag && key.algorithm === ds.algorithm;
-    });
+    var candidates = [];
+    for (var c = 0; c < (keys || []).length; c++) {
+      var key = keys[c];
+      if (key && key.valid && key.keyTag === ds.keyTag && key.algorithm === ds.algorithm) {
+        candidates.push({ key: key, index: c });
+      }
+    }
     if (!candidates.length) {
       result.match = 'no-matching-key';
+      result.unverifiableReason = null;
+      return result;
+    }
+
+    var webCryptoName = DNSSEC_DIGEST_WEBCRYPTO[ds.digestType];
+    if (!webCryptoName) {
+      result.match = 'unverifiable-digest-type';
       return result;
     }
 
     var confirming = [];
     var digestsComputed = 0;
+    var computationFailed = false;
     for (var i = 0; i < candidates.length; i++) {
-      var rdata = dnskeyRdata(candidates[i]);
+      var rdata = dnskeyRdata(candidates[i].key);
       // A candidate whose RDATA cannot be rebuilt is not evidence of anything.
-      // It is skipped, and `digestsComputed` is what stops the skip becoming a
-      // verdict further down.
+      // It is skipped, and the counters below stop the skip becoming a verdict.
       if (!rdata) continue;
       var input = new Uint8Array(owner.length + rdata.length);
       input.set(owner, 0);
       input.set(rdata, owner.length);
       var computed = await dnssecDigestHex(webCryptoName, input);
-      // The runtime refused the algorithm it advertised. That is our problem,
-      // not the operator's, and it stops the whole comparison rather than
-      // falling through to a mismatch.
-      if (computed === null) return result;
+      // The runtime refused the algorithm it advertised. Recorded, not
+      // returned: an earlier candidate may already have proved the match, and
+      // a completed proof cannot be undone by failing to inspect another key.
+      if (computed === null) { computationFailed = true; continue; }
       digestsComputed++;
       if (computed === ds.digest) confirming.push(candidates[i]);
     }
 
-    // Candidates existed and not one of them could be hashed. Without this the
-    // empty `confirming` list below reads as `digest-mismatch` — a broken-chain
-    // verdict on the strength of arithmetic that never ran, which is the exact
-    // thing this function's own contract forbids. `parseDnskey()` cannot
-    // currently produce such a candidate; a saved report from another release
-    // or a caller building key objects by hand can.
-    if (!digestsComputed) return result;
-
-    if (!confirming.length) {
-      result.match = 'digest-mismatch';
+    if (confirming.length) {
+      // On a key tag collision, report the key that could actually anchor.
+      // Both hashed correctly; saying so about the usable one is the stronger
+      // true statement, and it is what keeps `anchorConfirmed` honest.
+      var chosen = confirming.filter(function (entry) { return dnskeyCanAnchor(entry.key); })[0] || confirming[0];
+      result.match = 'confirmed';
+      result.matchedKeyTag = chosen.key.keyTag;
+      // The tag alone cannot identify which candidate was selected — every key
+      // in a collision set shares it by definition, and RFC 4034 Appendix B
+      // says so explicitly. The index into the DNSKEY set is what points at
+      // the key that actually supplied the eligibility facts below.
+      result.matchedKeyIndex = chosen.index;
+      result.matchedKeyAlgorithmEligibility = chosen.key.algorithmEligibility;
+      result.matchedKeyHasZoneFlag = chosen.key.hasZoneFlag;
+      result.matchedKeyStructure = chosen.key.keyStructure;
+      result.matchedKeyHasRevokeFlag = chosen.key.hasRevokeFlag;
       return result;
     }
 
-    // On a key tag collision, report the key that could actually anchor. Both
-    // hashed correctly; saying so about the usable one is the stronger true
-    // statement, and it is what keeps `anchorConfirmed` honest either way.
-    var chosen = confirming.filter(dnskeyCanAnchor)[0] || confirming[0];
-    result.match = 'confirmed';
-    result.matchedKey = chosen.keyTag;
-    result.matchedKeyAlgorithmEligibility = chosen.algorithmEligibility;
-    result.matchedKeyHasZoneFlag = chosen.hasZoneFlag;
-    result.matchedKeyStructure = chosen.keyStructure;
-    result.matchedKeyHasRevokeFlag = chosen.hasRevokeFlag;
+    // Nothing confirmed. Everything from here is a reason, and only the last
+    // one is a statement about the operator's zone.
+    if (computationFailed) {
+      result.unverifiableReason = 'runtime-unavailable';
+      return result;
+    }
+    if (!digestsComputed) {
+      result.unverifiableReason = 'unbuildable-key';
+      return result;
+    }
+    result.match = 'digest-mismatch';
+    result.unverifiableReason = null;
     return result;
   }
 
   /**
-   * Match the whole DS set and derive the two facts §4 and the findings read.
+   * Does this DS match actually anchor the delegation?
    *
-   * `anchorConfirmed` is existential — RFC 6840 §5.11 says that where several
-   * DS records exist for keys of one algorithm, "any subset of those may appear
-   * in the DNSKEY RRset", so a DS without its key is explicitly permitted.
-   * `paypal.com` publishes exactly that: tag 7037 confirms, tag 34800 matches
-   * nothing, and the zone is perfectly healthy. A universal reading would
-   * report it broken.
+   * The whole rule in one place. `dnskeyCanAnchor()` is the same rule read off
+   * a key object; both defer to `anchorFactsUsable()` for the key half. Stated
+   * twice they drift — a mutation disqualifying a REVOKE-flagged key was once
+   * caught by only one of the two.
    */
+  function matchConfirmsAnchor(match) {
+    return !!match && match.match === 'confirmed' &&
+      match.digestEligibility !== 'ineligible' &&
+      anchorFactsUsable(match.matchedKeyAlgorithmEligibility,
+        match.matchedKeyHasZoneFlag, match.matchedKeyStructure);
+  }
+
   async function matchDsSet(dsRecords, keys, domain) {
     var matches = [];
     for (var i = 0; i < (dsRecords || []).length; i++) {
@@ -3849,10 +3935,7 @@
       // rather than restating the three conditions: written twice, they drift,
       // and a mutation that disqualified a REVOKE-flagged key was caught by
       // only one of the two before they were joined.
-      anchorConfirmed: matches.some(function (m) {
-        return m.match === 'confirmed' && anchorFactsUsable(
-          m.matchedKeyAlgorithmEligibility, m.matchedKeyHasZoneFlag, m.matchedKeyStructure);
-      }),
+      anchorConfirmed: matches.some(matchConfirmsAnchor),
       orphanDs: matches.filter(function (m) { return m.match === 'no-matching-key'; })
         .map(function (m) { return m.keyTag; }),
     };
@@ -5305,6 +5388,9 @@
     dnskeyStructure,
     dnskeyCanAnchor,
     anchorFactsUsable,
+    matchConfirmsAnchor,
+    dnssecDigestEligibility,
+    dnssecDigestName,
     matchDsToDnskeys,
     matchDsSet,
     DNSSEC_DIGEST_WEBCRYPTO,

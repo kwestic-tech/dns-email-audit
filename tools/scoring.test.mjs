@@ -4336,7 +4336,10 @@ const matchOne = async (dsText, keys = rfcKeySet, owner = OWNER) =>
 
 eq('the RFC 4509 §2.3 SHA-256 DS confirms the RFC 4034 §5.4 key',
   (await matchOne(RFC4509_DS)).match, 'confirmed');
-eq('and it names the key it matched', (await matchOne(RFC4509_DS)).matchedKey, 60485);
+eq('and it names the key tag it matched', (await matchOne(RFC4509_DS)).matchedKeyTag, 60485);
+eq('and points at which key in the set supplied it', (await matchOne(RFC4509_DS)).matchedKeyIndex, 0);
+eq('a confirmed match carries no unverifiable reason',
+  (await matchOne(RFC4509_DS)).unverifiableReason, null);
 eq('the match is attributed to local computation',
   (await matchOne(RFC4509_DS)).computedLocally, true);
 
@@ -4408,8 +4411,16 @@ const decoy = D.parseDnskey('256 3 5 ' + Buffer.concat([
 decoy.keyTag = 60485;   // force the collision the real world produces by chance
 eq('a colliding decoy ahead of the real key still confirms',
   (await matchOne(RFC4509_DS, [decoy, ...rfcKeySet])).match, 'confirmed');
-eq('and it reports the key that actually hashed',
-  (await matchOne(RFC4509_DS, [decoy, ...rfcKeySet])).matchedKey, 60485);
+// The tag cannot identify WHICH candidate was selected — every key in a
+// collision set shares it by definition, and RFC 4034 Appendix B says so. The
+// index is the fact that distinguishes them, and asserting on the tag alone
+// proved nothing at all.
+eq('the tag alone cannot distinguish collision candidates',
+  [decoy.keyTag, rfcKeySet[0].keyTag], [60485, 60485]);
+eq('so the match points at the key that actually hashed, by index',
+  (await matchOne(RFC4509_DS, [decoy, ...rfcKeySet])).matchedKeyIndex, 1);
+eq('and with the real key first, at index 0',
+  (await matchOne(RFC4509_DS, [...rfcKeySet, decoy])).matchedKeyIndex, 0);
 
 /* ── Eligibility sits beside the match, never inside it ──────────────── */
 
@@ -4461,6 +4472,109 @@ eq('and it does NOT stop the key anchoring — the proof is incomplete, not nega
 const noSepSet = await eligibilityOf(`256 3 5 ${KEY_BODY}`);
 eq('a key without the SEP bit anchors perfectly well', noSepSet.anchorConfirmed, true);
 
+/* ── Published ECDSA vectors, RFC 6605 §§6.1–6.2 (R4-F5) ─────────────
+   Spec 1.3's fixture table requires "SHA-384 DS → confirmed via SHA-384", and
+   section 46 tested only SHA-1 and SHA-256. These are the RFC's own examples,
+   so digest type 4 and the two ECDSA curves are verified against published
+   numbers rather than against this implementation's output.
+   ──────────────────────────────────────────────────────────────────────── */
+
+const RFC6605_P256_KEY = '257 3 13 GojIhhXUN/u4v54ZQqGSnyhWJwaubCvTmeexv7bR6edbkrSqQpF64cYbcB7wNcP+e+MAnLr+Wi9xMWyQLc8NAA==';
+const RFC6605_P256_DS = '55648 13 2 b4c8c1fe2e7477127b27115656ad6256f424625bf5c1e2770ce6d6e37df61d17';
+const RFC6605_P384_KEY = '257 3 14 xKYaNhWdGOfJ+nPrL8/arkwf2EY3MDJ+SErKivBVSum1w/egsXvSADtNJhyem5RCOpgQ6K8X1DRSEkrbYQ+OB+v8/uX45NBwY8rp65F6Glur8I/mlVNgF6W/qTI37m40';
+const RFC6605_P384_DS = '10771 14 4 72d7b62976ce06438e9c0bf319013cf801f09ecc84b8d7e9495f27e305c6a9b0563a9b5f4d288405c3008a946df983d6';
+
+eq('RFC 6605 §6.1 P-256 key tag is the RFC\'s stated 55648',
+  D.parseDnskey(RFC6605_P256_KEY).keyTag, 55648);
+eq('RFC 6605 §6.2 P-384 key tag is the RFC\'s stated 10771',
+  D.parseDnskey(RFC6605_P384_KEY).keyTag, 10771);
+eq('and both are structurally valid at their curve lengths',
+  [D.parseDnskey(RFC6605_P256_KEY).keyBytes, D.parseDnskey(RFC6605_P384_KEY).keyBytes], [64, 96]);
+eq('the RFC 6605 §6.1 SHA-256 DS confirms its P-256 key',
+  (await matchOne(RFC6605_P256_DS, [D.parseDnskey(RFC6605_P256_KEY)], 'example.net')).match, 'confirmed');
+eq('the RFC 6605 §6.2 SHA-384 DS confirms its P-384 key',
+  (await matchOne(RFC6605_P384_DS, [D.parseDnskey(RFC6605_P384_KEY)], 'example.net')).match, 'confirmed');
+eq('and SHA-384 is genuinely the digest that ran',
+  D.parseDs(RFC6605_P384_DS).digestName, 'SHA-384');
+eq('the P-384 DS under the P-256 key does not confirm',
+  (await matchOne(RFC6605_P384_DS, [D.parseDnskey(RFC6605_P256_KEY)], 'example.net')).match, 'no-matching-key');
+
+/* ── Precedence and reasons (R4-F1, R4-F2, R4-F4) ────────────────────── */
+
+// A completed proof cannot be revoked by failing to inspect another candidate.
+// Before this the verdict depended on array order.
+const flaky = onFirst => ({ subtle: { digest: async (alg, data) => {
+  if (onFirst-- > 0) return realCrypto.subtle.digest(alg, data);
+  throw Object.assign(new Error('transient'), { name: 'OperationError' });
+} } });
+sandbox.crypto = flaky(1);
+eq('a confirmation survives a later candidate failing to hash',
+  (await matchOne(RFC4509_DS, [...rfcKeySet, decoy])).match, 'confirmed');
+sandbox.crypto = flaky(0);
+eq('but with nothing confirmed, a failure is unverifiable and says why',
+  [(await matchOne(RFC4509_DS)).match, (await matchOne(RFC4509_DS)).unverifiableReason],
+  ['unverifiable', 'runtime-unavailable']);
+sandbox.crypto = realCrypto;
+
+// "No key carries that tag and algorithm" needs no hashing to establish, so it
+// must not hide behind a digest this build cannot compute — that made an
+// absent key change verdict according to which hashes are implemented, and
+// dropped the DS out of `orphanDs` entirely.
+eq('an orphan DS with an uncomputable digest is still an orphan',
+  (await matchOne('11111 5 3 ' + 'ab'.repeat(32))).match, 'no-matching-key');
+eq('and it reaches orphanDs',
+  (await D.matchDsSet([D.parseDs('11111 5 3 ' + 'ab'.repeat(32))], rfcKeySet, OWNER)).orphanDs, [11111]);
+eq('while an uncomputable digest WITH a candidate is a digest-type problem',
+  (await matchOne('60485 5 3 ' + 'ab'.repeat(32))).match, 'unverifiable-digest-type');
+
+// Four different failures shared one token; a detail panel could not tell an
+// operator which had happened.
+eq('each unverifiable outcome carries its own reason', [
+  (await matchOne('not a ds record')).unverifiableReason,
+  (await matchOne(RFC4509_DS, rfcKeySet, '\u212A.example')).unverifiableReason,
+  (await matchOne(RFC4509_DS, [{
+    valid: true, keyTag: 60485, algorithm: 5, protocol: 3, flags: 256,
+    publicKey: 'not!base64!', algorithmEligibility: 'eligible',
+    hasZoneFlag: true, keyStructure: 'valid', hasRevokeFlag: false,
+  }])).unverifiableReason,
+], ['invalid-ds', 'invalid-owner', 'unbuildable-key']);
+eq('and an uncomputable digest type is its own verdict, not a reason',
+  [(await matchOne('60485 5 3 ' + 'ab'.repeat(32))).match,
+   (await matchOne('60485 5 3 ' + 'ab'.repeat(32))).unverifiableReason],
+  ['unverifiable-digest-type', null]);
+
+/* ── Digest registry eligibility (R4-F3) ─────────────────────────────── */
+
+// The IANA "Use for DNSSEC Validation" column, which is the applicable one:
+// this tool inspects delegations that exist rather than creating them. The two
+// columns disagree, and reading the delegation column would mark every SHA-1
+// anchor in use as prohibited.
+eq('SHA-1 is permitted for validation even though delegation forbids it',
+  D.dnssecDigestEligibility(1), 'eligible');
+eq('the reserved type 0 is affirmatively prohibited', D.dnssecDigestEligibility(0), 'ineligible');
+eq('GOST R 34.11-94 is affirmatively prohibited',     D.dnssecDigestEligibility(3), 'ineligible');
+eq('SHA-256 and SHA-384 are permitted',
+  [D.dnssecDigestEligibility(2), D.dnssecDigestEligibility(4)], ['eligible', 'eligible']);
+eq('MAY-strength digests are permitted, not merely tolerated',
+  [D.dnssecDigestEligibility(5), D.dnssecDigestEligibility(6)], ['eligible', 'eligible']);
+eq('unassigned, reserved and private-use ranges make no claim',
+  [D.dnssecDigestEligibility(7), D.dnssecDigestEligibility(200), D.dnssecDigestEligibility(253), D.dnssecDigestEligibility(255)],
+  ['unknown', 'unknown', 'unknown', 'unknown']);
+
+// Named so a reserved or private-use value cannot read as a future assignment.
+eq('the registry ranges are named distinguishably',
+  [D.dnssecDigestName(0), D.dnssecDigestName(200), D.dnssecDigestName(253), D.dnssecDigestName(7), D.dnssecDigestName(255)],
+  ['RESERVED', 'RESERVED', 'PRIVATE-USE', null, null]);
+eq('a DS carries the registry determination beside the digest',
+  [D.parseDs('1 8 3 ' + 'ab'.repeat(32)).digestEligibility,
+   D.parseDs('1 8 2 ' + 'ab'.repeat(32)).digestEligibility],
+  ['ineligible', 'eligible']);
+// An affirmative prohibition is not the same statement as "we lack the code".
+eq('a prohibited digest and an unimplemented one are distinguishable',
+  [(await matchOne('60485 5 3 ' + 'ab'.repeat(32))).digestEligibility,
+   (await matchOne('60485 5 5 ' + 'ab'.repeat(32))).digestEligibility],
+  ['ineligible', 'eligible']);
+
 /* ── The set, and the paypal.com shape ───────────────────────────────── */
 
 // RFC 6840 §5.11: where several DS records exist for keys of one algorithm,
@@ -4499,6 +4613,39 @@ eq('and skipping every candidate is unverifiable, never a mismatch',
   (await matchOne(RFC4509_DS, [undecodable])).match, 'unverifiable');
 eq('one good key beside an unhashable one still confirms',
   (await matchOne(RFC4509_DS, [undecodable, ...rfcKeySet])).match, 'confirmed');
+
+/* ── matchConfirmsAnchor, directly ───────────────────────────────────── */
+
+// The digest-eligibility half of the anchoring rule is unreachable through the
+// matcher today: the only affirmatively prohibited digest types, 0 and 3, are
+// also ones Web Crypto cannot compute, so they never reach `confirmed`. That
+// makes it exactly the kind of guard which reads as protection and is never
+// exercised — mutating it away failed nothing. Reached here directly, because
+// the pairing is not guaranteed to hold: a future registry entry can be both
+// computable and prohibited, and this is the rule that would catch it.
+const confirmedMatch = extra => Object.assign({
+  match: 'confirmed',
+  digestEligibility: 'eligible',
+  matchedKeyAlgorithmEligibility: 'eligible',
+  matchedKeyHasZoneFlag: true,
+  matchedKeyStructure: 'valid',
+}, extra);
+
+eq('a fully eligible confirmed match anchors', D.matchConfirmsAnchor(confirmedMatch()), true);
+eq('a prohibited digest type does not anchor even when it confirms',
+  D.matchConfirmsAnchor(confirmedMatch({ digestEligibility: 'ineligible' })), false);
+eq('an unknown digest type still anchors — no determination is not a prohibition',
+  D.matchConfirmsAnchor(confirmedMatch({ digestEligibility: 'unknown' })), true);
+eq('a verdict other than confirmed never anchors',
+  ['digest-mismatch', 'no-matching-key', 'unverifiable', 'unverifiable-digest-type']
+    .map(match => D.matchConfirmsAnchor(confirmedMatch({ match }))),
+  [false, false, false, false]);
+eq('the key half of the rule still applies here',
+  [D.matchConfirmsAnchor(confirmedMatch({ matchedKeyHasZoneFlag: false })),
+   D.matchConfirmsAnchor(confirmedMatch({ matchedKeyAlgorithmEligibility: 'ineligible' })),
+   D.matchConfirmsAnchor(confirmedMatch({ matchedKeyStructure: 'invalid' }))],
+  [false, false, false]);
+eq('and nothing anchors on a missing match', D.matchConfirmsAnchor(null), false);
 
 /* ── dnskeyCanAnchor, directly ───────────────────────────────────────── */
 

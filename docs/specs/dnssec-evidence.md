@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.3 (Final) |
+| Spec version | 1.4 (Final) |
 | Target release | 0.5.0 |
 | Status | Final — implementation may begin |
 | Depends on | [dns-protocol-depth](implemented/dns-protocol-depth.md) for `DS`, `DNSKEY` and `TLSA` transport support, the `DnsTypeError` re-throw in `optionalCheck()`, and the per-host `authenticated` field on `checkTlsa()` |
@@ -143,6 +143,7 @@ function parseDs(presentationString) → {
   algorithmEligibility: 'eligible' | 'ineligible' | 'unknown',
   digestType: number,
   digestName: string,
+  digestEligibility: 'eligible' | 'ineligible' | 'unknown',
   digest: string,         // lowercase hex
   deprecated: boolean,
   valid: boolean,
@@ -262,6 +263,11 @@ cannot compute — a registered type parsed without its registered grammar is a
 gap, not forward compatibility. Only a genuinely unassigned or private-use
 value is carried unjudged.
 
+Reserved and private-use digest ranges are **named**, not left null, so a value
+from them cannot read as a possible future assignment: RFC 9904 reserves
+128–252 and sets 253–254 aside for private use, while 7–127 and 255 are
+genuinely unassigned and are the only values that get no name.
+
 Deprecated set, per **RFC 9905 §3.1 and RFC 9906**, which obsolete RFC 8624's
 tables: algorithms 1 (RSAMD5), 3 and 6 (DSA family), 5 and 7 (RSASHA1 family)
 and 12 (ECC-GOST); digest types 1 (SHA-1, "deprecated for delegation" — it must
@@ -308,10 +314,13 @@ mismatch *because of its digest type* — still holds.
 Result per DS:
 
 ```js
-{ keyTag, algorithm, digestType,
-  matchedKey: keyTag | null,
+{ keyTag, algorithm, digestType, digestEligibility,
+  matchedKeyTag: number | null,
+  matchedKeyIndex: number | null,   // WHICH candidate; the tag cannot say
   match: 'confirmed' | 'no-matching-key' | 'digest-mismatch'
        | 'unverifiable-digest-type' | 'unverifiable',
+  unverifiableReason: 'invalid-ds' | 'invalid-owner'
+       | 'runtime-unavailable' | 'unbuildable-key' | null,
   // Facts about the key the digest matched, kept beside the match and never
   // folded into it.
   matchedKeyAlgorithmEligibility: 'eligible' | 'ineligible' | 'unknown' | null,
@@ -323,7 +332,43 @@ Result per DS:
 
 `digest-mismatch` means a DNSKEY with the right key tag and algorithm exists but
 hashes to something else, which is the classic signature of a half-completed key
-rollover. `unverifiable` is the conservative fallback for any parse failure.
+rollover.
+
+**`matchedKeyTag` cannot identify a candidate, and does not claim to.** Every
+key in a collision set shares the tag by definition — RFC 4034 Appendix B says
+so outright — so `matchedKeyIndex` names the DNSKEY that actually hashed and
+supplied the eligibility facts beside it. The field was called `matchedKey`,
+which implied an identity a key tag cannot carry.
+
+**`unverifiable` carries its reason.** Four distinct failures shared the token:
+a DS that did not parse, an owner name the encoder refused, a runtime that
+could not hash, and a candidate set whose RDATA could not be rebuilt. A detail
+panel cannot remediate a result it cannot explain, and this is the same
+information loss the aggregate `evidence` field was corrected for in §5.
+`unverifiable-digest-type` stays a separate verdict rather than a reason: a
+registered digest this build does not implement is a different statement from a
+runtime failing at one it does.
+
+**The order of the checks is normative.**
+
+1. The DS parsed, and the owner name encodes. Otherwise `unverifiable` with a
+   reason — both are statements about our input, not about the zone.
+2. **Candidate selection, before digest capability.** "No key carries that tag
+   and algorithm" is established without hashing anything. Deciding capability
+   first reported `unverifiable-digest-type` for an orphan DS whose digest this
+   build cannot compute, hiding orphan evidence behind a local limitation and
+   dropping the record out of `orphanDs` — the same absent key changing verdict
+   according to which hashes happen to be implemented.
+3. Digest capability. A registered type this build cannot compute is
+   `unverifiable-digest-type`.
+4. Hash every candidate that can be rebuilt.
+
+**A proven confirmation is never revoked.** A digest failure on a later
+candidate must not discard an earlier candidate's confirmed match; before this
+was fixed the verdict depended on array order. The precedence is total: any
+confirmation wins, then a computation failure is `unverifiable`, and
+`digest-mismatch` requires that every rebuildable candidate was hashed and none
+matched.
 
 **The match verdict and the key's eligibility are separate facts and must not
 be collapsed into one token.** A DS whose digest matches a key has proved
@@ -345,11 +390,18 @@ So the digest result stands on its own, and the eligibility facts sit beside it:
   RRsets. Demonstrably ineligible, from a bit this release can read.
 - **`keyStructure: 'invalid'`.** A recognized algorithm carrying impossible
   material cannot be usable anchoring evidence, even if a digest matches it.
+- **Digest type affirmatively prohibited.** The IANA DS registry's **"Use for
+  DNSSEC Validation"** column, which is the applicable one — this tool inspects
+  delegations that exist rather than creating them. The columns genuinely
+  disagree, and reading the delegation column instead would mark every SHA-1
+  anchor in use as prohibited: SHA-1 is `MUST NOT` for delegation and
+  `RECOMMENDED` for validation, with `Implement for DNSSEC Validation: MUST`.
+  Only affirmative `MUST NOT` for validation is a prohibition — types 0 and 3.
 - **REVOKE flag set.** *Not* demonstrably anything. RFC 5011 §2.1 needs a
   validated self-signature this release does not compute, so the flag is
   reported and nothing is concluded from it.
 
-The first three exclude a key from `anchorConfirmed`. The fourth does not. A DS
+The first four exclude a match from `anchorConfirmed`. The fifth does not. A DS
 matching only an ineligible key falls to the residual rule 6 of §4 rather than
 producing `mismatch` — raising a critical alarm on a zone that may simply be
 mid-rollover is the `paypal.com` failure in a new costume.
@@ -358,11 +410,20 @@ Derived from the set:
 
 ```js
 anchorConfirmed = ds.some(d => d.match === 'confirmed' &&
+                              d.digestEligibility !== 'ineligible' &&
                               d.matchedKeyAlgorithmEligibility === 'eligible' &&
                               d.matchedKeyHasZoneFlag === true &&
                               d.matchedKeyStructure !== 'invalid')
 orphanDs        = ds.filter(d => d.match === 'no-matching-key').map(d => d.keyTag)
 ```
+
+The rule is written **once** in the implementation and read from two angles —
+off a key object and off a match result. Stated twice it drifts: a mutation
+disqualifying a REVOKE-flagged key was caught by only one of the two before
+they were joined. The digest-eligibility clause is unreachable through the
+matcher today, since the only prohibited types are also ones Web Crypto cannot
+compute, so it is tested directly rather than left as a guard nothing
+exercises.
 
 **`anchorConfirmed` is existential, and this matters.** `paypal.com` publishes
 two DS records: key tag 7037 confirms its KSK, and key tag 34800 matches
@@ -635,6 +696,14 @@ the single most error-prone piece of this release.
 | DS with correct key tag, wrong digest | `digest-mismatch` |
 | DS with a key tag no DNSKEY carries | `no-matching-key` |
 | Matching SHA-1 DS | `confirmed` **and** `deprecated: true` — computed, not declined |
+| SHA-384 DS | Confirmed via SHA-384, against RFC 6605 §6.2's published P-384 key and DS |
+| RFC 6605 §6.1 P-256 key and DS | Key tag 55648, confirmed via SHA-256 |
+| Orphan DS whose digest type is uncomputable | `no-matching-key`, and it reaches `orphanDs` |
+| A candidate confirms, a later one fails to hash | `confirmed` — a proven match is never revoked |
+| Nothing confirms and a computation failed | `unverifiable` with `runtime-unavailable` |
+| Each `unverifiable` cause | Distinct `unverifiableReason` |
+| Key tag collision | `matchedKeyIndex` names which candidate hashed |
+| Digest type 0 or 3 | `digestEligibility: 'ineligible'`, distinct from a type merely unimplemented |
 | Non-matching SHA-1 DS | `digest-mismatch` and `deprecated: true` |
 | GOST R 34.11-94 DS | `unverifiable-digest-type`, `deprecated: true`, never `mismatch` |
 | A runtime that rejects a digest algorithm | `unverifiable`, never `mismatch` |
@@ -844,6 +913,7 @@ be mid-rollover is the `paypal.com` failure in a different costume. See §3.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-08-20 | Initial draft. |
+| 1.4 | 2026-08-26 | Amended after the round-4 Codex review of the step-3 digest matcher, which returned six findings; all six reproduced before anything changed. **A proven confirmation could be revoked** — a digest failure on a later candidate returned `unverifiable` even when an earlier candidate had already confirmed, making the verdict depend on array order. The precedence is now total and normative: any confirmation wins, then a computation failure, then `digest-mismatch` only when every rebuildable candidate hashed and none matched. **Digest capability was checked before candidate selection**, so an orphan DS whose digest this build cannot compute reported `unverifiable-digest-type` and vanished from `orphanDs` — an absent key changing verdict according to which hashes are implemented. Candidate selection now comes first. **The DS digest registry repeated the algorithm-eligibility defect**: `digestEligibility` now carries the IANA determination beside the digest, read from the **"Use for DNSSEC Validation"** column, because that is the column that applies to a tool inspecting delegations rather than creating them — the columns disagree, and reading the delegation one would mark every SHA-1 anchor in use as prohibited. Reserved and private-use ranges are named so they cannot read as future assignments. **`unverifiable` lost its reason**, conflating an unparseable DS, a refused owner name, a runtime failure and an unbuildable candidate set; `unverifiableReason` separates them, and `unverifiable-digest-type` stays a verdict rather than becoming a reason. **`matchedKey` claimed an identity a key tag cannot carry** — every key in a collision set shares it, per RFC 4034 Appendix B — so it is `matchedKeyTag` beside a `matchedKeyIndex` that names the candidate, and the test asserting `matchedKey === 60485` proved nothing because both keys were forced to that tag. **The required SHA-384 matcher fixture was absent**; RFC 6605 §§6.1–6.2's published P-256 and P-384 examples are now permanent vectors. One guard the round exposed indirectly: the digest-eligibility clause in `anchorConfirmed` is unreachable through the matcher, since every prohibited digest type is also uncomputable, and mutating it away failed nothing — it is now tested directly rather than left as protection nothing exercises. |
 | 1.3 | 2026-08-26 | Amended after verifying the 1.2 corrections against the RFCs and against live DNS. The 1.2 RSA structure check applied one 512-bit modulus floor to every RSA algorithm, citing RFC 3110 §3 — but **RFC 5702 §2.2 requires 1024 bits for RSA/SHA-512**, so a 512-bit algorithm-10 key was reported structurally valid against the explicit MUST of the RFC that defines it. The floor is now per-algorithm. This is the permissive direction and breaks no real zone; it is recorded because it is the same shape as every finding in this series — a recognized algorithm accepted without the value constraint its own specification states — arriving this time inside the fix written to close that pattern. The `dnssec-deprecated-digest` row also still named only digest type 1 while §2 and the implementation had already deprecated type 3 as well. **Verification:** the 1.2 tightening was re-checked against 153 live DNSKEY records across 62 zones including the root and 30 TLDs — 68 of them RSA — and rejected none, which is the evidence the round-1 response lacked when it tightened this validator against two keys. |
 | 1.2 | 2026-08-26 | Amended after the Codex review of the round-1 corrections. The IANA refresh had carried four named algorithms that the same registry marks `Zone Signing: N`, but the matcher could still count them as anchors; `algorithmEligibility` now preserves that independent registry fact and `anchorConfirmed` requires an affirmative `eligible`. The RSA structure check had implemented only field presence while citing RFC 3110's full grammar; it now requires the canonical exponent-length form, rejects leading zero octets, and enforces the 4096-bit exponent and 512–4096-bit modulus protocol limits. Two stale role/localization statements were corrected, and the remaining audited-domain DANE findings were removed from the 0.6.0 draft because the already-shipped per-MX-host `authenticated` evidence is the only chain fact that applies to TLSA. |
 | 1.1 | 2026-08-26 | Amended after the round-1 review of the Final spec, which returned seven findings; amended rather than deferred to **As implemented** because each one changes promised behaviour or result shape, and `docs/specs/README.md` says a Final spec discovered to be wrong is amended and re-versioned rather than allowed to diverge. **The classifier could not tell a missing DS from a failed DS lookup** — both leave an empty array, so rule 4 would have reported `unanchored` on a lookup that never returned, which is the unknown-as-absent defect reappearing inside the classifier written to remove it; per-query `lookups` status now gates rules 4 and 5, and the aggregate `evidence` survives only as a derived summary. **A recognized algorithm accepted impossible key material**: `257 3 15 AA==`, a one-octet Ed25519 key, parsed as valid and computed a key tag, so `keyStructure` now separates the record from the key with `unknown` reserved for grammars this build does not implement. **Two fields claimed more than they observed** — `isKsk` became `hasSep` (RFC 6840 §6.2: the SEP bit has no effect on how a key may be used and validation is prohibited from consulting it) and `isRevoked` became `hasRevokeFlag` (RFC 5011 §2.1 requires a self-signed RRset this release does not validate). **The registries were stale**: algorithms 17, 18 and 23 and digest types 5 and 6 were missing, so a one-octet SM3 digest parsed as a valid unnamed record; RFC 8624 is superseded by RFC 9905 and RFC 9906. **`dnsWireName()` folded case before checking ASCII**, so U+212A KELVIN SIGN became a plain `k` and encoded a different owner name than the caller asked about. **Retiring `qualified` left five active documents pointing at a deleted field**, now corrected. The review also found that §3's reason for declining SHA-1 was false — `SubtleCrypto.digest` supports it; GOST R 34.11-94 is the type that cannot be computed — so a SHA-1 DS is now computed and reported with `deprecated: true` rather than presented as an unknown where a known was available. Two corrections came from the RFCs rather than from either party: RFC 6840 §5.5 makes RFC 4034 Appendix B.1's algorithm-1 key tag erroneous, and §5.11 supplies normative support for the existential `anchorConfirmed` that 1.0 had justified only from `paypal.com`. `OQ-SEC9-08` added. Evidence: [fixtures/dnssec-live-states-0.5.0.md](fixtures/dnssec-live-states-0.5.0.md). |

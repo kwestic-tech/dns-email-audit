@@ -44,7 +44,7 @@ rationale, the dependency map, and the group-by-group execution plan.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [dnssec-evidence](dnssec-evidence.md) | 0.5.0 | 1.3 | **Final — implementation in progress** |
+| [dnssec-evidence](dnssec-evidence.md) | 0.5.0 | 1.4 | **Final — implementation in progress** |
 | [findings-and-remediation](findings-and-remediation.md) | 0.6.0 | 0.1 | Draft, awaiting review |
 | [local-artifact-validation](local-artifact-validation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
 | [report-comparison](report-comparison.md) | 0.8.0 | 0.1 | Draft, awaiting review |
