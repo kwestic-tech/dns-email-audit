@@ -44,10 +44,19 @@ rationale, the dependency map, and the group-by-group execution plan.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [findings-and-remediation](findings-and-remediation.md) | 0.6.0 | 0.1 | Draft, awaiting review |
-| [local-artifact-validation](local-artifact-validation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
-| [report-comparison](report-comparison.md) | 0.8.0 | 0.1 | Draft, awaiting review |
+| [modular-architecture-and-production-build](modular-architecture-and-production-build.md) | 0.6.0 | 0.1 | Draft, awaiting review |
+| [findings-and-remediation](findings-and-remediation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
+| [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 0.1 | Draft, awaiting review |
+| [report-comparison](report-comparison.md) | 0.9.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.1 | Draft, decision pending |
+
+**2026-08-27 — the three feature specs each moved up one release number** to
+make room for the architectural refactor at 0.6.0. Per the naming rule above
+this is expected and costs nothing: the specs are named for their capability,
+and their filenames, open-question identifiers and content are unchanged. The
+refactor takes the slot because all three of them read or extend the output
+shapes inside `js/dns.js`, and the boundaries are cheaper to establish before
+three more releases are layered onto a 5,704-line file than after.
 
 ## Captured evidence
 

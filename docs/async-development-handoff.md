@@ -113,32 +113,49 @@ explicit reconciliation rather than being left to default behavior:
 
 ## 1. Priority order (why this order, not release order)
 
+> **Amended 2026-08-27.** `modular-architecture-and-production-build` was added
+> at 0.6.0 and the three feature specs each moved up one release number —
+> `findings-and-remediation` 0.6.0 → 0.7.0, `local-artifact-validation`
+> 0.7.0 → 0.8.0, `report-comparison` 0.8.0 → 0.9.0. Only the numbers changed:
+> spec filenames, `OQ-*` identifiers, dependency structure and the usefulness
+> ranking below are all untouched, per the naming rule in
+> [`docs/specs/README.md`](specs/README.md). The refactor is inserted as
+> **Phase 3½**, described in §4½ below.
+
 | Order | Spec | Usefulness | Group | Why here |
 | --- | --- | --- | --- | --- |
-| 1 | `rendering-and-robustness` (0.2.3) | 4/10 | A | Hard prerequisite gate for 0.3.0 and 0.7.0. Must go first regardless of its own score. |
+| 1 | `rendering-and-robustness` (0.2.3) | 4/10 | A | Hard prerequisite gate for 0.3.0 and 0.8.0. Must go first regardless of its own score. |
 | 2 | `dmarcbis-tree-walk` (0.3.0) | 7/10 | B (link 1/3) | First link in the protocol-correctness chain; also decides the fixture-resolver mechanism (`OQ-DMARC-03`) that 0.4.0 and 0.5.0 testing reuses. |
 | 3 | `dns-protocol-depth` (0.4.0) | 9/10 | B (link 2/3) | Second link; adds `DS`/`DNSKEY`/`TLSA` transport 0.5.0 needs, and the per-host `authenticated` evidence 0.5.0 keeps as the honest ceiling for DANE. |
-| 3′ | `local-artifact-validation` (0.7.0) | 5/10 | D (parallel) | Can start as soon as 0.2.3 lands, run alongside the whole B chain. Only sync point is 0.6.0's `Finding` shape (stub it, reconcile later). |
+| 3′ | `local-artifact-validation` (0.8.0) | 5/10 | D (parallel) | Can start as soon as 0.2.3 lands, run alongside the whole B chain. Only sync point is 0.7.0's `Finding` shape (stub it, reconcile later). |
 | 4 | `dnssec-evidence` (0.5.0) | 6/10 | B (link 3/3) | Closes the B chain; needs 0.4.0's transport and TLSA shape. |
-| 5 | `findings-and-remediation` (0.6.0) | 10/10 | C | Highest end-user value in the roadmap, but structurally the most downstream — it reads the output shapes of 0.3.0, 0.4.0, and 0.5.0. Cannot start for real until B is done. |
-| 6 | `report-comparison` (0.8.0) | 4/10 | E | Hard-bound to 0.6.0's finding-id namespace. Last in the signal chain. |
+| 4′ | `modular-architecture-and-production-build` (0.6.0) | n/a | G | **Added 2026-08-27.** No end-user value by design — it ships no observable change. Sits between B and C because every spec below it reads or extends output shapes inside `js/dns.js`, and the boundaries cost less to establish before three more releases land on a 5,704-line file than after. |
+| 5 | `findings-and-remediation` (0.7.0) | 10/10 | C | Highest end-user value in the roadmap, but structurally the most downstream — it reads the output shapes of 0.3.0, 0.4.0, and 0.5.0. Cannot start for real until B is done. |
+| 6 | `report-comparison` (0.9.0) | 4/10 | E | Hard-bound to 0.7.0's finding-id namespace. Last in the signal chain. |
 | — | `external-intelligence` | 1/10 | F | No code. Finalize as a **decision document** (mark `1.0 (Final)` as a deliberate refusal per its own `OQ-EXT-04`) whenever convenient — no dependency either direction. |
 | — | `excluded-requires-companion-app` | n/a | n/a | No code, ever, in this repo. Documentation only, already recorded. Nothing to schedule. |
 
 **Net effect on wall-clock:** the long pole is 0.2.3 → 0.3.0 → 0.4.0 → 0.5.0 →
-0.6.0 → 0.8.0, a six-link sequential chain. The only real parallelism
-available is 0.7.0 running alongside links 2–5 of that chain. `external-intelligence`
+0.6.0 → 0.7.0 → 0.9.0, a seven-link sequential chain. The only real parallelism
+available is 0.8.0 running alongside links 2–5 of that chain. `external-intelligence`
 and the exclusion spec can be closed out by a single agent at any point with no
 scheduling coordination.
 
 ```
-Phase 1        Phase 2                          Phase 3      Phase 4    Phase 5
-0.2.3    ──┬──  0.3.0 → 0.4.0 → 0.5.0    ────►   0.6.0   ──► 0.8.0
-           │
-           └──  0.7.0  (starts after 0.2.3, syncs once at 0.6.0's Finding type)
+Phase 1        Phase 2                        Phase 3½   Phase 4    Phase 5
+0.2.3    ──┬──  0.3.0 → 0.4.0 → 0.5.0   ────►  0.6.0  ──► 0.7.0  ──► 0.9.0
+           │                                  refactor
+           └──  0.8.0  (starts after 0.2.3, syncs once at 0.7.0's Finding type)
 
 anytime, no coordination:  external-intelligence → Final ; excluded-requires-companion-app already recorded
 ```
+
+> **The refactor is a serialization point, and that is the cost of scheduling
+> it here.** It moves every file the parallel 0.8.0 track will touch. Either
+> 0.8.0 finishes and merges before Phase 3½ starts, or it rebases onto `src/`
+> afterwards. Landing them concurrently means resolving a rename of the entire
+> source tree by hand, which is the one merge this plan should never ask anyone
+> to do.
 
 ---
 
@@ -155,11 +172,11 @@ anytime, no coordination:  external-intelligence → Final ; excluded-requires-c
 > [`docs/specs/implemented/`](specs/implemented/rendering-and-robustness.md)
 > with its **As implemented** section.
 >
-> **Phase 2 (0.3.0) and Phase 3 (0.7.0) are now unblocked** and may run in
+> **Phase 2 (0.3.0) and Phase 3 (0.8.0) are now unblocked** and may run in
 > parallel.
 
 **Why first:** everything else in this plan either directly depends on it
-(0.3.0, 0.7.0) or transitively does (everything downstream of those two).
+(0.3.0, 0.8.0) or transitively does (everything downstream of those two).
 This is also the designated pilot for the whole async pipeline — the spec
 farthest along, with the least ambiguity and no RFC-transcription risk — so
 it's the phase used to validate the process itself before trusting it on the
@@ -183,11 +200,11 @@ these directly rather than re-deriving or re-asking:
   insert, per the positional-header backfill rule at `js/app.js:744`.
 - **`OQ-SEC-12` (do record-hygiene observations become findings, or stay
   display annotations) → resolved as: stay annotations in 0.2.3, explicitly
-  deferred to `findings-and-remediation` (0.6.0).** Reasoning: this release's
+  deferred to `findings-and-remediation` (0.7.0).** Reasoning: this release's
   own non-goals rule out a scoring change and any edit to `js/dns.js` for
   grading purposes; turning a hygiene observation into a finding mid-release
   would smuggle a scope change into a release whose entire point is rendering
-  correctness. 0.6.0 is where severity gets modeled properly.
+  correctness. 0.7.0 is where severity gets modeled properly.
 
 **Action:** write these into the spec's **Resolved questions** table (with
 "0.2 workflow, approved 2026-08-24" or similar as the resolving context) and
@@ -277,8 +294,8 @@ missing record, `np=` gated on actual domain existence rather than applied
 unconditionally, and the three tightenings to `checkExternalReportAuth()`.
 
 **Cross-cutting field to protect:** `foundAt`, `labelsUp`, and `terminated`
-are read directly by `findings-and-remediation` (0.6.0, Phase 4) and exported
-as schema fields by `report-comparison` (0.8.0, Phase 5). If you rename any of
+are read directly by `findings-and-remediation` (0.7.0, Phase 4) and exported
+as schema fields by `report-comparison` (0.9.0, Phase 5). If you rename any of
 these during implementation, update both downstream specs in the same pass —
 do not leave it for Phase 4/5 to discover.
 
@@ -448,7 +465,7 @@ chain.**
 
 ---
 
-## 4. Phase 3 (parallel with Phase 2, links 2–3) — `local-artifact-validation` (0.7.0)
+## 4. Phase 3 (parallel with Phase 2, links 2–3) — `local-artifact-validation` (0.8.0)
 
 **Start condition:** as soon as Phase 1 (0.2.3) is merged. Does not need to
 wait for any part of Phase 2 — it has no data dependency on DMARC discovery,
@@ -456,7 +473,7 @@ DKIM key analysis, or DNSSEC state. Run this as a parallel workstream against
 the 0.4.0/0.5.0 links of Phase 2.
 
 **One soft sync point:** section 6 of the spec references "the Finding shape
-from 0.6.0" for `artifactFindings`. Since 0.6.0 hasn't been built yet when
+from 0.7.0" for `artifactFindings`. Since 0.7.0 hasn't been built yet when
 this phase starts, define a local stub matching the `Finding` type as
 described in `findings-and-remediation.md` section 1, and reconcile the
 actual shape once Phase 4 lands. Flag this reconciliation explicitly in the
@@ -479,7 +496,7 @@ gets built, not just how it's tested.
 - `OQ-ART-05` (does a verified MTA-STS policy earn the withheld scoring
   points) — draft says no, report the finding without changing the score.
   Consistent with the advisory-before-scoring rule in section 0.
-- `OQ-ART-07` (do artifact findings appear in the 0.8.0 report export) —
+- `OQ-ART-07` (do artifact findings appear in the 0.9.0 report export) —
   draft excludes them; this needs to match whatever `report-comparison`
   (Phase 5) actually implements, so confirm the two specs agree before Phase 5
   starts.
@@ -496,7 +513,72 @@ and confirm none appear. Move to `docs/specs/implemented/`.
 
 ---
 
-## 5. Phase 4 — `findings-and-remediation` (0.6.0)
+## 4½. Phase 3½ — `modular-architecture-and-production-build` (0.6.0)
+
+**Added 2026-08-27.** Not part of the original eight-workstream evaluation, and
+it scores no usefulness points — by design it ships no observable change.
+
+**Start condition:** Phase 2 fully merged and released (0.3.0, 0.4.0, 0.5.0),
+which it is. The spec makes released 0.5.0 the behavioral baseline explicitly,
+because a refactor needs a fixed reference and a released tag is the only
+honest one.
+
+**Finish condition, and this is the scheduling constraint that matters:**
+finish it before Phase 4 starts, and before the parallel Phase 3 track merges.
+It renames every source file in the repository. Two branches that both touch
+`js/dns.js` cannot both be right afterwards.
+
+**Detailed plan:**
+[`Modular Architecture, Production Build Refactor Implementation.md`](../Modular%20Architecture,%20Production%20Build%20Refactor%20Implementation.md)
+— six phases, per-phase gates, and the standing verification commands. Read it
+rather than re-deriving the sequence; the ordering constraints in it are not
+arbitrary.
+
+**Blocking open questions.** Unlike most phases here, three `OQ-ARCH-*` must be
+answered before *any* code is written, because each changes what the work is:
+
+- `OQ-ARCH-01` — esbuild, another bundler, or no bundler at all.
+- `OQ-ARCH-02` — whether `package-lock.json` gets committed. It is git-ignored
+  today, and the spec's own pinning requirement is impossible until it is not.
+  This is the project's first-ever dependency; treat it as the supply-chain
+  decision it is.
+- `OQ-ARCH-07` — parallel `js/` tree during migration, or convert in place.
+
+Five more (`-03` compatibility target, `-04` source maps, `-05` bundle split,
+`-06` losing `file://`, `-08` locale gate in CI) are answered inside their own
+phase and reorder nothing.
+
+**What this phase must not do**, and the temptation is real because the
+architecture makes each of them easy: no concurrency change, no request
+deduplication beyond today's cache, no audit cancellation, no Web Worker, no
+finding-schema redesign, no bundle splitting. Spec §46: a capability is not
+implemented merely because the refactor made it possible.
+
+**One correction worth carrying forward from the spec review.** The source
+proposal asked for stable machine-readable finding identifiers as though they
+did not exist. They do — the token vocabulary is the binding rule in
+`js/dns.js`'s header and in section 0.3 of this document. Renaming
+`'spf-missing'` to `SPF_LOOKUP_LIMIT`-style constants was **declined**: it would
+touch every locale file and every `issue.*` key for no behavioral gain. Any
+agent picking up this phase should expect the token vocabulary to come out
+byte-identical, and treat a diff in it as a defect rather than progress.
+
+**Key correctness surface:** the three-way equivalence replay — `v0.5.0` `js/`
+versus refactored `src/` versus the built `dist/app.min.js` — against a
+deterministic fixture corpus. It must be fixtures, not `tools/backtest.mjs`:
+that tool queries live DNS, so two of its runs differ because someone else's
+records changed. The bundle arm is the one the source proposal left out
+entirely, and it is the arm that catches a minifier or tree-shaking fault
+before production does.
+
+**On completion:** `js/` is deleted, `AGENTS.md` documents module ownership,
+`npm test` is no lower than 2,121 assertions, `npm run locale:gate` is 13/13,
+and `PRIVACY.md` needed no edit. Move the spec to `docs/specs/implemented/`.
+**This unblocks Phase 4.**
+
+---
+
+## 5. Phase 4 — `findings-and-remediation` (0.7.0)
 
 **Start condition:** Phase 2 fully merged (0.3.0, 0.4.0, 0.5.0). This is the
 highest end-user-value spec in the roadmap and also the one with the most
@@ -544,10 +626,10 @@ across all fourteen locales (acceptance criterion 4 — this is the property
 
 ---
 
-## 6. Phase 5 — `report-comparison` (0.8.0)
+## 6. Phase 5 — `report-comparison` (0.9.0)
 
 **Start condition:** Phase 4 fully merged. Finding identity (the `id`
-namespace from 0.6.0) is a hard prerequisite — the spec is explicit that
+namespace from 0.7.0) is a hard prerequisite — the spec is explicit that
 comparing on locale keys or message text "would report every finding as new
 the moment a translation changed."
 
@@ -557,7 +639,7 @@ the moment a translation changed."
   single `analysisVersion` replacing `rubricVersion`. **This field cannot be
   repurposed later once reports are in the wild**, so lock it in deliberately
   rather than defaulting.
-- `OQ-CMP-07` (do 0.7.0's artifact findings appear in the export) — resolve
+- `OQ-CMP-07` (do 0.8.0's artifact findings appear in the export) — resolve
   in agreement with whatever Phase 3 actually shipped for `OQ-ART-07`. If the
   two specs disagree, that's a real inconsistency to fix before either merges
   further, not a documentation nit.
