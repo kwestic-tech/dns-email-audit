@@ -13,6 +13,7 @@
  *   node tools/backtest.mjs --sample              # built-in 40-domain sample
  *   node tools/backtest.mjs domains.txt --comprehensive-dkim # max 5 domains
  *   node tools/backtest.mjs --sample --deep      # with MX health + TLSA
+ *   node tools/backtest.mjs --dnssec-states      # live DNSSEC state coverage
  *
  * Every run also reports the DNS query fan-out — the number of DoH requests
  * actually issued, per domain. `PRIVACY.md` states that number publicly, so it
@@ -37,6 +38,12 @@ const comprehensiveDkim = args.includes('--comprehensive-dkim');
 // fan-out has to be measured rather than reasoned about. PRIVACY.md states the
 // number with and without them; this flag is how both halves are obtained.
 const deepChecks = args.includes('--deep');
+// Live DNSSEC state coverage. Deliberately NOT merged into SAMPLE: that list is
+// a longitudinal score baseline compared release to release, and mixing
+// deliberately-broken test zones into it would change what its histogram means.
+// The two are complementary — fixtures cover the state logic exhaustively and
+// offline, and this catches a real zone or resolver changing behaviour under us.
+const dnssecStates = args.includes('--dnssec-states');
 const fileArg = args.find(a => !a.startsWith('--'));
 
 // A spread of well-known domains across sectors and maturity levels. Not a
@@ -53,7 +60,41 @@ const SAMPLE = [
   'nytimes.com', 'bbc.co.uk',
 ];
 
-const domains = useSample
+/**
+ * One live domain per state the classifier can produce, with what it should
+ * report. Captured 2026-08-26 and cross-checked against a second resolver;
+ * every one is recorded with its evidence in
+ * docs/specs/fixtures/dnssec-live-states-0.5.0.md.
+ *
+ * A divergence here is not automatically a defect. A zone that publishes its
+ * DS record has fixed itself and the expectation is what needs updating — but
+ * that is a fact worth being told rather than one to discover later, so this
+ * mode exits non-zero and names what moved.
+ *
+ * `mismatch` has no entry. No live domain in that state was found while this
+ * was written, and inventing one is not possible; it is covered deterministically
+ * by fixtures in tools/scoring.test.mjs section 47. Saying so is the point —
+ * an omitted row would read as coverage this mode does not have.
+ */
+const DNSSEC_STATE_DOMAINS = [
+  { domain: 'cloudflare.com', expect: 'secure' },
+  { domain: 'ietf.org', expect: 'secure' },
+  { domain: 'gov.uk', expect: 'secure' },
+  { domain: 'verisigninc.com', expect: 'secure', note: 'RSASHA256, not ECDSA' },
+  { domain: 'paypal.com', expect: 'secure', note: 'orphan DS 34800 beside a confirming one' },
+  { domain: 'amazon.com', expect: 'insecure' },
+  { domain: 'godaddy.com', expect: 'insecure' },
+  { domain: 'python.org', expect: 'insecure' },
+  { domain: 'quad9.net', expect: 'unanchored' },
+  { domain: 'fsf.org', expect: 'unanchored' },
+  { domain: 'atlassian.com', expect: 'unanchored', note: 'also in SAMPLE' },
+  { domain: 'dnssec-failed.org', expect: 'bogus' },
+  { domain: 'servfail.nl', expect: 'bogus', note: 'DS confirms locally; the zone is still bogus' },
+];
+
+const domains = dnssecStates
+  ? DNSSEC_STATE_DOMAINS.map(d => d.domain)
+  : useSample
   ? SAMPLE
   : readFileSync(fileArg || join(ROOT, 'domains.txt'), 'utf8')
     .split(/\r?\n/).map(s => s.trim().toLowerCase())
@@ -156,6 +197,14 @@ if (asJson) {
       organizationalDomain: r.organizationalDomain ?? null,
       dmarcStatus: r.dmarcStatus.status,
       dnssec: !!r.advanced?.dnssec?.signed,
+      // The state, not only the boolean. A diff between two runs could compare
+      // `dnssec` and see no movement while every domain's diagnosis changed,
+      // which is exactly what happened the first time this was used to check
+      // the 0.5.0 invariant.
+      dnssecState: r.advanced?.dnssec?.state ?? null,
+      dnssecAnchorConfirmed: r.advanced?.dnssec?.anchorConfirmed ?? null,
+      dnssecOrphanDs: r.advanced?.dnssec?.orphanDs ?? null,
+      dnssecEvidence: r.advanced?.dnssec?.evidence ?? null,
       dkim: {
         found: r.dkimStatus.found,
         scanMode: r.dkimStatus.scanMode,
@@ -228,6 +277,48 @@ scored.slice().sort((a, b) => a.score.pts - b.score.pts).slice(0, 10)
 console.log(`\nBEST 10`);
 scored.slice().sort((a, b) => b.score.pts - a.score.pts).slice(0, 10)
   .forEach(r => console.log(`  ${r.score.grade.padEnd(4)} ${String(r.score.pts).padStart(3)}  ${r.domain}`));
+
+if (dnssecStates) {
+  console.log(`\nDNSSEC STATE COVERAGE`);
+  // The classifier is what this mode tests, so it is called directly. Going
+  // only through analyzeDomain() would report "(not audited)" for a bogus zone
+  // and hide the reason — see the note below, which is a real limitation of
+  // the audit rather than of the classifier.
+  const audited = new Map(scored.map(r => [r.domain, r]));
+  let moved = 0;
+  const unauditable = [];
+  for (const { domain, expect, note } of DNSSEC_STATE_DOMAINS) {
+    const dnssec = await D.checkDNSSEC(domain, { retries: 1 });
+    const agrees = dnssec.state === expect;
+    if (!agrees) moved++;
+    if (!audited.has(domain)) unauditable.push(domain);
+    console.log(`  ${agrees ? '✓' : '✗'} ${domain.padEnd(20)} ${String(expect).padEnd(12)}` +
+      (agrees ? '' : `observed ${dnssec.state}  `) +
+      (audited.has(domain) ? '' : '[full audit did not complete] ') +
+      (note ? `— ${note}` : ''));
+  }
+
+  console.log(`\n  no live domain is listed for 'mismatch'; it is covered by fixtures only`);
+
+  if (unauditable.length) {
+    // Not a defect in this release, and not silent. A validating resolver
+    // SERVFAILs every query for a bogus zone, including the core NS lookup,
+    // which requireUsable() turns into a throw that discards the whole audit
+    // before checkDNSSEC() is ever consulted. So `dnssec-bogus` is reachable
+    // in the classifier and, for a genuinely bogus zone, not reachable in the
+    // interface. That has been true since the finding shipped in 0.4.0.
+    console.log(`\n  ${unauditable.join(', ')}: classifier correct, full audit aborts`);
+    console.log(`  A validating resolver SERVFAILs every query for a bogus zone, so the core`);
+    console.log(`  NS lookup throws before checkDNSSEC() is consulted. Pre-existing since 0.4.0.`);
+  }
+
+  if (moved) {
+    console.log(`\n  ${moved} domain(s) no longer report their recorded state.`);
+    console.log(`  Re-verify against the resolver and update both DNSSEC_STATE_DOMAINS`);
+    console.log(`  and docs/specs/fixtures/dnssec-live-states-0.5.0.md before trusting a run.`);
+    process.exitCode = 1;
+  }
+}
 
 console.log(`\nDNS QUERY FAN-OUT`);
 console.log(`  ${fanOut.networkQueries} network queries across ${fanOut.domains} domains`);

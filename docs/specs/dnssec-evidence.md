@@ -620,6 +620,22 @@ exactly as 0.4.0 shipped it.
 | `dnssec-key-malformed` | A DS confirms a key whose `keyStructure` is `invalid` | warn |
 | `dnssec-bogus`, `dnssec-indeterminate` | unchanged from 0.4.0 | crit, warn |
 
+**`dnssec-bogus` is reachable in the classifier and, for a genuinely bogus
+zone, not reachable in the interface.** A validating resolver SERVFAILs *every*
+query for such a zone, including the core NS lookup, and `requireUsable()`
+turns that into a throw that discards the whole audit before `checkDNSSEC()` is
+consulted. Measured on `dnssec-failed.org` and `servfail.nl`: the classifier
+returns `bogus` correctly, and `analyzeDomain()` never completes.
+
+This has been true since the finding shipped in 0.4.0 and is **not changed
+here** — making a core lookup non-fatal is a resilience decision belonging to
+[resilient-optional-checks](implemented/resilient-optional-checks.md), which
+deliberately keeps the core NS/MX/TXT lookups fatal, and reversing it would
+change what every failed audit in the tool reports. It is recorded because the
+finding's presence in this table would otherwise imply an operator can see it.
+`--dnssec-states` prints the limitation on every run rather than leaving the
+two rows looking like a classifier defect.
+
 `dnssec-unanchored` is a warning, not a critical. A zone signed with no DS gets
 no protection, but that does not prove breakage — it is also the legitimate
 intermediate state of a careful rollout that signs first and publishes the DS
