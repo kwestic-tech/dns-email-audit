@@ -135,13 +135,16 @@ risk in this release is not the arithmetic.
 ## 7. A live domain for every state
 
 The draft's Testing section says a domain in `unanchored` and `mismatch` should
-be found "if one can be found". They can:
+be found "if one can be found". Live `unanchored` domains were found; no live
+`mismatch` domain was, so that state remains fixture-only rather than being
+silently presented as live coverage:
 
 | State | Live domains | Evidence |
 | --- | --- | --- |
 | `secure` | `cloudflare.com`, `ietf.org`, `gov.uk`, `verisigninc.com` | DS confirms DNSKEY, AD true |
 | `insecure` | `amazon.com`, `godaddy.com`, `python.org`, `gnu.org` | no DNSKEY, no DS, AD false |
 | `unanchored` | **`quad9.net`** (3 DNSKEY, 0 DS), **`fsf.org`** (2 DNSKEY, 0 DS) | AD false on NS |
+| `mismatch` | _none found_ | Deterministic fixture in `tools/scoring.test.mjs` §47 |
 | orphan DS beside a good one | `paypal.com` | §5 above |
 | `bogus` | `dnssec-failed.org`, `servfail.nl` | §4 above |
 

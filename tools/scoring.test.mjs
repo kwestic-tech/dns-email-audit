@@ -3164,7 +3164,7 @@ sandbox.fetch = dohFixture({
 const tlsaResult = await D.checkTlsa(
   ['signed.example', 'unsigned.example', 'bare.example'], { retries: 0, noCache: true });
 eq('TLSA is found where published',   tlsaResult.hosts[0].present, true);
-eq('and the digest survives the query', tlsaResult.hosts[0].records[0].data, DIGEST.toLowerCase());
+eq('and the digest survives the query', tlsaResult.hosts[0]?.records[0]?.data, DIGEST.toLowerCase());
 eq('a signed answer is authenticated', tlsaResult.hosts[0].authenticated, true);
 eq('an unsigned answer is not',        tlsaResult.hosts[1].authenticated, false);
 eq('a host without TLSA is absent',    tlsaResult.hosts[2].present, false);
@@ -4871,6 +4871,8 @@ eq('the chain states which link was checked',
   [['local', 'child-dnskey-to-parent-ds']]);
 eq('an incomplete lookup appears in the chain',
   dsFailed.chain.filter(c => c.claim === 'lookup-incomplete').map(c => c.detail.query), ['ds']);
+eq('an incomplete link is not claimed as checked',
+  dsFailed.chain.some(c => c.claim === 'link-checked'), false);
 
 /* ── Deprecation reporting ───────────────────────────────────────────── */
 
@@ -4894,6 +4896,37 @@ eq('and only AD true ever produces secure',
   [secure, secureDespiteGap, bogusButConfirming, unanchored, insecure]
     .map(r => [r.state === 'secure', r.resolverValidated]),
   [[true, true], [true, true], [false, false], [false, false], [false, false]]);
+
+/* ── The bogus verdict reaches the integrated audit ─────────────────── */
+
+// The first core NS query used to throw on SERVFAIL before checkDNSSEC() was
+// called, so the critical finding existed but no genuinely bogus domain could
+// display it. Ordinary core lookups below deliberately SERVFAIL; only their
+// cd=1 variants return data, proving analyzeDomain() takes the diagnostic path
+// after the classifier confirms the failure is DNSSEC validation.
+const BOGUS_OWNER = 'bogus-integration.example';
+sandbox.fetch = dohFixture({
+  [`${BOGUS_OWNER} NS`]: 'servfail',
+  [`${BOGUS_OWNER} NS cd`]: ns('ns1.bogus-integration.example.'),
+  [`${BOGUS_OWNER} DS`]: 'nodata',
+  [`${BOGUS_OWNER} DNSKEY`]: 'nodata',
+  [`${BOGUS_OWNER} MX`]: 'servfail',
+  [`${BOGUS_OWNER} MX cd`]: mx('10 mail.bogus-integration.example.'),
+  [`${BOGUS_OWNER} TXT`]: 'servfail',
+  [`${BOGUS_OWNER} TXT cd`]: txt('v=spf1 -all'),
+  [`${BOGUS_OWNER} A`]: 'servfail',
+  [`${BOGUS_OWNER} A cd`]: a('203.0.113.10'),
+  [`${BOGUS_OWNER} AAAA`]: 'servfail',
+  [`${BOGUS_OWNER} AAAA cd`]: 'nodata',
+});
+const integratedBogus = await D.analyzeDomain(BOGUS_OWNER, {
+  dkim: false, advanced: true, wildcard: false, www: false,
+});
+eq('a genuinely bogus zone completes the integrated audit', integratedBogus.error, undefined);
+eq('the integrated audit preserves the validating resolver verdict',
+  [integratedBogus.advanced.dnssec.state, integratedBogus.advanced.dnssec.signed], ['bogus', false]);
+eq('and the critical bogus finding reaches the result row',
+  integratedBogus.issues.filter(i => i.key === 'dnssec-bogus').map(i => i.sev), ['crit']);
 }
 
 /* ── 48. DNSSEC findings (spec §7) ────────────────────────────────────

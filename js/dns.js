@@ -3963,9 +3963,10 @@
   /**
    * DNSSEC chain state, and the evidence behind it.
    *
-   * Two axes, and keeping them apart is the whole design. `state` comes from
-   * the resolver's AD verdict and from what is published; the DS-to-DNSKEY
-   * arithmetic in `matchDsSet()` is diagnostic and never reaches it.
+   * Two axes, and keeping them apart is the whole design. `secure` comes only
+   * from the resolver's AD verdict. The DS-to-DNSKEY arithmetic can diagnose
+   * a definite mismatch when AD is already false, but it can never promote a
+   * zone to secure or demote one the resolver authenticated.
    * `servfail.nl` is why: its DS confirms its KSK by SHA-256, its DNSKEY set is
    * published, and the zone is bogus. Local evidence agreeing is not the same
    * as the chain validating.
@@ -4060,10 +4061,12 @@
     }
 
     // ── Attribution ──────────────────────────────────────────────────────
-    // OQ-SEC9-03: exactly one link is checked, and the chain says so, because
-    // showing one link without naming it implies a completeness this release
-    // does not have.
-    chain.push({ claim: 'link-checked', source: 'local', detail: { child: domain, link: 'child-dnskey-to-parent-ds' } });
+    // OQ-SEC9-03: exactly one link is checked when both answers arrived, and
+    // the chain says which one. If either lookup failed, claiming the link was
+    // checked would contradict the `lookup-incomplete` evidence below.
+    if (lookups.ds.completed && lookups.dnskey.completed) {
+      chain.push({ claim: 'link-checked', source: 'local', detail: { child: domain, link: 'child-dnskey-to-parent-ds' } });
+    }
     ds.forEach(function (record) {
       if (record.match === 'confirmed') {
         chain.push({
@@ -5341,10 +5344,26 @@
 
   async function analyzeDomain(domain, opts) {
     const d = domain.toLowerCase().trim();
-    const queryOpts = { signal: opts.signal };
+    let queryOpts = { signal: opts.signal };
+    let dnssecPreflight = null;
 
     // Probe NS first — NXDOMAIN (Status 3) means the domain isn't registered
-    const nsResult = await dohFetch(d, 'NS', queryOpts);
+    let nsResult = await dohFetch(d, 'NS', queryOpts);
+    // A validating resolver deliberately returns SERVFAIL for a bogus chain.
+    // Treating that like an ordinary core-query failure made the critical
+    // `dnssec-bogus` finding unreachable in the application: the audit threw
+    // here before the DNSSEC classifier ran. When advanced checks are enabled,
+    // establish that verdict first and, only for a confirmed bogus chain,
+    // retrieve the remaining diagnostic records with checking disabled. The
+    // DNSSEC result still comes from the validating query; cd=1 merely lets the
+    // rest of the row exist so the operator can see the failure and its data.
+    if (nsResult.kind === 'servfail' && opts.advanced) {
+      dnssecPreflight = await checkDNSSEC(d, queryOpts);
+      if (dnssecPreflight.state === 'bogus') {
+        queryOpts = Object.assign({}, queryOpts, { checkingDisabled: true });
+        nsResult = await dohFetch(d, 'NS', queryOpts);
+      }
+    }
     requireUsable(nsResult, d, 'NS');
     const ns = nsResult.answers.filter(a => a.type === 2).map(a => a.data.replace(/^"|"$/g, '').trim());
     if (nsResult.status === 3) {
@@ -5477,7 +5496,7 @@
         optionalCheck(() => dohQuery(`_smtp._tls.${d}`, 'TXT', queryOpts), null),
         optionalCheck(() => checkCAA(d, queryOpts),
           error => ({ found: false, records: [], atDomain: null, unknown: true, error: (error && error.kind) || 'dns-error' })),
-        checkDNSSEC(d, queryOpts),
+        dnssecPreflight ? Promise.resolve(dnssecPreflight) : checkDNSSEC(d, queryOpts),
         spfRecord
           ? optionalCheck(() => countSpfLookups(spfRecord, d, queryOpts),
             error => ({ count: 0, warning: false, error: false, voidLookups: 0, cycles: [], indeterminate: true, unknown: true, queryError: (error && error.kind) || 'dns-error' }))

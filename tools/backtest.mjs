@@ -280,40 +280,27 @@ scored.slice().sort((a, b) => b.score.pts - a.score.pts).slice(0, 10)
 
 if (dnssecStates) {
   console.log(`\nDNSSEC STATE COVERAGE`);
-  // The classifier is what this mode tests, so it is called directly. Going
-  // only through analyzeDomain() would report "(not audited)" for a bogus zone
-  // and hide the reason — see the note below, which is a real limitation of
-  // the audit rather than of the classifier.
+  // Check both surfaces. The direct call isolates the classifier; the full
+  // audit proves the same verdict reaches the result row. A previous version
+  // checked only the first and therefore passed while genuinely bogus zones
+  // aborted at the core NS probe before the finding could reach the interface.
   const audited = new Map(scored.map(r => [r.domain, r]));
   let moved = 0;
-  const unauditable = [];
   for (const { domain, expect, note } of DNSSEC_STATE_DOMAINS) {
     const dnssec = await D.checkDNSSEC(domain, { retries: 1 });
-    const agrees = dnssec.state === expect;
+    const integrated = audited.get(domain)?.advanced?.dnssec?.state ?? null;
+    const agrees = dnssec.state === expect && integrated === expect;
     if (!agrees) moved++;
-    if (!audited.has(domain)) unauditable.push(domain);
     console.log(`  ${agrees ? '✓' : '✗'} ${domain.padEnd(20)} ${String(expect).padEnd(12)}` +
-      (agrees ? '' : `observed ${dnssec.state}  `) +
-      (audited.has(domain) ? '' : '[full audit did not complete] ') +
+      (dnssec.state === expect ? '' : `classifier ${dnssec.state}  `) +
+      (integrated === expect ? '' : `full audit ${integrated || 'did not complete'}  `) +
       (note ? `— ${note}` : ''));
   }
 
   console.log(`\n  no live domain is listed for 'mismatch'; it is covered by fixtures only`);
 
-  if (unauditable.length) {
-    // Not a defect in this release, and not silent. A validating resolver
-    // SERVFAILs every query for a bogus zone, including the core NS lookup,
-    // which requireUsable() turns into a throw that discards the whole audit
-    // before checkDNSSEC() is ever consulted. So `dnssec-bogus` is reachable
-    // in the classifier and, for a genuinely bogus zone, not reachable in the
-    // interface. That has been true since the finding shipped in 0.4.0.
-    console.log(`\n  ${unauditable.join(', ')}: classifier correct, full audit aborts`);
-    console.log(`  A validating resolver SERVFAILs every query for a bogus zone, so the core`);
-    console.log(`  NS lookup throws before checkDNSSEC() is consulted. Pre-existing since 0.4.0.`);
-  }
-
   if (moved) {
-    console.log(`\n  ${moved} domain(s) no longer report their recorded state.`);
+    console.log(`\n  ${moved} domain(s) no longer report their recorded state end to end.`);
     console.log(`  Re-verify against the resolver and update both DNSSEC_STATE_DOMAINS`);
     console.log(`  and docs/specs/fixtures/dnssec-live-states-0.5.0.md before trusting a run.`);
     process.exitCode = 1;
