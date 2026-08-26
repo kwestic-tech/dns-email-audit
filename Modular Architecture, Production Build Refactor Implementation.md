@@ -378,12 +378,30 @@ references repo-wide, run a link check over every markdown file, add the
 **As implemented** section, convert Open questions to **Resolved questions**,
 bump to `1.0 (Implemented)`, add the Revision history row.
 
-**Task 6.8** — `CHANGELOG.md`, in the voice of the finished thing.
+**Task 6.8** — `CHANGELOG.md`, in the voice of the finished thing. Not a log of
+what happened across six phases — the decision, not the path to it.
 
-**Task 6.9** — Cut the release as the last commit on the branch: bump
-`package.json` to `0.6.0`, promote `## [Unreleased]`, add compare links, set
-released status in the spec header, `docs/specs/README.md`, `ROADMAP.md` and the
-phase marker in `docs/async-development-handoff.md`.
+**Task 6.9** — **Cut the release as its own commit, over its own file set.**
+This is the last commit on the branch, and it touches **no code**:
+
+| File | Change |
+| --- | --- |
+| `package.json` | version → `0.6.0` |
+| `CHANGELOG.md` | `## [Unreleased]` promoted, compare links added |
+| `README.md` | assertion count, build commands, behaviour statements |
+| `docs/specs/implemented/modular-architecture-and-production-build.md` | status → released, `1.0 (Implemented)` |
+| `docs/specs/README.md` | row moves to the Implemented table |
+| `ROADMAP.md` | 0.6.0 marked released |
+| `docs/async-development-handoff.md` | Phase 3½ marker → RELEASED |
+
+The separation is the point. Over a six-phase branch the temptation to slip a
+CHANGELOG line in beside a code change is constant, and a version bump buried in
+a commit that also moves 5,000 lines is illegible in `git log` and impossible to
+revert on its own. **If a commit touches both a file in the table above and a
+file under `src/`, it is two commits.**
+
+Read the assertion count out of a real `npm test` run rather than from memory —
+it drifted from 174 to 489 unnoticed once already.
 
 **Task 6.10** — `pr-description.md`, structured like
 [PR #4](https://github.com/kwestic-tech/dns-email-audit/pull/4), with real
