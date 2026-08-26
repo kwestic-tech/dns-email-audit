@@ -4310,6 +4310,210 @@ eq('RDATA opens with the flags, protocol and algorithm',
   Array.from(D.dnskeyRdata(rfcKey).slice(0, 4)), [1, 0, 3, 5]);
 eq('an invalid key yields no RDATA', D.dnskeyRdata(D.parseDnskey('256 4 13 abcd')), null);
 
+/* ── 46. Local DS-to-DNSKEY digest matching (RFC 4034 §5.1.4) ─────────
+   Step 3. The only part of this release that computes rather than reports.
+   Its reference vectors are RFC 4034 §5.4's example key with RFC 4509 §2.3's
+   SHA-256 DS for that same key, so the digest input, the canonical owner name
+   and the RDATA reconstruction are all checked against published values
+   rather than against this implementation's own output.
+
+   The governing rule is that every failure path lands on `unverifiable` and
+   never on `digest-mismatch`. A mismatch tells an operator their DNSSEC is
+   broken; only arithmetic that actually ran is entitled to say so.
+   ──────────────────────────────────────────────────────────────────────── */
+section('46. Local DS-to-DNSKEY digest matching');
+
+// Block-scoped: this section declares a lot of locals and the file is one
+// long module. Top-level await is legal inside a block in an ES module.
+{
+
+const OWNER = 'dskey.example.com';
+const rfcKeySet = [D.parseDnskey(RFC4034_KEY)];
+const RFC4509_DS = '60485 5 2 D4B7D520E7BB5F0F67674A0CCEB1E3E0614B93C4F9E99B8383F6A1E4469DA50A';
+const RFC4034_DS = '60485 5 1 2BB183AF5F22588179A53B0A98631FAD1A292118';
+const matchOne = async (dsText, keys = rfcKeySet, owner = OWNER) =>
+  D.matchDsToDnskeys(D.parseDs(dsText), keys, owner);
+
+eq('the RFC 4509 §2.3 SHA-256 DS confirms the RFC 4034 §5.4 key',
+  (await matchOne(RFC4509_DS)).match, 'confirmed');
+eq('and it names the key it matched', (await matchOne(RFC4509_DS)).matchedKey, 60485);
+eq('the match is attributed to local computation',
+  (await matchOne(RFC4509_DS)).computedLocally, true);
+
+// Acceptance criterion 5, as amended at 1.1. SHA-1 is a registered Web Crypto
+// digest and is computed; it is never a mismatch BECAUSE of its digest type.
+eq('the RFC 4034 §5.4 SHA-1 DS is computed, not declined',
+  (await matchOne(RFC4034_DS)).match, 'confirmed');
+eq('and the DS still reports the digest type as deprecated',
+  D.parseDs(RFC4034_DS).deprecated, true);
+
+eq('a right tag with a wrong digest is a mismatch',
+  (await matchOne('60485 5 2 ' + 'ab'.repeat(32))).match, 'digest-mismatch');
+eq('a tag no DNSKEY carries has no matching key',
+  (await matchOne('11111 5 2 ' + 'ab'.repeat(32))).match, 'no-matching-key');
+eq('an algorithm no DNSKEY carries has no matching key',
+  (await matchOne('60485 8 2 ' + 'ab'.repeat(32))).match, 'no-matching-key');
+eq('an empty DNSKEY set has no matching key',
+  (await matchOne(RFC4509_DS, [])).match, 'no-matching-key');
+
+/* ── The digest binds the owner name ─────────────────────────────────── */
+
+eq('an uppercase owner folds to the same canonical form',
+  (await matchOne(RFC4509_DS, rfcKeySet, 'DSKEY.EXAMPLE.COM')).match, 'confirmed');
+eq('the same DS under a different owner does not confirm',
+  (await matchOne(RFC4509_DS, rfcKeySet, 'other.example.com')).match, 'digest-mismatch');
+// An owner name the encoder refuses is a statement about our input, not about
+// the zone, so it must not reach the alarming verdict.
+eq('an owner name the encoder refuses is unverifiable, never a mismatch',
+  (await matchOne(RFC4509_DS, rfcKeySet, 'K.example')).match, 'unverifiable');
+
+/* ── Uncomputable and unparseable both land on unverifiable ──────────── */
+
+// GOST-94, GOST-2012 and SM3 are registered digest types that Web Crypto does
+// not implement. Digest type 0 is reserved by RFC 3658 — named so it does not
+// read as an unassigned future type, and not rejected, because RFC 3658
+// reserves the value without saying a DS carrying it is invalid.
+for (const [digestType, label] of [[3, 'GOST R 34.11-94'], [5, 'GOST R 34.11-2012'], [6, 'SM3'], [0, 'the reserved type']]) {
+  eq(`${label} cannot be computed and says so`,
+    (await matchOne(`60485 5 ${digestType} ` + 'ab'.repeat(32))).match, 'unverifiable-digest-type');
+}
+eq('the reserved digest type is named, not left null', D.parseDs('60485 5 0 ab').digestName, 'RESERVED');
+eq('a DS that did not parse is unverifiable', (await matchOne('not a ds record')).match, 'unverifiable');
+eq('a DS with a bad digest length is unverifiable, never a mismatch',
+  (await matchOne('60485 5 2 D4B7D5')).match, 'unverifiable');
+
+/* ── The runtime is never allowed to accuse the operator ─────────────── */
+
+// Capability is tested by executing. A runtime with no crypto.subtle, or one
+// that rejects an algorithm it advertised, produces `unverifiable` — "our
+// environment could not hash this" and "your zone is broken" are different
+// sentences and only one of them is ours to say.
+const realCrypto = sandbox.crypto;
+sandbox.crypto = undefined;
+eq('no crypto.subtle at all is unverifiable, never a mismatch',
+  (await matchOne(RFC4509_DS)).match, 'unverifiable');
+sandbox.crypto = { subtle: { digest: async () => { throw Object.assign(new Error('nope'), { name: 'NotSupportedError' }); } } };
+eq('a runtime rejecting the algorithm is unverifiable, never a mismatch',
+  (await matchOne(RFC4509_DS)).match, 'unverifiable');
+sandbox.crypto = realCrypto;
+eq('and the real runtime still confirms once restored',
+  (await matchOne(RFC4509_DS)).match, 'confirmed');
+
+/* ── Key tag collisions ──────────────────────────────────────────────── */
+
+// A key tag is not unique. Every DNSKEY sharing the tag and algorithm is
+// tried, and the DS confirms if any of them hashes correctly.
+const decoy = D.parseDnskey('256 3 5 ' + Buffer.concat([
+  Buffer.from([0x03, 1, 0, 1]), Buffer.alloc(128, 0xab)]).toString('base64'));
+decoy.keyTag = 60485;   // force the collision the real world produces by chance
+eq('a colliding decoy ahead of the real key still confirms',
+  (await matchOne(RFC4509_DS, [decoy, ...rfcKeySet])).match, 'confirmed');
+eq('and it reports the key that actually hashed',
+  (await matchOne(RFC4509_DS, [decoy, ...rfcKeySet])).matchedKey, 60485);
+
+/* ── Eligibility sits beside the match, never inside it ──────────────── */
+
+const eligibilityOf = async keyText => {
+  const key = D.parseDnskey(keyText);
+  const ds = D.parseDs(`${key.keyTag} ${key.algorithm} 2 ` + await sha256Of(key));
+  return D.matchDsSet([ds], [key], OWNER);
+};
+// Build the true DS for an arbitrary key so each case differs only in the flag
+// or algorithm under test, never in whether the digest is right.
+async function sha256Of(key) {
+  const owner = D.dnsWireName(OWNER);
+  const rdata = D.dnskeyRdata(key);
+  const input = new Uint8Array(owner.length + rdata.length);
+  input.set(owner, 0); input.set(rdata, owner.length);
+  return Buffer.from(await crypto.subtle.digest('SHA-256', input)).toString('hex');
+}
+const KEY_BODY = RFC4034_KEY.split(' ').slice(3).join(' ');
+
+// Zone bit clear: RFC 4034 §2.1.1 forbids the key verifying RRsets.
+const nonZoneSet = await eligibilityOf(`1 3 5 ${KEY_BODY}`);
+eq('a DS confirming a zone-bit-clear key still confirms the digest',
+  nonZoneSet.ds[0].match, 'confirmed');
+eq('but that key cannot anchor the delegation', nonZoneSet.anchorConfirmed, false);
+
+// IANA Zone Signing: N. RSAMD5 is named and parseable and still ineligible.
+const ineligibleSet = await eligibilityOf('256 3 1 qrvMEjRW');
+eq('a DS confirming a non-zone-signing algorithm still confirms the digest',
+  ineligibleSet.ds[0].match, 'confirmed');
+eq('but an ineligible algorithm cannot anchor', ineligibleSet.anchorConfirmed, false);
+eq('and the reason is carried beside the match',
+  ineligibleSet.ds[0].matchedKeyAlgorithmEligibility, 'ineligible');
+
+// Impossible key material cannot be usable anchoring evidence.
+const malformedSet = await eligibilityOf('257 3 15 AA==');
+eq('a DS confirming structurally impossible material still confirms the digest',
+  malformedSet.ds[0].match, 'confirmed');
+eq('but invalid key structure cannot anchor', malformedSet.anchorConfirmed, false);
+
+// The REVOKE flag is the one that concludes nothing. RFC 5011 §2.1 needs a
+// validated self-signature this release does not compute, so the flag is
+// reported and the key still anchors.
+const revokedSet = await eligibilityOf(`385 3 5 ${KEY_BODY}`);
+eq('a REVOKE flag is reported', revokedSet.ds[0].matchedKeyHasRevokeFlag, true);
+eq('and it does NOT stop the key anchoring — the proof is incomplete, not negative',
+  revokedSet.anchorConfirmed, true);
+
+// SEP is advisory (RFC 6840 §6.2) and must never be required by the matcher.
+const noSepSet = await eligibilityOf(`256 3 5 ${KEY_BODY}`);
+eq('a key without the SEP bit anchors perfectly well', noSepSet.anchorConfirmed, true);
+
+/* ── The set, and the paypal.com shape ───────────────────────────────── */
+
+// RFC 6840 §5.11: where several DS records exist for keys of one algorithm,
+// "any subset of those may appear in the DNSKEY RRset". One confirming DS
+// beside one orphan is a healthy zone, and this is the exact shape paypal.com
+// publishes — the case that overturned the 1.0 design.
+const anchorKey = rfcKeySet[0];
+const trueDs = D.parseDs(RFC4509_DS);
+const orphanDs = D.parseDs('34800 5 2 ' + 'cd'.repeat(32));
+const mixed = await D.matchDsSet([trueDs, orphanDs], rfcKeySet, OWNER);
+eq('a confirming DS beside an orphan still anchors', mixed.anchorConfirmed, true);
+eq('and the orphan is reported by key tag', mixed.orphanDs, [34800]);
+eq('order does not matter',
+  (await D.matchDsSet([orphanDs, trueDs], rfcKeySet, OWNER)).anchorConfirmed, true);
+
+eq('an empty DS set anchors nothing and reports no orphan',
+  await D.matchDsSet([], rfcKeySet, OWNER), { ds: [], anchorConfirmed: false, orphanDs: [] });
+eq('a DS set that only mismatches anchors nothing',
+  (await D.matchDsSet([D.parseDs('60485 5 2 ' + 'ab'.repeat(32))], rfcKeySet, OWNER)).anchorConfirmed, false);
+eq('and a mismatch is not reported as an orphan',
+  (await D.matchDsSet([D.parseDs('60485 5 2 ' + 'ab'.repeat(32))], rfcKeySet, OWNER)).orphanDs, []);
+
+/* ── dnskeyCanAnchor, directly ───────────────────────────────────────── */
+
+eq('the anchoring predicate needs all three affirmative facts',
+  [D.dnskeyCanAnchor(anchorKey),
+   D.dnskeyCanAnchor(Object.assign({}, anchorKey, { hasZoneFlag: false })),
+   D.dnskeyCanAnchor(Object.assign({}, anchorKey, { algorithmEligibility: 'unknown' })),
+   D.dnskeyCanAnchor(Object.assign({}, anchorKey, { keyStructure: 'invalid' })),
+   D.dnskeyCanAnchor(Object.assign({}, anchorKey, { hasRevokeFlag: true })),
+   D.dnskeyCanAnchor(null)],
+  [true, false, false, false, true, false]);
+
+// The rule lives in one place. `dnskeyCanAnchor()` reads it off a key object
+// and `matchDsSet()` reads it off the published match fields, and both defer
+// to `anchorFactsUsable()` — stated twice they drift, and a mutation that
+// wrongly disqualified a REVOKE-flagged key was caught by only one of the two
+// before they were joined.
+eq('both anchoring paths agree across the whole fact space', await (async () => {
+  const disagreements = [];
+  for (const eligibility of ['eligible', 'ineligible', 'unknown']) {
+    for (const hasZoneFlag of [true, false]) {
+      for (const keyStructure of ['valid', 'invalid', 'unknown']) {
+        const viaKey = D.dnskeyCanAnchor({ algorithmEligibility: eligibility, hasZoneFlag, keyStructure });
+        const viaFacts = D.anchorFactsUsable(eligibility, hasZoneFlag, keyStructure);
+        if (viaKey !== viaFacts) disagreements.push([eligibility, hasZoneFlag, keyStructure]);
+      }
+    }
+  }
+  return disagreements;
+})(), []);
+}
+
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);
