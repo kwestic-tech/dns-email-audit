@@ -3941,19 +3941,189 @@
     };
   }
 
+  /**
+   * A definite answer, as opposed to one that never arrived.
+   *
+   * `success` or `nodata` only, which is exactly what 0.4.0's `checkDNSSEC()`
+   * accepted before rule 2 below inherited it. NXDOMAIN on the NS probe stays
+   * `indeterminate` rather than becoming `insecure`: both score zero, but
+   * `indeterminate` is what marks the DNSSEC pillar unproven in
+   * `unprovenPillars()`, and quietly moving a domain out of that set would
+   * change what the interface reports about a check that did not run.
+   */
+  function dnssecLookupStatus(result) {
+    return {
+      completed: result.kind === 'success' || result.kind === 'nodata',
+      kind: result.kind,
+    };
+  }
+
+  /**
+   * DNSSEC chain state, and the evidence behind it.
+   *
+   * Two axes, and keeping them apart is the whole design. `state` comes from
+   * the resolver's AD verdict and from what is published; the DS-to-DNSKEY
+   * arithmetic in `matchDsSet()` is diagnostic and never reaches it.
+   * `servfail.nl` is why: its DS confirms its KSK by SHA-256, its DNSKEY set is
+   * published, and the zone is bogus. Local evidence agreeing is not the same
+   * as the chain validating.
+   *
+   * **This function must never throw.** It is the only entry in the
+   * `Promise.all` at the advanced-checks call site with no `optionalCheck()`
+   * wrapper, and that is safe only because it reads `dohFetch()`'s `.kind`
+   * rather than calling `requireUsable()`. Keep it that way, or add the
+   * wrapper — `optionalCheck()` re-throws `DnsTypeError`, so a typo in a
+   * record type still fails loudly either way.
+   */
   async function checkDNSSEC(domain, queryOpts) {
-    // AD=true means the validating resolver authenticated the answer. If the
-    // normal query SERVFAILs but succeeds with checking disabled, the chain is
-    // bogus rather than merely unsigned.
-    const validated = await dohFetch(domain, 'NS', Object.assign({}, queryOpts, { dnssec: true }));
-    if (validated.kind === 'success' || validated.kind === 'nodata') {
-      return { signed: validated.ad, state: validated.ad ? 'secure' : 'insecure' };
-    }
+    var dnssecOpts = Object.assign({}, queryOpts, { dnssec: true });
+    // The DS record is owned by the child name and served by the parent zone,
+    // so one query at the child name is the correct and only lookup.
+    var answers = await Promise.all([
+      dohFetch(domain, 'NS', dnssecOpts),
+      dohFetch(domain, 'DS', dnssecOpts),
+      dohFetch(domain, 'DNSKEY', dnssecOpts),
+    ]);
+    var validated = answers[0];
+    var dsAnswer = answers[1];
+    var keyAnswer = answers[2];
+
+    var lookups = {
+      ns: dnssecLookupStatus(validated),
+      ds: dnssecLookupStatus(dsAnswer),
+      dnskey: dnssecLookupStatus(keyAnswer),
+    };
+
+    // Filter on the numeric type. A `do=1` answer carries the RRSIG beside the
+    // record it signs, and an unfiltered parser reads `DS 8 2 3600 …` as a DS
+    // record with key tag NaN — no error, matching no key, and a mismatch
+    // verdict on every signed domain audited.
+    var keys = keyAnswer.answers.filter(function (a) { return a.type === 48; })
+      .map(function (a) { return parseDnskey(cleanAnswerData(a.data, 'DNSKEY')); });
+    var dsRecords = dsAnswer.answers.filter(function (a) { return a.type === 43; })
+      .map(function (a) { return parseDs(cleanAnswerData(a.data, 'DS')); });
+
+    var matched = await matchDsSet(dsRecords, keys, domain);
+    // The published `ds` array is the parse and the verdict together, so a
+    // reader never has to join two lists by index to see why a record was
+    // judged the way it was.
+    var ds = dsRecords.map(function (record, i) { return Object.assign({}, record, matched.ds[i]); });
+
+    var chain = [];
+    var state = null;
+
+    // ── Rule 1: bogus ────────────────────────────────────────────────────
+    // A SERVFAIL that resolves with checking disabled is the resolver saying
+    // validation failed, which outranks every local observation below.
+    // `dnssec-failed.org` satisfies rules 1, 2 and 5 at once.
     if (validated.kind === 'servfail') {
-      const unchecked = await dohFetch(domain, 'NS', Object.assign({}, queryOpts, { dnssec: true, checkingDisabled: true }));
-      if (unchecked.kind === 'success' || unchecked.kind === 'nodata') return { signed: false, state: 'bogus' };
+      var unchecked = await dohFetch(domain, 'NS',
+        Object.assign({}, dnssecOpts, { checkingDisabled: true }));
+      if (unchecked.kind === 'success' || unchecked.kind === 'nodata') {
+        state = 'bogus';
+        chain.push({ claim: 'resolver-bogus', source: 'resolver', detail: { kind: validated.kind } });
+      }
     }
-    return { signed: false, state: 'indeterminate', error: validated.kind };
+
+    // ── Rules 2 and 3: the resolver's own verdict ────────────────────────
+    if (state === null && !lookups.ns.completed) {
+      state = 'indeterminate';
+      chain.push({ claim: 'resolver-unreachable', source: 'resolver', detail: { kind: validated.kind } });
+    }
+    if (state === null) {
+      chain.push({ claim: 'resolver-ad', source: 'resolver', detail: { ad: validated.ad === true } });
+      if (validated.ad === true) state = 'secure';
+    }
+
+    // ── Rules 4, 5 and 6: what the child and parent publish ──────────────
+    // Reachable only when AD is false, which is what makes `signed` identical
+    // to 0.4.0 by construction rather than by measurement.
+    if (state === null) {
+      var determinate = ds.filter(function (m) {
+        return m.match === 'confirmed' || m.match === 'digest-mismatch' || m.match === 'no-matching-key';
+      });
+      var anyConfirmed = ds.some(function (m) { return m.match === 'confirmed'; });
+
+      if (lookups.dnskey.completed && keys.length && lookups.ds.completed && !dsRecords.length) {
+        state = 'unanchored';
+      } else if (lookups.ds.completed && lookups.dnskey.completed &&
+        dsRecords.length && keys.length && determinate.length && !anyConfirmed) {
+        // Positive local proof only. A DS set that merely could not be checked,
+        // or one whose only confirmation was against a key that cannot anchor,
+        // falls to the residual below rather than raising the alarm.
+        state = 'mismatch';
+      } else {
+        state = 'insecure';
+      }
+    }
+
+    // ── Attribution ──────────────────────────────────────────────────────
+    // OQ-SEC9-03: exactly one link is checked, and the chain says so, because
+    // showing one link without naming it implies a completeness this release
+    // does not have.
+    chain.push({ claim: 'link-checked', source: 'local', detail: { child: domain, link: 'child-dnskey-to-parent-ds' } });
+    ds.forEach(function (record) {
+      if (record.match === 'confirmed') {
+        chain.push({
+          claim: 'ds-confirms-dnskey', source: 'local',
+          detail: { keyTag: record.keyTag, digestName: record.digestName, anchors: matchConfirmsAnchor(record) },
+        });
+      } else if (record.match === 'no-matching-key' || record.match === 'digest-mismatch') {
+        chain.push({ claim: 'ds-' + record.match, source: 'local', detail: { keyTag: record.keyTag } });
+      } else {
+        chain.push({
+          claim: 'ds-unverifiable', source: 'local',
+          detail: { keyTag: record.keyTag, match: record.match, reason: record.unverifiableReason },
+        });
+      }
+    });
+    // Missing evidence is stated rather than left to be inferred from an empty
+    // array. This is what keeps the residual rule honest: an `insecure` proved
+    // by two empty answers and an `insecure` where neither query returned are
+    // the same verdict from different amounts of evidence.
+    ['ds', 'dnskey'].forEach(function (query) {
+      if (!lookups[query].completed) {
+        chain.push({ claim: 'lookup-incomplete', source: 'local', detail: { query: query, kind: lookups[query].kind } });
+      }
+    });
+
+    var deprecatedAlgorithms = [];
+    keys.concat(ds).forEach(function (record) {
+      if (record.deprecated && record.algorithm !== null &&
+        deprecatedAlgorithms.indexOf(record.algorithm) === -1 &&
+        DEPRECATED_DNSSEC_ALGORITHMS.indexOf(record.algorithm) !== -1) {
+        deprecatedAlgorithms.push(record.algorithm);
+      }
+    });
+    var deprecatedDigests = [];
+    ds.forEach(function (record) {
+      if (DEPRECATED_DNSSEC_DIGESTS.indexOf(record.digestType) !== -1 &&
+        deprecatedDigests.indexOf(record.digestType) === -1) {
+        deprecatedDigests.push(record.digestType);
+      }
+    });
+
+    var evidence = lookups.ds.completed && lookups.dnskey.completed ? 'complete'
+      : lookups.ds.completed || lookups.dnskey.completed ? 'partial' : 'none';
+
+    return {
+      // Unchanged contract: `signed` is true exactly when the resolver
+      // authenticated the answer, so every consumer from calcScore() to the
+      // CSV reads what it read at 0.4.0.
+      signed: state === 'secure',
+      state: state,
+      resolverValidated: validated.ad === true,
+      keys: keys,
+      ds: ds,
+      anchorConfirmed: matched.anchorConfirmed,
+      orphanDs: matched.orphanDs,
+      chain: chain,
+      deprecatedAlgorithms: deprecatedAlgorithms,
+      deprecatedDigests: deprecatedDigests,
+      lookups: lookups,
+      evidence: evidence,
+      error: state === 'indeterminate' ? validated.kind : undefined,
+    };
   }
 
   function parseSpfTerms(spf) {
@@ -5369,6 +5539,7 @@
     auditMxHosts,
     parseTlsaRecord,
     checkTlsa,
+    checkDNSSEC,
     dnsTypeNum,
     // Exported so the test harness can assert its own type map has not drifted
     // from this one. A fixture keyed for a type the transport cannot query is

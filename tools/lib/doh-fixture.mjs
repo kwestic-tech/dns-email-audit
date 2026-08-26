@@ -103,6 +103,17 @@ export function dohFixture(map, options = {}) {
     const type = TYPE_NAME[params.get('type')] || 'TXT';
     calls.push(`${name} ${type}`);
 
+    // A `cd=1` re-query can be answered differently from the same name and
+    // type without it. That difference IS the bogus signature — a SERVFAIL
+    // that succeeds with checking disabled means validation failed rather than
+    // the zone being unsigned — so a fixture has to be able to express it.
+    // Key a variant as "<name> <TYPE> cd"; without one, cd falls back to the
+    // ordinary entry, so every existing fixture behaves exactly as before.
+    if (params.get('cd') === '1') {
+      const cdEntry = map[`${name} ${type} cd`];
+      if (cdEntry !== undefined) return respond(cdEntry, type);
+    }
+
     const entry = resolve(map, name, type, fallback);
     return respond(entry, type);
   };

@@ -4678,6 +4678,220 @@ eq('both anchoring paths agree across the whole fact space', await (async () => 
 })(), []);
 }
 
+/* ── 47. The DNSSEC state classifier (spec §4) ────────────────────────
+   Step 4. The classifier is ORDERED and the order is normative:
+   dnssec-failed.org satisfies three of its rules at once. Rules 4 and 5 also
+   require the lookups they reason about to have completed, which is what stops
+   a failed DS query reading as "no DS published".
+
+   The invariant these fixtures exist to protect: rules 4, 5 and 6 are
+   reachable only when AD is false, and `signed === (state === 'secure')`, so
+   `signed` is identical to 0.4.0 by construction. Measured against the real
+   released v0.4.0 function across 49 live domains: zero differences.
+   ──────────────────────────────────────────────────────────────────────── */
+section('47. The DNSSEC state classifier');
+{
+const OWNER = 'dskey.example.com';
+const KEY = '256 3 5 AQOeiiR0GOMYkDshWoSKz9XzfwJr1AYtsmx3TGkJaNXVbfi/2pHm822aJ5iI9BMzNXxeYCmZDRD99WYwYqUSdjMmmAphXdvxegXd/M5+X7OrzKBaMbCVdFLUUh6DhweJBjEVv5f2wwjM9XzcnOf+EPbtG9DMBmADjFDc2w/rljwvFw==';
+const TRUE_DS = '60485 5 2 D4B7D520E7BB5F0F67674A0CCEB1E3E0614B93C4F9E99B8383F6A1E4469DA50A';
+const WRONG_DS = '60485 5 2 ' + 'ab'.repeat(32);
+const ORPHAN_DS = '11111 5 2 ' + 'cd'.repeat(32);
+
+const chain = async map => {
+  sandbox.fetch = dohFixture(map);
+  return D.checkDNSSEC(OWNER, { retries: 0, noCache: true });
+};
+const signedNs = { ad: true, answers: ns('a.example') };
+const unsignedNs = { ad: false, answers: ns('a.example') };
+
+/* ── Rule 3: the resolver's verdict is the only route to `secure` ────── */
+
+const secure = await chain({
+  [`${OWNER} NS`]: signedNs,
+  [`${OWNER} DNSKEY`]: dnskey(KEY),
+  [`${OWNER} DS`]: ds(TRUE_DS),
+});
+eq('AD true is secure', [secure.state, secure.signed], ['secure', true]);
+eq('and the local evidence confirms alongside it', secure.anchorConfirmed, true);
+
+// servfail.nl, in fixture form: every local fact agrees and the zone is bogus.
+// Local evidence must never assemble a `secure` claim on its own.
+const bogusButConfirming = await chain({
+  [`${OWNER} NS`]: 'servfail',
+  [`${OWNER} NS cd`]: signedNs,     // answers with checking disabled → bogus
+  [`${OWNER} DNSKEY`]: dnskey(KEY),
+  [`${OWNER} DS`]: ds(TRUE_DS),
+});
+eq('a bogus zone whose DS confirms locally is still bogus',
+  [bogusButConfirming.state, bogusButConfirming.signed], ['bogus', false]);
+eq('and the confirmation is still reported as evidence',
+  bogusButConfirming.anchorConfirmed, true);
+
+/* ── Rule 1 outranks everything below it ─────────────────────────────── */
+
+// dnssec-failed.org satisfies rules 1, 2 and 5 simultaneously.
+const bogus = await chain({
+  [`${OWNER} NS`]: 'servfail',
+  [`${OWNER} NS cd`]: signedNs,
+  [`${OWNER} DNSKEY`]: 'servfail',
+  [`${OWNER} DS`]: ds(TRUE_DS),
+});
+eq('SERVFAIL that answers with cd=1 is bogus, not indeterminate or mismatch',
+  bogus.state, 'bogus');
+
+// A SERVFAIL that stays a SERVFAIL with checking disabled is not bogus — the
+// resolver never gave a usable answer either way.
+sandbox.fetch = dohFixture({ [`${OWNER}`]: 'servfail' });
+eq('SERVFAIL both ways is indeterminate',
+  (await D.checkDNSSEC(OWNER, { retries: 0, noCache: true })).state, 'indeterminate');
+
+/* ── Rule 2, and the NXDOMAIN boundary inherited from 0.4.0 ──────────── */
+
+const timedOut = await chain({ [`${OWNER} NS`]: 'http-error', [`${OWNER} DNSKEY`]: dnskey(KEY), [`${OWNER} DS`]: 'nodata' });
+eq('an NS probe that did not complete is indeterminate', timedOut.state, 'indeterminate');
+eq('and it carries the reason', timedOut.error, 'http-error');
+// 0.4.0 treated NXDOMAIN on the NS probe as indeterminate rather than
+// insecure. Both score zero, but only `indeterminate` marks the pillar
+// unproven, so moving it would change what the interface reports.
+eq('NXDOMAIN on the NS probe stays indeterminate, as at 0.4.0',
+  (await chain({ [`${OWNER} NS`]: 'nxdomain', [`${OWNER} DNSKEY`]: 'nodata', [`${OWNER} DS`]: 'nodata' })).state,
+  'indeterminate');
+
+/* ── Rule 4: unanchored, and the failed-lookup precondition ──────────── */
+
+const unanchored = await chain({
+  [`${OWNER} NS`]: unsignedNs,
+  [`${OWNER} DNSKEY`]: dnskey(KEY),
+  [`${OWNER} DS`]: 'nodata',
+});
+eq('DNSKEY published with a completed DS lookup returning nothing is unanchored',
+  unanchored.state, 'unanchored');
+eq('and it is still unsigned, so no grade can move', unanchored.signed, false);
+
+// The defect this precondition exists to stop: a failed DS lookup leaves the
+// same empty array as a completed one that found nothing.
+const dsFailed = await chain({
+  [`${OWNER} NS`]: unsignedNs,
+  [`${OWNER} DNSKEY`]: dnskey(KEY),
+  [`${OWNER} DS`]: 'servfail',
+});
+eq('a FAILED DS lookup is never unanchored', dsFailed.state, 'insecure');
+eq('and the missing evidence is stated rather than inferred',
+  [dsFailed.lookups.ds.completed, dsFailed.lookups.ds.kind, dsFailed.evidence],
+  [false, 'servfail', 'partial']);
+
+/* ── Rule 5: mismatch needs positive local proof ─────────────────────── */
+
+eq('a DS that hashes to something else is a mismatch',
+  (await chain({ [`${OWNER} NS`]: unsignedNs, [`${OWNER} DNSKEY`]: dnskey(KEY), [`${OWNER} DS`]: ds(WRONG_DS) })).state,
+  'mismatch');
+eq('a DS pointing at a key the child does not publish is a mismatch',
+  (await chain({ [`${OWNER} NS`]: unsignedNs, [`${OWNER} DNSKEY`]: dnskey(KEY), [`${OWNER} DS`]: ds(ORPHAN_DS) })).state,
+  'mismatch');
+
+// Never on evidence that could not be gathered.
+eq('a failed DNSKEY lookup is never a mismatch',
+  (await chain({ [`${OWNER} NS`]: unsignedNs, [`${OWNER} DNSKEY`]: 'servfail', [`${OWNER} DS`]: ds(WRONG_DS) })).state,
+  'insecure');
+eq('an uncomputable digest is never a mismatch',
+  (await chain({ [`${OWNER} NS`]: unsignedNs, [`${OWNER} DNSKEY`]: dnskey(KEY), [`${OWNER} DS`]: ds('60485 5 3 ' + 'ab'.repeat(32)) })).state,
+  'insecure');
+// §3: a DS confirming only a key that cannot anchor falls to the residual,
+// because a critical alarm on a mid-rollover zone is the paypal.com failure.
+// The DS has to be computed over THIS key's RDATA — the flags are part of the
+// hashed material, so reusing the DS for the flags-256 key would merely be a
+// digest mismatch and would test rule 5 instead of the residual.
+const nonZoneKey = D.parseDnskey(`1 3 5 ${KEY.split(' ').slice(3).join(' ')}`);
+const nonZoneOwner = D.dnsWireName(OWNER);
+const nonZoneRdata = D.dnskeyRdata(nonZoneKey);
+const nonZoneInput = new Uint8Array(nonZoneOwner.length + nonZoneRdata.length);
+nonZoneInput.set(nonZoneOwner, 0); nonZoneInput.set(nonZoneRdata, nonZoneOwner.length);
+const nonZoneDs = `${nonZoneKey.keyTag} 5 2 ` +
+  Buffer.from(await crypto.subtle.digest('SHA-256', nonZoneInput)).toString('hex');
+const ineligible = await chain({
+  [`${OWNER} NS`]: unsignedNs,
+  [`${OWNER} DNSKEY`]: dnskey(`1 3 5 ${KEY.split(' ').slice(3).join(' ')}`),
+  [`${OWNER} DS`]: ds(nonZoneDs),
+});
+eq('the DS genuinely confirms that key', ineligible.ds[0].match, 'confirmed');
+eq('but the key cannot anchor, so nothing is anchored', ineligible.anchorConfirmed, false);
+eq('and a DS confirming only an ineligible key falls to the residual, not mismatch',
+  ineligible.state, 'insecure');
+
+/* ── Rule 6 residual, and the evidence summary ───────────────────────── */
+
+const insecure = await chain({ [`${OWNER} NS`]: unsignedNs, [`${OWNER} DNSKEY`]: 'nodata', [`${OWNER} DS`]: 'nodata' });
+eq('nothing published anywhere is insecure', insecure.state, 'insecure');
+eq('and both lookups completed, so the absence is evidence',
+  [insecure.lookups.ds.completed, insecure.lookups.dnskey.completed, insecure.evidence],
+  [true, true, 'complete']);
+eq('neither lookup completing reports no evidence at all',
+  (await chain({ [`${OWNER} NS`]: unsignedNs, [`${OWNER} DNSKEY`]: 'servfail', [`${OWNER} DS`]: 'servfail' })).evidence,
+  'none');
+
+/* ── A partial lookup never demotes a validated zone ─────────────────── */
+
+const secureDespiteGap = await chain({
+  [`${OWNER} NS`]: signedNs,
+  [`${OWNER} DNSKEY`]: 'servfail',
+  [`${OWNER} DS`]: ds(TRUE_DS),
+});
+eq('a failed DNSKEY lookup on an AD-true zone is still secure',
+  [secureDespiteGap.state, secureDespiteGap.signed], ['secure', true]);
+eq('and the gap is recorded rather than scored', secureDespiteGap.evidence, 'partial');
+
+/* ── RRSIG companions are ignored (spec §1) ──────────────────────────── */
+
+const withRrsig = await chain({
+  [`${OWNER} NS`]: signedNs,
+  [`${OWNER} DNSKEY`]: [...dnskey(KEY), ...rrsig('DNSKEY 5 3 3600 1792128637 1786858237 60485 dskey.example.com. abcd')],
+  [`${OWNER} DS`]: [...ds(TRUE_DS), ...rrsig('DS 5 2 3600 1792128637 1786858237 60485 example.com. abcd')],
+});
+eq('an RRSIG beside the records is not parsed as one',
+  [withRrsig.keys.length, withRrsig.ds.length], [1, 1]);
+eq('and the real records still confirm', withRrsig.anchorConfirmed, true);
+
+/* ── Attribution (acceptance criteria 1 and 2) ───────────────────────── */
+
+eq('every chain entry is attributed to the resolver or to local computation',
+  secure.chain.filter(c => c.source !== 'resolver' && c.source !== 'local'), []);
+eq('the resolver AD flag is attributed to the resolver',
+  secure.chain.some(c => c.claim === 'resolver-ad' && c.source === 'resolver'), true);
+eq('the digest match is attributed to local computation',
+  secure.chain.some(c => c.claim === 'ds-confirms-dnskey' && c.source === 'local'), true);
+// OQ-SEC9-03: showing one link without naming it implies a completeness this
+// release does not have.
+eq('the chain states which link was checked',
+  secure.chain.filter(c => c.claim === 'link-checked')
+    .map(c => [c.source, c.detail.link]),
+  [['local', 'child-dnskey-to-parent-ds']]);
+eq('an incomplete lookup appears in the chain',
+  dsFailed.chain.filter(c => c.claim === 'lookup-incomplete').map(c => c.detail.query), ['ds']);
+
+/* ── Deprecation reporting ───────────────────────────────────────────── */
+
+eq('a deprecated algorithm is reported from the key set',
+  secure.deprecatedAlgorithms, [5]);
+eq('a SHA-1 DS reports the deprecated digest type',
+  (await chain({ [`${OWNER} NS`]: signedNs, [`${OWNER} DNSKEY`]: dnskey(KEY),
+    [`${OWNER} DS`]: ds('60485 5 1 2BB183AF5F22588179A53B0A98631FAD1A292118') })).deprecatedDigests,
+  [1]);
+
+/* ── The invariant, stated as a test ─────────────────────────────────── */
+
+// `signed` must equal `state === 'secure'` for every state the classifier can
+// produce, which is what makes "no grade moves" a property of the table rather
+// than a hope about the fixtures.
+eq('signed is exactly state === secure, in every state',
+  [secure, bogus, timedOut, unanchored, dsFailed, insecure, secureDespiteGap]
+    .map(r => r.signed === (r.state === 'secure')),
+  [true, true, true, true, true, true, true]);
+eq('and only AD true ever produces secure',
+  [secure, secureDespiteGap, bogusButConfirming, unanchored, insecure]
+    .map(r => [r.state === 'secure', r.resolverValidated]),
+  [[true, true], [true, true], [false, false], [false, false], [false, false]]);
+}
+
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);
