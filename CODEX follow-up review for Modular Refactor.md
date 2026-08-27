@@ -419,3 +419,367 @@ This is intentionally a foundational first round. Once these changes land, the
 next review should focus on the concrete module API shapes, cycle risks in the
 proposed import graph, and whether the expanded fixture corpus covers each
 protocol's failure-state algebra.
+
+---
+
+# Round 2 follow-up — 2026-08-27
+
+**Reviewed head:** `ae394df`
+
+**Spec reviewed:** `0.3 (Draft)`
+
+**Round 1 response:** all eight findings accepted
+
+**Disposition:** **IIFE output accepted in principle; changes still requested
+before `1.0 (Final)`**
+
+## 7. Round 2 executive assessment
+
+Round 1 was folded in accurately. The build now precedes the ESM conversion,
+the page-lifetime cache is preserved, equivalence observes substantially more
+than the grade, and the vacuous token grep and assertion-count gate are gone.
+The separate BIMI owner, explicit banner, lockfile treatment and hybrid test
+layout are also sound corrections.
+
+The proposed IIFE delivery format is acceptable and preferable here. ESM
+source does not require ESM output, and preserving the existing classic-script
+boundary avoids spending `file://` compatibility for no product benefit. A
+single generated global does not recreate internal global coupling **if** the
+source graph is forbidden from reading or writing it.
+
+The current text does not yet establish that condition. It also attributes a
+behavior to esbuild's `globalName` that the option does not have: it exports the
+entry point's exports, not an unrelated object that an imported side-effect
+script assigned to `window`. The composition root, exported facade,
+canonicalization rules, full dependency DAG and protocol failure-state matrix
+remain unspecified. The spec should not become Final until those contracts are
+written down.
+
+## 8. Round 2 findings
+
+### R2-F1 — P1 — `globalName` does not expose the legacy `window.DnsAudit` API automatically
+
+**Locations:** spec Design §6, “Why `iife` and not `esm”; Testing item 4;
+implementation plan Tasks 1.3, 1.4 and 1.9.
+
+esbuild defines `globalName` as the variable that receives **the exports from
+the entry point**. `src/entry-legacy.js` is currently specified as seven
+side-effect imports and no exports. Meanwhile `js/dns.js` independently assigns
+its API to `window.DnsAudit` during bundle evaluation.
+
+Those are not the same operation. With `globalName: 'DnsAudit'`, the generated
+outer assignment can overwrite the `window.DnsAudit` value created inside the
+bundle with the entry module's empty export object. Even when it does not
+collide, `globalName` cannot infer or mirror the legacy object's members. The
+claim that this gives “exactly the surface the existing harness already
+reaches” is therefore unsupported.
+
+Primary documentation:
+<https://esbuild.github.io/api/#global-name>. It states that the configured
+global stores the exports from the entry point.
+
+**Required change:** define the boundary in two explicit stages.
+
+1. During the legacy-bundle phase, omit `globalName` (or use a non-conflicting
+   temporary name). The unmodified `js/dns.js` continues to create
+   `window.DnsAudit`, and parity reaches that existing surface.
+2. Before the legacy assignment is removed, add a deliberate ESM facade whose
+   named exports are the supported audit API. Then, and only then, compile that
+   entry with `globalName: 'DnsAudit'`.
+3. Check in the expected facade member names and assert both source and bundle
+   expose exactly that set. Do not expose `__APP_TEST__` as production API just
+   because the old harness used it.
+4. Add a source contract forbidding reads or writes of `window.DnsAudit`,
+   `globalThis.DnsAudit` or the chosen namespace anywhere except the temporary
+   legacy adapter and final generated boundary.
+
+This is still the first honest parity option from round 1—a supported exported
+facade—but it must be designed. The bundler cannot design it on the project's
+behalf.
+
+### R2-F2 — P1 — The proposed resolver algebra does not describe the current resolver
+
+**Locations:** spec Design §3, Testing item 3 and Acceptance criteria;
+implementation plan Tasks 3.3–3.5.
+
+The revised spec says the resolver returns a discriminated union over the
+five-way distinction “absent, invalid, transport failure, unsupported,
+indeterminate.” That is not the algebra in `v0.5.0`.
+
+`dohFetch()` currently returns these raw kinds:
+
+```text
+success, nodata, nxdomain, servfail, refused, dns-error,
+http-error, cancelled, timeout, network-error
+```
+
+An unsupported record type throws `DnsTypeError`; it is not a returned kind.
+“Invalid” is normally a record-parser conclusion, and “indeterminate” is a
+protocol/audit conclusion. `resilient-optional-checks.md` guarantees that a
+failed optional lookup becomes a declared unknown and that cancellation is
+re-thrown; it does not redefine the raw resolver response into the five labels
+the new spec names.
+
+Collapsing these layers during a move could erase distinctions that DNSSEC,
+DMARC discovery, `domainExists()`, retry, cacheability and cancellation use
+today.
+
+**Required change:** specify separate closed algebras:
+
+- raw DoH result kinds, byte-for-byte compatible with `dohFetch()`;
+- thrown programmer/cancellation errors and which layer may catch each;
+- normalized record/absence results exposed to protocol modules; and
+- protocol-level `invalid`/`unknown`/`indeterminate` conclusions.
+
+The contract tests must enumerate every member, preserve `nodata` versus
+`nxdomain`, prove only `success`/`nodata`/`nxdomain` are cacheable, and prove
+`cancelled` never becomes an optional-check fallback.
+
+### R2-F3 — P1 — The composition root is still a requirement, not a design
+
+**Locations:** spec Design §§4, 6 and 8; Risks R6; implementation plan Task
+2.1.
+
+The documents now correctly say generated data must be injectable at the
+composition root. They do not define the root, its factory, the lifetime of the
+objects it creates, or how the same runtime becomes both the browser's facade
+and the unit/integration test subject.
+
+That omission is load-bearing. Static imports recreate the PSL defect. Module
+singletons make fixture selection and cache isolation depend on Node's ESM
+cache. A factory that injects a normalized resolver can accidentally create the
+test-only bypass `tools/lib/doh-fixture.mjs` forbids.
+
+**Required change:** add a concrete composition contract. One viable shape is:
+
+```js
+createAuditRuntime({
+  publicSuffixRules,
+  dkimSelectorCatalog,
+  englishBundle,
+  platform
+}) -> { auditDomain, scoring, reporting, mount }
+```
+
+The production entry imports generated data and browser platform primitives,
+calls the factory once, mounts the UI, and exports the supported facade from
+R2-F1. Unit tests call the same factory with the four-rule PSL and fixture
+catalog. Transport integration tests replace only the lowest `fetch` primitive
+while still exercising URL construction, response parsing, retry, limiter and
+cache. A normalized resolver substitute may be used for a pure protocol unit
+test, but never as the only coverage of the transport path.
+
+The spec need not use that exact name, but it must state:
+
+- which dependencies are passed versus imported;
+- which instances are page-scoped, audit-scoped and call-scoped;
+- how the fixture proves its PSL/catalog identity behaviorally; and
+- how globals are installed and restored without relying on ESM cache-busting
+  as the state-isolation mechanism.
+
+### R2-F4 — P1 — “Four-surface equivalence” is internally inconsistent and lacks canonicalization rules
+
+**Locations:** spec Scope item 7, Design §8, Testing item 2 and Acceptance
+criteria; implementation plan Tasks 0.4.b and standing verification.
+
+The scope promises both exports. The Design §8 table mentions byte-identical
+CSV and canonicalized HTML. But the binding definition, acceptance criterion
+and Task 0.4.b list only result, query trace, CSV and DOM. HTML report parity has
+fallen out of the actual gate.
+
+The remaining surfaces are named but not defined. “Canonical JSON” does not say
+whether absent and present-with-`undefined` are distinct, how `BigInt` is
+encoded, or whether object keys and arrays are reordered. “Exact query trace”
+overfits global chronology: independent `Promise.all` branches may interleave
+differently without changing query set, fan-out or protocol semantics. “Canonical
+DOM” does not say how attributes, DOM properties, text nodes or event behavior
+are treated.
+
+**Required change:** add a checked-in canonicalization specification before the
+corpus is captured:
+
+- **Result:** recursively sort object keys only; preserve array order, property
+  presence, `undefined` and non-JSON primitives with tagged encodings. No
+  blanket removal of empty values or float rounding.
+- **Queries:** gate on the multiset of normalized
+  `(name, type, do, cd, count)` plus maximum active concurrency/batch metrics.
+  Preserve ordered assertions separately for algorithms where order is the
+  behavior, such as DMARC tree walk and SPF recursion. Do not gate unrelated
+  parallel branches on scheduler chronology.
+- **CSV:** exact bytes, including header and column order, under one documented
+  newline convention.
+- **DOM:** ordered node/child structure and exact text; attributes compared as
+  a sorted name/value map; relevant properties such as `value`, `checked`,
+  `disabled` and visibility compared explicitly. Do not normalize whitespace
+  text away.
+- **HTML report:** restore it to the gate. Compare a canonical parsed tree while
+  separately asserting CSP and stylesheet bytes that must remain exact.
+- **Exclusions:** one manifest entry per excluded field, with a reason. No
+  wildcard field classes.
+
+The result, query, render and export categories may still be called four
+surfaces, but “export” must actually include CSV **and** HTML everywhere the
+gate is enumerated.
+
+### R2-F5 — P1 — The import contracts do not yet prevent cycles or renewed global coupling
+
+**Locations:** spec Design §§2–5, Testing item 3 and Acceptance criteria;
+implementation plan Tasks 3.5 and 4.9.
+
+The proposed graph assertions constrain `core/dns` and forbid `core → ui`.
+They still permit protocol-to-protocol cycles, `audit ↔ providers`,
+`ui ↔ i18n`, or a protocol reading a shared global instead of importing its
+dependency. An acyclic graph can also point in the wrong architectural
+direction.
+
+**Required change:** add the target DAG before files move. At minimum it should
+name allowed edges among:
+
+```text
+entry/composition → ui, audit, i18n, generated data, platform
+ui                → i18n and rendering/report primitives
+audit             → protocol modules, providers, resolver contracts
+protocol modules  → resolver contracts and explicitly named pure shared data
+resolver          → DNS transport/cache/platform only
+generated data    → nothing
+```
+
+Exceptions such as DMARC's PSL dependency must appear as injected data or an
+explicit allowed edge, not an implied convenience. The contract test must:
+
+- parse the real static import graph;
+- reject every strongly connected component containing more than one module;
+- reject any edge absent from the allowed-layer matrix; and
+- enforce the global-namespace rule from R2-F1.
+
+Also add a small API table per owning directory: public exports, accepted
+inputs, returned discriminants, allowed dependencies and state lifetime. The
+current folder tree describes ownership but not interfaces.
+
+### R2-F6 — P1 — The equivalence corpus list does not cover the protocols' failure-state algebras
+
+**Locations:** implementation plan Task 0.4.a; spec Design §8 and Risks R1/R6.
+
+The revised corpus adds useful happy, absent, malformed and DNSSEC-state cases,
+but it still does not demonstrate every protocol's failure-state boundary. It
+does not name transport failures per optional check, cancellation, HTTP failure,
+NODATA versus NXDOMAIN, duplicate/conflicting records, external-report
+authorization, wildcard behavior, provider detection, DKIM partial scan
+failure, DMARC walk termination modes, deep-check suppression, or TLSA's
+per-host weakest-link cases.
+
+The existing 1,535-assertion suite covers many of these individually. That does
+not make them part of the new end-to-end baseline automatically.
+
+**Required change:** add a state-matrix manifest. For each DNS layer and
+protocol owner, list every returned discriminant and each error/unknown path,
+then map it to:
+
+- a unit or contract suite;
+- an integration fixture through the real resolver path where applicable; and
+- at least one four-surface equivalence fixture for every operator-visible
+  result shape.
+
+The matrix, not a prose list of representative domains, is the Gate 0 proof
+that the corpus reaches what the refactor promises to preserve.
+
+### R2-F7 — P2 — The co-location mitigation is acceptable, but the sentinel is not the primary proof
+
+**Locations:** spec Design §9, Testing items 5–7 and Risk R7; implementation
+plan Tasks 1.8, 1.10 and 1.11.
+
+A mechanical `*.test.js` exclusion is materially safer than a named-file
+allowlist: it contains no per-file exception and is reviewable as one category.
+Combined with scanning the exact production bundle, it adequately preserves
+the markup-sink control. Co-location does not otherwise weaken deployment
+because `src/` is absent from `_site/`.
+
+The proposed per-test sentinel is weaker than the esbuild metafile. A sentinel
+can be tree-shaken, renamed, duplicated or omitted from a new test. The metafile
+already records every input that contributes to the bundle.
+
+**Required change:** make these the binding checks:
+
+- no `*.test.*` path appears in `metafile.inputs`;
+- no `*.test.*` path appears in the linked source map's `sources`;
+- the exact built artifact passes the markup-sink scan; and
+- `_site/` contains no source or test path.
+
+The sentinel may remain as defense in depth, but it should not carry the
+acceptance criterion.
+
+### R2-F8 — P2 — The round-two documents have small state drift
+
+**Locations:** implementation plan §0; spec header, Open questions and Revision
+history.
+
+- The plan says the spec is `0.2`; the reviewed spec and round-two request say
+  `0.3`.
+- Task 0.3 says “move both questions” although `OQ-ARCH-09` is already recorded
+  as decided and only `OQ-ARCH-06` is open.
+- The Revision history is ordered `0.1`, `0.3`, `0.2`.
+- The spec's early Correction 1 still ends “This spec makes it Phase 0,” even
+  though round 1 reversed that decision and the build is now Phase 1.
+
+**Required change:** correct these before the next handoff so a reader does not
+have to infer which statement is current.
+
+## 9. Requested round 2 verdicts
+
+### `OQ-ARCH-06` — IIFE or ESM output
+
+**Verdict: choose IIFE output, conditional on R2-F1 and R2-F5.** A generated
+global at the delivery boundary does not undermine ESM internals. The import
+graph test alone is not enough; the source must also be forbidden from using
+that global as an internal dependency. Preserve the legacy surface without a
+colliding `globalName`, then replace it with an explicit supported ESM facade.
+
+### Co-located test exclusion
+
+**Verdict: the mechanical suffix exclusion is adequate.** It is materially
+different from a named-file allowlist because adding a new exception does not
+silently widen it. The scan of the exact built artifact is the decisive second
+control. Strengthen accidental-inclusion detection with metafile and source-map
+input assertions per R2-F7.
+
+### Composition root
+
+**Verdict: not yet specified.** Use one production runtime factory with
+explicit generated-data and platform bindings, defined lifetimes, and one
+supported facade. Do not use process-global ESM state as dependency injection.
+
+### Four-surface canonicalization
+
+**Verdict: not yet usable as a gate.** Apply R2-F4, particularly restoring HTML
+export parity and replacing global query chronology with a normalized multiset
+plus targeted order/concurrency assertions.
+
+### Module API shapes and cycle risk
+
+**Verdict: not yet specified.** The ownership tree is good; it needs the API
+table, allowed-edge matrix, SCC rejection and global-namespace rule in R2-F5.
+
+### Failure-state coverage
+
+**Verdict: insufficient as listed.** Convert the prose corpus list into the
+state-to-suite/fixture matrix required by R2-F6.
+
+## 10. Required next revision
+
+Before `1.0 (Final)`:
+
+1. Correct the IIFE facade and legacy-to-ESM boundary transition.
+2. Replace the invented five-way resolver algebra with the actual layered
+   transport, error, normalized-record and protocol algebras.
+3. Specify the composition factory, dependency bindings and lifetimes.
+4. Make canonicalization executable and restore HTML report parity.
+5. Define the complete allowed import DAG and supported module APIs.
+6. Add the per-protocol failure-state coverage matrix.
+7. Bind the co-location safety proof to metafile/source-map inputs and the
+   built-artifact scan.
+8. Correct the document-version and stale-phase text.
+
+The next review can then test the API/DAG and state matrices for omissions. The
+esbuild spike remains a separate Gate 0 requirement: an accepted IIFE design is
+not evidence that the unmodified legacy bundle has actually run on both target
+platforms.
