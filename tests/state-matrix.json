@@ -227,7 +227,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -236,7 +241,10 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants",
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "dns.existence",
@@ -250,21 +258,26 @@
       "algebra": "spf.status",
       "member": "permerror",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.status",
       "member": "missing",
       "suites": [],
       "fixtures": [
-        "bare-registered"
+        "bare-registered",
+        "provider-sentinels"
       ]
     },
     {
       "algebra": "spf.status",
       "member": "warn",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.status",
@@ -276,34 +289,45 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-subnets-and-lookups",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
       "algebra": "spf.status",
       "member": "softfail",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.status",
       "member": "present",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.cls",
       "member": "crit",
       "suites": [],
       "fixtures": [
-        "bare-registered"
+        "bare-registered",
+        "spf-variants",
+        "provider-sentinels"
       ]
     },
     {
       "algebra": "spf.cls",
       "member": "warn",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.cls",
@@ -315,99 +339,135 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
       "algebra": "spf.warnings",
       "member": "spf-multiple-records",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.warnings",
       "member": "spf-missing-google",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.warnings",
       "member": "spf-missing-icloud",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.warnings",
       "member": "spf-missing-microsoft",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.warnings",
       "member": "spf-all-permit",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.warnings",
       "member": "spf-neutral",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.warnings",
       "member": "spf-softfail",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "spf.subnet.severity",
       "member": "LOW",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "spf.subnet.severity",
       "member": "MEDIUM",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "spf.subnet.severity",
       "member": "HIGH",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants",
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "spf.finding.type",
       "member": "SPF_LARGE_SUBNET",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants",
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "spf.finding.type",
       "member": "SPF_REDUNDANCY",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "ip.family",
       "member": "ipv4",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants",
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "ip.family",
       "member": "ipv6",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "dkim.confidence",
       "member": "not-checked",
       "suites": [],
       "fixtures": [
-        "parked-null-mx"
+        "parked-null-mx",
+        "provider-sentinels"
       ]
     },
     {
@@ -419,7 +479,11 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -427,7 +491,8 @@
       "member": "observed",
       "suites": [],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -440,7 +505,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -454,7 +524,8 @@
       "member": "key",
       "suites": [],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -469,7 +540,9 @@
       "suites": [],
       "fixtures": [
         "enforcing-signed",
-        "parked-null-mx"
+        "parked-null-mx",
+        "provider-sentinels",
+        "grade-tiers"
       ]
     },
     {
@@ -493,7 +566,11 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -503,7 +580,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -525,7 +603,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -555,7 +634,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -565,7 +645,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -623,7 +704,8 @@
       "member": "unparseable-key",
       "suites": [],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -669,7 +751,8 @@
       "fixtures": [
         "enforcing-signed",
         "cache-reuse-siblings",
-        "parked-null-mx"
+        "parked-null-mx",
+        "grade-tiers"
       ]
     },
     {
@@ -693,7 +776,11 @@
       "member": "missing",
       "suites": [],
       "fixtures": [
-        "bare-registered"
+        "bare-registered",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -715,7 +802,8 @@
       "fixtures": [
         "enforcing-signed",
         "cache-reuse-siblings",
-        "parked-null-mx"
+        "parked-null-mx",
+        "grade-tiers"
       ]
     },
     {
@@ -733,7 +821,11 @@
       "member": "crit",
       "suites": [],
       "fixtures": [
-        "bare-registered"
+        "bare-registered",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -747,7 +839,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -755,7 +852,8 @@
       "member": "valid",
       "suites": [],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -774,7 +872,11 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -788,7 +890,8 @@
       "member": "s",
       "suites": [],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -807,7 +910,11 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -815,7 +922,8 @@
       "member": "s",
       "suites": [],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -842,7 +950,8 @@
       "suites": [],
       "fixtures": [
         "enforcing-signed",
-        "parked-null-mx"
+        "parked-null-mx",
+        "grade-tiers"
       ]
     },
     {
@@ -856,7 +965,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -864,7 +978,11 @@
       "member": "",
       "suites": [],
       "fixtures": [
-        "bare-registered"
+        "bare-registered",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -879,7 +997,8 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "grade-tiers"
       ]
     },
     {
@@ -889,7 +1008,11 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "bare-registered"
+        "bare-registered",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -945,7 +1068,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1027,7 +1155,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1053,7 +1186,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1205,7 +1343,8 @@
       "member": "secure",
       "suites": [],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -1216,7 +1355,11 @@
         "bare-registered",
         "cache-reuse-siblings",
         "parked-null-mx",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -1271,7 +1414,12 @@
         "cache-reuse-siblings",
         "parked-null-mx",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1320,7 +1468,12 @@
         "cache-reuse-siblings",
         "parked-null-mx",
         "dnssec-bogus",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1334,7 +1487,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1348,7 +1506,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1557,7 +1720,12 @@
         "cache-reuse-siblings",
         "parked-null-mx",
         "dnssec-bogus",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1573,7 +1741,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1718,14 +1891,22 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
       "algebra": "mx.host.resolves",
       "member": "no",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants",
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "mx.host.resolves",
@@ -1742,7 +1923,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1803,7 +1989,8 @@
       ],
       "fixtures": [
         "enforcing-signed",
-        "parked-null-mx"
+        "parked-null-mx",
+        "grade-tiers"
       ]
     },
     {
@@ -1848,7 +2035,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1867,7 +2059,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1880,7 +2077,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -1929,7 +2131,9 @@
       "algebra": "providers.dns.sentinel",
       "member": "@unknown",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "providers.dns.sentinel",
@@ -1949,7 +2153,9 @@
       "algebra": "providers.dns.sentinel",
       "member": "@custom",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "providers.email.sentinel",
@@ -1963,19 +2169,25 @@
       "algebra": "providers.email.sentinel",
       "member": "@implicit-mx",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "providers.email.sentinel",
       "member": "@none",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "providers.email.sentinel",
       "member": "@porkbun-forwarding",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "providers.email.sentinel",
@@ -1987,7 +2199,8 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -1995,20 +2208,28 @@
       "member": "@custom-unknown",
       "suites": [],
       "fixtures": [
-        "cache-reuse-siblings"
+        "cache-reuse-siblings",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "grade-tiers"
       ]
     },
     {
       "algebra": "providers.hosting.sentinel",
       "member": "@dash",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "website-probe-off"
+      ]
     },
     {
       "algebra": "providers.hosting.sentinel",
       "member": "@cloudflare-proxied",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "providers.hosting.sentinel",
@@ -2020,7 +2241,11 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "grade-tiers"
       ]
     },
     {
@@ -2035,13 +2260,17 @@
       "algebra": "providers.hosting.sentinel",
       "member": "@cname-loop",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "providers.hosting.sentinel",
       "member": "@dns-error",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "audit.grade",
@@ -2055,13 +2284,17 @@
       "algebra": "audit.grade",
       "member": "A+",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "grade-tiers"
+      ]
     },
     {
       "algebra": "audit.grade",
       "member": "A",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "grade-tiers"
+      ]
     },
     {
       "algebra": "audit.grade",
@@ -2086,7 +2319,10 @@
       "fixtures": [
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "website-probe-off"
       ]
     },
     {
@@ -2094,7 +2330,10 @@
       "member": "F",
       "suites": [],
       "fixtures": [
-        "bare-registered"
+        "bare-registered",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels"
       ]
     },
     {
@@ -2109,13 +2348,17 @@
       "algebra": "audit.gradeCls",
       "member": "score-aplus",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "grade-tiers"
+      ]
     },
     {
       "algebra": "audit.gradeCls",
       "member": "score-a",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "grade-tiers"
+      ]
     },
     {
       "algebra": "audit.gradeCls",
@@ -2140,7 +2383,10 @@
       "fixtures": [
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "website-probe-off"
       ]
     },
     {
@@ -2148,7 +2394,10 @@
       "member": "score-f",
       "suites": [],
       "fixtures": [
-        "bare-registered"
+        "bare-registered",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels"
       ]
     },
     {
@@ -2162,7 +2411,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2176,7 +2430,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2189,7 +2448,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2203,7 +2467,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2217,7 +2486,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2230,7 +2504,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2243,7 +2522,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2256,7 +2540,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2270,7 +2559,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2284,7 +2578,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2298,7 +2597,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2312,7 +2616,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2330,7 +2639,11 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -2370,7 +2683,10 @@
       "fixtures": [
         "bare-registered",
         "dnssec-bogus",
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels"
       ]
     },
     {
@@ -2384,7 +2700,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2398,7 +2719,12 @@
         "parked-null-mx",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2416,7 +2742,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2428,7 +2759,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2440,7 +2776,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2452,7 +2793,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2463,7 +2809,11 @@
         "bare-registered",
         "cache-reuse-siblings",
         "parked-null-mx",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -2476,7 +2826,9 @@
       "algebra": "audit.suggestion.key",
       "member": "bimiEligible",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "grade-tiers"
+      ]
     },
     {
       "algebra": "audit.suggestion.key",
@@ -2487,7 +2839,11 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -2499,7 +2855,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2511,7 +2872,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2523,7 +2889,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -2534,7 +2905,11 @@
         "bare-registered",
         "cache-reuse-siblings",
         "parked-null-mx",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -2578,7 +2953,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "parked-null-mx"
+        "parked-null-mx",
+        "grade-tiers"
       ]
     },
     {
@@ -2588,7 +2964,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -2605,7 +2982,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -2670,7 +3049,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "grade-tiers"
       ]
     },
     {
@@ -2716,7 +3096,11 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -2862,7 +3246,11 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "bare-registered"
+        "bare-registered",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off"
       ]
     },
     {
@@ -3031,7 +3419,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3131,7 +3521,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3173,7 +3565,10 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants",
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3194,7 +3589,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -3217,7 +3617,12 @@
         "cache-reuse-siblings",
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers"
       ]
     },
     {
@@ -3226,7 +3631,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3234,7 +3641,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "provider-sentinels"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3242,7 +3651,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3250,7 +3661,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3258,7 +3671,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3266,7 +3681,10 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants",
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3274,7 +3692,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3283,7 +3703,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "bare-registered"
+        "bare-registered",
+        "provider-sentinels"
       ]
     },
     {
@@ -3292,7 +3713,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3300,7 +3723,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3308,7 +3733,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3316,7 +3743,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3324,7 +3753,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3332,7 +3763,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3340,7 +3773,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3356,7 +3791,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3372,7 +3809,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "spf-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",

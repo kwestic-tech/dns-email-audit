@@ -30,25 +30,38 @@
  */
 export function readPath(value, pattern) {
   const segments = pattern.split('.');
-  let cursor = [{ value, present: true }];
-  for (const segment of segments) {
-    const next = [];
+  let cursor = [value];
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
     const isArray = segment.endsWith('[]');
     const key = isArray ? segment.slice(0, -2) : segment;
+    const last = i === segments.length - 1;
+    const next = [];
     for (const entry of cursor) {
-      if (!entry.present || entry.value === null || typeof entry.value !== 'object') continue;
-      if (!Object.prototype.hasOwnProperty.call(entry.value, key)) continue;
-      const child = entry.value[key];
+      if (entry === null || typeof entry !== 'object') continue;
+      if (!Object.prototype.hasOwnProperty.call(entry, key)) {
+        // ABSENT, and recorded as such at the final segment. Absence is a state
+        // the registry lists — `dkim.scanMode` has none when DKIM is not
+        // checked, `dmarc.appliedBranch` none unless the record is inherited —
+        // so a reader that silently skipped a missing key would report those
+        // members uncovered forever while the corpus was reaching them.
+        if (last) next.push(ABSENT);
+        continue;
+      }
+      const child = entry[key];
       if (isArray) {
-        if (Array.isArray(child)) for (const item of child) next.push({ value: item, present: true });
+        if (Array.isArray(child)) for (const item of child) next.push(item);
       } else {
-        next.push({ value: child, present: true });
+        next.push(child);
       }
     }
     cursor = next;
   }
-  return cursor.map(entry => entry.value);
+  return cursor;
 }
+
+/** The marker `readPath` returns for a property that is not present at all. */
+export const ABSENT = Symbol('absent');
 
 /**
  * How an observed value is written in the registry.
@@ -58,6 +71,7 @@ export function readPath(value, pattern) {
  * place that mapping lives.
  */
 function asMember(value) {
+  if (value === ABSENT) return 'absent';
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
   if (value === true) return 'true';
