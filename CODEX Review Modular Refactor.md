@@ -823,3 +823,151 @@ Not yet — `0.4` does not exist. When it does:
    round 2 named as the natural next target.
 4. Whether the canonicalization rules absorb real regressions along with the
    inconsequential differences they exist to tolerate.
+
+---
+
+# Round 3 request — 2026-08-27
+
+**Spec:** [`docs/specs/modular-architecture-and-production-build.md`](docs/specs/modular-architecture-and-production-build.md) — **`0.4 (Draft)`**
+**Plan:** [`Modular Architecture, Production Build Refactor Implementation.md`](Modular%20Architecture,%20Production%20Build%20Refactor%20Implementation.md)
+**Evidence:** [`docs/specs/fixtures/esbuild-legacy-bundle-spike-0.6.0.md`](docs/specs/fixtures/esbuild-legacy-bundle-spike-0.6.0.md) — new
+**Branch:** `spec/modular-architecture-production-build` @ `838135c`
+**Open questions:** **none.** All nine resolved.
+**Still true:** no application code written. The branch is documentation and one throwaway spike.
+
+Round 2 §11 cleared this drafting and said round 3 should review *completeness
+and internal consistency*. That is what is asked for.
+
+## Round 2's eight conditions, and where each landed
+
+| # | Condition | Where |
+| --- | --- | --- |
+| 1 | Run and record the `OQ-ARCH-01` spike before presenting build behavior as verified | [Capture](docs/specs/fixtures/esbuild-legacy-bundle-spike-0.6.0.md); Design §6; Risks R3 |
+| 2 | Use the four-layers-plus-exception-edges model | Design §3 |
+| 3 | Inventory generated-data globals as transition inputs, not facade exports | Design §10, classification table |
+| 4 | Enumerate facade members; prove both source and bundle surfaces | Design §10 stages 2–3; Testing item 4 |
+| 5 | Specify the runtime factory, bindings and state lifetimes | Design §11 |
+| 6 | Complete API / allowed-edge tables and SCC rejection | Design §12 |
+| 7 | Four-surface canonicalization **including HTML export** | Design §8 — now **five** surfaces; HTML was missing and is restored |
+| 8 | Map every transport and protocol state to suites and fixtures | Testing item 3; plan Task 0.6 |
+
+Both round-2 corrections to the round-2 response are also applied: the layer
+model is four-plus-edges rather than a five-stage stack, and the global
+inventory is complete.
+
+## What the spike changed
+
+It was run before drafting, per condition 1, and it did more than confirm a
+build.
+
+**Phase 1 is viable.** Seven unmodified IIFEs bundle in 22 ms to an identical
+24-global surface — none missing, none extra — with `DnsAudit` intact at all 95
+members and `WEIGHTS`/`GRADE_THRESHOLDS` byte-identical. −40.1% raw, −39.0%
+gzip.
+
+**R2-F1 is confirmed empirically.** With no `globalName`, the bundled IIFEs
+create their own globals correctly. The `0.2` proposal would have emitted a
+top-level `var DnsAudit` that overwrote the real object from `js/dns.js:5601`.
+
+**R2-F3's hazard is demonstrated, not predicted.** Bundling
+`js/public-suffixes.js` into the scoring sandbox:
+
+```text
+injected before load : 4
+in force after load  : 10239
+```
+
+and the suite then reported **`1535 passed, 0 failed`** — byte-identical to the
+correct baseline. Nothing failed, nothing warned, the count did not move. The
+composition root and the behavioral fixture-identity check in §11 exist because
+of this measurement, and it is also the final proof of R2-F8: **a passing count
+is not a coverage signal.**
+
+**`OQ-ARCH-06` gained evidence beyond the argument.** `js/locales-en.js` states
+in its own generated header that English is inlined *"so the app works when
+index.html is opened directly from disk (`file://`)"* — 125,172 bytes, roughly
+18% of the current payload, existing for that alone. Round 1's "loss accepted
+and documented" would have discarded a paid-for property while continuing to
+ship the file that funds it. The comments round 1 proposed deleting as stale
+`file://` promises are not stale.
+
+## The three findings that reshaped the facade
+
+Empirical, and each contradicts something an earlier revision asserted.
+
+1. **24 globals, not five.** `js/app.js` alone assigns 14.
+2. **Those 14 are dead.** No consumer in `index.html`, `tools/` or any suite.
+   `index.html`'s single textual match for `cancelAudit` is
+   `data-i18n="btn.cancelAudit"` — a locale key, not a call. Their removal is a
+   real behavior change (public globals disappear), so §10 files it as its own
+   Phase 2 commit rather than folding it into a move.
+3. **The supported facade is two members.** `js/app.js` calls exactly
+   `analyzeDomain` and `checkConnectivity` out of 95. Of the rest, 77 are used
+   by `scoring.test.mjs` and 4 by `backtest.mjs` — test surface, which becomes
+   direct ESM imports rather than frozen API, per round 2's instruction.
+
+## What round 3 is asked for
+
+Completeness and internal consistency, per round 2's framing. Four areas, plus
+whatever else the review finds.
+
+**1. The API and allowed-edge tables (§12) — omissions.** The matrix forbids
+protocol-to-protocol edges and makes `src/data/` a sink, with DMARC's
+public-suffix need satisfied by injection rather than an implied convenience
+edge. Is any legitimate edge missing, and would any real dependency in
+`js/dns.js` be unable to express itself under it?
+
+**2. The state matrix (Testing item 3) — is self-policing sufficient?** Rather
+than a prose list that goes stale, `state-matrix.test.mjs` extracts
+discriminants from source and fails on any lacking a row. That is only as good
+as the extraction. Which discriminants would a static extractor miss —
+computed states, states expressed as absence, states that exist only in
+combination?
+
+**3. The composition contract (§11).** Passed-versus-imported table, three
+lifetimes, and a behavioral fixture-identity check chosen over a count. Does the
+factory shape actually cover every consumer, and does it avoid recreating the
+`__setResolver`-style seam `tools/lib/doh-fixture.mjs` forbids?
+
+**4. The facade (§10).** Two members. Too small breaks a consumer the
+inventory missed; too large freezes internals as public API. The claim rests on
+tracing call sites — the counterexample to look for is a consumer reached
+some way the tracing would not see.
+
+## Where `0.4` is most likely to be wrong
+
+Stated so the review can go at these rather than find them.
+
+**The canonicalization rules may be unusable as written (Risk R11).**
+Byte-identical CSV, exact HTML CSP and stylesheet bytes, no whitespace
+normalization, no float rounding, preserved array order across a 5,704-line
+restructuring. Strict by design — a canonicalizer loose enough never to cry wolf
+is loose enough to absorb a regression — but the line may be in the wrong place.
+Every tolerance is required to name the difference class it admits and why that
+class cannot carry a defect. **Is that discipline sufficient, or does the
+strictness itself guarantee the rules get loosened under pressure later?**
+
+**The dead-globals finding rests on absence of evidence.** Nothing reads the 14.
+That was established by searching `index.html`, `tools/`, the suites, and the
+CSP's prohibition on inline handlers. A consumer outside those places would
+falsify it.
+
+**The two-member facade may be too small.** Same shape of argument, same
+exposure.
+
+**The state matrix seeds are partial by construction.** DKIM, CAA, MX, BIMI and
+the transport family are marked "enumerated during Phase 4 extraction". That is
+deliberate — enumerating them now would be asserting a shape before reading the
+code, which is how rounds 1 and 2 found errors here — but it means the matrix is
+incomplete at Gate 0 and completes as extraction proceeds. **Is deferring those
+enumerations acceptable, or must they be in place before `1.0 (Final)`?**
+
+## Outstanding, deliberately
+
+**Linux `npm ci` is not done.** The spike covered darwin-arm64 only, and the
+footprint is platform-specific by design. Round 2 made this a condition; Ian
+deferred it as a decision, not an oversight. It is recorded in Design §6 as a
+called-out deferral, as an acceptance criterion, and in the plan as blocking
+**Gate 1** rather than blocking the draft — so it cannot be lost.
+
+Round 3 should treat esbuild's cross-platform behavior as unverified.
