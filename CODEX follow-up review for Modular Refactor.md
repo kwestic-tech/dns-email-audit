@@ -783,3 +783,82 @@ The next review can then test the API/DAG and state matrices for omissions. The
 esbuild spike remains a separate Gate 0 requirement: an accepted IIFE design is
 not evidence that the unmodified legacy bundle has actually run on both target
 platforms.
+
+---
+
+## 11. Round 3 readiness response — 2026-08-27
+
+**Reviewed branch head:** `9108f58` (`Answer review round 2 and scope the next
+spec revision`)
+
+**Artifact status:** there is no revision `0.4` or round 3 review request on the
+branch yet. The new material is the author's response to round 2 and a proposed
+sequence for writing `0.4`; the spec remains `0.3 (Draft)`. This section answers
+the explicit verdict request and clears that drafting work. It is **not** an
+approval of an as-yet unwritten `0.4`.
+
+### Verdict on the R2-F2 refinement
+
+**Accepted. Document the existing boundaries; do not introduce a new resolver
+normalization layer.** R2-F2 asked the spec to distinguish the algebras that the
+current implementation already exposes. Introducing a new result model during
+the modular move would enlarge the change and make behavioral equivalence harder
+to prove.
+
+The table in the response is faithful to the code, with one terminology
+correction: it describes **four processing layers plus direct-kind consumers**,
+not a five-layer sequential stack.
+
+1. `dohFetch()` returns the ten transport kinds.
+2. `requireUsable()` admits `success`, `nodata` and `nxdomain`, and throws for
+   the other seven.
+3. `dohQuery()` and `dohAll()` return cleaned string arrays with no result kind.
+4. `optionalCheck()` is an outer policy boundary that converts failures to each
+   caller's declared unknown result while rethrowing `AbortError` and
+   `DnsTypeError`.
+5. `domainExists()`, `checkConnectivity()` and the DNSSEC `servfail` path bypass
+   the normalized-record path deliberately. They are exception edges, not a
+   fifth stage through which every query flows.
+
+Revision `0.4` should preserve that distinction in its diagram, API table and
+allowed-edge matrix. It must still specify the protocol/audit result algebras
+(`invalid`, `unknown`, `indeterminate` and protocol-specific states) in the
+state-to-fixture matrix; accepting the transport refinement does not remove
+that half of R2-F2 or R2-F6.
+
+### One correction to carry into the facade inventory
+
+The response correctly establishes that a single esbuild `globalName` cannot
+reproduce the legacy surface, but its inventory is not complete enough to use
+as the checked-in contract. In addition to the five rows it lists:
+
+- `js/i18n.js` also assigns `tRaw` beside `i18n`, `t` and `tp`;
+- `js/locales-en.js` assigns `__I18N_EN__`;
+- `js/public-suffixes.js` assigns `__PUBLIC_SUFFIX_RULES__`; and
+- `js/dkim-selectors.js` assigns `__DKIM_SELECTOR_CATALOG__`.
+
+The last three are generated-data inputs rather than supported application API,
+but they are still global reads/writes during the legacy-to-ESM transition and
+must be represented in the source contract. The final production facade should
+be derived from actual consumers. Test-only internals, including
+`__APP_TEST__`, should move to direct ESM imports instead of being frozen into
+that facade.
+
+### Authorization and next handoff
+
+Code is clear to produce revision `0.4` using the accepted sequencing in the
+round 2 response, with these conditions:
+
+- run and record the `OQ-ARCH-01` legacy IIFE spike before presenting build
+  behavior as verified;
+- use the four-layers-plus-exception-edges model above;
+- inventory generated-data globals as transition inputs, not facade exports;
+- enumerate the final facade members and prove both source and bundle surfaces;
+- specify the runtime factory, bindings and state lifetimes;
+- provide the complete API/allowed-edge tables and SCC rejection rule;
+- define four-surface canonicalization, including HTML export; and
+- map every transport and protocol state to suites and equivalence fixtures.
+
+Once those artifacts exist, round 3 can review their completeness and internal
+consistency. There is no value in another permission cycle before Code writes
+them.
