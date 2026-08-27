@@ -154,6 +154,16 @@ class ShimNode {
 
   removeEventListener() { /* nothing dispatches in the shim */ }
 
+  /**
+   * A no-op, and deliberately so. `js/app.js:1438` synthesises a click on a
+   * detached anchor to start a download; the download is the browser's, not the
+   * document's, and the equivalence runner captures the content at the `Blob`
+   * instead. Without this the export path throws before it produces anything,
+   * which would force the runner to reach past `exportCSV()`/`exportHTML()` and
+   * measure a re-implementation of them rather than the real ones.
+   */
+  click() { /* nothing dispatches in the shim */ }
+
   /** Depth-first walk over every descendant, this node excluded. */
   * walk() {
     for (const child of this.childNodes) {
