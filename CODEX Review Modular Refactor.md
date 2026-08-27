@@ -691,8 +691,8 @@ global surface is **five separate namespaces**, not one:
 | `DnsAudit` | [`js/dns.js:5601`](js/dns.js) |
 | `startAudit`, `cancelAudit`, `exportCSV`, … | [`js/app.js:1768`](js/app.js) |
 | `__APP_TEST__` | [`js/app.js:1785`](js/app.js) — read by `render.test.mjs:21`, `export.test.mjs:17` |
-| `R` | [`js/render.js:551`](js/render.js) |
-| `i18n`, `t`, `tp` | [`js/i18n.js:386`](js/i18n.js) |
+| `R` | [`js/render.js:551`](src/ui/render.js) |
+| `i18n`, `t`, `tp` | [`js/i18n.js:386`](src/i18n/index.js) |
 
 A single `globalName` cannot reproduce five namespaces, and in a classic script
 the generated top-level `var DnsAudit` would **overwrite** the real object from

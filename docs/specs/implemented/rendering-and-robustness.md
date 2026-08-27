@@ -34,7 +34,7 @@ Four concrete defects, none of which is a vulnerability and all of which are
 worth fixing before six more releases extend the same code.
 
 **Placeholder interpolation is sequential.** `interpolate()` at
-[`js/i18n.js:54`](../../../js/i18n.js) loops `i` from 0 upward and replaces
+[`js/i18n.js:54`](../../../src/i18n/index.js) loops `i` from 0 upward and replaces
 `{i}` by string split and join. An argument substituted at `i=0` becomes part of
 the string that `i=1` then scans, so a value containing `{1}` causes the second
 argument to be interpolated into a position the translator never wrote. Every
@@ -55,7 +55,7 @@ by consistent habit across twenty-odd concatenation sites, not by construction,
 and the next four releases add more of them.
 
 **Sanitized rich text round-trips through a string.**
-`sanitizeHTML()` at [`js/i18n.js:96`](../../../js/i18n.js) parses into a
+`sanitizeHTML()` at [`js/i18n.js:96`](../../../src/i18n/index.js) parses into a
 `<template>`, walks and strips, then returns `template.innerHTML`. The caller
 reparses that string. Serializing a sanitized tree and reparsing it is the shape
 mutation XSS exploits. The content here is our own locale files rather than DNS
@@ -233,7 +233,7 @@ backstop rather than a routine path. `tools/render.test.mjs` asserts the
 author-time allowlist and the runtime tokenizer agree tag for tag, so the two
 cannot drift.
 
-`applyTranslations()` at [`js/i18n.js:188`](../../../js/i18n.js) changes from
+`applyTranslations()` at [`js/i18n.js:188`](../../../src/i18n/index.js) changes from
 `el.innerHTML = sanitizeHTML(...)` to `el.replaceChildren(sanitizeFragment(...))`.
 
 The allowlist is unchanged: `A, BR, STRONG, CODE, EM, B, I, SMALL, UL, OL, LI, P`,
@@ -421,7 +421,7 @@ keeping the existing parse and returning `template.content`; that is an
 2 forbid with an allowlist they both require to be empty. As specified the
 implementation would have failed the test the spec itself mandates. It shipped
 as a fail-closed tokenizer that builds nodes directly
-([`js/i18n.js`](../../../js/i18n.js)); anything outside the twelve-tag allowlist
+([`js/i18n.js`](../../../src/i18n/index.js)); anything outside the twelve-tag allowlist
 is emitted as literal text, so a `<script>` in a locale string renders visibly
 as itself. `tools/check-locales.mjs` gained the matching author-time check, and
 `tools/render.test.mjs` asserts the two allowlists agree tag for tag.
@@ -432,7 +432,7 @@ a text node cannot be markup. `advFullDots()` puts BIMI and CAA record text into
 `data-tip`, which `css/style.css` paints with `content: attr(data-tip)` — an
 override there reorders a tooltip exactly as it would a table cell. `R.el`
 applies `R.sentinelText()` to `title` and every `data-*` value
-([`js/render.js`](../../../js/render.js)). Found in internal review; neither
+([`js/render.js`](../../../src/ui/render.js)). Found in internal review; neither
 test suite covered the attribute path until a fixture was added for it.
 
 **3. DNS-derived values are substituted at the interpolation boundary too.**
