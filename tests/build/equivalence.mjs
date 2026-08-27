@@ -312,6 +312,24 @@ function gitDescribe(root) {
   }
 }
 
+/**
+ * The authorized compatibility deltas, folded into every emitted manifest.
+ *
+ * A delta is a deliberate change to the browser surface that no equivalence
+ * surface can see — the globals appear in none of result, trace, CSV, report or
+ * DOM. Recording them in the manifest is what stops them passing unnoticed, and
+ * it is spec §10's requirement that each be "a named allowed delta in the
+ * equivalence manifest".
+ */
+function readCompatibilityDeltas() {
+  const path = join(RUNNER_ROOT, 'tests/fixtures/equivalence/compatibility-deltas.json');
+  if (!existsSync(path)) return [];
+  const manifest = JSON.parse(readFileSync(path, 'utf8'));
+  return manifest.deltas.map(delta => ({
+    id: delta.id, task: delta.task, status: delta.status, summary: delta.summary,
+  }));
+}
+
 /* ── Entry point ──────────────────────────────────────────────────────── */
 
 async function main() {
@@ -365,6 +383,11 @@ async function main() {
     // Spec Design §8: one entry per excluded field, each with a reason. No
     // wildcard classes. Expected to stay empty — time and locale are inputs.
     exclusions: [],
+    // Authorized changes to the browser-visible surface. NOT exclusions: no
+    // surface is relaxed by them, and they appear on none of the five because
+    // the surfaces observe the audit result. Named here so they cannot pass
+    // silently. See tests/fixtures/equivalence/compatibility-deltas.json.
+    compatibilityDeltas: readCompatibilityDeltas(),
     cases: surfaces.map(s => ({ ...s, result: applyExclusions(s.result, []) })),
   };
 
