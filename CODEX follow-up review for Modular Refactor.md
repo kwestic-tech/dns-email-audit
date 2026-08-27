@@ -1154,3 +1154,81 @@ returning them for another author/reviewer cycle.
 `npm ci`, the lockfile footprint and postinstall policy remain mandatory Gate 1
 evidence. They do not reopen the design and were not fabricated on a macOS
 machine.
+
+---
+
+## 16. Implementation finding — §11's primitive set is incomplete — 2026-08-27
+
+**Raised during Phase 2, Task 2.4. Framework §6 trigger 5: a spec defect.**
+A Final spec found wrong is amended and re-versioned, never quietly diverged
+from (`docs/specs/README.md`).
+
+### The finding
+
+Spec `1.0 (Final)` §11 states:
+
+> The browser platform object names every ambient primitive used by the moved
+> code: `fetch`, `crypto`, `AbortController`, `URLSearchParams`, `setTimeout`,
+> `clearTimeout`, `document`, `localStorage`, `URL`, `Blob`, `FileReader`,
+> `Intl`, `console`, `now()` and `formatDateTime(date, locale)`.
+
+**`navigator` is missing, and it is genuinely required.** `detectLang()` in the
+i18n layer reads it three times to pick a language before any stored preference
+exists:
+
+```js
+var preferred = (navigator.languages && navigator.languages.length)
+  ? navigator.languages
+  : [navigator.language || DEFAULT_LANG];
+```
+
+The claim "names **every** ambient primitive used by the moved code" is
+therefore false as written. This was not found by reading the spec — it was
+found by converting `js/i18n.js` in Task 2.2, where the module stopped being
+able to reach `window` and every ambient dependency had to be named. Nineteen
+call sites needed `document`, `localStorage`, `fetch`, `console` and
+`navigator`; four of those five were on the list.
+
+### Why it matters rather than being a typo
+
+The list is not decoration. It is the enumeration §11 rests on, and two
+acceptance criteria depend on it being complete:
+
+- *"`src/runtime.js` is side-effect-free; importing it neither mounts the UI nor
+  performs network I/O"* — a module reaching for an unlisted ambient primitive
+  is exactly the leak that criterion forbids;
+- *"The namespace contract holds: no `src/` module touches any of the 24 globals
+  outside a marked adapter"* — the same shape of rule, one layer down.
+
+Implementing the incomplete list would have left i18n reading `navigator`
+ambiently while every other primitive was injected: a module that is *almost*
+isolated, which is the state that makes a later leak invisible.
+
+### Decision — approved by Ian, 2026-08-27
+
+**`navigator` belongs in the injected browser platform. i18n must not read it
+ambiently. The implementation is NOT to be altered to match the incomplete 1.0
+list.** The spec is amended to `1.1 (Final)`.
+
+The implementation already does the right thing: `src/platform/browser.js`
+provides `navigator`, `PLATFORM_PRIMITIVES` declares it, and
+`src/i18n/index.js` destructures it from `platform` rather than reaching for it.
+`tests/contract/platform.test.mjs` asserts the set is complete against the
+module's own declaration, so the spec and the code cannot drift again without a
+test saying so.
+
+### Scope of the amendment
+
+Narrow, and deliberately so. This corrects an omission from an enumeration; it
+changes no design decision, no phase ordering, no acceptance threshold and no
+behaviour. Nothing else in `1.0` is reopened.
+
+| Changed | Not changed |
+| --- | --- |
+| §11's exact primitive list gains `navigator` | Every other §11 rule |
+| §12's `platform/` API row names it | The allowed-edge matrix |
+| Acceptance criteria gain the completeness check | Every other criterion |
+| Header version, revision history, spec index | The plan's task ordering |
+
+Language built-ins remain required APIs rather than injectable services —
+`navigator` is a host object, which is precisely the distinction §11 draws.

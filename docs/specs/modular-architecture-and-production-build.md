@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.0 (Final) |
+| Spec version | 1.1 (Final) |
 | Target release | 0.6.0 |
-| Status | **Final.** Approved for implementation after three Codex review rounds. Linux dependency installation remains a Gate 1 verification, not an open design question. |
+| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11 — see [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
 | Depends on | [dnssec-evidence](implemented/dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
 | Blocks | [findings-and-remediation](findings-and-remediation.md), [local-artifact-validation](local-artifact-validation.md), [report-comparison](report-comparison.md) — all three are scheduled after it |
 | Slug for open questions | `ARCH` |
@@ -884,11 +884,27 @@ and no production branch that exists only for tests.
 
 The browser platform object names every ambient primitive used by the moved
 code: `fetch`, `crypto`, `AbortController`, `URLSearchParams`, `setTimeout`,
-`clearTimeout`, `document`, `localStorage`, `URL`, `Blob`, `FileReader`, `Intl`,
-`console`, `now()` and `formatDateTime(date, locale)`. The last two preserve the
-current `new Date().toLocaleString(i18n.lang)` behavior in production while
-making export parity deterministic. Language built-ins such as `Promise`,
-`Map`, `Set` and `BigInt` are required APIs, not injectable platform services.
+`clearTimeout`, `document`, `localStorage`, `navigator`, `URL`, `Blob`,
+`FileReader`, `Intl`, `console`, `now()` and `formatDateTime(date, locale)`.
+The last two preserve the current `new Date().toLocaleString(i18n.lang)`
+behavior in production while making export parity deterministic. Language
+built-ins such as `Promise`, `Map`, `Set` and `BigInt` are required APIs, not
+injectable platform services.
+
+> **`navigator` was added in 1.1.** Version 1.0 omitted it while claiming the
+> list named *every* ambient primitive, which was false: `detectLang()` reads
+> `navigator.languages` and `navigator.language` to pick a language before any
+> stored preference exists. The omission was found by converting `js/i18n.js`
+> in Task 2.2 — where the module stopped being able to reach `window` and every
+> ambient dependency had to be named — not by reading the spec. Implementing
+> the 1.0 list would have left i18n reading `navigator` ambiently while every
+> other primitive was injected, which is the *almost isolated* state that makes
+> a later leak invisible. The distinction the list draws is unchanged:
+> `navigator` is a host object, and host objects are injected.
+
+The set is **exhaustive by contract**, not by inspection. A module that reaches
+for an ambient primitive this list does not name is a defect in the list, and
+the platform module publishes the set so a test can assert the two agree.
 
 #### Passed versus imported
 
@@ -985,7 +1001,7 @@ but not ownership or direction without amending this spec.
 | --- | --- | --- | --- |
 | `main.js` | browser entry; exports `analyzeDomain`, `checkConnectivity` | generated modules, browser platform | one mounted runtime per page |
 | `runtime.js` | `createAuditRuntime()` | three generated bindings, platform | facade + `mount`; fresh cache/i18n/resolver per call |
-| `platform/` | `browserPlatform` | browser globals at entry only | immutable primitive adapter |
+| `platform/` | `createBrowserPlatform(window)` | one window, at the composition root only | immutable primitive adapter, one per runtime; provides the exhaustive §11 set including `navigator` |
 | `core/dns/` | `createResolver`, raw fetch, usable/normalized APIs, errors | platform, runtime cache | ten kinds; page/runtime cache, per-call retry state |
 | `core/shared/` | URI, record-field, IP and other genuinely cross-protocol pure helpers | values only | pure, no retained state |
 | `core/spf/` | parse/status, lookup count, subnet/redundancy audit | SPF text, domain, resolver | §12.1 SPF axes; call lifetime |
@@ -1200,6 +1216,7 @@ Structural:
 - [ ] SPF, DKIM, DMARC, DNSSEC, MX, CAA, BIMI, MTA-STS, TLS-RPT and TLSA each have an owning directory and a checked-in API table.
 - [ ] The allowed-edge matrix holds; no SCC contains more than one module.
 - [ ] `src/runtime.js` is side-effect-free; importing it neither mounts the UI nor performs network I/O.
+- [ ] The browser platform provides the complete §11 primitive set, `navigator` included, and no module under `src/` reaches for an ambient primitive the platform does not name. Asserted against the platform module's own published set, so the spec and the code cannot drift.
 - [ ] The namespace contract holds: no `src/` module touches any of the 24 globals outside a marked adapter.
 - [ ] `src/facade.expected.json` matches both the source exports and the bundle global.
 - [ ] Removal of unsupported legacy globals is one named compatibility delta with a manifest entry and release note.
@@ -1286,6 +1303,7 @@ current payload. `file://` support was bought and paid for.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.1 | 2026-08-27 | **Amended during Phase 2, Task 2.4.** §11's exact platform list omitted `navigator` while claiming to name *every* ambient primitive the moved code uses — false, because `detectLang()` reads `navigator.languages` and `navigator.language`. Found by converting `js/i18n.js`, where the module stopped being able to reach `window` and every dependency had to be named; four of its five ambient primitives were on the list. Added to §11, to §12's `platform/` API row, and to the acceptance criteria, with the completeness now asserted against the platform module's own published set rather than by inspection. Framework §6 trigger 5: a Final spec found wrong is amended and re-versioned, never quietly diverged from. The finding and Ian's decision are recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §16. **Narrow by design:** an omission from one enumeration. No design decision, phase ordering, acceptance threshold or behaviour changed, and nothing else in `1.0` is reopened. |
 | 1.0 | 2026-08-27 | **Final after Codex review round 3.** Replaced the ineffective `a.b.ck` fixture check with independently divergent PSL, DKIM-catalog and English-bundle fingerprints. Made cache ownership consistently per runtime, with one production runtime per page and cross-runtime isolation. Added a side-effect-free `runtime.js`, browser-platform adapter, complete allowed-edge rows and per-owner API contracts. Replaced the unsound static-extractor promise with a complete pre-refactor inventory covering computed DNSSEC claims, thrown paths, booleans, nullability and absence; the state matrix is complete before Gate 0. Bound equivalence subjects to complete roots with input hashes and fixed time/locale inputs. Declared the two-member facade the only supported 0.6.0 browser API and recorded removal of legacy globals as an intentional compatibility delta. Synchronized the implementation plan with the no-`globalName` legacy phase and the real four-boundary resolver model. Linux `npm ci` remains a Gate 1 measurement. |
 | 0.4 | 2026-08-27 | Revised after review round 2 and against measured evidence. **The `OQ-ARCH-01` spike ran** ([capture](fixtures/esbuild-legacy-bundle-spike-0.6.0.md)): the seven unmodified IIFEs bundle to an identical 24-global surface, `DnsAudit` intact at 95 members, −40.1% raw / −39.0% gzip, 22 ms — Phase 1 is confirmed viable, and esbuild's real footprint (2 packages, 1 `postinstall`) replaces the false "zero dependencies" claim. **`globalName` corrected**: it exports the entry's exports, so 0.2's claim was wrong and would have clobbered `window.DnsAudit` on the delivery-boundary commit; the facade is now staged in three steps (§10). **The global inventory was 24, not five** — `js/app.js` alone assigns 14, all of them **dead** (no consumer; `index.html` has no inline handlers). **The supported facade is two members**, `analyzeDomain` and `checkConnectivity`, the only ones `js/app.js` calls out of 95; the other 93 plus `__APP_TEST__` become direct ESM imports. **The transport model is four layers plus exception edges**, not a five-member union — the ten real kinds are enumerated with the cacheable ⊂ retry-terminal rule. **Composition root specified** (§11), justified by the spike demonstrating a bundled PSL silently replacing a fixture while 1,535 assertions still passed. **Allowed-edge matrix, SCC rejection and API tables added** (§12). **HTML report parity restored** to the gate — it had fallen out — making five surfaces, with executable canonicalization rules. **State matrix added**, self-policing via a test that fails on any discriminant lacking a row. **Co-location proof bound to `metafile.inputs`** rather than a sentinel. All nine open questions now resolved. |
 | 0.3 | 2026-08-27 | `OQ-ARCH-09` decided by Ian: unit tests co-locate as `src/**/*.test.js`, with `tests/` retained for build, contract, integration and fixture suites. The layout is settled; the markup-sink exclusion that pays for it remains a round-2 review item because it touches a security control rather than a convention. `OQ-ARCH-06` is now the only open question. |

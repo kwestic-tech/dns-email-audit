@@ -16,9 +16,9 @@
  * the binding directly rather than testing that a call happens to work.
  */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 import { createSuite } from '../lib/assert.mjs';
 import { createBrowserPlatform, PLATFORM_PRIMITIVES } from '../../src/platform/browser.js';
@@ -88,10 +88,19 @@ section('1. Every §11 primitive is present');
 
 const platform = createBrowserPlatform(strictWindow());
 
-// The names spec §11 lists, verbatim, checked against the module's own
-// declaration so the two cannot drift.
+/**
+ * The names spec §11 lists, verbatim, checked against the module's own
+ * declaration so the two cannot drift.
+ *
+ * `navigator` is here as of spec `1.1`. Version 1.0 omitted it while claiming
+ * the list named every ambient primitive the moved code uses, which was false:
+ * `detectLang()` reads `navigator.languages` and `navigator.language`. The
+ * omission was found by converting `js/i18n.js` in Task 2.2, not by reading the
+ * spec, and the spec was amended rather than the implementation bent to match
+ * it — framework §6 trigger 5.
+ */
 const SPEC_11 = ['fetch', 'crypto', 'AbortController', 'URLSearchParams', 'setTimeout',
-  'clearTimeout', 'document', 'localStorage', 'URL', 'Blob', 'FileReader',
+  'clearTimeout', 'document', 'localStorage', 'navigator', 'URL', 'Blob', 'FileReader',
   'Intl', 'console', 'now', 'formatDateTime'];
 for (const name of SPEC_11) {
   eq(`§11 names ${name}, and the platform declares it`, PLATFORM_PRIMITIVES.includes(name), true);
@@ -99,6 +108,59 @@ for (const name of SPEC_11) {
 }
 eq('the platform provides every name it declares',
   PLATFORM_PRIMITIVES.filter(name => platform[name] === undefined), []);
+// Both directions: the declaration must not quietly grow past the spec either.
+eq('and declares nothing the spec does not name',
+  PLATFORM_PRIMITIVES.filter(name => !SPEC_11.includes(name)), []);
+
+/**
+ * The completeness rule the amendment turned from prose into a contract: no
+ * module under `src/` may reach for an ambient primitive the platform does not
+ * name. This is what would have caught the 1.0 omission, and it is why the
+ * spec now says the set is exhaustive BY CONTRACT rather than by inspection.
+ */
+const AMBIENT = ['navigator', 'localStorage', 'document', 'fetch', 'crypto',
+  'setTimeout', 'clearTimeout', 'sessionStorage', 'indexedDB', 'location', 'history'];
+const srcFiles = (function walk(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const full = join(dir, entry.name);
+    return entry.isDirectory() ? walk(full) : (entry.name.endsWith('.js') ? [full] : []);
+  });
+})(join(REPO, 'src'));
+
+const reaching = [];
+for (const file of srcFiles) {
+  const text = readFileSync(file, 'utf8');
+  if (text.includes('LEGACY_ADAPTER')) continue;             // marked adapters may
+  if (file.endsWith(join('platform', 'browser.js'))) continue; // and the adapter itself
+  const body = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  for (const name of AMBIENT) {
+    // A bare reference, not a property of something and not a declared local.
+    const bare = new RegExp(`(^|[^.\\w$])${name}\\s*[.(\\[]`);
+    const declared = new RegExp(`(?:const|let|var|function)\\s*\\{[^}]*\\b${name}\\b|\\b${name}\\s*[,}]\\s*=|\\(\\s*${name}\\b`);
+    if (bare.test(body) && !declared.test(body)) {
+      reaching.push(`${relative(REPO, file)} reaches for ${name}`);
+    }
+  }
+}
+eq('no src/ module reaches for an ambient primitive the platform does not name', reaching, []);
+
+// And the scan can fail. Without this it would pass on a regex that matches
+// nothing, which is how a completeness check quietly stops being one.
+const reachesFor = (body, name) => {
+  const bare = new RegExp(`(^|[^.\\w$])${name}\\s*[.(\\[]`);
+  const declared = new RegExp(`(?:const|let|var|function)\\s*\\{[^}]*\\b${name}\\b|\\b${name}\\s*[,}]\\s*=|\\(\\s*${name}\\b`);
+  return bare.test(body) && !declared.test(body);
+};
+eq('the scan catches a module reading navigator ambiently',
+  reachesFor('var preferred = navigator.languages;', 'navigator'), true);
+eq('and one reading localStorage',
+  reachesFor('localStorage.getItem("k")', 'localStorage'), true);
+eq('but not one that destructured it from the platform',
+  reachesFor('const { navigator } = platform; navigator.language;', 'navigator'), false);
+eq('nor a property of something else',
+  reachesFor('win.navigator.language; platform.document.title;', 'navigator'), false);
+eq('this is exactly the shape the 1.0 spec would have permitted',
+  reachesFor('var preferred = navigator.languages || [navigator.language];', 'navigator'), true);
 
 // Language built-ins are NOT platform services — §11 is explicit. Injecting
 // them would be ceremony with no substitute anyone would want to supply.
