@@ -160,8 +160,14 @@ const facts = await evaluate(`JSON.stringify({
   protocol: location.protocol,
   scripts: [...document.querySelectorAll('script[src]')].map(s => s.getAttribute('src')),
   moduleScripts: document.querySelectorAll('script[type=module]').length,
-  globals: ['DnsAudit','R','i18n','t','tp','tRaw','startAudit','cancelAudit','__APP_TEST__',
+  globals: ['DnsAudit','R','i18n','t','tp','tRaw','__APP_TEST__',
             '__PUBLIC_SUFFIX_RULES__','__I18N_EN__','__DKIM_SELECTOR_CATALOG__']
+           .filter(n => typeof window[n] !== 'undefined'),
+  // The fourteen Task 2.8 removed. A real browser is the last place they could
+  // still be hiding, so they are probed for ABSENCE rather than left unlisted.
+  removed: ['startAudit','cancelAudit','clearAll','exportCSV','exportHTML','filterTable',
+            'loadExample','loadFile','openLearnMore','setLang','showHelp','sortTable',
+            'toggleDetail','toggleShowMe']
            .filter(n => typeof window[n] !== 'undefined'),
   dnsAuditMembers: Object.keys(DnsAudit).sort(),
   facadeCallable: Object.keys(DnsAudit).every(n => typeof DnsAudit[n] === 'function'),
@@ -183,7 +189,9 @@ eq('no script is a module — a module would be blocked by CORS here', page1?.mo
 
 section('2. The application initialised');
 
-eq('all twelve probed globals exist', page1?.globals?.length, 12);
+eq('all ten surviving globals exist', page1?.globals?.length, 10);
+eq('and not one of the fourteen Task 2.8 removed is still on the window',
+  page1?.removed, []);
 
 /**
  * The supported facade, in a real browser, from disk. Spec §10 stage 3.

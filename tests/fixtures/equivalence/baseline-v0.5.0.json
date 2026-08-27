@@ -678,7 +678,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.alpha.test TXT do=0 cd=0",
@@ -737,7 +737,7 @@
             "count": 1
           }
         ],
-        "total": 33,
+        "total": 34,
         "distinct": 33,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -1651,7 +1651,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.bravo.test TXT do=0 cd=0",
@@ -1710,7 +1710,7 @@
             "count": 1
           }
         ],
-        "total": 32,
+        "total": 33,
         "distinct": 32,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -2181,10 +2181,10 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           }
         ],
-        "total": 2,
+        "total": 3,
         "distinct": 2,
         "maxConcurrency": 1,
         "maxBatchSize": null,
@@ -3253,7 +3253,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.delta.test TXT do=0 cd=0",
@@ -3392,7 +3392,7 @@
             "count": 1
           }
         ],
-        "total": 63,
+        "total": 64,
         "distinct": 58,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -4686,7 +4686,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "www.echo.test A do=0 cd=0",
@@ -4701,7 +4701,7 @@
             "count": 1
           }
         ],
-        "total": 18,
+        "total": 19,
         "distinct": 18,
         "maxConcurrency": 7,
         "maxBatchSize": null,
@@ -5567,7 +5567,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "foxtrot.test A do=0 cd=1",
@@ -5670,7 +5670,7 @@
             "count": 1
           }
         ],
-        "total": 36,
+        "total": 37,
         "distinct": 34,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -6637,7 +6637,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "golf.test A do=0 cd=0",
@@ -6732,7 +6732,7 @@
             "count": 1
           }
         ],
-        "total": 32,
+        "total": 33,
         "distinct": 32,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -7701,7 +7701,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.hotel.test TXT do=0 cd=0",
@@ -7800,7 +7800,7 @@
             "count": 1
           }
         ],
-        "total": 33,
+        "total": 34,
         "distinct": 33,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -12248,7 +12248,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "gappssmtp._domainkey.google.spf.test TXT do=0 cd=0",
@@ -12971,7 +12971,7 @@
             "count": 1
           }
         ],
-        "total": 264,
+        "total": 265,
         "distinct": 243,
         "maxConcurrency": 25,
         "maxBatchSize": null,
@@ -20214,7 +20214,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.cycle.spf.test TXT do=0 cd=0",
@@ -20813,7 +20813,7 @@
             "count": 1
           }
         ],
-        "total": 235,
+        "total": 236,
         "distinct": 207,
         "maxConcurrency": 25,
         "maxBatchSize": null,
@@ -28129,7 +28129,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "forward.host.test A do=0 cd=0",
@@ -28760,7 +28760,7 @@
             "count": 1
           }
         ],
-        "total": 257,
+        "total": 258,
         "distinct": 233,
         "maxConcurrency": 25,
         "maxBatchSize": null,
@@ -33061,7 +33061,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.nowww.host.test TXT do=0 cd=0",
@@ -33148,7 +33148,7 @@
             "count": 1
           }
         ],
-        "total": 31,
+        "total": 32,
         "distinct": 31,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -34708,7 +34708,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.a.grade.test TXT do=0 cd=0",
@@ -34815,7 +34815,7 @@
             "count": 1
           }
         ],
-        "total": 63,
+        "total": 64,
         "distinct": 60,
         "maxConcurrency": 16,
         "maxBatchSize": null,
@@ -36207,7 +36207,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.refused.crypto.test TXT do=0 cd=0",
@@ -36302,7 +36302,7 @@
             "count": 1
           }
         ],
-        "total": 34,
+        "total": 35,
         "distinct": 34,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -37316,7 +37316,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.accepted.crypto.test TXT do=0 cd=0",
@@ -37375,7 +37375,7 @@
             "count": 1
           }
         ],
-        "total": 34,
+        "total": 35,
         "distinct": 34,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -38938,7 +38938,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.keys.dkim.test TXT do=0 cd=0",
@@ -39113,7 +39113,7 @@
             "count": 1
           }
         ],
-        "total": 54,
+        "total": 55,
         "distinct": 54,
         "maxConcurrency": 16,
         "maxBatchSize": null,
@@ -50159,7 +50159,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "exim._domainkey.errors.dkim.test TXT do=0 cd=0",
@@ -57858,7 +57858,7 @@
             "count": 1
           }
         ],
-        "total": 3403,
+        "total": 3404,
         "distinct": 3400,
         "maxConcurrency": 16,
         "maxBatchSize": null,
@@ -62281,7 +62281,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "fo1.dmarc.test A do=0 cd=0",
@@ -62820,7 +62820,7 @@
             "count": 1
           }
         ],
-        "total": 221,
+        "total": 222,
         "distinct": 190,
         "maxConcurrency": 25,
         "maxBatchSize": null,
@@ -69954,7 +69954,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.a.b.psdy.test TXT do=0 cd=0",
@@ -70325,7 +70325,7 @@
             "count": 1
           }
         ],
-        "total": 215,
+        "total": 216,
         "distinct": 196,
         "maxConcurrency": 16,
         "maxBatchSize": null,
@@ -74122,7 +74122,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.reports.test TXT do=0 cd=0",
@@ -74245,7 +74245,7 @@
             "count": 1
           }
         ],
-        "total": 55,
+        "total": 56,
         "distinct": 47,
         "maxConcurrency": 14,
         "maxBatchSize": null,
@@ -75864,7 +75864,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "failures.test A do=0 cd=0",
@@ -76067,7 +76067,7 @@
             "count": 1
           }
         ],
-        "total": 81,
+        "total": 82,
         "distinct": 74,
         "maxConcurrency": 11,
         "maxBatchSize": null,
@@ -78984,7 +78984,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.gost.dnssec.test TXT do=0 cd=0",
@@ -79323,7 +79323,7 @@
             "count": 1
           }
         ],
-        "total": 126,
+        "total": 127,
         "distinct": 113,
         "maxConcurrency": 16,
         "maxBatchSize": null,
@@ -82838,7 +82838,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.ds.parse.test TXT do=0 cd=0",
@@ -82981,7 +82981,7 @@
             "count": 1
           }
         ],
-        "total": 67,
+        "total": 68,
         "distinct": 60,
         "maxConcurrency": 16,
         "maxBatchSize": null,
@@ -87993,7 +87993,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.down.evidence.test TXT do=0 cd=0",
@@ -88616,7 +88616,7 @@
             "count": 1
           }
         ],
-        "total": 236,
+        "total": 237,
         "distinct": 217,
         "maxConcurrency": 25,
         "maxBatchSize": null,
@@ -92513,7 +92513,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.invalidds.dnssec.test TXT do=0 cd=0",
@@ -92608,7 +92608,7 @@
             "count": 1
           }
         ],
-        "total": 34,
+        "total": 35,
         "distinct": 34,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -93663,7 +93663,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.nodigest.dnssec.test TXT do=0 cd=0",
@@ -93758,7 +93758,7 @@
             "count": 1
           }
         ],
-        "total": 34,
+        "total": 35,
         "distinct": 34,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -94870,7 +94870,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.policy.caa.test TXT do=0 cd=0",
@@ -94965,7 +94965,7 @@
             "count": 1
           }
         ],
-        "total": 33,
+        "total": 34,
         "distinct": 33,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -96186,7 +96186,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.hosts.mx.test TXT do=0 cd=0",
@@ -96297,7 +96297,7 @@
             "count": 1
           }
         ],
-        "total": 44,
+        "total": 45,
         "distinct": 42,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -97313,7 +97313,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.unverified.test TXT do=0 cd=0",
@@ -97408,7 +97408,7 @@
             "count": 1
           }
         ],
-        "total": 36,
+        "total": 37,
         "distinct": 32,
         "maxConcurrency": 10,
         "maxBatchSize": null,
@@ -98358,7 +98358,7 @@
           },
           {
             "query": "example.com A do=0 cd=0",
-            "count": 1
+            "count": 2
           },
           {
             "query": "google._domainkey.dup.bimi.test TXT do=0 cd=0",
@@ -98417,7 +98417,7 @@
             "count": 1
           }
         ],
-        "total": 34,
+        "total": 35,
         "distinct": 34,
         "maxConcurrency": 10,
         "maxBatchSize": null,

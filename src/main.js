@@ -1932,21 +1932,32 @@ global.R = R;
     });
   });
 
-  // Exposed for the inline onclick handlers in index.html.
-  global.startAudit = startAudit;
-  global.cancelAudit = cancelAudit;
-  global.exportCSV = exportCSV;
-  global.exportHTML = exportHTML;
-  global.loadFile = loadFile;
-  global.loadExample = loadExample;
-  global.clearAll = clearAll;
-  global.showHelp = showHelp;
-  global.setLang = setLang;
-  global.filterTable = filterTable;
-  global.sortTable = sortTable;
-  global.toggleDetail = toggleDetail;
-  global.toggleShowMe = toggleShowMe;
-  global.openLearnMore = openLearnMore;
+  /* ── The fourteen function globals are GONE, as of Task 2.8 ────────────
+   *
+   * `startAudit`, `cancelAudit`, `clearAll`, `exportCSV`, `exportHTML`,
+   * `filterTable`, `loadExample`, `loadFile`, `openLearnMore`, `setLang`,
+   * `showHelp`, `sortTable`, `toggleDetail` and `toggleShowMe` used to be
+   * assigned here, under a comment that said "Exposed for the inline onclick
+   * handlers in index.html". That comment had been wrong since 0.2.3: the CSP
+   * carries no 'unsafe-inline', so `index.html` cannot have an inline handler
+   * and does not have one. Every control is wired by `addEventListener` in the
+   * `DOMContentLoaded` listener above, which is the only consumer these
+   * functions ever had.
+   *
+   * Their removal is the second of the release's two authorized compatibility
+   * deltas — spec §10, and `tests/fixtures/equivalence/compatibility-deltas.json`
+   * records it. It is a DECISION, not a discovery: the search proved no
+   * repository consumer, and it cannot prove no consumer. A static site can be
+   * driven from a console, an extension or an embedding page absent from this
+   * checkout, and this project publishes no documented JavaScript API to say
+   * otherwise. `analyzeDomain` and `checkConnectivity` are the supported
+   * surface from 0.6.0 onward.
+   *
+   * Everything below this line is still here on purpose. `__APP_TEST__` and the
+   * i18n/renderer wiring names are marked adapters with repository consumers
+   * and no ESM owner yet; they retire on their owners' schedule, which the
+   * manifest's adapterRetirement block records.
+   */
 
   // Exposed for tools/render.test.mjs and tools/export.test.mjs, which drive
   // these directly rather than through a live page.

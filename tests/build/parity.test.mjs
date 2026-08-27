@@ -157,9 +157,30 @@ const bundleGlobals = globalsOf(bundle);
  * design predicts, and it is asserted as exactly one name rather than tolerated
  * as a mismatch.
  */
-eq('the source graph creates 23 globals — everything but DnsAudit', sourceGlobals.length, 23);
+/**
+ * Ten names, and Task 2.8 is why.
+ *
+ * The fourteen unsupported `js/app.js` function globals are gone — the second
+ * authorized compatibility delta. What is left is the facade plus the nine
+ * marked adapters that still have repository consumers or no ESM owner:
+ * `__APP_TEST__` (read by render.test.mjs and export.test.mjs, moving at Phase
+ * 5), the i18n/renderer wiring, and the three generated-data transition inputs.
+ * Named rather than counted, so a name surviving that nobody kept is caught.
+ */
+const EXPECTED_GLOBALS = [
+  'DnsAudit', 'R', '__APP_TEST__', '__DKIM_SELECTOR_CATALOG__', '__I18N_EN__',
+  '__PUBLIC_SUFFIX_RULES__', 'i18n', 't', 'tRaw', 'tp',
+];
+eq('the bundle creates exactly the ten names that survive Task 2.8',
+  bundleGlobals, EXPECTED_GLOBALS);
+eq('and none of the fourteen removed function globals is among them',
+  ['startAudit', 'cancelAudit', 'clearAll', 'exportCSV', 'exportHTML', 'filterTable',
+    'loadExample', 'loadFile', 'openLearnMore', 'setLang', 'showHelp', 'sortTable',
+    'toggleDetail', 'toggleShowMe'].filter(n => bundleGlobals.includes(n)), []);
+
+eq('the source graph creates 9 globals — everything but DnsAudit', sourceGlobals.length, 9);
 eq('and does not create DnsAudit', sourceGlobals.includes('DnsAudit'), false);
-eq('the bundle creates 24', bundleGlobals.length, 24);
+eq('the bundle creates 10', bundleGlobals.length, 10);
 eq('the one name the bundle adds is DnsAudit',
   bundleGlobals.filter(n => !sourceGlobals.includes(n)), ['DnsAudit']);
 eq('and it adds nothing else',

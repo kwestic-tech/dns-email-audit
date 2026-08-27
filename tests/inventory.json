@@ -172,7 +172,7 @@
     },
     {
       "path": "tests/build/parity.test.mjs",
-      "assertions": 66,
+      "assertions": 68,
       "areas": [
         "the artifact under test is the one index.html names and _site publishes",
         "the built artifact creates the same 24 globals as the source, and introduces none of its own",
@@ -226,7 +226,7 @@
       "why": "Drives a real headless browser at a real file:// URL. Kept out of npm test so a missing browser is one clearly-named failure rather than a broken suite -- but it REFUSES to skip, so it can never pass without having run. CI runs it as its own job, and it is a Gate 1 acceptance criterion.",
       "areas": [
         "the page loads from file:// with one classic script and no module",
-        "the application initialises: 24 globals, DnsAudit at exactly the two-member facade, the whole PSL carrying its discriminating rule",
+        "the application initialises: the ten globals that survive Task 2.8 and not one of the fourteen it removed, DnsAudit at exactly the two-member facade, the whole PSL carrying its discriminating rule",
         "i18n resolves from the INLINED English bundle, with no network available",
         "real computation runs with no network: the CSV formula guard, token-to-prose through the inlined bundle, and the renderer building a real element"
       ]

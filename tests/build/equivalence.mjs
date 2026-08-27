@@ -103,6 +103,8 @@ function tracingFetch(inner, css) {
   };
   impl.calls = calls;
   impl.observed = () => ({ maxConcurrency, maxBatchSize: null });
+  /** How many requests are open right now. Used to wait for the page to settle. */
+  impl.inFlight = () => active;
   return impl;
 }
 
@@ -263,6 +265,52 @@ function openSubject(root, testCase, entry, fetchImpl) {
   return { ...subject, probeForm: probe.form };
 }
 
+/**
+ * Wait until the page has stopped working.
+ *
+ * The boot chain — `DOMContentLoaded` → `runtime.mount()` → `checkConnectivity()`
+ * — is started by a listener that returns nothing, so there is no promise to
+ * await. What there is instead is an observable: the fixture knows how many
+ * requests are open, and the page is settled when none is and none has started
+ * for a full drain of the microtask and macrotask queues.
+ *
+ * Bounded, and loud if it does not converge. A quiescence loop that could spin
+ * forever would turn a hang in the application into a hang in the instrument,
+ * which is the worst way to learn about one.
+ */
+async function settle(fetchImpl, what) {
+  for (let quiet = 0, drains = 0; quiet < 3; drains++) {
+    if (drains > 5000) {
+      throw new Error(`equivalence: ${what} never settled — ${fetchImpl.inFlight()} request(s) still open`);
+    }
+    const before = fetchImpl.calls.length;
+    await new Promise(resolve => setImmediate(resolve));
+    quiet = fetchImpl.inFlight() === 0 && fetchImpl.calls.length === before ? quiet + 1 : 0;
+  }
+}
+
+/**
+ * Click a control the way a person does, and wait for what it started.
+ *
+ * Task 2.8 removed `window.startAudit`, `window.exportCSV` and
+ * `window.exportHTML` — three of the fourteen unsupported globals — and this is
+ * what replaces them. It is a MORE FAITHFUL DRIVER, not a workaround: the path
+ * from a click through the listener to the audit is now inside what the five
+ * surfaces cover, where calling the global jumped over it.
+ */
+async function clickAndWait(element, fetchImpl, what) {
+  const event = { type: 'click', bubbles: true, __results: [] };
+  event.stopPropagation = () => { event.__stopped = true; };
+  event.preventDefault = () => { event.__prevented = true; };
+  event.target = element;
+  element.dispatchEvent(event);
+  // `startAudit` and `exportHTML` are async and wired straight to their
+  // buttons; a browser discards the promise and so does `click()`. The runner
+  // needs it, so it reads what the handlers returned off the event it built.
+  await Promise.all(event.__results);
+  await settle(fetchImpl, what);
+}
+
 /** The controls a case can set, and the option key each one feeds. */
 const CONTROL_OPTIONS = [
   ['optDKIM', 'dkim'], ['optDKIMComprehensive', 'dkimComprehensive'],
@@ -282,18 +330,37 @@ async function runUiExecution(root, testCase, entry) {
   const fetchImpl = tracingFetch(testCase.fetch(), css);
   const subject = openSubject(root, testCase, entry, fetchImpl);
   const { win, document, downloads } = subject;
+  const control = id => document.getElementById(id);
+
+  /**
+   * Boot the page, exactly as a browser does.
+   *
+   * `src/main.js` wires every control from inside its `DOMContentLoaded`
+   * listener, so until this fires the page has no handlers on any button. The
+   * runner used to skip it entirely and call `window.startAudit()`, which meant
+   * it measured a page that had never booted — including the boot's own
+   * `checkConnectivity()` query, which a real visitor always pays and the trace
+   * never showed. Firing it is what Task 2.8 makes necessary and what makes the
+   * trace honest; the baseline was recaptured with the same driver, so both
+   * sides moved together.
+   *
+   * Settled before anything is clicked, because an audit that started while the
+   * boot's request was still open would report a maximum concurrency that
+   * depended on scheduling rather than on the application.
+   */
+  document.dispatchEvent({ type: 'DOMContentLoaded', bubbles: false });
+  await settle(fetchImpl, `${testCase.id}: page boot`);
 
   // Options are set the way a person sets them: on the controls `startAudit()`
   // reads. The defaults come from the subject's own index.html.
   const options = testCase.options || {};
-  const control = id => document.getElementById(id);
   for (const [id, key] of CONTROL_OPTIONS) {
     if (Object.prototype.hasOwnProperty.call(options, key)) control(id).checked = options[key];
   }
   if (options.selectors) control('dkimSelectors').value = options.selectors.join(' ');
   control('domainInput').value = testCase.domains.map(d => d.domain).join('\n');
 
-  await win.startAudit();
+  await clickAndWait(control('auditBtn'), fetchImpl, `${testCase.id}: audit`);
 
   const tableBody = document.getElementById('tableBody');
   const rows = [...tableBody.walk()].filter(n => n.nodeType === 1 && n.localName === 'tr' && n.dataset.domain);
@@ -307,10 +374,10 @@ async function runUiExecution(root, testCase, entry) {
   // cases before the interception was removed.
   if (rows.some(row => row.dataset.overall !== 'error')) {
     downloads.length = 0;
-    win.exportCSV();
+    await clickAndWait(control('exportCsvBtn'), fetchImpl, `${testCase.id}: CSV export`);
     csv = (downloads.find(d => d.type && d.type.startsWith('text/csv')) || {}).text ?? null;
     downloads.length = 0;
-    await win.exportHTML();
+    await clickAndWait(control('exportHtmlBtn'), fetchImpl, `${testCase.id}: HTML export`);
     report = (downloads.find(d => d.type === 'text/html') || {}).text ?? null;
   }
 
