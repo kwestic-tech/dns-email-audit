@@ -92,6 +92,9 @@ export function loadApp(opts = {}) {
       clearTimeout: (...args) => clearTimeout(...args),
       Blob: win.Blob || class Blob {},
       FileReader: win.FileReader || class FileReader {},
+      // Recorded rather than performed: nothing in a test should navigate, and
+      // a suite that wants to assert on it reads win.opened.
+      open: win.open || ((...args) => { (win.opened || (win.opened = [])).push(args); }),
       crypto,
       Date,
       Intl,

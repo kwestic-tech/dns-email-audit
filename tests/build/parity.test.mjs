@@ -51,7 +51,10 @@ const SOURCES = ['js/app.js'];
  */
 const AMBIENT = ['document', 'navigator', 'location', 'localStorage', 'fetch', 'console',
   'setTimeout', 'clearTimeout', 'queueMicrotask', 'URL', 'URLSearchParams',
-  'AbortController', 'crypto', 'Date', 'Intl', 'window', 'self', 'globalThis'];
+  'AbortController', 'crypto', 'Date', 'Intl', 'window', 'self', 'globalThis',
+  // Supplied by the harness, not created by the code: the rest of the §11 set,
+  // plus the array the recorded `open` writes into.
+  'Blob', 'FileReader', 'open', 'opened'];
 
 /**
  * A fresh sandbox per load, and the load is cache-busted by construction:
@@ -68,7 +71,13 @@ function load(files, { injectData = false } = {}) {
     fetch: async () => ({ ok: false }),
     console, setTimeout, clearTimeout, queueMicrotask,
     URL, URLSearchParams, AbortController, crypto, Date, Intl,
+    // Every window a platform is built from must carry the whole §11 set: the
+    // adapter binds each method, so a missing one throws at construction rather
+    // than degrading quietly. Navigation is recorded, never performed.
+    opened: [],
+    Blob: class Blob {}, FileReader: class FileReader {},
   };
+  win.open = (...args) => { win.opened.push(args); return null; };
   win.window = win;
   win.self = win;
   win.globalThis = win;
@@ -83,6 +92,7 @@ function load(files, { injectData = false } = {}) {
     const platform = createBrowserPlatform({
       ...win, Blob: class Blob {}, FileReader: class FileReader {},
       setTimeout: (...a) => setTimeout(...a), clearTimeout: (...a) => clearTimeout(...a),
+      open: () => null,
     });
     const i18n = createI18n({ englishBundle: LOCALE_EN, platform });
     win.i18n = i18n;
@@ -213,7 +223,9 @@ const alteredWin = (() => {
     localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
     fetch: async () => ({ ok: false }), console, setTimeout, clearTimeout, queueMicrotask,
     URL, URLSearchParams, AbortController, crypto, Date, Intl,
+    opened: [], Blob: class Blob {}, FileReader: class FileReader {},
   };
+  win.open = (...args) => { win.opened.push(args); return null; };
   win.window = win; win.self = win; win.globalThis = win;
   vm.createContext(win);
   vm.runInContext(altered, win, { filename: 'altered' });
@@ -233,7 +245,9 @@ const extraWin = (() => {
     localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
     fetch: async () => ({ ok: false }), console, setTimeout, clearTimeout, queueMicrotask,
     URL, URLSearchParams, AbortController, crypto, Date, Intl,
+    opened: [], Blob: class Blob {}, FileReader: class FileReader {},
   };
+  win.open = (...args) => { win.opened.push(args); return null; };
   win.window = win; win.self = win; win.globalThis = win;
   vm.createContext(win);
   vm.runInContext(readFileSync(join(REPO, ARTIFACT), 'utf8') + '\nvar DnsAuditExtra = 1;', win, { filename: 'extra' });

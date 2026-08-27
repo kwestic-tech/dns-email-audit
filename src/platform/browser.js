@@ -55,6 +55,23 @@ export function createBrowserPlatform(win) {
     // replaces most often.
     fetch: win.fetch.bind(win),
 
+    /**
+     * Open a URL in a new browsing context.
+     *
+     * Bound, like `fetch`: a bare `open` lifted off `window` throws Illegal
+     * invocation. `openLearnMore()` calls it as
+     * `open(url, '_blank', 'noopener')` over a `Blob` URL, and `noopener` is
+     * load-bearing — without it the opened page gets a reference back to this
+     * one through `window.opener`.
+     *
+     * The first NAVIGATION SIDE EFFECT on this list rather than a data
+     * capability, and named as such because the platform is the security
+     * boundary between `src/` and the browser. Whether page construction should
+     * be split from navigation is a real question and a Phase 5 one — `src/ui/`
+     * owns that decomposition. Not redesigned here.
+     */
+    open: win.open.bind(win),
+
     // ── Cancellation and timing ──────────────────────────────────────────
     AbortController: win.AbortController,
     setTimeout: win.setTimeout.bind(win),
@@ -112,6 +129,6 @@ export function createBrowserPlatform(win) {
  */
 export const PLATFORM_PRIMITIVES = [
   'fetch', 'crypto', 'AbortController', 'URLSearchParams', 'setTimeout',
-  'clearTimeout', 'document', 'localStorage', 'URL', 'Blob', 'FileReader',
-  'Intl', 'console', 'navigator', 'now', 'formatDateTime',
+  'clearTimeout', 'document', 'localStorage', 'navigator', 'open', 'URL', 'Blob',
+  'FileReader', 'Intl', 'console', 'now', 'formatDateTime',
 ];

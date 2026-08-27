@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.2 (Final) |
+| Spec version | 1.3 (Final) |
 | Target release | 0.6.0 |
-| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, and to `1.2` to correct an overstated evidence claim about how that enumeration is guarded — see [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
+| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, to `1.2` to correct an overstated evidence claim about how that enumeration is guarded, and to `1.3` to add the last ambient primitive the conversion sweep found — see [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
 | Depends on | [dnssec-evidence](implemented/dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
 | Blocks | [findings-and-remediation](findings-and-remediation.md), [local-artifact-validation](local-artifact-validation.md), [report-comparison](report-comparison.md) — all three are scheduled after it |
 | Slug for open questions | `ARCH` |
@@ -884,13 +884,31 @@ and no production branch that exists only for tests.
 
 The browser platform object names every ambient primitive used by the moved
 code: `fetch`, `crypto`, `AbortController`, `URLSearchParams`, `setTimeout`,
-`clearTimeout`, `document`, `localStorage`, `navigator`, `URL`, `Blob`,
+`clearTimeout`, `document`, `localStorage`, `navigator`, `open`, `URL`, `Blob`,
 `FileReader`, `Intl`, `console`, `now()` and `formatDateTime(date, locale)`.
 The last two preserve the current `new Date().toLocaleString(i18n.lang)`
 behavior in production while making export parity deterministic. Language
 built-ins such as `Promise`, `Map`, `Set` and `BigInt` are required APIs, not
 injectable platform services.
 
+> **`open` was added in 1.3, and it is the last one.** `openLearnMore()` builds
+> the Learn-more page into a `Blob`, opens it with
+> `open(url, '_blank', 'noopener')` and revokes the object URL a minute later.
+> Found by the **completed conversion sweep over `js/app.js`** — the only file
+> left to convert — which enumerated its full ambient set: eight primitives
+> already on this list and this one missing. That is why it is the last: there
+> is no further legacy source to sweep. It is **not** evidence that the lexical
+> contract in `tests/contract/platform.test.mjs` is exhaustive; that contract
+> could not have found it either, for the reasons `1.2` records.
+>
+> `open` is the first entry here that is a **navigation side effect** rather
+> than a data capability, and it is worth naming as such because the platform is
+> the security boundary between `src/` and the browser. Splitting page
+> construction from navigation is architecturally reasonable and **Phase 5 owns
+> it** — `src/ui/` is where that decomposition belongs. Doing it during Task 2.6
+> would put a behaviour-shaped change inside a wrapper-only conversion, which
+> §35 forbids. Its final UI-facing abstraction is reconsidered then, not now.
+>
 > **`navigator` was added in 1.1.** Version 1.0 omitted it while claiming the
 > list named *every* ambient primitive, which was false: `detectLang()` reads
 > `navigator.languages` and `navigator.language` to pick a language before any
@@ -1024,7 +1042,7 @@ but not ownership or direction without amending this spec.
 | --- | --- | --- | --- |
 | `main.js` | browser entry; exports `analyzeDomain`, `checkConnectivity` | generated modules, browser platform | one mounted runtime per page |
 | `runtime.js` | `createAuditRuntime()` | three generated bindings, platform | facade + `mount`; fresh cache/i18n/resolver per call |
-| `platform/` | `createBrowserPlatform(window)` | one window, at the composition root only | immutable primitive adapter, one per runtime; provides the exhaustive §11 set including `navigator` |
+| `platform/` | `createBrowserPlatform(window)` | one window, at the composition root only | immutable primitive adapter, one per runtime; provides the §11 set including `navigator` and the navigation capability `open` |
 | `core/dns/` | `createResolver`, raw fetch, usable/normalized APIs, errors | platform, runtime cache | ten kinds; page/runtime cache, per-call retry state |
 | `core/shared/` | URI, record-field, IP and other genuinely cross-protocol pure helpers | values only | pure, no retained state |
 | `core/spf/` | parse/status, lookup count, subnet/redundancy audit | SPF text, domain, resolver | §12.1 SPF axes; call lifetime |
@@ -1239,7 +1257,7 @@ Structural:
 - [ ] SPF, DKIM, DMARC, DNSSEC, MX, CAA, BIMI, MTA-STS, TLS-RPT and TLSA each have an owning directory and a checked-in API table.
 - [ ] The allowed-edge matrix holds; no SCC contains more than one module.
 - [ ] `src/runtime.js` is side-effect-free; importing it neither mounts the UI nor performs network I/O.
-- [ ] The browser platform provides the §11 primitive set, `navigator` included. The spec list and the platform module's published set agree in both directions, every declared primitive is provided, and a lexical scan over a named catalog of ambient identifiers rejects a bare read outside the platform module and the marked adapters. The scan is defense in depth against regression, **not** exhaustive name-resolution analysis: completeness of the list rests on the conversion review, and the scan cannot find an identifier absent from its own catalog.
+- [ ] The browser platform provides the §11 primitive set, `navigator` and `open` included. The spec list and the platform module's published set agree in both directions, every declared primitive is provided, and a lexical scan over a named catalog of ambient identifiers rejects a bare read outside the platform module and the marked adapters. The scan is defense in depth against regression, **not** exhaustive name-resolution analysis: completeness of the list rests on the conversion review, and the scan cannot find an identifier absent from its own catalog.
 - [ ] The namespace contract holds: no `src/` module touches any of the 24 globals outside a marked adapter.
 - [ ] `src/facade.expected.json` matches both the source exports and the bundle global.
 - [ ] Removal of unsupported legacy globals is one named compatibility delta with a manifest entry and release note.
@@ -1326,6 +1344,7 @@ current payload. `file://` support was bought and paid for.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.3 | 2026-08-27 | **Added `open` to §11's primitive set.** `openLearnMore()` opens the generated Learn-more page with `open(url, '_blank', 'noopener')` (`js/app.js:385`), and the list did not name it. Found by the **completed conversion sweep over `js/app.js`**, the last unconverted file, which enumerated its full ambient set — eight already listed, this one missing. It is the last such finding because there is no further legacy source to sweep, and it is expressly **not** evidence that the lexical contract is exhaustive: that contract could not have found it either, per `1.2`. Implemented as `win.open.bind(win)`, with a receiver-sensitive contract asserting the exact `url`, `_blank` and `noopener` arguments; the 60-second `revokeObjectURL` timeout and every other behaviour are unchanged. Recorded as the first **navigation side-effect** capability on the list; its final UI-facing abstraction is a **Phase 5** question and is not redesigned now. Added to §11, §12's platform API row, the acceptance criteria, `PLATFORM_PRIMITIVES`, `SPEC_11` and the known-ambient catalog. No architecture or implementation decision reopened. Recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §18. |
 | 1.2 | 2026-08-27 | **Evidence correction, no design change.** `1.1` said §11's primitive set was "exhaustive by contract, not by inspection". It is not, and the phrasing claimed more than the check delivers — the same shape of overstatement this project has corrected twice before, in a paragraph written to correct an overstatement. `tests/contract/platform.test.mjs` establishes three things: the spec list and `PLATFORM_PRIMITIVES` agree bidirectionally, every declared primitive is provided, and a lexical scan over a **named catalog** of ambient identifiers rejects a bare read outside the platform module and the marked adapters. It cannot discover an ambient identifier absent from that catalog — the `navigator` omission `1.1` fixed would not have been caught by it — and a regex is not scope analysis. Replaced with "reviewed during conversion, synchronized bidirectionally, and guarded against the known ambient catalog", stated the scan as defense in depth against regression, and adjusted the acceptance criterion to match. No parser and no dependency added; no architecture or implementation decision reopened. Recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §17. |
 | 1.1 | 2026-08-27 | **Amended during Phase 2, Task 2.4.** §11's exact platform list omitted `navigator` while claiming to name *every* ambient primitive the moved code uses — false, because `detectLang()` reads `navigator.languages` and `navigator.language`. Found by converting `js/i18n.js`, where the module stopped being able to reach `window` and every dependency had to be named; four of its five ambient primitives were on the list. Added to §11, to §12's `platform/` API row, and to the acceptance criteria, with the completeness now asserted against the platform module's own published set rather than by inspection. Framework §6 trigger 5: a Final spec found wrong is amended and re-versioned, never quietly diverged from. The finding and Ian's decision are recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §16. **Narrow by design:** an omission from one enumeration. No design decision, phase ordering, acceptance threshold or behaviour changed, and nothing else in `1.0` is reopened. |
 | 1.0 | 2026-08-27 | **Final after Codex review round 3.** Replaced the ineffective `a.b.ck` fixture check with independently divergent PSL, DKIM-catalog and English-bundle fingerprints. Made cache ownership consistently per runtime, with one production runtime per page and cross-runtime isolation. Added a side-effect-free `runtime.js`, browser-platform adapter, complete allowed-edge rows and per-owner API contracts. Replaced the unsound static-extractor promise with a complete pre-refactor inventory covering computed DNSSEC claims, thrown paths, booleans, nullability and absence; the state matrix is complete before Gate 0. Bound equivalence subjects to complete roots with input hashes and fixed time/locale inputs. Declared the two-member facade the only supported 0.6.0 browser API and recorded removal of legacy globals as an intentional compatibility delta. Synchronized the implementation plan with the no-`globalName` legacy phase and the real four-boundary resolver model. Linux `npm ci` remains a Gate 1 measurement. |

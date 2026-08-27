@@ -1291,3 +1291,76 @@ it exhaustive proof.
 **No parser and no dependency added.** `OQ-ARCH-01` bought exactly one
 development dependency and this is not a good reason to spend another. No
 architecture or implementation decision is reopened, and no behaviour changes.
+
+---
+
+## 18. `window.open` — the last ambient found by the conversion sweep — 2026-08-27
+
+**Raised before Task 2.6. Spec `1.3 (Final)`.**
+
+### The finding
+
+`js/app.js:385`, in `openLearnMore()`:
+
+```js
+var url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+global.open(url, '_blank', 'noopener');
+setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+```
+
+`window.open` is an ambient primitive the moved code uses, and §11 did not name
+it. One call site.
+
+### Found by sweeping, not by tripping over it
+
+`1.2` recorded that the completeness of §11's list rests on the conversion
+review rather than on the lexical contract. So `js/app.js` — the only
+unconverted file left — was swept **before** Task 2.6 began, enumerating its
+full ambient set rather than discovering omissions one at a time:
+
+| Used by `js/app.js` | On the §11 list |
+| --- | --- |
+| `document`, `fetch`, `setTimeout`, `Blob`, `FileReader`, `URL`, `AbortController`, `Intl` | all eight |
+| `open` | **missing** |
+
+**This is the last such finding, because there is no further legacy source to
+sweep.** That is a statement about the source tree being exhausted, and
+explicitly **not** a claim that the lexical contract in
+`tests/contract/platform.test.mjs` is exhaustive — that contract could not have
+found `open` either, for exactly the reasons `1.2` records.
+
+### Decision — approved by Ian, 2026-08-27
+
+`window.open` is a browser capability and belongs in the injected platform for
+this phase.
+
+- Added to §11, §12's platform API row, the acceptance criteria,
+  `PLATFORM_PRIMITIVES`, `SPEC_11` and the known-ambient catalog.
+- Implemented as `win.open.bind(win)`. A bare `open` lifted off `window` throws
+  `Illegal invocation` in a browser, as `fetch` and `setTimeout` do.
+- A receiver-sensitive contract asserts it works when destructured off the
+  platform, and that the **exact** `url`, `_blank` and `noopener` arguments
+  reach the window in order. `noopener` is the one that matters: without it the
+  opened page holds a reference back through `window.opener`, and no other
+  assertion in the suite would have noticed it being dropped.
+- The 60-second `revokeObjectURL` timeout and every other behaviour are
+  unchanged.
+
+### Recorded for Phase 5
+
+`open` is the first entry on §11's list that is a **navigation side effect**
+rather than a data capability, and the platform is the security boundary
+between `src/` and the browser. Splitting page construction from navigation is
+architecturally reasonable, and **Phase 5 owns that decomposition** — `src/ui/`
+is where it belongs. Doing it during Task 2.6 would put a behaviour-shaped
+change inside a wrapper-only conversion, which §35 forbids. Its final UI-facing
+abstraction is reconsidered then; it is not redesigned now.
+
+### A consequence worth noting
+
+Adding a primitive means every window a platform is constructed from must
+provide it. Four test sandboxes had to gain `open` — and they failed **loudly**,
+at construction, with `Cannot read properties of undefined (reading 'bind')`,
+rather than degrading silently. That is the binding discipline from Task 2.4
+paying for itself: a platform that tolerated a missing primitive would have
+produced a runtime that worked until someone clicked "Learn more".

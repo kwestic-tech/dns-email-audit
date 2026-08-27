@@ -34,6 +34,7 @@ const { eq, throws, section, report } = createSuite();
 function strictWindow(overrides = {}) {
   const win = {
     calls: [],
+    opened: [],
     Date,
     Intl,
     URL, URLSearchParams, AbortController,
@@ -66,6 +67,11 @@ function strictWindow(overrides = {}) {
     if (this !== win) throw new TypeError('Illegal invocation');
     win.calls.push(['clearTimeout', handle]);
   };
+  win.open = function open(url, target, features) {
+    if (this !== win) throw new TypeError('Illegal invocation');
+    win.opened.push([url, target, features]);
+    return { closed: false };
+  };
   return win;
 }
 
@@ -82,6 +88,9 @@ throws('an unbound setTimeout throws too',
 throws('and an unbound localStorage.getItem',
   () => { const bare = probe.localStorage.getItem; bare('k'); },
   error => /Illegal invocation/.test(error.message));
+throws('and an unbound open',
+  () => { const bare = probe.open; bare('https://x/', '_blank', 'noopener'); },
+  error => /Illegal invocation/.test(error.message));
 
 /* ── 1. The set is complete ───────────────────────────────────────────── */
 section('1. Every §11 primitive is present');
@@ -92,6 +101,11 @@ const platform = createBrowserPlatform(strictWindow());
  * The names spec §11 lists, verbatim, checked against the module's own
  * declaration so the two cannot drift.
  *
+ * `open` is here as of spec `1.3`, found by the completed conversion sweep over
+ * `js/app.js` — the last legacy file, and therefore the last such finding. It
+ * is NOT evidence that the scan below is exhaustive: the scan could not have
+ * found it either.
+ *
  * `navigator` is here as of spec `1.1`. Version 1.0 omitted it while claiming
  * the list named every ambient primitive the moved code uses, which was false:
  * `detectLang()` reads `navigator.languages` and `navigator.language`. The
@@ -100,8 +114,8 @@ const platform = createBrowserPlatform(strictWindow());
  * it — framework §6 trigger 5.
  */
 const SPEC_11 = ['fetch', 'crypto', 'AbortController', 'URLSearchParams', 'setTimeout',
-  'clearTimeout', 'document', 'localStorage', 'navigator', 'URL', 'Blob', 'FileReader',
-  'Intl', 'console', 'now', 'formatDateTime'];
+  'clearTimeout', 'document', 'localStorage', 'navigator', 'open', 'URL', 'Blob',
+  'FileReader', 'Intl', 'console', 'now', 'formatDateTime'];
 for (const name of SPEC_11) {
   eq(`§11 names ${name}, and the platform declares it`, PLATFORM_PRIMITIVES.includes(name), true);
   eq(`and provides it`, platform[name] !== undefined, true);
@@ -136,7 +150,7 @@ eq('and declares nothing the spec does not name',
  * no parser and no dependency for it.
  */
 const AMBIENT = ['navigator', 'localStorage', 'document', 'fetch', 'crypto',
-  'setTimeout', 'clearTimeout', 'sessionStorage', 'indexedDB', 'location', 'history'];
+  'setTimeout', 'clearTimeout', 'sessionStorage', 'indexedDB', 'location', 'history', 'open'];
 const srcFiles = (function walk(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
     const full = join(dir, entry.name);
@@ -203,6 +217,26 @@ eq('fetch works when destructured off the platform',
 eq('setTimeout works when destructured', schedule(() => {}, 5).ms, 5);
 cancel('handle');
 eq('clearTimeout works when destructured', true, true);
+
+/**
+ * `open`, with its arguments preserved exactly.
+ *
+ * `openLearnMore()` calls `open(url, '_blank', 'noopener')`, and all three
+ * matter: the Blob URL is the page, `_blank` is the new context, and `noopener`
+ * is what stops the opened page holding a reference back through
+ * `window.opener`. A platform that dropped or reordered them would be a
+ * security regression that no other assertion here would notice.
+ */
+const navigating = strictWindow();
+const navPlatform = createBrowserPlatform(navigating);
+const { open: openUrl } = navPlatform;
+openUrl('blob:learn-more', '_blank', 'noopener');
+eq('open works when destructured off the platform', navigating.opened.length, 1);
+eq('and the URL reaches the window unchanged', navigating.opened[0][0], 'blob:learn-more');
+eq('with the _blank target', navigating.opened[0][1], '_blank');
+eq('and noopener, which is the part that matters', navigating.opened[0][2], 'noopener');
+eq('all three arguments, in order',
+  navigating.opened[0], ['blob:learn-more', '_blank', 'noopener']);
 
 // Host objects are passed WHOLE, so their own methods keep their receivers.
 const strict = strictWindow();

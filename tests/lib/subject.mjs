@@ -151,9 +151,16 @@ export function loadSubject(root, options = {}) {
     setTimeout, clearTimeout, queueMicrotask,
     URL, URLSearchParams, AbortController,
     crypto: platform.crypto(),
+    // Navigation is recorded, never performed. `openLearnMore()` opens the
+    // generated page in a new context; a subject under test must not, and a
+    // surface that wanted to observe it would read this array.
+    open: (...args) => { win.opened.push(args); return null; },
+    Blob: class Blob { constructor(parts, options) { this.parts = parts; this.type = options && options.type; } },
+    FileReader: class FileReader {},
     Date: pinnedDate(instant),
     Intl,
   };
+  win.opened = [];
   win.window = win;
   win.self = win;
   win.globalThis = win;
