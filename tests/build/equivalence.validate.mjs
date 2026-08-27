@@ -26,6 +26,8 @@ import { dirname, join } from 'node:path';
 import { createSuite } from '../lib/assert.mjs';
 import { serialize } from '../lib/canonical.mjs';
 import { runCase } from './equivalence.mjs';
+import { loadSubject } from '../lib/subject.mjs';
+import { readEntryPoints } from '../lib/subject.mjs';
 import { build } from '../../tools/build-bundle.mjs';
 import { cases as allCases } from '../fixtures/equivalence/corpus.mjs';
 
@@ -225,8 +227,75 @@ for (const mutation of MUTATIONS) {
   rmSync(root, { recursive: true, force: true });
 }
 
+/* ── 2b. The rebuild is what makes a mutation observable ──────────────── */
+section('2b. Negative control: a mutation that is not rebuilt moves nothing');
+
+/**
+ * The control that keeps section 2 honest.
+ *
+ * Since the delivery boundary moved, the subject loads `dist/app.min.js`. A
+ * validator that edited `js/` and did not rebuild would be measuring an
+ * artifact the edit never reached — every mutation would report "moves
+ * nothing", every `mustMove` assertion would fail, and if the assertions were
+ * ever loosened it would go green while proving nothing at all.
+ *
+ * So this asserts the failure mode directly: apply the largest mutation in the
+ * list, DO NOT rebuild, and require that no surface moves. If this ever starts
+ * reporting movement, the subject has stopped loading the artifact and section
+ * 2's rebuilds are no longer what makes it work.
+ */
+const staleRoot = await makeRoot('stale');
+const stalePath = join(staleRoot, 'js', 'dns.js');
+const staleSource = readFileSync(stalePath, 'utf8');
+eq('the control mutation applies', staleSource.includes('dmarc: 30, spf: 15'), true);
+writeFileSync(stalePath, staleSource.replace('dmarc: 30, spf: 15', 'dmarc: 30, spf: 1'));
+// Deliberately no build({ root: staleRoot }) here.
+const stale = await run(staleRoot);
+eq('an unbuilt mutation moves no surface — the artifact is what is measured',
+  movedSurfaces(first, stale), []);
+// And the same mutation, rebuilt, does move. The pair is the evidence.
+await build({ root: staleRoot });
+const rebuilt = await run(staleRoot);
+eq('the same mutation rebuilt moves the result surface',
+  movedSurfaces(first, rebuilt).includes('result'), true);
+rmSync(staleRoot, { recursive: true, force: true });
+
 /* ── 3. The subject binding ───────────────────────────────────────────── */
 section('3. A subject is a complete root');
+
+/**
+ * Input hashes are PROVENANCE, not an equivalence surface — the subject under
+ * test is by definition not the one the baseline was captured from. What has
+ * to hold instead is that the manifest is COMPLETE and STABLE.
+ */
+const manifestSubject = loadSubject(pristine, {});
+const manifestPaths = manifestSubject.manifest.inputs.map(i => i.path);
+const { scripts, stylesheets } = readEntryPoints(readFileSync(join(pristine, 'index.html'), 'utf8'));
+
+eq('every script index.html references is hashed',
+  scripts.map(s => s.src).filter(src => !manifestPaths.includes(src)), []);
+eq('every stylesheet index.html references is hashed',
+  stylesheets.filter(href => !manifestPaths.includes(href)), []);
+eq('index.html itself is hashed', manifestPaths.includes('index.html'), true);
+eq('and nothing else is', manifestPaths.length, scripts.length + stylesheets.length + 1);
+eq('every entry carries a sha256 and a byte count',
+  manifestSubject.manifest.inputs.filter(i => !/^[0-9a-f]{64}$/.test(i.sha256) || typeof i.bytes !== 'number'), []);
+
+// Stable: the same subject read twice hashes identically.
+const secondRead = loadSubject(pristine, {});
+eq('re-reading the same subject produces identical hashes',
+  JSON.stringify(manifestSubject.manifest.inputs), JSON.stringify(secondRead.manifest.inputs));
+eq('and the same platform profile', manifestSubject.manifest.platform, secondRead.manifest.platform);
+
+// Sensitive: a one-byte change to any input changes its hash.
+const hashRoot = await makeRoot('hash');
+const cssFile = join(hashRoot, 'css', 'style.css');
+const beforeHash = loadSubject(hashRoot, {}).manifest.inputs.find(i => i.path === 'css/style.css').sha256;
+writeFileSync(cssFile, readFileSync(cssFile, 'utf8') + ' ');
+const afterHash = loadSubject(hashRoot, {}).manifest.inputs.find(i => i.path === 'css/style.css').sha256;
+eq('a one-byte change to an input changes its hash', beforeHash === afterHash, false);
+rmSync(hashRoot, { recursive: true, force: true });
+
 
 // Changing an asset the JavaScript does not touch must still be visible. A
 // runner that paired baseline JavaScript with current-branch CSS would report

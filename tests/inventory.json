@@ -128,15 +128,44 @@
       ]
     },
     {
+      "path": "tests/build/parity.test.mjs",
+      "assertions": 34,
+      "areas": [
+        "the artifact under test is the one index.html names and _site publishes",
+        "the built artifact creates the same 24 globals as the source, and introduces none of its own",
+        "DnsAudit's 95 members and __APP_TEST__ match between source and bundle",
+        "WEIGHTS, PARKED_WEIGHTS, GRADE_THRESHOLDS and POLICY_RANK are byte-identical",
+        "generated data survived bundling: the whole PSL, the catalog, and the inlined English bundle",
+        "computed behaviour agrees — the PSL-reading org-domain walk and the DER key walk",
+        "an altered artifact fails the comparison, and an extra global is caught"
+      ]
+    },
+    {
+      "path": "tests/build/artifact.test.mjs",
+      "assertions": 43,
+      "areas": [
+        "the exact top-level _site allowlist, asserted as a set",
+        "absence: src, tools, tests, docs, node_modules, js, assets, package files, AGENTS.md",
+        "absence by pattern at any depth: test files, stray source maps, markdown, translation-status.json",
+        "every script, stylesheet and source-map reference resolves inside _site",
+        "co-location safety bound to metafile.inputs and the source map's sources, not to a sentinel",
+        "no third-party JavaScript and no cross-origin reference at the delivery boundary",
+        "the allowlist and the pattern scans are each shown to catch an addition"
+      ]
+    },
+    {
       "path": "tests/build/equivalence.validate.mjs",
-      "assertions": 42,
+      "assertions": 53,
       "areas": [
         "the runner is deterministic across two runs of one root",
         "each of the five surfaces distinguishes cases",
         "seven mutations, rebuilt into the artifact and each caught on the surfaces it should be and no others",
         "a subject is a complete root: a stylesheet-only edit moves the report",
         "a script listed in index.html but absent is refused, not skipped",
-        "a subject whose generated data was substituted is refused, not measured"
+        "a subject whose generated data was substituted is refused, not measured",
+        "a mutation that is NOT rebuilt moves nothing — the control that proves the rebuild is what makes section 2 work",
+        "the subject manifest is complete: every script, stylesheet and index.html hashed, and nothing else",
+        "re-reading one subject produces identical hashes, and a one-byte change moves one"
       ]
     }
   ],
@@ -146,6 +175,16 @@
       "why": "The five-surface comparison against the committed baseline. 38 s for 30 cases, so it runs at every phase gate rather than inside npm test. Framework §3's 'move it to every commit' reading was based on an 8-case corpus and was revised when the corpus was completed.",
       "areas": [
         "five-surface equivalence against v0.5.0: result, query trace, CSV, HTML report, DOM"
+      ]
+    },
+    {
+      "command": "node tests/build/file-url.test.mjs  (npm run test:file-url)",
+      "why": "Drives a real headless browser at a real file:// URL. Kept out of npm test so a missing browser is one clearly-named failure rather than a broken suite -- but it REFUSES to skip, so it can never pass without having run. CI runs it as its own job, and it is a Gate 1 acceptance criterion.",
+      "areas": [
+        "the page loads from file:// with one classic script and no module",
+        "the application initialises: 24 globals, DnsAudit at 95 members, the whole PSL",
+        "i18n resolves from the INLINED English bundle, with no network available",
+        "real computation runs: the PSL-reading org-domain walk and the DER key walk"
       ]
     },
     {

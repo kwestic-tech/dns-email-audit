@@ -18,6 +18,15 @@ import esbuild from 'esbuild';
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ENTRY = 'src/entry-legacy.js';
 const OUTFILE = 'dist/app.min.js';
+// Build metadata, deliberately NOT under dist/.
+//
+// dist/ is copied wholesale into _site/, so anything written there ships. The
+// metafile is a size manifest listing source paths; it is for tooling, not for
+// visitors, and putting it in the published directory would have needed a
+// per-file skip entry in the deploy allowlist — a judgment call in exactly the
+// place this project keeps them out of. `dist/` now contains only the two files
+// that ship. Caught by tests/build/artifact.test.mjs on its first run.
+const METAFILE = '.build/metafile.json';
 
 /**
  * The banner, written out explicitly.
@@ -140,6 +149,9 @@ export async function build({ root = REPO } = {}) {
       `  bundle:     ${bundled.join(' ')}`);
   }
 
+  mkdirSync(join(root, '.build'), { recursive: true });
+  writeFileSync(join(root, METAFILE), JSON.stringify(result.metafile, null, 2) + '\n');
+
   return {
     metafile: result.metafile,
     elapsedMs,
@@ -180,8 +192,9 @@ export function report(built) {
   }
 }
 
+export const metafilePath = join(REPO, METAFILE);
+
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   const built = await build();
-  writeFileSync(join(REPO, 'dist', 'metafile.json'), JSON.stringify(built.metafile, null, 2) + '\n');
   if (!process.argv.includes('--check')) report(built);
 }

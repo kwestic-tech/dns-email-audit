@@ -13,6 +13,7 @@ node_modules/
 # Generated deploy output / editor / OS noise
 _site/
 dist/
+.build/
 .DS_Store
 Thumbs.db
 .idea/
