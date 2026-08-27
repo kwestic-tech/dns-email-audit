@@ -381,8 +381,15 @@ async function main() {
     process.exit(2);
   }
   const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
-  const diffs = compare(baseline, document);
+  const { diffs, composition } = compare(baseline, document);
 
+  if (composition.length) {
+    console.log(`\nSubject composition differs from the baseline's (${baseline.subject.commit?.described || 'unknown'}).`);
+    console.log('Expected while the delivery boundary and the module tree move.');
+    console.log('Provenance, not a verdict — the five surfaces below are the verdict.');
+    for (const change of composition) console.log(`    ${change}`);
+    console.log('');
+  }
   for (const diff of diffs) console.log(`  ✗ ${diff}`);
   console.log(`\n${'='.repeat(60)}`);
   console.log(`${selected.length} cases, 5 surfaces, ${diffs.length} differences`);
@@ -406,16 +413,25 @@ async function main() {
  */
 export function compare(baseline, current) {
   const diffs = [];
-  // Input hashes are what bind a comparison. A baseline whose inputs differ is
-  // not a baseline for this subject, and saying so beats reporting thirty
-  // surface diffs that all mean the same thing.
+  // Input hashes are PROVENANCE, not a gate.
+  //
+  // They were briefly compared as differences, and that was wrong: the subject
+  // whose behaviour is being checked is by definition not the one the baseline
+  // was captured from — Task 1.6 replaces seven script inputs with one, and
+  // every commit after Phase 2 changes them again. Gating on them would have
+  // reported a permanent false stop from the delivery-boundary commit onward,
+  // and a surface that cries wolf is one people learn to ignore.
+  //
+  // What they are for is spec Design §8's requirement that a baseline record
+  // what it was captured from, so a reader can tell. Reported, never counted.
   const baselineInputs = new Map((baseline.subject?.inputs || []).map(i => [i.path, i.sha256]));
+  const composition = [];
   for (const input of current.subject?.inputs || []) {
-    if (!baselineInputs.has(input.path)) { diffs.push(`subject input ${input.path}: absent from the baseline`); continue; }
-    if (baselineInputs.get(input.path) !== input.sha256) diffs.push(`subject input ${input.path}: content changed`);
+    if (!baselineInputs.has(input.path)) composition.push(`+ ${input.path}`);
+    else if (baselineInputs.get(input.path) !== input.sha256) composition.push(`~ ${input.path}`);
     baselineInputs.delete(input.path);
   }
-  for (const missing of baselineInputs.keys()) diffs.push(`subject input ${missing}: in the baseline, not loaded now`);
+  for (const missing of baselineInputs.keys()) composition.push(`- ${missing}`);
 
   for (const field of ['node', 'icu', 'unicode', 'instant', 'locale', 'timezone', 'resolvedTimezone']) {
     if (baseline.environment?.[field] !== current.environment?.[field]) {
@@ -437,7 +453,7 @@ export function compare(baseline, current) {
     }
   }
   for (const missing of byId.keys()) diffs.push(`case ${missing}: in the baseline, not produced now`);
-  return diffs;
+  return { diffs, composition };
 }
 
 /**

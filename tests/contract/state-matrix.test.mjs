@@ -103,12 +103,86 @@ eq('no matrix row names a member the registry does not have', orphanRows, []);
 /* ── 3. Extracted module state constants match the registry ───────────── */
 section('3. Extracted module constants (Phase 3 onward)');
 
+/**
+ * Every module under `src/`, and what state constants it exports.
+ *
+ * Rule 3 of spec §12.1: compare each extracted module's exported state
+ * constants with the reviewed registry, once that module exists. Phase 1
+ * creates exactly one module and it exports nothing — `src/entry-legacy.js` is
+ * seven side-effect imports, and it must STAY that way, because esbuild assigns
+ * the entry point's exports to `globalName` and an entry that grew one would
+ * change what the bundle puts on `window`.
+ *
+ * So the comparison is written now, against an empty set, rather than deferred
+ * to the phase where it first has something to say.
+ */
 const srcDir = join(REPO, 'src');
-const extracted = existsSync(srcDir) ? readdirSync(srcDir) : [];
-// Nothing under src/ yet, so there is nothing to compare. Asserted rather than
-// skipped: the day src/ appears this number moves, and the comparison has to be
-// written before that phase can gate.
-eq('src/ does not exist yet, so no module exports state constants', extracted.length, 0);
+const srcModules = existsSync(srcDir)
+  ? readdirSync(srcDir, { recursive: true })
+    .map(String)
+    .filter(p => p.endsWith('.js') && !p.endsWith('.test.js'))
+    .sort()
+  : [];
+
+/**
+ * Export names, read from the source rather than by importing.
+ *
+ * `src/entry-legacy.js` evaluates the seven browser IIFEs, and importing it in
+ * Node throws on `window` before it can be inspected. The property under test
+ * is syntactic anyway — whether the file declares an export — so it is read
+ * syntactically. A module that reaches into `js/` is never imported here.
+ */
+function declaredExports(source) {
+  const names = new Set();
+  for (const m of source.matchAll(/^\s*export\s+(?:async\s+)?(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/gm)) names.add(m[1]);
+  for (const m of source.matchAll(/^\s*export\s*\{([^}]*)\}/gm)) {
+    for (const part of m[1].split(',')) {
+      const name = part.trim().split(/\s+as\s+/).pop().trim();
+      if (name) names.add(name);
+    }
+  }
+  if (/^\s*export\s+default\b/m.test(source)) names.add('default');
+  return [...names].sort();
+}
+
+const legacyEntry = 'entry-legacy.js';
+eq('src/ holds only the legacy entry point so far', srcModules, [legacyEntry]);
+
+/**
+ * The property that makes omitting `globalName` safe, asserted rather than
+ * assumed: esbuild assigns the ENTRY POINT'S EXPORTS to that name, so an entry
+ * that grew one would change what the bundle puts on `window` — and with
+ * `globalName: 'DnsAudit'` it would overwrite the real object from
+ * js/dns.js:5601. The entry stays exportless until §10 stage 3.
+ */
+eq('the legacy entry point declares no exports',
+  declaredExports(readFileSync(join(srcDir, legacyEntry), 'utf8')), []);
+
+/**
+ * Rule 3 of spec §12.1, written now against an empty set rather than deferred
+ * to the phase where it first has something to say. A module that declares
+ * exports and does not reach into `js/` is imported and its closed
+ * vocabularies are compared with the registry.
+ */
+const unknownConstants = [];
+for (const relative of srcModules) {
+  const source = readFileSync(join(srcDir, relative), 'utf8');
+  if (!declaredExports(source).length) continue;
+  if (/from\s+['"][^'"]*\/js\//.test(source)) continue;   // still reaches legacy browser code
+  const module = await import(pathToFileURL(join(srcDir, relative)).href);
+  for (const [name, value] of Object.entries(module)) {
+    const members = Array.isArray(value) ? value
+      : (value && typeof value === 'object' ? Object.values(value) : null);
+    if (!members || !members.length || !members.every(m => typeof m === 'string')) continue;
+    const matching = registry.algebras.find(a => {
+      const set = new Set(a.members);
+      return members.length === set.size && members.every(m => set.has(m));
+    });
+    if (!matching) unknownConstants.push(`${relative}:${name} = [${members.join(', ')}]`);
+  }
+}
+eq('every state constant a src/ module exports matches a registry algebra',
+  unknownConstants, []);
 
 /* ── 4. The targeted legacy contracts are wired ───────────────────────── */
 section('4. Legacy contract delegation');

@@ -116,13 +116,14 @@
     },
     {
       "path": "tests/contract/state-matrix.test.mjs",
-      "assertions": 20,
+      "assertions": 22,
       "areas": [
         "every registry member has exactly one coverage row",
         "every row names a suite or corpus case that exists",
         "every non-enum shape names its axes and its cases",
-        "the extracted-module comparison, once src/ exists",
-        "the targeted legacy contracts are wired"
+        "the extracted-module comparison: what src/ exports must match the registry",
+        "the targeted legacy contracts are wired",
+        "the legacy entry point has no exports, which is what keeps globalName safe to omit"
       ]
     },
     {
