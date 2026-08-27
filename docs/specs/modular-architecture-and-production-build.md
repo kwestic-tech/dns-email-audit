@@ -183,7 +183,15 @@ comment states the design explicitly: *"the files are plain IIFEs that attach to
 
 Converting to ESM is therefore not a precondition the proposal assumed; it is
 the largest single work item in the refactor, and it invalidates the loading
-strategy of four separate tools. This spec makes it Phase 0.
+strategy of four separate tools.
+
+> **Amended in 0.2.** Version 0.1 concluded "this spec makes it Phase 0" — the
+> ESM conversion first, the build after. Review round 1 reversed that: the
+> conversion is **Phase 2**, behind a bundle established in Phase 1, because
+> 0.1's phase ordering could not keep the browser working between its own
+> commits. The omission this correction identifies is unchanged and still the
+> largest work item; only its position moved. See
+> [Corrections from review round 1](#1b-corrections-from-review-round-1), item A.
 
 **2. Findings already have stable machine-readable identifiers.** §31 proposes
 introducing them, with examples in the form `SPF_LOOKUP_LIMIT`. This is already
@@ -866,6 +874,6 @@ convention. See Design §9.
 
 | Version | Date | Change |
 | --- | --- | --- |
-| 0.1 | 2026-08-27 | First draft, written from the Codex proposal of 2026-08 and checked against `main` at 0.5.0. Six claims in the source proposal corrected (ESM conversion omitted; finding identifiers already exist; DNS cache already exists; deployment allowlist already exists; no lockfile to pin against; behavioral equivalence unverifiable as specified). ESM conversion added as Phase 0. Bundle-parity testing added. Finding-identifier redesign declined. Eight open questions recorded. |
 | 0.3 | 2026-08-27 | `OQ-ARCH-09` decided by Ian: unit tests co-locate as `src/**/*.test.js`, with `tests/` retained for build, contract, integration and fixture suites. The layout is settled; the markup-sink exclusion that pays for it remains a round-2 review item because it touches a security control rather than a convention. `OQ-ARCH-06` is now the only open question. |
 | 0.2 | 2026-08-27 | Revised after review round 1 (Codex). All eight findings verified against the code and accepted. **Build now precedes ESM conversion** — 0.1's Phase 0 could not keep the browser working between its own commits. **Equivalence expanded from score/grade/token to four surfaces** — full result projection, DNS query trace, CSV bytes, canonical DOM. **Per-audit cache scoping declined**: page lifetime is tested at `scoring.test.mjs:1891` and underwrites `PRIVACY.md`'s published fan-out. **esbuild's dependency footprint corrected** — `postinstall` plus 26 platform optional dependencies, not zero. **Transport-boundary grep withdrawn as vacuous**, replaced by a closed result algebra plus import-graph direction. **Assertion count demoted** from merge gate to reported tripwire, with a contract inventory as the gate. Baseline capture moved to `git worktree`. `core/bimi/` added. `legalComments`, interpolation-count and `locales-en.js` claims corrected. Two new items opened: `OQ-ARCH-06` reopened to propose an **IIFE bundle** (keeps `file://`, resolves F3's access path), and `OQ-ARCH-09` added for **test co-location**. Seven questions resolved. |
+| 0.1 | 2026-08-27 | First draft, written from the Codex proposal of 2026-08 and checked against `main` at 0.5.0. Six claims in the source proposal corrected (ESM conversion omitted; finding identifiers already exist; DNS cache already exists; deployment allowlist already exists; no lockfile to pin against; behavioral equivalence unverifiable as specified). ESM conversion added as Phase 0. Bundle-parity testing added. Finding-identifier redesign declined. Eight open questions recorded. |

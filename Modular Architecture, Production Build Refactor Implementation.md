@@ -13,8 +13,8 @@ moving on. Where they disagree, the spec wins.
 
 ## 0. Before anything is written
 
-The spec is **`0.2 (Draft)`**, revised after review round 1 and awaiting round
-2. [`docs/specs/README.md`](docs/specs/README.md) requires `1.0 (Final)` before
+The spec is **`0.3 (Draft)`**, revised after review round 1, with `OQ-ARCH-09`
+decided, and reviewed again in round 2. [`docs/specs/README.md`](docs/specs/README.md) requires `1.0 (Final)` before
 implementation begins.
 
 Round 1 resolved seven of the original eight open questions. Ian decided
@@ -49,7 +49,7 @@ it, and it is research rather than refactoring, so it is permitted before Final:
 Fold the numbers into spec Risks R3 and `OQ-ARCH-01`. **Do not restate the
 dependency graph from memory** — that is the error round 1 caught (F5).
 
-**Task 0.3** — Move both questions to **Resolved questions**, bump the spec to
+**Task 0.3** — Move `OQ-ARCH-06` to **Resolved questions**, bump the spec to
 `1.0 (Final)`, add the Revision history row, update
 [`docs/specs/README.md`](docs/specs/README.md).
 
