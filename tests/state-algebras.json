@@ -7,7 +7,8 @@
     "file is hand-reviewed and why the spec forbids representing an extractor as a proof.",
     "Every member carries the site where it is constructed. `closed:false` means the",
     "vocabulary is open by construction and the listed members are the sentinels or",
-    "representative values that must still be covered."
+    "representative values that must still be covered.",
+    "`resultPaths` says where an algebra's members appear in an analyzeDomain() result, so corpus coverage is EXTRACTED from real runs rather than assigned by hand. An empty list means the algebra is not observable in the result and is covered by a suite."
   ],
   "version": 1,
   "baseline": "v0.5.0",
@@ -45,7 +46,8 @@
         "timeout": "js/dns.js:196",
         "network-error": "js/dns.js:196"
       },
-      "note": "Closed and byte-compatible with v0.5.0. DnsTypeError is thrown at js/dns.js:121 and is NOT a kind."
+      "note": "Closed and byte-compatible with v0.5.0. DnsTypeError is thrown at js/dns.js:121 and is NOT a kind.",
+      "resultPaths": []
     },
     {
       "id": "dns.retryTerminal",
@@ -59,7 +61,8 @@
         "nxdomain",
         "cancelled"
       ],
-      "note": "Superset of dns.cacheable. `cancelled` is terminal and never cached."
+      "note": "Superset of dns.cacheable. `cancelled` is terminal and never cached.",
+      "resultPaths": []
     },
     {
       "id": "dns.cacheable",
@@ -72,7 +75,8 @@
         "nodata",
         "nxdomain"
       ],
-      "note": "Cacheable is a strict subset of retry-terminal. A transport failure is never remembered as an answer."
+      "note": "Cacheable is a strict subset of retry-terminal. A transport failure is never remembered as an answer.",
+      "resultPaths": []
     },
     {
       "id": "dns.usable",
@@ -85,7 +89,8 @@
         "nodata",
         "nxdomain"
       ],
-      "note": "The other seven kinds throw dnsError(kind, name, type)."
+      "note": "The other seven kinds throw dnsError(kind, name, type).",
+      "resultPaths": []
     },
     {
       "id": "dns.thrown",
@@ -102,7 +107,8 @@
         "AbortError": "js/dns.js:129 (dnsError with kind 'cancelled')",
         "DnsQueryError": "js/dns.js:129 (dnsError with any other kind)"
       },
-      "note": "Thrown, never returned. dnsError() renames the 'cancelled' kind to AbortError so optionalCheck() re-throws it."
+      "note": "Thrown, never returned. dnsError() renames the 'cancelled' kind to AbortError so optionalCheck() re-throws it.",
+      "resultPaths": []
     },
     {
       "id": "dns.optionalCheck.rethrow",
@@ -114,7 +120,8 @@
         "AbortError",
         "DnsTypeError"
       ],
-      "note": "Everything else degrades to the caller's declared unknown."
+      "note": "Everything else degrades to the caller's declared unknown.",
+      "resultPaths": []
     },
     {
       "id": "dns.existence",
@@ -127,7 +134,11 @@
         "no",
         "unknown"
       ],
-      "note": "nxdomain -> 'no'; success/nodata -> 'yes'; every other kind -> 'unknown'. Never 'no' from a transient failure."
+      "note": "nxdomain -> 'no'; success/nodata -> 'yes'; every other kind -> 'unknown'. Never 'no' from a transient failure.",
+      "resultPaths": [
+        "dmarcExistence",
+        "advanced.mxHealth.hosts[].resolves"
+      ]
     },
     {
       "id": "spf.status",
@@ -142,6 +153,9 @@
         "ok",
         "softfail",
         "present"
+      ],
+      "resultPaths": [
+        "spfStatus.status"
       ]
     },
     {
@@ -154,6 +168,9 @@
         "crit",
         "warn",
         "ok"
+      ],
+      "resultPaths": [
+        "spfStatus.cls"
       ]
     },
     {
@@ -171,7 +188,10 @@
         "spf-neutral",
         "spf-softfail"
       ],
-      "note": "Forwarded verbatim into issue keys by buildIssues (js/dns.js:4637)."
+      "note": "Forwarded verbatim into issue keys by buildIssues (js/dns.js:4637).",
+      "resultPaths": [
+        "spfStatus.warnings[]"
+      ]
     },
     {
       "id": "spf.subnet.severity",
@@ -183,6 +203,10 @@
         "LOW",
         "MEDIUM",
         "HIGH"
+      ],
+      "resultPaths": [
+        "advanced.spfSubnets.subnets[].severity",
+        "advanced.spfSubnets.redundancy[].severity"
       ]
     },
     {
@@ -198,7 +222,11 @@
         "SPF_LARGE_SUBNET": "js/dns.js:4361",
         "SPF_REDUNDANCY": "js/dns.js:4448"
       },
-      "note": "Not enumerated in spec §12.1; found by reading. SPF_REDUNDANCY severity is always LOW."
+      "note": "Not enumerated in spec §12.1; found by reading. SPF_REDUNDANCY severity is always LOW.",
+      "resultPaths": [
+        "advanced.spfSubnets.subnets[].type",
+        "advanced.spfSubnets.redundancy[].type"
+      ]
     },
     {
       "id": "ip.family",
@@ -210,7 +238,10 @@
         "ipv4",
         "ipv6"
       ],
-      "note": "Shared by SPF subnet classification and MX prefix grouping."
+      "note": "Shared by SPF subnet classification and MX prefix grouping.",
+      "resultPaths": [
+        "advanced.spfSubnets.subnets[].family"
+      ]
     },
     {
       "id": "dkim.confidence",
@@ -223,7 +254,10 @@
         "sampled",
         "observed"
       ],
-      "note": "'not-checked' is set by analyzeDomain's default status when opts.dkim is off or mail is impossible."
+      "note": "'not-checked' is set by analyzeDomain's default status when opts.dkim is off or mail is impossible.",
+      "resultPaths": [
+        "dkimStatus.confidence"
+      ]
     },
     {
       "id": "dkim.scanMode",
@@ -235,7 +269,10 @@
         "provider-aware",
         "comprehensive"
       ],
-      "note": "ABSENT when DKIM is not checked — the default dkimStatus at js/dns.js:5470 has no scanMode property at all. Absence is a distinct third state and is compared as absence, not as undefined."
+      "note": "ABSENT when DKIM is not checked — the default dkimStatus at js/dns.js:5470 has no scanMode property at all. Absence is a distinct third state and is compared as absence, not as undefined.",
+      "resultPaths": [
+        "dkimStatus.scanMode"
+      ]
     },
     {
       "id": "dkim.selector.type",
@@ -246,6 +283,9 @@
       "members": [
         "key",
         "cname"
+      ],
+      "resultPaths": [
+        "dkimStatus.selectors[].type"
       ]
     },
     {
@@ -260,21 +300,10 @@
         "noteNotFoundWithErrors",
         "noteNotFound"
       ],
-      "note": "Not enumerated in spec §12.1; found by reading. Empty string when a key was found."
-    },
-    {
-      "id": "dkim.recordSet.bucket",
-      "owner": "core/dkim",
-      "field": "dkimRecordSet() partition",
-      "closed": true,
-      "site": "js/dns.js:481-517",
-      "members": [
-        "keys",
-        "revoked",
-        "unusable",
-        "malformed"
-      ],
-      "note": "Each bucket surfaces as its own selector collection on the checkDKIM result."
+      "note": "Not enumerated in spec §12.1; found by reading. Empty string when a key was found.",
+      "resultPaths": [
+        "dkimStatus.note"
+      ]
     },
     {
       "id": "dkim.key.keyType",
@@ -287,7 +316,13 @@
         "ed25519",
         "unknown"
       ],
-      "note": "Defaults to 'rsa' when k= is absent (RFC 6376 §3.6.1)."
+      "note": "Defaults to 'rsa' when k= is absent (RFC 6376 §3.6.1).",
+      "resultPaths": [
+        "dkimStatus.selectors[].key.keyType",
+        "dkimStatus.revokedSelectors[].key.keyType",
+        "dkimStatus.unusableSelectors[].key.keyType",
+        "dkimStatus.malformedSelectors[].key.keyType"
+      ]
     },
     {
       "id": "dkim.key.keyEncoding",
@@ -300,7 +335,13 @@
         "pkcs1",
         "spki"
       ],
-      "note": "null means no RSA envelope was read — absent p=, revoked, ed25519, or unparseable."
+      "note": "null means no RSA envelope was read — absent p=, revoked, ed25519, or unparseable.",
+      "resultPaths": [
+        "dkimStatus.selectors[].key.keyEncoding",
+        "dkimStatus.unusableSelectors[].key.keyEncoding",
+        "dkimStatus.revokedSelectors[].key.keyEncoding",
+        "dkimStatus.malformedSelectors[].key.keyEncoding"
+      ]
     },
     {
       "id": "dkim.key.version",
@@ -311,6 +352,12 @@
       "members": [
         "null",
         "DKIM1"
+      ],
+      "resultPaths": [
+        "dkimStatus.selectors[].key.version",
+        "dkimStatus.unusableSelectors[].key.version",
+        "dkimStatus.revokedSelectors[].key.version",
+        "dkimStatus.malformedSelectors[].key.version"
       ]
     },
     {
@@ -324,7 +371,10 @@
         "true",
         "false"
       ],
-      "note": "null is 'not attempted' and is the only value analyzeDkimKey() itself ever sets. false never on its own makes a key invalid, but it does push key-structure-invalid and set valid=false at js/dns.js:1070."
+      "note": "null is 'not attempted' and is the only value analyzeDkimKey() itself ever sets. false never on its own makes a key invalid, but it does push key-structure-invalid and set valid=false at js/dns.js:1070.",
+      "resultPaths": [
+        "dkimStatus.selectors[].key.cryptoValidated"
+      ]
     },
     {
       "id": "dkim.key.errors",
@@ -355,7 +405,13 @@
         "invalid-notes": "js/dns.js:990",
         "key-structure-invalid": "js/dns.js:1068"
       },
-      "note": "Parser error-token array. Spec §12.1 requires these snapshotted separately from a generic status scan."
+      "note": "Parser error-token array. Spec §12.1 requires these snapshotted separately from a generic status scan.",
+      "resultPaths": [
+        "dkimStatus.selectors[].key.errors[]",
+        "dkimStatus.unusableSelectors[].key.errors[]",
+        "dkimStatus.revokedSelectors[].key.errors[]",
+        "dkimStatus.malformedSelectors[].key.errors[]"
+      ]
     },
     {
       "id": "dkim.key.restrictions",
@@ -372,7 +428,12 @@
         "no-supported-hash": "js/dns.js:967",
         "service-not-email": "js/dns.js:979"
       },
-      "note": "Deliberately separate from errors: a restriction is a conformant record that does not apply to this domain's email. appliesToEmail = !revoked && restrictions.length === 0."
+      "note": "Deliberately separate from errors: a restriction is a conformant record that does not apply to this domain's email. appliesToEmail = !revoked && restrictions.length === 0.",
+      "resultPaths": [
+        "dkimStatus.selectors[].key.restrictions[]",
+        "dkimStatus.unusableSelectors[].key.restrictions[]",
+        "dkimStatus.malformedSelectors[].key.restrictions[]"
+      ]
     },
     {
       "id": "dmarc.status",
@@ -395,7 +456,10 @@
         "unknown": "js/dns.js:5427 (emptyDmarcStatus('unknown'))",
         "permerror": "js/dns.js:1404 — legacy direct call only; unreachable from analyzeDomain()"
       },
-      "note": "applyInheritance() can re-derive ok/warn at js/dns.js:2245."
+      "note": "applyInheritance() can re-derive ok/warn at js/dns.js:2245.",
+      "resultPaths": [
+        "dmarcStatus.status"
+      ]
     },
     {
       "id": "dmarc.cls",
@@ -408,7 +472,10 @@
         "warn",
         "crit"
       ],
-      "note": "emptyDmarcStatus gives 'unknown' status a 'warn' class deliberately, so an unexamined control never wears the same red as an absent one."
+      "note": "emptyDmarcStatus gives 'unknown' status a 'warn' class deliberately, so an unexamined control never wears the same red as an absent one.",
+      "resultPaths": [
+        "dmarcStatus.cls"
+      ]
     },
     {
       "id": "dmarc.tagState",
@@ -420,6 +487,10 @@
         "absent",
         "valid",
         "invalid"
+      ],
+      "resultPaths": [
+        "dmarcStatus.spState",
+        "dmarcStatus.npState"
       ]
     },
     {
@@ -433,6 +504,10 @@
         "r",
         "s",
         "invalid"
+      ],
+      "resultPaths": [
+        "dmarcStatus.adkimState",
+        "dmarcStatus.aspfState"
       ]
     },
     {
@@ -445,7 +520,11 @@
         "r",
         "s"
       ],
-      "note": "Receiver behaviour: anything not 's' resolves to 'r'. The divergence is reported through adkimState/aspfState."
+      "note": "Receiver behaviour: anything not 's' resolves to 'r'. The divergence is reported through adkimState/aspfState.",
+      "resultPaths": [
+        "dmarcStatus.adkim",
+        "dmarcStatus.aspf"
+      ]
     },
     {
       "id": "dmarc.policy",
@@ -460,7 +539,15 @@
         "null",
         ""
       ],
-      "note": "null for an absent sp/np; '' only from emptyDmarcStatus (js/dns.js:1546). testMode collapses effectivePolicy to 'none' at js/dns.js:1505."
+      "note": "null for an absent sp/np; '' only from emptyDmarcStatus (js/dns.js:1546). testMode collapses effectivePolicy to 'none' at js/dns.js:1505.",
+      "resultPaths": [
+        "dmarcStatus.policy",
+        "dmarcStatus.effectivePolicy",
+        "dmarcStatus.sp",
+        "dmarcStatus.np",
+        "dmarcStatus.effectiveSp",
+        "dmarcStatus.effectiveNp"
+      ]
     },
     {
       "id": "dmarc.version.reason",
@@ -474,7 +561,10 @@
         "not-first",
         "bad-value"
       ],
-      "note": "null when valid. Distinct from dmarc.diagnosis and from dmarc.reportAuth.record.reason."
+      "note": "null when valid. Distinct from dmarc.diagnosis and from dmarc.reportAuth.record.reason.",
+      "resultPaths": [
+        "dmarcStatus.version.reason"
+      ]
     },
     {
       "id": "dmarc.diagnosis",
@@ -488,7 +578,8 @@
         "version-not-first",
         "version-absent"
       ],
-      "note": "null means 'not a DMARC record at all' and produces no observation."
+      "note": "null means 'not a DMARC record at all' and produces no observation.",
+      "resultPaths": []
     },
     {
       "id": "dmarc.walk.terminated",
@@ -502,7 +593,10 @@
         "psd-y",
         "psd-n"
       ],
-      "note": "There is deliberately no 'query-limit' member — §4.10's shortcut makes exhaustion unreachable."
+      "note": "There is deliberately no 'query-limit' member — §4.10's shortcut makes exhaustion unreachable.",
+      "resultPaths": [
+        "dmarcDiscovery.terminated"
+      ]
     },
     {
       "id": "dmarc.observation.why",
@@ -522,7 +616,10 @@
         "version-bad-case": "js/dns.js:1944,1951 via diagnoseDmarcRecord",
         "version-not-first": "js/dns.js:1945 via diagnoseDmarcRecord",
         "version-absent": "js/dns.js:1955 via diagnoseDmarcRecord"
-      }
+      },
+      "resultPaths": [
+        "dmarcDiscovery.observed[].why"
+      ]
     },
     {
       "id": "dmarc.appliedBranch",
@@ -535,7 +632,10 @@
         "sp",
         "weakest"
       ],
-      "note": "ABSENT unless the applied record is inherited. Not enumerated in spec §12.1; found by reading. Chosen by dmarcExistence: 'no' -> np, 'yes' -> sp, 'unknown' -> weakest."
+      "note": "ABSENT unless the applied record is inherited. Not enumerated in spec §12.1; found by reading. Chosen by dmarcExistence: 'no' -> np, 'yes' -> sp, 'unknown' -> weakest.",
+      "resultPaths": [
+        "dmarcStatus.appliedBranch"
+      ]
     },
     {
       "id": "dmarc.psd",
@@ -548,7 +648,10 @@
         "y",
         "n"
       ],
-      "note": "OPEN by construction: psd is String(rawPsd || 'u').trim().toLowerCase(), so any tag value survives verbatim while psdValid records whether it is one of y/n/u. Only 'y' and 'n' terminate the walk."
+      "note": "OPEN by construction: psd is String(rawPsd || 'u').trim().toLowerCase(), so any tag value survives verbatim while psdValid records whether it is one of y/n/u. Only 'y' and 'n' terminate the walk.",
+      "resultPaths": [
+        "dmarcStatus.psd"
+      ]
     },
     {
       "id": "dmarc.fo",
@@ -562,7 +665,10 @@
         "d",
         "s"
       ],
-      "note": "OPEN by construction: fo is the raw colon-separated value lowercased; foValid records conformance against DMARC_FO_VALUES (js/dns.js:1305)."
+      "note": "OPEN by construction: fo is the raw colon-separated value lowercased; foValid records conformance against DMARC_FO_VALUES (js/dns.js:1305).",
+      "resultPaths": [
+        "dmarcStatus.fo"
+      ]
     },
     {
       "id": "dmarc.reportAuth.state",
@@ -580,7 +686,10 @@
         "unauthorized": "js/dns.js:1848",
         "unverifiable": "js/dns.js:1776 (name too long) and js/dns.js:1854 (caught failure)",
         "override-mismatch": "js/dns.js:1834"
-      }
+      },
+      "resultPaths": [
+        "advanced.reportAuth[].state"
+      ]
     },
     {
       "id": "dmarc.reportAuth.via",
@@ -591,6 +700,9 @@
       "members": [
         "null",
         "exact"
+      ],
+      "resultPaths": [
+        "advanced.reportAuth[].via"
       ]
     },
     {
@@ -610,7 +722,10 @@
         "network-error",
         "undefined"
       ],
-      "note": "ABSENT on authorized/unauthorized results. 'undefined' is a real reachable value: js/dns.js:1854 reads e.kind, and a non-DnsError throw carries none."
+      "note": "ABSENT on authorized/unauthorized results. 'undefined' is a real reachable value: js/dns.js:1854 reads e.kind, and a non-DnsError throw carries none.",
+      "resultPaths": [
+        "advanced.reportAuth[].error"
+      ]
     },
     {
       "id": "dmarc.reportAuth.record.reason",
@@ -622,7 +737,8 @@
         "null",
         "version",
         "syntax"
-      ]
+      ],
+      "resultPaths": []
     },
     {
       "id": "dmarc.reportAuth.overrideReason",
@@ -635,7 +751,10 @@
         "cross-host",
         "malformed"
       ],
-      "note": "cross-host escalates the whole arrangement to override-mismatch; malformed does not."
+      "note": "cross-host escalates the whole arrangement to override-mismatch; malformed does not.",
+      "resultPaths": [
+        "advanced.reportAuth[].overrideReason"
+      ]
     },
     {
       "id": "dnssec.state",
@@ -658,7 +777,10 @@
         "mismatch": "js/dns.js:4058",
         "insecure": "js/dns.js:4061"
       },
-      "note": "signed === (state === 'secure'), asserted at js/dns.js:4114."
+      "note": "signed === (state === 'secure'), asserted at js/dns.js:4114.",
+      "resultPaths": [
+        "advanced.dnssec.state"
+      ]
     },
     {
       "id": "dnssec.chain.claim",
@@ -687,7 +809,10 @@
         "ds-unverifiable": "js/dns.js:4083",
         "lookup-incomplete": "js/dns.js:4094"
       },
-      "note": "NINE claims, not seven. Two are computed by string concatenation and are invisible to a literal scan. This is the worked example spec §12.1 names."
+      "note": "NINE claims, not seven. Two are computed by string concatenation and are invisible to a literal scan. This is the worked example spec §12.1 names.",
+      "resultPaths": [
+        "advanced.dnssec.chain[].claim"
+      ]
     },
     {
       "id": "dnssec.chain.source",
@@ -698,6 +823,9 @@
       "members": [
         "resolver",
         "local"
+      ],
+      "resultPaths": [
+        "advanced.dnssec.chain[].source"
       ]
     },
     {
@@ -719,7 +847,10 @@
         "confirmed": "js/dns.js:3879",
         "digest-mismatch": "js/dns.js:3902"
       },
-      "note": "Only 'confirmed' and 'digest-mismatch' are claims about the operator's zone. Every failure path lands on 'unverifiable'."
+      "note": "Only 'confirmed' and 'digest-mismatch' are claims about the operator's zone. Every failure path lands on 'unverifiable'.",
+      "resultPaths": [
+        "advanced.dnssec.ds[].match"
+      ]
     },
     {
       "id": "dnssec.ds.unverifiableReason",
@@ -739,7 +870,10 @@
         "runtime-unavailable": "js/dns.js:3894",
         "unbuildable-key": "js/dns.js:3898"
       },
-      "note": "Not enumerated in spec §12.1; found by reading. Four distinct failures that shared one token before 0.5.0."
+      "note": "Not enumerated in spec §12.1; found by reading. Four distinct failures that shared one token before 0.5.0.",
+      "resultPaths": [
+        "advanced.dnssec.ds[].unverifiableReason"
+      ]
     },
     {
       "id": "dnssec.algorithmEligibility",
@@ -751,6 +885,10 @@
         "eligible",
         "ineligible",
         "unknown"
+      ],
+      "resultPaths": [
+        "advanced.dnssec.ds[].algorithmEligibility",
+        "advanced.dnssec.keys[].algorithmEligibility"
       ]
     },
     {
@@ -763,6 +901,9 @@
         "eligible",
         "ineligible",
         "unknown"
+      ],
+      "resultPaths": [
+        "advanced.dnssec.ds[].digestEligibility"
       ]
     },
     {
@@ -776,7 +917,11 @@
         "invalid",
         "unknown"
       ],
-      "note": "Only 'invalid' disqualifies a key. 'unknown' is honest about an algorithm grammar this build cannot parse."
+      "note": "Only 'invalid' disqualifies a key. 'unknown' is honest about an algorithm grammar this build cannot parse.",
+      "resultPaths": [
+        "advanced.dnssec.keys[].keyStructure",
+        "advanced.dnssec.ds[].matchedKeyStructure"
+      ]
     },
     {
       "id": "dnssec.digestName",
@@ -795,7 +940,10 @@
         "SM3",
         "PRIVATE-USE"
       ],
-      "note": "'RESERVED' is reachable twice — digest type 0, and the 128-252 range."
+      "note": "'RESERVED' is reachable twice — digest type 0, and the 128-252 range.",
+      "resultPaths": [
+        "advanced.dnssec.ds[].digestName"
+      ]
     },
     {
       "id": "dnssec.evidence",
@@ -807,6 +955,9 @@
         "complete",
         "partial",
         "none"
+      ],
+      "resultPaths": [
+        "advanced.dnssec.evidence"
       ]
     },
     {
@@ -825,7 +976,10 @@
         "timeout",
         "network-error"
       ],
-      "note": "The property is SET to `undefined` when state !== 'indeterminate' (js/dns.js:4128) — present with an undefined value, not omitted. The canonicalizer must distinguish the two and this row is why."
+      "note": "The property is SET to `undefined` when state !== 'indeterminate' (js/dns.js:4128) — present with an undefined value, not omitted. The canonicalizer must distinguish the two and this row is why.",
+      "resultPaths": [
+        "advanced.dnssec.error"
+      ]
     },
     {
       "id": "dnssec.dnskey.errors",
@@ -841,6 +995,9 @@
         "bad-algorithm",
         "empty-key",
         "bad-key-encoding"
+      ],
+      "resultPaths": [
+        "advanced.dnssec.keys[].errors[]"
       ]
     },
     {
@@ -858,20 +1015,10 @@
         "empty-digest",
         "bad-digest",
         "bad-digest-length"
-      ]
-    },
-    {
-      "id": "dnssec.lookup",
-      "owner": "core/dnssec",
-      "field": "checkDNSSEC().lookups.{ns,ds,dnskey}",
-      "closed": true,
-      "site": "js/dns.js:3956-3961",
-      "members": [
-        "ns",
-        "ds",
-        "dnskey"
       ],
-      "note": "Each carries { completed: boolean, kind: dns.transport.kind }. completed is true only for success/nodata."
+      "resultPaths": [
+        "advanced.dnssec.ds[].errors[]"
+      ]
     },
     {
       "id": "mx.host.resolves",
@@ -884,7 +1031,10 @@
         "no",
         "unknown"
       ],
-      "note": "'no' is claimed only when BOTH address lookups returned. One failed lookup plus one empty answer is 'unknown'."
+      "note": "'no' is claimed only when BOTH address lookups returned. One failed lookup plus one empty answer is 'unknown'.",
+      "resultPaths": [
+        "advanced.mxHealth.hosts[].resolves"
+      ]
     },
     {
       "id": "mx.ipv6Coverage",
@@ -897,7 +1047,10 @@
         "some",
         "all"
       ],
-      "note": "'none' is also the value on the no-MX early return and on the optionalCheck fallback at js/dns.js:5583."
+      "note": "'none' is also the value on the no-MX early return and on the optionalCheck fallback at js/dns.js:5583.",
+      "resultPaths": [
+        "advanced.mxHealth.ipv6Coverage"
+      ]
     },
     {
       "id": "caa.errors",
@@ -912,6 +1065,9 @@
         "unquoted-value",
         "bad-issue-value",
         "bad-iodef-url"
+      ],
+      "resultPaths": [
+        "advanced.caa.parsed[].errors[]"
       ]
     },
     {
@@ -928,7 +1084,10 @@
         "contactemail",
         "contactphone"
       ],
-      "note": "CAA_ISSUER_TAGS (js/dns.js:2277) is the subset issue/issuewild/issuemail whose value is an issuer-domain-name."
+      "note": "CAA_ISSUER_TAGS (js/dns.js:2277) is the subset issue/issuewild/issuemail whose value is an issuer-domain-name.",
+      "resultPaths": [
+        "advanced.caa.parsed[].tag"
+      ]
     },
     {
       "id": "bimi.errors",
@@ -939,6 +1098,9 @@
       "members": [
         "invalid-syntax",
         "duplicate-tags"
+      ],
+      "resultPaths": [
+        "advanced.bimi.validation.errors[]"
       ]
     },
     {
@@ -949,6 +1111,9 @@
       "site": "js/dns.js:3094-3116",
       "members": [
         "invalid-syntax"
+      ],
+      "resultPaths": [
+        "advanced.mtaSts.validation.errors[]"
       ]
     },
     {
@@ -959,6 +1124,9 @@
       "site": "js/dns.js:3127-3162",
       "members": [
         "invalid-syntax"
+      ],
+      "resultPaths": [
+        "advanced.tlsRpt.validation.errors[]"
       ]
     },
     {
@@ -975,6 +1143,9 @@
         "bad-matching-type",
         "bad-association-data",
         "bad-digest-length"
+      ],
+      "resultPaths": [
+        "advanced.tlsa.hosts[].records[].errors[]"
       ]
     },
     {
@@ -988,7 +1159,10 @@
         "@self-hosted",
         "@custom"
       ],
-      "note": "Every other return is an OPEN provider label — a catalog name or cap(parts[idx]) derived from the nameserver hostname."
+      "note": "Every other return is an OPEN provider label — a catalog name or cap(parts[idx]) derived from the nameserver hostname.",
+      "resultPaths": [
+        "dnsProvider"
+      ]
     },
     {
       "id": "providers.email.sentinel",
@@ -1004,7 +1178,10 @@
         "@self-hosted",
         "@custom-unknown"
       ],
-      "note": "@null-mx selects PARKED_WEIGHTS at js/dns.js:5279. @none/@null-mx/@porkbun-forwarding gate DKIM findings and suggestions."
+      "note": "@null-mx selects PARKED_WEIGHTS at js/dns.js:5279. @none/@null-mx/@porkbun-forwarding gate DKIM findings and suggestions.",
+      "resultPaths": [
+        "emailProvider"
+      ]
     },
     {
       "id": "providers.hosting.sentinel",
@@ -1027,7 +1204,10 @@
         "@cname-loop": "js/dns.js:5481",
         "@dns-error": "js/dns.js:5480"
       },
-      "note": "@cname-loop and @dns-error are produced by analyzeDomain, NOT by detectHosting — a scan of detectHosting alone misses both."
+      "note": "@cname-loop and @dns-error are produced by analyzeDomain, NOT by detectHosting — a scan of detectHosting alone misses both.",
+      "resultPaths": [
+        "hosting"
+      ]
     },
     {
       "id": "audit.grade",
@@ -1044,7 +1224,10 @@
         "D",
         "F"
       ],
-      "note": "A++/A+/A require dnssecSigned. gradeFor() falls through to F at js/dns.js:4578."
+      "note": "A++/A+/A require dnssecSigned. gradeFor() falls through to F at js/dns.js:4578.",
+      "resultPaths": [
+        "score.grade"
+      ]
     },
     {
       "id": "audit.gradeCls",
@@ -1060,6 +1243,9 @@
         "score-c",
         "score-d",
         "score-f"
+      ],
+      "resultPaths": [
+        "score.cls"
       ]
     },
     {
@@ -1078,7 +1264,10 @@
         "bimi",
         "tlsRpt"
       ],
-      "note": "Order is asserted as-is: the pillars array is semantically ordered and canonicalization preserves array order."
+      "note": "Order is asserted as-is: the pillars array is semantically ordered and canonicalization preserves array order.",
+      "resultPaths": [
+        "score.breakdown.pillars[].key"
+      ]
     },
     {
       "id": "audit.parkedPillar",
@@ -1092,7 +1281,10 @@
         "dnssec",
         "caa"
       ],
-      "note": "Selected by emailProvider === '@null-mx'. score.parked distinguishes the two rubrics."
+      "note": "Selected by emailProvider === '@null-mx'. score.parked distinguishes the two rubrics.",
+      "resultPaths": [
+        "score.breakdown.pillars[].key"
+      ]
     },
     {
       "id": "audit.unproven",
@@ -1109,21 +1301,9 @@
         "bimi",
         "tlsRpt"
       ],
-      "note": "SPF is deliberately absent — an unknown lookup count does not zero the SPF pillar. On the parked rubric the list is filtered to parked pillar keys at js/dns.js:5305."
-    },
-    {
-      "id": "audit.dmarcScore.parts",
-      "owner": "audit",
-      "field": "score.breakdown.dmarc keys",
-      "closed": true,
-      "site": "js/dns.js:4515",
-      "members": [
-        "policy",
-        "subdomain",
-        "rua",
-        "alignment",
-        "ruf",
-        "uris"
+      "note": "SPF is deliberately absent — an unknown lookup count does not zero the SPF pillar. On the parked rubric the list is filtered to parked pillar keys at js/dns.js:5305.",
+      "resultPaths": [
+        "score.unproven[]"
       ]
     },
     {
@@ -1136,6 +1316,9 @@
         "crit",
         "warn",
         "info"
+      ],
+      "resultPaths": [
+        "issues[].sev"
       ]
     },
     {
@@ -1151,6 +1334,9 @@
         "tls-rpt",
         "caa",
         "dnssec"
+      ],
+      "resultPaths": [
+        "suggestions[].guide"
       ]
     },
     {
@@ -1168,22 +1354,10 @@
         "caa",
         "dnssec"
       ],
-      "note": "Rendered through locale key suggestion.<key>. All seven exist in locales/en.json."
-    },
-    {
-      "id": "audit.result.shape",
-      "owner": "audit",
-      "field": "analyzeDomain() return shape",
-      "closed": true,
-      "members": [
-        "unregistered",
-        "full"
-      ],
-      "memberSites": {
-        "unregistered": "js/dns.js:5370 — { domain, unregistered: true, error: false } and nothing else",
-        "full": "js/dns.js:5591-5598 — 24 properties"
-      },
-      "note": "The unregistered shape is an ABSENCE result: every other property of the full shape is missing, not undefined. Canonicalization must distinguish the two."
+      "note": "Rendered through locale key suggestion.<key>. All seven exist in locales/en.json.",
+      "resultPaths": [
+        "suggestions[].key"
+      ]
     },
     {
       "id": "audit.issue.key",
@@ -1299,7 +1473,10 @@
         "wildcard-txt-apex",
         "wildcard-txt-dkim"
       ],
-      "note": "106 tokens. Three — dnssec-key-algorithm-ineligible, dnssec-key-not-zone-key, dnssec-key-malformed — are emitted through the computed pushKeyFinding(key, ...) helper at js/dns.js:5155 and are invisible to a `key: '...'` literal scan. Three more — dmarc-version-not-first, dmarc-version-bad-value, dmarc-version-missing — arrive through the DIAGNOSIS_KEYS map at js/dns.js:4702. Seven more are forwarded from spf.warnings at js/dns.js:4637 and two more chosen by ternary at js/dns.js:4648. This set is exactly the key set of `issue` in locales/en.json, which is the independent check on it."
+      "note": "106 tokens. Three — dnssec-key-algorithm-ineligible, dnssec-key-not-zone-key, dnssec-key-malformed — are emitted through the computed pushKeyFinding(key, ...) helper at js/dns.js:5155 and are invisible to a `key: '...'` literal scan. Three more — dmarc-version-not-first, dmarc-version-bad-value, dmarc-version-missing — arrive through the DIAGNOSIS_KEYS map at js/dns.js:4702. Seven more are forwarded from spf.warnings at js/dns.js:4637 and two more chosen by ternary at js/dns.js:4648. This set is exactly the key set of `issue` in locales/en.json, which is the independent check on it.",
+      "resultPaths": [
+        "issues[].key"
+      ]
     }
   ],
   "shapes": [
@@ -2183,6 +2360,149 @@
           "note": "measured at two depths; a failed probe stays false"
         }
       ]
+    },
+    {
+      "id": "dnssec.lookups.shape",
+      "owner": "core/dnssec",
+      "site": "js/dns.js:3956-3961",
+      "axes": [
+        {
+          "axis": "lookups.ns",
+          "values": [
+            "completed",
+            "not completed"
+          ]
+        },
+        {
+          "axis": "lookups.ds",
+          "values": [
+            "completed",
+            "not completed"
+          ]
+        },
+        {
+          "axis": "lookups.dnskey",
+          "values": [
+            "completed",
+            "not completed"
+          ]
+        },
+        {
+          "axis": "lookups.*.kind",
+          "values": [
+            "any dns.transport.kind member"
+          ]
+        }
+      ],
+      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite."
+    },
+    {
+      "id": "audit.returnShape",
+      "owner": "audit",
+      "site": "js/dns.js:5370 — { domain, unregistered: true, error: false } and nothing else",
+      "axes": [
+        {
+          "axis": "unregistered",
+          "values": [
+            "a 3-property object: domain, unregistered:true, error:false"
+          ],
+          "note": "js/dns.js:5370 — every other property of the full shape is ABSENT, not undefined"
+        },
+        {
+          "axis": "full",
+          "values": [
+            "24 properties"
+          ],
+          "note": "js/dns.js:5591"
+        }
+      ],
+      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite."
+    },
+    {
+      "id": "dkim.recordSet.shape",
+      "owner": "core/dkim",
+      "site": "js/dns.js:481-517",
+      "axes": [
+        {
+          "axis": "keys",
+          "values": [
+            "[]",
+            "non-empty"
+          ]
+        },
+        {
+          "axis": "revoked",
+          "values": [
+            "[]",
+            "non-empty"
+          ]
+        },
+        {
+          "axis": "unusable",
+          "values": [
+            "[]",
+            "non-empty"
+          ]
+        },
+        {
+          "axis": "malformed",
+          "values": [
+            "[]",
+            "non-empty"
+          ]
+        }
+      ],
+      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite."
+    },
+    {
+      "id": "audit.dmarcScore.shape",
+      "owner": "audit",
+      "site": "js/dns.js:4515",
+      "axes": [
+        {
+          "axis": "policy",
+          "values": [
+            "0",
+            "non-zero"
+          ]
+        },
+        {
+          "axis": "subdomain",
+          "values": [
+            "0",
+            "non-zero"
+          ]
+        },
+        {
+          "axis": "rua",
+          "values": [
+            "0",
+            "non-zero"
+          ]
+        },
+        {
+          "axis": "alignment",
+          "values": [
+            "0",
+            "non-zero"
+          ]
+        },
+        {
+          "axis": "ruf",
+          "values": [
+            "0",
+            "non-zero"
+          ]
+        },
+        {
+          "axis": "uris",
+          "values": [
+            "0",
+            "non-zero"
+          ]
+        }
+      ],
+      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite."
     }
   ]
 }
