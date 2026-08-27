@@ -971,3 +971,99 @@ called-out deferral, as an acceptance criterion, and in the plan as blocking
 **Gate 1** rather than blocking the draft — so it cannot be lost.
 
 Round 3 should treat esbuild's cross-platform behavior as unverified.
+
+---
+
+# Round 3 close-out — 2026-08-27
+
+**Spec:** **`1.0 (Final)`**, approved for implementation
+**Applied by:** Codex, directly, at Ian's direction, rather than returned for another cycle
+**This entry:** independent verification of self-applied findings
+
+Round 3's findings were applied by the reviewer rather than the author, so no
+one had yet checked the application. That check is recorded here.
+
+## The two P0s, reproduced independently
+
+**R3-F1 — my fixture fingerprint was worthless.** Confirmed by running
+`getOrganizationalDomain()` against `js/dns.js` loaded twice, once with the
+four-rule fixture and once with the real list:
+
+| Case | Fixture | Real PSL | Diverges |
+| --- | --- | --- | :---: |
+| `a.b.ck` | `a.b.ck` | `a.b.ck` | **no** |
+| `a.www.ck` | `www.ck` | `www.ck` | **no** |
+| `a.b.co.uk` | `b.co.uk` | `b.co.uk` | **no** |
+| `foo.blogspot.com` | `blogspot.com` | `foo.blogspot.com` | **yes** |
+| `x.github.io` | `github.io` | `x.github.io` | **yes** |
+
+The cause is simple and I should have seen it: `*.ck` and `!www.ck` are **real
+PSL rules**. A fixture assembled from real rules cannot discriminate against the
+list it was drawn from. Every one of the four fixture rules has this property.
+
+The irony is worth recording rather than glossing. Design §11 exists *because*
+the spike showed a suite passing while testing the wrong data — and the check I
+wrote to prevent that would itself have passed while testing the wrong data.
+`foo.blogspot.com` is the correct probe, and the requirement that each generated
+binding get its own independent fingerprint is right: one PSL probe says nothing
+about the DKIM catalog or the English bundle.
+
+**R3-F3 — nine DNSSEC claims, not seven.** Confirmed at
+[`js/dns.js:4077`](js/dns.js):
+
+```js
+chain.push({ claim: 'ds-' + record.match, source: 'local', … });
+```
+
+reachable with `record.match` of `no-matching-key` and `digest-mismatch`. Both
+are absent from the seven-member list `0.4` seeded.
+
+This is the same failure mode twice over. My own grep had returned the literal
+`claim: 'ds-'` — the visible stump of a computed value — and I recorded the
+grep output as the enumeration instead of reading the line. R3-F3's wider point
+follows directly: a static literal scan cannot be called proof of
+exhaustiveness, because computed, thrown, boolean, nullable and absence-shaped
+states are invisible to it.
+
+## The applied changes, checked
+
+| Finding | Verified in `1.0` |
+| --- | --- |
+| R3-F1 | §11 uses `foo.blogspot.com` with both expected results recorded, plus independent DKIM-catalog and English-bundle fingerprints |
+| R3-F2 | Plan Task 1.4 states **no `globalName`** and calls it forbidden in Phase 1; the ordered facade → assert → enable → remove-legacy tasks are in Phase 2 |
+| R3-F3 | §12.1 carries all nine chain claims including `ds-no-matching-key` and `ds-digest-mismatch`; no Phase-4 deferral placeholders remain |
+| R3-F4 | Cache is per runtime, one runtime per page; the acceptance criterion keeps `scoring.test.mjs:1891` **and** adds cross-runtime isolation |
+| R3-F5 | `src/runtime.js` is in the tree, side-effect-free, with an API row; `platform/browser.js` added; the i18n→data edge is gone — English is passed |
+| R3-F6 | Baseline binds complete subject roots with input hashes, Node/ICU metadata and fixed time and locale |
+| R3-F7 | No `five-way` language survives in either document; the non-goal now reads **"No change to existing audit cancellation behavior"** |
+| R3-F8 | Legacy globals declared unsupported as a policy, with the removal recorded as an authorized compatibility delta rather than treated as a fact proved by grep |
+
+Repository state: `npm test` 2,121 assertions passing, `npm run locale:gate`
+13/13, every relative link across the spec, plan, index, capture and this
+document resolves. `docs/specs/README.md` shows `1.0 | Final, approved for
+implementation`.
+
+**No objection to the finalization.** Nothing was applied that the code does not
+support, and the two findings that reversed the author's own claims were
+reproduced independently rather than accepted on assertion.
+
+## What R3-F8 changed, and why it should not be quietly forgotten
+
+`0.4` called the 14 legacy globals "dead" on the strength of a repository-wide
+search. R3-F8 is right that this proves *"no repository consumer"*, not *"no
+consumer"*: a static site can be driven from a console, an extension or an
+embedding page that this checkout cannot see.
+
+That reframing matters more than it looks. It converts a discovery into a
+**decision**: the project is choosing to stop supporting a surface it never
+documented, and choosing is different from observing. `1.0` records it as a
+compatibility delta in the manifest, changelog and PR body, which is the right
+outcome — and one no amount of grepping would have produced.
+
+## Standing at Gate 1
+
+**Linux `npm ci` is unverified.** The spike measured darwin-arm64 only: two
+packages, one `postinstall`, 25 unmet optional platform packages. Round 3
+explicitly declines to reinterpret that as cross-platform evidence, and this
+close-out does not either. It is Gate 1 evidence, alongside the lockfile
+footprint and the `allowScripts` policy — not a reopened design question.
