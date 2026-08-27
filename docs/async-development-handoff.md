@@ -129,7 +129,7 @@ explicit reconciliation rather than being left to default behavior:
 | 3 | `dns-protocol-depth` (0.4.0) | 9/10 | B (link 2/3) | Second link; adds `DS`/`DNSKEY`/`TLSA` transport 0.5.0 needs, and the per-host `authenticated` evidence 0.5.0 keeps as the honest ceiling for DANE. |
 | 3′ | `local-artifact-validation` (0.8.0) | 5/10 | D (parallel) | Can start as soon as 0.2.3 lands, run alongside the whole B chain. Only sync point is 0.7.0's `Finding` shape (stub it, reconcile later). |
 | 4 | `dnssec-evidence` (0.5.0) | 6/10 | B (link 3/3) | Closes the B chain; needs 0.4.0's transport and TLSA shape. |
-| 4′ | `modular-architecture-and-production-build` (0.6.0) | n/a | G | **Added 2026-08-27.** No end-user value by design — it ships no observable change. Sits between B and C because every spec below it reads or extends output shapes inside `js/dns.js`, and the boundaries cost less to establish before three more releases land on a 5,704-line file than after. |
+| 4′ | `modular-architecture-and-production-build` (0.6.0) | n/a | G | **Spec 1.0 Final.** No audit/UI behavior change by design; undocumented legacy globals are replaced by a two-member supported facade. Sits between B and C because every spec below it reads or extends output shapes inside `js/dns.js`. |
 | 5 | `findings-and-remediation` (0.7.0) | 10/10 | C | Highest end-user value in the roadmap, but structurally the most downstream — it reads the output shapes of 0.3.0, 0.4.0, and 0.5.0. Cannot start for real until B is done. |
 | 6 | `report-comparison` (0.9.0) | 4/10 | E | Hard-bound to 0.7.0's finding-id namespace. Last in the signal chain. |
 | — | `external-intelligence` | 1/10 | F | No code. Finalize as a **decision document** (mark `1.0 (Final)` as a deliberate refusal per its own `OQ-EXT-04`) whenever convenient — no dependency either direction. |
@@ -515,8 +515,10 @@ and confirm none appear. Move to `docs/specs/implemented/`.
 
 ## 4½. Phase 3½ — `modular-architecture-and-production-build` (0.6.0)
 
-**Added 2026-08-27.** Not part of the original eight-workstream evaluation, and
-it scores no usefulness points — by design it ships no observable change.
+**Added 2026-08-27; spec 1.0 Final.** Not part of the original eight-workstream
+evaluation, and it scores no usefulness points — by design it ships no audit or
+UI behavior change. It does intentionally replace undocumented legacy globals
+with the supported `DnsAudit.{analyzeDomain,checkConnectivity}` facade.
 
 **Start condition:** Phase 2 fully merged and released (0.3.0, 0.4.0, 0.5.0),
 which it is. The spec makes released 0.5.0 the behavioral baseline explicitly,
@@ -534,23 +536,14 @@ It renames every source file in the repository. Two branches that both touch
 rather than re-deriving the sequence; the ordering constraints in it are not
 arbitrary.
 
-**Blocking open questions.** Unlike most phases here, three `OQ-ARCH-*` must be
-answered before *any* code is written, because each changes what the work is:
-
-- `OQ-ARCH-01` — esbuild, another bundler, or no bundler at all.
-- `OQ-ARCH-02` — whether `package-lock.json` gets committed. It is git-ignored
-  today, and the spec's own pinning requirement is impossible until it is not.
-  This is the project's first-ever dependency; treat it as the supply-chain
-  decision it is.
-- `OQ-ARCH-07` — parallel `js/` tree during migration, or convert in place.
-
-Five more (`-03` compatibility target, `-04` source maps, `-05` bundle split,
-`-06` losing `file://`, `-08` locale gate in CI) are answered inside their own
-phase and reorder nothing.
+**Blocking open questions:** none. All nine `OQ-ARCH-*` decisions are resolved
+in spec 1.0. Linux `npm ci` and the postinstall policy remain Gate 1 evidence;
+they are measurements, not open architecture.
 
 **What this phase must not do**, and the temptation is real because the
 architecture makes each of them easy: no concurrency change, no request
-deduplication beyond today's cache, no audit cancellation, no Web Worker, no
+deduplication beyond today's cache, no change to existing audit cancellation,
+no Web Worker, no
 finding-schema redesign, no bundle splitting. Spec §46: a capability is not
 implemented merely because the refactor made it possible.
 

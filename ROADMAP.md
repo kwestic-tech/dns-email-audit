@@ -76,7 +76,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 6 | Local MTA-STS and BIMI validation | Not started. Both are validated at the TXT record level only. | [0.8.0](docs/specs/local-artifact-validation.md) |
 | 7 | Local report comparison | Not started. Exports are CSV and static HTML; nothing can be read back. | [0.9.0](docs/specs/report-comparison.md) |
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
-| 9 | Modular architecture and production build | Not started, and not an original workstream — added 2026-08-27. The application is seven classic scripts loading IIFEs onto `window`; `js/dns.js` alone is 5,704 lines owning transport, every protocol, scoring and issue construction. There is no module system and no JavaScript build. | [0.6.0](docs/specs/modular-architecture-and-production-build.md) |
+| 9 | Modular architecture and production build | Spec 1.0 Final; implementation not started. Added 2026-08-27. The application is seven classic scripts loading IIFEs onto `window`; `js/dns.js` alone is 5,704 lines owning transport, every protocol, scoring and issue construction. | [0.6.0](docs/specs/modular-architecture-and-production-build.md) |
 
 ## Release sequence
 
@@ -166,17 +166,19 @@ transport, protocol evaluation, audit coordination, UI — and introduces esbuil
 as the project's first development dependency, producing a single
 `dist/app.min.js` that GitHub Pages serves in place of seven source files.
 
-This is the one release in the sequence that ships **no user-visible change at
-all**, by design. It is scheduled here rather than later because the three
+This is the one release in the sequence that ships **no audit or UI behavior
+change**, by design. It deliberately retires undocumented legacy JavaScript
+globals and replaces them with the two-member supported facade recorded in the
+spec. It is scheduled here rather than later because the three
 feature releases that follow all read or extend the output shapes inside
 `js/dns.js`, and establishing the boundaries costs less now than after three
 more releases have been layered onto a 5,704-line file.
 
-Exit condition: identical scores, grades and issue tokens against a
-deterministic fixture corpus captured at `v0.5.0` — proven through the built
-bundle as well as through source — with `npm test` no lower than its 2,121-assertion
-baseline, `npm run locale:gate` at 13/13, zero runtime dependencies, and
-`PRIVACY.md` needing no edit.
+Exit condition: five-surface equivalence against a deterministic fixture corpus
+captured at `v0.5.0` — full result, query trace, CSV, HTML report and DOM,
+three-way through baseline/source/bundle — with the contract and state
+inventories intact, the assertion total reported, `npm run locale:gate` at
+13/13, zero runtime dependencies, and `PRIVACY.md` needing no edit.
 
 ### 0.7.0: Anomaly and remediation roadmap
 

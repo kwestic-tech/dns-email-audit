@@ -2,15 +2,15 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.4 (Draft) |
+| Spec version | 1.0 (Final) |
 | Target release | 0.6.0 |
-| Status | Revised after review rounds 1–2. **No open questions.** Awaiting round 3. |
+| Status | **Final.** Approved for implementation after three Codex review rounds. Linux dependency installation remains a Gate 1 verification, not an open design question. |
 | Depends on | [dnssec-evidence](implemented/dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
 | Blocks | [findings-and-remediation](findings-and-remediation.md), [local-artifact-validation](local-artifact-validation.md), [report-comparison](report-comparison.md) — all three are scheduled after it |
 | Slug for open questions | `ARCH` |
 | Last updated | 2026-08-27 |
 | Evidence | [esbuild-legacy-bundle-spike-0.6.0](fixtures/esbuild-legacy-bundle-spike-0.6.0.md) — settles `OQ-ARCH-01`, confirms Phase 1 viability, and demonstrates the fixture-substitution hazard |
-| Reviews | Rounds 1–2 (Codex, 2026-08-27) recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md); this spec's responses in [`CODEX Review Modular Refactor.md`](../../CODEX%20Review%20Modular%20Refactor.md) |
+| Reviews | Rounds 1–3 (Codex, 2026-08-27) recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md); the author's requests and responses are in [`CODEX Review Modular Refactor.md`](../../CODEX%20Review%20Modular%20Refactor.md) |
 | Source | Written from an external proposal, *DNS Email Audit Modular Architecture and Production Build Refactor Specification* (Codex, 2026-08). Section numbers of the form §N below refer to that document. Where this spec diverges from it, the divergence is recorded in [§ Corrections to the source proposal](#corrections-to-the-source-proposal). |
 
 ## Problem
@@ -232,11 +232,13 @@ published privacy figure:
   refactor.
 
 **Accepted as narrowed further than 0.1 stated**: the cache moves to
-`src/core/dns/cache.js` behind a factory — an architectural change — and the
-factory is invoked **once at module scope**, preserving page lifetime exactly.
-Eviction policy, key format and the cacheable-kind rule do not change. Changing
-who owns the instance is a separate, later decision requiring query-count
-fixtures and a privacy review.
+`src/core/dns/cache.js` behind a factory — an architectural change — and each
+audit runtime owns one cache. `src/main.js` constructs exactly one production
+runtime for the browser page, preserving page lifetime exactly; tests construct
+fresh runtimes and therefore do not share caches accidentally. Eviction policy,
+key format and the cacheable-kind rule do not change. Changing the production
+runtime's one-per-page lifetime is a separate, later decision requiring
+query-count fixtures and a privacy review.
 
 **4. A deployment allowlist already exists.** §40 asks for one.
 `tools/build-site.mjs` builds `_site/` from an explicit seven-entry list with a
@@ -309,13 +311,21 @@ in a parallel tree puts half the change outside it.
 ```text
 src/
 ├── main.js                  entry point; wires UI to coordinator
+├── runtime.js               side-effect-free createAuditRuntime() composition
+├── facade.expected.json     the two supported production exports
+│
+├── platform/
+│   └── browser.js           browser primitives passed into the runtime
 │
 ├── core/
 │   ├── dns/
 │   │   ├── doh.js           DoH request, timeout, retry, AbortController
 │   │   ├── resolver.js      normalization, response-kind classification
-│   │   ├── cache.js         the existing LRU; page-lifetime instance
-│   │   ├── errors.js        transport-failure vs absent vs invalid
+│   │   ├── cache.js         runtime-lifetime; production creates one runtime per page
+│   │   ├── errors.js        DnsTypeError and dnsError(kind, name, type)
+│   │   ├── optional.js      optionalCheck() rethrow/fallback policy
+│   │   ├── existence.js     direct-kind name-existence mapping
+│   │   ├── contracts.js     ten kinds, retry/cache sets, exception-edge names
 │   │   └── *.test.js
 │   │
 │   ├── spf/                 parse, recursive evaluate, lookup accounting,
@@ -326,7 +336,8 @@ src/
 │   ├── mx/                  MX health
 │   ├── caa/                 CAA policy
 │   ├── bimi/                BIMI record validation
-│   └── transport/           mta-sts.js, tls-rpt.js, tlsa.js
+│   ├── transport/           mta-sts.js, tls-rpt.js, tlsa.js
+│   └── shared/              pure parsing/value helpers; imports nothing
 │                            (each protocol directory carries its own *.test.js)
 │
 ├── audit/
@@ -616,6 +627,11 @@ newline convention.
 inlined stylesheet compared as **exact bytes** — those are the parts a
 canonicalizer must not be allowed to normalize away.
 
+The runner supplies a fixed instant and a fixed locale formatter through the
+platform binding. `report.generated` therefore contains the same formatted
+timestamp in the baseline, source and bundle runs. Time is an input, not an
+excluded output field; no timestamp wildcard is permitted.
+
 **DOM.** Ordered node and child structure with exact text. Attributes compared
 as a sorted name/value map. Properties that are not attributes — `value`,
 `checked`, `disabled`, visibility — compared explicitly. **Whitespace text nodes
@@ -626,12 +642,12 @@ exact text.
 wildcard field classes** — an exclusion nobody can enumerate is a hole nobody
 can review.
 
-> **The known tension, stated so round 3 can rule on it.** These rules are
+> **Final ruling after round 3.** These rules are
 > strict enough that inconsequential differences will surface. That is
 > deliberate: a canonicalizer loose enough to never cry wolf is loose enough to
 > absorb a real regression. Each tolerance added must name the difference class
-> it admits and why that class cannot carry a defect. Round 3 is asked whether
-> the line is drawn correctly.
+> it admits and why that class cannot carry a defect. This strict line is
+> accepted; time and locale are controlled inputs rather than broad exclusions.
 
 #### The oracle, and capturing the baseline
 
@@ -639,17 +655,24 @@ Fixtures, never live DNS. `tools/backtest.mjs` queries Cloudflare and is a local
 grade-*distribution* check only, never a gate. The oracle is
 [`tools/lib/doh-fixture.mjs`](../../tools/lib/doh-fixture.mjs).
 
+Each subject is a complete repository or built-artifact root. The runner must
+load that subject's own `index.html`, stylesheet, generated English bundle and
+JavaScript; it may not pair baseline JavaScript with current-branch assets.
 Capture without moving the worktree — the tag does not contain the runner:
 
 ```bash
 git worktree add ../dea-v050 v0.5.0
-node tests/build/equivalence.mjs --source-root=../dea-v050/js --emit \
+node tests/build/equivalence.mjs --subject-root=../dea-v050 --emit \
   > tests/fixtures/equivalence/baseline-v0.5.0.json
 git worktree remove ../dea-v050
 ```
 
-The baseline is committed; CI regenerates it from a clean clone and asserts it
-matches. A phase that cannot produce a clean five-surface diff does not merge.
+For source parity the subject root is the checkout root with `src/` selected;
+for artifact parity it is `_site/`. The baseline is committed; CI regenerates
+it from a clean clone and asserts it matches. The baseline manifest records the
+commit/tag, Node and ICU versions, fixed instant, locale, and SHA-256 of every
+loaded HTML/CSS/locale/script input. A phase that cannot produce a clean
+five-surface diff does not merge.
 
 ### 9. Test placement
 
@@ -761,22 +784,29 @@ Every name was traced to its actual consumers:
 | **Test-only surface** | the other 93 `DnsAudit` members (77 used by `scoring.test.mjs`, 4 by `backtest.mjs`), `__APP_TEST__` (used by `render.test.mjs:21`, `export.test.mjs:17`) | Become **direct ESM imports**. Never frozen into the facade. |
 | **Transition inputs** | `__PUBLIC_SUFFIX_RULES__`, `__DKIM_SELECTOR_CATALOG__`, `__I18N_EN__` | Generated data. Global reads/writes only during the legacy-to-ESM transition; replaced by injected bindings (§11). Not facade exports. |
 | **Internal wiring** | `i18n`, `t`, `tp`, `tRaw`, `R` | Become imports within the bundle. |
-| **Dead** | all 14 `js/app.js` function globals | **Zero consumers.** See below. |
+| **Unsupported legacy surface** | all 14 `js/app.js` function globals | Zero repository or documented consumers. Removed deliberately; see below. |
 
-**The 14 function globals are dead.** `index.html` contains no inline event
+**The 14 function globals have no repository consumer.** `index.html` contains no inline event
 handlers — the CSP carries no `'unsafe-inline'`, so it cannot — and its single
 textual match for `cancelAudit` is `data-i18n="btn.cancelAudit"`, a locale key.
 Nothing in `index.html`, `tools/` or the test suites reads any of the 14.
 
-Removing them is dead-code deletion, and it is a **behavior change** in the
-strict sense that public globals disappear. Per §35 it is therefore **its own
-commit**, in Phase 2, never folded into a move. It is recorded here rather than
-discovered later.
+That proves the application does not need them; it cannot prove that a console
+script, extension or embedding page outside this repository never called them.
+This project exposes no documented JavaScript API (`package.json` has no
+`main`, `exports` or `files`), so those names are declared **unsupported legacy
+surface**, not supported compatibility API. Their removal is intentional and is
+a **behavior change** in the strict sense that observable globals disappear.
+Per §35 it is therefore its own Phase-2 commit, a named allowed delta in the
+equivalence manifest, and a compatibility note in `CHANGELOG.md` and the PR
+description. A separate commit makes the decision auditable; this paragraph
+authorizes it.
 
 **The supported facade is two members.** From a 95-member surface. That is the
 answer to round 2's "derive the facade from actual consumers": the application
 needs `analyzeDomain` and `checkConnectivity`, and everything else is either
 internal or test surface that ESM imports serve better than a global ever did.
+The facade is the only supported browser API from 0.6.0 onward.
 
 #### Three stages, in order
 
@@ -841,14 +871,24 @@ createAuditRuntime({
   publicSuffixRules,        // from src/data/, or a fixture table
   dkimSelectorCatalog,      // from src/data/, or a fixture catalog
   englishBundle,            // __I18N_EN__ equivalent
-  platform,                 // { fetch, crypto, AbortController, now }
+  platform,
 }) -> { analyzeDomain, checkConnectivity, mount }
 ```
 
-`src/main.js` imports the generated data and the browser platform, calls the
-factory **once**, mounts the UI, and exports the §10 facade. Unit tests call the
-same factory with fixture data. There is no second construction path, and no
-production branch that exists only for tests.
+`src/runtime.js` owns this side-effect-free factory. `src/main.js` imports the
+three generated inputs and `src/platform/browser.js`, calls the factory
+**once**, calls `mount()`, and exports only the §10 facade. Importing
+`src/runtime.js` never touches the DOM or network. Unit and integration tests
+call the same factory with fixture data. There is no second construction path
+and no production branch that exists only for tests.
+
+The browser platform object names every ambient primitive used by the moved
+code: `fetch`, `crypto`, `AbortController`, `URLSearchParams`, `setTimeout`,
+`clearTimeout`, `document`, `localStorage`, `URL`, `Blob`, `FileReader`, `Intl`,
+`console`, `now()` and `formatDateTime(date, locale)`. The last two preserve the
+current `new Date().toLocaleString(i18n.lang)` behavior in production while
+making export parity deterministic. Language built-ins such as `Promise`,
+`Map`, `Set` and `BigInt` are required APIs, not injectable platform services.
 
 #### Passed versus imported
 
@@ -857,7 +897,7 @@ production branch that exists only for tests.
 | Public suffix rules | ✓ | | The demonstrated hazard |
 | DKIM selector catalog | ✓ | | Same class |
 | English bundle | ✓ | | Same class |
-| `fetch`, `crypto`, `AbortController` | ✓ | | Platform; tests substitute at the lowest primitive |
+| Browser/platform primitives listed above | ✓ | | Tests substitute at the lowest primitive |
 | Protocol modules | | ✓ | Pure logic, no ambient state |
 | Scoring constants | | ✓ | Immutable, and byte-identity is asserted |
 
@@ -865,25 +905,32 @@ production branch that exists only for tests.
 
 | Scope | Holds | Constructed |
 | --- | --- | --- |
-| **Page** | The DoH cache; generated data; the resolver | Once, by the factory. The cache **must** be page-scoped — see Corrections item 3. |
+| **Runtime/page** | The DoH cache; generated data; resolver; i18n instance | Once per factory call. `src/main.js` makes one production runtime per page. |
 | **Audit** | Options in force, accumulated result, cancellation signal | Per `analyzeDomain()` call |
 | **Call** | Per-query retry and timeout state | Per resolver call |
 
-**Node's ESM module cache is not a dependency-injection mechanism.** Test
-isolation comes from constructing a fresh runtime per suite, never from
-cache-busted imports or module-level mutation. A suite that needs different
-generated data calls the factory again.
+**Node's ESM module cache is not a dependency-injection mechanism.** The cache
+factory returns a new cache to each runtime. Test isolation comes from
+constructing a fresh runtime per suite, never from cache-busted imports or
+module-level mutation. Contract tests prove both halves: two audits through one
+runtime reuse cached answers, while two runtimes share none.
 
 #### Proving fixture identity behaviorally
 
-The lesson of the spike is that a green run proves nothing. So the contract test
-does not compare a count — it asserts a **behavioral** discriminator: with the
-four-rule fixture table in force, `getOrganizationalDomain('a.b.ck')` resolves
-under the `*.ck` wildcard and `!www.ck` exception, results the real 10,239-rule
-list does not produce. If the fixture has been substituted, that assertion fails
-loudly instead of passing quietly.
+The lesson of the spike is that a green run proves nothing. Every suite declares
+which generated-data profile it supplies and runs one **behavioral** fingerprint
+per binding before any other assertion:
 
-Every suite that supplies generated data runs this check first.
+| Binding | Fixture fingerprint | Production counter-result |
+| --- | --- | --- |
+| PSL | The four-rule fixture resolves `foo.blogspot.com` to `blogspot.com` | The real PSL contains the private `blogspot.com` rule and resolves it to `foo.blogspot.com` |
+| DKIM catalog | A fixture-only provider contributes selector `fixtureselector999` | The production catalog does not contain that selector |
+| English bundle | `t('doc.title')` returns the fixture value `__fixture_english_title__` | The production bundle returns the shipped English title |
+
+The PSL case is deliberately a rule present in production and absent from the
+fixture. `a.b.ck` and `a.www.ck` are not fingerprints: both fixture rules are
+also in the real PSL and therefore produce identical results. A test replacing
+any one binding while leaving the other two correct must fail its own probe.
 
 ### 12. Module APIs and the allowed-edge matrix
 
@@ -896,20 +943,27 @@ An edge absent from this matrix is a test failure, not a judgment call.
 
 | From | May import |
 | --- | --- |
-| `src/main.js` (composition) | `ui`, `audit`, `i18n`, `data`, platform |
-| `src/ui/` | `i18n`, rendering/report primitives |
-| `src/audit/` | `core/<protocol>/`, `providers/`, resolver **contracts** |
-| `src/core/<protocol>/` | resolver contracts, explicitly named pure shared data |
-| `src/core/dns/` | transport, cache, platform **only** |
+| `src/main.js` | `runtime.js`, `platform/browser.js`, `data/` |
+| `src/runtime.js` | `core/dns/`, `core/shared/`, `audit/`, `ui/`, `i18n/` |
+| `src/platform/` | **nothing** |
+| `src/ui/` | `ui/` siblings, `i18n/`; event functions receive audit callbacks as arguments |
+| `src/audit/` | `core/<protocol>/`, `providers/`, `audit/` siblings; resolver handle is passed |
+| `src/core/<protocol>/` | `core/shared/` only; resolver and generated data are passed |
+| `src/core/dns/` | `core/dns/` siblings, `core/shared/`; platform is passed |
+| `src/core/shared/` | **nothing** |
+| `src/providers/` | `core/shared/` only |
+| `src/i18n/` | `core/shared/` only; English and platform are passed |
 | `src/data/` | **nothing** |
-| `src/i18n/` | `src/data/locales-en.js` |
 
 Consequences that follow, each asserted:
 
 - No `src/core/` module imports `src/ui/` or `src/audit/`.
-- No protocol module imports a sibling protocol module. DMARC's public-suffix
-  need is satisfied by **injected data** (§11), not by importing `src/data/`
+- No protocol module imports a sibling protocol module. Generated data reaches
+  its consumer through runtime construction, never by importing `src/data/`
   directly — that would be an implied convenience edge, which the matrix forbids.
+- No UI module imports `audit/`; `mount()` receives `analyzeDomain` and
+  `checkConnectivity` callbacks from the runtime.
+- Only `src/main.js` imports generated data or the browser platform adapter.
 - `src/data/` is a sink. A generated file that imports anything has stopped
   being generated data.
 
@@ -922,20 +976,106 @@ matrix above catches.
 
 #### Per-directory API table
 
-Each owning directory checks in a table of: public exports, accepted inputs,
-returned discriminants, allowed dependencies, and state lifetime. Seeded from
-the verified discriminants:
+Each owning directory checks in `API.md` in the same commit that creates the
+directory. It records public exports, accepted inputs, result axes, allowed
+dependencies and lifetime. The implementation tasks may refine function names,
+but not ownership or direction without amending this spec.
 
-| Directory | Returns discriminants |
+| Owner | Public responsibility / API | Inputs | Result and lifetime |
+| --- | --- | --- | --- |
+| `main.js` | browser entry; exports `analyzeDomain`, `checkConnectivity` | generated modules, browser platform | one mounted runtime per page |
+| `runtime.js` | `createAuditRuntime()` | three generated bindings, platform | facade + `mount`; fresh cache/i18n/resolver per call |
+| `platform/` | `browserPlatform` | browser globals at entry only | immutable primitive adapter |
+| `core/dns/` | `createResolver`, raw fetch, usable/normalized APIs, errors | platform, runtime cache | ten kinds; page/runtime cache, per-call retry state |
+| `core/shared/` | URI, record-field, IP and other genuinely cross-protocol pure helpers | values only | pure, no retained state |
+| `core/spf/` | parse/status, lookup count, subnet/redundancy audit | SPF text, domain, resolver | §12.1 SPF axes; call lifetime |
+| `core/dkim/` | selector discovery, catalog use, key analysis | domain, selector options, catalog, resolver | §12.1 DKIM axes; call lifetime |
+| `core/dmarc/` | parse, tree walk, inheritance, report authorization | domain/records, resolver | §12.1 DMARC axes; call lifetime |
+| `core/dnssec/` | record parsing, DS↔DNSKEY evidence, classifier | domain, resolver, crypto | §12.1 DNSSEC axes; call lifetime |
+| `core/mx/` | MX health | MX records, domain, resolver | §12.1 MX axes; call lifetime |
+| `core/caa/` | CAA parse, inheritance and summary | domain, resolver | §12.1 CAA axes; call lifetime |
+| `core/bimi/` | BIMI record validation | record text | valid/declined/advertised/present/unknown axes; pure |
+| `core/transport/` | MTA-STS, TLS-RPT and TLSA validation/checks | records or MX hosts, resolver | §12.1 transport axes; call lifetime |
+| `providers/` | DNS/email/hosting detection | normalized records | provider token; pure |
+| `audit/` | orchestration, scoring, issues | domain/options, resolver, protocol APIs | complete audit result; per-audit context |
+| `i18n/` | translation lookup and DOM translation | English bundle, platform | per-runtime language/listeners |
+| `ui/` | rendering, reports, events | result data, i18n, injected facade callbacks | mounted DOM state; report builders are pure over supplied data |
+| `data/` | generated PSL/catalog/English constants | none | immutable runtime inputs |
+
+#### 12.1 Pre-refactor state and result-shape inventory
+
+This inventory is derived from `v0.5.0` before extraction. It is the minimum
+closed vocabulary Gate 0 must place in `tests/state-algebras.json`; Phase 4 does
+not get to discover missing members after the equivalence corpus has already
+been declared complete.
+
+| Owner / field | Complete members at `v0.5.0` |
 | --- | --- |
-| `core/dns/` | the ten transport kinds (§3); throws `DnsTypeError`, `AbortError` |
-| `core/spf/` | `status`: `ok`, `warn`, `present`, `missing`, `softfail`, `permerror` |
-| `core/dnssec/` | `state`: `secure`, `insecure`, `bogus`, `unanchored`, `mismatch`, `indeterminate`; chain `claim`: `resolver-ad`, `resolver-bogus`, `resolver-unreachable`, `link-checked`, `lookup-incomplete`, `ds-confirms-dnskey`, `ds-unverifiable` |
-| `core/dmarc/` | diagnosis `reason`: `absent`, `syntax`, `version`, `not-first`, `bad-value`; `domainExists`: `yes`, `no`, `unknown` |
-| `core/dkim/`, `core/caa/`, `core/mx/`, `core/bimi/`, `core/transport/` | Enumerated during their Phase 4 extraction and added to the matrix in the same commit |
+| DNS `result.kind` | `success`, `nodata`, `nxdomain`, `servfail`, `refused`, `dns-error`, `http-error`, `cancelled`, `timeout`, `network-error` |
+| DNS thrown paths | `DnsTypeError`, `AbortError`, and `DnsError.kind` for the seven kinds rejected by `requireUsable()` |
+| Domain existence | `yes`, `no`, `unknown` |
+| SPF `status` | `ok`, `warn`, `present`, `missing`, `softfail`, `permerror` |
+| SPF subnet `severity` | `LOW`, `MEDIUM`, `HIGH` |
+| DKIM `confidence` | `not-checked`, `sampled`, `observed` |
+| DKIM `scanMode` | absent when not checked; `provider-aware`, `comprehensive` when checked |
+| DKIM selector `type` | `key`, `cname` |
+| DKIM key `keyType` | `rsa`, `ed25519`, `unknown` |
+| DMARC `status` | `ok`, `warn`, `present`, `missing`, `unknown`, legacy-direct-call `permerror` |
+| DMARC tag state | `absent`, `valid`, `invalid`; alignment fields use `absent`, `r`, `s`, `invalid` |
+| DMARC record diagnosis | `absent`, `not-first`, `bad-value`, `version`, `syntax` |
+| DMARC walk `terminated` | `root`, `error`, `psd-y`, `psd-n` |
+| DMARC observation `why` | `at-apex-not-underscore`, `multiple-at-step`, `version-bad-case`, `version-not-first`, `version-absent` |
+| External report authorization `state` | `authorized`, `unauthorized`, `unverifiable`, `override-mismatch` |
+| External report override reason | `null`, `cross-host`, `malformed` |
+| MX host `resolves` | `yes`, `no`, `unknown` |
+| MX `ipv6Coverage` | `none`, `some`, `all` |
+| DNSSEC `state` | `secure`, `insecure`, `bogus`, `unanchored`, `mismatch`, `indeterminate` |
+| DNSSEC chain `claim` | `resolver-ad`, `resolver-bogus`, `resolver-unreachable`, `link-checked`, `lookup-incomplete`, `ds-confirms-dnskey`, `ds-no-matching-key`, `ds-digest-mismatch`, `ds-unverifiable` |
+| DNSSEC DS match | `unverifiable`, `unverifiable-digest-type`, `no-matching-key`, `confirmed`, `digest-mismatch` |
+| DNSSEC eligibility | `eligible`, `ineligible`, `unknown` |
+| DNSSEC key structure | `valid`, `invalid`, `unknown` |
+| DNSSEC evidence | `complete`, `partial`, `none` |
 
-The table is completed as each module is extracted, and the state matrix
-(Testing item 3) is what proves it complete.
+Not every meaningful state is a string discriminant. These axes are equally
+binding and receive explicit matrix rows:
+
+| Owner | Non-enum result shapes that must be covered |
+| --- | --- |
+| SPF | lookup `error` / `warning` / `indeterminate` / `unknown`; zero/ten/over-ten counts; void lookup count; cycle present/absent; subnet redundancy known/unknown |
+| DKIM | checked versus not checked; `found`; selector sets for missing, failed, duplicated, revoked, unusable and malformed; key `valid`, `revoked`, `appliesToEmail`; `cryptoValidated` = `null` / `true` / `false` |
+| DMARC | record absent/present/multiple/malformed; own/inherited/PSD-applied/no-applied policy; walk error before versus after an own record; report destinations checked/omitted; URI valid/invalid |
+| CAA | found/absent/unknown; record valid/malformed; issuance and wildcard issuance blocked/open; unknown critical property present/absent |
+| MX | no MX, null MX, one/many targets; dangling/CNAME/duplicate-preference/shared-prefix collections; per-host CNAME unknown; overall unknown |
+| BIMI | advertised/present/declined/multiple/unknown; validation valid/invalid |
+| MTA-STS | advertised/present/multiple/unknown; validation valid/invalid; `policyVerified` false in this release |
+| TLS-RPT | advertised/present/multiple/unknown; validation valid/invalid |
+| TLSA | per-host present/absent/unknown; `authenticated` = `null` / `true` / `false`; aggregate any/all-authenticated and unknown |
+| DNSSEC | each lookup completed/incomplete; DS/DNSKEY empty/non-empty; anchor confirmed/unconfirmed; signed alias true only for `secure` |
+| Audit | registered/unregistered; optional check disabled/enabled/unknown; normal result versus thrown cancellation/core transport error; active-mail versus parked scoring |
+
+Parser error-token arrays and issue identifiers are not inferred from a generic
+`status` scan. Their exact vocabularies are already consumed by tests and the
+UI, so Gate 0 snapshots them separately and the equivalence result surface
+compares them byte-for-byte.
+
+`tests/state-algebras.json` is the reviewed source of truth for the rows above.
+`tests/state-matrix.json` maps each member or meaningful combination to a unit
+or contract suite, an integration fixture where DNS is involved, and an
+equivalence fixture for every operator-visible shape. The contract test:
+
+1. rejects matrix rows naming missing suites or fixtures;
+2. rejects an algebra member with no coverage row;
+3. compares each extracted module's exported state constants with the reviewed
+   registry once that module exists; and
+4. runs targeted legacy contracts for computed values, thrown paths, booleans,
+   nullability and absence until extraction is complete.
+
+It does **not** claim that a static string-literal scan can discover every
+state. Computed claims such as `"ds-" + record.match` are expanded explicitly,
+and boolean/nullable combinations are reviewed as result shapes. Adding a state
+therefore requires an intentional registry, matrix and fixture change; the
+five-surface baseline remains the independent proof that the refactor did not
+alter an unmodeled value.
 
 ## Localization impact
 
@@ -993,16 +1133,14 @@ Every discriminant in the codebase maps to three things:
 | Integration fixture | Where it is reached through the real transport path, where applicable |
 | Equivalence fixture | At least one, for every operator-visible result shape |
 
-Seeded from the verified enumerations in §3 and §12 — the ten transport kinds,
-six DNSSEC states, seven chain claims, six SPF statuses, five DMARC diagnosis
-reasons, three `domainExists` results — and completed per module as Phase 4
-extracts it.
+It is complete at Gate 0 from the pre-refactor inventory in §12.1, including
+computed DNSSEC claims and non-string result axes. It is not deferred until the
+modules are extracted.
 
-**The matrix is self-policing.** A prose list goes stale silently, which is the
-failure this project keeps meeting. So `tests/contract/state-matrix.test.mjs`
-extracts the discriminants from the source and **fails if any lacks a matrix
-row**, and fails if a row names a suite or fixture that does not exist. A new
-state cannot be added without its coverage.
+`tests/contract/state-matrix.test.mjs` enforces the four rules in §12.1. The
+reviewed registry, targeted legacy contracts and later exported state constants
+work together; no static literal extractor is represented as an exhaustive
+proof.
 
 **4. Bundle parity.** Loads the real `dist/app.min.js`. In stage 1 it reaches
 `window.DnsAudit` as the current harness does; from stage 3 it asserts the
@@ -1018,9 +1156,10 @@ shipped artifact and is not an acceptable substitute.
 - The allowed-edge matrix (§12) holds, and no SCC has more than one module.
 - The namespace contract (§10): no `src/` module reads or writes any of the 24
   globals outside a marked adapter.
-- **Fixture identity** (§11): with the four-rule table in force,
-  `getOrganizationalDomain('a.b.ck')` gives the wildcard/exception result the
-  real list cannot. Runs first in every suite that supplies generated data.
+- **Fixture identity** (§11): separate divergent PSL, DKIM-catalog and English
+  fingerprints run first according to the suite's declared data profile.
+- Runtime lifetime: sibling audits through one runtime reuse the cache; two
+  independently constructed runtimes do not share it.
 
 **6. Deployment artifact test.** Exact top-level allowlist —
 `index.html`, `CNAME`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `css/`, `dist/`,
@@ -1060,17 +1199,19 @@ Structural:
 - [ ] No resolver return carries a finding, severity, score or locale reference.
 - [ ] SPF, DKIM, DMARC, DNSSEC, MX, CAA, BIMI, MTA-STS, TLS-RPT and TLSA each have an owning directory and a checked-in API table.
 - [ ] The allowed-edge matrix holds; no SCC contains more than one module.
+- [ ] `src/runtime.js` is side-effect-free; importing it neither mounts the UI nor performs network I/O.
 - [ ] The namespace contract holds: no `src/` module touches any of the 24 globals outside a marked adapter.
 - [ ] `src/facade.expected.json` matches both the source exports and the bundle global.
+- [ ] Removal of unsupported legacy globals is one named compatibility delta with a manifest entry and release note.
 - [ ] `AGENTS.md` documents module ownership and the modification boundary for a protocol change.
 
 Equivalence:
 
 - [ ] Five-surface, three-way equivalence — result, query trace, CSV, HTML report, DOM — across `v0.5.0`, `src/` and `dist/app.min.js`, clean or every difference documented and deliberate.
 - [ ] `canonicalization.md` is checked in **before** the corpus is captured.
-- [ ] The baseline regenerates from a clean clone in CI and matches the committed file.
-- [ ] Every discriminant has a state-matrix row naming a suite and a fixture, enforced by `state-matrix.test.mjs`.
-- [ ] The fixture-identity check passes in every suite supplying generated data.
+- [ ] The baseline binds complete subject roots, input hashes, fixed time, locale, Node and ICU; it regenerates from a clean clone in CI and matches the committed file.
+- [ ] Every §12.1 member and meaningful non-enum shape has a state-matrix row naming a suite and fixture, enforced by `state-matrix.test.mjs`.
+- [ ] The PSL, DKIM-catalog and English fixture-identity checks pass independently in every suite supplying those bindings.
 - [ ] `WEIGHTS`, `PARKED_WEIGHTS`, `GRADE_THRESHOLDS` byte-identical to `v0.5.0`.
 - [ ] Issue-token vocabulary unchanged; no `locales/en.json` key added, changed or removed.
 - [ ] DNS query fan-out per fixture unchanged, so `PRIVACY.md`'s figures still hold.
@@ -1095,7 +1236,7 @@ Preserved properties:
 
 - [ ] CSP `connect-src` exactly `'self' https://cloudflare-dns.com`; every section-1 assertion byte-identical.
 - [ ] Markup-sink named-file allowlist still empty; scan covers `src/` and `dist/app.min.js`.
-- [ ] DoH cache retains page lifetime; `tools/scoring.test.mjs:1891` still passes.
+- [ ] DoH cache retains runtime/page lifetime; `tools/scoring.test.mjs:1891` still passes and two runtimes are proved isolated.
 - [ ] **`file://` still works** — `js/locales-en.js` exists to support it and its comments stay.
 - [ ] `PRIVACY.md` needs no edit, confirmed by the query-trace surface rather than assumed.
 - [ ] No runtime third-party JavaScript reaches the browser.
@@ -1109,18 +1250,18 @@ Preserved properties:
 | R2 | **The bundle differs from the source that was tested.** | Parity against the real `dist/app.min.js`; facade members asserted on both surfaces from stage 3. |
 | R3 | **First supply-chain dependency.** Measured: 2 packages on darwin-arm64, 1 `postinstall`, 25 unmet optional platform packages. | Exact pin; committed lockfile; `npm ci` only; an explicit recorded decision on npm's `allowScripts` gate; Linux confirmation outstanding. |
 | R4 | **ESM strict-mode semantics.** Top-level `this` is `undefined`; `var` no longer creates a global — and `js/dns.js` uses `var` throughout while 24 globals depend on that behavior. | One file per commit behind a working bundle; adapters for classic consumers; the namespace contract catches a missed conversion. |
-| R5 | **Coverage lost quietly, invisibly to the count.** Demonstrated, not hypothesised: 1,535 assertions passed against the wrong PSL. | Contract inventory is the gate; the state matrix is self-policing; the fixture-identity check runs first in every affected suite. |
-| R6 | **Generated data silently substituted.** The demonstrated hazard, and it generalizes to `__DKIM_SELECTOR_CATALOG__` and `__I18N_EN__`. | Composition root (§11): passed, never imported by consumers. Behavioral identity check, not a count. |
+| R5 | **Coverage lost quietly, invisibly to the count.** Demonstrated, not hypothesised: 1,535 assertions passed against the wrong PSL. | Contract inventory plus the reviewed §12.1 registry and state matrix are the gate; targeted contracts cover computed and non-string shapes. |
+| R6 | **Generated data silently substituted.** The demonstrated hazard, and it generalizes to `__DKIM_SELECTOR_CATALOG__` and `__I18N_EN__`. | Composition root (§11): passed, never imported by consumers. One divergent behavioral fingerprint per binding, not one proxy and not a count. |
 | R7 | **Deploy publishes source or tests**, now that non-shipping files live under `src/`. | Exact-allowlist artifact test; `metafile.inputs` and source-map `sources` as the binding proof. |
-| R8 | **Scope creep.** Every phase surfaces something. The 14 dead globals are the first example — real, worth removing, and still its own commit. | §3 and §35: found behavior changes are filed separately unless they block the phase, and recorded in the commit message either way. |
+| R8 | **Scope creep.** Every phase surfaces something. The 14 unsupported legacy globals are the first example. | Their removal is the one authorized compatibility delta: its own commit, manifest entry and release note. Every other found behavior change is filed separately unless it blocks the phase. |
 | R9 | **Cold-start regression.** One artifact replaces seven cacheable files. | Measured −40% raw / −39% gzip; metafile composition reporting; `OQ-ARCH-05` holds the split for later. |
-| R10 | **Cache-scope drift.** Easy to narrow accidentally once behind a factory; invisible in output; changes published privacy figures. | Query-trace surface; the sibling-reuse assertion; an explicit acceptance criterion; §11 fixes the cache at page scope. |
-| R11 | **Canonicalization absorbs a real regression** while tolerating noise it was written to tolerate. | Every tolerance names the difference class it admits and why that class cannot carry a defect; exclusions are per-field with reasons, no wildcards; put to round 3 explicitly. |
+| R10 | **Cache-scope drift.** Easy to narrow accidentally once behind a factory; invisible in output; changes published privacy figures. | Query-trace surface; sibling reuse within one runtime; isolation between two runtimes; one production runtime per page. |
+| R11 | **Canonicalization absorbs a real regression** while tolerating noise it was written to tolerate. | Every tolerance names the difference class it admits and why that class cannot carry a defect; exclusions are per-field with reasons, no wildcards; timestamp and locale are fixed inputs. |
 
-## Open questions
+## Resolved questions
 
-**None.** All nine are resolved. What remains before `1.0 (Final)` is round 3's
-verdict on completeness and internal consistency, not a decision.
+All nine design questions are resolved. Linux `npm ci` remains measured work at
+Gate 1 and does not alter any answer below.
 
 | ID | Question | Answer | Resolved |
 | --- | --- | --- | --- |
@@ -1145,6 +1286,7 @@ current payload. `file://` support was bought and paid for.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.0 | 2026-08-27 | **Final after Codex review round 3.** Replaced the ineffective `a.b.ck` fixture check with independently divergent PSL, DKIM-catalog and English-bundle fingerprints. Made cache ownership consistently per runtime, with one production runtime per page and cross-runtime isolation. Added a side-effect-free `runtime.js`, browser-platform adapter, complete allowed-edge rows and per-owner API contracts. Replaced the unsound static-extractor promise with a complete pre-refactor inventory covering computed DNSSEC claims, thrown paths, booleans, nullability and absence; the state matrix is complete before Gate 0. Bound equivalence subjects to complete roots with input hashes and fixed time/locale inputs. Declared the two-member facade the only supported 0.6.0 browser API and recorded removal of legacy globals as an intentional compatibility delta. Synchronized the implementation plan with the no-`globalName` legacy phase and the real four-boundary resolver model. Linux `npm ci` remains a Gate 1 measurement. |
 | 0.4 | 2026-08-27 | Revised after review round 2 and against measured evidence. **The `OQ-ARCH-01` spike ran** ([capture](fixtures/esbuild-legacy-bundle-spike-0.6.0.md)): the seven unmodified IIFEs bundle to an identical 24-global surface, `DnsAudit` intact at 95 members, −40.1% raw / −39.0% gzip, 22 ms — Phase 1 is confirmed viable, and esbuild's real footprint (2 packages, 1 `postinstall`) replaces the false "zero dependencies" claim. **`globalName` corrected**: it exports the entry's exports, so 0.2's claim was wrong and would have clobbered `window.DnsAudit` on the delivery-boundary commit; the facade is now staged in three steps (§10). **The global inventory was 24, not five** — `js/app.js` alone assigns 14, all of them **dead** (no consumer; `index.html` has no inline handlers). **The supported facade is two members**, `analyzeDomain` and `checkConnectivity`, the only ones `js/app.js` calls out of 95; the other 93 plus `__APP_TEST__` become direct ESM imports. **The transport model is four layers plus exception edges**, not a five-member union — the ten real kinds are enumerated with the cacheable ⊂ retry-terminal rule. **Composition root specified** (§11), justified by the spike demonstrating a bundled PSL silently replacing a fixture while 1,535 assertions still passed. **Allowed-edge matrix, SCC rejection and API tables added** (§12). **HTML report parity restored** to the gate — it had fallen out — making five surfaces, with executable canonicalization rules. **State matrix added**, self-policing via a test that fails on any discriminant lacking a row. **Co-location proof bound to `metafile.inputs`** rather than a sentinel. All nine open questions now resolved. |
 | 0.3 | 2026-08-27 | `OQ-ARCH-09` decided by Ian: unit tests co-locate as `src/**/*.test.js`, with `tests/` retained for build, contract, integration and fixture suites. The layout is settled; the markup-sink exclusion that pays for it remains a round-2 review item because it touches a security control rather than a convention. `OQ-ARCH-06` is now the only open question. |
 | 0.2 | 2026-08-27 | Revised after review round 1 (Codex). All eight findings verified against the code and accepted. **Build now precedes ESM conversion** — 0.1's Phase 0 could not keep the browser working between its own commits. **Equivalence expanded from score/grade/token to four surfaces** — full result projection, DNS query trace, CSV bytes, canonical DOM. **Per-audit cache scoping declined**: page lifetime is tested at `scoring.test.mjs:1891` and underwrites `PRIVACY.md`'s published fan-out. **esbuild's dependency footprint corrected** — `postinstall` plus 26 platform optional dependencies, not zero. **Transport-boundary grep withdrawn as vacuous**, replaced by a closed result algebra plus import-graph direction. **Assertion count demoted** from merge gate to reported tripwire, with a contract inventory as the gate. Baseline capture moved to `git worktree`. `core/bimi/` added. `legalComments`, interpolation-count and `locales-en.js` claims corrected. Two new items opened: `OQ-ARCH-06` reopened to propose an **IIFE bundle** (keeps `file://`, resolves F3's access path), and `OQ-ARCH-09` added for **test co-location**. Seven questions resolved. |

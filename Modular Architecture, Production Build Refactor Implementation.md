@@ -13,38 +13,37 @@ moving on. Where they disagree, the spec wins.
 
 ## 0. Before anything is written
 
-The spec is **`0.4 (Draft)`** — revised after review rounds 1 and 2, with the
-`OQ-ARCH-01` spike run and captured. **No open questions remain.** Round 3
-reviews completeness and internal consistency; it is not a decision gate. [`docs/specs/README.md`](docs/specs/README.md) requires `1.0 (Final)` before
-implementation begins.
+The spec is **`1.0 (Final)`**, approved after three Codex review rounds, with
+the `OQ-ARCH-01` spike run and captured. Implementation may begin.
 
-All nine open questions are resolved — seven in round 1, `OQ-ARCH-06` in round
-2, `OQ-ARCH-09` by Ian. **Nothing blocks drafting; one thing blocks merging:**
+All nine design questions are resolved. One platform measurement remains at
+Gate 1:
 
 | Item | Blocks | State |
 | --- | --- | --- |
 | `OQ-ARCH-01` spike | Phase 1 | **Done** — [capture](docs/specs/fixtures/esbuild-legacy-bundle-spike-0.6.0.md). Legacy IIFEs bundle to an identical 24-global surface; −40.1% raw. |
 | Linux `npm ci` | Gate 1 | **Outstanding.** The spike covered darwin-arm64 only and the footprint is platform-specific. |
-| Round 3 verdict | `1.0 (Final)` | Pending |
+| Round 3 verdict | `1.0 (Final)` | **Done** — findings resolved directly in the final spec and this plan. |
 
 **Task 0.1** — Confirm `npm ci` on Linux CI and fold the footprint into the
-spike capture. Deferred deliberately; it does not block drafting.
+spike capture. This runs immediately after Tasks 1.1–1.2 create the dependency
+and lockfile, and must complete before Gate 1; it does not block Gate 0.
 
-**Task 0.2** — Run the `OQ-ARCH-01` spike. Round 1 made esbuild conditional on
-it, and it is research rather than refactoring, so it is permitted before Final:
+**Task 0.2 — complete.** The `OQ-ARCH-01` spike established the following; the
+checked-in capture is the evidence:
 
-- bundle the **unmodified** IIFEs from `js/` and confirm the artifact runs;
-- run that exact artifact under the fixture harness;
-- `npm ci` on macOS **and** Linux CI;
-- record the real resolved package count, the postinstall behavior, and the
-  installed binary's provenance.
+- bundled the **unmodified** IIFEs from `js/` and confirmed the artifact runs;
+- ran that exact artifact under the fixture harness;
+- recorded the darwin-arm64 package count, platform-package identity and
+  postinstall behavior; and
+- left Linux installation explicitly to Task 0.1 rather than generalizing the
+  macOS result.
 
 Fold the numbers into spec Risks R3 and `OQ-ARCH-01`. **Do not restate the
 dependency graph from memory** — that is the error round 1 caught (F5).
 
-**Task 0.3** — Move `OQ-ARCH-06` to **Resolved questions**, bump the spec to
-`1.0 (Final)`, add the Revision history row, update
-[`docs/specs/README.md`](docs/specs/README.md).
+**Task 0.3 — complete.** Spec `1.0 (Final)`, revision history and
+[`docs/specs/README.md`](docs/specs/README.md) are synchronized.
 
 **Task 0.4** — Build the equivalence corpus. The single most valuable artifact
 here; everything after is measured against it. It must be **deterministic**,
@@ -60,19 +59,21 @@ which rules out `tools/backtest.mjs` (live DNS). The oracle is
   hygiene sentinels; **and the sibling-subdomain pair that exercises cache
   reuse**, so the query trace pins it.
 - **0.4.b** — `tests/fixtures/equivalence/canonicalization.md` **first**, then
-  `tests/build/equivalence.mjs`. The runner replays the corpus through a given
-  source root and emits the **five surfaces** — canonical full-result JSON, DNS
+  `tests/build/equivalence.mjs`. The runner replays the corpus through a complete
+  subject root and emits the **five surfaces** — canonical full-result JSON, DNS
   query trace, CSV bytes, canonical HTML report, canonical DOM. HTML had fallen
   out of the 0.3 gate (round 2, R2-F4). Rules are checked in **before** the
   corpus is captured, not derived from it afterwards. Excluded fields go in a
-  manifest one at a time, with reasons; no wildcard classes.
+  manifest one at a time, with reasons; no wildcard classes. Freeze the instant
+  and locale formatter through the platform binding. Record SHA-256 for every
+  loaded HTML, CSS, locale and script input plus Node and ICU versions.
 - **0.4.c** — Capture the baseline **without moving the worktree**. Version 0.1
   said `git checkout v0.5.0` and then ran a file that only exists on this
   branch:
 
   ```bash
   git worktree add ../dea-v050 v0.5.0
-  node tests/build/equivalence.mjs --source-root=../dea-v050/js --emit \
+  node tests/build/equivalence.mjs --subject-root=../dea-v050 --emit \
     > tests/fixtures/equivalence/baseline-v0.5.0.json
   git worktree remove ../dea-v050
   ```
@@ -85,14 +86,21 @@ covers. The coverage gate; the assertion total is a reported tripwire beside it,
 not proof. The spike settled this empirically — 1,535 assertions passed against
 the wrong PSL.
 
-**Task 0.6** — `tests/state-matrix.json` and `tests/contract/state-matrix.test.mjs`
-(round 2, R2-F6). Seed from the verified enumerations: ten transport kinds, six
-DNSSEC states, seven chain claims, six SPF statuses, five DMARC diagnosis
-reasons, three `domainExists` results. **The test extracts discriminants from
-source and fails on any lacking a matrix row**, so the matrix cannot go stale the
-way a prose list would.
+**Task 0.6** — Create `tests/state-algebras.json`, `tests/state-matrix.json` and
+`tests/contract/state-matrix.test.mjs` from spec §12.1 **in full before corpus
+capture**. Include all nine DNSSEC chain claims, computed values, thrown paths,
+boolean and nullable axes, and absence-based result shapes. The contract rejects
+uncovered registry members and missing suite/fixture references, compares later
+module state constants to the registry, and runs targeted legacy contracts. It
+must not claim a static string scan exhausts JavaScript behavior.
 
-> **Gate 0.** Spec `1.0 (Final)`. Spike numbers recorded. Corpus, five-surface
+**Task 0.7** — Add the three generated-data identity profiles from spec §11:
+the divergent `foo.blogspot.com` PSL result, fixture-only DKIM selector
+`fixtureselector999`, and fixture English `doc.title`. Each affected suite runs
+the probes for the bindings it supplies before any other assertion.
+
+> **Gate 0.** Spec `1.0 (Final)`. Spike numbers recorded. Full §12.1 state
+> registry/matrix and all three identity profiles exist. Corpus, five-surface
 > runner and committed baseline reproduce from a clean clone. **No file under
 > `js/` has been edited.**
 
@@ -148,8 +156,11 @@ commit the lockfile.
 No code moves. This file is temporary and is deleted in Phase 6.
 
 **Task 1.4** — `tools/build-bundle.mjs`, config per spec Design §6 —
-`format` per `OQ-ARCH-06`, `globalName: 'DnsAudit'`, `metafile: true`, explicit
-`banner.js`. **Not `legalComments`**: no file under `js/` carries an
+`format: 'iife'`, **no `globalName`**, `metafile: true`, linked external source
+map, `target: 'es2020'`, and explicit `banner.js`. `globalName` is forbidden in
+the legacy phase: the spike proved the IIFEs create their own 24 globals, while
+an early `globalName: 'DnsAudit'` overwrites the real object. **Not
+`legalComments`**: no file under `js/` carries an
 `@license`, `@preserve`, `/*!` or `//!` comment, so it would preserve nothing
 (round 1, F7).
 
@@ -170,12 +181,13 @@ tree *and* `dist/app.min.js`.
 
 > **The named-file allowlist stays empty — that is the property being
 > protected.** Co-location (`OQ-ARCH-09`) puts `*.test.js` under `src/`, so the
-> scan needs an exclusion, and the file's own comment warns that *"an empty
+> scan later needs an exclusion, and the file's own comment warns that *"an empty
 > allowlist has no judgment calls in it."* The exclusion must be a **mechanical
 > filename-suffix rule**, never a list of specific files, and the artifact scan
 > of `dist/app.min.js` must land in the same commit — it is what proves the
-> property on the code that actually ships. Round 2 is reviewing whether this
-> mitigation is adequate; if it is not, the layout stands and this task changes.
+> property on the code that actually ships. Round 2 accepted this mitigation;
+> `metafile.inputs`, source-map `sources`, the artifact scan and `_site/`
+> absence are the binding proof. The sentinel is defense in depth only.
 
 **Task 1.9** — `tests/build/parity.test.mjs`. Loads the real
 `dist/app.min.js` and runs the corpus against it. Install and restore DOM,
@@ -228,24 +240,50 @@ the fallback generator.
 > in force.
 
 **Task 2.2** — `js/i18n.js` → `src/i18n/index.js`; `js/render.js` →
-`src/ui/render.js`. Adapters keep `js/app.js` working.
+`src/ui/render.js`. English and platform are constructor arguments, never data
+imports. Adapters keep `js/app.js` working.
 
 **Task 2.3** — `js/dns.js` → ESM. Wrapper only; **no code moves between files in
 this commit.** 5,704 lines changing their wrapper is reviewable; 5,704 lines
 changing wrapper and home is not. Watch: top-level `this` is `undefined`; `var`
 no longer creates a global.
 
-**Task 2.4** — `js/app.js` → `src/main.js`, with `src/entry-legacy.js` retired
-in favour of it.
+**Task 2.4** — Add `src/platform/browser.js` with the exact primitive set in
+spec §11. No other source module reads browser globals directly. Production
+`now()` and `formatDateTime()` preserve `new Date().toLocaleString(locale)`;
+fixtures freeze them.
 
-**Task 2.5** — Migrate the suites off `node:vm` where a plain `import` suffices,
+**Task 2.5** — Add side-effect-free `src/runtime.js` and
+`createAuditRuntime()`. It constructs a new cache, resolver and i18n instance
+per call, then returns `{ analyzeDomain, checkConnectivity, mount }`. Importing
+the module performs no network or DOM work. Prove cache reuse within one runtime
+and isolation between two runtimes.
+
+**Task 2.6** — `js/app.js` → `src/main.js`. It imports the three generated
+modules and browser platform, constructs one runtime, calls `mount()`, and
+exports named `analyzeDomain` and `checkConnectivity`. Retire
+`src/entry-legacy.js`.
+
+**Task 2.7** — Check in `src/facade.expected.json`, assert the two named exports
+on source and bundle, then enable `globalName: 'DnsAudit'` and remove the legacy
+`window.DnsAudit` assignment **in the same commit**. The namespace-source
+contract must be green before this commit lands.
+
+**Task 2.8** — Remove the 14 unsupported `js/app.js` function globals and the
+remaining unsupported `DnsAudit` members as the one authorized compatibility
+delta. Land it as one commit and one equivalence-manifest entry, and record the
+decision in the review log. Include the compatibility note when the changelog
+and PR description are written once from the finished branch; do not describe
+absence of repository consumers as proof of no external consumer.
+
+**Task 2.9** — Migrate the suites off `node:vm` where a plain `import` suffices,
 smallest first: interpolate (17) → export (199) → render (329) → scoring
 (1,535). One suite per commit, each naming its inventory entries.
 `tools/lib/browser-harness.mjs` keeps the DOM shim and loses
 `vm.runInContext`; **rewrite its header comment**, which currently describes the
 IIFE design as fact.
 
-**Task 2.6** — `tools/backtest.mjs` off `vm`. It keeps its live-DNS
+**Task 2.10** — `tools/backtest.mjs` off `vm`. It keeps its live-DNS
 grade-distribution job and does **not** become the equivalence oracle.
 
 > **Gate 2.** All source is ESM. Adapter sentinels counted and shrinking. Test layout follows the
@@ -262,28 +300,38 @@ retry — around [`js/dns.js:177-220`](js/dns.js).
 **Task 3.2** — `src/core/dns/cache.js`: the LRU from
 [`js/dns.js:70-88`](js/dns.js), **behavior unchanged**. Same key format, same
 eviction, same rule that only `success`/`nodata`/`nxdomain` are cached and a
-transport failure never is. Export a factory, then **invoke it once at module
-scope**. Page lifetime is preserved.
+transport failure never is. Export a factory. `createAuditRuntime()` invokes it
+once per runtime; `src/main.js` creates one runtime for the page.
 
 > **Do not scope this per audit.** [`tools/scoring.test.mjs:1888-1891`](tools/scoring.test.mjs)
 > asserts a first DMARC walk issues 3 queries and a sibling issues 1, and
 > [`PRIVACY.md:30-33`](PRIVACY.md) publishes the resulting fan-out — "roughly 41
 > queries for a typical domain", 61 for `cloudflare.com`. Narrowing the cache
-> changes a published privacy figure (round 1, F4). Moving the cache behind a
-> factory is architectural; changing who owns the instance is a separate,
-> separately-authorized decision.
+> changes a published privacy figure (round 1, F4). The runtime lifetime
+> preserves reuse without using Node's ESM cache as dependency injection.
 
-**Task 3.3** — `src/core/dns/errors.js`: the five-way distinction from
-[resilient-optional-checks](docs/specs/implemented/resilient-optional-checks.md).
+**Task 3.3** — `src/core/dns/errors.js`: `DnsTypeError` and
+`dnsError(kind, name, type, detail)`. `DnsTypeError` and `AbortError` remain
+thrown paths, never transport kinds.
 
-**Task 3.4** — `src/core/dns/resolver.js`: normalization and response-kind
-classification.
+**Task 3.4** — `src/core/dns/resolver.js`: `requireUsable()`, `dohQuery()` and
+`dohAll()`. Preserve the boundary: usable raw results pass, seven kinds throw,
+and normalized APIs return cleaned string arrays with no kind.
 
-**Task 3.5** — `tests/contract/`: the **closed result algebra** — every resolver
-return inhabits the enumerated kind set and carries no finding, severity, score
-or locale reference — plus **import-graph direction**. The locale-key grep from
-the previous plan is withdrawn as vacuous (round 1, F6): `en.json` is nested and
-the tokens are values, not keys.
+**Task 3.5** — `src/core/dns/optional.js`: `optionalCheck()` catches to the
+caller's declared unknown result and rethrows `AbortError` and `DnsTypeError`.
+`src/core/dns/existence.js` owns `yes` / `no` / `unknown` mapping.
+
+**Task 3.6** — Name and test the direct-kind exception edges. Connectivity and
+name existence may read raw kinds; DNSSEC receives the raw resolver handle so
+its `servfail` security path remains possible. No normalized API may flatten
+those paths.
+
+**Task 3.7** — `tests/contract/`: the ten-kind raw algebra; cacheable and
+retry-terminal sets; seven usability throws; normalized arrays; optional-check
+rethrow set; named exception edges; no resolver result carrying a finding,
+severity, score or locale reference; and import-graph direction. The locale-key
+grep from the old plan remains withdrawn as vacuous.
 
 > **Gate 3.** Result-algebra and direction contracts pass. Query trace
 > unchanged. Sibling-reuse assertion still green.
@@ -294,6 +342,13 @@ the tokens are values, not keys.
 
 Simplest first, so the pattern is proven on a module small enough to hold in
 one head before it meets a hard one.
+
+**Task 4.0** — Establish `core/shared/` before the owner extractions. Move only
+pure helpers used by two or more protocol owners, keep the directory
+import-free, and reject convenience dumping. If no helper meets that test,
+omit the directory and update the target tree and edge table in the same
+commit; review protocol-local duplication explicitly rather than hiding it
+behind a false abstraction.
 
 | # | Module | Extract | Notes |
 | --- | --- | --- | --- |
@@ -306,8 +361,10 @@ one head before it meets a hard one.
 | 4.7 | `core/dkim/` | Discovery, catalog, key decode | `DKIM_SCAN_BATCH_SIZE = 24` moves **unchanged**. |
 | 4.8 | `core/spf/` | Parse, recursive evaluate, lookup accounting, subnets, redundancy | Hardest, most resolver-coupled. Last. |
 
-Each: extract → its tests → full suite → five-surface equivalence → commit.
-Eight commits minimum.
+Each: extract → check in that directory's `API.md` from spec §12 → add/update
+its state constants and matrix rows → its tests → full suite → five-surface
+equivalence → commit. The Gate-0 inventory is refined into module constants,
+not completed for the first time here. Eight commits minimum.
 
 **Task 4.9** — `providers/detectors.js`.
 
@@ -338,6 +395,10 @@ asserted by `csp.test.mjs` §5 and must survive.
 
 **Task 5.6** — `src/ui/events.js`: DOM wiring. `src/main.js` reduces to
 composition.
+
+Every Phase-5 owner receives or updates its `API.md` in the same commit as its
+public exports. UI event wiring receives facade callbacks; it never imports
+`audit/`.
 
 > **Gate 5.** Weights byte-identical. Coordinator holds no parsing rule. No
 > protocol interpretation under `src/ui/`. Markup-sink allowlist still empty.
@@ -409,8 +470,8 @@ npm ci
 npm test                      # contract inventory intact; total reported
 npm run locale:gate           # 13/13
 npm run build                 # dist/app.min.js + _site/
-node tests/build/equivalence.mjs --source-root=src
-node tests/build/equivalence.mjs --source-root=dist
+node tests/build/equivalence.mjs --subject-root=. --entry=src
+node tests/build/equivalence.mjs --subject-root=_site
 ```
 
 **Order matters for the last four and only those four.** Both equivalence runs
@@ -440,7 +501,8 @@ because the refactor makes them possible."*
 
 - **No concurrency change.** The coordinator makes it possible; measure first.
 - **No request deduplication beyond today's cache.**
-- **No audit cancellation.**
+- **No change to existing audit cancellation behavior.** `AbortController`,
+  the UI cancel path and the `optionalCheck()` rethrow rule all remain.
 - **No Web Worker.**
 - **No finding-schema redesign.** Explicitly declined in the spec.
 - **No bundle splitting.** `OQ-ARCH-05` carries the measurement for later.
@@ -460,13 +522,14 @@ Spec risks, mapped to where they are actually mitigated.
 | R1 silent behavior change | Every gate: five-surface equivalence, through the bundle |
 | R2 bundle ≠ tested source | Task 1.9, and the boundary existing from Phase 1 |
 | R3 supply chain | Tasks 0.2, 1.1, 1.2 — spike numbers, not recollection |
-| R4 ESM strict-mode semantics | Tasks 2.3, 2.4 — one file per commit, behind a working bundle |
-| R5 harness rewrite loses coverage | Task 0.5 inventory; count reported, not gating |
-| R6 fixture harness silently stops testing | Task 2.1 — the PSL injection hazard |
+| R4 ESM strict-mode semantics | Tasks 2.3–2.7 — one responsibility per commit, behind a working bundle |
+| R5 harness rewrite loses coverage | Tasks 0.5–0.6 inventory/state matrix; count reported, not gating |
+| R6 fixture harness silently stops testing | Tasks 0.7 and 2.1 — independent PSL/catalog/English fingerprints |
 | R7 deploy publishes too much | Task 1.10 exact allowlist, presence and absence |
 | R8 scope creep | "What this plan deliberately does not do" |
 | R9 cold-start regression | Task 1.11 metafile reporting, `OQ-ARCH-05` |
-| R10 cache-scope drift | Task 3.2, plus the query-trace surface at every gate |
+| R10 cache-scope drift | Tasks 2.5 and 3.2 — within-runtime reuse, cross-runtime isolation, query trace |
+| R11 canonicalization hides change | Task 0.4.b — strict rules, full subject roots, fixed time/locale and input hashes |
 
 ---
 
@@ -480,8 +543,8 @@ verified against the code before folding in.
 | --- | --- | --- |
 | Phase 0 = ESM, Phase 1 = build | Phase 1 = build, Phase 2 = ESM | The old Phase 0 could not keep the browser working between its own commits — Gate 0.C claimed seven scripts still loaded while the interim note required a `src/main.js` that did not exist for another commit (F1) |
 | Baseline via `git checkout v0.5.0` | `git worktree add` | The checkout deleted the runner the next command invoked (F2) |
-| Equivalence = score, grade, tokens | Four surfaces | The old oracle could not see MX detail, DNSSEC evidence, provider detection, exports, rendering or query fan-out (F2) |
-| Cache instantiated per audit | Page lifetime preserved | `scoring.test.mjs:1891` asserts sibling reuse; `PRIVACY.md` publishes the fan-out (F4) |
+| Equivalence = score, grade, tokens | Five surfaces | The old oracle could not see MX detail, DNSSEC evidence, provider detection, exports, rendering or query fan-out; round 2 restored HTML export as the fifth surface |
+| Cache instantiated per audit | One cache per runtime, one production runtime per page | `scoring.test.mjs:1891` asserts sibling reuse; `PRIVACY.md` publishes the fan-out; tests need isolated runtimes |
 | Transport proven by locale-key grep | Result algebra + import direction | `en.json` is nested; tokens are values, not keys — the grep was vacuous (F6) |
 | Assertion count ≥ 2,121 as gate | Contract inventory as gate, count as tripwire | A count holds level while a real assertion is swapped for an unrelated one (F8) |
 | BIMI under `core/transport/` | `core/bimi/` | Brand-indicator validation is not mail transport security; plan and spec disagreed |

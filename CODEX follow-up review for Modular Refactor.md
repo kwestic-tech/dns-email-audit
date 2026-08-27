@@ -1131,3 +1131,26 @@ Before `1.0 (Final)`:
 After those corrections, the design is close to final. Linux `npm ci` remains
 a Gate 1 requirement, as the round-three request states; this review does not
 reinterpret the darwin-arm64 spike as cross-platform evidence.
+
+---
+
+## 15. Round 3 resolution and final approval — 2026-08-27
+
+At Ian's direction, Codex applied the round-three findings directly rather than
+returning them for another author/reviewer cycle.
+
+| Finding | Resolution in spec `1.0` and the synchronized plan |
+| --- | --- |
+| R3-F1 | Replaced `a.b.ck` with the verified divergent `foo.blogspot.com` PSL probe; added independent fixture-only DKIM-catalog and English-bundle fingerprints. |
+| R3-F2 | Phase 1 now explicitly omits `globalName`; Phase 2 contains the ordered facade, assertion, boundary-enable and legacy-assignment removal tasks. |
+| R3-F3 | Added the complete pre-refactor §12.1 inventory, including nine DNSSEC claims, thrown paths, computed values, booleans, nullability and absence. Removed the claim that static extraction is exhaustive and prohibited Phase-4 deferral. |
+| R3-F4 | Cache ownership is per runtime; `src/main.js` constructs one runtime per page. Tests assert reuse within a runtime and isolation between runtimes. |
+| R3-F5 | Added side-effect-free `runtime.js`, `platform/browser.js`, full platform primitives, missing edge rows, UI callback direction and per-owner `API.md` tasks. English is injected rather than imported by i18n. |
+| R3-F6 | Equivalence subjects are complete roots with input hashes, Node/ICU metadata and fixed time/locale inputs. The strict canonicalization ruling is retained. |
+| R3-F7 | Phase 3 now implements the ten-kind raw layer, usability gate, normalized records, optional-check policy and named direct-kind edges. The stale five-way model is gone; cancellation is explicitly preserved. |
+| R3-F8 | The two-member facade is the supported 0.6.0 browser API. Legacy globals are declared unsupported, and their removal is an authorized manifest/changelog/PR compatibility delta in its own commit. |
+
+**Final disposition:** **approved for implementation as `1.0 (Final)`.** Linux
+`npm ci`, the lockfile footprint and postinstall policy remain mandatory Gate 1
+evidence. They do not reopen the design and were not fabricated on a macOS
+machine.
