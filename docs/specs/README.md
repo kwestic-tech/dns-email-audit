@@ -67,10 +67,15 @@ that produced it:
 
 | Directory | Holds |
 | --- | --- |
+| [`fixtures/`](fixtures/) | Captures for specs still under review |
 | [`implemented/fixtures/`](implemented/fixtures/) | Captures for the specs they belong to, moved with the spec |
 
 A `fixtures/` directory alongside a spec still under review holds the same
-thing before the move; none exists at present.
+thing before the move. One exists:
+[esbuild-legacy-bundle-spike-0.6.0](fixtures/esbuild-legacy-bundle-spike-0.6.0.md),
+which settles `OQ-ARCH-01` and demonstrates — rather than predicts — that a
+bundled public-suffix list silently replaces a test fixture while the suite
+still reports 1,535 passing assertions.
 
 Two exist so far, both for the DNS record types 0.4.0 and 0.5.0 add.
 `OQ-DEPTH-01` and `OQ-DEPTH-05` were settled this way, and so were four of the
