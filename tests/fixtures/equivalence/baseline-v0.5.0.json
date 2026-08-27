@@ -7,6 +7,7 @@
     },
     "root": "../dea-v050",
     "entry": "classic",
+    "fixtureIdentity": "engine",
     "scripts": [
       "js/locales-en.js",
       "js/public-suffixes.js",

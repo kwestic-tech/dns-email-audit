@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
 
 import { createSuite } from '../lib/assert.mjs';
 import { serialize } from '../lib/canonical.mjs';
-import { runCase } from './equivalence.mjs';
+import { runCase, bindExecutions } from './equivalence.mjs';
 import { loadSubject } from '../lib/subject.mjs';
 import { readEntryPoints } from '../lib/subject.mjs';
 import { build } from '../../tools/build-bundle.mjs';
@@ -383,6 +383,94 @@ eq('so no assignment in the body precedes the installation',
   entry.slice(0, installImportAt).includes('window.__PUBLIC_SUFFIX_RULES__'), false);
 eq('the namespace contract exists to hold the property this used to test',
   existsSync(join(REPO, 'tests/contract/namespace.test.mjs')), true);
+
+/* ── 5. The two-execution binding, and that it can fail ───────────────── */
+section('5. The cross-surface binding between the two executions');
+
+/**
+ * Spec §8 as of `1.4`: the five surfaces come from one deterministic case
+ * captured by TWO isolated executions — the facade for the result, the real UI
+ * controls for the other four — because `globalName` makes the bundle global an
+ * export namespace that is not the engine the UI calls.
+ *
+ * What one process image used to guarantee for free, the binding now asserts.
+ * So the binding itself needs the treatment every check in this project gets:
+ * **watched failing before it is trusted.** A binding that cannot fail would
+ * let two different cases be joined under one case id and report clean.
+ *
+ * The pairs below are built by taking a REAL pair, from the run above, and
+ * damaging one side. That matters — a control assembled from hand-written
+ * literals would prove the function parses its arguments, not that it discovers
+ * a mismatch in the shapes this runner actually produces.
+ */
+const bound = first.get('enforcing-signed');
+const boundCase = cases.find(c => c.id === 'enforcing-signed');
+
+// The shape the binding reads on the UI side: the DOM, and only the DOM. See
+// the rule in bindExecutions() about what may be compared there.
+const uiOf = surfaces => ({ dom: surfaces.dom });
+const auditsOf = surfaces => Object.values(surfaces.result).map(entry => ({
+  domain: entry.domain,
+  outcome: entry.outcome,
+  result: entry.result,
+}));
+
+const realAudits = auditsOf(bound);
+const realUi = uiOf(bound);
+
+eq('the real pair binds cleanly', bindExecutions(boundCase, realAudits, realUi), []);
+// And it is not vacuous: the pair it just approved has something to compare.
+eq('and it had domains to compare', realAudits.length > 0, true);
+eq('with a graded result among them',
+  realAudits.some(a => a.result && a.result.score && a.result.score.grade), true);
+
+const damaged = (mutate) => {
+  const audits = JSON.parse(JSON.stringify(realAudits));
+  const ui = { dom: [...realUi.dom] };
+  mutate(audits, ui);
+  return bindExecutions(boundCase, audits, ui);
+};
+
+eq('a result-execution grade that disagrees with the UI is caught',
+  damaged(audits => { audits[0].result.score.grade = 'F'; }).some(p => /grade/.test(p)), true);
+eq('a result-execution score that disagrees with the rendered one is caught',
+  damaged(audits => { audits[0].result.score.pts = 1; }).some(p => /score/.test(p)), true);
+eq('a domain the UI never rendered is caught',
+  damaged(audits => { audits[0].domain = 'somewhere.else.test'; }).some(p => /domain sets differ/.test(p)), true);
+eq('a domain the result execution never audited is caught',
+  damaged(audits => { audits.pop(); }).some(p => /domain sets differ/.test(p)), true);
+eq('an issue set of a different size is caught',
+  damaged(audits => { audits[0].result.issues = []; }).some(p => /issue count/.test(p)), true);
+eq('and a suggestion set of a different size',
+  damaged(audits => { audits[0].result.suggestions = [{ key: 'invented' }]; }).some(p => /suggestion count/.test(p)), true);
+// The UI side can be the wrong one too — the binding is symmetric about which
+// execution drifted, because it cannot know which.
+eq('a UI row whose grade moved is caught',
+  damaged((audits, ui) => {
+    ui.dom = ui.dom.map(line => line.replace('data-grade="A++"', 'data-grade="B"'));
+  }).some(p => /grade/.test(p)), true);
+
+/**
+ * Isolation: the result execution must not warm the UI execution's cache.
+ *
+ * The trace surface is the observable that would move if it did — a warmed
+ * cache means fewer queries — and the run above already answers it against the
+ * committed baseline, which was captured when ONE execution produced all five
+ * surfaces. Stated here as an assertion rather than left implicit in "0
+ * differences", because cache scope is Risk R10 and a query-trace difference
+ * with an identical result is a stop.
+ */
+const cacheCase = first.get('cache-reuse-siblings');
+const baselineCache = JSON.parse(
+  readFileSync(join(REPO, 'tests/fixtures/equivalence/baseline-v0.5.0.json'), 'utf8'))
+  .cases.find(c => c.id === 'cache-reuse-siblings');
+eq('the sibling-cache case still reports a trace', !!cacheCase.trace, true);
+eq('and its total query count is what the single-execution baseline recorded',
+  cacheCase.trace.total, baselineCache.trace.total);
+eq('and its distinct query count too — a warmed cache would lower one and not the other',
+  cacheCase.trace.distinct, baselineCache.trace.distinct);
+eq('and the DMARC walk order is unchanged',
+  serialize(cacheCase.trace.dmarcWalk), serialize(baselineCache.trace.dmarcWalk));
 
 rmSync(pristine, { recursive: true, force: true });
 report();

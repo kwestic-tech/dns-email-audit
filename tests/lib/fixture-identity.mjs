@@ -99,6 +99,74 @@ export function probeEnglishBundle(t, expectation = 'fixture') {
     'the shipped bundle returns the product name');
 }
 
+/* ── Probes for a subject that exposes only the facade ────────────────── */
+
+/**
+ * The two probes above take an ENGINE MEMBER, and after spec §10's stage 3 an
+ * artifact subject does not expose one.
+ *
+ * `window.DnsAudit` contracts from 95 members to `analyzeDomain` and
+ * `checkConnectivity` in Task 2.7. Suites that build the engine through
+ * `createAuditRuntime()` — a direct ESM import, which is the disposition §10
+ * gives the test-only surface — keep the probes above unchanged and should use
+ * them. What follows is for the one kind of subject that cannot: the built
+ * artifact, driven through its supported facade.
+ *
+ * **These are weaker, and the difference is stated rather than glossed.** A
+ * probe through a consumer proves the binding is IN FORCE — that the code
+ * reading it produced the divergent answer. A probe at the binding proves it is
+ * PRESENT. The gap between those is code that holds the right table and does
+ * not read it.
+ *
+ * For the DKIM catalog that gap is real, and spec §11 records the observable
+ * that closes it where an audit is available: `dkimStatus.selectors[].uncommon`
+ * is `!isRecognizedDkimSelector(sel)` (`js/dns.js:1255`), measured `true` under
+ * the production catalog and `false` under a fixture catalog that contributes
+ * the selector.
+ *
+ * For the public suffix list there is no gap to close, because there is nothing
+ * on the other side of it. `getOrganizationalDomain()` is the only reader of
+ * the PSL sets (`js/dns.js:335-355`) and **nothing in the application calls
+ * it** — zero call sites at `v0.5.0` and at `f1a2842`. `result.organizational-
+ * Domain` comes from the RFC 9989 discovery walk, which never consults the PSL.
+ * So spec `1.4` reclassifies the PSL fingerprint as a **binding-level
+ * engine/runtime** one and does not require an artifact-driven suite to claim
+ * an application-behavioural version of it. `docs/maintenance-backlog.md`
+ * carries the finding; the 160.6 KB table stays in 0.6.0.
+ */
+
+/**
+ * The public suffix table in force, observed at the binding.
+ *
+ * Same discriminator the engine-level probe uses, for the same reason: the real
+ * list carries the private `blogspot.com` rule and the four-rule fixture does
+ * not.
+ */
+export function probePublicSuffixTable(rules, expectation = 'fixture') {
+  return probe('PSL table', expectation,
+    false, true,
+    Array.isArray(rules) && rules.includes('blogspot.com'),
+    'only the real PSL carries the private blogspot.com rule');
+}
+
+/**
+ * The DKIM selector catalog in force, observed at the binding.
+ *
+ * A fixture catalog contributes `fixtureselector999`; none of the production
+ * providers does, and it is in neither the generic nor the temporal list.
+ */
+export function probeDkimCatalogTable(catalog, expectation = 'fixture') {
+  const contributes = catalog ? [
+    ...Object.values(catalog.providers || {}).flatMap(entry => (entry && entry.selectors) || []),
+    ...(catalog.generic || []),
+    ...(catalog.temporal || []),
+  ].includes(FIXTURE_DKIM_SELECTOR) : false;
+  return probe('DKIM catalog table', expectation,
+    true, false,
+    contributes,
+    'only a fixture catalog contributes ' + FIXTURE_DKIM_SELECTOR);
+}
+
 /**
  * Run the probes a suite declares, before any other assertion.
  *

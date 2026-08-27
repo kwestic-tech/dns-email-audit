@@ -198,7 +198,7 @@
     },
     {
       "path": "tests/build/equivalence.validate.mjs",
-      "assertions": 57,
+      "assertions": 71,
       "areas": [
         "the runner is deterministic across two runs of one root",
         "each of the five surfaces distinguishes cases",

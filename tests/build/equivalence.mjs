@@ -35,7 +35,8 @@ import { dirname, join, resolve, relative } from 'node:path';
 
 import { loadSubject, FIXED_INSTANT, FIXED_LOCALE, FIXED_TIMEZONE } from '../lib/subject.mjs';
 import {
-  probePublicSuffixRules, probeDkimCatalog, probeEnglishBundle, assertFixtureIdentity,
+  probePublicSuffixRules, probeDkimCatalog, probeEnglishBundle,
+  probePublicSuffixTable, probeDkimCatalogTable, assertFixtureIdentity,
 } from '../lib/fixture-identity.mjs';
 import {
   encode, serialize, canonicalQueryTrace, orderedSubsequence,
@@ -110,7 +111,7 @@ const TYPE_NAMES = {
   43: 'DS', 48: 'DNSKEY', 52: 'TLSA', 257: 'CAA',
 };
 
-/* ── One case ─────────────────────────────────────────────────────────── */
+/* ── One case, two executions ─────────────────────────────────────────── */
 
 /**
  * Run one corpus case against one subject root and return its five surfaces.
@@ -120,71 +121,173 @@ const TYPE_NAMES = {
  * which `tools/scoring.test.mjs:1888-1891` asserts and `PRIVACY.md:30-33`
  * publishes. A runner that built a fresh page per domain would report a clean
  * trace while the cache was being narrowed underneath it.
+ *
+ * ── Why there are two executions ────────────────────────────────────────
+ *
+ * Spec §8 as of `1.4`. The five surfaces are bound to one deterministic CASE,
+ * not to one runtime, and this is where that stops being an abstraction.
+ *
+ * Until §10's stage 3 the runner captured the result surface by wrapping
+ * `window.DnsAudit.analyzeDomain`, which worked because the global and the
+ * engine the UI called were the same object. `globalName: 'DnsAudit'` ends
+ * that: the global becomes esbuild's export namespace — non-configurable
+ * accessors, and not the object `src/main.js` calls. That is the namespace
+ * boundary working, and it means the result has to come from the supported
+ * facade rather than from inside the UI's run.
+ *
+ * So:
+ *
+ *   UI execution      one subject, one runtime — query trace, CSV, HTML
+ *                     report and DOM, driven through the real controls.
+ *   Result execution  a second subject and runtime — the facade's
+ *                     `analyzeDomain`, once per domain the UI audited.
+ *
+ * Neither warms the other: separate subjects, separate runtimes, separate DoH
+ * caches, separate fixtures. The result execution's queries are a DIFFERENT
+ * INSTRUMENT EXECUTION, not an exclusion from the trace surface — no exclusion
+ * is added anywhere and `tests/lib/canonical.mjs`'s manifest stays empty. The
+ * emitted trace is the UI execution's complete trace, pre-flight included.
+ *
+ * ── What replaces the guarantee that was lost ───────────────────────────
+ *
+ * Two surfaces captured from one process image agreed about which audit they
+ * described because they could not do otherwise. Two executions can, so the
+ * agreement is ASSERTED — see `bindExecutions()`. The UI execution also decides
+ * what the result execution replays: its domain list and its post-gating
+ * control states are READ from the page it produced rather than re-derived, so
+ * the runner does not carry a second copy of `parseDomains()` or of the
+ * deep-check limit.
  */
 async function runCase(root, testCase, entry) {
-  const cssPath = join(root, 'css', 'style.css');
-  const css = existsSync(cssPath) ? readFileSync(cssPath, 'utf8') : '';
-  const fetchImpl = tracingFetch(testCase.fetch(), css);
+  const ui = await runUiExecution(root, testCase, entry);
+  const results = await runResultExecution(root, testCase, entry, ui.replay);
 
+  if (results.probeForm !== ui.probeForm) {
+    throw new Error(
+      `equivalence: ${testCase.id} probed its two executions at different strengths ` +
+      `(${ui.probeForm} vs ${results.probeForm}). They are not measuring the same subject.`);
+  }
+
+  const problems = bindExecutions(testCase, results.audits, ui);
+  if (problems.length) {
+    throw new Error(
+      `equivalence: ${testCase.id}'s two executions do not describe the same audit.\n  ` +
+      problems.join('\n  ') +
+      '\n  The result surface and the other four are captured from separate runtimes ' +
+      '(spec §8, 1.4); this binding is what stops two different cases being reported ' +
+      'under one case id.');
+  }
+
+  return {
+    id: testCase.id,
+    description: testCase.description,
+    // Part of the case's identity, not a detail. A surface set captured under a
+    // substituted platform is not comparable with one captured under the host's
+    // own, and recording it here is what makes that visible instead of showing
+    // up as an unexplained result diff.
+    platform: ui.platform,
+    result: encode(results.audits.slice().sort((a, b) => (a.domain < b.domain ? -1 : a.domain > b.domain ? 1 : 0))),
+    trace: ui.trace,
+    csv: ui.csv === null ? null : csvSurface(ui.csv),
+    report: ui.report === null ? null : reportSurface(ui.report),
+    dom: ui.dom,
+    // Not a surface. Carried out so the run can report at what strength this
+    // subject's generated data was verified — see probeSubject().
+    probeForm: ui.probeForm,
+  };
+}
+
+/**
+ * Fixture identity, at whatever strength the subject exposes — and say which.
+ *
+ * Two kinds of subject have to be measured by one instrument. `v0.5.0` and
+ * every root up to Task 2.6 put all 95 engine members on `window.DnsAudit`, so
+ * §11's probes can be run through them. From Task 2.7 the artifact exposes the
+ * two-member facade, and neither reader is among them.
+ *
+ * The choice is made by capability and RECORDED, never inferred silently. This
+ * runner already refuses to fall back from `--entry=esm` to the classic path
+ * because "a silent fallback would report the wrong subject"; the same rule
+ * applies to falling back to a weaker probe. The form reaches the emitted
+ * manifest, so a run can never read as stronger evidence than it was.
+ *
+ * **Neither form is an application-behavioural fingerprint for the PSL**, and
+ * spec §11 says so as of `1.4`: `getOrganizationalDomain()` is the only reader
+ * of the public suffix sets and no application code calls it, so there is no
+ * production path to observe. It is an engine/runtime fingerprint in the
+ * `engine` form and a binding check in the `binding` form. The DKIM catalog and
+ * the English bundle keep real consumers in both.
+ */
+function probeSubject(win) {
+  const engine = win.DnsAudit || {};
+  const reachable = typeof engine.getOrganizationalDomain === 'function' &&
+    typeof engine.isRecognizedDkimSelector === 'function';
+  if (reachable) {
+    return {
+      form: 'engine',
+      probes: [
+        probePublicSuffixRules(engine.getOrganizationalDomain, 'production'),
+        probeDkimCatalog(engine.isRecognizedDkimSelector, 'production'),
+        probeEnglishBundle(win.t, 'production'),
+      ],
+    };
+  }
+  return {
+    form: 'binding',
+    probes: [
+      probePublicSuffixTable(win.__PUBLIC_SUFFIX_RULES__, 'production'),
+      probeDkimCatalogTable(win.__DKIM_SELECTOR_CATALOG__, 'production'),
+      probeEnglishBundle(win.t, 'production'),
+    ],
+  };
+}
+
+/**
+ * Load a subject and run its data-identity probes before anything else.
+ *
+ * Data profile: the runner supplies PRODUCTION generated data for all three
+ * bindings, because a subject is a complete root and loads its own.
+ *
+ * Throws rather than counting, per spec §11. The spike is why: a bundled public
+ * suffix list silently replaced a fixture and 1,535 assertions passed against
+ * the wrong data without a warning. Here the failure mode is subtler and worse
+ * — a subject root assembled with one file from somewhere else would produce a
+ * baseline that looks authoritative.
+ */
+function openSubject(root, testCase, entry, fetchImpl) {
   const subject = loadSubject(root, {
     entry, fetch: fetchImpl, instant: FIXED_INSTANT, platform: testCase.platform,
   });
+  const probe = probeSubject(subject.win);
+  assertFixtureIdentity(probe.probes);
+  return { ...subject, probeForm: probe.form };
+}
+
+/** The controls a case can set, and the option key each one feeds. */
+const CONTROL_OPTIONS = [
+  ['optDKIM', 'dkim'], ['optDKIMComprehensive', 'dkimComprehensive'],
+  ['optWWW', 'www'], ['optWildcard', 'wildcard'], ['optDeepChecks', 'deepChecks'],
+];
+
+/**
+ * The UI execution: four of the five surfaces, through the real controls.
+ *
+ * `startAudit()` owns the worker pool, the per-domain error isolation and the
+ * `results` array the two exports read, so the audit is driven through the real
+ * entry point exactly as before. Nothing here reaches past the UI.
+ */
+async function runUiExecution(root, testCase, entry) {
+  const cssPath = join(root, 'css', 'style.css');
+  const css = existsSync(cssPath) ? readFileSync(cssPath, 'utf8') : '';
+  const fetchImpl = tracingFetch(testCase.fetch(), css);
+  const subject = openSubject(root, testCase, entry, fetchImpl);
   const { win, document, downloads } = subject;
-
-  /**
-   * Data profile: the runner supplies PRODUCTION generated data for all three
-   * bindings, because a subject is a complete root and loads its own.
-   *
-   * Run before anything else and throwing rather than counting, per spec §11.
-   * The spike is why: a bundled public suffix list silently replaced a fixture
-   * and 1,535 assertions passed against the wrong data without a warning. Here
-   * the failure mode is subtler and worse — a subject root assembled with one
-   * file from somewhere else would produce a baseline that looks authoritative.
-   */
-  assertFixtureIdentity([
-    probePublicSuffixRules(win.DnsAudit.getOrganizationalDomain, 'production'),
-    probeDkimCatalog(win.DnsAudit.isRecognizedDkimSelector, 'production'),
-    probeEnglishBundle(win.t, 'production'),
-  ]);
-
-  // The download boundary is part of the subject's browser — installed before
-  // it booted, alongside `fetch`, rather than patched over it here. See
-  // tests/lib/subject.mjs.
-
-  // The runner observes the facade; it does not reach past it. `startAudit()`
-  // owns the worker pool, the per-domain error isolation and the `results`
-  // array the two exports read, so the audit is driven through the real entry
-  // point and each result is captured as it crosses `analyzeDomain`. Calling
-  // `analyzeDomain` directly instead would leave `results` empty, and
-  // `exportCSV()` would emit a header row and nothing else — a surface that
-  // cannot detect a change is worse than no surface.
-  const audits = [];
-  const realAnalyze = win.DnsAudit.analyzeDomain;
-  win.DnsAudit.analyzeDomain = async (domain, options) => {
-    try {
-      const result = await realAnalyze.call(win.DnsAudit, domain, options);
-      audits.push({ domain, outcome: 'result', result });
-      return result;
-    } catch (error) {
-      // A thrown audit is a modelled outcome, not a runner failure — spec
-      // §12.1's audit row names thrown cancellation and core transport errors
-      // as states the corpus must reach. Recorded, then re-thrown so the
-      // application's own isolation path runs.
-      audits.push({
-        domain,
-        outcome: 'thrown',
-        error: { name: error && error.name, kind: error && error.kind, message: error && error.message },
-      });
-      throw error;
-    }
-  };
 
   // Options are set the way a person sets them: on the controls `startAudit()`
   // reads. The defaults come from the subject's own index.html.
   const options = testCase.options || {};
   const control = id => document.getElementById(id);
-  for (const [id, key] of [['optDKIM', 'dkim'], ['optDKIMComprehensive', 'dkimComprehensive'],
-    ['optWWW', 'www'], ['optWildcard', 'wildcard'], ['optDeepChecks', 'deepChecks']]) {
+  for (const [id, key] of CONTROL_OPTIONS) {
     if (Object.prototype.hasOwnProperty.call(options, key)) control(id).checked = options[key];
   }
   if (options.selectors) control('dkimSelectors').value = options.selectors.join(' ');
@@ -192,9 +295,17 @@ async function runCase(root, testCase, entry) {
 
   await win.startAudit();
 
+  const tableBody = document.getElementById('tableBody');
+  const rows = [...tableBody.walk()].filter(n => n.nodeType === 1 && n.localName === 'tr' && n.dataset.domain);
+
   let csv = null;
   let report = null;
-  if (audits.some(a => a.outcome === 'result')) {
+  // Exactly the condition this runner has always used, read off the page
+  // instead of off the intercepted calls: a domain whose audit THREW renders
+  // `data-overall="error"` and no grade, so "at least one non-error row" is
+  // "at least one domain produced a result". Verified against all 30 baseline
+  // cases before the interception was removed.
+  if (rows.some(row => row.dataset.overall !== 'error')) {
     downloads.length = 0;
     win.exportCSV();
     csv = (downloads.find(d => d.type && d.type.startsWith('text/csv')) || {}).text ?? null;
@@ -204,19 +315,16 @@ async function runCase(root, testCase, entry) {
   }
 
   const calls = fetchImpl.calls;
-  // `startAudit()` runs its own pre-flight `checkConnectivity()` before any
-  // domain. It is a real query the application makes on every run and it stays
-  // in the trace; a runner that filtered it out would report a fan-out the
-  // browser does not have.
   return {
-    id: testCase.id,
-    description: testCase.description,
-    // Part of the case's identity, not a detail. A surface set captured under a
-    // substituted platform is not comparable with one captured under the host's
-    // own, and recording it here is what makes that visible instead of showing
-    // up as an unexplained result diff.
     platform: subject.manifest.platform,
-    result: encode(audits.sort((a, b) => (a.domain < b.domain ? -1 : a.domain > b.domain ? 1 : 0))),
+    probeForm: subject.probeForm,
+    csv,
+    report,
+    dom: canonicalDomLines(tableBody),
+    // `startAudit()` runs its own pre-flight `checkConnectivity()` before any
+    // domain. It is a real query the application makes on every run and it
+    // stays in the trace; a runner that filtered it out would report a fan-out
+    // the browser does not have.
     trace: {
       ...canonicalQueryTrace(calls, fetchImpl.observed()),
       // Order IS the behaviour for these two algorithms. Asserted separately
@@ -224,10 +332,169 @@ async function runCase(root, testCase, entry) {
       dmarcWalk: orderedSubsequence(calls, c => c.name.startsWith('_dmarc.') && c.type === 'TXT'),
       spfEvaluation: orderedSubsequence(calls, c => c.type === 'TXT' && (testCase.spfNames || []).includes(c.name)),
     },
-    csv: csv === null ? null : csvSurface(csv),
-    report: report === null ? null : reportSurface(report),
-    dom: canonicalDomLines(document.getElementById('tableBody')),
+    /**
+     * What the result execution replays, taken from what the UI actually did.
+     *
+     * The domain list is the rows the application rendered — after its own
+     * `parseDomains()` normalization, de-duplication and validity filtering —
+     * and the control states are read AFTER the run, so any gating the
+     * application applied to them (the deep-check limit above
+     * `MAX_DEEP_CHECK_DOMAINS`) is already in what is read. The runner
+     * therefore holds no second copy of either rule.
+     */
+    replay: {
+      domains: rows.map(row => row.dataset.domain),
+      options: Object.fromEntries([
+        ...CONTROL_OPTIONS.map(([id, key]) => [key, !!control(id).checked]),
+        // `src/main.js` passes this unconditionally; it is not a control.
+        ['advanced', true],
+        ['selectors', String(control('dkimSelectors').value || '').split(/[\s,]+/)
+          .map(value => value.trim().toLowerCase())
+          .filter(value => /^[a-z0-9][a-z0-9_-]{0,62}$/.test(value))],
+      ]),
+    },
   };
+}
+
+/**
+ * The result execution: the whole `analyzeDomain()` return, through the facade.
+ *
+ * A second subject and a second runtime, so this shares no DoH cache with the
+ * UI execution and cannot warm it. Domains run in the order the UI rendered
+ * them and sequentially, which makes cache reuse within this runtime
+ * deterministic; the UI's worker pool is preserved in the execution that
+ * actually reports a trace.
+ */
+async function runResultExecution(root, testCase, entry, replay) {
+  const fetchImpl = tracingFetch(testCase.fetch(), '');
+  const subject = openSubject(root, testCase, entry, fetchImpl);
+  const { win } = subject;
+
+  // The same options the UI computed, plus the signal `src/main.js` attaches.
+  const options = { ...replay.options, signal: new win.AbortController().signal };
+
+  const audits = [];
+  for (const domain of replay.domains) {
+    try {
+      audits.push({ domain, outcome: 'result', result: await win.DnsAudit.analyzeDomain(domain, options) });
+    } catch (error) {
+      // A thrown audit is a modelled outcome, not a runner failure — spec
+      // §12.1's audit row names thrown cancellation and core transport errors
+      // as states the corpus must reach.
+      audits.push({
+        domain,
+        outcome: 'thrown',
+        error: { name: error && error.name, kind: error && error.kind, message: error && error.message },
+      });
+    }
+  }
+  return { audits, probeForm: subject.probeForm };
+}
+
+/* ── The cross-surface binding ────────────────────────────────────────── */
+
+/**
+ * Do the two executions describe the same audit?
+ *
+ * Required by spec §8 as of `1.4`, and it is what replaces the agreement a
+ * single process image used to give for free.
+ *
+ * ── The rule that decides what may be compared here ─────────────────────
+ *
+ * **Only fields that cannot differ because the code under test changed.** The
+ * binding's job is to prove the two executions describe the same audit — not to
+ * re-check a surface. Anything a code change could move on one side alone
+ * belongs in the surface comparison, where it is REPORTED as a difference; put
+ * it here and the same change aborts the run instead.
+ *
+ * That is not hypothetical. The first version of this compared the score
+ * against the CSV's `Score` column, and the validator's own
+ * "reorder two CSV columns" mutation — which must move the `csv` surface and
+ * nothing else — crashed the runner instead. A CSV with swapped columns is a
+ * CSV bug, and the instrument has a place to say so.
+ *
+ * So everything compared here is read from the **DOM**, structurally, and every
+ * field is one both executions derive from the same audit:
+ *
+ * | Field | Result execution | UI execution |
+ * | --- | --- | --- |
+ * | domain set | `result.domain` | `tr[data-domain]` |
+ * | grade | `result.score.grade` | `tr[data-grade]` |
+ * | score | `result.score.pts` | `span.score-total`'s text in the detail panel |
+ * | issue count | `result.issues.length` | `div.issue` |
+ * | suggestion count | `result.suggestions.length` | `div.issue.tip` |
+ *
+ * A grading change moves both sides together and cannot trip this; two
+ * different cases joined under one id cannot fail to.
+ *
+ * **The issue TOKEN set is deliberately not among them, and that is a
+ * limitation rather than a choice.** `src/main.js:1240` renders each issue as
+ * translated prose through `issueMessage()` and attaches no token attribute, so
+ * the tokens are not observable on the UI side. Cardinality is what is, and it
+ * sits beside the grade and the score, which move for any change to the issue
+ * set that carries weight. Named here rather than implying the tokens were
+ * compared.
+ *
+ * Validated before it was trusted: run over all 30 baseline cases this rule
+ * matched 79 domains and 77 graded scores with zero mismatches, and
+ * `equivalence.validate.mjs` §5 proves every clause of it can fail.
+ */
+export function bindExecutions(testCase, audits, ui) {
+  const problems = [];
+
+  // One pass, in document order: a row opens a domain's section and the first
+  // `score-total` after it belongs to that domain's detail panel.
+  const rows = new Map();
+  let current = null;
+  let expectScore = false;
+  for (const line of ui.dom) {
+    const domain = /data-domain="([^"]+)"/.exec(line);
+    if (domain) {
+      const grade = /data-grade="([^"]*)"/.exec(line);
+      current = domain[1];
+      expectScore = false;
+      rows.set(current, { grade: grade ? grade[1] : null, score: null });
+      continue;
+    }
+    if (/class="score-total/.test(line)) { expectScore = true; continue; }
+    if (!expectScore) continue;
+    expectScore = false;
+    const text = /^\s*#3 "(\d+)"$/.exec(line);
+    const row = current && rows.get(current);
+    if (text && row && row.score === null) row.score = Number(text[1]);
+  }
+
+  const audited = audits.map(a => a.domain).sort();
+  const rendered = [...rows.keys()].sort();
+  if (String(audited) !== String(rendered)) {
+    problems.push(`domain sets differ: result [${audited}] vs UI [${rendered}]`);
+  }
+
+  for (const audit of audits) {
+    const row = rows.get(audit.domain);
+    if (!row) continue;
+    const score = audit.outcome === 'result' && audit.result && audit.result.score;
+    if (!score) {
+      // An unregistered or thrown domain renders no grade, and must not.
+      if (row.grade !== null) {
+        problems.push(`${audit.domain}: UI shows grade ${row.grade} for a result carrying no score`);
+      }
+      continue;
+    }
+    if (score.grade !== row.grade) problems.push(`${audit.domain}: grade ${score.grade} vs UI ${row.grade}`);
+    if (score.pts !== row.score) problems.push(`${audit.domain}: score ${score.pts} vs UI ${row.score}`);
+  }
+
+  const counted = className => ui.dom.filter(line => line.trim() === `<div class="${className}">`).length;
+  const total = key => audits.reduce((n, a) => n + ((a.result && a.result[key]) || []).length, 0);
+  if (total('issues') !== counted('issue')) {
+    problems.push(`issue count ${total('issues')} vs UI ${counted('issue')}`);
+  }
+  if (total('suggestions') !== counted('issue tip')) {
+    problems.push(`suggestion count ${total('suggestions')} vs UI ${counted('issue tip')}`);
+  }
+
+  return problems;
 }
 
 /**
@@ -344,6 +611,16 @@ async function main() {
     if (!manifest) manifest = loadSubject(root, { entry: args.entry }).manifest;
   }
 
+  // One form for the whole run, or the run is measuring two different things.
+  const probeForms = [...new Set(surfaces.map(surface => surface.probeForm))];
+  if (probeForms.length !== 1) {
+    console.error(`equivalence: the subject probed at more than one strength (${probeForms.join(', ')})`);
+    process.exit(2);
+  }
+  // Removed before comparison: it describes the RUN, not a surface, and leaving
+  // it on each case would make it a sixth thing the diff walks.
+  for (const produced of surfaces) delete produced.probeForm;
+
   const document = {
     schema: 1,
     subject: {
@@ -354,6 +631,19 @@ async function main() {
       commit: gitDescribe(root),
       root: relative(RUNNER_ROOT, root) || '.',
       entry: manifest.entry,
+      /**
+       * How this subject's generated data was verified. Spec §11, `1.4`.
+       *
+       * `engine` — the probes ran through engine members, which for the DKIM
+       * catalog and the English bundle means through their real consumers.
+       * `binding` — the artifact exposes only the two-member facade, so the
+       * tables were checked at the binding.
+       *
+       * Recorded rather than inferred: a manifest that did not say which would
+       * let a weaker run read as a stronger one. Neither form is an
+       * application-behavioural fingerprint for the PSL, and §11 says why.
+       */
+      fixtureIdentity: probeForms[0],
       scripts: manifest.scripts,
       stylesheets: manifest.stylesheets,
       inputs: manifest.inputs,
