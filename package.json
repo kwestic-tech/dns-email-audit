@@ -47,5 +47,11 @@
   ],
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  },
+  "allowScripts": {
+    "esbuild": false
   }
 }

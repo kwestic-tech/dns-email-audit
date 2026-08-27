@@ -140,3 +140,65 @@ output keeps both. The comments round 1 proposed deleting as "stale promises of
 5. `OQ-ARCH-06` resolves to IIFE, now with Result 5 behind it.
 6. Linux CI verification is still outstanding: this ran on darwin-arm64 only,
    and the footprint is platform-specific.
+
+---
+
+## Addendum, 2026-08-27 — the dependency as installed
+
+Task 0.2 asks for the spike's footprint to be folded in once the dependency
+actually exists. It now does. Every figure below was reproduced by installing
+it, not carried over from the spike.
+
+| Measure | Spike | As installed |
+| --- | --- | --- |
+| Packages on darwin-arm64 | 2 | **2** — `esbuild`, `@esbuild/darwin-arm64` |
+| Declared optional platform packages | 26 | **26** |
+| Install scripts | 1 | **1** — `postinstall: node install.js` |
+| Vulnerabilities reported | — | 0 |
+
+### The `allowScripts` decision, recorded
+
+Spec acceptance criterion: *"The `postinstall` script's treatment under npm's
+`allowScripts` gate is an explicit, recorded CI decision."*
+
+npm 11.19.0 does not run the script by default. It warns:
+
+```text
+npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:
+npm warn install-scripts   esbuild@0.28.2 (postinstall: node install.js)
+```
+
+**esbuild works with the script denied.** Verified, not assumed: with the
+postinstall never having run, `require('esbuild').version` reports `0.28.2` and
+`buildSync` produces correct output. The platform binary comes from the optional
+package `@esbuild/darwin-arm64`, and `install.js` is not needed to obtain it.
+
+So the decision is **deny**, recorded in `package.json`:
+
+```json
+"allowScripts": { "esbuild": false }
+```
+
+A subsequent `npm ci` is then clean — no warning, 2 packages, esbuild functional.
+This is the strongest available position for a first dependency: the install
+script never executes, on any machine, and the build still works.
+
+### The lockfile
+
+`package-lock.json` is committed as of this release and removed from
+`.gitignore`. Version 3, **27 entries**, integrity hash on every one, and all
+**26** platform packages present — so `npm ci` on any platform resolves its own
+binary from a pinned, verifiable entry.
+
+### Cross-platform resolution — what is and is not proven
+
+`npm ci --os=linux --cpu=x64` against this lockfile resolves
+**`@esbuild/linux-x64`**, 2 packages, same footprint as darwin-arm64, no
+`allowScripts` warning.
+
+**That proves the lockfile resolves for Linux. It does not prove `npm ci` on
+Linux.** No container runtime was available on the capture machine, so nothing
+here executed esbuild on Linux. Running the binary, and the footprint a real
+Linux runner reports, remain **Gate 1 evidence from CI** — the spike's
+darwin-arm64 result must not be presented as cross-platform, and neither must
+this.
