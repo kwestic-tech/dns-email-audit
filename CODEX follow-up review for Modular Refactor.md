@@ -862,3 +862,272 @@ round 2 response, with these conditions:
 Once those artifacts exist, round 3 can review their completeness and internal
 consistency. There is no value in another permission cycle before Code writes
 them.
+
+---
+
+## 12. Round 3 review — 2026-08-27
+
+**Reviewed branch head:** `569c9df` (`Prepare the round three review handoff`)
+
+**Reviewed artifacts:** spec `0.4 (Draft)`, the revised implementation plan,
+the esbuild legacy-bundle spike capture, and the current `v0.5.0` code and test
+harnesses cited by them.
+
+**Disposition:** **changes requested before `1.0 (Final)`.** Revision `0.4` is
+a substantial improvement: the measured spike supports the build-first phase,
+the four-boundary transport model is faithful, HTML report parity is restored,
+and the metafile/source-map checks correctly carry the co-location acceptance
+criterion. The remaining findings are not requests for another architecture
+reset. They are contradictions and proof gaps in the mechanisms meant to make
+the refactor safe.
+
+### R3-F1 — P0 — The fixture-identity assertion cannot detect the substitution it is meant to catch
+
+**Locations:** spec Design §11 and Testing item 5; implementation plan Task
+2.1; [`tools/scoring.test.mjs:21`](tools/scoring.test.mjs) and lines 485–487.
+
+The proposed behavioral fingerprint says that with the four-rule fixture table,
+`getOrganizationalDomain('a.b.ck')` produces a result the real 10,239-rule PSL
+cannot produce. That claim is false. The fixture contains `*.ck` and `!www.ck`
+because those are real PSL rules. I loaded `js/dns.js` once with the fixture and
+once with `js/public-suffixes.js` and reproduced:
+
+```text
+                         four-rule fixture     real PSL
+a.b.ck                   a.b.ck                a.b.ck
+a.www.ck                 www.ck                www.ck
+```
+
+The proposed contract therefore stays green when the real PSL replaces the
+fixture — exactly the failure it is supposed to make loud.
+
+A discriminator using a rule present in the real list and absent from the
+fixture does work. For example, on the reviewed commit:
+
+```text
+foo.blogspot.com         blogspot.com          foo.blogspot.com
+x.github.io              github.io             x.github.io
+```
+
+There is a second gap: one PSL assertion does not establish the identities of
+the DKIM selector catalog and English bundle. The spec says all three generated
+inputs receive the same treatment, but specifies no behavioral fingerprint for
+the latter two.
+
+**Required change:** replace the PSL probe with at least one verified divergent
+case and record both expected results. Define a separate behavioral identity
+probe for every generated binding a suite supplies. The contract should fail
+when any one of the PSL, selector catalog or English bundle is silently replaced
+while the other two remain correct.
+
+### R3-F2 — P0 — The implementation plan still enables the colliding `globalName` in Phase 1
+
+**Locations:** implementation plan Task 1.4; spec Design §6 and §10.
+
+Spec `0.4` correctly says Phase 1 must omit `globalName`; the spike verified
+that configuration. The plan still instructs the implementer to configure
+`globalName: 'DnsAudit'` in Task 1.4, before a facade exists. As the spec itself
+explains, that generated assignment overwrites the real object created by
+`js/dns.js` and breaks the application on the delivery-boundary commit.
+
+The sentence “where they disagree, the spec wins” is not a mitigation in a
+document whose stated purpose is to say what to type and in what order.
+
+**Required change:** Task 1.4 must say `globalName` is omitted. Add explicit
+Phase-2 tasks for facade creation, source-and-bundle member assertions, enabling
+`globalName`, and removing the legacy `DnsAudit` assignment in that order.
+
+### R3-F3 — P1 — The state matrix is incomplete and cannot be self-policing by the stated extraction rule
+
+**Locations:** spec Design §12, Testing item 3 and Acceptance criteria;
+implementation plan Task 0.6.
+
+The seed already demonstrates the extractor problem. It claims seven DNSSEC
+chain claims, but the current code has nine. Two are computed at
+[`js/dns.js:4077`](js/dns.js):
+
+```js
+'ds-' + record.match
+```
+
+with reachable values `ds-no-matching-key` and `ds-digest-mismatch`. Neither is
+in the seven-member list. Other current algebras are not seeds at all, including
+external-report authorization's `authorized` / `unauthorized` /
+`unverifiable` / `override-mismatch` states and DMARC's operator-visible status
+set. Boolean, nullable and absence-based result shapes cannot be discovered by
+extracting string discriminants.
+
+Deferring DKIM, CAA, MX, BIMI and transport-family enumeration until Phase 4 is
+also circular. Gate 0's corpus is supposed to prove the refactor covers the
+existing behavior before extraction begins; it cannot do that if its state
+inventory becomes complete only while the code is being extracted.
+
+**Required change:** inventory every current owner and result shape before Gate
+0 corpus capture and before any application move. Define what the extractor can
+soundly recognize. Computed members must be expanded explicitly; thrown errors,
+nullable states, boolean axes and meaningful combinations need named rows or
+targeted schema contracts. A static literal scan may be defense in depth, but it
+cannot be called proof of exhaustiveness. The partial Phase-4 placeholders must
+not remain in `1.0 (Final)`.
+
+### R3-F4 — P1 — Cache construction has two incompatible ownership models
+
+**Locations:** spec Correction 3 and Design §11; implementation plan Task 3.2.
+
+Correction 3 and Task 3.2 say the cache factory is invoked once at ESM module
+scope. Design §11 says the cache is constructed by `createAuditRuntime()`, that
+tests obtain isolation by constructing a fresh runtime, and that a suite needing
+different generated data calls the factory again. Both cannot be true: a
+module-scope cache is shared by every runtime in the process and makes a fresh
+runtime only superficially fresh.
+
+Page lifetime does not require module-global ownership. It requires the browser
+composition root to create one production runtime for the page.
+
+**Required change:** the cache factory returns a new cache per runtime; the
+production `src/main.js` constructs one runtime once, while each suite can
+construct its own. Assert both properties: sibling audits through one runtime
+reuse the cache, and two runtimes do not share it.
+
+### R3-F5 — P1 — The composition root and allowed-edge matrix are not yet implementable as a complete graph
+
+**Locations:** spec target tree, Design §11 and §12; implementation plan Phase
+2.
+
+The factory is load-bearing but has no owning file in the target tree and no
+task that creates it. `src/main.js` is said to call `createAuditRuntime()`, but
+the plan only converts `js/app.js` into `src/main.js`. This leaves it unclear
+whether importing the source facade in a test also mounts the browser UI as a
+side effect.
+
+The edge table also contradicts the injection contract: it allows
+`src/i18n/` to import `src/data/locales-en.js`, while §11 says the English
+bundle is passed and never imported by its consumer. `providers/` has no row;
+the platform binding has no location; and the UI-to-audit relationship is not
+specified as an import or injected callback. The platform shape omits primitives
+the present resolver uses directly — `setTimeout`, `clearTimeout` and
+`URLSearchParams` — while including an unused `now` binding.
+
+**Required change:** add the runtime/composition module to the tree and plan,
+state whether it is side-effect-free, and give it an API row. Complete the
+matrix for `providers`, platform, composition and UI event wiring. Remove the
+i18n-to-data edge if English is injected, or revise the injection claim and its
+fixture proof. Enumerate the actual platform primitives and who receives them.
+The per-directory API tables also need an explicit creation/update task in each
+extraction phase; an acceptance criterion alone will not produce them.
+
+### R3-F6 — P1 — The five-surface baseline does not bind all baseline inputs or nondeterminism
+
+**Locations:** spec Design §8; implementation plan Tasks 0.4.b–c.
+
+The capture command supplies only `../dea-v050/js` as the baseline root. The
+HTML surface embeds stylesheet bytes from `css/style.css`, the DOM begins with
+`index.html`, and localization uses generated English data. Unless the runner
+binds those assets to the tag as well, the “v0.5.0” observation can silently be
+a mixture of baseline JavaScript and current-branch HTML, CSS or locale data.
+
+The HTML export also includes `new Date().toLocaleString(i18n.lang)`. Exact text
+comparison needs a frozen clock and locale environment, or a specific manifest
+exclusion; the current rules name neither. A generated timestamp will otherwise
+make the supposedly deterministic baseline differ on every run.
+
+**Required change:** make each subject a repository/artifact root, not merely a
+JavaScript directory, and record exactly where its HTML, CSS, locale data and
+source map come from. Freeze clock and locale-dependent formatting for the
+runner, or enumerate the timestamp as a narrowly justified exclusion. Keep the
+strict canonicalization policy otherwise; its refusal to round floats, reorder
+arrays or normalize security-sensitive bytes is appropriate.
+
+### R3-F7 — P1 — The plan still carries the resolver model that `0.4` withdrew
+
+**Locations:** spec target tree and Design §3; implementation plan Tasks
+3.3–3.5 and “What this plan deliberately does not do.”
+
+Task 3.3 still instructs extraction of *“the five-way distinction from
+resilient-optional-checks”*. The target tree likewise describes
+`core/dns/errors.js` as “transport-failure vs absent vs invalid.” Both repeat
+the layer confusion `0.4` explicitly corrects. Task 3.5 then tests one closed
+resolver algebra without assigning the usability gate, normalized-record API,
+optional-check policy and direct-kind exception edges to files and contracts.
+
+The same section says “No audit cancellation,” although cancellation already
+exists through `AbortController` and `optionalCheck()` deliberately rethrows it.
+Read literally, that is a behavior regression, not a non-goal.
+
+**Required change:** rewrite Phase 3 around the four processing boundaries plus
+named exception edges, including the retry/cache and rethrow contracts. Change
+the non-goal to **no change to existing audit cancellation behavior**. Remove
+the stale “five-way” language everywhere, including the target-tree comment.
+
+### R3-F8 — P2 — The two-member facade is valid for repository consumers, not proof that the removed globals have no consumers
+
+**Locations:** spec Design §10 and Risk R8.
+
+The call-site inventory supports a two-member facade for the application in
+this repository. It cannot establish that the 14 `js/app.js` globals or the
+other 93 `DnsAudit` members have no external consumer: a static site can be
+driven by console scripts, browser extensions or embedding pages that do not
+exist in this checkout. “No repository consumer” is verified; “dead” is a
+compatibility policy.
+
+The proposed two-member facade is therefore acceptable only if the project
+explicitly declares the legacy globals unsupported. Their removal should be a
+named, deliberate compatibility delta in the equivalence manifest, changelog
+and release notes. If compatibility is intended, retain an adapter for the
+documented transition instead. A separate commit makes the delta reviewable but
+does not itself authorize it.
+
+## 13. Requested round 3 verdicts
+
+### API and allowed-edge tables
+
+**Not complete yet.** Apply R3-F5. The no-sibling-protocol rule and SCC rejection
+are good, but the graph lacks owners and contradicts the generated-data binding
+contract.
+
+### State matrix
+
+**Static extraction is not sufficient as specified, and the enumerations must
+be complete before Gate 0.** Apply R3-F3. The computed DNSSEC claims are a
+concrete counterexample, not a hypothetical limitation.
+
+### Composition contract
+
+**Directionally correct, internally inconsistent.** Injection through the real
+production path is the right design. Resolve cache ownership, give the factory
+an owning module, and provide a behavioral identity check per generated input.
+
+### Facade
+
+**Two members are sufficient for known repository consumers.** Treat removal of
+the legacy surface as an explicit compatibility decision, not as a fact proved
+by grep.
+
+### Canonicalization
+
+**The strictness is appropriate.** It is safer to surface noise and justify a
+narrow tolerance than to begin with broad normalization. Bind every baseline
+asset to `v0.5.0` and control the timestamp/locale inputs per R3-F6 before the
+rules can serve as an executable gate.
+
+## 14. Required next revision
+
+Before `1.0 (Final)`:
+
+1. Replace the ineffective fixture fingerprints and cover all three generated
+   bindings.
+2. Reconcile the implementation plan with the no-`globalName` legacy phase and
+   the four-boundary resolver model.
+3. Complete the pre-refactor state/result-shape inventory and define a sound
+   enforcement strategy.
+4. Make cache ownership consistently per-runtime, with one runtime per browser
+   page.
+5. Give the runtime factory, platform, providers and UI wiring explicit homes,
+   APIs and allowed edges.
+6. Bind the equivalence runner to complete subject roots and deterministic time
+   and locale inputs.
+7. Record the compatibility policy for removing the legacy global surface.
+
+After those corrections, the design is close to final. Linux `npm ci` remains
+a Gate 1 requirement, as the round-three request states; this review does not
+reinterpret the darwin-arm64 spike as cross-platform evidence.
