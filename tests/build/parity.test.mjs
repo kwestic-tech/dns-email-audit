@@ -27,15 +27,19 @@ import vm from 'node:vm';
 import { createSuite } from '../lib/assert.mjs';
 import { createDocument } from '../../tools/lib/dom-shim.mjs';
 import { scriptOrderFromMarkup } from '../../tools/build-bundle.mjs';
+import { PUBLIC_SUFFIX_RULES } from '../../src/data/public-suffixes.js';
+import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
+import { LOCALE_EN } from '../../src/data/locales-en.js';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { eq, section, report } = createSuite();
 
 const ARTIFACT = 'dist/app.min.js';
-const SOURCES = [
-  'js/locales-en.js', 'js/public-suffixes.js', 'js/dkim-selectors.js',
-  'js/i18n.js', 'js/render.js', 'js/dns.js', 'js/app.js',
-];
+// The hand-written IIFEs. The three generated tables are ES modules under
+// src/data/ as of Phase 2 and are INJECTED below, exactly as the adapter and
+// the browser harness inject them -- a consumer that imports its own generated
+// data can never be handed different data by a test.
+const SOURCES = ['js/i18n.js', 'js/render.js', 'js/dns.js', 'js/app.js'];
 
 /**
  * The ambient names the harness supplies. Everything a load leaves behind
@@ -50,7 +54,7 @@ const AMBIENT = ['document', 'navigator', 'location', 'localStorage', 'fetch', '
  * `vm.runInContext` re-evaluates the source text every time, so neither Node's
  * module cache nor a previous load can leak into this one.
  */
-function load(files) {
+function load(files, { injectData = false } = {}) {
   const document = createDocument();
   const win = {
     document,
@@ -64,6 +68,13 @@ function load(files) {
   win.window = win;
   win.self = win;
   win.globalThis = win;
+  // The source side needs the generated tables installed the way the adapter
+  // installs them for the bundle; the artifact carries its own.
+  if (injectData) {
+    win.__PUBLIC_SUFFIX_RULES__ = PUBLIC_SUFFIX_RULES;
+    win.__DKIM_SELECTOR_CATALOG__ = DKIM_SELECTOR_CATALOG;
+    win.__I18N_EN__ = LOCALE_EN;
+  }
   vm.createContext(win);
   for (const file of files) {
     vm.runInContext(readFileSync(join(REPO, file), 'utf8'), win, { filename: file });
@@ -91,7 +102,7 @@ eq('it is not an ES module', /^\s*(export|import)\s/m.test(artifactBytes.toStrin
 /* ── 2. The global surface is identical ───────────────────────────────── */
 section('2. Global surface');
 
-const source = load(SOURCES);
+const source = load(SOURCES, { injectData: true });
 const bundle = load([ARTIFACT]);
 
 const sourceGlobals = globalsOf(source);

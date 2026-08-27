@@ -12,7 +12,8 @@
 
 import { loadApp } from './lib/browser-harness.mjs';
 
-const win = loadApp({ files: ['js/locales-en.js', 'js/i18n.js'] });
+// The English bundle is injected by the harness now, not evaluated as a script.
+const win = loadApp({ files: ['js/i18n.js'] });
 const { t, tp } = win;
 
 let pass = 0, fail = 0;

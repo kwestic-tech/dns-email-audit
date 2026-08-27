@@ -14,7 +14,7 @@
  *     at author time, with no parser and no dependency
  *   • per-key translation state, from locales/translation-status.json
  *     (initial / translated / reviewed / final, plus stale — warning)
- *   • js/locales-en.js is in sync with locales/en.json (error)
+ *   • src/data/locales-en.js is in sync with locales/en.json (error)
  *
  * Exit code is non-zero only for real errors, so translations can land while
  * still incomplete.  Run:  npm test
@@ -134,8 +134,11 @@ for (const code of onDisk.filter(c => c !== 'en').sort()) {
 }
 
 // ── Inline fallback freshness ────────────────────────────────────────────
-const fallbackPath = join(root, 'js', 'locales-en.js');
-console.log('js/locales-en.js');
+// Updated in the same commit as tools/build-fallback.mjs, deliberately: these
+// two changing out of step is the failure npm test exists to catch, and it
+// would surface as an i18n break degrading silently to English phases later.
+const fallbackPath = join(root, 'src', 'data', 'locales-en.js');
+console.log('src/data/locales-en.js');
 if (!existsSync(fallbackPath)) {
   fail('missing — run `npm run build:fallback`');
 } else {

@@ -5,7 +5,8 @@
  * English is inlined here so the app works when index.html is opened directly
  * from disk (file://), where fetching locales/*.json is blocked by the browser.
  */
-window.__I18N_EN__ = {
+
+export const LOCALE_EN = {
   "meta": {
     "code": "en",
     "name": "English",

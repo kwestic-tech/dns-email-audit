@@ -29,6 +29,10 @@ import {
 } from '../lib/fixture-identity.mjs';
 import { dohFixture, txt, ns, caa, ds, dnskey } from '../../tools/lib/doh-fixture.mjs';
 import { PLATFORM_PROFILES } from '../lib/platform.mjs';
+import { loadApp } from '../../tools/lib/browser-harness.mjs';
+import { probeEnglishBundle, FIXTURE_ENGLISH_TITLE } from '../lib/fixture-identity.mjs';
+import { PUBLIC_SUFFIX_RULES } from '../../src/data/public-suffixes.js';
+import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { eq, throws, rejects, section, report } = createSuite();
@@ -43,8 +47,9 @@ function load(pslRules, cryptoImpl = crypto) {
     crypto: cryptoImpl,
   };
   sandbox.globalThis = sandbox;
+  // Injected, not evaluated: the catalog is an ES module under src/data/ now.
+  sandbox.window.__DKIM_SELECTOR_CATALOG__ = DKIM_SELECTOR_CATALOG;
   vm.createContext(sandbox);
-  vm.runInContext(readFileSync(join(REPO, 'js/dkim-selectors.js'), 'utf8'), sandbox);
   vm.runInContext(readFileSync(join(REPO, 'js/dns.js'), 'utf8'), sandbox);
   return { D: sandbox.window.DnsAudit, sandbox };
 }
@@ -68,11 +73,7 @@ eq('DKIM catalog probe sees the production catalog', probes[1].actual, false);
 // The negative case. Load the SAME file against the real public suffix list
 // and confirm the probe rejects it — this is the substitution the spike
 // demonstrated, and a probe that cannot catch it is decoration.
-const realPslSandbox = { window: {} };
-realPslSandbox.globalThis = realPslSandbox;
-vm.createContext(realPslSandbox);
-vm.runInContext(readFileSync(join(REPO, 'js/public-suffixes.js'), 'utf8'), realPslSandbox);
-const REAL_PSL = realPslSandbox.window.__PUBLIC_SUFFIX_RULES__;
+const REAL_PSL = PUBLIC_SUFFIX_RULES;
 const real = load(REAL_PSL).D;
 
 eq('the real list is the real list, not a stub', REAL_PSL.length > 10000, true);
@@ -97,6 +98,45 @@ eq('a.b.ck agrees under both lists — vacuous as a probe',
   D.getOrganizationalDomain('a.b.ck') === real.getOrganizationalDomain('a.b.ck'), true);
 eq('a.www.ck agrees under both lists — vacuous as a probe',
   D.getOrganizationalDomain('a.www.ck') === real.getOrganizationalDomain('a.www.ck'), true);
+
+/* ── 0b. The injection point, proven for all three bindings ───────────── */
+section('0b. Generated data is injected, and each binding has its own probe');
+
+/**
+ * Phase 2 moved the three generated tables to ES modules under `src/data/`.
+ * They are still INJECTED — by `src/data/legacy-globals.js` for the bundle and
+ * by `tools/lib/browser-harness.mjs` for the suites — and never imported by the
+ * code that consumes them.
+ *
+ * That distinction is the whole of spec §11, and this asserts it rather than
+ * trusting the comment: a suite must be able to hand the app different data,
+ * and each binding's probe must notice independently when it is the wrong one.
+ */
+const productionApp = loadApp({ files: ['js/i18n.js'] });
+eq('with no override, the harness supplies production English',
+  probeEnglishBundle(productionApp.t, 'production').actual,
+  probeEnglishBundle(productionApp.t, 'production').expected);
+
+const fixtureEnglish = { meta: { code: 'en' }, doc: { title: FIXTURE_ENGLISH_TITLE } };
+const fixtureApp = loadApp({ files: ['js/i18n.js'], data: { englishBundle: fixtureEnglish } });
+eq('a suite can inject a fixture English bundle instead',
+  probeEnglishBundle(fixtureApp.t, 'fixture').actual, FIXTURE_ENGLISH_TITLE);
+throws('and claiming production while the fixture is in force fails the probe',
+  () => assertFixtureIdentity([probeEnglishBundle(fixtureApp.t, 'production')]),
+  e => /the English bundle binding in force is not the production one/.test(e.message) &&
+       /this is exactly the fixture value/.test(e.message));
+throws('as does the reverse',
+  () => assertFixtureIdentity([probeEnglishBundle(productionApp.t, 'fixture')]),
+  e => /is not the fixture one/.test(e.message));
+
+// The three probes are INDEPENDENT: substituting one leaves the others correct,
+// which is what makes each of them evidence about its own binding.
+const mixed = loadApp({ files: ['js/i18n.js'], data: { englishBundle: fixtureEnglish } });
+eq('substituting English does not disturb the PSL binding',
+  mixed.__PUBLIC_SUFFIX_RULES__.length > 10000, true);
+eq('nor the DKIM catalog binding',
+  JSON.stringify(Object.keys(mixed.__DKIM_SELECTOR_CATALOG__)),
+  JSON.stringify(Object.keys(productionApp.__DKIM_SELECTOR_CATALOG__)));
 
 /* ── 1. The ten transport kinds, each at its own construction site ────── */
 section('1. Transport kinds (spec Design §3, dns.transport.kind)');

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Regenerates js/locales-en.js from locales/en.json.
+ * Regenerates src/data/locales-en.js from locales/en.json.
  *
  * Why this file exists: browsers block fetch() of local JSON over file://, so
  * an app split across multiple files would break the moment someone
@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const source = join(root, 'locales', 'en.json');
-const target = join(root, 'js', 'locales-en.js');
+const target = join(root, 'src', 'data', 'locales-en.js');
 
 const raw = readFileSync(source, 'utf8');
 
@@ -37,7 +37,11 @@ const banner = `/* AUTO-GENERATED — DO NOT EDIT.
  */
 `;
 
-const body = `window.__I18N_EN__ = ${JSON.stringify(parsed, null, 2)};\n`;
+// An ES module as of 0.6.0. The CONTENT is unchanged -- same keys, same values,
+// same ordering -- so tools/check-locales.mjs still compares like with like.
+// Only the wrapper moved, which is the whole of this release's claim about the
+// localization contract: no key is added, changed or removed.
+const body = `\nexport const LOCALE_EN = ${JSON.stringify(parsed, null, 2)};\n`;
 
 writeFileSync(target, banner + body, 'utf8');
-console.log(`✓ Wrote js/locales-en.js (${(banner + body).length.toLocaleString()} bytes)`);
+console.log(`✓ Wrote src/data/locales-en.js (${(banner + body).length.toLocaleString()} bytes)`);

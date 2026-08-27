@@ -27,6 +27,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
+import { PUBLIC_SUFFIX_RULES } from '../src/data/public-suffixes.js';
+import { DKIM_SELECTOR_CATALOG } from '../src/data/dkim-selectors.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -133,8 +135,11 @@ const sandbox = {
 };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
-vm.runInContext(readFileSync(join(ROOT, 'js', 'public-suffixes.js'), 'utf8'), sandbox);
-vm.runInContext(readFileSync(join(ROOT, 'js', 'dkim-selectors.js'), 'utf8'), sandbox);
+// Injected rather than evaluated: both are ES modules under src/data/ as of
+// 0.6.0. backtest keeps its live-DNS grade-distribution job and is never the
+// equivalence oracle.
+sandbox.window.__PUBLIC_SUFFIX_RULES__ = PUBLIC_SUFFIX_RULES;
+sandbox.window.__DKIM_SELECTOR_CATALOG__ = DKIM_SELECTOR_CATALOG;
 vm.runInContext(readFileSync(join(ROOT, 'js', 'dns.js'), 'utf8'), sandbox);
 const D = sandbox.window.DnsAudit;
 

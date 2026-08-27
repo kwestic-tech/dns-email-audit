@@ -97,10 +97,14 @@ eq('no test path is an input', inputs.filter(p => /\.test\.(js|mjs)$/.test(p)), 
 eq('no path under tests/ is an input', inputs.filter(p => p.startsWith('tests/')), []);
 eq('no path under tools/ is an input', inputs.filter(p => p.startsWith('tools/')), []);
 eq('no node_modules path is an input', inputs.filter(p => p.includes('node_modules')), []);
-// Exactly the eight files that should be there: the entry and the seven scripts.
-eq('the inputs are the entry point and the seven legacy scripts', inputs.sort(),
-  ['js/app.js', 'js/dkim-selectors.js', 'js/dns.js', 'js/i18n.js', 'js/locales-en.js',
-    'js/public-suffixes.js', 'js/render.js', 'src/entry-legacy.js']);
+// Exactly the files that should be there, named rather than counted: the entry,
+// the generated-data adapter, the three generated modules and the four
+// remaining IIFEs. This list shrinks on the `js/` side every Phase 2 commit,
+// and a file appearing here that nobody added is what it exists to catch.
+eq('the inputs are exactly the modules the entry point reaches', inputs.sort(),
+  ['js/app.js', 'js/dns.js', 'js/i18n.js', 'js/render.js',
+    'src/data/dkim-selectors.js', 'src/data/legacy-globals.js',
+    'src/data/locales-en.js', 'src/data/public-suffixes.js', 'src/entry-legacy.js']);
 
 const sourceMap = JSON.parse(readFileSync(join(SITE, 'dist', 'app.min.js.map'), 'utf8'));
 eq('no test path appears in the source map',
@@ -112,7 +116,7 @@ eq('no path under tests/ appears in the source map',
 // map's sources. The real invariant is that every mapped source is an input.
 eq('every mapped source is one of the bundle inputs',
   sourceMap.sources.map(p => p.replace(/^(\.\.\/)+/, '')).filter(p => !inputs.includes(p)), []);
-eq('and the seven code-bearing inputs are all mapped', sourceMap.sources.length, 7);
+eq('every code-bearing input is mapped', sourceMap.sources.length, 8);
 
 // Defence in depth, carrying no acceptance criterion of its own: a string that
 // appears in every cross-cutting suite must appear nowhere in the artifact.

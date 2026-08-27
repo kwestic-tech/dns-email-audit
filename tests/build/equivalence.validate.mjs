@@ -324,8 +324,8 @@ rmSync(htmlRoot, { recursive: true, force: true });
 // — this is the spike's failure mode moved up a level, where it would poison
 // every later comparison instead of one suite.
 const swappedRoot = await makeRoot('swapped');
-writeFileSync(join(swappedRoot, 'js', 'public-suffixes.js'),
-  "window.__PUBLIC_SUFFIX_RULES__ = ['com','co.uk','*.ck','!www.ck'];\n");
+writeFileSync(join(swappedRoot, 'src', 'data', 'public-suffixes.js'),
+  "export const PUBLIC_SUFFIX_RULES = ['com','co.uk','*.ck','!www.ck'];\n");
 await build({ root: swappedRoot });
 let refusedData = false;
 try { await run(swappedRoot); } catch (error) {

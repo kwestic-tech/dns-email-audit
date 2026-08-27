@@ -1,39 +1,33 @@
 /**
- * The bundle's entry point for Phase 1. TEMPORARY — deleted in Phase 6.
+ * The bundle's entry point for Phase 2. TEMPORARY — deleted in Phase 6.
  *
- * Seven side-effect imports, in the exact order `index.html` loaded them. No
- * code moves in this file's lifetime and no code is written into it: every one
- * of the seven remains the plain IIFE it is today, still assigning to `window`,
- * still communicating through globals.
+ * **This file is a marked ADAPTER.** It exists so ES modules and the remaining
+ * `window`-attached IIFEs can coexist while the conversion happens one
+ * responsibility at a time behind a delivery boundary that already works. Every
+ * adapter carries the sentinel below so `tools/` can count them, and Phase 6
+ * asserts the count has reached zero.
  *
- * That is the whole point of Phase 1. The build lands before anything moves, so
- * every later commit is checked against the artifact the browser actually
- * receives rather than against source the browser never sees. Version 0.1 of
- * the plan had these the other way round and could not keep the browser working
- * between its own commits (round 1, F1).
+ *   LEGACY_ADAPTER
  *
  * **This file must not gain an `export`.** `globalName` is forbidden until
  * §10's stage 3, and the two facts are connected: esbuild assigns the ENTRY
  * POINT'S EXPORTS to `globalName`, so an entry with none plus an early
  * `globalName: 'DnsAudit'` would emit a top-level `var DnsAudit` that
  * overwrites the real object from `js/dns.js:5601` — breaking the application
- * on the very commit that moves the delivery boundary. The spike confirmed the
- * bundle works with `globalName` omitted, which is why it is omitted.
- *
- * The order below is load-bearing and is asserted, not trusted:
- * `tools/build-bundle.mjs` reads it back out of the metafile and compares it
- * against `index.html`'s own script list at v0.5.0.
+ * on the very commit that moves the delivery boundary. Asserted by
+ * `tests/contract/state-matrix.test.mjs`.
  */
 
-// Generated data first: the three globals the hand-written code reads at
-// evaluation time. `js/dns.js` builds its public-suffix sets from
-// `__PUBLIC_SUFFIX_RULES__` while its IIFE runs, so a later import would leave
-// them empty.
-import '../js/locales-en.js';
-import '../js/public-suffixes.js';
-import '../js/dkim-selectors.js';
+/* ── LEGACY_ADAPTER ───────────────────────────────────────────────────────
+ * Import order IS evaluation order, and that is the whole reason the global
+ * installation lives in its own module rather than in this file's body: ES
+ * imports are hoisted, so assignments written here would run AFTER every IIFE
+ * below had already evaluated against undefined globals. See
+ * src/data/legacy-globals.js.
+ */
+import './data/legacy-globals.js';
 
-// Then the hand-written layers, in dependency order.
+// The hand-written layers, still IIFEs, in their original dependency order.
 import '../js/i18n.js';
 import '../js/render.js';
 import '../js/dns.js';

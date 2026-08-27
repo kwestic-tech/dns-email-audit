@@ -145,8 +145,50 @@ function declaredExports(source) {
   return [...names].sort();
 }
 
+/**
+ * `src/data/` is a SINK, and it is excluded from the state-constant comparison
+ * for that reason rather than for convenience.
+ *
+ * Spec §2 records it as "generated; not hand-edited, not unit-tested", and
+ * §12's allowed-edge matrix gives it no outgoing edges at all: a generated file
+ * that imports something has stopped being generated data. Its exports are
+ * tables — 10,239 public suffix rules, a selector catalog, an English bundle —
+ * not closed state vocabularies, and running the vocabulary comparison over
+ * them reports every one of them as an unknown algebra.
+ *
+ * So the sink rule is asserted directly instead, which is the stronger check.
+ */
+const dataModules = srcModules.filter(p => p.startsWith('data/'));
+const codeModules = srcModules.filter(p => !p.startsWith('data/'));
+
+eq('the generated data modules are the three tables and the adapter that installs them',
+  dataModules.sort(),
+  ['data/dkim-selectors.js', 'data/legacy-globals.js', 'data/locales-en.js', 'data/public-suffixes.js']);
+
+for (const generated of ['data/public-suffixes.js', 'data/dkim-selectors.js', 'data/locales-en.js']) {
+  const source = readFileSync(join(srcDir, generated), 'utf8');
+  eq(`${generated} imports nothing — it is a sink`, /^\s*import\s/m.test(source), false);
+  eq(`${generated} says it is generated`, /AUTO-GENERATED/.test(source), true);
+  eq(`${generated} exports exactly one table`, declaredExports(source).length, 1);
+}
+
+/**
+ * Adapters are marked so they can be counted, and Phase 6 asserts the count has
+ * reached zero. The sentinel is a grep, deliberately: an adapter that forgot to
+ * declare itself is one nobody will remove.
+ */
+const ADAPTER_SENTINEL = 'LEGACY_ADAPTER';
+const adapters = srcModules.filter(p =>
+  readFileSync(join(srcDir, p), 'utf8').includes(ADAPTER_SENTINEL)).sort();
+eq('every adapter carries the sentinel, and these are the ones that exist',
+  adapters, ['data/legacy-globals.js', 'entry-legacy.js']);
+// The count only means something if it is going down. Recorded so a phase that
+// adds one without removing another has to say so.
+console.log(`  adapters remaining: ${adapters.length}`);
+
 const legacyEntry = 'entry-legacy.js';
-eq('src/ holds only the legacy entry point so far', srcModules, [legacyEntry]);
+eq('src/ holds the entry point, the generated data and nothing else yet',
+  codeModules.sort(), [legacyEntry]);
 
 /**
  * The property that makes omitting `globalName` safe, asserted rather than
@@ -159,13 +201,13 @@ eq('the legacy entry point declares no exports',
   declaredExports(readFileSync(join(srcDir, legacyEntry), 'utf8')), []);
 
 /**
- * Rule 3 of spec §12.1, written now against an empty set rather than deferred
- * to the phase where it first has something to say. A module that declares
- * exports and does not reach into `js/` is imported and its closed
- * vocabularies are compared with the registry.
+ * Rule 3 of spec §12.1: compare each extracted module's exported state
+ * constants with the reviewed registry, once that module exists. Written now
+ * against an empty set rather than deferred to the phase where it first has
+ * something to say.
  */
 const unknownConstants = [];
-for (const relative of srcModules) {
+for (const relative of codeModules) {
   const source = readFileSync(join(srcDir, relative), 'utf8');
   if (!declaredExports(source).length) continue;
   if (/from\s+['"][^'"]*\/js\//.test(source)) continue;   // still reaches legacy browser code

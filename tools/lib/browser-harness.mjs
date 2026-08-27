@@ -1,10 +1,20 @@
 /* ──────────────────────────────────────────────────────────────────────────
    Load the browser-side code into a node:vm sandbox backed by the DOM shim.
 
-   Same approach tools/backtest.mjs already uses for js/dns.js: the files are
-   plain IIFEs that attach to `window`, so there is nothing to mock and no
-   bundler involved. This module exists so render, export and interpolate tests
-   share one definition of "the app, loaded".
+   The hand-written files are still plain IIFEs that attach to `window`, so
+   there is nothing to mock and no bundler involved for them. What changed in
+   0.6.0 is the generated data: the public suffix list, the DKIM selector
+   catalog and the English bundle are ES modules under `src/data/` now, and
+   they are INJECTED into the sandbox here rather than evaluated as scripts.
+
+   That is the composition root's rule arriving early, and it is the point. A
+   consumer that imports its own generated data can never be handed different
+   data by a test — which is precisely how the scoring suite came to report
+   `1535 passed, 0 failed` against a public suffix list that had been swapped
+   underneath it. `opts.data` is how a suite supplies a fixture table instead.
+
+   This module exists so render, export and interpolate tests share one
+   definition of "the app, loaded".
    ────────────────────────────────────────────────────────────────────────── */
 
 import { readFileSync } from 'node:fs';
@@ -13,6 +23,9 @@ import { dirname, join } from 'node:path';
 import vm from 'node:vm';
 
 import { createDocument, MarkupSinkError } from './dom-shim.mjs';
+import { PUBLIC_SUFFIX_RULES } from '../../src/data/public-suffixes.js';
+import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
+import { LOCALE_EN } from '../../src/data/locales-en.js';
 
 export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -25,6 +38,14 @@ export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  */
 export function loadApp(opts = {}) {
   const document = createDocument();
+  // Production generated data by default; a suite that wants a fixture table
+  // says so, and says which. Never a silent substitution.
+  const data = {
+    publicSuffixRules: PUBLIC_SUFFIX_RULES,
+    dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
+    englishBundle: LOCALE_EN,
+    ...(opts.data || {}),
+  };
   const win = {
     document,
     navigator: { language: 'en', languages: ['en'] },
@@ -45,10 +66,14 @@ export function loadApp(opts = {}) {
   win.window = win;
   win.self = win;
   win.globalThis = win;
+  // Injected before anything evaluates: js/i18n.js reads __I18N_EN__ and
+  // js/dns.js builds its public-suffix sets while their IIFEs run.
+  win.__PUBLIC_SUFFIX_RULES__ = data.publicSuffixRules;
+  win.__DKIM_SELECTOR_CATALOG__ = data.dkimSelectorCatalog;
+  win.__I18N_EN__ = data.englishBundle;
   vm.createContext(win);
 
   const files = opts.files || [
-    'js/locales-en.js',
     'js/i18n.js',
     'js/render.js',
     'js/app.js',

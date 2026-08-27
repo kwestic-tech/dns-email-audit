@@ -25,9 +25,9 @@
     {
       "path": "tools/check-locales.mjs",
       "assertions": null,
-      "note": "Reports findings rather than an assertion count, which is why it has no number. Stays in npm test: it is the only thing that catches js/locales-en.js drifting from locales/en.json, and Phase 2 changes that file's format.",
+      "note": "Reports findings rather than an assertion count, which is why it has no number. Stays in npm test: it is the only thing that catches src/data/locales-en.js drifting from locales/en.json, and Phase 2 changed that file's format, which is exactly the drift it exists to catch.",
       "areas": [
-        "the generated English bundle matches locales/en.json",
+        "the generated English module matches locales/en.json",
         "every locale's key set is accounted for"
       ]
     },
@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 49,
+      "assertions": 50,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -86,9 +86,10 @@
     },
     {
       "path": "tests/contract/legacy-shapes.test.mjs",
-      "assertions": 125,
+      "assertions": 131,
       "areas": [
         "fixture identity: divergent PSL and DKIM-catalog fingerprints, with their negative cases",
+        "generated data is injected, not imported: each of the three bindings has an independent probe, proven in both directions",
         "the ten transport kinds, each at its own construction site",
         "thrown paths: DnsTypeError, AbortError and the optionalCheck rethrow set",
         "cacheable is a strict subset of retry-terminal; cancelled is never cached",
@@ -117,14 +118,16 @@
     },
     {
       "path": "tests/contract/state-matrix.test.mjs",
-      "assertions": 22,
+      "assertions": 33,
       "areas": [
         "every registry member has exactly one coverage row",
         "every row names a suite or corpus case that exists",
         "every non-enum shape names its axes and its cases",
         "the extracted-module comparison: what src/ exports must match the registry",
         "the targeted legacy contracts are wired",
-        "the legacy entry point has no exports, which is what keeps globalName safe to omit"
+        "the legacy entry point has no exports, which is what keeps globalName safe to omit",
+        "src/data/ is a sink: the generated tables import nothing and export exactly one table each",
+        "every adapter carries the LEGACY_ADAPTER sentinel, and the remaining count is reported"
       ]
     },
     {

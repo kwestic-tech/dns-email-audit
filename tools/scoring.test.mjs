@@ -11,6 +11,10 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
 import { dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa, ds, dnskey, rrsig, TYPE_NUM } from './lib/doh-fixture.mjs';
+// Injected, not evaluated. The catalog is an ES module under src/data/ as of
+// 0.6.0, and injection is what lets the four-rule fixture PSL below stay the
+// one in force -- see the sandbox line and tests/lib/fixture-identity.mjs.
+import { DKIM_SELECTOR_CATALOG } from '../src/data/dkim-selectors.js';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
 // `crypto` is here for the OPTIONAL half of the DKIM key analysis — the Web
@@ -21,7 +25,7 @@ const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '.
 const sandbox = { window: { __PUBLIC_SUFFIX_RULES__: ['com', 'co.uk', '*.ck', '!www.ck'] }, fetch: async () => ({ ok: false }), console, AbortController, URLSearchParams, setTimeout, clearTimeout, crypto };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
-vm.runInContext(readFileSync(`${REPO}/js/dkim-selectors.js`, 'utf8'), sandbox);
+sandbox.window.__DKIM_SELECTOR_CATALOG__ = DKIM_SELECTOR_CATALOG;
 vm.runInContext(readFileSync(`${REPO}/js/dns.js`, 'utf8'), sandbox);
 const D = sandbox.window.DnsAudit;
 
