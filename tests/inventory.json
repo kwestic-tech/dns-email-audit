@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 50,
+      "assertions": 52,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",

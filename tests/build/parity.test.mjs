@@ -30,6 +30,8 @@ import { scriptOrderFromMarkup } from '../../tools/build-bundle.mjs';
 import { PUBLIC_SUFFIX_RULES } from '../../src/data/public-suffixes.js';
 import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
 import { LOCALE_EN } from '../../src/data/locales-en.js';
+import { createI18n } from '../../src/i18n/index.js';
+import { createRenderer } from '../../src/ui/render.js';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { eq, section, report } = createSuite();
@@ -39,7 +41,7 @@ const ARTIFACT = 'dist/app.min.js';
 // src/data/ as of Phase 2 and are INJECTED below, exactly as the adapter and
 // the browser harness inject them -- a consumer that imports its own generated
 // data can never be handed different data by a test.
-const SOURCES = ['js/i18n.js', 'js/render.js', 'js/dns.js', 'js/app.js'];
+const SOURCES = ['js/dns.js', 'js/app.js'];
 
 /**
  * The ambient names the harness supplies. Everything a load leaves behind
@@ -74,6 +76,19 @@ function load(files, { injectData = false } = {}) {
     win.__PUBLIC_SUFFIX_RULES__ = PUBLIC_SUFFIX_RULES;
     win.__DKIM_SELECTOR_CATALOG__ = DKIM_SELECTOR_CATALOG;
     win.__I18N_EN__ = LOCALE_EN;
+    // Constructed the way src/legacy-bridge.js constructs them for the bundle.
+    const i18n = createI18n({
+      englishBundle: LOCALE_EN,
+      platform: {
+        document: win.document, localStorage: win.localStorage,
+        fetch: (...args) => win.fetch(...args), navigator: win.navigator, console: win.console,
+      },
+    });
+    win.i18n = i18n;
+    win.t = i18n.t;
+    win.tp = i18n.tp;
+    win.tRaw = i18n.tRaw;
+    win.R = createRenderer(() => win.document, i18n);
   }
   vm.createContext(win);
   for (const file of files) {

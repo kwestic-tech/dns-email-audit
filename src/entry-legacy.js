@@ -26,9 +26,8 @@
  * src/data/legacy-globals.js.
  */
 import './data/legacy-globals.js';
+import './legacy-bridge.js';
 
-// The hand-written layers, still IIFEs, in their original dependency order.
-import '../js/i18n.js';
-import '../js/render.js';
+// What is left of the IIFEs, in their original dependency order.
 import '../js/dns.js';
 import '../js/app.js';

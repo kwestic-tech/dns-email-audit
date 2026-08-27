@@ -181,14 +181,16 @@ const ADAPTER_SENTINEL = 'LEGACY_ADAPTER';
 const adapters = srcModules.filter(p =>
   readFileSync(join(srcDir, p), 'utf8').includes(ADAPTER_SENTINEL)).sort();
 eq('every adapter carries the sentinel, and these are the ones that exist',
-  adapters, ['data/legacy-globals.js', 'entry-legacy.js']);
+  adapters, ['data/legacy-globals.js', 'entry-legacy.js', 'legacy-bridge.js']);
 // The count only means something if it is going down. Recorded so a phase that
 // adds one without removing another has to say so.
 console.log(`  adapters remaining: ${adapters.length}`);
 
 const legacyEntry = 'entry-legacy.js';
-eq('src/ holds the entry point, the generated data and nothing else yet',
-  codeModules.sort(), [legacyEntry]);
+// Grows every Phase 2 commit, and named rather than counted so a module
+// appearing here that nobody added is what this catches.
+eq('src/ holds the entry point, the bridge and the two converted layers',
+  codeModules.sort(), ['entry-legacy.js', 'i18n/index.js', 'legacy-bridge.js', 'ui/render.js']);
 
 /**
  * The property that makes omitting `globalName` safe, asserted rather than

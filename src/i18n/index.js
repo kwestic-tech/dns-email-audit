@@ -5,21 +5,51 @@
    ------------
    • locales/en.json is the single source of truth. Every other locale file
      mirrors its shape; missing keys silently fall back to English.
-   • English is ALSO inlined into js/locales-en.js (generated from en.json by
-     `npm run build:fallback`) so the app works when opened straight from
-     disk over file://, where fetch() of local JSON is blocked by the browser.
+   • English is ALSO inlined into src/data/locales-en.js (generated from
+     en.json by `npm run build:fallback`) so the app works when opened straight
+     from disk over file://, where fetch() of local JSON is blocked by the
+     browser. It is PASSED IN, never imported here: a module that imports its
+     own generated data can never be handed different data by a test, which is
+     how the scoring suite came to pass against a swapped public suffix list.
    • Other locales are fetched on demand from locales/<code>.json.
    • No dependencies, no build step, no bundler.
    ────────────────────────────────────────────────────────────────────────── */
 
-(function (global) {
-  'use strict';
+/**
+ * Build an i18n instance over a supplied English bundle.
+ *
+ * A factory rather than the module-level singleton this was, because
+ * `createAuditRuntime()` (Task 2.5) constructs one per runtime and tests need
+ * runtimes that share nothing. `src/main.js` makes exactly one for the page, so
+ * the production lifetime is unchanged.
+ *
+ * Conversion note: this is a WRAPPER change. Every function below is byte-for-
+ * byte what it was as an IIFE; what moved is the boundary — the English bundle
+ * arrives as an argument instead of off `window`, and the API is returned
+ * instead of assigned to four globals.
+ */
+export function createI18n({ englishBundle, platform } = {}) {
+  // No 'use strict' directive: ES modules are strict already, and a destructured
+  // default makes the parameter list non-simple, which forbids the directive
+  // outright. The IIFE needed it; a module does not.
+
+  /**
+   * The ambient primitives this layer uses, named instead of reached for.
+   *
+   * As an IIFE these resolved off `window` at call time and the dependency was
+   * invisible; nineteen call sites below touch `document`, `localStorage`,
+   * `fetch`, `navigator` or `console`. Task 2.4 replaces this destructuring
+   * with `src/platform/browser.js`, which names the complete primitive set for
+   * the whole application. The shape is the same either way: passed, never
+   * reached for.
+   */
+  const { document, localStorage, fetch, navigator, console } = platform;
 
   var STORAGE_KEY = 'dns-email-audit-lang';
   var DEFAULT_LANG = 'en';
 
   // Inlined English bundle (js/locales-en.js). Always present.
-  var bundles = { en: global.__I18N_EN__ || {} };
+  var bundles = { en: englishBundle || {} };
 
   // Fallback registry, used when locales/index.json can't be fetched (file://).
   var locales = [
@@ -383,7 +413,7 @@
     });
   }
 
-  global.i18n = {
+  return {
     t: t,
     tp: tp,
     tRaw: tRaw,
@@ -395,9 +425,4 @@
     get lang() { return currentLang; },
     get locales() { return locales.slice(); }
   };
-
-  // Convenience globals — the app calls t()/tp() a few hundred times.
-  global.t = t;
-  global.tp = tp;
-  global.tRaw = tRaw;
-})(window);
+}

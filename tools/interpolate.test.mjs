@@ -12,8 +12,9 @@
 
 import { loadApp } from './lib/browser-harness.mjs';
 
-// The English bundle is injected by the harness now, not evaluated as a script.
-const win = loadApp({ files: ['js/i18n.js'] });
+// i18n is an ES module now: the harness constructs it from the injected English
+// bundle rather than evaluating a script, and no other file is needed here.
+const win = loadApp({ files: [] });
 const { t, tp } = win;
 
 let pass = 0, fail = 0;

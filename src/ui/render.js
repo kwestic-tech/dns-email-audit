@@ -24,11 +24,33 @@
        what is painted. The full value stays in the result object, in the CSV
        and in the HTML report.
 
-   Loaded after js/i18n.js (for t/tp) and before js/app.js.
+   Takes its translator as an argument; see createRenderer below.
    ────────────────────────────────────────────────────────────────────────── */
 
-(function (global) {
-  'use strict';
+/**
+ * Build a renderer bound to a document and a translator.
+ *
+ * `getDocument` is a thunk rather than a document, because `R.for()` already
+ * rebinds the same factory to a detached document for the two export builders —
+ * this file was written for injection and only ever had one caller that reached
+ * for `window.document`.
+ *
+ * `i18n` is the dependency the IIFE never declared. Nine call sites here reach
+ * for a bare `t()`, `tp()` or `i18n.sanitizeFragment()`, which resolved off
+ * `window` at call time and worked only because `js/i18n.js` was loaded first —
+ * the load order in `index.html` WAS the dependency graph, and this is one of
+ * the edges it was carrying implicitly. As a module the lookup simply fails, so
+ * the edge is now declared. Spec §12's matrix permits it: `src/ui/` may depend
+ * on `i18n/`.
+ *
+ * Conversion note: otherwise a WRAPPER change. No function below moved; the
+ * IIFE became a function and the single global assignment became a return.
+ */
+export function createRenderer(getDocument, i18n) {
+  const t = (...args) => i18n.t(...args);
+  const tp = (...args) => i18n.tp(...args);
+  // No 'use strict': ES modules are strict already. The IIFE needed the
+  // directive; a module does not.
 
   /* ── Attribute policy ───────────────────────────────────────────────── */
 
@@ -531,7 +553,7 @@
     return String(token).replace(/-([a-z])/g, function (m, c) { return c.toUpperCase(); });
   }
 
-  var R = factory(function () { return global.document; });
+  var R = factory(getDocument);
 
   /** Bind the factory to a detached document, for the two document builders. */
   R.for = function (ownerDoc) { return factory(function () { return ownerDoc; }); };
@@ -548,5 +570,5 @@
   R.MAX_HOST_CHARS = MAX_HOST_CHARS;
   R.MAX_RECORDS_SHOWN = MAX_RECORDS_SHOWN;
 
-  global.R = R;
-})(window);
+  return R;
+}

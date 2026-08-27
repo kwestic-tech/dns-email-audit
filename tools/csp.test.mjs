@@ -153,9 +153,13 @@ const scanned = SOURCE_TREES
   .flatMap(dir => jsFiles(join(REPO, dir)))
   .filter(file => !file.endsWith('.test.js'))
   .sort();
-eq('the scan covers js/app.js', scanned.some(f => f.endsWith('app.js')), true);
-eq('the scan covers js/render.js', scanned.some(f => f.endsWith('render.js')), true);
-eq('the scan covers js/i18n.js', scanned.some(f => f.endsWith('i18n.js')), true);
+// Named by responsibility rather than by path, because the paths move every
+// Phase 2 commit and the property does not: whatever tree these files live in,
+// the markup-sink scan has to be looking at them.
+eq('the scan covers the audit coordinator', scanned.some(f => f.endsWith('app.js')), true);
+eq('the scan covers the renderer', scanned.some(f => f.endsWith('render.js')), true);
+eq('the scan covers the i18n layer', scanned.some(f => f.endsWith('index.js') && f.includes(`${sep}i18n${sep}`)), true);
+eq('the scan covers the protocol engine', scanned.some(f => f.endsWith('dns.js')), true);
 eq('the scan covers the src/ tree', scanned.some(f => f.includes(`${sep}src${sep}`)), true);
 eq('and excludes co-located tests by suffix alone',
   scanned.some(f => f.endsWith('.test.js')), false);

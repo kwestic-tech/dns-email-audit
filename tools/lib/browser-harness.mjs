@@ -26,6 +26,8 @@ import { createDocument, MarkupSinkError } from './dom-shim.mjs';
 import { PUBLIC_SUFFIX_RULES } from '../../src/data/public-suffixes.js';
 import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
 import { LOCALE_EN } from '../../src/data/locales-en.js';
+import { createI18n } from '../../src/i18n/index.js';
+import { createRenderer } from '../../src/ui/render.js';
 
 export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -73,11 +75,29 @@ export function loadApp(opts = {}) {
   win.__I18N_EN__ = data.englishBundle;
   vm.createContext(win);
 
-  const files = opts.files || [
-    'js/i18n.js',
-    'js/render.js',
-    'js/app.js',
-  ];
+  // i18n and the renderer are ES modules now, constructed here exactly as
+  // src/legacy-bridge.js constructs them for the bundle, then installed as the
+  // globals the remaining IIFEs still read. One instance each, matching the
+  // singleton they were.
+  const i18n = createI18n({
+    englishBundle: data.englishBundle,
+    // The same primitive set src/legacy-bridge.js passes, taken from the
+    // sandbox rather than from Node's globals.
+    platform: {
+      document: win.document,
+      localStorage: win.localStorage,
+      fetch: (...args) => win.fetch(...args),
+      navigator: win.navigator,
+      console: win.console,
+    },
+  });
+  win.i18n = i18n;
+  win.t = i18n.t;
+  win.tp = i18n.tp;
+  win.tRaw = i18n.tRaw;
+  if (opts.render !== false) win.R = createRenderer(() => win.document, i18n);
+
+  const files = opts.files || ['js/app.js'];
   for (const file of files) {
     vm.runInContext(readFileSync(join(REPO, file), 'utf8'), win, { filename: file });
   }
