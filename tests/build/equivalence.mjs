@@ -122,7 +122,9 @@ async function runCase(root, testCase, entry) {
   const css = existsSync(cssPath) ? readFileSync(cssPath, 'utf8') : '';
   const fetchImpl = tracingFetch(testCase.fetch(), css);
 
-  const subject = loadSubject(root, { entry, fetch: fetchImpl, instant: FIXED_INSTANT });
+  const subject = loadSubject(root, {
+    entry, fetch: fetchImpl, instant: FIXED_INSTANT, platform: testCase.platform,
+  });
   const { win, document } = subject;
 
   // The download boundary. `js/app.js:1434` builds a Blob and clicks a
@@ -201,6 +203,11 @@ async function runCase(root, testCase, entry) {
   return {
     id: testCase.id,
     description: testCase.description,
+    // Part of the case's identity, not a detail. A surface set captured under a
+    // substituted platform is not comparable with one captured under the host's
+    // own, and recording it here is what makes that visible instead of showing
+    // up as an unexplained result diff.
+    platform: subject.manifest.platform,
     result: encode(audits.sort((a, b) => (a.domain < b.domain ? -1 : a.domain > b.domain ? 1 : 0))),
     trace: {
       ...canonicalQueryTrace(calls, fetchImpl.observed()),
@@ -344,6 +351,9 @@ export function compare(baseline, current) {
     const baselineCase = byId.get(currentCase.id);
     if (!baselineCase) { diffs.push(`case ${currentCase.id}: absent from the baseline`); continue; }
     byId.delete(currentCase.id);
+    if (baselineCase.platform !== currentCase.platform) {
+      diffs.push(`case ${currentCase.id}: platform profile ${baselineCase.platform} -> ${currentCase.platform}`);
+    }
     for (const surface of ['result', 'trace', 'csv', 'report', 'dom']) {
       const a = serialize(baselineCase[surface]);
       const b = serialize(currentCase[surface]);
@@ -368,7 +378,9 @@ function firstDifference(a, b) {
 
 export { runCase, tracingFetch, parseArgs };
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Guarded on argv[1] existing: this module is imported by the validator and by
+// the coverage tool, and `node --input-type=module -e` has no argv[1] at all.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(error => {
     console.error(`equivalence: ${error.message}`);
     process.exit(2);

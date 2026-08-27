@@ -21,6 +21,7 @@
 import {
   dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa, ds, dnskey, rrsig,
 } from '../../../tools/lib/doh-fixture.mjs';
+import { RSA_2048_SPKI, RSA_2048_PKCS1, RSA_1024_SPKI, RSA_512_SPKI, ED25519_RAW } from './keys.mjs';
 
 /* ── Shared record shapes ─────────────────────────────────────────────── */
 
@@ -28,7 +29,7 @@ import {
 // matcher reports no-matching-key or digest-mismatch rather than confirming.
 const ORPHAN_DS = ds('12345 8 2 ' + 'ab'.repeat(32));
 /** A conformant 2048-bit RSA SPKI public key, shared by the DKIM fixtures. */
-const RSA_2048_SPKI = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy8Hn4Xk1cVw2rQ7pT9mN3bY6dK8fJ2gL5hR0sW4vZ1xC6nM9qA3tE7uI0oP2yB5jD8kF1lG4hN7mS0wX3zV6cR9bT2eU5iO8pA1yQ4rL7nK0dH3gJ6fM9sB2vC5xZ8jW1tY4uI7oE0pR3qS6bN9mF2lD5hG8kA1cX4vT7zJ0yB3wQ6rM9nL2sP5dK8fH1gT4uE7iO0aY3xC6jV9bW2mR5tZ8pN1qL4hS7kD0gF3lJ6nB9wI2yA5cM8vX1oT4rE7uQ0pK3zH6dG9jS2bY5fN8mL1tW4xV7iC0aR3qP6nZ9kJ2gD5hB8lF1yO4uT7wM0sX3vE6cQwIDAQAB';
+
 
 const SOME_DNSKEY = dnskey('257 3 8 AwEAAcJ8Fd6n4u9pQqZ8kX2mB1vN3wY5tR7cL0aS6dF9gH2jK4mP8nQ1rT3v');
 
@@ -431,4 +432,69 @@ cases.push({
     'selector1._domainkey.a.grade.test TXT': txt('v=DKIM1; k=rsa; p=' + RSA_2048_SPKI),
     'mail.other.test A': a('198.51.100.10'),
   }),
+});
+
+/* ── 14. Web Crypto refusing a key the DER walk accepted ──────────────── */
+
+/**
+ * The DKIM fixture both profiles share.
+ *
+ * A conformant 2048-bit RSA SPKI key. Nothing about it is malformed — the
+ * point of the pair below is that the *same* published record produces two
+ * different operator-visible verdicts depending on what the browser's Web
+ * Crypto does with it.
+ */
+const CRYPTO_PROFILE_RECORDS = domain => ({
+  [`${domain} NS`]: ns('ns1.other.test'),
+  [`${domain} MX`]: mx('10 mail.other.test'),
+  [`${domain} TXT`]: txt('v=spf1 -all'),
+  [`_dmarc.${domain} TXT`]: txt('v=DMARC1; p=reject; rua=mailto:d@' + domain),
+  [`selector1._domainkey.${domain} TXT`]: txt('v=DKIM1; k=rsa; p=' + RSA_2048_SPKI),
+  'mail.other.test A': a('198.51.100.10'),
+});
+
+/**
+ * `cryptoValidated: false` and `key-structure-invalid`, through all five
+ * surfaces.
+ *
+ * **Native Node Web Crypto cannot produce this state**, and this case does not
+ * claim it does. `validateDkimKeyStructure()` (js/dns.js:1067) sets `false`
+ * only when `crypto.subtle.importKey` rejects a key the project's own DER walk
+ * has already accepted, and Node v26.7.0 imported every probe inside that
+ * window — 16-bit through 2048-bit moduli, `e=3` and `e=65537`. The keys Node
+ * might have refused are rejected by `derReadRsaPublicKey()` first and never
+ * reach the import. A stricter browser does reject keys in this window, which
+ * is why the production branch exists at all.
+ *
+ * Coverage of these two states therefore DEPENDS ON the explicit
+ * `crypto-import-rejects` platform profile, which is recorded in the manifest
+ * for every case. Nothing is fabricated: the production code constructs the
+ * state itself when the injected `importKey` rejects, exactly as it would in a
+ * browser. No result object is assembled by hand anywhere in this corpus.
+ *
+ * Recorded per the §6 decision of 2026-08-27 — see
+ * `tests/state-algebras.json`, algebra `dkim.key.cryptoValidated`.
+ */
+cases.push({
+  id: 'dkim-crypto-import-rejects',
+  description: 'a conformant RSA key whose Web Crypto import is refused — cryptoValidated false, key-structure-invalid',
+  platform: 'crypto-import-rejects',
+  domains: [{ domain: 'refused.crypto.test' }],
+  fetch: () => corpusFixture(CRYPTO_PROFILE_RECORDS('refused.crypto.test')),
+});
+
+/**
+ * The negative control, and it carries an acceptance criterion of its own.
+ *
+ * Same records, same wrapper, `importKey` delegated instead of refused. It is
+ * what makes the case above evidence rather than an observation: without it,
+ * the difference could be anything about running under a substituted platform.
+ * With it, the two cases differ in exactly one thing.
+ */
+cases.push({
+  id: 'dkim-crypto-import-accepts',
+  description: 'the same key under the same wrapper with the import delegated — the control that isolates the refusal',
+  platform: 'crypto-import-accepts',
+  domains: [{ domain: 'accepted.crypto.test' }],
+  fetch: () => corpusFixture(CRYPTO_PROFILE_RECORDS('accepted.crypto.test')),
 });

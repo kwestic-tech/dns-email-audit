@@ -28,17 +28,19 @@ import {
   probePublicSuffixRules, probeDkimCatalog, assertFixtureIdentity,
 } from '../lib/fixture-identity.mjs';
 import { dohFixture, txt, ns, caa, ds, dnskey } from '../../tools/lib/doh-fixture.mjs';
+import { PLATFORM_PROFILES } from '../lib/platform.mjs';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { eq, throws, rejects, section, report } = createSuite();
 
 /* ── Loading ──────────────────────────────────────────────────────────── */
 
-function load(pslRules) {
+function load(pslRules, cryptoImpl = crypto) {
   const sandbox = {
     window: { __PUBLIC_SUFFIX_RULES__: pslRules },
     fetch: async () => ({ ok: false }),
-    console, AbortController, URLSearchParams, setTimeout, clearTimeout, crypto,
+    console, AbortController, URLSearchParams, setTimeout, clearTimeout,
+    crypto: cryptoImpl,
   };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
@@ -322,6 +324,69 @@ eq('a bare string names its reason', D.validateDmarcVersion('').reason, 'absent'
 // DMARC, which is different from a diagnosed one.
 eq('an SPF record is not diagnosed as DMARC', D.diagnoseDmarcRecord('v=spf1 -all'), null);
 eq('a lowercase version IS diagnosed', D.diagnoseDmarcRecord('v=dmarc1; p=none'), 'version-bad-case');
+
+/* ── 5b. Web Crypto refusing a key the DER walk accepted ──────────────── */
+section('5b. Platform-dependent key validation (§6 decision, 2026-08-27)');
+
+/**
+ * `cryptoValidated: false` and `key-structure-invalid` are set only when
+ * `crypto.subtle.importKey` rejects a key `derReadRsaPublicKey()` has already
+ * accepted (js/dns.js:1067). **Native Node Web Crypto cannot produce that** —
+ * every probe inside the walk's accepted window imported successfully on
+ * v26.7.0, and the keys Node might refuse are rejected by the walk first.
+ *
+ * So this state is reached by substituting the crypto primitive, which is the
+ * same move the project already makes with `fetch` and which spec §11 names
+ * `crypto` an injectable platform primitive for. Nothing is fabricated: the
+ * production branch constructs the state itself.
+ *
+ * The equivalence corpus carries the same pair — `dkim-crypto-import-rejects`
+ * and `dkim-crypto-import-accepts` — because the state is operator-visible and
+ * spec §12.1 requires an equivalence fixture for those. These assertions are
+ * the focused half, not a substitute for it.
+ */
+const REAL_RSA_2048_SPKI = (await import('../fixtures/equivalence/keys.mjs')).RSA_2048_SPKI;
+const goodKeyRecord = 'v=DKIM1; k=rsa; p=' + REAL_RSA_2048_SPKI;
+
+// First: the key really is one the DER walk accepts on its own. Without this
+// the pair below would pass just as happily on a key nothing could parse,
+// which is how the first draft of the corpus went unnoticed.
+const walked = D.analyzeDkimKey(goodKeyRecord);
+eq('the DER walk reads the size without the browser', walked.keyBits, 2048);
+eq('and the envelope', walked.keyEncoding, 'spki');
+eq('with no errors of its own', walked.errors, []);
+eq('and no verdict yet from Web Crypto', walked.cryptoValidated, null);
+
+const rejecting = load(FIXTURE_PSL_RULES, PLATFORM_PROFILES['crypto-import-rejects'].crypto());
+const accepting = load(FIXTURE_PSL_RULES, PLATFORM_PROFILES['crypto-import-accepts'].crypto());
+
+const refused = await rejecting.D.validateDkimKeyStructure(rejecting.D.analyzeDkimKey(goodKeyRecord), goodKeyRecord);
+eq('a refused import records cryptoValidated false', refused.cryptoValidated, false);
+eq('and pushes key-structure-invalid', refused.errors.includes('key-structure-invalid'), true);
+eq('and lowers valid', refused.valid, false);
+// The size was read without the browser's help and does not become less true
+// because the browser declined to confirm it — js/dns.js:1049.
+eq('and leaves the DER-derived size exactly as it was', refused.keyBits, 2048);
+
+// The negative control. Same wrapper, import delegated. If this moved too, the
+// case above would prove only that a substituted platform changes something.
+const confirmed = await accepting.D.validateDkimKeyStructure(accepting.D.analyzeDkimKey(goodKeyRecord), goodKeyRecord);
+eq('the control confirms the same key', confirmed.cryptoValidated, true);
+eq('with no error', confirmed.errors, []);
+eq('and stays valid', confirmed.valid, true);
+eq('the two profiles disagree about the same record',
+  refused.cryptoValidated === confirmed.cryptoValidated, false);
+
+// Native Node is the control's equal, which is the measurement this decision
+// rests on. If a future Node starts refusing, this assertion is where it shows.
+const native = await D.validateDkimKeyStructure(D.analyzeDkimKey(goodKeyRecord), goodKeyRecord);
+eq('native Node Web Crypto accepts it, so the corpus cannot reach false without the profile',
+  native.cryptoValidated, true);
+
+// The wrapper delegates digest, so a profile cannot silently move the DNSSEC
+// surface while claiming to change only key validation.
+eq('the rejecting profile still computes digests',
+  typeof PLATFORM_PROFILES['crypto-import-rejects'].crypto().subtle.digest, 'function');
 
 /* ── 6. The issue vocabulary closes against locales/en.json ───────────── */
 section('6. Issue token vocabulary (audit.issue.key)');

@@ -232,7 +232,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -292,7 +294,9 @@
         "hygiene-sentinels",
         "spf-subnets-and-lookups",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -343,7 +347,9 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -492,7 +498,9 @@
       "suites": [],
       "fixtures": [
         "enforcing-signed",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -510,7 +518,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -525,7 +535,9 @@
       "suites": [],
       "fixtures": [
         "enforcing-signed",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -542,7 +554,9 @@
         "enforcing-signed",
         "parked-null-mx",
         "provider-sentinels",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -581,7 +595,9 @@
       ],
       "fixtures": [
         "enforcing-signed",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -602,10 +618,7 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": [
-        "enforcing-signed",
-        "grade-tiers"
-      ]
+      "fixtures": []
     },
     {
       "algebra": "dkim.key.keyEncoding",
@@ -617,7 +630,12 @@
       "algebra": "dkim.key.keyEncoding",
       "member": "spki",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "enforcing-signed",
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
+      ]
     },
     {
       "algebra": "dkim.key.version",
@@ -635,7 +653,9 @@
       ],
       "fixtures": [
         "enforcing-signed",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -644,22 +664,25 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": [
-        "enforcing-signed",
-        "grade-tiers"
-      ]
+      "fixtures": []
     },
     {
       "algebra": "dkim.key.cryptoValidated",
       "member": "true",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "enforcing-signed",
+        "grade-tiers",
+        "dkim-crypto-import-accepts"
+      ]
     },
     {
       "algebra": "dkim.key.cryptoValidated",
       "member": "false",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-crypto-import-rejects"
+      ]
     },
     {
       "algebra": "dkim.key.errors",
@@ -703,10 +726,7 @@
       "algebra": "dkim.key.errors",
       "member": "unparseable-key",
       "suites": [],
-      "fixtures": [
-        "enforcing-signed",
-        "grade-tiers"
-      ]
+      "fixtures": []
     },
     {
       "algebra": "dkim.key.errors",
@@ -724,7 +744,9 @@
       "algebra": "dkim.key.errors",
       "member": "key-structure-invalid",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-crypto-import-rejects"
+      ]
     },
     {
       "algebra": "dkim.key.restrictions",
@@ -752,7 +774,9 @@
         "enforcing-signed",
         "cache-reuse-siblings",
         "parked-null-mx",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -803,7 +827,9 @@
         "enforcing-signed",
         "cache-reuse-siblings",
         "parked-null-mx",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -844,7 +870,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -876,7 +904,9 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -914,7 +944,9 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -951,7 +983,9 @@
       "fixtures": [
         "enforcing-signed",
         "parked-null-mx",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -970,7 +1004,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -998,7 +1034,9 @@
         "dnssec-bogus",
         "dnssec-orphan-ds",
         "hygiene-sentinels",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1073,7 +1111,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1160,7 +1200,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1191,7 +1233,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1359,7 +1403,9 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1419,7 +1465,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1473,7 +1521,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1492,7 +1542,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1511,7 +1563,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1725,7 +1779,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1746,7 +1802,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1896,7 +1954,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -1928,7 +1988,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2040,7 +2102,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2064,7 +2128,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2082,7 +2148,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2212,7 +2280,9 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2245,7 +2315,9 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2301,7 +2373,9 @@
       "member": "B",
       "suites": [],
       "fixtures": [
-        "parked-null-mx"
+        "parked-null-mx",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2365,7 +2439,9 @@
       "member": "score-b",
       "suites": [],
       "fixtures": [
-        "parked-null-mx"
+        "parked-null-mx",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2416,7 +2492,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2435,7 +2513,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2453,7 +2533,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2472,7 +2554,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2491,7 +2575,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2509,7 +2595,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2527,7 +2615,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2545,7 +2635,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2564,7 +2656,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2583,7 +2677,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2602,7 +2698,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2621,7 +2719,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2694,7 +2794,6 @@
       "member": "warn",
       "suites": [],
       "fixtures": [
-        "enforcing-signed",
         "bare-registered",
         "cache-reuse-siblings",
         "parked-null-mx",
@@ -2705,7 +2804,7 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "dkim-crypto-import-rejects"
       ]
     },
     {
@@ -2724,7 +2823,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2747,7 +2848,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2764,7 +2867,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2781,7 +2886,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2798,7 +2905,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2813,7 +2922,9 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2827,7 +2938,9 @@
       "member": "bimiEligible",
       "suites": [],
       "fixtures": [
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2860,7 +2973,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2877,7 +2992,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2894,7 +3011,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -2909,7 +3028,9 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -3049,8 +3170,7 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "enforcing-signed",
-        "grade-tiers"
+        "dkim-crypto-import-rejects"
       ]
     },
     {
@@ -3594,7 +3714,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {
@@ -3622,7 +3744,9 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "grade-tiers"
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts"
       ]
     },
     {

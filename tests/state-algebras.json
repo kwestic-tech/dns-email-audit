@@ -8,7 +8,8 @@
     "Every member carries the site where it is constructed. `closed:false` means the",
     "vocabulary is open by construction and the listed members are the sentinels or",
     "representative values that must still be covered.",
-    "`resultPaths` says where an algebra's members appear in an analyzeDomain() result, so corpus coverage is EXTRACTED from real runs rather than assigned by hand. An empty list means the algebra is not observable in the result and is covered by a suite."
+    "`resultPaths` says where an algebra's members appear in an analyzeDomain() result, so corpus coverage is EXTRACTED from real runs rather than assigned by hand. An empty list means the algebra is not observable in the result and is covered by a suite.",
+    "§6 decision, 2026-08-27: dkim.key.cryptoValidated:false and dkim.key.errors:key-structure-invalid are covered through an explicit, deterministic platform profile rather than by native Node Web Crypto, which cannot produce them. See the note on dkim.key.cryptoValidated."
   ],
   "version": 1,
   "baseline": "v0.5.0",
@@ -371,7 +372,7 @@
         "true",
         "false"
       ],
-      "note": "null is 'not attempted' and is the only value analyzeDkimKey() itself ever sets. false never on its own makes a key invalid, but it does push key-structure-invalid and set valid=false at js/dns.js:1070.",
+      "note": "null is 'not attempted' and is the only value analyzeDkimKey() itself ever sets. false never on its own makes a key invalid, but it does push key-structure-invalid and set valid=false at js/dns.js:1070. PLATFORM-DEPENDENT, and recorded as a §6 decision of 2026-08-27. `false` is set only when the injected crypto.subtle.importKey REJECTS a key derReadRsaPublicKey() (js/dns.js:801) has already accepted: odd modulus, odd exponent >= 3 and strictly below it, minimally encoded, no trailing content. Native Node Web Crypto cannot currently produce that state — measured on v26.7.0, every probe inside that window imported successfully (16-bit through 2048-bit moduli, e=3 and e=65537), and the keys Node might refuse (e=1, even exponent, even modulus) are rejected by the DER walk first and never reach the import. A stricter browser does reject keys in this window, which is why the production branch exists. Coverage therefore DEPENDS ON the explicit `crypto-import-rejects` platform profile (tests/lib/platform.mjs), which is recorded in the equivalence manifest for every case, paired with a `crypto-import-accepts` control that isolates the refusal. This is NOT native-Node corpus coverage and must not be described as such. Nothing is fabricated: production code constructs the state when the injected importKey rejects, and no result object is assembled by hand anywhere. Because the state is operator-visible, spec §12.1's equivalence-fixture requirement is met by corpus cases dkim-crypto-import-rejects and dkim-crypto-import-accepts, with focused assertions in tests/contract/legacy-shapes.test.mjs §5b.",
       "resultPaths": [
         "dkimStatus.selectors[].key.cryptoValidated"
       ]
@@ -405,7 +406,7 @@
         "invalid-notes": "js/dns.js:990",
         "key-structure-invalid": "js/dns.js:1068"
       },
-      "note": "Parser error-token array. Spec §12.1 requires these snapshotted separately from a generic status scan.",
+      "note": "Parser error-token array. Spec §12.1 requires these snapshotted separately from a generic status scan. `key-structure-invalid` is platform-dependent on the same terms as dkim.key.cryptoValidated — see that algebra's note for the §6 decision.",
       "resultPaths": [
         "dkimStatus.selectors[].key.errors[]",
         "dkimStatus.unusableSelectors[].key.errors[]",

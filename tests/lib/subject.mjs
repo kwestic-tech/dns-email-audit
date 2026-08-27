@@ -24,6 +24,7 @@ import { join, posix } from 'node:path';
 import vm from 'node:vm';
 
 import { createDocument } from '../../tools/lib/dom-shim.mjs';
+import { platformProfile } from './platform.mjs';
 
 /**
  * The time zone every subject formats in.
@@ -132,6 +133,10 @@ export function loadSubject(root, options = {}) {
 
   const document = createDocument();
   const instant = options.instant ?? FIXED_INSTANT;
+  // Substituting an ambient primitive is the same move this project makes with
+  // `fetch`, and the profile is recorded in the manifest so a baseline captured
+  // under one cannot be silently compared against another.
+  const platform = platformProfile(options.platform);
   const win = {
     document,
     navigator: { language: FIXED_LOCALE, languages: [FIXED_LOCALE] },
@@ -145,7 +150,7 @@ export function loadSubject(root, options = {}) {
     console: options.console || console,
     setTimeout, clearTimeout, queueMicrotask,
     URL, URLSearchParams, AbortController,
-    crypto,
+    crypto: platform.crypto(),
     Date: pinnedDate(instant),
     Intl,
   };
@@ -197,6 +202,7 @@ export function loadSubject(root, options = {}) {
       locale: FIXED_LOCALE,
       timezone: FIXED_TIMEZONE,
       resolvedTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      platform: platform.id,
       node: process.version,
       icu: process.versions.icu,
       unicode: process.versions.unicode,
