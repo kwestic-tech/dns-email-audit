@@ -649,3 +649,177 @@ that are genuinely inconsequential — key ordering, whitespace, float formattin
 If the canonicalization rules end up absorbing those, they may absorb real
 regressions with them. A judgment on where that line sits is more useful now
 than after the corpus is built.
+
+---
+
+# Round 2 response — 2026-08-27
+
+**Reviewed:** [`CODEX follow-up review for Modular Refactor.md`](CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §§7–10, disposition *IIFE accepted in principle; changes still requested before `1.0 (Final)`*
+**Spec:** still **`0.3 (Draft)`**. Revision `0.4` is scoped below but **not yet written**.
+**Response:** **All eight findings verified and accepted. None declined.**
+**Already applied:** R2-F8 (document drift), commit `6db4278`
+**One refinement offered:** R2-F2's four algebras already exist in the code — see below
+
+## Verification
+
+Same method as round 1: reproduce before folding in. **Every checkable claim
+held.** Two of them falsify claims this spec made in `0.2`/`0.3`.
+
+| Finding | How it was checked | Result |
+| --- | --- | --- |
+| R2-F1 | `grep 'global\.\w* ='` across all four hand-written files | **Confirmed, and understated** — see below |
+| R2-F2 | Read `responseKind()` and every `kind:` construction site in `js/dns.js` | **Confirmed exactly** — all ten kinds, verbatim |
+| R2-F4 | Compared Scope item 7 against the binding definition and acceptance criteria | Confirmed — HTML parity had fallen out of the gate |
+| R2-F7 | esbuild `metafile.inputs` vs. a per-file sentinel | Confirmed — the metafile is authoritative, the sentinel is not |
+| R2-F8 ×4 | Read each cited line | All four confirmed; all four fixed in `6db4278` |
+
+R2-F3, R2-F5 and R2-F6 assert that things are *unspecified*. They are: nothing
+in `0.3` defines the composition factory, the allowed-edge matrix, or a
+state-to-fixture matrix. Accepted without dispute.
+
+## Correction 1 — the `globalName` claim was false, and worse than stated
+
+`0.2` Design §6 claimed `globalName: 'DnsAudit'` would give the artifact
+*"exactly the surface the existing `node:vm` harness already reaches"*. That is
+not what the option does, and round 2 is right to reject it.
+
+The verification makes the point sharper than the review does. The application's
+global surface is **five separate namespaces**, not one:
+
+| Global | Assigned at |
+| --- | --- |
+| `DnsAudit` | [`js/dns.js:5601`](js/dns.js) |
+| `startAudit`, `cancelAudit`, `exportCSV`, … | [`js/app.js:1768`](js/app.js) |
+| `__APP_TEST__` | [`js/app.js:1785`](js/app.js) — read by `render.test.mjs:21`, `export.test.mjs:17` |
+| `R` | [`js/render.js:551`](js/render.js) |
+| `i18n`, `t`, `tp` | [`js/i18n.js:386`](js/i18n.js) |
+
+A single `globalName` cannot reproduce five namespaces, and in a classic script
+the generated top-level `var DnsAudit` would **overwrite** the real object from
+line 5601. The proposal as written would have broken the application on the
+exact commit that moves the delivery boundary — Task 1.6, the highest-stakes
+commit in Phase 1.
+
+**Accepted in full**, including all four required stages: no colliding
+`globalName` during the legacy phase, a designed ESM facade before the legacy
+assignment is removed, a checked-in expected member list asserted against both
+source and bundle, and a source contract forbidding reads or writes of the
+namespace outside the adapter and the generated boundary.
+
+**One fact for the facade's design.** `index.html` contains **zero** inline
+event handlers — `grep -c 'onclick=\|onchange='` returns 0, as the CSP requires,
+since `script-src` carries no `'unsafe-inline'`. So `startAudit`, `cancelAudit`
+and `exportCSV` are **not** an HTML dependency; they are legacy surface plus
+test surface. This supports round 2's instruction not to promote `__APP_TEST__`
+to production API, and it means the supported facade can be considerably smaller
+than the current global footprint. The facade should be derived from what the
+application and its tests genuinely need, enumerated, rather than from what the
+IIFEs happen to expose today.
+
+## Correction 2 — the resolver algebra was invented
+
+`0.2` Design §3 said the resolver returns a union over *"absent, invalid,
+transport failure, unsupported, indeterminate."* That vocabulary is from
+[resilient-optional-checks](docs/specs/implemented/resilient-optional-checks.md)
+and describes the **protocol/audit** layer. Applying it to transport was a layer
+confusion. The real kinds are the ten round 2 lists, confirmed at their
+construction sites:
+
+| Kind | Source |
+| --- | --- |
+| `success`, `nodata` | `responseKind()`, status 0, by answer count |
+| `nxdomain`, `servfail`, `refused`, `dns-error` | `responseKind()`, statuses 3 / 2 / 5 / other |
+| `http-error` | [`js/dns.js:189`](js/dns.js) |
+| `cancelled` | [`js/dns.js:195`](js/dns.js) |
+| `timeout`, `network-error` | [`js/dns.js:196`](js/dns.js) |
+
+`DnsTypeError` is **thrown** at [`js/dns.js:121`](js/dns.js), never returned.
+
+Round 2 is right that collapsing these would erase live distinctions. Three
+that a five-label scheme could not have expressed:
+
+- `servfail` drives the `resolver-bogus` DNSSEC claim at
+  [`js/dns.js:4022`](js/dns.js); folding it into "transport failure" deletes a
+  security conclusion.
+- `domainExists()` maps `nxdomain` → `'no'` and `success`/`nodata` → `'yes'`
+  at [`js/dns.js:2203`](js/dns.js); everything else is `'unknown'`.
+- Retry breaks on `success`/`nodata`/`nxdomain`/**`cancelled`**
+  ([`js/dns.js:216`](js/dns.js)) while the cache admits only the first three
+  ([`js/dns.js:219`](js/dns.js)). `cancelled` is retry-terminal and
+  non-cacheable — a four-way distinction inside what `0.2` called one label.
+
+### Refinement: the four layers already exist — document them, do not build them
+
+Round 2's required change lists four algebras to *specify*. Read as an
+instruction to **introduce** a normalization layer, that would be a
+behavior-shaped change during a move, which §35 forbids. It is not needed,
+because the layering is already in the code:
+
+| Layer | Implementation | Shape |
+| --- | --- | --- |
+| 1. Raw transport | `dohFetch()` | The ten kinds above |
+| 2. Usability gate | `requireUsable()` ([`js/dns.js:256`](js/dns.js)) | `success`/`nodata`/`nxdomain` pass through; the other seven become `dnsError(kind, …)` throws |
+| 3. Normalized records | `dohQuery()`, `dohAll()` ([`js/dns.js:281`](js/dns.js)) | Arrays of cleaned strings — **no kind at all** |
+| 4. Error and cancellation policy | `optionalCheck()` ([`js/dns.js:247`](js/dns.js)) | Catches to a declared unknown; **re-throws** `AbortError` and `DnsTypeError` |
+| — | Direct-kind consumers | `domainExists()`, `checkConnectivity()`, and the DNSSEC `servfail` path read `.kind` deliberately |
+
+So 0.4 will **document these five, exactly as they are**, with contract tests
+enumerating every member and pinning the `cancelled`-is-retry-terminal-but-not-cacheable
+rule and the `optionalCheck` re-throw set. It will not add a layer. The
+direct-kind consumers are named as explicit, allowed exceptions rather than
+tidied into a uniform interface, because each one is a deliberate distinction
+that a uniform interface would flatten.
+
+> **Verdict requested.** Does documenting the existing five-layer stack satisfy
+> R2-F2, or does round 2 intend a genuinely new normalized layer? If the latter,
+> it is a behavior change and belongs in a release after 0.6.0.
+
+## Disposition
+
+| # | Disposition | Where it goes in `0.4` |
+| --- | --- | --- |
+| R2-F1 | **Accepted in full** | Design §6 rewritten; plan Tasks 1.3/1.4/1.9 staged; facade member list checked in; namespace source contract added |
+| R2-F2 | **Accepted, with the refinement above** | Design §3 replaced by the five documented layers; contract tests enumerate members |
+| R2-F3 | **Accepted** | New Design section: runtime factory, passed-vs-imported bindings, page/audit/call lifetimes, behavioral proof of fixture identity, no ESM-cache-as-DI |
+| R2-F4 | **Accepted** | Canonicalization spec checked in **before** the corpus; HTML report parity restored to the gate; query trace becomes a normalized multiset plus targeted order assertions for DMARC walk and SPF recursion |
+| R2-F5 | **Accepted** | Allowed-edge matrix; SCC rejection; per-directory API table; global-namespace rule from R2-F1 |
+| R2-F6 | **Accepted** | State-to-suite/fixture matrix replaces the prose corpus list as the Gate 0 proof |
+| R2-F7 | **Accepted** | `metafile.inputs` and source-map `sources` become the binding checks; sentinel demoted to defence in depth |
+| R2-F8 | **Applied** | Commit `6db4278` |
+
+`OQ-ARCH-06` is answered: **IIFE**, conditional on R2-F1 and R2-F5. It moves to
+Resolved in `0.4`, leaving no open questions — the remaining work is
+specification, not decision.
+
+## Sequencing for revision 0.4
+
+Round 2's eight items are more design than rounds 0–2 combined, and two of them
+gate the rest. Proposed order:
+
+1. **The `OQ-ARCH-01` spike, first.** Round 2 is explicit that an accepted IIFE
+   design is not evidence the unmodified legacy bundle runs on both platforms.
+   Until it does, Phase 1 is hypothetical and R2-F1's stage 1 has no ground
+   under it.
+2. **R2-F1 and R2-F2** — the facade and the layer documentation. A wrong answer
+   here invalidates the DAG, the composition root and the corpus.
+3. **R2-F3**, then **R2-F5** — the factory determines what the edges can be.
+4. **R2-F4**, then **R2-F6** — canonicalization must exist before the corpus is
+   captured, and the state matrix is what proves the corpus complete.
+
+Drafting all eight at once is how the last two rounds' errors happened: the
+`globalName` claim and the resolver algebra were both mechanisms asserted rather
+than checked. Anything in 0.4 that describes tool or runtime behavior will carry
+a command or a file-and-line citation behind it.
+
+## Round 3 will be asked for
+
+Not yet — `0.4` does not exist. When it does:
+
+1. Whether the documented five-layer stack is faithful, or whether a move would
+   still flatten something.
+2. Whether the facade member list is the right surface — too small breaks a
+   consumer, too large freezes internals as public API.
+3. Omissions in the API and DAG tables, and in the failure-state matrix, which
+   round 2 named as the natural next target.
+4. Whether the canonicalization rules absorb real regressions along with the
+   inconsequential differences they exist to tolerate.
