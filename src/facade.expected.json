@@ -1,0 +1,36 @@
+{
+  "$comment": [
+    "The supported browser API of DNS & Email Audit, from 0.6.0 onward. Spec §10, stage 2.",
+    "",
+    "CHECKED IN, not derived. The whole point of this file is that it is a decision recorded",
+    "before the build was allowed to produce the surface, so that the surface can be compared",
+    "against something a person wrote rather than against whatever esbuild happened to emit.",
+    "A test that read the facade out of the bundle would agree with the bundle by construction.",
+    "",
+    "Two members, from a 95-member surface. Derived from ACTUAL CONSUMERS, which is what review",
+    "round 2 asked for: analyzeDomain and checkConnectivity are the only two DnsAudit members",
+    "the application itself calls. 77 of the other 93 were used by tools/scoring.test.mjs and 4",
+    "by tools/backtest.mjs; both became direct ESM imports in Task 2.3 and need no global.",
+    "",
+    "Asserted against BOTH the source module's exports and the built bundle's global, EXACTLY",
+    "and IN BOTH DIRECTIONS, by tests/build/parity.test.mjs. Neither may carry a name this file",
+    "does not list, and neither may omit one it does. The contraction from 95 members does not",
+    "pass merely because Task 2.7 permits the global surface to move."
+  ],
+  "release": "0.6.0",
+  "globalName": "DnsAudit",
+  "members": [
+    "analyzeDomain",
+    "checkConnectivity"
+  ],
+  "bundlerArtifacts": {
+    "$comment": [
+      "Non-enumerable own properties esbuild's CommonJS interop adds to the namespace object.",
+      "Measured, not predicted: Object.keys() returns the two members above, and",
+      "Object.getOwnPropertyNames() additionally returns __esModule. It is listed here so that",
+      "the comparison can be exact on BOTH property views — an artifact that is written down is",
+      "a fact about the build, and one that is not is a surface nobody is watching."
+    ],
+    "nonEnumerable": ["__esModule"]
+  }
+}

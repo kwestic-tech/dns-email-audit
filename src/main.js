@@ -174,8 +174,14 @@ global.t = t;
 global.tp = tp;
 global.tRaw = tRaw;
 global.R = R;
-// All 95 members until Task 2.7 contracts DnsAudit to the supported facade.
-global.DnsAudit = DnsAudit;
+/* `window.DnsAudit` is NOT assigned here, and its absence is the Task 2.7
+ * delta. esbuild produces that name from this module's exports — §10's
+ * "generated boundary" — so the source graph creates 23 globals and the bundle
+ * creates 24. Assigning it here as well would put the 95-member engine on the
+ * window until the outer `var DnsAudit = …` overwrote it a moment later, which
+ * is the clobber spec 0.2 nearly shipped, observed rather than reasoned about:
+ * with both in place the window ends up holding the two-member object anyway.
+ */
 
   'use strict';
 
@@ -1980,17 +1986,19 @@ global.DnsAudit = DnsAudit;
   };
 
 /**
- * The supported facade. Spec §10.
+ * The supported facade, and the only supported browser API from 0.6.0 onward.
+ * Spec §10, stage 3.
  *
  * Two members, from a 95-member surface — the only two the body above calls.
- * `globalName: 'DnsAudit'` is NOT enabled yet: esbuild assigns the entry
- * point's exports to that name, and enabling it here would emit a top-level
- * `var DnsAudit` that overwrites the object assigned above. Both halves land
- * together in Task 2.7, against `src/facade.expected.json`.
+ * These are not merely the module's exports: esbuild assigns the ENTRY POINT'S
+ * EXPORTS to `globalName`, so this list IS `window.DnsAudit`. A third export
+ * added here would widen the supported API of the shipped application.
  *
- * The exports exist now so the entry has the shape the facade assertion will
- * measure, and `tests/contract/state-matrix.test.mjs` pins the count at two so
- * a third cannot arrive unnoticed between here and that commit.
+ * That is why it is checked in rather than inferred. `src/facade.expected.json`
+ * names the members, `tests/build/parity.test.mjs` asserts it against BOTH this
+ * module's exports and the built bundle's global — exactly, in both directions
+ * — and `tests/contract/state-matrix.test.mjs` reads the same file, so the
+ * source contract and the artifact contract cannot drift apart.
  */
 export const analyzeDomain = runtime.analyzeDomain;
 export const checkConnectivity = runtime.checkConnectivity;

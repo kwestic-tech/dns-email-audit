@@ -319,20 +319,36 @@ try { await run(htmlRoot); } catch (error) { refused = /listed in index.html but
 eq('a script listed in index.html but absent is refused, not skipped', refused, true);
 rmSync(htmlRoot, { recursive: true, force: true });
 
-// Generated data swapped for a fixture table. The runner must refuse to
-// produce surfaces at all rather than emit a baseline that looks authoritative
-// — this is the spike's failure mode moved up a level, where it would poison
-// every later comparison instead of one suite.
+/**
+ * Generated data swapped for a fixture table.
+ *
+ * The runner must refuse to produce surfaces at all rather than emit a baseline
+ * that looks authoritative — this is the spike's failure mode moved up a level,
+ * where it would poison every later comparison instead of one suite.
+ *
+ * The wording tolerated below covers both probe forms, and deliberately: an
+ * artifact that exposes the engine members is refused by the `PSL` probe and
+ * one that exposes only the facade by the `PSL table` probe. Which form a
+ * subject gets is recorded in its manifest (`subject.fixtureIdentity`), so a
+ * regex that admitted only one would start passing for the wrong reason the day
+ * the other form appeared.
+ */
 const swappedRoot = await makeRoot('swapped');
 writeFileSync(join(swappedRoot, 'src', 'data', 'public-suffixes.js'),
   "export const PUBLIC_SUFFIX_RULES = ['com','co.uk','*.ck','!www.ck'];\n");
 await build({ root: swappedRoot });
 let refusedData = false;
+let refusalMessage = '';
 try { await run(swappedRoot); } catch (error) {
-  refusedData = /the PSL binding in force is not the production one/.test(error.message) &&
+  refusalMessage = error.message;
+  refusedData = /the PSL(?: table)? binding in force is not the production one/.test(error.message) &&
     /this is exactly the fixture value/.test(error.message);
 }
 eq('a subject whose generated data was substituted is refused, not measured', refusedData, true);
+// And it named the discriminating rule, so whoever reads the failure knows what
+// was substituted rather than only that something was.
+eq('and the refusal names the rule that diverged',
+  /blogspot\.com/.test(refusalMessage), true);
 rmSync(swappedRoot, { recursive: true, force: true });
 
 /* ── 4. Ordering, and where its protection now lives ─────────────────── */

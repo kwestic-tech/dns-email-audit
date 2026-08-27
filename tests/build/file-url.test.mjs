@@ -163,9 +163,11 @@ const facts = await evaluate(`JSON.stringify({
   globals: ['DnsAudit','R','i18n','t','tp','tRaw','startAudit','cancelAudit','__APP_TEST__',
             '__PUBLIC_SUFFIX_RULES__','__I18N_EN__','__DKIM_SELECTOR_CATALOG__']
            .filter(n => typeof window[n] !== 'undefined'),
-  dnsAuditMembers: Object.keys(DnsAudit).length,
+  dnsAuditMembers: Object.keys(DnsAudit).sort(),
+  facadeCallable: Object.keys(DnsAudit).every(n => typeof DnsAudit[n] === 'function'),
+  pslCarriesBlogspot: __PUBLIC_SUFFIX_RULES__.includes('blogspot.com'),
+  appTestMembers: Object.keys(__APP_TEST__).length,
   pslRules: __PUBLIC_SUFFIX_RULES__.length,
-  weights: DnsAudit.WEIGHTS,
   lang: i18n.lang,
   title: t('doc.title'),
   documentTitle: document.title,
@@ -182,11 +184,26 @@ eq('no script is a module — a module would be blocked by CORS here', page1?.mo
 section('2. The application initialised');
 
 eq('all twelve probed globals exist', page1?.globals?.length, 12);
-eq('DnsAudit has its full surface', page1?.dnsAuditMembers, 95);
+
+/**
+ * The supported facade, in a real browser, from disk. Spec §10 stage 3.
+ *
+ * This asserted 95 members until Task 2.7. Two is the whole point of that
+ * commit, and `src/facade.expected.json` is the checked-in list both
+ * `parity.test.mjs` and `state-matrix.test.mjs` compare against — this is the
+ * third place, and the only one where the reader is Chrome.
+ */
+eq('DnsAudit exposes exactly the supported facade',
+  page1?.dnsAuditMembers, ['analyzeDomain', 'checkConnectivity']);
+eq('and both members are callable', page1?.facadeCallable, true);
 eq('the whole public suffix list is present', page1?.pslRules, 10239);
-eq('the scoring weights are intact',
-  JSON.stringify(page1?.weights),
-  JSON.stringify({ dmarc: 30, spf: 15, dkim: 15, dnssec: 15, caa: 10, mtaSts: 8, bimi: 4, tlsRpt: 3 }));
+// The discriminating rule, not just the count. A binding-level check, and spec
+// §11 as of 1.4 explains why there is no behavioural one: nothing in the
+// application reads the table.
+eq('and it is the real list, carrying the private blogspot.com rule',
+  page1?.pslCarriesBlogspot, true);
+eq('the application module evaluated and published its test surface',
+  page1?.appTestMembers, 30);
 
 section('3. i18n resolved with no network');
 
@@ -201,25 +218,55 @@ eq('the audit button carries translated text, not a placeholder',
   /Run Audit/i.test(page1?.auditButton || ''), true);
 eq('and the page has translatable nodes to have done it to', page1?.translatedNodes > 20, true);
 
-section('4. The engine ran real work');
+section('4. The application computed, in the browser');
 
-// Not a smoke test: this reads the bundled PSL and runs the DER key walk, both
-// of which would fail quietly if bundling had damaged the generated data.
+/**
+ * Real work, not a smoke test — and re-routed by Task 2.7 rather than dropped.
+ *
+ * This section used to call `DnsAudit.getOrganizationalDomain`, `gradeFor` and
+ * `analyzeDkimKey` off the global. The facade contraction removed all three
+ * from the browser deliberately: they were never supported API. Where that
+ * depth is proved now is `tests/build/parity.test.mjs` section 4, which runs
+ * three whole corpus audits through `analyzeDomain` against **this same
+ * artifact** — every weight, the DER walk, the DNSSEC digest matcher — and the
+ * five-surface equivalence run, which drives the artifact from `_site/`.
+ *
+ * What only Chrome can answer is what stays here: that the file loads from
+ * `file://` with no server, evaluates, and computes correctly with **no network
+ * at all**. So the probes below are ones that reach real application code
+ * through the surface a browser still has, and every one is pure — a live
+ * `analyzeDomain()` would issue a DoH request, and a suite that depended on
+ * someone else's DNS is not a suite.
+ */
 const computed = await evaluate(`JSON.stringify({
-  org: DnsAudit.getOrganizationalDomain('foo.blogspot.com'),
-  ck: DnsAudit.getOrganizationalDomain('a.b.ck'),
-  grade: DnsAudit.gradeFor(94, true),
-  key: (() => { const k = DnsAudit.analyzeDkimKey('v=DKIM1; k=rsa; p=' + ${JSON.stringify(
-    (await import('../fixtures/equivalence/keys.mjs')).RSA_2048_SPKI)});
-    return { bits: k.keyBits, encoding: k.keyEncoding, valid: k.valid }; })()
+  // The CSV formula-injection defence, on the real exporter's helper.
+  neutralized: __APP_TEST__.neutralizeCsvCell('=1+1'),
+  benign: __APP_TEST__.neutralizeCsvCell('example.com'),
+  // Token to translated prose, through the INLINED English bundle. Under
+  // file:// a fetch of locales/en.json is blocked, so real text here can only
+  // have come from __I18N_EN__.
+  issue: __APP_TEST__.issueMessage({ key: 'spf-missing', sev: 'crit' }),
+  // A constant declared in the application module's own scope: it is only
+  // readable if that module evaluated to completion.
+  deepLimit: __APP_TEST__.MAX_DEEP_CHECK_DOMAINS,
+  // The renderer, building a real detached tree in a real DOM.
+  badge: (() => { const el = __APP_TEST__.badge('Passed', 'ok');
+    return { tag: el.tagName, text: el.textContent, cls: el.className }; })(),
+  // The DKIM selector catalog, reached through the binding it is injected at.
+  dkimProviders: Object.keys(__DKIM_SELECTOR_CATALOG__.providers).length
 })`);
 const page2 = typeof computed === 'string' ? JSON.parse(computed) : computed;
 
-eq('the org-domain walk reads the real bundled PSL', page2?.org, 'foo.blogspot.com');
-eq('and resolves a wildcard rule', page2?.ck, 'a.b.ck');
-eq('the grader works', JSON.stringify(page2?.grade), JSON.stringify({ grade: 'A++', cls: 'score-aplusplus' }));
-eq('the DER key walk read a 2048-bit modulus', page2?.key?.bits, 2048);
-eq('from an SPKI envelope', page2?.key?.encoding, 'spki');
+eq('the CSV formula guard neutralized a leading =', /^[\t\u0027]/.test(page2?.neutralized || ''), true);
+eq('and left an ordinary value alone', page2?.benign, 'example.com');
+eq('an issue token became real translated prose, with no network',
+  /SPF/.test(page2?.issue || '') && page2?.issue.length > 20, true);
+eq('and it is not the key echoed back', /^issue\./.test(page2?.issue || ''), false);
+eq('the application module evaluated to completion', page2?.deepLimit, 50);
+eq('the renderer built a real element', page2?.badge?.tag, 'SPAN');
+eq('with its text in a text node', page2?.badge?.text, 'Passed');
+eq('and the class the caller asked for', page2?.badge?.cls, 'badge badge-ok');
+eq('the DKIM selector catalog survived bundling', page2?.dkimProviders, 92);
 
 section('5. Nothing failed silently');
 

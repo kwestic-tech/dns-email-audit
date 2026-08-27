@@ -41,8 +41,8 @@ const AMBIENT = ['document', 'navigator', 'location', 'localStorage', 'fetch', '
   'setTimeout', 'clearTimeout', 'queueMicrotask', 'URL', 'URLSearchParams',
   'AbortController', 'crypto', 'Date', 'Intl', 'window', 'self', 'globalThis',
   // Supplied by the harness, not created by the code: the rest of the §11 set,
-  // plus the array the recorded `open` writes into.
-  'Blob', 'FileReader', 'open', 'opened'];
+  // the array the recorded `open` writes into, and the swappable fetch holder.
+  'Blob', 'FileReader', 'open', 'opened', 'currentFetch'];
 
 /**
  * A fresh sandbox per load, and the load is cache-busted by construction:
@@ -67,7 +67,14 @@ function blankWindow() {
     navigator: { language: 'en', languages: ['en'] },
     location: { href: 'https://dnsaudit.kwestic.com/' },
     localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
-    fetch: async () => ({ ok: false }),
+    // A HOLDER, not a value. `src/platform/browser.js` binds the primitive set
+    // once per runtime, so a `win.fetch = x` written after the subject booted
+    // would never reach it. The indirection is what lets one loaded application
+    // — and the source side can only be loaded once, because Node caches ES
+    // modules — be driven by a different fixture per assertion. Same move
+    // `tools/scoring.test.mjs` makes for its 69 swaps.
+    fetch: (...args) => win.currentFetch(...args),
+    currentFetch: async () => ({ ok: false }),
     console, setTimeout, clearTimeout, queueMicrotask,
     URL, URLSearchParams, AbortController, crypto, Date, Intl,
     // Every window a platform is built from must carry the whole §11 set: the
@@ -110,8 +117,8 @@ function load(files) {
 async function loadSource() {
   const win = blankWindow();
   globalThis.window = win;
-  await import('../../src/main.js');
-  return win;
+  const module = await import('../../src/main.js');
+  return { win, module };
 }
 
 const globalsOf = win => Object.keys(win).filter(name => !AMBIENT.includes(name)).sort();
@@ -134,39 +141,198 @@ eq('it is not an ES module', /^\s*(export|import)\s/m.test(artifactBytes.toStrin
 /* ── 2. The global surface is identical ───────────────────────────────── */
 section('2. Global surface');
 
-const source = await loadSource();
+const { win: source, module: sourceModule } = await loadSource();
 const bundle = load([ARTIFACT]);
 
 const sourceGlobals = globalsOf(source);
 const bundleGlobals = globalsOf(bundle);
-eq('the source creates 24 globals', sourceGlobals.length, 24);
-eq('the bundle creates the same set', bundleGlobals, sourceGlobals);
-eq('none is missing', sourceGlobals.filter(n => !bundleGlobals.includes(n)), []);
-eq('none is extra', bundleGlobals.filter(n => !sourceGlobals.includes(n)), []);
 
-// `globalName` is omitted until §10 stage 3, so the bundle must NOT have
-// introduced a name of its own. This is the assertion that would have caught
-// the mistake version 0.2 of the spec nearly shipped.
-eq('the bundle introduced no name of its own',
-  bundleGlobals.filter(n => !sourceGlobals.includes(n)), []);
+/**
+ * `DnsAudit` has exactly one producer, and after Task 2.7 it is the BUNDLER.
+ *
+ * `globalName` assigns the entry point's exports to that name, so the source
+ * graph does not create it — spec §10's "generated boundary esbuild produces at
+ * stage 3", and the reason the legacy assignment had to go in the same commit.
+ * The one-name difference between the two sides is therefore the shape the
+ * design predicts, and it is asserted as exactly one name rather than tolerated
+ * as a mismatch.
+ */
+eq('the source graph creates 23 globals — everything but DnsAudit', sourceGlobals.length, 23);
+eq('and does not create DnsAudit', sourceGlobals.includes('DnsAudit'), false);
+eq('the bundle creates 24', bundleGlobals.length, 24);
+eq('the one name the bundle adds is DnsAudit',
+  bundleGlobals.filter(n => !sourceGlobals.includes(n)), ['DnsAudit']);
+eq('and it adds nothing else',
+  bundleGlobals.filter(n => !sourceGlobals.includes(n) && n !== 'DnsAudit'), []);
+eq('nothing the source creates is missing from the bundle',
+  sourceGlobals.filter(n => !bundleGlobals.includes(n)), []);
 
-/* ── 3. The exported surface is identical ─────────────────────────────── */
-section('3. DnsAudit and the test surface');
+/* ── 3. The supported facade, on both sides, exactly ──────────────────── */
+section('3. The facade, the test surface and the 95 -> 2 contraction');
 
-const sourceMembers = Object.keys(source.DnsAudit).sort();
+/**
+ * Spec §10 stage 2: "The expected member list is checked in as
+ * `src/facade.expected.json` and asserted against **both** the source module's
+ * exports and the built bundle's global."
+ *
+ * CHECKED IN, not derived. A test that read the expected list out of the bundle
+ * would agree with the bundle by construction and prove nothing. This compares
+ * both sides against a list a person wrote before the build was allowed to
+ * produce the surface — and it compares them EXACTLY, IN BOTH DIRECTIONS, so
+ * the contraction from 95 members does not pass merely because Task 2.7 permits
+ * the global surface to move.
+ */
+const FACADE = JSON.parse(readFileSync(join(REPO, 'src/facade.expected.json'), 'utf8'));
+const expectedMembers = [...FACADE.members].sort();
+
+eq('the checked-in facade is two members', expectedMembers, ['analyzeDomain', 'checkConnectivity']);
+eq('and it names the global it governs', FACADE.globalName, 'DnsAudit');
+
+// The SOURCE module's exports. `import * as` gives the module namespace, whose
+// keys are exactly the declared exports.
+const sourceExports = Object.keys(sourceModule).filter(n => n !== 'default').sort();
+eq('the source module exports exactly the facade', sourceExports, expectedMembers);
+eq('nothing the facade names is missing from the source',
+  expectedMembers.filter(n => !sourceExports.includes(n)), []);
+eq('and the source exports nothing the facade does not name',
+  sourceExports.filter(n => !expectedMembers.includes(n)), []);
+for (const name of expectedMembers) {
+  eq(`the source's ${name} is callable`, typeof sourceModule[name], 'function');
+}
+
+// The BUNDLE's global, which is what a browser sees.
 const bundleMembers = Object.keys(bundle.DnsAudit).sort();
-eq('DnsAudit has 95 members in source', sourceMembers.length, 95);
-eq('and the same members in the bundle', bundleMembers, sourceMembers);
+eq('the bundle global exposes exactly the facade', bundleMembers, expectedMembers);
+eq('nothing the facade names is missing from the bundle',
+  expectedMembers.filter(n => !bundleMembers.includes(n)), []);
+eq('and the bundle exposes nothing the facade does not name',
+  bundleMembers.filter(n => !expectedMembers.includes(n)), []);
+for (const name of expectedMembers) {
+  eq(`the bundle's ${name} is callable`, typeof bundle.DnsAudit[name], 'function');
+}
+
+// And the two sides agree with each other, not merely with the file.
+eq('source exports and bundle global are the same set', bundleMembers, sourceExports);
+
+/**
+ * The contraction, stated as a number so it cannot happen by accident.
+ *
+ * 95 members at v0.5.0 and through Task 2.6; two now. The other 93 were never
+ * supported API — 77 were reached by `tools/scoring.test.mjs` and 4 by
+ * `tools/backtest.mjs`, and both take direct ESM imports since Task 2.3.
+ */
+eq('the surface contracted from 95 members to 2', bundleMembers.length, 2);
+
+/**
+ * What esbuild adds that nobody specified, written down rather than ignored.
+ *
+ * `Object.keys()` returns the two members; `Object.getOwnPropertyNames()` also
+ * returns a non-enumerable `__esModule` from esbuild's CommonJS interop. It is
+ * observable, so it is recorded in `src/facade.expected.json` and pinned here.
+ * An artifact that is written down is a fact about the build; one that is not
+ * is a surface nobody is watching.
+ */
+eq('the only non-enumerable extra is the bundler artifact the facade records',
+  Object.getOwnPropertyNames(bundle.DnsAudit).filter(n => !bundleMembers.includes(n)),
+  FACADE.bundlerArtifacts.nonEnumerable);
+eq('and it really is non-enumerable',
+  Object.getOwnPropertyDescriptor(bundle.DnsAudit, '__esModule').enumerable, false);
+
+// The test-only surface is untouched by this task and still matches. Task 2.8
+// removes it from the window; it is not facade and never was.
 eq('__APP_TEST__ matches',
   Object.keys(bundle.__APP_TEST__).sort(), Object.keys(source.__APP_TEST__).sort());
 
-/* ── 4. Scoring constants are byte-identical ──────────────────────────── */
-section('4. Scoring constants');
+/* ── 4. Behaviour through the facade ──────────────────────────────────── */
+section('4. Behaviour, through the two members that are left');
 
-for (const name of ['WEIGHTS', 'PARKED_WEIGHTS', 'GRADE_THRESHOLDS', 'POLICY_RANK']) {
-  eq(`${name} is identical`,
-    JSON.stringify(bundle.DnsAudit[name]), JSON.stringify(source.DnsAudit[name]));
+/**
+ * The artifact behaves like the source it was built from — asserted through the
+ * only door that remains.
+ *
+ * Until Task 2.7 this section reached `DnsAudit.WEIGHTS`, `DnsAudit.
+ * getOrganizationalDomain` and `DnsAudit.analyzeDkimKey` off the global and
+ * compared them side by side. The facade contraction closes that door on
+ * purpose: 93 members that were never supported API stopped being reachable
+ * from a browser.
+ *
+ * Dropping the checks was not an option — a compatibility delta that passes
+ * because the check that would have caught it disappeared is the failure this
+ * whole branch is arranged to prevent. So they are asserted through
+ * `analyzeDomain`, which is strictly stronger than what they replaced: a real
+ * audit against a fixture resolver reads the bundled public suffix list, runs
+ * the DER walk over a real 2048-bit key, applies every scoring weight and
+ * builds the issue set. A tree-shaking fault, a minifier bug or a changed
+ * constant moves the RESULT, which is what a user would have seen.
+ *
+ * The same fixture drives both sides, and it is a corpus case rather than a
+ * hand-written one so the two instruments cannot drift.
+ */
+const { default: corpus } = await import('../fixtures/equivalence/corpus.mjs');
+
+/**
+ * The options the application itself passes, from `src/main.js:1528`.
+ *
+ * Written out rather than defaulted, because a default-off audit skips DKIM and
+ * the advanced checks — and those are exactly the paths this section exists to
+ * compare. `selectors` comes from the case, the way the runner reads it off the
+ * control the user types into.
+ */
+function auditOptions(testCase) {
+  const chosen = testCase.options || {};
+  return {
+    dkim: chosen.dkim ?? true,
+    dkimComprehensive: chosen.dkimComprehensive ?? false,
+    www: chosen.www ?? true,
+    advanced: true,
+    wildcard: chosen.wildcard ?? false,
+    deepChecks: chosen.deepChecks ?? true,
+    selectors: chosen.selectors || [],
+  };
 }
+
+async function auditThrough(analyze, win, testCase) {
+  win.currentFetch = testCase.fetch();
+  const [{ domain }] = testCase.domains;
+  return analyze(domain, auditOptions(testCase));
+}
+
+/**
+ * Three cases, chosen for what each would notice.
+ *
+ * `enforcing-signed` publishes every control, so every weight contributes and a
+ * changed one moves the score; it also carries the RSA key the DER walk decodes
+ * and a DNSSEC chain the digest matcher has to verify. `dmarc-tree-walk`
+ * exercises the organizational-domain walk, which is the public suffix list's
+ * only path into a result. `bare-registered` is the empty end of the range, so
+ * a fault that made everything look present would move it.
+ */
+for (const id of ['enforcing-signed', 'dmarc-tree-walk', 'bare-registered']) {
+  const testCase = corpus.find(c => c.id === id);
+  eq(`the corpus still has the ${id} case`, !!testCase, true);
+  const fromSource = await auditThrough(sourceModule.analyzeDomain, source, testCase);
+  const fromBundle = await auditThrough(bundle.DnsAudit.analyzeDomain, bundle, testCase);
+  eq(`${id}: the whole result agrees`,
+    JSON.stringify(fromSource), JSON.stringify(fromBundle));
+  // And it is a real audit, not an empty object that would agree vacuously.
+  eq(`${id}: produced a graded result`, typeof fromSource.score?.grade, 'string');
+  eq(`${id}: and a numeric score`, Number.isFinite(fromSource.score?.pts), true);
+}
+
+/**
+ * The two probes the old section made directly, kept as properties of a real
+ * result rather than as calls on a member no longer exposed.
+ */
+const signed = await auditThrough(sourceModule.analyzeDomain, source,
+  corpus.find(c => c.id === 'enforcing-signed'));
+const signedKey = signed.dkimStatus?.selectors?.find(r => r.key?.keyBits);
+eq('the DER walk ran and read a real 2048-bit key', signedKey?.key?.keyBits, 2048);
+eq('and Web Crypto confirmed the key, so the platform reached the audit',
+  signedKey?.key?.cryptoValidated, true);
+eq('and every scoring pillar contributed, so a changed weight would move this',
+  signed.score.breakdown.pillars.filter(p => p.pts > 0).length,
+  signed.score.breakdown.pillars.length);
+eq('a fully-configured domain grades in the A band', signed.score.grade.startsWith('A'), true);
 
 /* ── 5. Generated data survived bundling intact ───────────────────────── */
 section('5. Generated data');
@@ -174,6 +340,14 @@ section('5. Generated data');
 eq('the public suffix list is whole',
   bundle.__PUBLIC_SUFFIX_RULES__.length, source.__PUBLIC_SUFFIX_RULES__.length);
 eq('and it is the real one, not a fixture', bundle.__PUBLIC_SUFFIX_RULES__.length > 10000, true);
+// The discriminating rule, not just the count — a truncated list of the right
+// length would pass a length check. Same rule the fixture-identity probes use,
+// and against the artifact this is a BINDING-level check: spec §11 as of 1.4
+// states there is no behavioural one, because nothing reads the table.
+eq('the bundled list carries the private blogspot.com rule',
+  bundle.__PUBLIC_SUFFIX_RULES__.includes('blogspot.com'), true);
+eq('and so does the source it was built from',
+  source.__PUBLIC_SUFFIX_RULES__.includes('blogspot.com'), true);
 eq('the DKIM selector catalog is whole',
   Object.keys(bundle.__DKIM_SELECTOR_CATALOG__).length,
   Object.keys(source.__DKIM_SELECTOR_CATALOG__).length);
@@ -185,21 +359,38 @@ eq('the English bundle is inlined in the artifact',
 eq('and the i18n layer resolves through it with no network',
   bundle.t('doc.title'), source.t('doc.title'));
 
-/* ── 6. Behaviour agrees on a computed answer ─────────────────────────── */
-section('6. Behaviour');
+/* ── 6. The DMARC tree walk agrees ────────────────────────────────────── */
+section('6. The organizational-domain walk');
 
-// Not a smoke test: `getOrganizationalDomain` reads the bundled PSL, and
-// `analyzeDkimKey` runs the DER walk. Both would break quietly under a
-// tree-shaking or minification fault while every name above still matched.
-for (const probe of ['foo.blogspot.com', 'a.b.ck', 'www.example.co.uk']) {
-  eq(`getOrganizationalDomain('${probe}') agrees`,
-    bundle.DnsAudit.getOrganizationalDomain(probe), source.DnsAudit.getOrganizationalDomain(probe));
-}
-const key = 'v=DKIM1; k=rsa; p=' + (await import('../fixtures/equivalence/keys.mjs')).RSA_2048_SPKI;
-eq('analyzeDkimKey agrees',
-  JSON.stringify(bundle.DnsAudit.analyzeDkimKey(key)),
-  JSON.stringify(source.DnsAudit.analyzeDkimKey(key)));
-eq('and it read a real key', source.DnsAudit.analyzeDkimKey(key).keyBits, 2048);
+/**
+ * `getOrganizationalDomain` used to be called here directly, and this section
+ * was going to be renamed "the bundled PSL, observed through the facade".
+ *
+ * **It would have been wrong, and naming that is the point.** The
+ * `organizationalDomain` on a result is produced by `selectOrganizationalDomain()`
+ * from the RFC 9989 discovery chain (`js/dns.js:2122`); it never consults the
+ * public suffix list. Substituting the PSL would not move it. Spec `1.4`
+ * records why: `getOrganizationalDomain()` is the only reader of the PSL sets
+ * and no application code calls it, so the table has no path into any of the
+ * five surfaces and none of them can be evidence about it. What the bundled
+ * table's presence CAN be checked against is in section 5, and
+ * `docs/maintenance-backlog.md` carries the finding.
+ *
+ * What this does establish is worth having on its own: the tree walk is one of
+ * the two algorithms where ORDER is the behaviour (canonicalization.md §2), and
+ * these assertions say the artifact walks identically to the source it was
+ * built from.
+ */
+const walk = corpus.find(c => c.id === 'dmarc-tree-walk');
+const walkSource = await auditThrough(sourceModule.analyzeDomain, source, walk);
+const walkBundle = await auditThrough(bundle.DnsAudit.analyzeDomain, bundle, walk);
+eq('the organizational domain the walk found agrees',
+  walkSource.organizationalDomain, walkBundle.organizationalDomain);
+eq('and the walk actually reached one', typeof walkSource.organizationalDomain, 'string');
+eq('the source and bundle agree on where the DMARC record was found',
+  JSON.stringify(walkSource.dmarcDiscovery), JSON.stringify(walkBundle.dmarcDiscovery));
+eq('and on the domain the policy was read at',
+  walkSource.dmarcAtDomain, walkBundle.dmarcAtDomain);
 
 /* ── 7. The comparison can fail ───────────────────────────────────────── */
 section('7. Negative control');
@@ -208,33 +399,69 @@ section('7. Negative control');
  * A parity check nobody has watched fail is not evidence.
  *
  * Loading a deliberately altered artifact must move every comparison above that
- * it should. This is built in memory rather than on disk so it cannot be
- * mistaken for a real build output.
+ * it should. Built in memory rather than on disk so it cannot be mistaken for a
+ * real build output.
+ *
+ * This control had to change with the facade. It used to read
+ * `DnsAudit.WEIGHTS` off the altered global and compare the number; the engine
+ * is not on the global any more, so the alteration is now observed the way a
+ * user would observe it — through `analyzeDomain`, on the score. That is the
+ * same door section 4 uses, which is the point: a control that reached the
+ * defect by a route the real comparison does not use would not be controlling
+ * the real comparison.
  */
-const altered = readFileSync(join(REPO, ARTIFACT), 'utf8')
+const pristineArtifact = readFileSync(join(REPO, ARTIFACT), 'utf8');
+const altered = pristineArtifact
   .replace('dmarc:30', 'dmarc:29')
   .replace('"dmarc":30', '"dmarc":29');
-eq('the alteration applied', altered !== readFileSync(join(REPO, ARTIFACT), 'utf8'), true);
+eq('the alteration applied', altered !== pristineArtifact, true);
 
-const alteredWin = (() => {
+function loadText(text, filename) {
   const win = blankWindow();
   vm.createContext(win);
-  vm.runInContext(altered, win, { filename: 'altered' });
+  vm.runInContext(text, win, { filename });
   return win;
-})();
-eq('an altered artifact fails the constants comparison',
-  JSON.stringify(alteredWin.DnsAudit.WEIGHTS) === JSON.stringify(source.DnsAudit.WEIGHTS), false);
-eq('and the difference is the one introduced', alteredWin.DnsAudit.WEIGHTS.dmarc, 29);
-eq('while every other weight is untouched', alteredWin.DnsAudit.WEIGHTS.spf, source.DnsAudit.WEIGHTS.spf);
+}
+
+const alteredWin = loadText(altered, 'altered');
+const signedCase = corpus.find(c => c.id === 'enforcing-signed');
+const fromAltered = await auditThrough(alteredWin.DnsAudit.analyzeDomain, alteredWin, signedCase);
+const fromPristine = await auditThrough(bundle.DnsAudit.analyzeDomain, bundle, signedCase);
+
+eq('an altered artifact fails the result comparison',
+  JSON.stringify(fromAltered) === JSON.stringify(fromPristine), false);
+// And the difference is the one introduced, not incidental noise: the DMARC
+// pillar is worth one point less, and nothing else moved.
+eq('the DMARC pillar carries the altered maximum',
+  fromAltered.score.breakdown.pillars.find(p => p.key === 'dmarc').max, 29);
+eq('while the pristine artifact still carries 30',
+  fromPristine.score.breakdown.pillars.find(p => p.key === 'dmarc').max, 30);
+eq('and no other pillar moved',
+  JSON.stringify(fromAltered.score.breakdown.pillars.filter(p => p.key !== 'dmarc')),
+  JSON.stringify(fromPristine.score.breakdown.pillars.filter(p => p.key !== 'dmarc')));
 
 // And a global-surface difference is caught too.
-const extraWin = (() => {
-  const win = blankWindow();
-  vm.createContext(win);
-  vm.runInContext(readFileSync(join(REPO, ARTIFACT), 'utf8') + '\nvar DnsAuditExtra = 1;', win, { filename: 'extra' });
-  return win;
-})();
+const extraWin = loadText(pristineArtifact + '\nvar DnsAuditExtra = 1;', 'extra');
 eq('an extra global is caught',
-  globalsOf(extraWin).filter(n => !sourceGlobals.includes(n)), ['DnsAuditExtra']);
+  globalsOf(extraWin).filter(n => !bundleGlobals.includes(n)), ['DnsAuditExtra']);
+
+/**
+ * And a facade that grew a member is caught, which is the control this task
+ * actually needs. `src/facade.expected.json` is only worth anything if the
+ * comparison against it can fail.
+ */
+const widened = loadText(pristineArtifact + '\nDnsAudit.exportCSV = function () {};', 'widened');
+eq('a widened facade is caught',
+  Object.keys(widened.DnsAudit).sort().filter(n => !expectedMembers.includes(n)), ['exportCSV']);
+// Narrowed by REPLACING the namespace, not by deleting from it. Measured while
+// writing this control: esbuild's `__export` installs each member as a
+// non-configurable getter, so `delete DnsAudit.checkConnectivity` silently does
+// nothing and a control built that way would have passed while testing nothing.
+eq('facade members are non-configurable, so they cannot be deleted',
+  Object.getOwnPropertyDescriptor(bundle.DnsAudit, 'checkConnectivity').configurable, false);
+const narrowed = loadText(
+  pristineArtifact + '\nDnsAudit = { analyzeDomain: DnsAudit.analyzeDomain };', 'narrowed');
+eq('and a narrowed facade is caught',
+  expectedMembers.filter(n => !Object.keys(narrowed.DnsAudit).includes(n)), ['checkConnectivity']);
 
 report();

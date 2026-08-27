@@ -217,22 +217,24 @@ eq('src/ holds the entry point, the runtime and the converted layers',
   ['i18n/index.js', 'main.js', 'runtime.js', 'ui/render.js']);
 
 /**
- * The entry point exports the §10 facade and NOTHING else, asserted rather
- * than assumed: esbuild assigns the ENTRY POINT'S EXPORTS to `globalName`, so
- * a third export would silently widen `window.DnsAudit` the moment Task 2.7
- * enables it. Task 2.7 replaces this with the exact comparison against
- * `src/facade.expected.json`, in both directions; until then this is what
- * stops a fourth name arriving unnoticed.
+ * The entry point exports the §10 facade and NOTHING else.
  *
- * `globalName` is still omitted, so these two exports reach no global today —
- * measured, not assumed: `format: 'iife'` with an exporting entry and no
- * `globalName` builds with zero errors and zero warnings, and the exports
- * become ordinary `var`s inside the IIFE. `tests/build/parity.test.mjs`
- * asserts the resulting surface is still 24 names.
+ * esbuild assigns the ENTRY POINT'S EXPORTS to `globalName`, so as of Task 2.7
+ * this list IS `window.DnsAudit`: a third export here would widen the supported
+ * API of the shipped application.
+ *
+ * Read from `src/facade.expected.json` rather than written out again, so the
+ * SOURCE contract and the ARTIFACT contract cannot drift apart —
+ * `tests/build/parity.test.mjs` asserts the same file against the built
+ * bundle's global. Syntactic here, behavioural there, one list.
  */
+const facade = JSON.parse(readFileSync(join(srcDir, 'facade.expected.json'), 'utf8'));
+eq('the checked-in facade is the two supported members',
+  [...facade.members].sort(), ['analyzeDomain', 'checkConnectivity']);
 eq('the entry point exports exactly the supported facade',
   declaredExports(readFileSync(join(srcDir, entryPoint), 'utf8')),
-  ['analyzeDomain', 'checkConnectivity']);
+  [...facade.members].sort());
+eq('and the facade names the global it governs', facade.globalName, 'DnsAudit');
 
 /**
  * Rule 3 of spec §12.1: compare each extracted module's exported state

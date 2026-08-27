@@ -55,14 +55,16 @@ function banner(version) {
  *
  * Two settings are load-bearing and both are absences:
  *
- *  - **`globalName` is omitted.** esbuild assigns the entry point's exports to
- *    that name, and `src/main.js` now has two — the §10 facade. Enabling it
- *    here would emit a top-level `var DnsAudit` that OVERWRITES the object
- *    `src/main.js` assigns from the runtime, which is the mistake spec 0.2
- *    nearly shipped. It arrives in §10's stage 3, in the same commit that
- *    removes that assignment. Measured, not assumed: `iife` with an entry that
- *    exports and no `globalName` builds with zero errors and zero warnings and
- *    creates no global — the exports become ordinary `var`s inside the IIFE.
+ *  - **`globalName: 'DnsAudit'`** is §10's stage 3, reached in Task 2.7. It
+ *    emits a top-level `var DnsAudit = (() => { … })()` holding the ENTRY
+ *    POINT'S EXPORTS — which is why it could not be enabled earlier: against an
+ *    entry with no exports, or one whose exports were not the designed facade,
+ *    it would have overwritten the real object with something else. That is the
+ *    mistake spec 0.2 nearly shipped. The legacy `window.DnsAudit` assignment
+ *    was removed from `src/main.js` in the same commit that turned this on, so
+ *    the name has exactly one producer. `src/facade.expected.json` says what it
+ *    must contain and `tests/build/parity.test.mjs` proves it, on both the
+ *    source module and the artifact.
  *  - **`splitting` stays false and there is no dynamic import.** One artifact,
  *    per §25. `OQ-ARCH-05` holds the split for later, with measured
  *    repeat-visit data rather than an assumption.
@@ -80,7 +82,7 @@ export function buildOptions(version, root = REPO) {
     outfile: OUTFILE,
     bundle: true,
     format: 'iife',
-    // globalName: deliberately absent until §10 stage 3. See above.
+    globalName: 'DnsAudit',
     minify: true,
     sourcemap: 'linked',
     target: 'es2020',
