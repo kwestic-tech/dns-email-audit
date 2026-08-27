@@ -13,8 +13,9 @@
 import { loadApp } from './lib/browser-harness.mjs';
 
 // i18n is an ES module now: the harness constructs it from the injected English
-// bundle rather than evaluating a script, and no other file is needed here.
-const win = loadApp({ files: [] });
+// bundle rather than evaluating a script, and this suite needs no entry point,
+// no DOM and no engine — only the interpolation the i18n layer performs.
+const win = await loadApp({ app: false, render: false, engine: false });
 const { t, tp } = win;
 
 let pass = 0, fail = 0;

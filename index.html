@@ -184,15 +184,14 @@
 <!-- One built artifact, generated from source at the commit being deployed by
      `npm run build`. It is not committed; dist/ is git-ignored.
 
-     Load order still matters and still lives in src/entry-legacy.js, where the
-     inlined English bundle is imported before i18n and i18n before anything
-     that calls t(). tools/build-bundle.mjs verifies the bundle's input order
-     against this file rather than trusting it.
+     Load order is the import graph now. src/main.js is the entry point, and
+     what used to be seven script tags in a hand-maintained order is a set of
+     ES imports the language enforces.
 
      A plain script, NOT type="module", so the app still works when index.html
-     is opened directly from disk over file://. js/locales-en.js exists for that
-     reason and states so in its own generated header; it is about 18% of the
-     payload, bought and paid for. -->
+     is opened directly from disk over file://. src/data/locales-en.js exists
+     for that reason and states so in its own generated header; it is about 18%
+     of the payload, bought and paid for. -->
 <script src="dist/app.min.js"></script>
 </body>
 </html>

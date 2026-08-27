@@ -156,7 +156,7 @@ const scanned = SOURCE_TREES
 // Named by responsibility rather than by path, because the paths move every
 // Phase 2 commit and the property does not: whatever tree these files live in,
 // the markup-sink scan has to be looking at them.
-eq('the scan covers the audit coordinator', scanned.some(f => f.endsWith('app.js')), true);
+eq('the scan covers the audit coordinator', scanned.some(f => f.endsWith('main.js')), true);
 eq('the scan covers the renderer', scanned.some(f => f.endsWith('render.js')), true);
 eq('the scan covers the i18n layer', scanned.some(f => f.endsWith('index.js') && f.includes(`${sep}i18n${sep}`)), true);
 eq('the scan covers the protocol engine', scanned.some(f => f.endsWith('dns.js')), true);
@@ -196,7 +196,7 @@ for (const file of scanned) {
 /* ── 5. The report's own policy ──────────────────────────────────────── */
 section('5. The exported report declares its own policy');
 
-const app = readFileSync(join(REPO, 'js', 'app.js'), 'utf8');
+const app = readFileSync(join(REPO, 'src', 'main.js'), 'utf8');
 eq('the report builder emits a CSP meta tag',
   app.includes('Content-Security-Policy'), true);
 eq("the report's policy is default-src 'none'",

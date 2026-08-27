@@ -60,3 +60,39 @@ diff is reviewable as what it is.
 supply chain of `esbuild`; re-pinning unrelated actions in the same release
 would mix an unreviewed supply-chain change into a diff nobody would expect to
 find one in.
+
+---
+
+## `tools/lib/dom-shim.mjs` exports a `createWindow()` nobody calls
+
+**Found:** 2026-08-27, during 0.6.0 Task 2.6, while removing `node:vm` from the
+browser harness. **Status:** open. **Deliberately not changed in 0.6.0.**
+
+[`tools/lib/dom-shim.mjs`](../tools/lib/dom-shim.mjs) exports `createWindow(extra)`
+alongside `createDocument()`. Nothing imports it. Verified against the commit
+this was found at, so it is not something the refactor stranded:
+
+```console
+$ git grep -n 'createWindow' 21c46ac -- '*.mjs' '*.js'
+21c46ac:tools/lib/dom-shim.mjs:497:export function createWindow(extra = {}) {
+```
+
+One hit, and it is the declaration. Every consumer that needs a window builds
+its own — `tools/lib/browser-harness.mjs`, `tests/lib/subject.mjs` and
+`tests/build/parity.test.mjs` each construct one, because each needs a different
+set of substituted primitives.
+
+Its doc comment is stale in a way that would mislead: it describes building a
+global "for loading `js/render.js`, `js/i18n.js` and `js/app.js` into a
+`node:vm` sandbox". None of those files exists after Task 2.6, and no suite
+loads the application through `node:vm` any more.
+
+### What to do
+
+Delete the function and its comment. It is a two-line removal with no consumer,
+but it is dead code that predates this release and removing it inside a
+wrapper-only conversion would put an unrelated deletion in a diff whose whole
+claim is that nothing moved. The three real window builders stay as they are:
+they differ on purpose, and collapsing them into one helper would give the
+equivalence subject and the unit harness the same substitutions, which is the
+opposite of what each needs.

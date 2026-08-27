@@ -189,7 +189,7 @@ const MUTATIONS = [
   },
   {
     label: 'reorder two CSV columns',
-    file: 'js/app.js',
+    file: 'src/main.js',
     from: "        r.score.grade, r.score.pts,",
     to: "        r.score.pts, r.score.grade,",
     mustMove: ['csv'],
@@ -197,7 +197,7 @@ const MUTATIONS = [
   },
   {
     label: "weaken the exported report's own CSP",
-    file: 'js/app.js',
+    file: 'src/main.js',
     from: "content: \"default-src 'none'; style-src 'unsafe-inline'; img-src data:\",",
     to: "content: \"default-src 'none'; style-src 'unsafe-inline'; img-src *\",",
     mustMove: ['report'],
@@ -342,37 +342,45 @@ section('4. Module evaluation order');
  * The guarantee here is an IMPORT-GRAPH dependency, not textual order in the
  * entry point. A static import's module body is evaluated before the importing
  * module's own body runs, and imports are evaluated in the order they appear —
- * so `import './data/legacy-globals.js'` preceding `import '../js/app.js'` is a
- * real ordering fact about the graph, while an assignment written above those
- * lines would not be.
+ * so installing the generated data from an IMPORTED module is a real ordering
+ * fact about the graph, while an assignment written above those imports would
+ * not be.
  *
  * This section used to build an entry point that installed the generated data
  * AFTER importing its consumers — the ES-hoisting bug this project actually
  * wrote in Phase 2 — and require the artifact to fail its identity probes.
  *
  * It no longer does, and that is a result rather than a regression. Measured:
- * a deliberately hoisted entry now produces **30 cases, 5 surfaces, 0
- * differences**, because `js/dns.js` and `src/i18n/index.js` take their data as
- * arguments instead of reading globals. Nothing evaluates against a global any
- * more, so nothing depends on when the globals are installed.
+ * a deliberately hoisted entry produced **30 cases, 5 surfaces, 0 differences**,
+ * because `js/dns.js` and `src/i18n/index.js` take their data as arguments
+ * instead of reading globals. Task 2.6 finished the job — `js/app.js` was the
+ * last reader, and `tests/contract/namespace.test.mjs` now asserts that nothing
+ * left under `js/` reaches for a global at all. Nothing evaluates against one,
+ * so nothing depends on when they are installed.
  *
  * Asserting a failure that cannot happen would be worse than useless, so the
- * protection moved to `tests/contract/namespace.test.mjs`: no module under
- * `src/` may read or write one of the 24 globals outside a marked adapter.
- * That catches the hazard COMING BACK, which is the only way it can return.
+ * protection lives in that contract: no module under `src/` may read or write
+ * one of the 24 globals outside a marked adapter. That catches the hazard
+ * COMING BACK, which is the only way it can return.
  *
- * What stays here is the structural half — the entry still installs before it
- * imports its consumers — because the ordering is free and a future consumer
- * that does read a global should find it already installed.
+ * What stays here is the structural half, and it is the durable half: the
+ * installation is an IMPORT rather than an assignment in the entry's body. That
+ * distinction is the whole lesson of the original bug, it is free to keep, and
+ * a future consumer that does read a global finds it already installed.
  */
-const entry = readFileSync(join(pristine, 'src', 'entry-legacy.js'), 'utf8');
-const installsAt = entry.indexOf("import './data/legacy-globals.js'");
-const bridgeAt = entry.indexOf("import './legacy-bridge.js'");
-const lastConsumerAt = entry.indexOf("import '../js/app.js'");
-// Positions in the import list, which is the evaluation order of the graph.
-eq('the entry installs the generated data first', installsAt >= 0, true);
-eq('then constructs the ESM layers', bridgeAt > installsAt, true);
-eq('and imports the remaining IIFE last', lastConsumerAt > bridgeAt, true);
+const entry = readFileSync(join(pristine, 'src', 'main.js'), 'utf8');
+const installImportAt = entry.indexOf("import './data/legacy-globals.js'");
+// The entry's own body starts where its last import ends. Anything the body
+// does — including constructing the runtime — happens after every import has
+// evaluated, which is precisely what makes the import a guarantee.
+const lastImportAt = [...entry.matchAll(/^import\b.*$/gm)].pop().index;
+const runtimeAt = entry.indexOf('createAuditRuntime({');
+eq('the generated data is installed by an import, not by an assignment',
+  installImportAt >= 0, true);
+eq('and the entry constructs its runtime in its body, after every import',
+  runtimeAt > lastImportAt, true);
+eq('so no assignment in the body precedes the installation',
+  entry.slice(0, installImportAt).includes('window.__PUBLIC_SUFFIX_RULES__'), false);
 eq('the namespace contract exists to hold the property this used to test',
   existsSync(join(REPO, 'tests/contract/namespace.test.mjs')), true);
 

@@ -3,7 +3,7 @@
 
    What this proves
    ----------------
-   That `js/render.js` and `js/app.js` put every DNS-derived value into a text
+   That `src/ui/render.js` and `src/main.js` put every DNS-derived value into a text
    node or an allowlisted attribute, and never into a markup sink. That is a
    question about which DOM methods the renderer calls, so a shim answers it
    exactly: after the 0.2.3 rewrite the render path never parses a string into
@@ -155,7 +155,7 @@ class ShimNode {
   removeEventListener() { /* nothing dispatches in the shim */ }
 
   /**
-   * A no-op, and deliberately so. `js/app.js:1438` synthesises a click on a
+   * A no-op, and deliberately so. `src/main.js:1600` synthesises a click on a
    * detached anchor to start a download; the download is the browser's, not the
    * document's, and the equivalence runner captures the content at the `Blob`
    * instead. Without this the export path throws before it produces anything,
@@ -462,7 +462,7 @@ class ShimDocument {
 /**
  * A detached document with html/head/body, matching
  * `document.implementation.createHTMLDocument()` closely enough for the two
- * document builders in `js/app.js` (spec §1a).
+ * document builders in `src/main.js` (spec §1a).
  */
 export function createHTMLDocument(title) {
   const doc = new ShimDocument();

@@ -149,18 +149,52 @@ export function loadSubject(root, options = {}) {
     fetch: options.fetch || (async () => ({ ok: false })),
     console: options.console || console,
     setTimeout, clearTimeout, queueMicrotask,
-    URL, URLSearchParams, AbortController,
+    URLSearchParams, AbortController,
     crypto: platform.crypto(),
     // Navigation is recorded, never performed. `openLearnMore()` opens the
     // generated page in a new context; a subject under test must not, and a
     // surface that wanted to observe it would read this array.
     open: (...args) => { win.opened.push(args); return null; },
-    Blob: class Blob { constructor(parts, options) { this.parts = parts; this.type = options && options.type; } },
     FileReader: class FileReader {},
     Date: pinnedDate(instant),
     Intl,
   };
   win.opened = [];
+
+  /**
+   * The download boundary, part of the subject's browser rather than bolted on
+   * afterwards.
+   *
+   * `exportCSV()` and `exportHTML()` build a `Blob` and click a detached
+   * anchor; capturing at the `Blob` captures exactly the bytes the browser
+   * would have written, and `createObjectURL` has to answer with something
+   * because the anchor's `href` is set from it.
+   *
+   * **Installed BEFORE the subject evaluates**, which is the same rule this
+   * module already applies to `fetch`: a primitive is substituted in the
+   * window the subject boots from, never patched over it afterwards. A
+   * substitution made after boot only reaches code that re-reads the global on
+   * every call — which the IIFEs did and a module does not, because
+   * `src/platform/browser.js` binds the primitive set once per runtime. That
+   * difference is a fact about the subject, not about the export path, so the
+   * instrument stops depending on it.
+   */
+  const downloads = [];
+  win.Blob = class Blob {
+    constructor(parts, options) {
+      this.parts = parts;
+      this.type = options && options.type;
+      downloads.push({ type: this.type, text: parts.join('') });
+    }
+  };
+  win.URL = new Proxy(URL, {
+    get(target, property) {
+      if (property === 'createObjectURL') return () => 'blob:equivalence';
+      if (property === 'revokeObjectURL') return () => {};
+      const value = target[property];
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
   win.window = win;
   win.self = win;
   win.globalThis = win;
@@ -199,6 +233,8 @@ export function loadSubject(root, options = {}) {
     win,
     document,
     css,
+    /** Every Blob the subject built, in order. See "The download boundary". */
+    downloads,
     manifest: {
       root,
       entry,

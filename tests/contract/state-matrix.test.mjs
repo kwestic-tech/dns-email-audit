@@ -107,14 +107,9 @@ section('3. Extracted module constants (Phase 3 onward)');
  * Every module under `src/`, and what state constants it exports.
  *
  * Rule 3 of spec §12.1: compare each extracted module's exported state
- * constants with the reviewed registry, once that module exists. Phase 1
- * creates exactly one module and it exports nothing — `src/entry-legacy.js` is
- * seven side-effect imports, and it must STAY that way, because esbuild assigns
- * the entry point's exports to `globalName` and an entry that grew one would
- * change what the bundle puts on `window`.
- *
- * So the comparison is written now, against an empty set, rather than deferred
- * to the phase where it first has something to say.
+ * constants with the reviewed registry, once that module exists. It is written
+ * against a set that is still nearly empty, rather than deferred to the phase
+ * where it first has something to say.
  */
 const srcDir = join(REPO, 'src');
 const srcModules = existsSync(srcDir)
@@ -127,9 +122,9 @@ const srcModules = existsSync(srcDir)
 /**
  * Export names, read from the source rather than by importing.
  *
- * `src/entry-legacy.js` evaluates the seven browser IIFEs, and importing it in
- * Node throws on `window` before it can be inspected. The property under test
- * is syntactic anyway — whether the file declares an export — so it is read
+ * `src/main.js` builds its platform from the ambient `window` and importing it
+ * in Node throws before it can be inspected. The property under test is
+ * syntactic anyway — which names the file declares — so it is read
  * syntactically. A module that reaches into `js/` is never imported here.
  */
 function declaredExports(source) {
@@ -207,27 +202,37 @@ const ADAPTER_SENTINEL = 'LEGACY_ADAPTER';
 const adapters = srcModules.filter(p =>
   readFileSync(join(srcDir, p), 'utf8').includes(ADAPTER_SENTINEL)).sort();
 eq('every adapter carries the sentinel, and these are the ones that exist',
-  adapters, ['data/legacy-globals.js', 'entry-legacy.js', 'legacy-bridge.js']);
+  adapters, ['data/legacy-globals.js', 'main.js']);
 // The count only means something if it is going down. Recorded so a phase that
 // adds one without removing another has to say so.
 console.log(`  adapters remaining: ${adapters.length}`);
 
-const legacyEntry = 'entry-legacy.js';
+const entryPoint = 'main.js';
 // Grows every Phase 2 commit, and named rather than counted so a module
-// appearing here that nobody added is what this catches.
-eq('src/ holds the entry point, the bridge, the runtime and the converted layers',
+// appearing here that nobody added is what this catches. Task 2.6 retired
+// `entry-legacy.js` and `legacy-bridge.js`: `src/main.js` is the entry point
+// now, and it is the last file that was under `js/` apart from `dns.js`.
+eq('src/ holds the entry point, the runtime and the converted layers',
   codeModules.sort(),
-  ['entry-legacy.js', 'i18n/index.js', 'legacy-bridge.js', 'runtime.js', 'ui/render.js']);
+  ['i18n/index.js', 'main.js', 'runtime.js', 'ui/render.js']);
 
 /**
- * The property that makes omitting `globalName` safe, asserted rather than
- * assumed: esbuild assigns the ENTRY POINT'S EXPORTS to that name, so an entry
- * that grew one would change what the bundle puts on `window` — and with
- * `globalName: 'DnsAudit'` it would overwrite the real object from
- * js/dns.js:5601. The entry stays exportless until §10 stage 3.
+ * The entry point exports the §10 facade and NOTHING else, asserted rather
+ * than assumed: esbuild assigns the ENTRY POINT'S EXPORTS to `globalName`, so
+ * a third export would silently widen `window.DnsAudit` the moment Task 2.7
+ * enables it. Task 2.7 replaces this with the exact comparison against
+ * `src/facade.expected.json`, in both directions; until then this is what
+ * stops a fourth name arriving unnoticed.
+ *
+ * `globalName` is still omitted, so these two exports reach no global today —
+ * measured, not assumed: `format: 'iife'` with an exporting entry and no
+ * `globalName` builds with zero errors and zero warnings, and the exports
+ * become ordinary `var`s inside the IIFE. `tests/build/parity.test.mjs`
+ * asserts the resulting surface is still 24 names.
  */
-eq('the legacy entry point declares no exports',
-  declaredExports(readFileSync(join(srcDir, legacyEntry), 'utf8')), []);
+eq('the entry point exports exactly the supported facade',
+  declaredExports(readFileSync(join(srcDir, entryPoint), 'utf8')),
+  ['analyzeDomain', 'checkConnectivity']);
 
 /**
  * Rule 3 of spec §12.1: compare each extracted module's exported state
@@ -240,6 +245,11 @@ for (const relative of codeModules) {
   const source = readFileSync(join(srcDir, relative), 'utf8');
   if (!declaredExports(source).length) continue;
   if (/from\s+['"][^'"]*\/js\//.test(source)) continue;   // still reaches legacy browser code
+  // A marked adapter reads the ambient window by definition, so importing one
+  // into a Node process with no browser globals throws before it can be
+  // inspected. Its exports are read syntactically above instead — which is
+  // where the entry point's facade is pinned.
+  if (source.includes(ADAPTER_SENTINEL)) continue;
   const module = await import(pathToFileURL(join(srcDir, relative)).href);
   for (const [name, value] of Object.entries(module)) {
     const members = Array.isArray(value) ? value

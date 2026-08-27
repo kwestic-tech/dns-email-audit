@@ -110,7 +110,7 @@ eq('no module under src/ touches a global outside a marked adapter', offenders, 
 // The adapters, named. The list shrinks every phase and Phase 6 asserts it is
 // empty; naming them means an adapter appearing that nobody added is caught.
 eq('the marked adapters are the ones we expect', adapters.sort(),
-  ['data/legacy-globals.js', 'entry-legacy.js', 'legacy-bridge.js']);
+  ['data/legacy-globals.js', 'main.js']);
 console.log(`  adapters remaining: ${adapters.length}`);
 
 /* ── 3. The check can fail ────────────────────────────────────────────── */
@@ -132,6 +132,26 @@ eq('a local of the same name is not a global read',
 eq('nor is a property access on something else',
   globalTouches('platform.document; engine.DnsAudit;'), []);
 
+/**
+ * The stated limit, asserted so it cannot be forgotten.
+ *
+ * `src/main.js` writes its fourteen function globals through an alias — the
+ * IIFE's old `global` parameter, kept as `const global = window` so that the
+ * 1,801-line body Task 2.6 moved could stay byte-identical. This scan does not
+ * resolve aliases and never claimed to; it looks for the literal receivers.
+ *
+ * That costs nothing here, because the rule it enforces is "no module outside a
+ * MARKED ADAPTER touches a global" and `src/main.js` is a marked adapter. It
+ * would cost something if an unmarked module aliased its way past, so the hole
+ * is written down and the RUNTIME surface is what actually pins the inventory:
+ * `tests/build/parity.test.mjs` loads the artifact and compares the names the
+ * code created, where an alias is invisible in the other direction.
+ */
+eq('an aliased write is NOT caught — a stated limit',
+  globalTouches('const global = window; global.startAudit = startAudit;'), []);
+eq('and the entry point does write them that way',
+  /const global = window;/.test(readFileSync(join(srcDir, 'main.js'), 'utf8')), true);
+
 /* ── 4. What still reaches for globals, and why ───────────────────────── */
 section('4. The legacy consumers, counted');
 
@@ -147,9 +167,13 @@ const legacyTouches = legacy.map(relativePath => {
   return { file: relativePath, touches };
 }).filter(entry => entry.touches.length);
 
-eq('js/ holds only what Phase 2 has not converted yet', legacy, ['app.js', 'dns.js']);
+eq('js/ holds only what Phase 2 has not converted yet', legacy, ['dns.js']);
 eq('and js/dns.js no longer touches a global at all',
   legacyTouches.filter(e => e.file === 'dns.js'), []);
+// Which means nothing under js/ reaches for a global any more. Task 2.6 moved
+// the last consumer — js/app.js — into src/main.js, where the contract above
+// governs it and the adapter sentinel says so out loud.
+eq('nothing left under js/ reaches for a global', legacyTouches, []);
 for (const entry of legacyTouches) {
   console.log(`  ${entry.file} still reaches for: ${entry.touches.join(', ')}`);
 }

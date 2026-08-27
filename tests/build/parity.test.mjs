@@ -27,23 +27,11 @@ import vm from 'node:vm';
 import { createSuite } from '../lib/assert.mjs';
 import { createDocument } from '../../tools/lib/dom-shim.mjs';
 import { scriptOrderFromMarkup } from '../../tools/build-bundle.mjs';
-import { PUBLIC_SUFFIX_RULES } from '../../src/data/public-suffixes.js';
-import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
-import { LOCALE_EN } from '../../src/data/locales-en.js';
-import { createI18n } from '../../src/i18n/index.js';
-import { createRenderer } from '../../src/ui/render.js';
-import { createDnsEngine } from '../../js/dns.js';
-import { createBrowserPlatform } from '../../src/platform/browser.js';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { eq, section, report } = createSuite();
 
 const ARTIFACT = 'dist/app.min.js';
-// The hand-written IIFEs. The three generated tables are ES modules under
-// src/data/ as of Phase 2 and are INJECTED below, exactly as the adapter and
-// the browser harness inject them -- a consumer that imports its own generated
-// data can never be handed different data by a test.
-const SOURCES = ['js/app.js'];
 
 /**
  * The ambient names the harness supplies. Everything a load leaves behind
@@ -60,8 +48,19 @@ const AMBIENT = ['document', 'navigator', 'location', 'localStorage', 'fetch', '
  * A fresh sandbox per load, and the load is cache-busted by construction:
  * `vm.runInContext` re-evaluates the source text every time, so neither Node's
  * module cache nor a previous load can leak into this one.
+ *
+ * This is the ARTIFACT side. The artifact is a classic IIFE — that is what
+ * keeps `file://` working — so a sandbox can still evaluate it, and evaluating
+ * it is the whole point: this file exists to measure the file that ships.
  */
-function load(files, { injectData = false } = {}) {
+/**
+ * One definition of "a browser", used by every load in this file.
+ *
+ * Written once because the two negative controls below have to build the SAME
+ * window as the real loads: a control that differed from the thing it is
+ * controlling proves nothing about it.
+ */
+function blankWindow() {
   const document = createDocument();
   const win = {
     document,
@@ -81,35 +80,37 @@ function load(files, { injectData = false } = {}) {
   win.window = win;
   win.self = win;
   win.globalThis = win;
-  // The source side needs the generated tables installed the way the adapter
-  // installs them for the bundle; the artifact carries its own.
-  if (injectData) {
-    win.__PUBLIC_SUFFIX_RULES__ = PUBLIC_SUFFIX_RULES;
-    win.__DKIM_SELECTOR_CATALOG__ = DKIM_SELECTOR_CATALOG;
-    win.__I18N_EN__ = LOCALE_EN;
-    // Constructed the way src/legacy-bridge.js constructs them for the bundle.
-    // The real adapter, over this sandbox window — what the bridge builds.
-    const platform = createBrowserPlatform({
-      ...win, Blob: class Blob {}, FileReader: class FileReader {},
-      setTimeout: (...a) => setTimeout(...a), clearTimeout: (...a) => clearTimeout(...a),
-      open: () => null,
-    });
-    const i18n = createI18n({ englishBundle: LOCALE_EN, platform });
-    win.i18n = i18n;
-    win.t = i18n.t;
-    win.tp = i18n.tp;
-    win.tRaw = i18n.tRaw;
-    win.R = createRenderer(() => win.document, i18n);
-    win.DnsAudit = createDnsEngine({
-      publicSuffixRules: PUBLIC_SUFFIX_RULES,
-      dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
-      platform,
-    });
-  }
+  return win;
+}
+
+function load(files) {
+  const win = blankWindow();
   vm.createContext(win);
   for (const file of files) {
     vm.runInContext(readFileSync(join(REPO, file), 'utf8'), win, { filename: file });
   }
+  return win;
+}
+
+/**
+ * The SOURCE side: the real ES module graph, evaluated by Node.
+ *
+ * There is nothing left to run in a sandbox. Task 2.6 converted the last
+ * hand-written IIFE, so the source side is now an `import` of `src/main.js` —
+ * the same entry point esbuild compiles — over a window this file supplies.
+ * `src/main.js` reads the ambient `window` to build its platform, which is the
+ * read that makes it a marked adapter, so the window is installed first.
+ *
+ * ONCE PER PROCESS, and it has to be: Node caches ES modules, so a second
+ * import would return the first application and this window would never be
+ * touched. This file needs exactly one source load and one artifact load, so
+ * the constraint costs nothing here — but it is why the artifact side stays on
+ * `vm`, where every load re-evaluates.
+ */
+async function loadSource() {
+  const win = blankWindow();
+  globalThis.window = win;
+  await import('../../src/main.js');
   return win;
 }
 
@@ -133,7 +134,7 @@ eq('it is not an ES module', /^\s*(export|import)\s/m.test(artifactBytes.toStrin
 /* ── 2. The global surface is identical ───────────────────────────────── */
 section('2. Global surface');
 
-const source = load(SOURCES, { injectData: true });
+const source = await loadSource();
 const bundle = load([ARTIFACT]);
 
 const sourceGlobals = globalsOf(source);
@@ -216,17 +217,7 @@ const altered = readFileSync(join(REPO, ARTIFACT), 'utf8')
 eq('the alteration applied', altered !== readFileSync(join(REPO, ARTIFACT), 'utf8'), true);
 
 const alteredWin = (() => {
-  const document = createDocument();
-  const win = {
-    document, navigator: { language: 'en', languages: ['en'] },
-    location: { href: 'https://x/' },
-    localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
-    fetch: async () => ({ ok: false }), console, setTimeout, clearTimeout, queueMicrotask,
-    URL, URLSearchParams, AbortController, crypto, Date, Intl,
-    opened: [], Blob: class Blob {}, FileReader: class FileReader {},
-  };
-  win.open = (...args) => { win.opened.push(args); return null; };
-  win.window = win; win.self = win; win.globalThis = win;
+  const win = blankWindow();
   vm.createContext(win);
   vm.runInContext(altered, win, { filename: 'altered' });
   return win;
@@ -238,17 +229,7 @@ eq('while every other weight is untouched', alteredWin.DnsAudit.WEIGHTS.spf, sou
 
 // And a global-surface difference is caught too.
 const extraWin = (() => {
-  const document = createDocument();
-  const win = {
-    document, navigator: { language: 'en', languages: ['en'] },
-    location: { href: 'https://x/' },
-    localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
-    fetch: async () => ({ ok: false }), console, setTimeout, clearTimeout, queueMicrotask,
-    URL, URLSearchParams, AbortController, crypto, Date, Intl,
-    opened: [], Blob: class Blob {}, FileReader: class FileReader {},
-  };
-  win.open = (...args) => { win.opened.push(args); return null; };
-  win.window = win; win.self = win; win.globalThis = win;
+  const win = blankWindow();
   vm.createContext(win);
   vm.runInContext(readFileSync(join(REPO, ARTIFACT), 'utf8') + '\nvar DnsAuditExtra = 1;', win, { filename: 'extra' });
   return win;

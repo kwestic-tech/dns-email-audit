@@ -98,14 +98,16 @@ eq('no path under tests/ is an input', inputs.filter(p => p.startsWith('tests/')
 eq('no path under tools/ is an input', inputs.filter(p => p.startsWith('tools/')), []);
 eq('no node_modules path is an input', inputs.filter(p => p.includes('node_modules')), []);
 // Exactly the files that should be there, named rather than counted: the entry,
-// the generated-data adapter, the three generated modules and the four
-// remaining IIFEs. This list shrinks on the `js/` side every Phase 2 commit,
-// and a file appearing here that nobody added is what it exists to catch.
+// the generated-data adapter, the three generated modules, the converted layers
+// and the one file still under `js/`. This list shrinks on the `js/` side every
+// Phase 2 commit, and a file appearing here that nobody added is what it exists
+// to catch. Task 2.6 removed three at once — `js/app.js` became `src/main.js`,
+// which absorbed `src/entry-legacy.js` and `src/legacy-bridge.js`.
 eq('the inputs are exactly the modules the entry point reaches', inputs.sort(),
-  ['js/app.js', 'js/dns.js',
+  ['js/dns.js',
     'src/data/dkim-selectors.js', 'src/data/legacy-globals.js',
     'src/data/locales-en.js', 'src/data/public-suffixes.js',
-    'src/entry-legacy.js', 'src/i18n/index.js', 'src/legacy-bridge.js',
+    'src/i18n/index.js', 'src/main.js',
     'src/platform/browser.js', 'src/runtime.js', 'src/ui/render.js']);
 
 const sourceMap = JSON.parse(readFileSync(join(SITE, 'dist', 'app.min.js.map'), 'utf8'));
@@ -113,12 +115,13 @@ eq('no test path appears in the source map',
   sourceMap.sources.filter(p => /\.test\.(js|mjs)$/.test(p)), []);
 eq('no path under tests/ appears in the source map',
   sourceMap.sources.filter(p => p.includes('/tests/')), []);
-// NOT a 1:1 correspondence, and assuming one was wrong: `src/entry-legacy.js`
-// contributes no code — it is seven imports — so esbuild leaves it out of the
-// map's sources. The real invariant is that every mapped source is an input.
+// NOT a 1:1 correspondence, and assuming one was wrong: a module that
+// contributes no code of its own is left out of the map's sources. The real
+// invariant is that every mapped source is an input. All ten are code-bearing
+// as of Task 2.6, which retired the two import-only adapters.
 eq('every mapped source is one of the bundle inputs',
   sourceMap.sources.map(p => p.replace(/^(\.\.\/)+/, '')).filter(p => !inputs.includes(p)), []);
-eq('every code-bearing input is mapped', sourceMap.sources.length, 11);
+eq('every code-bearing input is mapped', sourceMap.sources.length, 10);
 
 // Defence in depth, carrying no acceptance criterion of its own: a string that
 // appears in every cross-cutting suite must appear nowhere in the artifact.

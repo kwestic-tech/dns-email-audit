@@ -16,7 +16,7 @@ import {
 } from './lib/browser-harness.mjs';
 import { RICH_TAG_ALLOWLIST, disallowedTags } from './lib/locale-utils.mjs';
 
-const win = loadApp();
+const win = await loadApp();
 const { R, document } = win;
 const APP = win.__APP_TEST__;
 

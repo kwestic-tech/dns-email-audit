@@ -129,7 +129,7 @@ async function runCase(root, testCase, entry) {
   const subject = loadSubject(root, {
     entry, fetch: fetchImpl, instant: FIXED_INSTANT, platform: testCase.platform,
   });
-  const { win, document } = subject;
+  const { win, document, downloads } = subject;
 
   /**
    * Data profile: the runner supplies PRODUCTION generated data for all three
@@ -147,21 +147,9 @@ async function runCase(root, testCase, entry) {
     probeEnglishBundle(win.t, 'production'),
   ]);
 
-  // The download boundary. `js/app.js:1434` builds a Blob and clicks a
-  // detached anchor; capturing at the Blob is capturing exactly the bytes the
-  // browser would have written.
-  const downloads = [];
-  win.Blob = class Blob {
-    constructor(parts, options) { downloads.push({ type: options && options.type, text: parts.join('') }); }
-  };
-  win.URL = new Proxy(URL, {
-    get(target, property) {
-      if (property === 'createObjectURL') return () => 'blob:equivalence';
-      if (property === 'revokeObjectURL') return () => {};
-      const value = target[property];
-      return typeof value === 'function' ? value.bind(target) : value;
-    },
-  });
+  // The download boundary is part of the subject's browser — installed before
+  // it booted, alongside `fetch`, rather than patched over it here. See
+  // tests/lib/subject.mjs.
 
   // The runner observes the facade; it does not reach past it. `startAudit()`
   // owns the worker pool, the per-domain error isolation and the `results`

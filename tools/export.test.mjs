@@ -12,7 +12,7 @@ import {
   loadApp, elements, attributes, textOf,
 } from './lib/browser-harness.mjs';
 
-const win = loadApp();
+const win = await loadApp();
 const { R, document } = win;
 const APP = win.__APP_TEST__;
 

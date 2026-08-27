@@ -121,14 +121,16 @@ section('0b. Generated data is injected, and each binding has its own probe');
  * trusting the comment: a suite must be able to hand the app different data,
  * and each binding's probe must notice independently when it is the wrong one.
  */
-// i18n is an ES module now; the harness constructs it, so no file list is needed.
-const productionApp = loadApp({ files: [] });
+// Every layer is an ES module now; the harness constructs the i18n layer
+// directly rather than loading the entry point, which is what lets one process
+// build three of them with different bindings.
+const productionApp = await loadApp({ app: false });
 eq('with no override, the harness supplies production English',
   probeEnglishBundle(productionApp.t, 'production').actual,
   probeEnglishBundle(productionApp.t, 'production').expected);
 
 const fixtureEnglish = { meta: { code: 'en' }, doc: { title: FIXTURE_ENGLISH_TITLE } };
-const fixtureApp = loadApp({ files: [], data: { englishBundle: fixtureEnglish } });
+const fixtureApp = await loadApp({ app: false, data: { englishBundle: fixtureEnglish } });
 eq('a suite can inject a fixture English bundle instead',
   probeEnglishBundle(fixtureApp.t, 'fixture').actual, FIXTURE_ENGLISH_TITLE);
 throws('and claiming production while the fixture is in force fails the probe',
@@ -141,7 +143,7 @@ throws('as does the reverse',
 
 // The three probes are INDEPENDENT: substituting one leaves the others correct,
 // which is what makes each of them evidence about its own binding.
-const mixed = loadApp({ files: [], data: { englishBundle: fixtureEnglish } });
+const mixed = await loadApp({ app: false, data: { englishBundle: fixtureEnglish } });
 eq('substituting English does not disturb the PSL binding',
   mixed.__PUBLIC_SUFFIX_RULES__.length > 10000, true);
 eq('nor the DKIM catalog binding',

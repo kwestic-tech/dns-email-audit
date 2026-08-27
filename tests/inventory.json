@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 54,
+      "assertions": 52,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -133,7 +133,7 @@
     },
     {
       "path": "tests/contract/namespace.test.mjs",
-      "assertions": 15,
+      "assertions": 18,
       "areas": [
         "the 24-name global inventory is closed",
         "no module under src/ reads or writes one of them outside a marked adapter",

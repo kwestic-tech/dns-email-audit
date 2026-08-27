@@ -16,7 +16,7 @@ import { dirname, join, relative } from 'node:path';
 import esbuild from 'esbuild';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
-const ENTRY = 'src/entry-legacy.js';
+const ENTRY = 'src/main.js';
 const OUTFILE = 'dist/app.min.js';
 // Build metadata, deliberately NOT under dist/.
 //
@@ -56,11 +56,13 @@ function banner(version) {
  * Two settings are load-bearing and both are absences:
  *
  *  - **`globalName` is omitted.** esbuild assigns the entry point's exports to
- *    that name; `src/entry-legacy.js` has none, so an early
- *    `globalName: 'DnsAudit'` would emit a top-level `var DnsAudit` that
- *    OVERWRITES the real object from `js/dns.js:5601` and break the app on the
- *    commit that moves the delivery boundary. It arrives in §10's stage 3,
- *    against a facade that genuinely exports those members.
+ *    that name, and `src/main.js` now has two — the §10 facade. Enabling it
+ *    here would emit a top-level `var DnsAudit` that OVERWRITES the object
+ *    `src/main.js` assigns from the runtime, which is the mistake spec 0.2
+ *    nearly shipped. It arrives in §10's stage 3, in the same commit that
+ *    removes that assignment. Measured, not assumed: `iife` with an entry that
+ *    exports and no `globalName` builds with zero errors and zero warnings and
+ *    creates no global — the exports become ordinary `var`s inside the IIFE.
  *  - **`splitting` stays false and there is no dynamic import.** One artifact,
  *    per §25. `OQ-ARCH-05` holds the split for later, with measured
  *    repeat-visit data rather than an assumption.
