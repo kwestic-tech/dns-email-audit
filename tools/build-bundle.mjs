@@ -62,9 +62,9 @@ function banner(version) {
  * disk", and that file is 125,172 bytes — about 18% of the payload — bought and
  * paid for that purpose. A `type="module"` script would spend it.
  */
-export function buildOptions(version) {
+export function buildOptions(version, root = REPO) {
   return {
-    absWorkingDir: REPO,
+    absWorkingDir: root,
     entryPoints: [ENTRY],
     outfile: OUTFILE,
     bundle: true,
@@ -103,12 +103,21 @@ export function inputOrderFromMetafile(metafile) {
     : [];
 }
 
-export async function build({ quiet = false } = {}) {
-  const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'));
-  mkdirSync(join(REPO, 'dist'), { recursive: true });
+/**
+ * Build into `root`, which defaults to the repository.
+ *
+ * Parameterised because the oracle validation now has to build every mutated
+ * copy it makes: from the delivery-boundary commit onward the runner loads
+ * `dist/app.min.js`, so a validator that mutated `js/` and did not rebuild
+ * would be measuring an artifact the mutation never reached — a green run
+ * proving nothing, which is the failure this project keeps finding.
+ */
+export async function build({ root = REPO } = {}) {
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  mkdirSync(join(root, 'dist'), { recursive: true });
 
   const started = process.hrtime.bigint();
-  const result = await esbuild.build(buildOptions(pkg.version));
+  const result = await esbuild.build(buildOptions(pkg.version, root));
   const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
 
   if (result.errors.length) {
@@ -117,11 +126,11 @@ export async function build({ quiet = false } = {}) {
   }
   for (const warning of result.warnings) console.error(`build warning: ${warning.text}`);
 
-  const bundle = readFileSync(join(REPO, OUTFILE));
-  const map = readFileSync(join(REPO, `${OUTFILE}.map`));
+  const bundle = readFileSync(join(root, OUTFILE));
+  const map = readFileSync(join(root, `${OUTFILE}.map`));
 
   // The load order the markup declares must be the order the bundle used.
-  const declared = scriptOrderFromMarkup(readFileSync(join(REPO, 'index.html'), 'utf8'));
+  const declared = scriptOrderFromMarkup(readFileSync(join(root, 'index.html'), 'utf8'));
   const bundled = inputOrderFromMetafile(result.metafile);
   const declaredLegacy = declared.filter(path => path.startsWith('js/'));
   if (declaredLegacy.length && String(declaredLegacy) !== String(bundled)) {
@@ -140,7 +149,6 @@ export async function build({ quiet = false } = {}) {
     gzip: gzipSync(bundle).length,
     mapBytes: map.length,
     inputs: bundled,
-    quiet,
   };
 }
 

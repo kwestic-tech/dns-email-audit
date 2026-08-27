@@ -26,6 +26,7 @@ import { dirname, join } from 'node:path';
 import { createSuite } from '../lib/assert.mjs';
 import { serialize } from '../lib/canonical.mjs';
 import { runCase } from './equivalence.mjs';
+import { build } from '../../tools/build-bundle.mjs';
 import { cases as allCases } from '../fixtures/equivalence/corpus.mjs';
 
 /**
@@ -56,12 +57,21 @@ const { eq, section, report } = createSuite();
 
 const SURFACES = ['result', 'trace', 'csv', 'report', 'dom'];
 
-/** A subject root holding only what a subject is: the shipped files. */
-function makeRoot(label) {
+/**
+ * A subject root holding what a subject is, BUILT.
+ *
+ * The build is not a convenience. Since the delivery boundary moved, the runner
+ * loads `dist/app.min.js`, so a mutation applied to `js/` reaches nothing
+ * unless the root is rebuilt — and every mutation below would report "moves
+ * nothing" while looking like a clean validation. Rebuilding is what keeps this
+ * file's claims about the instrument true.
+ */
+async function makeRoot(label) {
   const root = mkdtempSync(join(tmpdir(), `equivalence-${label}-`));
-  for (const path of ['index.html', 'js', 'css', 'locales']) {
+  for (const path of ['index.html', 'js', 'src', 'css', 'locales', 'package.json']) {
     cpSync(join(REPO, path), join(root, path), { recursive: true });
   }
+  await build({ root });
   return root;
 }
 
@@ -92,7 +102,7 @@ section('1. The runner is deterministic');
 console.log(`validating against ${cases.length} of ${allCases.length} corpus cases: ${VALIDATION_SUBSET.join(', ')}`);
 console.log('(the instrument is what is under test here, not the corpus)');
 
-const pristine = makeRoot('pristine');
+const pristine = await makeRoot('pristine');
 const first = await run(pristine);
 const second = await run(pristine);
 eq('two runs against one root move no surface', movedSurfaces(first, second), []);
@@ -194,7 +204,7 @@ const MUTATIONS = [
 ];
 
 for (const mutation of MUTATIONS) {
-  const root = makeRoot('mutant');
+  const root = await makeRoot('mutant');
   const path = join(root, mutation.file);
   const source = readFileSync(path, 'utf8');
   const occurrences = source.split(mutation.from).length - 1;
@@ -202,6 +212,8 @@ for (const mutation of MUTATIONS) {
   // exact shape of failure this whole file exists to prevent.
   eq(`${mutation.label}: applies exactly once`, occurrences, 1);
   writeFileSync(path, source.replace(mutation.from, mutation.to));
+  // Rebuild: the mutation is in the source, and the subject loads the artifact.
+  await build({ root });
 
   const mutated = await run(root);
   const moved = movedSurfaces(first, mutated);
@@ -219,18 +231,20 @@ section('3. A subject is a complete root');
 // Changing an asset the JavaScript does not touch must still be visible. A
 // runner that paired baseline JavaScript with current-branch CSS would report
 // a clean diff across a stylesheet rewrite.
-const cssRoot = makeRoot('css');
+const cssRoot = await makeRoot('css');
 const cssPath = join(cssRoot, 'css', 'style.css');
 writeFileSync(cssPath, readFileSync(cssPath, 'utf8') + '\n.equivalence-probe{color:red}\n');
+// No rebuild: the stylesheet is not an input to the bundle, and that is the
+// point — a subject is a complete root, not its JavaScript.
 const cssMutated = await run(cssRoot);
 eq('a stylesheet-only change moves the report surface and nothing else',
   movedSurfaces(first, cssMutated), ['report']);
 rmSync(cssRoot, { recursive: true, force: true });
 
 // And the index.html the subject loads is the subject's own.
-const htmlRoot = makeRoot('html');
+const htmlRoot = await makeRoot('html');
 const htmlPath = join(htmlRoot, 'index.html');
-writeFileSync(htmlPath, readFileSync(htmlPath, 'utf8').replace('js/app.js', 'js/does-not-exist.js'));
+writeFileSync(htmlPath, readFileSync(htmlPath, 'utf8').replace('dist/app.min.js', 'dist/does-not-exist.js'));
 let refused = false;
 try { await run(htmlRoot); } catch (error) { refused = /listed in index.html but missing/.test(error.message); }
 eq('a script listed in index.html but absent is refused, not skipped', refused, true);
@@ -240,9 +254,10 @@ rmSync(htmlRoot, { recursive: true, force: true });
 // produce surfaces at all rather than emit a baseline that looks authoritative
 // — this is the spike's failure mode moved up a level, where it would poison
 // every later comparison instead of one suite.
-const swappedRoot = makeRoot('swapped');
+const swappedRoot = await makeRoot('swapped');
 writeFileSync(join(swappedRoot, 'js', 'public-suffixes.js'),
   "window.__PUBLIC_SUFFIX_RULES__ = ['com','co.uk','*.ck','!www.ck'];\n");
+await build({ root: swappedRoot });
 let refusedData = false;
 try { await run(swappedRoot); } catch (error) {
   refusedData = /the PSL binding in force is not the production one/.test(error.message) &&

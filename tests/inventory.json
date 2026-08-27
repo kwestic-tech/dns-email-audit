@@ -74,12 +74,13 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 41,
+      "assertions": 49,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
-        "script loading order and origin",
-        "the markup-sink scan, with an EMPTY named-file allowlist",
+        "script loading: exactly one, it is dist/app.min.js, same-origin, not a module",
+        "the markup-sink scan over js/ and src/, with an EMPTY named-file allowlist and a mechanical *.test.js suffix exclusion",
+        "the markup-sink scan over the built artifact, which is what pays for that exclusion",
         "the exported report declares its own policy"
       ]
     },
@@ -132,7 +133,7 @@
       "areas": [
         "the runner is deterministic across two runs of one root",
         "each of the five surfaces distinguishes cases",
-        "seven mutations, each caught on the surfaces it should be and no others",
+        "seven mutations, rebuilt into the artifact and each caught on the surfaces it should be and no others",
         "a subject is a complete root: a stylesheet-only edit moves the report",
         "a script listed in index.html but absent is refused, not skipped",
         "a subject whose generated data was substituted is refused, not measured"

@@ -7,10 +7,10 @@
  * away from the policy that authorizes it.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(REPO, 'index.html'), 'utf8');
@@ -76,11 +76,22 @@ eq('the structured data still parses', (() => {
 /* ── 3. Every script the page loads is listed ────────────────────────── */
 section('3. Script loading');
 
+// Amended when the delivery boundary moved (Task 1.6). This section used to
+// assert the seven-file load order, because index.html WAS the dependency
+// graph. It is not any more: the order lives in src/entry-legacy.js, and
+// tools/build-bundle.mjs verifies the bundle's input order against the markup
+// rather than either one trusting the other.
+//
+// Section 1's policy assertions are untouched and must stay that way.
 const srcs = [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map(m => m[1]);
-eq('js/render.js is loaded', srcs.includes('js/render.js'), true);
-eq('render.js loads after i18n.js', srcs.indexOf('js/render.js') > srcs.indexOf('js/i18n.js'), true);
-eq('render.js loads before app.js', srcs.indexOf('js/render.js') < srcs.indexOf('js/app.js'), true);
+eq('exactly one script is loaded', srcs.length, 1);
+eq('and it is the built artifact', srcs[0], 'dist/app.min.js');
 eq('every script is same-origin', srcs.every(s => !/^https?:/i.test(s)), true);
+// Not type="module". The CSP shape and file:// both depend on it: a module
+// script is fetched with CORS, which file:// refuses outright.
+eq('no script is a module', /<script[^>]*\stype="module"/.test(html), false);
+// The artifact is generated, never committed.
+eq('dist/ is git-ignored', readFileSync(join(REPO, '.gitignore'), 'utf8').split('\n').includes('dist/'), true);
 
 /* ── 4. The markup-sink scan ─────────────────────────────────────────── */
 section('4. Markup-sink scan (allowlist is empty)');
@@ -129,10 +140,41 @@ SINK_CASES.forEach(([code, shouldMatch]) => {
   eq(`the scan ${shouldMatch ? 'catches' : 'ignores'} \`${code}\``, SINK.test(code), shouldMatch);
 });
 
-const scanned = jsFiles(join(REPO, 'js')).sort();
+// The scan covers every source tree that still holds hand-written browser code,
+// plus the artifact that actually ships.
+//
+// Co-location (OQ-ARCH-09) will put *.test.js under src/, so the scan needs an
+// exclusion — and this file's own comment warns that an allowlist with judgment
+// calls in it stops being reliable. The exclusion is therefore a MECHANICAL
+// FILENAME SUFFIX, never a list of specific files. A suffix rule has no
+// judgment in it, and the named-file allowlist above stays empty.
+const SOURCE_TREES = ['js', 'src'].filter(dir => existsSync(join(REPO, dir)));
+const scanned = SOURCE_TREES
+  .flatMap(dir => jsFiles(join(REPO, dir)))
+  .filter(file => !file.endsWith('.test.js'))
+  .sort();
 eq('the scan covers js/app.js', scanned.some(f => f.endsWith('app.js')), true);
 eq('the scan covers js/render.js', scanned.some(f => f.endsWith('render.js')), true);
 eq('the scan covers js/i18n.js', scanned.some(f => f.endsWith('i18n.js')), true);
+eq('the scan covers the src/ tree', scanned.some(f => f.includes(`${sep}src${sep}`)), true);
+eq('and excludes co-located tests by suffix alone',
+  scanned.some(f => f.endsWith('.test.js')), false);
+
+/**
+ * And the built artifact, which is what the browser actually runs.
+ *
+ * This is what pays for the suffix exclusion above: whatever the source tree
+ * does, the property is proved on the code that ships. `npm test` runs
+ * `pretest`, which builds the bundle, so it is always here — a scan that
+ * silently skipped when the artifact was missing would be worth nothing.
+ */
+const ARTIFACT = join(REPO, 'dist', 'app.min.js');
+eq('the built artifact exists to be scanned', existsSync(ARTIFACT), true);
+const artifactSource = existsSync(ARTIFACT) ? readFileSync(ARTIFACT, 'utf8') : '';
+eq('the artifact assigns no markup sink', SINK.test(artifactSource), false);
+eq('and calls none of the other sinks', OTHER_SINKS.test(artifactSource), false);
+// The scan is only meaningful if it is looking at the real thing.
+eq('the artifact is the whole application, not a stub', artifactSource.length > 100000, true);
 
 for (const file of scanned) {
   const rel = relative(REPO, file);

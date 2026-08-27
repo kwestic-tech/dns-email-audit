@@ -181,15 +181,18 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- Load order matters: the inlined English bundle must exist before i18n.js,
-     and i18n.js before anything that calls t(). Plain scripts (not modules)
-     so the app also works when opened directly from disk over file://. -->
-<script src="js/locales-en.js"></script>
-<script src="js/public-suffixes.js"></script>
-<script src="js/dkim-selectors.js"></script>
-<script src="js/i18n.js"></script>
-<script src="js/render.js"></script>
-<script src="js/dns.js"></script>
-<script src="js/app.js"></script>
+<!-- One built artifact, generated from source at the commit being deployed by
+     `npm run build`. It is not committed; dist/ is git-ignored.
+
+     Load order still matters and still lives in src/entry-legacy.js, where the
+     inlined English bundle is imported before i18n and i18n before anything
+     that calls t(). tools/build-bundle.mjs verifies the bundle's input order
+     against this file rather than trusting it.
+
+     A plain script, NOT type="module", so the app still works when index.html
+     is opened directly from disk over file://. js/locales-en.js exists for that
+     reason and states so in its own generated header; it is about 18% of the
+     payload, bought and paid for. -->
+<script src="dist/app.min.js"></script>
 </body>
 </html>
