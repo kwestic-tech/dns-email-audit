@@ -146,8 +146,15 @@ function declaredExports(source) {
 }
 
 /**
- * `src/data/` is a SINK, and it is excluded from the state-constant comparison
- * for that reason rather than for convenience.
+ * The FLOOR of the import graph is excluded from the state-constant comparison,
+ * and the exclusion is mechanical rather than a judgment call: §12's
+ * allowed-edge matrix gives `src/data/` and `src/platform/` no outgoing edges
+ * at all, and a module that imports nothing holds no protocol vocabulary. What
+ * they export is tables and primitive names — 10,239 public suffix rules, a
+ * selector catalog, the §11 primitive list — and running the vocabulary
+ * comparison over those reports every one of them as an unknown algebra.
+ *
+ * The floor's own rule is asserted directly instead, which is stronger.
  *
  * Spec §2 records it as "generated; not hand-edited, not unit-tested", and
  * §12's allowed-edge matrix gives it no outgoing edges at all: a generated file
@@ -158,8 +165,27 @@ function declaredExports(source) {
  *
  * So the sink rule is asserted directly instead, which is the stronger check.
  */
+const FLOOR = ['data/', 'platform/'];
+const isFloor = p => FLOOR.some(prefix => p.startsWith(prefix));
 const dataModules = srcModules.filter(p => p.startsWith('data/'));
-const codeModules = srcModules.filter(p => !p.startsWith('data/'));
+const floorModules = srcModules.filter(isFloor);
+const codeModules = srcModules.filter(p => !isFloor(p));
+
+// Every floor module must actually be one. This is what makes the exclusion
+// above a rule rather than a list: a file that grows an import stops being
+// floor and rejoins the comparison.
+for (const relative of floorModules) {
+  const source = readFileSync(join(srcDir, relative), 'utf8');
+  const importsSomething = /^\s*import\s/m.test(source);
+  // The generated-data adapter is the one floor file that imports, and it is a
+  // marked adapter whose whole job is to bind the tables to globals.
+  if (relative === 'data/legacy-globals.js') continue;
+  eq(`${relative} imports nothing — it is floor`, importsSomething, false);
+}
+eq('the floor is the generated data and the platform adapter',
+  floorModules.sort(),
+  ['data/dkim-selectors.js', 'data/legacy-globals.js', 'data/locales-en.js',
+    'data/public-suffixes.js', 'platform/browser.js']);
 
 eq('the generated data modules are the three tables and the adapter that installs them',
   dataModules.sort(),
@@ -189,7 +215,7 @@ console.log(`  adapters remaining: ${adapters.length}`);
 const legacyEntry = 'entry-legacy.js';
 // Grows every Phase 2 commit, and named rather than counted so a module
 // appearing here that nobody added is what this catches.
-eq('src/ holds the entry point, the bridge and the two converted layers',
+eq('src/ holds the entry point, the bridge and the converted layers',
   codeModules.sort(), ['entry-legacy.js', 'i18n/index.js', 'legacy-bridge.js', 'ui/render.js']);
 
 /**

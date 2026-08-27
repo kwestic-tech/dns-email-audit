@@ -276,15 +276,27 @@ decision in the review log. Include the compatibility note when the changelog
 and PR description are written once from the finished branch; do not describe
 absence of repository consumers as proof of no external consumer.
 
-**Task 2.9** — Migrate the suites off `node:vm` where a plain `import` suffices,
-smallest first: interpolate (17) → export (199) → render (329) → scoring
+**Task 2.9 — PARTIALLY COMPLETE as of Task 2.3 (2026-08-27).** Not to be
+redone. Converting `js/dns.js` to an ES module forced its consumers off
+`node:vm` in the same commit, because a sandbox cannot evaluate a module.
+Already migrated: **interpolate**, **export**, **render** (via
+`tools/lib/browser-harness.mjs`, which now constructs the ESM layers and
+injects the generated data), **scoring** (builds the engine directly, keeping a
+holder object so all 69 `sandbox.fetch` swaps work unchanged), and
+`tests/contract/legacy-shapes.test.mjs`. What remains of this task is the
+`js/app.js` half, which Task 2.6 carries.
+
+Original text — Migrate the suites off `node:vm` where a plain `import`
+suffices, smallest first: interpolate (17) → export (199) → render (329) → scoring
 (1,535). One suite per commit, each naming its inventory entries.
 `tools/lib/browser-harness.mjs` keeps the DOM shim and loses
 `vm.runInContext`; **rewrite its header comment**, which currently describes the
 IIFE design as fact.
 
-**Task 2.10** — `tools/backtest.mjs` off `vm`. It keeps its live-DNS
-grade-distribution job and does **not** become the equivalence oracle.
+**Task 2.10 — COMPLETE as of Task 2.3 (2026-08-27).** Not to be redone.
+`tools/backtest.mjs` builds the engine directly with the production tables and
+the real `fetch`. It keeps its live-DNS grade-distribution job and did **not**
+become the equivalence oracle.
 
 > **Gate 2.** All source is ESM. Adapter sentinels counted and shrinking. Test layout follows the
 > settled `OQ-ARCH-09` hybrid. Five-surface equivalence clean through the

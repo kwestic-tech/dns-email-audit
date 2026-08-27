@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 52,
+      "assertions": 53,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -118,7 +118,7 @@
     },
     {
       "path": "tests/contract/state-matrix.test.mjs",
-      "assertions": 33,
+      "assertions": 38,
       "areas": [
         "every registry member has exactly one coverage row",
         "every row names a suite or corpus case that exists",
@@ -127,7 +127,8 @@
         "the targeted legacy contracts are wired",
         "the legacy entry point has no exports, which is what keeps globalName safe to omit",
         "src/data/ is a sink: the generated tables import nothing and export exactly one table each",
-        "every adapter carries the LEGACY_ADAPTER sentinel, and the remaining count is reported"
+        "every adapter carries the LEGACY_ADAPTER sentinel, and the remaining count is reported",
+        "the import-graph FLOOR is defined mechanically: src/data/ and src/platform/ import nothing, and a file that grows an import rejoins the state comparison"
       ]
     },
     {
@@ -139,6 +140,19 @@
         "the marked adapters are named, and the remaining count is reported",
         "the scan catches window, globalThis and self, and ignores comments and same-named locals",
         "what still reaches for globals under js/ is counted, so a phase that adds one is visible"
+      ]
+    },
+    {
+      "path": "tests/contract/platform.test.mjs",
+      "assertions": 65,
+      "areas": [
+        "the §11 primitive set is complete, checked against the module's own declaration",
+        "language built-ins are required APIs, not injected services",
+        "every method keeps its receiver when destructured off the platform, proven against a window that refuses unbound calls",
+        "host objects are passed whole and constructors come from the window",
+        "a platform is per runtime: two calls share nothing and one window's calls do not reach another",
+        "now() and formatDateTime() preserve the v0.5.0 call and are pinnable by the window's clock",
+        "src/platform/ imports nothing and never reaches for the ambient window"
       ]
     },
     {

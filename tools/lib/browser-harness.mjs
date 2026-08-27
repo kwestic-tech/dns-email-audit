@@ -29,6 +29,7 @@ import { LOCALE_EN } from '../../src/data/locales-en.js';
 import { createI18n } from '../../src/i18n/index.js';
 import { createRenderer } from '../../src/ui/render.js';
 import { createDnsEngine } from '../../js/dns.js';
+import { createBrowserPlatform } from '../../src/platform/browser.js';
 
 export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -80,18 +81,24 @@ export function loadApp(opts = {}) {
   // src/legacy-bridge.js constructs them for the bundle, then installed as the
   // globals the remaining IIFEs still read. One instance each, matching the
   // singleton they were.
-  const i18n = createI18n({
-    englishBundle: data.englishBundle,
-    // The same primitive set src/legacy-bridge.js passes, taken from the
-    // sandbox rather than from Node's globals.
-    platform: {
-      document: win.document,
-      localStorage: win.localStorage,
-      fetch: (...args) => win.fetch(...args),
-      navigator: win.navigator,
-      console: win.console,
-    },
-  });
+  // The real adapter, over the sandbox window — the same construction
+  // src/legacy-bridge.js performs for the page. `fetch` is wrapped rather than
+  // bound because suites reassign `win.fetch` between assertions.
+  const platform = {
+    ...createBrowserPlatform({
+      ...win,
+      fetch: win.fetch,
+      setTimeout: (...args) => setTimeout(...args),
+      clearTimeout: (...args) => clearTimeout(...args),
+      Blob: win.Blob || class Blob {},
+      FileReader: win.FileReader || class FileReader {},
+      crypto,
+      Date,
+      Intl,
+    }),
+    fetch: (...args) => win.fetch(...args),
+  };
+  const i18n = createI18n({ englishBundle: data.englishBundle, platform });
   win.i18n = i18n;
   win.t = i18n.t;
   win.tp = i18n.tp;
@@ -103,10 +110,7 @@ export function loadApp(opts = {}) {
     win.DnsAudit = createDnsEngine({
       publicSuffixRules: data.publicSuffixRules,
       dkimSelectorCatalog: data.dkimSelectorCatalog,
-      platform: {
-        fetch: (...args) => win.fetch(...args), crypto,
-        AbortController, URLSearchParams, setTimeout, clearTimeout,
-      },
+      platform,
     });
   }
 

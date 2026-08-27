@@ -339,6 +339,13 @@ rmSync(swappedRoot, { recursive: true, force: true });
 section('4. Module evaluation order');
 
 /**
+ * The guarantee here is an IMPORT-GRAPH dependency, not textual order in the
+ * entry point. A static import's module body is evaluated before the importing
+ * module's own body runs, and imports are evaluated in the order they appear —
+ * so `import './data/legacy-globals.js'` preceding `import '../js/app.js'` is a
+ * real ordering fact about the graph, while an assignment written above those
+ * lines would not be.
+ *
  * This section used to build an entry point that installed the generated data
  * AFTER importing its consumers — the ES-hoisting bug this project actually
  * wrote in Phase 2 — and require the artifact to fail its identity probes.
@@ -362,6 +369,7 @@ const entry = readFileSync(join(pristine, 'src', 'entry-legacy.js'), 'utf8');
 const installsAt = entry.indexOf("import './data/legacy-globals.js'");
 const bridgeAt = entry.indexOf("import './legacy-bridge.js'");
 const lastConsumerAt = entry.indexOf("import '../js/app.js'");
+// Positions in the import list, which is the evaluation order of the graph.
 eq('the entry installs the generated data first', installsAt >= 0, true);
 eq('then constructs the ESM layers', bridgeAt > installsAt, true);
 eq('and imports the remaining IIFE last', lastConsumerAt > bridgeAt, true);

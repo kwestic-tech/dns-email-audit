@@ -21,31 +21,24 @@
 import { createI18n } from './i18n/index.js';
 import { createRenderer } from './ui/render.js';
 import { createDnsEngine } from '../js/dns.js';
+import { createBrowserPlatform } from './platform/browser.js';
 import { LOCALE_EN } from './data/locales-en.js';
 import { PUBLIC_SUFFIX_RULES } from './data/public-suffixes.js';
 import { DKIM_SELECTOR_CATALOG } from './data/dkim-selectors.js';
 
 /**
- * The ambient primitives i18n needs, gathered in one place.
+ * ONE platform per page, built from this window.
  *
- * Task 2.4 replaces this literal with `browserPlatform` from
- * `src/platform/browser.js`, which names the complete set spec §11 requires.
- * It is written out here rather than deferred because the module cannot reach
- * for these itself any more, and a half-declared dependency is worse than
- * either state.
+ * This replaces the object literal Task 2.2 introduced as a stopgap. It is the
+ * complete §11 primitive set now, with methods bound to their receivers — a
+ * bare `fetch` or `setTimeout` lifted off `window` throws Illegal invocation in
+ * a browser, and Node is forgiving enough that getting it wrong would pass
+ * every test and fail only in production.
+ *
+ * Per runtime, not a module singleton: Task 2.5 moves this call into
+ * `createAuditRuntime()`, and two runtimes must share nothing.
  */
-const platform = {
-  document: window.document,
-  localStorage: window.localStorage,
-  fetch: (...args) => window.fetch(...args),
-  navigator: window.navigator,
-  console: window.console,
-  crypto: window.crypto,
-  AbortController: window.AbortController,
-  URLSearchParams: window.URLSearchParams,
-  setTimeout: (...args) => window.setTimeout(...args),
-  clearTimeout: (...args) => window.clearTimeout(...args),
-};
+const platform = createBrowserPlatform(window);
 
 const i18n = createI18n({ englishBundle: LOCALE_EN, platform });
 

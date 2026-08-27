@@ -33,6 +33,7 @@ import { LOCALE_EN } from '../../src/data/locales-en.js';
 import { createI18n } from '../../src/i18n/index.js';
 import { createRenderer } from '../../src/ui/render.js';
 import { createDnsEngine } from '../../js/dns.js';
+import { createBrowserPlatform } from '../../src/platform/browser.js';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { eq, section, report } = createSuite();
@@ -78,13 +79,12 @@ function load(files, { injectData = false } = {}) {
     win.__DKIM_SELECTOR_CATALOG__ = DKIM_SELECTOR_CATALOG;
     win.__I18N_EN__ = LOCALE_EN;
     // Constructed the way src/legacy-bridge.js constructs them for the bundle.
-    const i18n = createI18n({
-      englishBundle: LOCALE_EN,
-      platform: {
-        document: win.document, localStorage: win.localStorage,
-        fetch: (...args) => win.fetch(...args), navigator: win.navigator, console: win.console,
-      },
+    // The real adapter, over this sandbox window — what the bridge builds.
+    const platform = createBrowserPlatform({
+      ...win, Blob: class Blob {}, FileReader: class FileReader {},
+      setTimeout: (...a) => setTimeout(...a), clearTimeout: (...a) => clearTimeout(...a),
     });
+    const i18n = createI18n({ englishBundle: LOCALE_EN, platform });
     win.i18n = i18n;
     win.t = i18n.t;
     win.tp = i18n.tp;
@@ -93,11 +93,7 @@ function load(files, { injectData = false } = {}) {
     win.DnsAudit = createDnsEngine({
       publicSuffixRules: PUBLIC_SUFFIX_RULES,
       dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
-      platform: {
-        fetch: (...args) => win.fetch(...args), crypto: win.crypto,
-        AbortController: win.AbortController, URLSearchParams: win.URLSearchParams,
-        setTimeout: win.setTimeout, clearTimeout: win.clearTimeout,
-      },
+      platform,
     });
   }
   vm.createContext(win);
