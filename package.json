@@ -27,7 +27,7 @@
     "locale:gate": "node tools/check-locales.mjs --strict",
     "pr:prep": "node tools/pr-readiness.mjs",
     "pretest": "npm run build:bundle",
-    "test": "node tools/check-locales.mjs && node tools/scoring.test.mjs && node tools/interpolate.test.mjs && node tools/render.test.mjs && node tools/export.test.mjs && node tools/csp.test.mjs && node tests/contract/legacy-shapes.test.mjs && node tests/contract/canonicalization.test.mjs && node tests/contract/state-matrix.test.mjs && node tests/build/parity.test.mjs && node tests/build/artifact.test.mjs && node tests/build/equivalence.validate.mjs",
+    "test": "node tools/check-locales.mjs && node tools/scoring.test.mjs && node tools/interpolate.test.mjs && node tools/render.test.mjs && node tools/export.test.mjs && node tools/csp.test.mjs && node tests/contract/legacy-shapes.test.mjs && node tests/contract/canonicalization.test.mjs && node tests/contract/state-matrix.test.mjs && node tests/contract/namespace.test.mjs && node tests/build/parity.test.mjs && node tests/build/artifact.test.mjs && node tests/build/equivalence.validate.mjs",
     "test:scoring": "node tools/scoring.test.mjs",
     "equivalence": "node tests/build/equivalence.mjs --subject-root=.",
     "equivalence:baseline": "node tests/build/equivalence.mjs --subject-root=../dea-v050 --emit > tests/fixtures/equivalence/baseline-v0.5.0.json",

@@ -18,9 +18,9 @@
  * that always move together are one surface with four decorations.
  */
 
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { createSuite } from '../lib/assert.mjs';
@@ -334,6 +334,39 @@ try { await run(swappedRoot); } catch (error) {
 }
 eq('a subject whose generated data was substituted is refused, not measured', refusedData, true);
 rmSync(swappedRoot, { recursive: true, force: true });
+
+/* ── 4. Ordering, and where its protection now lives ─────────────────── */
+section('4. Module evaluation order');
+
+/**
+ * This section used to build an entry point that installed the generated data
+ * AFTER importing its consumers — the ES-hoisting bug this project actually
+ * wrote in Phase 2 — and require the artifact to fail its identity probes.
+ *
+ * It no longer does, and that is a result rather than a regression. Measured:
+ * a deliberately hoisted entry now produces **30 cases, 5 surfaces, 0
+ * differences**, because `js/dns.js` and `src/i18n/index.js` take their data as
+ * arguments instead of reading globals. Nothing evaluates against a global any
+ * more, so nothing depends on when the globals are installed.
+ *
+ * Asserting a failure that cannot happen would be worse than useless, so the
+ * protection moved to `tests/contract/namespace.test.mjs`: no module under
+ * `src/` may read or write one of the 24 globals outside a marked adapter.
+ * That catches the hazard COMING BACK, which is the only way it can return.
+ *
+ * What stays here is the structural half — the entry still installs before it
+ * imports its consumers — because the ordering is free and a future consumer
+ * that does read a global should find it already installed.
+ */
+const entry = readFileSync(join(pristine, 'src', 'entry-legacy.js'), 'utf8');
+const installsAt = entry.indexOf("import './data/legacy-globals.js'");
+const bridgeAt = entry.indexOf("import './legacy-bridge.js'");
+const lastConsumerAt = entry.indexOf("import '../js/app.js'");
+eq('the entry installs the generated data first', installsAt >= 0, true);
+eq('then constructs the ESM layers', bridgeAt > installsAt, true);
+eq('and imports the remaining IIFE last', lastConsumerAt > bridgeAt, true);
+eq('the namespace contract exists to hold the property this used to test',
+  existsSync(join(REPO, 'tests/contract/namespace.test.mjs')), true);
 
 rmSync(pristine, { recursive: true, force: true });
 report();

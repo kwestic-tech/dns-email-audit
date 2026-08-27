@@ -32,6 +32,7 @@ import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
 import { LOCALE_EN } from '../../src/data/locales-en.js';
 import { createI18n } from '../../src/i18n/index.js';
 import { createRenderer } from '../../src/ui/render.js';
+import { createDnsEngine } from '../../js/dns.js';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { eq, section, report } = createSuite();
@@ -41,7 +42,7 @@ const ARTIFACT = 'dist/app.min.js';
 // src/data/ as of Phase 2 and are INJECTED below, exactly as the adapter and
 // the browser harness inject them -- a consumer that imports its own generated
 // data can never be handed different data by a test.
-const SOURCES = ['js/dns.js', 'js/app.js'];
+const SOURCES = ['js/app.js'];
 
 /**
  * The ambient names the harness supplies. Everything a load leaves behind
@@ -89,6 +90,15 @@ function load(files, { injectData = false } = {}) {
     win.tp = i18n.tp;
     win.tRaw = i18n.tRaw;
     win.R = createRenderer(() => win.document, i18n);
+    win.DnsAudit = createDnsEngine({
+      publicSuffixRules: PUBLIC_SUFFIX_RULES,
+      dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
+      platform: {
+        fetch: (...args) => win.fetch(...args), crypto: win.crypto,
+        AbortController: win.AbortController, URLSearchParams: win.URLSearchParams,
+        setTimeout: win.setTimeout, clearTimeout: win.clearTimeout,
+      },
+    });
   }
   vm.createContext(win);
   for (const file of files) {

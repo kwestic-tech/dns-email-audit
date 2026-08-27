@@ -20,7 +20,10 @@
 
 import { createI18n } from './i18n/index.js';
 import { createRenderer } from './ui/render.js';
+import { createDnsEngine } from '../js/dns.js';
 import { LOCALE_EN } from './data/locales-en.js';
+import { PUBLIC_SUFFIX_RULES } from './data/public-suffixes.js';
+import { DKIM_SELECTOR_CATALOG } from './data/dkim-selectors.js';
 
 /**
  * The ambient primitives i18n needs, gathered in one place.
@@ -37,6 +40,11 @@ const platform = {
   fetch: (...args) => window.fetch(...args),
   navigator: window.navigator,
   console: window.console,
+  crypto: window.crypto,
+  AbortController: window.AbortController,
+  URLSearchParams: window.URLSearchParams,
+  setTimeout: (...args) => window.setTimeout(...args),
+  clearTimeout: (...args) => window.clearTimeout(...args),
 };
 
 const i18n = createI18n({ englishBundle: LOCALE_EN, platform });
@@ -51,3 +59,19 @@ window.tRaw = i18n.tRaw;
 // The renderer's dependency on the translator is an argument now, not a
 // global it happened to find because index.html loaded i18n first.
 window.R = createRenderer(() => window.document, i18n);
+
+/**
+ * ONE engine per page, which is what the IIFE was.
+ *
+ * The DoH cache lives inside it — `dohCache` is closure state now rather than
+ * module state — so one engine per page is exactly the page-lifetime reuse
+ * `tools/scoring.test.mjs:1888-1891` asserts and `PRIVACY.md:30-33` publishes
+ * as "roughly 41 queries for a typical domain". Constructing a second one here
+ * would halve the cache's reach and change a published figure. Task 2.5 moves
+ * this call into `createAuditRuntime()`, which keeps the same rule.
+ */
+window.DnsAudit = createDnsEngine({
+  publicSuffixRules: PUBLIC_SUFFIX_RULES,
+  dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
+  platform,
+});

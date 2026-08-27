@@ -29,6 +29,7 @@ import { dirname, join } from 'node:path';
 import vm from 'node:vm';
 import { PUBLIC_SUFFIX_RULES } from '../src/data/public-suffixes.js';
 import { DKIM_SELECTOR_CATALOG } from '../src/data/dkim-selectors.js';
+import { createDnsEngine } from '../js/dns.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -135,13 +136,14 @@ const sandbox = {
 };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
-// Injected rather than evaluated: both are ES modules under src/data/ as of
-// 0.6.0. backtest keeps its live-DNS grade-distribution job and is never the
-// equivalence oracle.
-sandbox.window.__PUBLIC_SUFFIX_RULES__ = PUBLIC_SUFFIX_RULES;
-sandbox.window.__DKIM_SELECTOR_CATALOG__ = DKIM_SELECTOR_CATALOG;
-vm.runInContext(readFileSync(join(ROOT, 'js', 'dns.js'), 'utf8'), sandbox);
-const D = sandbox.window.DnsAudit;
+// The engine, built with the production tables and the real fetch. This job
+// queries Cloudflare on purpose: it is a local grade-DISTRIBUTION check and is
+// never a gate, and never the equivalence oracle.
+const D = createDnsEngine({
+  publicSuffixRules: PUBLIC_SUFFIX_RULES,
+  dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
+  platform: { fetch, crypto, AbortController, URLSearchParams, setTimeout, clearTimeout },
+});
 
 const OPTS = { dkim: true, dkimComprehensive: comprehensiveDkim, www: false, advanced: true, wildcard: false, deepChecks };
 const CONCURRENCY = 6;

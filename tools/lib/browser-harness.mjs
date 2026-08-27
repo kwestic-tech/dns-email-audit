@@ -28,6 +28,7 @@ import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
 import { LOCALE_EN } from '../../src/data/locales-en.js';
 import { createI18n } from '../../src/i18n/index.js';
 import { createRenderer } from '../../src/ui/render.js';
+import { createDnsEngine } from '../../js/dns.js';
 
 export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -96,6 +97,18 @@ export function loadApp(opts = {}) {
   win.tp = i18n.tp;
   win.tRaw = i18n.tRaw;
   if (opts.render !== false) win.R = createRenderer(() => win.document, i18n);
+  // js/app.js is the last IIFE and reads window.DnsAudit. One engine, as
+  // src/legacy-bridge.js builds one per page.
+  if (opts.engine !== false) {
+    win.DnsAudit = createDnsEngine({
+      publicSuffixRules: data.publicSuffixRules,
+      dkimSelectorCatalog: data.dkimSelectorCatalog,
+      platform: {
+        fetch: (...args) => win.fetch(...args), crypto,
+        AbortController, URLSearchParams, setTimeout, clearTimeout,
+      },
+    });
+  }
 
   const files = opts.files || ['js/app.js'];
   for (const file of files) {

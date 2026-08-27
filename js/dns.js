@@ -12,12 +12,36 @@
    are passed through untranslated by design.
    ────────────────────────────────────────────────────────────────────────── */
 
-(function (global) {
-  'use strict';
+/**
+ * Build the DNS engine over its supplied inputs.
+ *
+ * A WRAPPER conversion, and deliberately nothing more. The IIFE opener became
+ * this function, the closing `global.DnsAudit = {…}` became a `return`, and the
+ * three `global.…` reads became the three parameters. **No function below moved,
+ * was renamed, or changed behaviour, and the body is not reindented** — 5,704
+ * lines changing their wrapper is reviewable; 5,704 lines changing wrapper and
+ * indentation is not, and a moved function in that diff would mean it was done
+ * wrong. Phases 3 and 4 are where this file is decomposed.
+ *
+ * Everything it needs is PASSED. The two generated tables were `global.…` reads
+ * and are arguments now; the ambient primitives it used to find on `window` are
+ * destructured from `platform` below. That is what lets a test hand this engine
+ * a four-rule public suffix list and a fixture `fetch` — the module cannot
+ * reach past its arguments for the real ones, so a fixture cannot be silently
+ * replaced by production data.
+ *
+ * `platform` is the temporary object literal Task 2.2 introduced; Task 2.4
+ * replaces it with `src/platform/browser.js` and the complete §11 primitive set.
+ */
+export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
+  // Named, not reached for. `fetch` is the load-bearing one: the DoH fixture
+  // works by substituting it, and a module that resolved `fetch` from Node's
+  // globals would quietly query the real internet from a unit test.
+  const { fetch, crypto, AbortController, URLSearchParams, setTimeout, clearTimeout } = platform;
 
   var DOH = 'https://cloudflare-dns.com/dns-query';
   var DKIM_SELECTORS = ['google', 'default', 'mail', 's1', 's2', 'selector1', 'selector2', 'dkim', 'sig1', 'odoo'];
-  var DKIM_CATALOG = global.__DKIM_SELECTOR_CATALOG__ || { providers: {}, generic: [], temporal: [], prefixes: [], excluded: [] };
+  var DKIM_CATALOG = dkimSelectorCatalog || { providers: {}, generic: [], temporal: [], prefixes: [], excluded: [] };
   var DKIM_SCAN_BATCH_SIZE = 24;
   var DKIM_PROVIDER_CATALOG_KEYS = {
     'Google Workspace': 'Google Workspace / Gmail',
@@ -311,7 +335,7 @@
   var PSL_EXACT = new Set();
   var PSL_WILDCARD = new Set();
   var PSL_EXCEPTION = new Set();
-  (global.__PUBLIC_SUFFIX_RULES__ || []).forEach(function (rule) {
+  (publicSuffixRules || []).forEach(function (rule) {
     if (rule[0] === '!') PSL_EXCEPTION.add(rule.slice(1));
     else if (rule.startsWith('*.')) PSL_WILDCARD.add(rule.slice(2));
     else PSL_EXACT.add(rule);
@@ -5598,7 +5622,7 @@
     };
   }
 
-  global.DnsAudit = {
+  return {
     DOH,
     DKIM_SELECTORS,
     buildDkimSelectorList,
@@ -5701,4 +5725,4 @@
     DMARC_TAGS_RFC9989,
     DMARC_TAGS_REMOVED,
   };
-})(window);
+}

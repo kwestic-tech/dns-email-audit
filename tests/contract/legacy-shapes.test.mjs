@@ -20,7 +20,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import vm from 'node:vm';
 
 import { createSuite } from '../lib/assert.mjs';
 import {
@@ -32,6 +31,7 @@ import { PLATFORM_PROFILES } from '../lib/platform.mjs';
 import { loadApp } from '../../tools/lib/browser-harness.mjs';
 import { probeEnglishBundle, FIXTURE_ENGLISH_TITLE } from '../lib/fixture-identity.mjs';
 import { PUBLIC_SUFFIX_RULES } from '../../src/data/public-suffixes.js';
+import { createDnsEngine } from '../../js/dns.js';
 import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -39,23 +39,32 @@ const { eq, throws, rejects, section, report } = createSuite();
 
 /* ── Loading ──────────────────────────────────────────────────────────── */
 
+/**
+ * An engine over a chosen public suffix list and crypto runtime.
+ *
+ * Until 0.6.0 this evaluated js/dns.js into a node:vm sandbox. The file is an
+ * ES module now, which a sandbox cannot evaluate, so the engine is built
+ * directly — and its inputs are arguments rather than globals it reaches for,
+ * which is what makes the fixture table below the one actually in force.
+ *
+ * `holder.fetch` keeps `setFetch` working: the platform reads it at call time,
+ * so every fixture swap below is unchanged.
+ */
 function load(pslRules, cryptoImpl = crypto) {
-  const sandbox = {
-    window: { __PUBLIC_SUFFIX_RULES__: pslRules },
-    fetch: async () => ({ ok: false }),
-    console, AbortController, URLSearchParams, setTimeout, clearTimeout,
-    crypto: cryptoImpl,
-  };
-  sandbox.globalThis = sandbox;
-  // Injected, not evaluated: the catalog is an ES module under src/data/ now.
-  sandbox.window.__DKIM_SELECTOR_CATALOG__ = DKIM_SELECTOR_CATALOG;
-  vm.createContext(sandbox);
-  vm.runInContext(readFileSync(join(REPO, 'js/dns.js'), 'utf8'), sandbox);
-  return { D: sandbox.window.DnsAudit, sandbox };
+  const holder = { fetch: async () => ({ ok: false }) };
+  const D = createDnsEngine({
+    publicSuffixRules: pslRules,
+    dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
+    platform: {
+      fetch: (...args) => holder.fetch(...args),
+      crypto: cryptoImpl, AbortController, URLSearchParams, setTimeout, clearTimeout,
+    },
+  });
+  return { D, holder };
 }
 
-const { D, sandbox } = load(FIXTURE_PSL_RULES);
-const setFetch = impl => { sandbox.fetch = impl; };
+const { D, holder } = load(FIXTURE_PSL_RULES);
+const setFetch = impl => { holder.fetch = impl; };
 
 /* ── 0. Fixture identity, and the proof it can fail ───────────────────── */
 section('0. Fixture identity (spec §11)');

@@ -131,6 +131,17 @@
       ]
     },
     {
+      "path": "tests/contract/namespace.test.mjs",
+      "assertions": 15,
+      "areas": [
+        "the 24-name global inventory is closed",
+        "no module under src/ reads or writes one of them outside a marked adapter",
+        "the marked adapters are named, and the remaining count is reported",
+        "the scan catches window, globalThis and self, and ignores comments and same-named locals",
+        "what still reaches for globals under js/ is counted, so a phase that adds one is visible"
+      ]
+    },
+    {
       "path": "tests/build/parity.test.mjs",
       "assertions": 34,
       "areas": [
@@ -158,7 +169,7 @@
     },
     {
       "path": "tests/build/equivalence.validate.mjs",
-      "assertions": 53,
+      "assertions": 57,
       "areas": [
         "the runner is deterministic across two runs of one root",
         "each of the five surfaces distinguishes cases",
@@ -168,7 +179,8 @@
         "a subject whose generated data was substituted is refused, not measured",
         "a mutation that is NOT rebuilt moves nothing — the control that proves the rebuild is what makes section 2 work",
         "the subject manifest is complete: every script, stylesheet and index.html hashed, and nothing else",
-        "re-reading one subject produces identical hashes, and a one-byte change moves one"
+        "re-reading one subject produces identical hashes, and a one-byte change moves one",
+        "module evaluation order: the entry installs before it imports its consumers"
       ]
     }
   ],

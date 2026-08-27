@@ -28,6 +28,6 @@
 import './data/legacy-globals.js';
 import './legacy-bridge.js';
 
-// What is left of the IIFEs, in their original dependency order.
-import '../js/dns.js';
+// js/dns.js is an ES module now and the bridge constructs it; js/app.js is the
+// last IIFE, and it reads window.DnsAudit, window.R and window.t.
 import '../js/app.js';
