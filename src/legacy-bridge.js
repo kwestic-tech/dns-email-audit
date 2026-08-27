@@ -18,53 +18,47 @@
  * The English bundle is PASSED, never imported by `src/i18n/`. Spec §11.
  */
 
-import { createI18n } from './i18n/index.js';
-import { createRenderer } from './ui/render.js';
-import { createDnsEngine } from '../js/dns.js';
+import { createAuditRuntime } from './runtime.js';
 import { createBrowserPlatform } from './platform/browser.js';
 import { LOCALE_EN } from './data/locales-en.js';
 import { PUBLIC_SUFFIX_RULES } from './data/public-suffixes.js';
 import { DKIM_SELECTOR_CATALOG } from './data/dkim-selectors.js';
 
 /**
- * ONE platform per page, built from this window.
+ * ONE runtime for the page, and one platform inside it.
  *
- * This replaces the object literal Task 2.2 introduced as a stopgap. It is the
- * complete §11 primitive set now, with methods bound to their receivers — a
- * bare `fetch` or `setTimeout` lifted off `window` throws Illegal invocation in
- * a browser, and Node is forgiving enough that getting it wrong would pass
- * every test and fail only in production.
+ * This is the production construction path, and there is only one: no second
+ * way to build the application exists, and no branch here runs only for tests.
+ * Unit and integration suites call the same `createAuditRuntime()` with fixture
+ * data.
  *
- * Per runtime, not a module singleton: Task 2.5 moves this call into
- * `createAuditRuntime()`, and two runtimes must share nothing.
+ * One runtime means one DoH cache, which is v0.5.0's page lifetime exactly —
+ * `tools/scoring.test.mjs:1888-1891` asserts the sibling reuse and
+ * `PRIVACY.md:30-33` publishes the fan-out it produces. A second runtime here
+ * would halve the cache's reach and change a published figure.
  */
-const platform = createBrowserPlatform(window);
-
-const i18n = createI18n({ englishBundle: LOCALE_EN, platform });
-
-window.i18n = i18n;
-// The app calls t()/tp() a few hundred times, so these stayed convenience
-// globals rather than property lookups. Same function identities as before.
-window.t = i18n.t;
-window.tp = i18n.tp;
-window.tRaw = i18n.tRaw;
-
-// The renderer's dependency on the translator is an argument now, not a
-// global it happened to find because index.html loaded i18n first.
-window.R = createRenderer(() => window.document, i18n);
-
-/**
- * ONE engine per page, which is what the IIFE was.
- *
- * The DoH cache lives inside it — `dohCache` is closure state now rather than
- * module state — so one engine per page is exactly the page-lifetime reuse
- * `tools/scoring.test.mjs:1888-1891` asserts and `PRIVACY.md:30-33` publishes
- * as "roughly 41 queries for a typical domain". Constructing a second one here
- * would halve the cache's reach and change a published figure. Task 2.5 moves
- * this call into `createAuditRuntime()`, which keeps the same rule.
- */
-window.DnsAudit = createDnsEngine({
+const runtime = createAuditRuntime({
   publicSuffixRules: PUBLIC_SUFFIX_RULES,
   dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
-  platform,
+  englishBundle: LOCALE_EN,
+  platform: createBrowserPlatform(window),
 });
+
+/* ── LEGACY_ADAPTER: publish the runtime's parts as the globals js/app.js reads ──
+ *
+ * js/app.js is the last IIFE. It reaches for window.i18n, window.t, window.tp,
+ * window.tRaw, window.R and window.DnsAudit, and it boots i18n itself from its
+ * own DOMContentLoaded listener — which is why `runtime.mount()` is not called
+ * here. Task 2.6 converts that file and this whole block goes with it.
+ */
+window.i18n = runtime.i18n;
+// The app calls t()/tp() a few hundred times, so these stayed convenience
+// globals rather than property lookups. Same function identities as before.
+window.t = runtime.i18n.t;
+window.tp = runtime.i18n.tp;
+window.tRaw = runtime.i18n.tRaw;
+window.R = runtime.renderer;
+
+// All 95 members until Task 2.8, which removes the unsupported surface as its
+// own authorized compatibility delta.
+window.DnsAudit = runtime.engine;

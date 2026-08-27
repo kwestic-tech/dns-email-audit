@@ -215,8 +215,9 @@ console.log(`  adapters remaining: ${adapters.length}`);
 const legacyEntry = 'entry-legacy.js';
 // Grows every Phase 2 commit, and named rather than counted so a module
 // appearing here that nobody added is what this catches.
-eq('src/ holds the entry point, the bridge and the converted layers',
-  codeModules.sort(), ['entry-legacy.js', 'i18n/index.js', 'legacy-bridge.js', 'ui/render.js']);
+eq('src/ holds the entry point, the bridge, the runtime and the converted layers',
+  codeModules.sort(),
+  ['entry-legacy.js', 'i18n/index.js', 'legacy-bridge.js', 'runtime.js', 'ui/render.js']);
 
 /**
  * The property that makes omitting `globalName` safe, asserted rather than

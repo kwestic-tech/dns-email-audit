@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 53,
+      "assertions": 54,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -153,6 +153,19 @@
         "a platform is per runtime: two calls share nothing and one window's calls do not reach another",
         "now() and formatDateTime() preserve the v0.5.0 call and are pinnable by the window's clock",
         "src/platform/ imports nothing and never reaches for the ambient window"
+      ]
+    },
+    {
+      "path": "tests/contract/runtime.test.mjs",
+      "assertions": 30,
+      "areas": [
+        "importing src/runtime.js performs no DOM, network or global work, asserted in a process with no browser",
+        "it constructs nothing at module scope and reads no ambient global",
+        "the runtime carries the two supported facade members plus the Phase 2 parts",
+        "generated data reaches the engine and the fixture table is the one in force",
+        "ONE runtime holds ONE DoH cache with page lifetime: a sibling audit reuses the walk",
+        "two runtimes share nothing, and isolation comes from constructing rather than from cache-busting an import",
+        "the facade delegates to the engine, including a core transport failure"
       ]
     },
     {
