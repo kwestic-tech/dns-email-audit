@@ -35,7 +35,7 @@ import { dirname, join, resolve } from 'node:path';
 import { loadSubject, FIXED_INSTANT, FIXED_LOCALE, FIXED_TIMEZONE } from '../lib/subject.mjs';
 import {
   encode, serialize, canonicalQueryTrace, orderedSubsequence,
-  canonicalDom, reportByteRegions, applyExclusions,
+  canonicalDom, canonicalDomLines, reportByteRegions, applyExclusions,
 } from '../lib/canonical.mjs';
 
 const RUNNER_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -218,7 +218,7 @@ async function runCase(root, testCase, entry) {
     },
     csv,
     report: report === null ? null : reportSurface(report),
-    dom: canonicalDom(document.getElementById('tableBody')),
+    dom: canonicalDomLines(document.getElementById('tableBody')),
   };
 }
 

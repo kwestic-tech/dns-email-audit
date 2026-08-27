@@ -234,7 +234,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -254,7 +269,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "spf.status",
@@ -270,7 +287,12 @@
       "suites": [],
       "fixtures": [
         "bare-registered",
-        "provider-sentinels"
+        "provider-sentinels",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
       ]
     },
     {
@@ -296,7 +318,19 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-evidence-missing",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -322,7 +356,12 @@
       "fixtures": [
         "bare-registered",
         "spf-variants",
-        "provider-sentinels"
+        "provider-sentinels",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
       ]
     },
     {
@@ -349,7 +388,19 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-evidence-missing",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -489,7 +540,21 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -500,7 +565,8 @@
         "enforcing-signed",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes"
       ]
     },
     {
@@ -520,14 +586,30 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "dkim.scanMode",
       "member": "comprehensive",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-discovery-notes"
+      ]
     },
     {
       "algebra": "dkim.selector.type",
@@ -537,14 +619,17 @@
         "enforcing-signed",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes"
       ]
     },
     {
       "algebra": "dkim.selector.type",
       "member": "cname",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.note",
@@ -556,20 +641,25 @@
         "provider-sentinels",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes"
       ]
     },
     {
       "algebra": "dkim.note",
       "member": "noteWildcard",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-discovery-notes"
+      ]
     },
     {
       "algebra": "dkim.note",
       "member": "noteNotFoundWithErrors",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-discovery-notes"
+      ]
     },
     {
       "algebra": "dkim.note",
@@ -584,7 +674,20 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -597,20 +700,25 @@
         "enforcing-signed",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes"
       ]
     },
     {
       "algebra": "dkim.key.keyType",
       "member": "ed25519",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.keyType",
       "member": "unknown",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.keyEncoding",
@@ -618,13 +726,17 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.keyEncoding",
       "member": "pkcs1",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.keyEncoding",
@@ -634,7 +746,8 @@
         "enforcing-signed",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes"
       ]
     },
     {
@@ -643,7 +756,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.version",
@@ -655,7 +770,8 @@
         "enforcing-signed",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes"
       ]
     },
     {
@@ -664,7 +780,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.cryptoValidated",
@@ -673,7 +791,8 @@
       "fixtures": [
         "enforcing-signed",
         "grade-tiers",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes"
       ]
     },
     {
@@ -688,31 +807,41 @@
       "algebra": "dkim.key.errors",
       "member": "invalid-tag-list",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.errors",
       "member": "duplicate-tags",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.errors",
       "member": "bad-version",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.errors",
       "member": "version-not-first",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.errors",
       "member": "invalid-key-type",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.errors",
@@ -720,25 +849,33 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.errors",
       "member": "unparseable-key",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.errors",
       "member": "bad-ed25519-length",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.errors",
       "member": "invalid-notes",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.errors",
@@ -752,19 +889,25 @@
       "algebra": "dkim.key.restrictions",
       "member": "unsupported-key-type",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.restrictions",
       "member": "no-supported-hash",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dkim.key.restrictions",
       "member": "service-not-email",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "dmarc.status",
@@ -776,7 +919,14 @@
         "parked-null-mx",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -786,14 +936,17 @@
       "fixtures": [
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "dkim-discovery-notes"
       ]
     },
     {
       "algebra": "dmarc.status",
       "member": "present",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "dmarc.status",
@@ -804,19 +957,31 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa"
       ]
     },
     {
       "algebra": "dmarc.status",
       "member": "unknown",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "dmarc.status",
       "member": "permerror",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
@@ -829,7 +994,14 @@
         "parked-null-mx",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -839,7 +1011,10 @@
       "fixtures": [
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk"
       ]
     },
     {
@@ -851,7 +1026,15 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa"
       ]
     },
     {
@@ -872,7 +1055,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -888,7 +1086,9 @@
       "algebra": "dmarc.tagState",
       "member": "invalid",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "dmarc.alignmentState",
@@ -906,14 +1106,31 @@
         "provider-sentinels",
         "website-probe-off",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "dmarc.alignmentState",
       "member": "r",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "dmarc.alignmentState",
@@ -928,7 +1145,9 @@
       "algebra": "dmarc.alignmentState",
       "member": "invalid",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "dmarc.alignment",
@@ -946,7 +1165,22 @@
         "provider-sentinels",
         "website-probe-off",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -965,7 +1199,9 @@
       "fixtures": [
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "dkim-discovery-notes",
+        "dmarc-record-variants"
       ]
     },
     {
@@ -973,7 +1209,9 @@
       "member": "quarantine",
       "suites": [],
       "fixtures": [
-        "cache-reuse-siblings"
+        "cache-reuse-siblings",
+        "dmarc-record-variants",
+        "dmarc-tree-walk"
       ]
     },
     {
@@ -985,7 +1223,14 @@
         "parked-null-mx",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -1006,7 +1251,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -1018,7 +1278,15 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa"
       ]
     },
     {
@@ -1036,7 +1304,15 @@
         "hygiene-sentinels",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -1050,7 +1326,15 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa"
       ]
     },
     {
@@ -1064,7 +1348,9 @@
     {
       "algebra": "dmarc.version.reason",
       "member": "bad-value",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
@@ -1086,13 +1372,17 @@
     {
       "algebra": "dmarc.diagnosis",
       "member": "version-not-first",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
       "algebra": "dmarc.diagnosis",
       "member": "version-absent",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
@@ -1113,61 +1403,94 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "dmarc.walk.terminated",
       "member": "error",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "dmarc.walk.terminated",
       "member": "psd-y",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "dmarc.walk.terminated",
       "member": "psd-n",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "dmarc.observation.why",
       "member": "at-apex-not-underscore",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "dmarc.observation.why",
       "member": "multiple-at-step",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "dmarc.observation.why",
       "member": "version-bad-case",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "dmarc.observation.why",
       "member": "version-not-first",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "dmarc.observation.why",
       "member": "version-absent",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "dmarc.appliedBranch",
       "member": "np",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
@@ -1175,13 +1498,16 @@
       "member": "sp",
       "suites": [],
       "fixtures": [
-        "cache-reuse-siblings"
+        "cache-reuse-siblings",
+        "dmarc-tree-walk"
       ]
     },
     {
       "algebra": "dmarc.appliedBranch",
       "member": "weakest",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
@@ -1202,20 +1528,39 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "dmarc.psd",
       "member": "y",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "dmarc.psd",
       "member": "n",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "dmarc.fo",
@@ -1235,152 +1580,209 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "dmarc.fo",
       "member": "1",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "dmarc.fo",
       "member": "d",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "dmarc.fo",
       "member": "s",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.state",
       "member": "authorized",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.state",
       "member": "unauthorized",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.state",
       "member": "unverifiable",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.state",
       "member": "override-mismatch",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.via",
       "member": "null",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.via",
       "member": "exact",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.error",
       "member": "absent",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.error",
       "member": "name-too-long",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-unverifiable"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.error",
       "member": "servfail",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-unverifiable"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.error",
       "member": "refused",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.error",
       "member": "dns-error",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-unverifiable"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.error",
       "member": "http-error",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.error",
       "member": "timeout",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-unverifiable"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.error",
       "member": "network-error",
       "suites": [],
-      "fixtures": []
-    },
-    {
-      "algebra": "dmarc.reportAuth.error",
-      "member": "undefined",
-      "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-unverifiable"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.record.reason",
       "member": "null",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
       "algebra": "dmarc.reportAuth.record.reason",
       "member": "version",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
       "algebra": "dmarc.reportAuth.record.reason",
       "member": "syntax",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
       "algebra": "dmarc.reportAuth.overrideReason",
       "member": "null",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.overrideReason",
       "member": "cross-host",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "dmarc.reportAuth.overrideReason",
       "member": "malformed",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "dnssec.state",
@@ -1405,7 +1807,21 @@
         "provider-sentinels",
         "website-probe-off",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -1420,21 +1836,27 @@
       "algebra": "dnssec.state",
       "member": "unanchored",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states"
+      ]
     },
     {
       "algebra": "dnssec.state",
       "member": "mismatch",
       "suites": [],
       "fixtures": [
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "dnssec-chain-states",
+        "dnssec-record-parsing"
       ]
     },
     {
       "algebra": "dnssec.state",
       "member": "indeterminate",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dnssec.chain.claim",
@@ -1448,7 +1870,9 @@
       "algebra": "dnssec.chain.claim",
       "member": "resolver-unreachable",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dnssec.chain.claim",
@@ -1467,7 +1891,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -1476,14 +1915,20 @@
       "suites": [],
       "fixtures": [
         "enforcing-signed",
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable"
       ]
     },
     {
       "algebra": "dnssec.chain.claim",
       "member": "ds-confirms-dnskey",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states"
+      ]
     },
     {
       "algebra": "dnssec.chain.claim",
@@ -1492,20 +1937,28 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "dnssec-record-parsing"
       ]
     },
     {
       "algebra": "dnssec.chain.claim",
       "member": "ds-digest-mismatch",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states"
+      ]
     },
     {
       "algebra": "dnssec.chain.claim",
       "member": "ds-unverifiable",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable"
+      ]
     },
     {
       "algebra": "dnssec.chain.claim",
@@ -1523,7 +1976,18 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-evidence-missing",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -1544,7 +2008,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -1565,20 +2044,41 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "dnssec.ds.match",
       "member": "unverifiable",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable"
+      ]
     },
     {
       "algebra": "dnssec.ds.match",
       "member": "unverifiable-digest-type",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states"
+      ]
     },
     {
       "algebra": "dnssec.ds.match",
@@ -1587,51 +2087,67 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "dnssec-record-parsing"
       ]
     },
     {
       "algebra": "dnssec.ds.match",
       "member": "confirmed",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states"
+      ]
     },
     {
       "algebra": "dnssec.ds.match",
       "member": "digest-mismatch",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states"
+      ]
     },
     {
       "algebra": "dnssec.ds.unverifiableReason",
       "member": "null",
       "suites": [],
       "fixtures": [
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "dnssec-chain-states",
+        "dnssec-record-parsing"
       ]
     },
     {
       "algebra": "dnssec.ds.unverifiableReason",
       "member": "invalid-ds",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
+      ]
     },
     {
       "algebra": "dnssec.ds.unverifiableReason",
       "member": "invalid-owner",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
       "algebra": "dnssec.ds.unverifiableReason",
       "member": "runtime-unavailable",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-digest-unavailable"
+      ]
     },
     {
       "algebra": "dnssec.ds.unverifiableReason",
       "member": "unbuildable-key",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
@@ -1639,116 +2155,165 @@
       "member": "eligible",
       "suites": [],
       "fixtures": [
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable"
       ]
     },
     {
       "algebra": "dnssec.algorithmEligibility",
       "member": "ineligible",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-unverifiable-reasons"
+      ]
     },
     {
       "algebra": "dnssec.algorithmEligibility",
       "member": "unknown",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.digestEligibility",
       "member": "eligible",
       "suites": [],
       "fixtures": [
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable"
       ]
     },
     {
       "algebra": "dnssec.digestEligibility",
       "member": "ineligible",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states",
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.digestEligibility",
       "member": "unknown",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.keyStructure",
       "member": "valid",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable"
+      ]
     },
     {
       "algebra": "dnssec.keyStructure",
       "member": "invalid",
       "suites": [],
       "fixtures": [
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
       ]
     },
     {
       "algebra": "dnssec.keyStructure",
       "member": "unknown",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
+      ]
     },
     {
       "algebra": "dnssec.digestName",
       "member": "null",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.digestName",
       "member": "RESERVED",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.digestName",
       "member": "SHA-1",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.digestName",
       "member": "SHA-256",
       "suites": [],
       "fixtures": [
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable"
       ]
     },
     {
       "algebra": "dnssec.digestName",
       "member": "GOST-R-34.11-94",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states"
+      ]
     },
     {
       "algebra": "dnssec.digestName",
       "member": "SHA-384",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.digestName",
       "member": "GOST-R-34.11-2012",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.digestName",
       "member": "SM3",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.digestName",
       "member": "PRIVATE-USE",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.evidence",
@@ -1756,14 +2321,20 @@
       "suites": [],
       "fixtures": [
         "enforcing-signed",
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable"
       ]
     },
     {
       "algebra": "dnssec.evidence",
       "member": "partial",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dnssec.evidence",
@@ -1781,7 +2352,18 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-evidence-missing",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -1804,140 +2386,208 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
+      ]
+    },
+    {
+      "algebra": "dnssec.error",
+      "member": "nxdomain",
+      "suites": [],
+      "fixtures": [
+        "dnssec-evidence-missing"
       ]
     },
     {
       "algebra": "dnssec.error",
       "member": "servfail",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dnssec.error",
       "member": "refused",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dnssec.error",
       "member": "dns-error",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dnssec.error",
       "member": "http-error",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dnssec.error",
       "member": "cancelled",
-      "suites": [],
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
       "fixtures": []
     },
     {
       "algebra": "dnssec.error",
       "member": "timeout",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dnssec.error",
       "member": "network-error",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dnssec.dnskey.errors",
       "member": "unparseable-record",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.dnskey.errors",
       "member": "unbalanced-parentheses",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.dnskey.errors",
       "member": "bad-flags",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.dnskey.errors",
       "member": "bad-protocol",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.dnskey.errors",
       "member": "bad-algorithm",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.dnskey.errors",
       "member": "empty-key",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-unverifiable-reasons"
+      ]
     },
     {
       "algebra": "dnssec.dnskey.errors",
       "member": "bad-key-encoding",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.ds.errors",
       "member": "unparseable-record",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.ds.errors",
       "member": "unbalanced-parentheses",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.ds.errors",
       "member": "bad-key-tag",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.ds.errors",
       "member": "bad-algorithm",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.ds.errors",
       "member": "bad-digest-type",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "dnssec.ds.errors",
       "member": "empty-digest",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-unverifiable-reasons"
+      ]
     },
     {
       "algebra": "dnssec.ds.errors",
       "member": "bad-digest",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
+      ]
     },
     {
       "algebra": "dnssec.ds.errors",
       "member": "bad-digest-length",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "mx.host.resolves",
@@ -1956,7 +2606,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -1972,7 +2637,9 @@
       "algebra": "mx.host.resolves",
       "member": "unknown",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "mx.ipv6Coverage",
@@ -1990,14 +2657,30 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "mx.ipv6Coverage",
       "member": "some",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "mx.ipv6Coverage",
@@ -2011,37 +2694,49 @@
       "algebra": "caa.errors",
       "member": "unparseable-record",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "caa.errors",
       "member": "bad-flags",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "caa.errors",
       "member": "bad-tag",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "caa.errors",
       "member": "unquoted-value",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "caa.errors",
       "member": "bad-issue-value",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "caa.errors",
       "member": "bad-iodef-url",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "caa.knownTags",
@@ -2052,40 +2747,50 @@
       "fixtures": [
         "enforcing-signed",
         "parked-null-mx",
-        "grade-tiers"
+        "grade-tiers",
+        "caa-policy"
       ]
     },
     {
       "algebra": "caa.knownTags",
       "member": "issuewild",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "caa.knownTags",
       "member": "iodef",
       "suites": [],
       "fixtures": [
-        "enforcing-signed"
+        "enforcing-signed",
+        "caa-policy"
       ]
     },
     {
       "algebra": "caa.knownTags",
       "member": "issuemail",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "caa.knownTags",
       "member": "contactemail",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "caa.knownTags",
       "member": "contactphone",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "bimi.errors",
@@ -2104,14 +2809,30 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls"
       ]
     },
     {
       "algebra": "bimi.errors",
       "member": "duplicate-tags",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "bimi-duplicate-tags"
+      ]
     },
     {
       "algebra": "transport.mtaSts.errors",
@@ -2130,7 +2851,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2150,50 +2886,79 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "transport.tlsa.errors",
       "member": "unparseable-record",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "transport.tlsa.errors",
       "member": "unbalanced-parentheses",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "transport.tlsa.errors",
       "member": "bad-usage",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "transport.tlsa.errors",
       "member": "bad-selector",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "transport.tlsa.errors",
       "member": "bad-matching-type",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "transport.tlsa.errors",
       "member": "bad-association-data",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "transport.tlsa.errors",
       "member": "bad-digest-length",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "providers.dns.sentinel",
@@ -2282,7 +3047,22 @@
         "provider-sentinels",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2317,7 +3097,22 @@
         "provider-sentinels",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2375,7 +3170,8 @@
       "fixtures": [
         "parked-null-mx",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes"
       ]
     },
     {
@@ -2383,7 +3179,11 @@
       "member": "C",
       "suites": [],
       "fixtures": [
-        "cache-reuse-siblings"
+        "cache-reuse-siblings",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2396,7 +3196,15 @@
         "hygiene-sentinels",
         "spf-variants",
         "spf-subnets-and-lookups",
-        "website-probe-off"
+        "website-probe-off",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-evidence-missing",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa"
       ]
     },
     {
@@ -2407,7 +3215,12 @@
         "bare-registered",
         "spf-variants",
         "spf-subnets-and-lookups",
-        "provider-sentinels"
+        "provider-sentinels",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
       ]
     },
     {
@@ -2441,7 +3254,8 @@
       "fixtures": [
         "parked-null-mx",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes"
       ]
     },
     {
@@ -2449,7 +3263,11 @@
       "member": "score-c",
       "suites": [],
       "fixtures": [
-        "cache-reuse-siblings"
+        "cache-reuse-siblings",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2462,7 +3280,15 @@
         "hygiene-sentinels",
         "spf-variants",
         "spf-subnets-and-lookups",
-        "website-probe-off"
+        "website-probe-off",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-evidence-missing",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa"
       ]
     },
     {
@@ -2473,7 +3299,12 @@
         "bare-registered",
         "spf-variants",
         "spf-subnets-and-lookups",
-        "provider-sentinels"
+        "provider-sentinels",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
       ]
     },
     {
@@ -2494,7 +3325,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2515,7 +3361,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2535,7 +3396,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2556,7 +3432,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2577,7 +3468,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2597,7 +3503,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2617,7 +3538,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2637,7 +3573,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2658,7 +3609,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2679,7 +3645,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2700,7 +3681,22 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2721,14 +3717,31 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "audit.unproven",
       "member": "dmarc",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "audit.unproven",
@@ -2743,38 +3756,62 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "audit.unproven",
       "member": "dnssec",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "audit.unproven",
       "member": "caa",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "unverified-controls"
+      ]
     },
     {
       "algebra": "audit.unproven",
       "member": "mtaSts",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "unverified-controls"
+      ]
     },
     {
       "algebra": "audit.unproven",
       "member": "bimi",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "unverified-controls"
+      ]
     },
     {
       "algebra": "audit.unproven",
       "member": "tlsRpt",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "unverified-controls"
+      ]
     },
     {
       "algebra": "audit.issue.sev",
@@ -2786,7 +3823,13 @@
         "dnssec-orphan-ds",
         "spf-variants",
         "spf-subnets-and-lookups",
-        "provider-sentinels"
+        "provider-sentinels",
+        "dkim-key-shapes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
       ]
     },
     {
@@ -2804,7 +3847,22 @@
         "spf-subnets-and-lookups",
         "provider-sentinels",
         "website-probe-off",
-        "dkim-crypto-import-rejects"
+        "dkim-crypto-import-rejects",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2825,14 +3883,31 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "audit.suggestion.guide",
       "member": "dmarc-rfc9989",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.suggestion.guide",
@@ -2850,7 +3925,21 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2869,7 +3958,21 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2888,7 +3991,21 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2907,7 +4024,20 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "mx-health-and-tlsa",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2924,14 +4054,30 @@
         "provider-sentinels",
         "website-probe-off",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
       "algebra": "audit.suggestion.key",
       "member": "dmarc-pct-obsolete",
       "suites": [],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.suggestion.key",
@@ -2940,7 +4086,8 @@
       "fixtures": [
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes"
       ]
     },
     {
@@ -2956,7 +4103,20 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2975,7 +4135,21 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -2994,7 +4168,21 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -3013,7 +4201,20 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "mx-health-and-tlsa",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -3030,7 +4231,21 @@
         "provider-sentinels",
         "website-probe-off",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -3039,7 +4254,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "bimi-duplicate-tags"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3056,7 +4273,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "parked-null-mx"
+        "parked-null-mx",
+        "caa-policy"
       ]
     },
     {
@@ -3065,7 +4283,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3095,7 +4315,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "caa-policy"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3104,7 +4326,9 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "provider-sentinels"
+        "provider-sentinels",
+        "mx-health-and-tlsa",
+        "unverified-controls"
       ]
     },
     {
@@ -3113,7 +4337,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3121,7 +4347,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3129,7 +4357,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3137,7 +4367,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3145,7 +4377,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3161,7 +4395,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3170,7 +4406,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "dkim-crypto-import-rejects"
+        "dkim-crypto-import-rejects",
+        "dkim-key-shapes"
       ]
     },
     {
@@ -3179,7 +4416,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3220,7 +4459,21 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -3229,7 +4482,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3245,7 +4500,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3253,7 +4510,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3261,7 +4520,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3269,7 +4530,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3285,7 +4548,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3293,7 +4558,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3301,7 +4568,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3317,7 +4586,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3333,7 +4604,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3341,7 +4614,10 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3349,7 +4625,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3357,7 +4635,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3370,7 +4650,14 @@
         "spf-variants",
         "spf-subnets-and-lookups",
         "provider-sentinels",
-        "website-probe-off"
+        "website-probe-off",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa"
       ]
     },
     {
@@ -3379,7 +4666,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3396,7 +4685,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "parked-null-mx"
+        "parked-null-mx",
+        "dmarc-record-variants"
       ]
     },
     {
@@ -3408,7 +4698,8 @@
       "fixtures": [
         "dnssec-bogus",
         "dnssec-orphan-ds",
-        "hygiene-sentinels"
+        "hygiene-sentinels",
+        "dkim-discovery-notes"
       ]
     },
     {
@@ -3425,7 +4716,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3434,7 +4727,9 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "cache-reuse-siblings"
+        "cache-reuse-siblings",
+        "dmarc-record-variants",
+        "dmarc-tree-walk"
       ]
     },
     {
@@ -3443,7 +4738,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3483,7 +4780,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3491,7 +4790,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3499,7 +4800,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3507,7 +4810,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3515,7 +4820,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3559,7 +4866,10 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3567,7 +4877,10 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states",
+        "dnssec-record-parsing"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3583,7 +4896,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3616,7 +4931,9 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "dnssec-orphan-ds"
+        "dnssec-orphan-ds",
+        "dnssec-chain-states",
+        "dnssec-record-parsing"
       ]
     },
     {
@@ -3633,7 +4950,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-chain-states"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3716,7 +5035,21 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -3725,7 +5058,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3746,7 +5081,21 @@
         "website-probe-off",
         "grade-tiers",
         "dkim-crypto-import-rejects",
-        "dkim-crypto-import-accepts"
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "unverified-controls",
+        "bimi-duplicate-tags"
       ]
     },
     {
@@ -3828,7 +5177,12 @@
       ],
       "fixtures": [
         "bare-registered",
-        "provider-sentinels"
+        "provider-sentinels",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
       ]
     },
     {
@@ -3959,7 +5313,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3967,7 +5323,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3975,7 +5333,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
     },
     {
       "algebra": "audit.issue.key",
@@ -3991,7 +5351,9 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dkim-discovery-notes"
+      ]
     }
   ]
 }

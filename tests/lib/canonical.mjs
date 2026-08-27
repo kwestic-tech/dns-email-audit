@@ -237,6 +237,54 @@ export function canonicalDom(node) {
 }
 
 /**
+ * The same tree, one line per node.
+ *
+ * Identical information to `canonicalDom()` — every element, every attribute,
+ * every text node, exact text, document order — in a form a diff can point at.
+ * The nested-object form pretty-printed to 2.4 MB across the corpus, most of it
+ * JSON punctuation, and a 271 KB single-line alternative would have been
+ * complete and undiffable. Neither is a reason to drop an attribute: nothing is
+ * removed here, only re-encoded.
+ *
+ * Depth is carried as leading spaces, so a subtree that moved shows up as a
+ * block of changed lines rather than as one enormous one.
+ */
+function visibleText(value) {
+  // JSON escaping alone is not enough here. `JSON.stringify` leaves U+200B and
+  // U+202E literal — they are not JSON control characters — so a zero-width
+  // space or a bidi override renders as nothing at all and a diff that changed
+  // one would look identical to a diff that changed none. Those are precisely
+  // the characters the hygiene sentinels exist for, so every non-printable and
+  // non-ASCII code point is escaped explicitly. Lossless, and visible.
+  return '"' + String(value).replace(/[^\x20-\x7e]|["\\]/g, character => {
+    if (character === '"') return '\\"';
+    if (character === '\\') return '\\\\';
+    return '\\u' + character.charCodeAt(0).toString(16).padStart(4, '0');
+  }) + '"';
+}
+
+export function canonicalDomLines(node, depth = 0, out = []) {
+  const canonical = canonicalDom(node);
+  if (canonical === null) return out;
+  const pad = '  '.repeat(depth);
+  if (canonical.tag === undefined) {
+    // Character data. JSON-quoted, so whitespace and control characters stay
+    // visible and exact — the hygiene sentinels depend on it.
+    out.push(`${pad}#${canonical.type} ${visibleText(canonical.data)}`);
+    return out;
+  }
+  const attributes = Object.entries(canonical.attributes)
+    .map(([name, value]) => `${name}=${visibleText(value)}`);
+  const properties = Object.entries(canonical.properties)
+    // Type-aware: a boolean `false` and the string "false" are different
+    // states of a control, and quoting both would make them the same line.
+    .map(([name, value]) => `.${name}=${typeof value === 'string' ? visibleText(value) : JSON.stringify(value)}`);
+  out.push(`${pad}<${canonical.tag}${[...attributes, ...properties].map(a => ' ' + a).join('')}>`);
+  for (const child of node.childNodes || []) canonicalDomLines(child, depth + 1, out);
+  return out;
+}
+
+/**
  * The two byte-exact regions of the exported HTML report.
  *
  * The report carries its own Content-Security-Policy and its own inlined

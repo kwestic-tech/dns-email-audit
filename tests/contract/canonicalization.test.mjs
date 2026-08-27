@@ -19,7 +19,7 @@ import { dirname, join } from 'node:path';
 import { createSuite } from '../lib/assert.mjs';
 import {
   encode, serialize, canonicalResult, canonicalQueryTrace, orderedSubsequence,
-  canonicalCsv, canonicalDom, reportByteRegions, applyExclusions,
+  canonicalCsv, canonicalDom, canonicalDomLines, reportByteRegions, applyExclusions,
 } from '../lib/canonical.mjs';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -218,6 +218,56 @@ eq('a checkbox reports its checked state', canonicalBox.properties.checked, true
 eq('and that state is not in the markup', 'checked' in canonicalBox.attributes, false);
 box.checked = false;
 eq('unchecking is caught', canonicalDom(box).properties.checked, false);
+
+/* ── 9b. The line form carries the same information ───────────────────── */
+section('9b. Line-oriented DOM');
+
+const lines = v => canonicalDomLines(v).join('\n');
+eq('an attribute value change is caught in line form',
+  lines(build('x', { a: '1' })) === lines(build('x', { a: '2' })), false);
+eq('a text change is caught', lines(build('x')) === lines(build('y')), false);
+eq('leading whitespace is still not trimmed', lines(build(' x')) === lines(build('x')), false);
+eq('a whitespace-only text node is still not dropped',
+  lines(build('  ')) === lines(build('')), false);
+eq('child order is still caught', lines(two('a', 'b')) === lines(two('b', 'a')), false);
+eq('the checkbox property still appears',
+  canonicalDomLines(box).some(l => l.includes('.checked=false')), true);
+// A boolean false and the string "false" are different states of a control.
+box.value = 'false';
+eq('and a boolean is not quoted like the string that spells it',
+  canonicalDomLines(box)[0].includes('.checked=false .value="false"'), true);
+box.value = '';
+// The escaping this form needs and JSON.stringify does not do: a zero-width
+// space and a bidi override are not JSON control characters, so they survive
+// stringification as literal invisible bytes and a diff that changed one would
+// look identical to a diff that changed none.
+eq('a zero-width space is escaped so a diff can show it',
+  canonicalDomLines(build('\u200bZWSP'))[1].includes('\\u200b'), true);
+eq('a bidi override is escaped too',
+  canonicalDomLines(build('\u202eRLO'))[1].includes('\\u202e'), true);
+eq('and the two are still distinguishable from plain text',
+  canonicalDomLines(build('\u200bZWSP'))[1] === canonicalDomLines(build('ZWSP'))[1], false);
+eq('an astral character survives as its code units',
+  canonicalDomLines(build('\u{1F600}'))[1].includes('\\ud83d'), true);
+eq('printable ASCII is left readable',
+  canonicalDomLines(build('plain text'))[1].includes('plain text'), true);
+eq('a quote inside text is escaped, not terminated',
+  canonicalDomLines(build('say \"hi\"'))[1], '  #3 "say \\"hi\\""');
+// The property the re-encoding had to preserve: nothing is dropped.
+const rich = build('t', { a: '1', b: '2' });
+const nested = canonicalDom(rich);
+const attributeCount = Object.keys(nested.attributes).length;
+eq('every attribute survives the line form',
+  attributeCount, canonicalDomLines(rich)[0].match(/ \w+=/g).length);
+eq('the line form is exactly as sensitive as the nested form', (() => {
+  const pairs = [[' x', 'x'], ['\u200bx', 'x'], ['a', 'b'], ['', ' ']];
+  return pairs.every(([left, right]) => {
+    const nestedDiffers = JSON.stringify(canonicalDom(build(left))) !== JSON.stringify(canonicalDom(build(right)));
+    const lineDiffers = lines(build(left)) !== lines(build(right));
+    return nestedDiffers === lineDiffers;
+  });
+})(), true);
+eq('one line per node', canonicalDomLines(two('a', 'b')).length, 5);
 
 /* ── 10. Report byte regions ──────────────────────────────────────────── */
 section('10. Report byte regions');

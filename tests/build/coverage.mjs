@@ -50,11 +50,15 @@ const REVIEWED_SUITES = {
     'dkim.key.version': ['null', 'DKIM1'],
     'dkim.key.cryptoValidated': ['null'],
     'dkim.key.errors': ['missing-p'],
-    'dmarc.version.reason': ['null', 'absent', 'not-first'],
-    'dmarc.diagnosis': ['null', 'version-bad-case'],
+    'dmarc.version.reason': ['null', 'absent', 'not-first', 'bad-value'],
+    'dmarc.diagnosis': ['null', 'version-bad-case', 'version-not-first', 'version-absent'],
+    'dmarc.status': ['permerror'],
+    'dmarc.appliedBranch': ['np', 'weakest'],
+    'dmarc.reportAuth.record.reason': ['null', 'version', 'syntax'],
     'dnssec.chain.claim': ['ds-no-matching-key'],
+    'dnssec.ds.unverifiableReason': ['invalid-owner', 'unbuildable-key'],
     'dnssec.ds.match': ['no-matching-key'],
-    'dnssec.error': ['undefined'],
+    'dnssec.error': ['undefined', 'cancelled'],
     'caa.knownTags': ['issue'],
     // Section 6 asserts the whole 106-token vocabulary as a set closure against
     // locales/en.json, which is a stronger statement than any per-token check.

@@ -388,6 +388,139 @@ eq('native Node Web Crypto accepts it, so the corpus cannot reach false without 
 eq('the rejecting profile still computes digests',
   typeof PLATFORM_PROFILES['crypto-import-rejects'].crypto().subtle.digest, 'function');
 
+/* ── 5c. States the application entry point cannot reach ──────────────── */
+section('5c. States unreachable through analyzeDomain');
+
+/**
+ * Nine registry members are reachable only by calling an exported function
+ * directly. That is not a seam and nothing is fabricated — each is a real
+ * return value of a real function, and each is unreachable from
+ * `analyzeDomain()` for a stated structural reason.
+ */
+
+// `permerror` is legacy and js/dns.js:1397 says so in its own comment: the
+// tree walk never passes `multiple`, because RFC 9989 §4.10 step 2 discards
+// duplicates and CONTINUES. Retained because the token is part of a shape
+// report-comparison (0.9.0) exports.
+eq('permerror survives as a direct-call status', D.analyzeDmarc('v=DMARC1; p=none', true).status, 'permerror');
+eq('and the discovery path never produces it',
+  D.analyzeDmarc('v=DMARC1; p=none', false).status === 'permerror', false);
+
+// `bad-value` never reaches a status object through discovery: a record whose
+// v= is not exactly DMARC1 fails isDmarcPolicyRecord() and is never collected,
+// so analyzeDmarc receives '' and reports reason 'absent' instead.
+eq('a wrong version value is diagnosed on a direct call',
+  D.validateDmarcVersion('v=DMARC2; p=none').reason, 'bad-value');
+eq('and such a record is not a policy record at all',
+  D.isDmarcPolicyRecord('v=DMARC2; p=none'), false);
+
+// The other two diagnoses. Their OUTPUT reaches the result as observed[].why,
+// which the corpus covers; the function's own return values are asserted here.
+eq('a version tag out of position', D.diagnoseDmarcRecord('p=none; v=DMARC1'), 'version-not-first');
+eq('a record with no version tag at all', D.diagnoseDmarcRecord('p=reject'), 'version-absent');
+eq('and something that was never meant to be DMARC is not diagnosed',
+  D.diagnoseDmarcRecord('some-verification-token=abc'), null);
+
+// appliedBranch np and weakest need domain existence 'no' or 'unknown', and
+// analyzeDomain cannot produce either: an NXDOMAIN NS probe returns the
+// unregistered shape at js/dns.js:5370 before any DMARC work happens, so
+// existence is always 'yes' by the time applyInheritance runs.
+const inherited = {
+  applied: { record: 'v=DMARC1; p=reject', foundAt: 'parent.test', labelsUp: 1, inherited: true },
+};
+const parentPolicy = D.analyzeDmarc('v=DMARC1; p=reject; sp=quarantine; np=none', false);
+eq('an existing subdomain takes the sp branch',
+  D.applyInheritance(parentPolicy, inherited, 'yes').appliedBranch, 'sp');
+eq('a non-existent one takes np',
+  D.applyInheritance(parentPolicy, inherited, 'no').appliedBranch, 'np');
+eq('and unknown existence takes the weaker of the two',
+  D.applyInheritance(parentPolicy, inherited, 'unknown').appliedBranch, 'weakest');
+eq('the weakest branch really is the weaker policy',
+  D.applyInheritance(parentPolicy, inherited, 'unknown').policy, 'none');
+eq('a record that is not inherited is returned untouched',
+  D.applyInheritance(parentPolicy, { applied: null }, 'yes').appliedBranch, undefined);
+
+// parseReportAuthRecord's reason is internal: checkExternalReportAuth reports a
+// destination-level state and never the per-record reason.
+eq('a valid authorization record has a null reason',
+  D.parseReportAuthRecord('v=DMARC1', 'vendor.test').reason, null);
+eq('a wrong version is rejected at step 6',
+  D.parseReportAuthRecord('v=DMARC2', 'vendor.test').reason, 'version');
+eq('and so is a record whose remaining syntax is not tag=value',
+  D.parseReportAuthRecord('v=DMARC1; this-is-not-a-pair', 'vendor.test').reason, 'syntax');
+eq('a cross-host override is named separately from a malformed one',
+  D.parseReportAuthRecord('v=DMARC1; rua=mailto:x@elsewhere.test', 'vendor.test').overrideReason, 'cross-host');
+eq('a malformed override does not void the authorization',
+  D.parseReportAuthRecord('v=DMARC1; rua=not-a-uri', 'vendor.test').valid, true);
+
+/* ── 5d. DNSSEC states the audit path cannot reach ────────────────────── */
+section('5d. DNSSEC states unreachable through analyzeDomain');
+
+const { DNSSEC_ZONE_KEY, DS_MATCHING_SECURE } =
+  await import('../fixtures/equivalence/keys.mjs');
+
+// `invalid-owner` is a statement about OUR OWN input, not about the zone: the
+// wire-format encoder refused the name. Unreachable through the audit path
+// because `parseDomains()` in js/app.js rejects a label over 63 octets before
+// startAudit() ever queues it — measured, by watching the corpus case produce
+// no result at all.
+const parsedDs = D.parseDs(DS_MATCHING_SECURE);
+const parsedKey = D.parseDnskey(DNSSEC_ZONE_KEY);
+eq('the DS and key are both well-formed to begin with',
+  [parsedDs.valid, parsedKey.valid], [true, true]);
+eq('an over-long label has no wire form', D.dnsWireName('x'.repeat(64) + '.test'), null);
+const badOwner = await D.matchDsToDnskeys(parsedDs, [parsedKey], 'x'.repeat(64) + '.test');
+eq('so the match is unverifiable', badOwner.match, 'unverifiable');
+eq('and names our input as the reason', badOwner.unverifiableReason, 'invalid-owner');
+eq('and it is never reported as a mismatch', badOwner.match === 'digest-mismatch', false);
+
+// A DS that did not parse is the other half of the same rule.
+const badDs = await D.matchDsToDnskeys(D.parseDs('1 8 2 zzzz'), [parsedKey], 'ok.test');
+eq('an unparseable DS is unverifiable', badDs.match, 'unverifiable');
+eq('with its own reason', badDs.unverifiableReason, 'invalid-ds');
+
+/**
+ * `unbuildable-key` is DEAD CODE in the current implementation, and this
+ * asserts the property that makes it so rather than pretending to reach it.
+ *
+ * `matchDsToDnskeys()` selects candidates with `key.valid === true`
+ * (js/dns.js:3841), and every key the parser calls valid has decodable base64,
+ * so `dnskeyRdata()` always builds. `digestsComputed` can therefore only be
+ * zero when there were no candidates — which returns `no-matching-key` earlier
+ * — or when every computation failed, which returns `runtime-unavailable`
+ * first. The branch is defensive and unreachable.
+ *
+ * Recorded rather than removed: it is a real string in a real union, and a
+ * future change that made a valid key unbuildable would need this assertion to
+ * fail before the branch became live.
+ */
+const KEY_SHAPES = [
+  DNSSEC_ZONE_KEY, '257 3 8 AwEAAQ==', '256 3 13 AwEAAQ==', '257 3 15 AwEAAQ==',
+  '257 3 99 AwEAAQ==', '0 3 8 AwEAAQ==', '257 3 5 AwEAAQ==',
+];
+const unbuildable = KEY_SHAPES
+  .map(shape => D.parseDnskey(shape))
+  .filter(key => key.valid && D.dnskeyRdata(key) === null);
+eq('every key the parser calls valid can be rebuilt, so unbuildable-key is unreachable',
+  unbuildable, []);
+eq('and an INVALID key is never a candidate in the first place',
+  D.parseDnskey('257 3 8 !!!!').valid, false);
+
+// `dnssec.error: cancelled` needs an abort during the DNSSEC lookups. Through
+// analyzeDomain that aborts every other in-flight query too, their
+// optionalCheck() wrappers re-throw AbortError and the audit produces no
+// result — so there is nothing for the corpus to observe.
+const dnssecAbort = new AbortController();
+setFetch((url, init) => new Promise((resolve, reject) => {
+  init.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+  dnssecAbort.abort();
+}));
+const cancelled = await D.checkDNSSEC('cancelled.test', { noCache: true, retries: 0, signal: dnssecAbort.signal });
+eq('a cancelled DNSSEC probe is indeterminate', cancelled.state, 'indeterminate');
+eq('and carries the cancelled kind', cancelled.error, 'cancelled');
+eq('with no evidence at all', cancelled.evidence, 'none');
+eq('and the resolver-unreachable claim', cancelled.chain.some(c => c.claim === 'resolver-unreachable'), true);
+
 /* ── 6. The issue vocabulary closes against locales/en.json ───────────── */
 section('6. Issue token vocabulary (audit.issue.key)');
 

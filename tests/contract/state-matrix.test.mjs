@@ -21,7 +21,7 @@
  */
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { createSuite } from '../lib/assert.mjs';
@@ -35,10 +35,11 @@ const matrix = JSON.parse(readFileSync(join(REPO, 'tests/state-matrix.json'), 'u
 /* ── 1. Every named suite and fixture exists ──────────────────────────── */
 section('1. Named suites and fixtures resolve');
 
-const corpusManifest = join(REPO, 'tests/fixtures/equivalence/corpus.json');
-const corpus = existsSync(corpusManifest)
-  ? new Set(JSON.parse(readFileSync(corpusManifest, 'utf8')).cases.map(c => c.id))
-  : new Set();
+// The corpus module is the single source of truth for which cases exist. An
+// earlier draft read a separate corpus.json index, which would have been a
+// second place for a case id to live and a second place for it to drift.
+const { cases } = await import(pathToFileURL(join(REPO, 'tests/fixtures/equivalence/corpus.mjs')).href);
+const corpus = new Set(cases.map(c => c.id));
 
 const missingSuites = new Set();
 const missingFixtures = new Set();
@@ -48,6 +49,19 @@ for (const row of matrix.rows) {
 }
 eq('no row names a suite file that does not exist', [...missingSuites], []);
 eq('no row names a corpus case that does not exist', [...missingFixtures], []);
+// Shapes name their cases by review — a shape is a set of AXES, and an axis is
+// not a value the path reader can observe, so these cannot be measured the way
+// the enum rows are.
+const shapeCases = new Set(registry.shapes.flatMap(shape => shape.fixtures || []));
+eq('every non-enum shape names at least one corpus case',
+  registry.shapes.filter(shape => !(shape.fixtures || []).length).map(s => s.id), []);
+eq('and every case a shape names exists',
+  [...shapeCases].filter(id => !corpus.has(id)), []);
+
+// The other direction: a case nothing covers is a case nobody is measuring.
+const namedCases = new Set([...matrix.rows.flatMap(row => row.fixtures), ...shapeCases]);
+eq('every corpus case covers at least one registry member or shape',
+  cases.map(c => c.id).filter(id => !namedCases.has(id)), []);
 
 /* ── 2. Every registry member has exactly one covered row ─────────────── */
 section('2. Registry coverage');
@@ -118,5 +132,7 @@ eq('every algebra names at least one construction site',
   registry.algebras.filter(a => !a.site && !a.memberSites).map(a => a.id), []);
 eq('every non-enum shape names its axes',
   registry.shapes.filter(s => !Array.isArray(s.axes) || !s.axes.length).map(s => s.id), []);
+eq('and every algebra observable in a result declares where',
+  registry.algebras.filter(a => !Array.isArray(a.resultPaths)).map(a => a.id), []);
 
 report();

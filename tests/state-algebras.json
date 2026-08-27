@@ -9,7 +9,8 @@
     "vocabulary is open by construction and the listed members are the sentinels or",
     "representative values that must still be covered.",
     "`resultPaths` says where an algebra's members appear in an analyzeDomain() result, so corpus coverage is EXTRACTED from real runs rather than assigned by hand. An empty list means the algebra is not observable in the result and is covered by a suite.",
-    "§6 decision, 2026-08-27: dkim.key.cryptoValidated:false and dkim.key.errors:key-structure-invalid are covered through an explicit, deterministic platform profile rather than by native Node Web Crypto, which cannot produce them. See the note on dkim.key.cryptoValidated."
+    "§6 decision, 2026-08-27: dkim.key.cryptoValidated:false and dkim.key.errors:key-structure-invalid are covered through an explicit, deterministic platform profile rather than by native Node Web Crypto, which cannot produce them. See the note on dkim.key.cryptoValidated.",
+    "A shape's `fixtures` is REVIEWED, not measured: a shape is a set of axes and an axis is not a value a path reader can observe. The enum matrix is measured; these are named by hand and the contract checks the case exists."
   ],
   "version": 1,
   "baseline": "v0.5.0",
@@ -457,7 +458,7 @@
         "unknown": "js/dns.js:5427 (emptyDmarcStatus('unknown'))",
         "permerror": "js/dns.js:1404 — legacy direct call only; unreachable from analyzeDomain()"
       },
-      "note": "applyInheritance() can re-derive ok/warn at js/dns.js:2245.",
+      "note": "applyInheritance() can re-derive ok/warn at js/dns.js:2245. `permerror` is unreachable through analyzeDomain(): the tree walk never passes `multiple`, because RFC 9989 §4.10 step 2 discards duplicates and continues. js/dns.js:1397 says so in its own comment. Asserted by direct call.",
       "resultPaths": [
         "dmarcStatus.status"
       ]
@@ -562,7 +563,7 @@
         "not-first",
         "bad-value"
       ],
-      "note": "null when valid. Distinct from dmarc.diagnosis and from dmarc.reportAuth.record.reason.",
+      "note": "null when valid. Distinct from dmarc.diagnosis and from dmarc.reportAuth.record.reason. `bad-value` is unreachable through analyzeDomain(): a record whose v= is not exactly DMARC1 fails isDmarcPolicyRecord() and is never collected, so analyzeDmarc receives '' and reports 'absent'. Asserted by direct call.",
       "resultPaths": [
         "dmarcStatus.version.reason"
       ]
@@ -633,7 +634,7 @@
         "sp",
         "weakest"
       ],
-      "note": "ABSENT unless the applied record is inherited. Not enumerated in spec §12.1; found by reading. Chosen by dmarcExistence: 'no' -> np, 'yes' -> sp, 'unknown' -> weakest.",
+      "note": "ABSENT unless the applied record is inherited. Not enumerated in spec §12.1; found by reading. Chosen by dmarcExistence: 'no' -> np, 'yes' -> sp, 'unknown' -> weakest. `np` and `weakest` are UNREACHABLE through analyzeDomain(): an NXDOMAIN NS probe returns the unregistered shape at js/dns.js:5370 before any DMARC work happens, so existenceFromResponse() has already answered 'yes' by the time applyInheritance() runs. Both are asserted by direct call in legacy-shapes.test.mjs §5c.",
       "resultPaths": [
         "dmarcStatus.appliedBranch"
       ]
@@ -720,10 +721,9 @@
         "dns-error",
         "http-error",
         "timeout",
-        "network-error",
-        "undefined"
+        "network-error"
       ],
-      "note": "ABSENT on authorized/unauthorized results. 'undefined' is a real reachable value: js/dns.js:1854 reads e.kind, and a non-DnsError throw carries none.",
+      "note": "ABSENT on authorized/unauthorized results. 'undefined' is a real reachable value: js/dns.js:1854 reads e.kind, and a non-DnsError throw carries none. `cancelled` is deliberately NOT a member. checkExternalReportAuth() converts a cancelled response to dnsError('cancelled', ...) (js/dns.js:1815), which dnsError names AbortError, and the catch at js/dns.js:1853 rethrows AbortError rather than recording it — so the audit throws instead of the destination carrying an error. Verified by aborting mid-flight, not by reading. `undefined` is not a member either. Every throw inside the try block goes through dnsError(), which always sets .kind, and a raw fetch rejection is turned into kind 'network-error' by dohFetch before it ever reaches this catch. Verified by throwing a plain Error from fetch: the destination reported error 'network-error'.",
       "resultPaths": [
         "advanced.reportAuth[].error"
       ]
@@ -871,7 +871,7 @@
         "runtime-unavailable": "js/dns.js:3894",
         "unbuildable-key": "js/dns.js:3898"
       },
-      "note": "Not enumerated in spec §12.1; found by reading. Four distinct failures that shared one token before 0.5.0.",
+      "note": "Not enumerated in spec §12.1; found by reading. Four distinct failures that shared one token before 0.5.0. `unbuildable-key` is DEAD CODE in the current implementation and is not reached by any suite or case. matchDsToDnskeys() selects candidates with key.valid === true (js/dns.js:3841) and every valid key has decodable base64, so dnskeyRdata() always builds; digestsComputed can only be zero when there were no candidates (returns no-matching-key earlier) or every computation failed (returns runtime-unavailable first). legacy-shapes.test.mjs §5d asserts the PROPERTY that makes it unreachable rather than pretending to exercise it, so a change that made a valid key unbuildable fails there before the branch goes live. `invalid-owner` is unreachable through analyzeDomain() because js/app.js's parseDomains() rejects a label over 63 octets before startAudit() queues it — measured, by watching the corpus case produce no result. `runtime-unavailable` is covered by the crypto-digest-unavailable platform profile on the same terms as the §6 decision: native Node computes SHA-256 without complaint, so this is not native-Node coverage.",
       "resultPaths": [
         "advanced.dnssec.ds[].unverifiableReason"
       ]
@@ -969,6 +969,7 @@
       "site": "js/dns.js:4128",
       "members": [
         "undefined",
+        "nxdomain",
         "servfail",
         "refused",
         "dns-error",
@@ -977,7 +978,7 @@
         "timeout",
         "network-error"
       ],
-      "note": "The property is SET to `undefined` when state !== 'indeterminate' (js/dns.js:4128) — present with an undefined value, not omitted. The canonicalizer must distinguish the two and this row is why.",
+      "note": "The property is SET to `undefined` when state !== 'indeterminate' (js/dns.js:4128) — present with an undefined value, not omitted. The canonicalizer must distinguish the two and this row is why. `nxdomain` was missing from the first draft of this row and is reachable: dnssecLookupStatus() (js/dns.js:3956) counts only success and nodata as completed, so an NXDOMAIN NS probe yields state 'indeterminate' with error 'nxdomain'. Verified by running checkDNSSEC against an empty fixture, not by reading.",
       "resultPaths": [
         "advanced.dnssec.error"
       ]
@@ -1550,6 +1551,9 @@
           ],
           "note": "fallback only; defaults to 'dns-error' when the caught error carries no kind"
         }
+      ],
+      "fixtures": [
+        "spf-subnets-and-lookups"
       ]
     },
     {
@@ -1587,6 +1591,9 @@
           ],
           "note": "true keeps the size findings and drops redundancy"
         }
+      ],
+      "fixtures": [
+        "spf-subnets-and-lookups"
       ]
     },
     {
@@ -1707,6 +1714,10 @@
             "catalog key"
           ]
         }
+      ],
+      "fixtures": [
+        "dkim-key-shapes",
+        "dkim-discovery-notes"
       ]
     },
     {
@@ -1781,6 +1792,9 @@
           ],
           "note": "an own record survives a later error; a record collected higher up does not"
         }
+      ],
+      "fixtures": [
+        "dmarc-tree-walk"
       ]
     },
     {
@@ -1825,6 +1839,10 @@
             "non-empty"
           ]
         }
+      ],
+      "fixtures": [
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable"
       ]
     },
     {
@@ -1890,6 +1908,10 @@
             "non-empty"
           ]
         }
+      ],
+      "fixtures": [
+        "caa-policy",
+        "unverified-controls"
       ]
     },
     {
@@ -1963,6 +1985,10 @@
             "false"
           ]
         }
+      ],
+      "fixtures": [
+        "mx-health-and-tlsa",
+        "parked-null-mx"
       ]
     },
     {
@@ -2013,6 +2039,11 @@
             "false"
           ]
         }
+      ],
+      "fixtures": [
+        "bimi-duplicate-tags",
+        "enforcing-signed",
+        "unverified-controls"
       ]
     },
     {
@@ -2062,6 +2093,10 @@
             "false"
           ]
         }
+      ],
+      "fixtures": [
+        "enforcing-signed",
+        "unverified-controls"
       ]
     },
     {
@@ -2104,6 +2139,10 @@
             "false"
           ]
         }
+      ],
+      "fixtures": [
+        "enforcing-signed",
+        "unverified-controls"
       ]
     },
     {
@@ -2162,6 +2201,9 @@
             "false"
           ]
         }
+      ],
+      "fixtures": [
+        "mx-health-and-tlsa"
       ]
     },
     {
@@ -2261,6 +2303,10 @@
             "index"
           ]
         }
+      ],
+      "fixtures": [
+        "dnssec-chain-states",
+        "dnssec-evidence-missing"
       ]
     },
     {
@@ -2360,6 +2406,13 @@
           ],
           "note": "measured at two depths; a failed probe stays false"
         }
+      ],
+      "fixtures": [
+        "enforcing-signed",
+        "unregistered",
+        "website-probe-off",
+        "parked-null-mx",
+        "dnssec-bogus"
       ]
     },
     {
@@ -2395,7 +2448,10 @@
           ]
         }
       ],
-      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite."
+      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "id": "audit.returnShape",
@@ -2417,7 +2473,11 @@
           "note": "js/dns.js:5591"
         }
       ],
-      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite."
+      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
+      "fixtures": [
+        "unregistered",
+        "enforcing-signed"
+      ]
     },
     {
       "id": "dkim.recordSet.shape",
@@ -2453,7 +2513,10 @@
           ]
         }
       ],
-      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite."
+      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
     },
     {
       "id": "audit.dmarcScore.shape",
@@ -2503,7 +2566,11 @@
           ]
         }
       ],
-      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite."
+      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
+      "fixtures": [
+        "enforcing-signed",
+        "bare-registered"
+      ]
     }
   ]
 }

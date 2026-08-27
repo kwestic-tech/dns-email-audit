@@ -21,7 +21,10 @@
 import {
   dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa, ds, dnskey, rrsig,
 } from '../../../tools/lib/doh-fixture.mjs';
-import { RSA_2048_SPKI, RSA_2048_PKCS1, RSA_1024_SPKI, RSA_512_SPKI, ED25519_RAW } from './keys.mjs';
+import {
+  RSA_2048_SPKI, RSA_2048_PKCS1, RSA_1024_SPKI, RSA_512_SPKI, ED25519_RAW,
+  DNSSEC_ZONE_KEY, DNSSEC_KEY_TAG, DS_MATCHING_SECURE, DS_MISMATCHED,
+} from './keys.mjs';
 
 /* ── Shared record shapes ─────────────────────────────────────────────── */
 
@@ -39,28 +42,54 @@ const SOME_DNSKEY = dnskey('257 3 8 AwEAAcJ8Fd6n4u9pQqZ8kX2mB1vN3wY5tR7cL0aS6dF9
  * resolver is unreachable. That query is part of the application's real
  * fan-out and it stays in the trace.
  */
-const corpusFixture = (map, transport = {}) => {
+const corpusFixture = (map, override = {}) => {
   const inner = dohFixture(Object.assign({ 'example.com A': a('93.184.216.34') }, map));
-  if (!Object.keys(transport).length) return inner;
-  // Two transport kinds the fixture map cannot express, because neither is a
-  // DNS response: `network-error` is a fetch that throws, and `timeout` is a
-  // fetch that never settles until the request's own timer aborts it. Both are
-  // in the closed ten-kind set and both are reachable in production, so the
-  // corpus has to be able to produce them rather than leaving them to a suite.
+  if (!Object.keys(override).length) return inner;
+  /**
+   * Answers keyed on the FULL query identity, not just name and type.
+   *
+   * Two things the fixture map cannot express, and both are load-bearing here:
+   *
+   *  - `timeout` and `network-error`. Neither is a DNS response — one is a
+   *    request that never settles until its own timer aborts it, the other a
+   *    fetch that throws — so neither can be written as a map entry.
+   *  - A failure that applies ONLY to the `do=1` query. `checkDNSSEC()` asks
+   *    for the same NS record the audit already fetched, differing only in the
+   *    DNSSEC-OK bit, and `dohFetch` keys its cache on that bit
+   *    (js/dns.js:207). So the two are genuinely different queries, and
+   *    `dnssec.error` is unreachable unless a fixture can tell them apart.
+   *
+   * Keys are `"<name> <TYPE>"`, optionally suffixed ` do` and/or ` cd`.
+   */
   const impl = (url, init) => {
     const params = new URL(String(url), 'https://cloudflare-dns.com').searchParams;
     const name = String(params.get('name') || '').toLowerCase().replace(/\.$/, '');
-    const behaviour = transport[name];
+    const type = TYPE_BY_NUMBER[params.get('type')] || params.get('type');
+    const key = name + ' ' + type +
+      (params.get('do') === '1' ? ' do' : '') +
+      (params.get('cd') === '1' ? ' cd' : '');
+    const behaviour = override[key] ?? override[name];
     if (behaviour === 'network-error') return Promise.reject(new Error('socket closed'));
     if (behaviour === 'timeout') {
       return new Promise((resolve, reject) => {
         init.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
       });
     }
+    if (behaviour !== undefined) {
+      if (behaviour === 'http-error') return Promise.resolve({ ok: false, status: 502 });
+      const status = { nxdomain: 3, servfail: 2, refused: 5, nodata: 0, 'dns-error': 4 }[behaviour];
+      if (status === undefined) throw new Error(`corpus: unknown override behaviour '${behaviour}'`);
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ Status: status, Answer: [] }) });
+    }
     return inner(url, init);
   };
   impl.calls = inner.calls;
   return impl;
+};
+
+const TYPE_BY_NUMBER = {
+  1: 'A', 2: 'NS', 5: 'CNAME', 12: 'PTR', 15: 'MX', 16: 'TXT', 28: 'AAAA',
+  43: 'DS', 48: 'DNSKEY', 52: 'TLSA', 257: 'CAA',
 };
 
 const cases = [];
@@ -497,4 +526,659 @@ cases.push({
   platform: 'crypto-import-accepts',
   domains: [{ domain: 'accepted.crypto.test' }],
   fetch: () => corpusFixture(CRYPTO_PROFILE_RECORDS('accepted.crypto.test')),
+});
+
+/* ── 15. DKIM key shapes ──────────────────────────────────────────────── */
+
+const DKIM_SELECTORS = [
+  'sed25519', 'sedbad', 'secdsa', 'spkcs1', 'sbadver', 'svnotfirst',
+  'sbadtaglist', 'sdup', 'sbadk', 'snotes', 'shash', 'ssvc', 'sunparse',
+  'srevoked', 'smalformed', 'scname', 's1024', 's512', 'stesting',
+];
+
+/**
+ * One domain, nineteen selectors, one page.
+ *
+ * `dkimRecordSet()` (js/dns.js:481) partitions a selector's answers into four
+ * buckets — usable keys, revoked, unusable and malformed — and the distinction
+ * is the whole point: a revoked key is a deliberate act, an unusable one is a
+ * conformant record scoped to another service, and reporting either as "no
+ * DKIM" tells the operator to create a key they already dealt with. Each bucket
+ * needs its own selector here.
+ */
+cases.push({
+  id: 'dkim-key-shapes',
+  description: 'every DKIM key type, encoding, error token and restriction, across all four record buckets',
+  options: { selectors: DKIM_SELECTORS },
+  domains: [{ domain: 'keys.dkim.test' }],
+  fetch: () => corpusFixture({
+    'keys.dkim.test NS': ns('ns1.other.test'),
+    'keys.dkim.test MX': mx('10 mail.other.test'),
+    'keys.dkim.test TXT': txt('v=spf1 -all'),
+    '_dmarc.keys.dkim.test TXT': txt('v=DMARC1; p=reject; rua=mailto:d@keys.dkim.test'),
+    // RFC 8463 §3: the p= value is the RAW 32-byte Ed25519 key, not an SPKI
+    // structure, so there is no modulus and keyBits stays null.
+    'sed25519._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=ed25519; p=' + ED25519_RAW),
+    'sedbad._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=ed25519; p=AAAAAAAAAAAAAAAAAAAAAA=='),
+    // An unrecognized key type is IGNORED, not malformed (RFC 6376 §3.6.1).
+    'secdsa._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=ecdsa; p=' + RSA_2048_SPKI),
+    // The bare PKCS#1 envelope, which is conformant and which Web Crypto
+    // cannot express — so cryptoValidated stays null rather than false.
+    'spkcs1._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; p=' + RSA_2048_PKCS1),
+    'sbadver._domainkey.keys.dkim.test TXT': txt('v=DKIM2; k=rsa; p=' + RSA_2048_SPKI),
+    'svnotfirst._domainkey.keys.dkim.test TXT': txt('k=rsa; v=DKIM1; p=' + RSA_2048_SPKI),
+    'sbadtaglist._domainkey.keys.dkim.test TXT': txt('v=DKIM1;; k=rsa; p=' + RSA_2048_SPKI),
+    'sdup._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; k=rsa; p=' + RSA_2048_SPKI),
+    // A tag name that is not a hyphenated-word: invalid-key-type, and the type
+    // itself falls to unknown with the unsupported-key-type restriction.
+    'sbadk._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=1rsa; p=' + RSA_2048_SPKI),
+    'snotes._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; n==ZZ; p=' + RSA_2048_SPKI),
+    // Well-formed, and it offers this verifier no hash it can use.
+    'shash._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; h=sha512; p=' + RSA_2048_SPKI),
+    // RFC 8460 s=tlsrpt: a legitimate restriction, and not a key for email.
+    'ssvc._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; s=tlsrpt; p=' + RSA_2048_SPKI),
+    'sunparse._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; p=!!!!'),
+    // RFC 6376 §3.6.1: an empty p= is REVOCATION, a complete record.
+    'srevoked._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; p='),
+    'smalformed._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa'),
+    // A selector published as a CNAME to the key's real home, which is how
+    // most hosted signing is configured.
+    'scname._domainkey.keys.dkim.test': cname('key.host.test'),
+    'key.host.test TXT': txt('v=DKIM1; k=rsa; p=' + RSA_2048_SPKI),
+    's1024._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; p=' + RSA_1024_SPKI),
+    's512._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; p=' + RSA_512_SPKI),
+    'stesting._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; t=y; p=' + RSA_2048_SPKI),
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 16. DKIM discovery outcomes ──────────────────────────────────────── */
+
+/**
+ * The three `note` values and the comprehensive scan mode.
+ *
+ * `noteWildcard` needs a wildcard that actually reaches `_domainkey`, which is
+ * measured at two labels rather than inferred: RFC 4592 §2.2.1 stops synthesis
+ * below an existing node, and not every nameserver honours it.
+ */
+cases.push({
+  id: 'dkim-discovery-notes',
+  description: 'noteWildcard, noteNotFoundWithErrors and the comprehensive scan mode',
+  // `optWildcard` is UNCHECKED in index.html, so the two wildcard probes do not
+  // run unless a case asks for them — and `noteWildcard` is unreachable without
+  // them. The default came from the subject's own markup, which is exactly why
+  // the page skeleton is derived from it rather than hand-listed.
+  options: { dkimComprehensive: true, wildcard: true, selectors: ['broken'] },
+  domains: [{ domain: 'wild.dkim.test' }, { domain: 'errors.dkim.test' }],
+  fetch: () => corpusFixture({
+    // A wildcard TXT that synthesizes at every selector name, so nothing found
+    // under it is evidence of a key at that selector.
+    'wild.dkim.test NS': ns('ns1.other.test'),
+    'wild.dkim.test MX': mx('10 mail.other.test'),
+    'wild.dkim.test TXT': txt('v=spf1 -all'),
+    '*.wild.dkim.test TXT': txt('wildcard-synthesized-value'),
+    '*._domainkey.wild.dkim.test TXT': txt('wildcard-synthesized-value'),
+    '_dmarc.wild.dkim.test TXT': txt('v=DMARC1; p=none'),
+    // A selector whose lookup fails rather than answering: found is false AND
+    // a selector could not be checked, which is a different note from a plain
+    // "nothing published".
+    'errors.dkim.test NS': ns('ns1.other.test'),
+    'errors.dkim.test MX': mx('10 mail.other.test'),
+    'errors.dkim.test TXT': txt('v=spf1 -all'),
+    '_dmarc.errors.dkim.test TXT': txt('v=DMARC1; p=none'),
+    'broken._domainkey.errors.dkim.test TXT': 'servfail',
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 17. DMARC record content and the tree walk ───────────────────────── */
+
+cases.push({
+  id: 'dmarc-record-variants',
+  description: 'unusable records, invalid tag values, every fo value and the alignment states',
+  domains: [
+    { domain: 'unusable.dmarc.test' }, { domain: 'badtags.dmarc.test' },
+    { domain: 'fo1.dmarc.test' }, { domain: 'fod.dmarc.test' }, { domain: 'fos.dmarc.test' },
+    { domain: 'relaxed.dmarc.test' }, { domain: 'pct.dmarc.test' },
+  ],
+  fetch: () => corpusFixture({
+    // A record receivers cannot act on: p= is not a policy value. Neither
+    // 'missing' nor trustworthy enforcement, so `present`.
+    'unusable.dmarc.test NS': ns('ns1.other.test'),
+    'unusable.dmarc.test MX': mx('10 mail.other.test'),
+    '_dmarc.unusable.dmarc.test TXT': txt('v=DMARC1; p=bogus'),
+    // sp= present but not a policy value, and both alignment tags written the
+    // way a person would rather than the way the RFC defines.
+    'badtags.dmarc.test NS': ns('ns1.other.test'),
+    'badtags.dmarc.test MX': mx('10 mail.other.test'),
+    '_dmarc.badtags.dmarc.test TXT': txt('v=DMARC1; p=reject; sp=bogus; np=nope; adkim=strict; aspf=relaxed; psd=maybe; t=maybe; fo=9'),
+    // The fo= vocabulary, one value per domain. Its content MUST be ignored
+    // without ruf=, which is what makes fo-without-ruf worth naming.
+    'fo1.dmarc.test NS': ns('ns1.other.test'),
+    'fo1.dmarc.test MX': mx('10 mail.other.test'),
+    '_dmarc.fo1.dmarc.test TXT': txt('v=DMARC1; p=reject; fo=1; ruf=mailto:f@fo1.dmarc.test'),
+    'fod.dmarc.test NS': ns('ns1.other.test'),
+    'fod.dmarc.test MX': mx('10 mail.other.test'),
+    '_dmarc.fod.dmarc.test TXT': txt('v=DMARC1; p=reject; fo=d; ruf=mailto:f@fod.dmarc.test'),
+    'fos.dmarc.test NS': ns('ns1.other.test'),
+    'fos.dmarc.test MX': mx('10 mail.other.test'),
+    '_dmarc.fos.dmarc.test TXT': txt('v=DMARC1; p=reject; fo=s; ruf=mailto:f@fos.dmarc.test'),
+    // Alignment written explicitly as relaxed, which is the default and still
+    // a present tag — `absent` and `r` are different facts about the record.
+    'relaxed.dmarc.test NS': ns('ns1.other.test'),
+    'relaxed.dmarc.test MX': mx('10 mail.other.test'),
+    '_dmarc.relaxed.dmarc.test TXT': txt('v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:d@relaxed.dmarc.test'),
+    // pct= was removed by RFC 9989. Parsed for reporting, scored at nothing,
+    // and the suggestion is always "remove it".
+    'pct.dmarc.test NS': ns('ns1.other.test'),
+    'pct.dmarc.test MX': mx('10 mail.other.test'),
+    '_dmarc.pct.dmarc.test TXT': txt('v=DMARC1; p=reject; pct=50; rf=afrf; ri=86400; zz=extension'),
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 18. The RFC 9989 tree walk ───────────────────────────────────────── */
+
+/**
+ * The walk's four termination states and the five observations it records.
+ *
+ * The walk does NOT stop at the first record it finds — steps 2 and 6 stop
+ * early only on `psd=n` or `psd=y` — and duplicate records at one name are
+ * discarded while the walk CONTINUES, because a record higher in the tree can
+ * still apply. Both are easy to get wrong and both are visible here as the
+ * ordered `dmarcWalk` subsequence in the trace surface.
+ */
+cases.push({
+  id: 'dmarc-tree-walk',
+  description: 'psd-y, psd-n and error termination, plus every observation reason',
+  domains: [
+    { domain: 'a.b.psdy.test' }, { domain: 'a.psdn.test' },
+    { domain: 'broken.walk.test' }, { domain: 'observed.walk.test' },
+    { domain: 'apex.walk.test' }, { domain: 'diagnose.walk.test' },
+    { domain: 'absentv.walk.test' },
+  ],
+  fetch: () => corpusFixture({
+    // psd=y at a public-suffix-like parent: the Organizational Domain is one
+    // label BELOW it, and may carry no record of its own.
+    'a.b.psdy.test NS': ns('ns1.other.test'),
+    'a.b.psdy.test MX': mx('10 mail.other.test'),
+    '_dmarc.psdy.test TXT': txt('v=DMARC1; p=reject; psd=y; rua=mailto:d@psdy.test'),
+    // psd=n stops the walk and names the Organizational Domain outright.
+    'a.psdn.test NS': ns('ns1.other.test'),
+    'a.psdn.test MX': mx('10 mail.other.test'),
+    '_dmarc.psdn.test TXT': txt('v=DMARC1; p=quarantine; psd=n; rua=mailto:d@psdn.test'),
+    // A transient failure partway up. The upper tree was not examined, so the
+    // HIGHEST record is unknowable and the verdict is `unknown` rather than
+    // `missing` — optionalCheck's rule applied to the core path.
+    'broken.walk.test NS': ns('ns1.other.test'),
+    'broken.walk.test MX': mx('10 mail.other.test'),
+    '_dmarc.broken.walk.test TXT': 'servfail',
+    // Four records that are meant to be DMARC and are not readable as one,
+    // plus a duplicate pair at a single name.
+    'observed.walk.test NS': ns('ns1.other.test'),
+    'observed.walk.test MX': mx('10 mail.other.test'),
+    '_dmarc.observed.walk.test TXT': txt('v=dmarc1; p=none'),
+    // TWO VALID policy records at one name. RFC 9989 §4.10 step 2 discards them
+    // both and the walk CONTINUES, so the duplicate is evidence rather than a
+    // termination reason. A pair that merely LOOKS like DMARC would be filtered
+    // out before the duplicate rule ever ran, which is what the first draft of
+    // this fixture got wrong.
+    '_dmarc.walk.test TXT': txt('v=DMARC1; p=none', 'v=DMARC1; p=reject'),
+    // The four diagnosable near-misses, at a name of their own.
+    'diagnose.walk.test NS': ns('ns1.other.test'),
+    'diagnose.walk.test MX': mx('10 mail.other.test'),
+    '_dmarc.diagnose.walk.test TXT': txt('p=none; v=DMARC1'),
+    'absentv.walk.test NS': ns('ns1.other.test'),
+    'absentv.walk.test MX': mx('10 mail.other.test'),
+    '_dmarc.absentv.walk.test TXT': txt('p=reject'),
+    // A valid policy record published at the APEX instead of under _dmarc,
+    // which no receiver reads. Costs no query — analyzeDomain already holds
+    // the apex TXT set.
+    'apex.walk.test NS': ns('ns1.other.test'),
+    'apex.walk.test MX': mx('10 mail.other.test'),
+    'apex.walk.test TXT': txt('v=spf1 -all', 'v=DMARC1; p=reject'),
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 19. External report authorization (RFC 9990 §4) ──────────────────── */
+
+/**
+ * Sending reports to a domain you do not control requires that domain to
+ * publish `<policy-domain>._report._dmarc.<destination>`. Until it does,
+ * conformant receivers discard the reports and the operator gets silence.
+ *
+ * A DNS failure is `unverifiable`, never `unauthorized`: a timeout is not
+ * evidence of a missing record, and calling it one sends someone chasing a
+ * vendor over our own flaky lookup.
+ */
+cases.push({
+  id: 'dmarc-report-authorization',
+  description: 'authorized, unauthorized, override-mismatch and every unverifiable reason',
+  domains: [{ domain: 'reports.test' }],
+  fetch: () => corpusFixture({
+    'reports.test NS': ns('ns1.other.test'),
+    'reports.test MX': mx('10 mail.other.test'),
+    'reports.test TXT': txt('v=spf1 -all'),
+    '_dmarc.reports.test TXT': txt('v=DMARC1; p=reject; ' +
+      'rua=mailto:a@ok.vendor.test,mailto:b@bad.vendor.test,mailto:c@quiet.vendor.test,' +
+      'mailto:d@third.vendor.test,mailto:e@loose.vendor.test,mailto:f@refuse.vendor.test,' +
+      'mailto:g@servererror.vendor.test'),
+    // Authorized, by the exact constructed name.
+    'reports.test._report._dmarc.ok.vendor.test TXT': txt('v=DMARC1'),
+    // A TXT that exists and does not parse authorizes nothing — which usually
+    // means a truncated or hand-mangled record, not an absent one.
+    'reports.test._report._dmarc.bad.vendor.test TXT': txt('v=DMARC1; this-is-not-a-tag-value-pair'),
+    // Nothing published at all.
+    'reports.test._report._dmarc.quiet.vendor.test TXT': 'nodata',
+    // Step 9's override pointing at a THIRD host: conformant receivers send to
+    // neither URI, so the arrangement is unusable rather than authorized.
+    'reports.test._report._dmarc.third.vendor.test TXT': txt('v=DMARC1; rua=mailto:x@elsewhere.test'),
+    // A merely malformed override is ignored (RFC 9990 §3.5) and the
+    // authorization stands.
+    'reports.test._report._dmarc.loose.vendor.test TXT': txt('v=DMARC1; rua=not-a-uri'),
+    'reports.test._report._dmarc.refuse.vendor.test TXT': 'refused',
+    'reports.test._report._dmarc.servererror.vendor.test TXT': 'http-error',
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 20. Report authorization that could not be determined ────────────── */
+
+/**
+ * The rest of the `unverifiable` vocabulary, including the two kinds no DNS
+ * answer can express and the RFC 9990 §4 step 4 length limit.
+ *
+ * `name-too-long` needs the CONSTRUCTED name to exceed 253 octets, so the
+ * audited domain itself has to be long — cannot-determine and not-authorized
+ * are different facts and the step says to stop rather than guess.
+ */
+const LONG_POLICY_DOMAIN = ('l'.repeat(60) + '.').repeat(3) + 'policy.test';
+
+cases.push({
+  id: 'dmarc-report-unverifiable',
+  description: 'servfail, dns-error, timeout, network-error and the 253-octet name limit',
+  domains: [{ domain: 'failures.test' }, { domain: LONG_POLICY_DOMAIN }],
+  fetch: () => corpusFixture({
+    'failures.test NS': ns('ns1.other.test'),
+    'failures.test MX': mx('10 mail.other.test'),
+    'failures.test TXT': txt('v=spf1 -all'),
+    '_dmarc.failures.test TXT': txt('v=DMARC1; p=reject; ' +
+      'rua=mailto:a@sf.vendor.test,mailto:b@notimp.vendor.test,' +
+      'mailto:c@slow.vendor.test,mailto:d@down.vendor.test'),
+    'failures.test._report._dmarc.sf.vendor.test TXT': 'servfail',
+    // Any status responseKind() does not name. 4 is NOTIMP.
+    'failures.test._report._dmarc.notimp.vendor.test TXT': { status: 4, answers: [] },
+    [`${LONG_POLICY_DOMAIN} NS`]: ns('ns1.other.test'),
+    [`${LONG_POLICY_DOMAIN} MX`]: mx('10 mail.other.test'),
+    [`${LONG_POLICY_DOMAIN} TXT`]: txt('v=spf1 -all'),
+    [`_dmarc.${LONG_POLICY_DOMAIN} TXT`]: txt('v=DMARC1; p=reject; rua=mailto:x@' + 'd'.repeat(60) + '.vendor.test'),
+    'mail.other.test A': a('198.51.100.10'),
+  }, {
+    // Neither of these is a DNS response, so neither can be written as a
+    // fixture entry: `timeout` is a request that never settles until its own
+    // timer aborts it, and `network-error` is a fetch that throws.
+    'failures.test._report._dmarc.slow.vendor.test': 'timeout',
+    'failures.test._report._dmarc.down.vendor.test': 'network-error',
+  }),
+});
+
+/* ── 21. DNSSEC chain states ──────────────────────────────────────────── */
+
+/**
+ * The states §4's rules derive from the resolver's verdict and from what the
+ * child and parent publish.
+ *
+ * Local DS-to-DNSKEY matching feeds findings and never the classifier: nothing
+ * computed here can demote a zone the resolver validated. `servfail.nl` is the
+ * reason — its DS confirms its KSK by SHA-256 and the zone is bogus.
+ */
+cases.push({
+  id: 'dnssec-chain-states',
+  description: 'confirmed, mismatch, unanchored, unverifiable-digest-type and an unreachable resolver',
+  domains: [
+    { domain: 'secure.dnssec.test' }, { domain: 'mismatch.dnssec.test' },
+    { domain: 'unanchored.dnssec.test' }, { domain: 'gost.dnssec.test' },
+    { domain: 'unreachable.dnssec.test' },
+  ],
+  fetch: () => corpusFixture({
+    // A DS whose digest genuinely hashes to this key over this owner name.
+    'secure.dnssec.test NS': ns('ns1.other.test'),
+    'secure.dnssec.test MX': mx('10 mail.other.test'),
+    'secure.dnssec.test TXT': txt('v=spf1 -all'),
+    'secure.dnssec.test DS': ds(DS_MATCHING_SECURE),
+    'secure.dnssec.test DNSKEY': dnskey(DNSSEC_ZONE_KEY),
+    // The same key, and the digest computed for a DIFFERENT owner name — so it
+    // cannot hash correctly here. Both
+    // lookups completed and a determinate verdict exists, so this is positive
+    // local proof of a broken link rather than an absence of evidence.
+    'mismatch.dnssec.test NS': ns('ns1.other.test'),
+    'mismatch.dnssec.test MX': mx('10 mail.other.test'),
+    'mismatch.dnssec.test DS': ds(DS_MATCHING_SECURE),
+    'mismatch.dnssec.test DNSKEY': dnskey(DNSSEC_ZONE_KEY),
+    // Keys published, no DS at the parent: signed and not anchored.
+    'unanchored.dnssec.test NS': ns('ns1.other.test'),
+    'unanchored.dnssec.test MX': mx('10 mail.other.test'),
+    'unanchored.dnssec.test DS': 'nodata',
+    'unanchored.dnssec.test DNSKEY': dnskey(DNSSEC_ZONE_KEY),
+    // Digest type 3 is GOST R 34.11-94: registered, deprecated by RFC 9906,
+    // and not something Web Crypto implements. Not computable is the whole
+    // claim — it is never reported as a mismatch.
+    'gost.dnssec.test NS': ns('ns1.other.test'),
+    'gost.dnssec.test MX': mx('10 mail.other.test'),
+    'gost.dnssec.test DS': ds(DNSSEC_KEY_TAG + ' 8 3 ' + 'ab'.repeat(32)),
+    'gost.dnssec.test DNSKEY': dnskey(DNSSEC_ZONE_KEY),
+    // The NS probe never returns a definite answer, so the resolver's verdict
+    // is unknown and the state is indeterminate rather than insecure.
+    'unreachable.dnssec.test NS': 'refused',
+    'unreachable.dnssec.test MX': mx('10 mail.other.test'),
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 22. DNSSEC record parsing ────────────────────────────────────────── */
+
+/**
+ * Every DS and DNSKEY error token, and the digest-name vocabulary including
+ * the ranges IANA reserves.
+ *
+ * A registered digest type parsed WITHOUT its registered grammar is a gap, not
+ * forward compatibility, so every registered type has its length checked —
+ * including the two this build cannot compute. Only a genuinely unassigned or
+ * private-use value is carried unjudged.
+ */
+cases.push({
+  id: 'dnssec-record-parsing',
+  description: 'every DS and DNSKEY error token, plus the reserved and private-use digest ranges',
+  domains: [{ domain: 'ds.parse.test' }, { domain: 'key.parse.test' }],
+  fetch: () => corpusFixture({
+    'ds.parse.test NS': ns('ns1.other.test'),
+    'ds.parse.test MX': mx('10 mail.other.test'),
+    'ds.parse.test DNSKEY': dnskey(DNSSEC_ZONE_KEY),
+    'ds.parse.test DS': ds(
+      'not-a-ds-record',                                  // unparseable-record
+      '1 8 2 ( ' + 'ab'.repeat(32),                       // unbalanced-parentheses
+      '99999 8 2 ' + 'ab'.repeat(32),                     // bad-key-tag
+      '1 300 2 ' + 'ab'.repeat(32),                       // bad-algorithm
+      '1 8 300 ' + 'ab'.repeat(32),                       // bad-digest-type
+      '1 8 2 zzzz',                                       // bad-digest
+      '1 8 2 abcd',                                       // bad-digest-length
+      '1 8 0 ' + 'ab'.repeat(20),                         // digestName RESERVED (type 0)
+      '1 8 1 ' + 'ab'.repeat(20),                         // SHA-1
+      '1 8 4 ' + 'ab'.repeat(48),                         // SHA-384
+      '1 8 5 ' + 'ab'.repeat(32),                         // GOST R 34.11-2012
+      '1 8 6 ' + 'ab'.repeat(32),                         // SM3
+      '1 8 7 ' + 'ab'.repeat(32),                         // unassigned — no name
+      '1 8 200 ' + 'ab'.repeat(32),                       // RESERVED range
+      '1 8 253 ' + 'ab'.repeat(32),                       // PRIVATE-USE range
+    ),
+    'key.parse.test NS': ns('ns1.other.test'),
+    'key.parse.test MX': mx('10 mail.other.test'),
+    'key.parse.test DS': ds(DS_MATCHING_SECURE),
+    'key.parse.test DNSKEY': dnskey(
+      'not-a-dnskey-record',                              // unparseable-record
+      '257 3 8 ( AwEAAQ==',                               // unbalanced-parentheses
+      '70000 3 8 AwEAAQ==',                               // bad-flags
+      '257 4 8 AwEAAQ==',                                 // bad-protocol
+      '257 3 300 AwEAAQ==',                               // bad-algorithm
+      '257 3 8 !!!!',                                     // bad-key-encoding
+      '257 3 3 AwEAAQ==',                                 // DSA: deprecated, ineligible
+      '257 3 15 AwEAAQ==',                                // Ed25519 with the wrong length
+      '257 3 99 AwEAAQ==',                                // unregistered: eligibility unknown
+    ),
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 23. DNSSEC evidence that did not arrive ──────────────────────────── */
+
+/**
+ * `dnssec.error` carries the kind of the NS lookup that failed, and reaching it
+ * needs a failure that applies ONLY to the `do=1` query — the audit's own NS
+ * probe must succeed or there is no result to observe. `dohFetch` keys its
+ * cache on the DNSSEC-OK bit (js/dns.js:207), so the two are different queries
+ * and the override map can answer them differently.
+ *
+ * `cancelled` is deliberately absent from this case. An abort during the DNSSEC
+ * queries aborts every other in-flight lookup too, their `optionalCheck()`
+ * wrappers re-throw `AbortError`, and the whole audit throws rather than
+ * producing a result — so it is asserted by direct call instead.
+ */
+const dnssecFailureCase = (label, behaviour) => ({
+  domain: `${label}.evidence.test`,
+  records: {
+    [`${label}.evidence.test NS`]: ns('ns1.other.test'),
+    [`${label}.evidence.test MX`]: mx('10 mail.other.test'),
+    [`${label}.evidence.test TXT`]: txt('v=spf1 -all'),
+  },
+  override: { [`${label}.evidence.test NS do`]: behaviour },
+});
+
+const DNSSEC_FAILURES = [
+  dnssecFailureCase('nx', 'nxdomain'),
+  dnssecFailureCase('sf', 'servfail'),
+  dnssecFailureCase('ref', 'refused'),
+  dnssecFailureCase('other', 'dns-error'),
+  dnssecFailureCase('http', 'http-error'),
+  dnssecFailureCase('slow', 'timeout'),
+  dnssecFailureCase('down', 'network-error'),
+];
+
+cases.push({
+  id: 'dnssec-evidence-missing',
+  description: 'every transport kind the DNSSEC NS probe can report, plus partial evidence',
+  domains: [
+    ...DNSSEC_FAILURES.map(f => ({ domain: f.domain })),
+    { domain: 'partial.evidence.test' },
+  ],
+  fetch: () => corpusFixture({
+    ...Object.assign({}, ...DNSSEC_FAILURES.map(f => f.records)),
+    // One of the two child/parent lookups completed and the other did not, so
+    // the residual verdict rests on less evidence than a clean one. Stated
+    // rather than inferred from an empty array.
+    'partial.evidence.test NS': ns('ns1.other.test'),
+    'partial.evidence.test MX': mx('10 mail.other.test'),
+    'partial.evidence.test TXT': txt('v=spf1 -all'),
+    'partial.evidence.test DNSKEY': dnskey(DNSSEC_ZONE_KEY),
+    'mail.other.test A': a('198.51.100.10'),
+  }, {
+    ...Object.assign({}, ...DNSSEC_FAILURES.map(f => f.override)),
+    // The cd=1 re-query has to fail too. A SERVFAIL that RESOLVES with checking
+    // disabled is the resolver saying validation failed, which is `bogus` and
+    // not missing evidence — that distinction is rule 1 of §4 and the
+    // `dnssec-bogus` case already covers it.
+    'sf.evidence.test NS do cd': 'servfail',
+    'partial.evidence.test DS do': 'servfail',
+  }),
+});
+
+/* ── 24. DS records that say nothing about the zone ───────────────────── */
+
+/**
+ * Every failure path in `matchDsToDnskeys()` lands on `unverifiable`, never on
+ * `digest-mismatch`. A mismatch verdict tells an operator their DNSSEC is
+ * broken, and the only thing entitled to say that is arithmetic that ran.
+ *
+ * `invalid-owner` needs a name the wire-format encoder refuses — a label over
+ * 63 octets — which is a statement about our own input rather than about the
+ * zone, and says so.
+ */
+/**
+ * `invalid-owner` is NOT here, and that was measured rather than assumed. A name
+ * with a label over 63 octets is rejected by the application's own domain
+ * parsing before `startAudit()` ever queues it, so the engine never sees one and
+ * the corpus cannot reach the state. It is asserted by a direct
+ * `matchDsToDnskeys()` call in legacy-shapes.test.mjs §5d instead.
+ */
+cases.push({
+  id: 'dnssec-unverifiable-reasons',
+  description: 'invalid-ds, an ineligible algorithm, and empty rdata bodies',
+  domains: [{ domain: 'invalidds.dnssec.test' }],
+  fetch: () => corpusFixture({
+    'invalidds.dnssec.test NS': ns('ns1.other.test'),
+    'invalidds.dnssec.test MX': mx('10 mail.other.test'),
+    'invalidds.dnssec.test DNSKEY': dnskey(
+      DNSSEC_ZONE_KEY,
+      // RSAMD5. RFC 9905 §3.1 makes it MUST NOT for signing, so the registry's
+      // zone-signing column says ineligible — a fact about the algorithm, not
+      // about whether this build can parse it.
+      '257 3 1 AwEAAQ==',
+      // An empty parenthesised body: parsed, and carrying no key.
+      '257 3 8 ()',
+    ),
+    // A DS that did not parse is a statement about our own input, so it is
+    // unverifiable with a reason and never a mismatch.
+    'invalidds.dnssec.test DS': ds('1 8 2 zzzz', '1 8 2 ()'),
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 25. The runtime refusing a digest it advertised ──────────────────── */
+
+/**
+ * `runtime-unavailable`: `dnssecDigestHex()` returned null because
+ * `crypto.subtle.digest` refused an algorithm it advertises. Recorded, not
+ * returned — an earlier candidate may already have proved the match, and a
+ * completed proof cannot be undone by failing to inspect another key.
+ *
+ * Reached through the same mechanism as the DKIM key case and on the same
+ * terms as the §6 decision of 2026-08-27: an explicit, deterministic platform
+ * profile, recorded per case in the manifest. Native Node computes SHA-256
+ * perfectly well, so this is not native-Node coverage.
+ */
+cases.push({
+  id: 'dnssec-digest-unavailable',
+  description: 'a runtime that refuses the digest algorithm it advertises',
+  platform: 'crypto-digest-unavailable',
+  domains: [{ domain: 'nodigest.dnssec.test' }],
+  fetch: () => corpusFixture({
+    'nodigest.dnssec.test NS': ns('ns1.other.test'),
+    'nodigest.dnssec.test MX': mx('10 mail.other.test'),
+    'nodigest.dnssec.test TXT': txt('v=spf1 -all'),
+    'nodigest.dnssec.test DS': ds(DS_MATCHING_SECURE),
+    'nodigest.dnssec.test DNSKEY': dnskey(DNSSEC_ZONE_KEY),
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 26. CAA policy ───────────────────────────────────────────────────── */
+
+/**
+ * A CAA record set is a policy, and reducing it to a green dot loses the
+ * policy. `0 issue ";"` locks out every certificate authority; an absent
+ * `issuewild` does NOT mean wildcards are open, it means the issue set governs
+ * them (RFC 8659 §4.3).
+ *
+ * A malformed value is an ABSENT issuer-domain-name per §4.2, which is why it
+ * can block issuance rather than authorize a CA whose name is nonsense — the
+ * strongest form of the mistake this release must not make, because it says a
+ * domain is open when the RFC says it is shut.
+ */
+cases.push({
+  id: 'caa-policy',
+  description: 'every CAA error token, the full known-tag vocabulary, and an unknown critical property',
+  domains: [{ domain: 'policy.caa.test' }],
+  fetch: () => corpusFixture({
+    'policy.caa.test NS': ns('ns1.other.test'),
+    'policy.caa.test MX': mx('10 mail.other.test'),
+    'policy.caa.test TXT': txt('v=spf1 -all'),
+    'policy.caa.test CAA': caa(
+      'issue',                                  // unparseable-record: one token
+      '999 issue "ca.test"',                    // bad-flags: outside 0-255
+      '0 thistagiswaytoolong "ca.test"',        // bad-tag: over 15 octets
+      '0 issue ca.test',                        // unquoted-value: readable, named
+      '0 issue "%%%%%"',                        // bad-issue-value — §4.2's own example
+      '0 iodef "mailto:not an address"',        // bad-iodef-url: a scheme is not a URL
+      '0 issuewild ";"',                        // wildcards locked out
+      '0 issuemail "ca.test"',                  // RFC 9495 §3
+      '0 contactemail "admin@policy.caa.test"',
+      '0 contactphone "+15550100"',
+      '128 unknowncrit "x"',                    // Issuer Critical: a live outage risk
+    ),
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 27. MX health and TLSA ───────────────────────────────────────────── */
+
+/**
+ * Two MX hosts, one with IPv6 and one without, so `ipv6Coverage` is `some`
+ * rather than `all` or `none` — and a third whose address lookups fail, which
+ * must read as `unknown` rather than as an outage. One failed lookup and one
+ * empty answer is not evidence of absence.
+ */
+cases.push({
+  id: 'mx-health-and-tlsa',
+  description: 'partial IPv6 coverage, a host that could not be checked, and every TLSA error token',
+  domains: [{ domain: 'hosts.mx.test' }],
+  fetch: () => corpusFixture({
+    'hosts.mx.test NS': ns('ns1.other.test'),
+    'hosts.mx.test TXT': txt('v=spf1 -all'),
+    'hosts.mx.test MX': mx('10 dual.mx.test', '20 v4only.mx.test', '30 unknown.mx.test'),
+    'dual.mx.test A': a('198.51.100.20'),
+    'dual.mx.test AAAA': aaaa('2001:db8::20'),
+    'v4only.mx.test A': a('198.51.100.21'),
+    // Both address lookups fail, so `resolves` is unknown and the host is left
+    // out of the concentration analysis rather than counted either way.
+    'unknown.mx.test A': 'servfail',
+    'unknown.mx.test AAAA': 'servfail',
+    // A TLSA answer commonly returns a CNAME alongside the records, because
+    // pointing _25._tcp.<host> at a shared _dane name is ordinary practice.
+    // Handing that CNAME to the record parser would report a malformed TLSA on
+    // a correctly configured host, which is what the type filter prevents.
+    '_25._tcp.dual.mx.test TLSA': [
+      ...cname('_dane.mx.test'),
+      ...tlsa(
+        'garbage',                                  // unparseable-record
+        '3 1 1 ( ' + 'ab'.repeat(32),               // unbalanced-parentheses
+        '9 1 1 ' + 'ab'.repeat(32),                 // bad-usage
+        '3 9 1 ' + 'ab'.repeat(32),                 // bad-selector
+        '3 1 9 ' + 'ab'.repeat(32),                 // bad-matching-type
+        '3 1 1 zzzz',                               // bad-association-data
+        '3 1 1 abcd',                               // bad-digest-length
+        '3 1 1 ( ' + 'AB'.repeat(32) + ' )',        // valid, in the resolver's own form
+      ),
+    ],
+  }),
+});
+
+/* ── 28. Controls that could not be verified ──────────────────────────── */
+
+/**
+ * An audit that quietly omits a control looks identical to one where the
+ * control is fine. These four lookups fail rather than answering, so each
+ * pillar scores zero as an UNPROVEN control rather than an absent one, and
+ * `checks-unverified` names them.
+ */
+cases.push({
+  id: 'unverified-controls',
+  description: 'CAA, MTA-STS, BIMI and TLS-RPT lookups that failed rather than answered',
+  domains: [{ domain: 'unverified.test' }],
+  fetch: () => corpusFixture({
+    'unverified.test NS': ns('ns1.other.test'),
+    'unverified.test MX': mx('10 mail.other.test'),
+    'unverified.test TXT': txt('v=spf1 -all'),
+    '_dmarc.unverified.test TXT': txt('v=DMARC1; p=reject; rua=mailto:d@unverified.test'),
+    'unverified.test CAA': 'servfail',
+    '_mta-sts.unverified.test TXT': 'servfail',
+    '_smtp._tls.unverified.test TXT': 'servfail',
+    'default._bimi.unverified.test TXT': 'servfail',
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 29. BIMI duplicate tags ──────────────────────────────────────────── */
+
+cases.push({
+  id: 'bimi-duplicate-tags',
+  description: 'a BIMI record with a repeated tag — duplicate-tags rather than invalid-syntax',
+  domains: [{ domain: 'dup.bimi.test' }],
+  fetch: () => corpusFixture({
+    'dup.bimi.test NS': ns('ns1.other.test'),
+    'dup.bimi.test MX': mx('10 mail.other.test'),
+    'dup.bimi.test TXT': txt('v=spf1 -all'),
+    '_dmarc.dup.bimi.test TXT': txt('v=DMARC1; p=reject; rua=mailto:d@dup.bimi.test'),
+    'default._bimi.dup.bimi.test TXT': txt('v=BIMI1; l=https://dup.bimi.test/a.svg; l=https://dup.bimi.test/b.svg'),
+    'mail.other.test A': a('198.51.100.10'),
+  }),
 });

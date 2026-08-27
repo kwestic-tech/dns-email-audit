@@ -110,6 +110,27 @@ export const PLATFORM_PROFILES = {
     describe: 'the same wrapper with subtle.importKey delegated — the control that proves the wrapper is inert',
     crypto: () => wrapSubtle((...args) => globalThis.crypto.subtle.importKey(...args)),
   },
+
+  /**
+   * `subtle.digest` refuses the algorithm it advertises.
+   *
+   * Reaches `dnssec.ds.unverifiableReason: runtime-unavailable`. Native Node
+   * computes SHA-256 without complaint, so this state has the same standing as
+   * the DKIM key case: covered through an explicit profile, recorded in the
+   * manifest, and never described as native-Node coverage.
+   *
+   * `importKey` is delegated here, so the two crypto profiles are independent
+   * and a case cannot accidentally be measuring both.
+   */
+  'crypto-digest-unavailable': {
+    id: 'crypto-digest-unavailable',
+    describe: 'Web Crypto whose subtle.digest rejects, as a locked-down runtime does',
+    crypto: () => {
+      const wrapped = wrapSubtle((...args) => globalThis.crypto.subtle.importKey(...args));
+      wrapped.subtle.digest = async () => { throw dataError('digest unavailable'); };
+      return wrapped;
+    },
+  },
 };
 
 /** Resolve a profile by name, refusing an unknown one rather than defaulting. */

@@ -26,7 +26,30 @@ import { dirname, join } from 'node:path';
 import { createSuite } from '../lib/assert.mjs';
 import { serialize } from '../lib/canonical.mjs';
 import { runCase } from './equivalence.mjs';
-import { cases } from '../fixtures/equivalence/corpus.mjs';
+import { cases as allCases } from '../fixtures/equivalence/corpus.mjs';
+
+/**
+ * The subset this file runs against, and it is a stated cap rather than a
+ * silent one.
+ *
+ * This validates the INSTRUMENT, not the corpus: it needs enough cases to
+ * exercise all five surfaces and to let every mutation below land somewhere.
+ * The full corpus is 30 cases and each mutation costs a complete pass, so
+ * validating against all of them costs about seven minutes for no additional
+ * evidence about the runner.
+ *
+ * Section 1 asserts that this subset does exercise every surface, so the cap
+ * cannot quietly stop being sufficient.
+ */
+const VALIDATION_SUBSET = [
+  'enforcing-signed',        // every control present; DKIM, DNSSEC, both exports
+  'bare-registered',         // nothing published — the spf-missing token
+  'cache-reuse-siblings',    // two domains, one page — the cache mutation
+  'unregistered',            // the three-property early-return shape
+  'dnssec-orphan-ds',        // the computed DS claims
+  'mx-health-and-tlsa',      // MX health, TLSA, the AAAA lookup
+];
+const cases = allCases.filter(c => VALIDATION_SUBSET.includes(c.id));
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { eq, section, report } = createSuite();
@@ -66,10 +89,14 @@ function movedSurfaces(a, b) {
 /* ── 1. Determinism ───────────────────────────────────────────────────── */
 section('1. The runner is deterministic');
 
+console.log(`validating against ${cases.length} of ${allCases.length} corpus cases: ${VALIDATION_SUBSET.join(', ')}`);
+console.log('(the instrument is what is under test here, not the corpus)');
+
 const pristine = makeRoot('pristine');
 const first = await run(pristine);
 const second = await run(pristine);
 eq('two runs against one root move no surface', movedSurfaces(first, second), []);
+eq('the subset is the one named above', cases.map(c => c.id).sort(), [...VALIDATION_SUBSET].sort());
 eq('every case produced all five surfaces',
   [...first.values()].filter(c => SURFACES.some(s => c[s] === undefined)).map(c => c.id), []);
 // A surface that is null for every case cannot detect anything, which is the
