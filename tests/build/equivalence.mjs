@@ -29,13 +29,17 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, relative } from 'node:path';
 
 import { loadSubject, FIXED_INSTANT, FIXED_LOCALE, FIXED_TIMEZONE } from '../lib/subject.mjs';
 import {
+  probePublicSuffixRules, probeDkimCatalog, probeEnglishBundle, assertFixtureIdentity,
+} from '../lib/fixture-identity.mjs';
+import {
   encode, serialize, canonicalQueryTrace, orderedSubsequence,
-  canonicalDom, canonicalDomLines, reportByteRegions, applyExclusions,
+  canonicalDom, canonicalDomLines, canonicalCsv, reportByteRegions, applyExclusions,
 } from '../lib/canonical.mjs';
 
 const RUNNER_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -127,6 +131,22 @@ async function runCase(root, testCase, entry) {
   });
   const { win, document } = subject;
 
+  /**
+   * Data profile: the runner supplies PRODUCTION generated data for all three
+   * bindings, because a subject is a complete root and loads its own.
+   *
+   * Run before anything else and throwing rather than counting, per spec §11.
+   * The spike is why: a bundled public suffix list silently replaced a fixture
+   * and 1,535 assertions passed against the wrong data without a warning. Here
+   * the failure mode is subtler and worse — a subject root assembled with one
+   * file from somewhere else would produce a baseline that looks authoritative.
+   */
+  assertFixtureIdentity([
+    probePublicSuffixRules(win.DnsAudit.getOrganizationalDomain, 'production'),
+    probeDkimCatalog(win.DnsAudit.isRecognizedDkimSelector, 'production'),
+    probeEnglishBundle(win.t, 'production'),
+  ]);
+
   // The download boundary. `js/app.js:1434` builds a Blob and clicks a
   // detached anchor; capturing at the Blob is capturing exactly the bytes the
   // browser would have written.
@@ -216,9 +236,30 @@ async function runCase(root, testCase, entry) {
       dmarcWalk: orderedSubsequence(calls, c => c.name.startsWith('_dmarc.') && c.type === 'TXT'),
       spfEvaluation: orderedSubsequence(calls, c => c.type === 'TXT' && (testCase.spfNames || []).includes(c.name)),
     },
-    csv,
+    csv: csv === null ? null : csvSurface(csv),
     report: report === null ? null : reportSurface(report),
     dom: canonicalDomLines(document.getElementById('tableBody')),
+  };
+}
+
+/**
+ * The exported CSV's surface: exact bytes, one row per line.
+ *
+ * Held as lines rather than as one string for the same reason the DOM is —
+ * `lines.join('\n')` reconstructs the file byte for byte, and a diff points at
+ * the row that changed instead of printing the whole export twice. The split is
+ * on `\n` alone, so the `\r` of each CRLF stays at the end of its line and
+ * remains part of the comparison; the BOM stays on line one; nothing is
+ * trimmed. The hash is what makes it complete.
+ */
+function csvSurface(text) {
+  // Content first, digests after. `firstDifference()` reports the first line
+  // that moved, and a hash line at the top would always be that line — telling
+  // the reader only that something changed, which they already knew.
+  return {
+    lines: canonicalCsv(text).split('\n'),
+    bytes: Buffer.byteLength(text, 'utf8'),
+    sha256: createHash('sha256').update(text, 'utf8').digest('hex'),
   };
 }
 
@@ -244,12 +285,31 @@ function reportSurface(html) {
   const tags = [...html.matchAll(/<(\/?)([a-zA-Z][\w-]*)\b/g)].map(m => `${m[1]}${m[2].toLowerCase()}`);
   const generated = /<p[^>]*>([^<]*\d[^<]*)<\/p>/.exec(html);
   return {
-    sha256: createHash('sha256').update(html, 'utf8').digest('hex'),
-    length: Buffer.byteLength(html, 'utf8'),
+    generated: generated ? generated[1] : null,
     bytes: reportByteRegions(html),
     structure: tags.join(' '),
-    generated: generated ? generated[1] : null,
+    length: Buffer.byteLength(html, 'utf8'),
+    sha256: createHash('sha256').update(html, 'utf8').digest('hex'),
   };
+}
+
+/**
+ * What commit this subject root is, as git sees it.
+ *
+ * A built artifact root (`_site/`) is inside the working tree and describes as
+ * the branch head, which is correct: it was built from that commit. A root that
+ * is not a git checkout at all reports so rather than being left blank.
+ */
+function gitDescribe(root) {
+  const run = args => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  try {
+    const commit = run(['rev-parse', 'HEAD']);
+    let described = commit;
+    try { described = run(['describe', '--tags', '--always', '--dirty']); } catch { /* no tags */ }
+    return { commit, described };
+  } catch {
+    return { commit: null, described: 'not a git checkout' };
+  }
 }
 
 /* ── Entry point ──────────────────────────────────────────────────────── */
@@ -281,7 +341,12 @@ async function main() {
   const document = {
     schema: 1,
     subject: {
-      root: manifest.root,
+      // The commit, not the path. An absolute path is this machine's and would
+      // differ in CI for no reason; spec Design §8 asks the manifest to bind
+      // the commit or tag, and the input hashes below are what actually bind
+      // the comparison.
+      commit: gitDescribe(root),
+      root: relative(RUNNER_ROOT, root) || '.',
       entry: manifest.entry,
       scripts: manifest.scripts,
       stylesheets: manifest.stylesheets,
@@ -341,6 +406,17 @@ async function main() {
  */
 export function compare(baseline, current) {
   const diffs = [];
+  // Input hashes are what bind a comparison. A baseline whose inputs differ is
+  // not a baseline for this subject, and saying so beats reporting thirty
+  // surface diffs that all mean the same thing.
+  const baselineInputs = new Map((baseline.subject?.inputs || []).map(i => [i.path, i.sha256]));
+  for (const input of current.subject?.inputs || []) {
+    if (!baselineInputs.has(input.path)) { diffs.push(`subject input ${input.path}: absent from the baseline`); continue; }
+    if (baselineInputs.get(input.path) !== input.sha256) diffs.push(`subject input ${input.path}: content changed`);
+    baselineInputs.delete(input.path);
+  }
+  for (const missing of baselineInputs.keys()) diffs.push(`subject input ${missing}: in the baseline, not loaded now`);
+
   for (const field of ['node', 'icu', 'unicode', 'instant', 'locale', 'timezone', 'resolvedTimezone']) {
     if (baseline.environment?.[field] !== current.environment?.[field]) {
       diffs.push(`environment.${field}: ${baseline.environment?.[field]} -> ${current.environment?.[field]}`);
@@ -364,16 +440,29 @@ export function compare(baseline, current) {
   return diffs;
 }
 
-/** The first differing line, which is almost always the useful one. */
+/**
+ * The first few differing lines.
+ *
+ * Three rather than one: a surface that carries a digest beside its content
+ * would otherwise report only "the hash moved", and a surface where one edit
+ * shifts several lines reads better with a little context.
+ */
 function firstDifference(a, b) {
   const left = a.split('\n');
   const right = b.split('\n');
-  for (let i = 0; i < Math.max(left.length, right.length); i++) {
+  const found = [];
+  for (let i = 0; i < Math.max(left.length, right.length) && found.length < 3; i++) {
     if (left[i] !== right[i]) {
-      return `line ${i + 1}\n      baseline ${JSON.stringify(left[i] ?? null)}\n      current  ${JSON.stringify(right[i] ?? null)}`;
+      found.push(`line ${i + 1}\n      baseline ${truncate(left[i])}\n      current  ${truncate(right[i])}`);
     }
   }
-  return 'lengths differ';
+  return found.length ? found.join('\n    ') : 'lengths differ';
+}
+
+/** A single CSV row can be 2 KB. The differing part is near the front of it. */
+function truncate(line) {
+  const text = JSON.stringify(line ?? null);
+  return text.length > 240 ? text.slice(0, 240) + `… (${text.length} chars)` : text;
 }
 
 export { runCase, tracingFetch, parseArgs };

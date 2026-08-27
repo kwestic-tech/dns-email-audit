@@ -1,0 +1,162 @@
+{
+  "$comment": [
+    "The contract inventory. Spec Testing item 1, implementation Task 0.5.",
+    "",
+    "THE GATE IS THIS FILE, NOT THE ASSERTION TOTAL. The spike settled that",
+    "empirically rather than by argument: tools/scoring.test.mjs reported",
+    "`1535 passed, 0 failed` while running against a public suffix list that had",
+    "been silently swapped underneath it, and the count was byte-identical to the",
+    "correct baseline. A number that cannot notice that is not a coverage signal.",
+    "",
+    "So: every area below must have a passing suite; the total is REPORTED beside",
+    "it as a tripwire; and no entry is removed without a stated replacement.",
+    "A decrease in a suite's count must name the assertions removed and where the",
+    "property moved to.",
+    "",
+    "Enforced by tests/contract/inventory.test.mjs, which runs each suite and",
+    "compares what it printed against what is recorded here."
+  ],
+  "baseline": {
+    "release": "v0.5.0",
+    "total": 2121,
+    "note": "The pre-refactor total, from the spec's baseline table. Reproduced on 2026-08-27."
+  },
+  "suites": [
+    {
+      "path": "tools/check-locales.mjs",
+      "assertions": null,
+      "note": "Reports findings rather than an assertion count, which is why it has no number. Stays in npm test: it is the only thing that catches js/locales-en.js drifting from locales/en.json, and Phase 2 changes that file's format.",
+      "areas": [
+        "the generated English bundle matches locales/en.json",
+        "every locale's key set is accounted for"
+      ]
+    },
+    {
+      "path": "tools/scoring.test.mjs",
+      "assertions": 1535,
+      "areas": [
+        "DMARC tag parsing, inheritance and the RFC 9989 vocabulary",
+        "the RFC 9989 tree walk: targets, termination, organizational domain, applied record",
+        "external report authorization (RFC 9990 §4)",
+        "SPF parsing, lookup accounting, subnet classification and redundancy",
+        "DKIM selector discovery, the record-set partition and key analysis",
+        "DNSSEC record parsing, DS-to-DNSKEY matching and chain classification",
+        "CAA, MX health, TLSA, MTA-STS, TLS-RPT and BIMI validation",
+        "the weighted scoring model, grade thresholds and unproven pillars",
+        "issue and suggestion construction",
+        "DoH transport: retry, cache, concurrency and the query-count fan-out"
+      ]
+    },
+    {
+      "path": "tools/interpolate.test.mjs",
+      "assertions": 17,
+      "areas": [
+        "message interpolation and plural selection in the i18n layer"
+      ]
+    },
+    {
+      "path": "tools/render.test.mjs",
+      "assertions": 329,
+      "areas": [
+        "row rendering and the detail panels",
+        "DNS-derived values reach text nodes or allowlisted attributes, never markup",
+        "the record-hygiene sentinels"
+      ]
+    },
+    {
+      "path": "tools/export.test.mjs",
+      "assertions": 199,
+      "areas": [
+        "CSV column order, quoting and formula neutralization",
+        "the exported HTML report's structure and its own security policy",
+        "display caps do not reach the exported data"
+      ]
+    },
+    {
+      "path": "tools/csp.test.mjs",
+      "assertions": 41,
+      "areas": [
+        "every Content-Security-Policy directive in index.html",
+        "the JSON-LD hash",
+        "script loading order and origin",
+        "the markup-sink scan, with an EMPTY named-file allowlist",
+        "the exported report declares its own policy"
+      ]
+    },
+    {
+      "path": "tests/contract/legacy-shapes.test.mjs",
+      "assertions": 125,
+      "areas": [
+        "fixture identity: divergent PSL and DKIM-catalog fingerprints, with their negative cases",
+        "the ten transport kinds, each at its own construction site",
+        "thrown paths: DnsTypeError, AbortError and the optionalCheck rethrow set",
+        "cacheable is a strict subset of retry-terminal; cancelled is never cached",
+        "computed values a literal scan cannot see, including the two 'ds-' + match claims",
+        "booleans, nullability and absence",
+        "platform-dependent key validation (the §6 decision of 2026-08-27)",
+        "states unreachable through analyzeDomain, each with its structural reason",
+        "the issue vocabulary closes against locales/en.json at 106 tokens"
+      ]
+    },
+    {
+      "path": "tests/contract/canonicalization.test.mjs",
+      "assertions": 108,
+      "areas": [
+        "determinism of the canonical form",
+        "array order, absence versus undefined, tagged non-JSON primitives",
+        "values refused at the result surface: functions, symbols, cycles",
+        "no empty value is dropped and no float is rounded",
+        "the query trace's stated tolerance, and the counts it must not cost",
+        "CSV as exact bytes",
+        "the DOM tree and its line form, proven equally sensitive",
+        "the report's byte-exact policy and stylesheet regions",
+        "exclusions: per-field, reasoned, no wildcards",
+        "each rule's NEGATIVE case — the difference it exists to catch"
+      ]
+    },
+    {
+      "path": "tests/contract/state-matrix.test.mjs",
+      "assertions": 20,
+      "areas": [
+        "every registry member has exactly one coverage row",
+        "every row names a suite or corpus case that exists",
+        "every non-enum shape names its axes and its cases",
+        "the extracted-module comparison, once src/ exists",
+        "the targeted legacy contracts are wired"
+      ]
+    },
+    {
+      "path": "tests/build/equivalence.validate.mjs",
+      "assertions": 42,
+      "areas": [
+        "the runner is deterministic across two runs of one root",
+        "each of the five surfaces distinguishes cases",
+        "seven mutations, each caught on the surfaces it should be and no others",
+        "a subject is a complete root: a stylesheet-only edit moves the report",
+        "a script listed in index.html but absent is refused, not skipped",
+        "a subject whose generated data was substituted is refused, not measured"
+      ]
+    }
+  ],
+  "notInNpmTest": [
+    {
+      "command": "node tests/build/equivalence.mjs --subject-root=.",
+      "why": "The five-surface comparison against the committed baseline. 38 s for 30 cases, so it runs at every phase gate rather than inside npm test. Framework §3's 'move it to every commit' reading was based on an 8-case corpus and was revised when the corpus was completed.",
+      "areas": [
+        "five-surface equivalence against v0.5.0: result, query trace, CSV, HTML report, DOM"
+      ]
+    },
+    {
+      "command": "node tests/build/coverage.mjs",
+      "why": "Regenerates the measured coverage columns of tests/state-matrix.json. Run when the corpus or the registry changes; state-matrix.test.mjs is what gates the result.",
+      "areas": [
+        "corpus coverage measurement"
+      ]
+    },
+    {
+      "command": "node tools/backtest.mjs --sample",
+      "why": "Live DNS. A local grade-DISTRIBUTION check and never a gate, never the equivalence oracle.",
+      "areas": []
+    }
+  ]
+}

@@ -236,5 +236,20 @@ try { await run(htmlRoot); } catch (error) { refused = /listed in index.html but
 eq('a script listed in index.html but absent is refused, not skipped', refused, true);
 rmSync(htmlRoot, { recursive: true, force: true });
 
+// Generated data swapped for a fixture table. The runner must refuse to
+// produce surfaces at all rather than emit a baseline that looks authoritative
+// — this is the spike's failure mode moved up a level, where it would poison
+// every later comparison instead of one suite.
+const swappedRoot = makeRoot('swapped');
+writeFileSync(join(swappedRoot, 'js', 'public-suffixes.js'),
+  "window.__PUBLIC_SUFFIX_RULES__ = ['com','co.uk','*.ck','!www.ck'];\n");
+let refusedData = false;
+try { await run(swappedRoot); } catch (error) {
+  refusedData = /the PSL binding in force is not the production one/.test(error.message) &&
+    /this is exactly the fixture value/.test(error.message);
+}
+eq('a subject whose generated data was substituted is refused, not measured', refusedData, true);
+rmSync(swappedRoot, { recursive: true, force: true });
+
 rmSync(pristine, { recursive: true, force: true });
 report();
