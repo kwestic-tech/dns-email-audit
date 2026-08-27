@@ -17,17 +17,25 @@ The spec is **`0.2 (Draft)`**, revised after review round 1 and awaiting round
 2. [`docs/specs/README.md`](docs/specs/README.md) requires `1.0 (Final)` before
 implementation begins.
 
-Round 1 resolved seven of the original eight open questions. **Two remain, and
-both change the work:**
+Round 1 resolved seven of the original eight open questions. Ian decided
+`OQ-ARCH-09` on 2026-08-27. **One remains, and it changes the work:**
 
 | Question | Blocks | Why it must be answered first |
 | --- | --- | --- |
 | `OQ-ARCH-06` | Phase 1 | `iife` vs `esm` output decides the `index.html` tag, whether `file://` survives, and how the parity test reaches the bundle. |
-| `OQ-ARCH-09` | Phase 2 | Test co-location decides the directory layout every later phase writes into, and changes the markup-sink scan. |
 
-**Task 0.1** — Answer `OQ-ARCH-06` and `OQ-ARCH-09`. Both are argued in the spec
-and both are put to the reviewer in
-[`CODEX Review Modular Refactor.md`](CODEX%20Review%20Modular%20Refactor.md).
+**Settled, and binding on every phase below:**
+
+| Question | Answer | Decided by |
+| --- | --- | --- |
+| `OQ-ARCH-09` | **Hybrid.** Unit tests co-locate as `src/**/*.test.js`; `tests/` keeps build, contract, integration and fixture suites. | Ian, 2026-08-27 |
+
+The layout is settled. Its one open consequence is the markup-sink exclusion in
+Task 1.8 — a security control, not a convention — which round 2 reviews. If that
+mitigation is rejected, the layout stands and the mitigation changes.
+
+**Task 0.1** — Answer `OQ-ARCH-06`. Argued in the spec and put to the reviewer
+in [`CODEX Review Modular Refactor.md`](CODEX%20Review%20Modular%20Refactor.md).
 
 **Task 0.2** — Run the `OQ-ARCH-01` spike. Round 1 made esbuild conditional on
 it, and it is research rather than refactoring, so it is permitted before Final:
@@ -154,7 +162,16 @@ through it before anything else proceeds.
 **Task 1.8** — Amend [`tools/csp.test.mjs`](tools/csp.test.mjs) §3: exactly one
 `<script src>`, it is `dist/app.min.js`, same-origin. **Preserve every §1 policy
 assertion byte-for-byte.** Retarget the markup-sink scan to cover the source
-tree *and* `dist/app.min.js`; the named-file allowlist stays empty.
+tree *and* `dist/app.min.js`.
+
+> **The named-file allowlist stays empty — that is the property being
+> protected.** Co-location (`OQ-ARCH-09`) puts `*.test.js` under `src/`, so the
+> scan needs an exclusion, and the file's own comment warns that *"an empty
+> allowlist has no judgment calls in it."* The exclusion must be a **mechanical
+> filename-suffix rule**, never a list of specific files, and the artifact scan
+> of `dist/app.min.js` must land in the same commit — it is what proves the
+> property on the code that actually ships. Round 2 is reviewing whether this
+> mitigation is adequate; if it is not, the layout stands and this task changes.
 
 **Task 1.9** — `tests/build/parity.test.mjs`. Loads the real
 `dist/app.min.js` and runs the corpus against it. Install and restore DOM,
@@ -227,8 +244,8 @@ IIFE design as fact.
 **Task 2.6** — `tools/backtest.mjs` off `vm`. It keeps its live-DNS
 grade-distribution job and does **not** become the equivalence oracle.
 
-> **Gate 2.** All source is ESM. Adapter sentinels counted and shrinking. Test
-> layout follows `OQ-ARCH-09`. Four-surface equivalence clean through the
+> **Gate 2.** All source is ESM. Adapter sentinels counted and shrinking. Test layout follows the
+> settled `OQ-ARCH-09` hybrid. Four-surface equivalence clean through the
 > bundle.
 
 ---

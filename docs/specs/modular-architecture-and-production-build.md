@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.2 (Draft) |
+| Spec version | 0.3 (Draft) |
 | Target release | 0.6.0 |
-| Status | Revised after review round 1; awaiting round 2 |
+| Status | Revised after review round 1; `OQ-ARCH-09` decided; awaiting round 2 |
 | Depends on | [dnssec-evidence](implemented/dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
 | Blocks | [findings-and-remediation](findings-and-remediation.md), [local-artifact-validation](local-artifact-validation.md), [report-comparison](report-comparison.md) — all three are scheduled after it |
 | Slug for open questions | `ARCH` |
@@ -652,8 +652,16 @@ them). Cross-cutting suites keep `*.test.mjs`, matching the existing `tools/`
 convention. The extension difference is a useful signal about which tree a file
 belongs to.
 
-Recorded as `OQ-ARCH-09` because it changes a test-suite layout the reviewer has
-already commented on, and because cost 1 touches a security control.
+**Decided.** Approved by Ian on 2026-08-27, as `OQ-ARCH-09`. The hybrid is the
+layout: `src/**/*.test.js` for unit tests, `tests/` for build, contract,
+integration and fixtures.
+
+What remains open is not the decision but **cost 1's mitigation**, because it
+touches a security control rather than a layout preference. Round 2 is asked
+whether a filename-suffix exclusion is materially different from the per-file
+allowlist `tools/csp.test.mjs` warns against, and whether the added artifact
+scan carries the weight this spec claims for it. If the answer is no, the
+layout stands and the mitigation changes.
 
 ## Localization impact
 
@@ -828,15 +836,19 @@ modules inside still communicate by `import`.
 *Recommendation:* `iife`. Put back to the reviewer because it reverses an answer
 already given and it interacts with F3's resolution.
 
-**`OQ-ARCH-09` — do unit tests live beside the code?** *(new in 0.2)*
-Full argument in [Design §9](#9-test-placement). Co-location makes §32's
-blast-radius claim literally true, at three costs: a filename-suffix exclusion
-in the markup-sink scan whose allowlist is deliberately empty; a need to prove
-test code never reaches the bundle; and a glob runner replacing six explicit
-invocations.
-*Recommendation:* co-locate unit tests as `src/**/*.test.js`; keep `tests/` for
-build, contract, integration and fixtures. Pay cost 1 with a mechanical suffix
-rule plus an artifact scan rather than a per-file allowlist.
+Only `OQ-ARCH-06` is open. `OQ-ARCH-09` was decided by Ian on 2026-08-27 and is
+recorded below.
+
+### Resolved by decision
+
+| ID | Question | Answer | Decided by |
+| --- | --- | --- | --- |
+| `OQ-ARCH-09` | Do unit tests live beside the code? | **Yes — hybrid.** `src/**/*.test.js` for unit tests; `tests/` for build, contract, integration and fixtures. Argument in [Design §9](#9-test-placement). | Ian, 2026-08-27 |
+
+The layout is settled. The **mitigation for cost 1** — excluding `*.test.js`
+from the markup-sink scan whose named-file allowlist is deliberately empty — is
+still a review item, because it weakens a security control rather than a
+convention. See Design §9.
 
 ### Resolved in round 1
 
@@ -855,4 +867,5 @@ rule plus an artifact scan rather than a per-file allowlist.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-08-27 | First draft, written from the Codex proposal of 2026-08 and checked against `main` at 0.5.0. Six claims in the source proposal corrected (ESM conversion omitted; finding identifiers already exist; DNS cache already exists; deployment allowlist already exists; no lockfile to pin against; behavioral equivalence unverifiable as specified). ESM conversion added as Phase 0. Bundle-parity testing added. Finding-identifier redesign declined. Eight open questions recorded. |
+| 0.3 | 2026-08-27 | `OQ-ARCH-09` decided by Ian: unit tests co-locate as `src/**/*.test.js`, with `tests/` retained for build, contract, integration and fixture suites. The layout is settled; the markup-sink exclusion that pays for it remains a round-2 review item because it touches a security control rather than a convention. `OQ-ARCH-06` is now the only open question. |
 | 0.2 | 2026-08-27 | Revised after review round 1 (Codex). All eight findings verified against the code and accepted. **Build now precedes ESM conversion** — 0.1's Phase 0 could not keep the browser working between its own commits. **Equivalence expanded from score/grade/token to four surfaces** — full result projection, DNS query trace, CSV bytes, canonical DOM. **Per-audit cache scoping declined**: page lifetime is tested at `scoring.test.mjs:1891` and underwrites `PRIVACY.md`'s published fan-out. **esbuild's dependency footprint corrected** — `postinstall` plus 26 platform optional dependencies, not zero. **Transport-boundary grep withdrawn as vacuous**, replaced by a closed result algebra plus import-graph direction. **Assertion count demoted** from merge gate to reported tripwire, with a contract inventory as the gate. Baseline capture moved to `git worktree`. `core/bimi/` added. `legalComments`, interpolation-count and `locales-en.js` claims corrected. Two new items opened: `OQ-ARCH-06` reopened to propose an **IIFE bundle** (keeps `file://`, resolves F3's access path), and `OQ-ARCH-09` added for **test co-location**. Seven questions resolved. |

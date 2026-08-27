@@ -508,10 +508,12 @@ today's `window.DnsAudit`, so it is not a new concept in this codebase.
 > boundary make it easier for a later change to reintroduce cross-module global
 > coupling, and is the import-graph contract test enough to prevent that?
 
-## Returned item 2 — `OQ-ARCH-09`: unit tests beside the code
+## Returned item 2 — `OQ-ARCH-09`: unit tests beside the code — **DECIDED**
 
-**New question**, raised because it changes a layout round 1 commented on and
-because one of its costs touches a security control.
+> **Resolved by Ian, 2026-08-27: the hybrid is approved.** The layout is
+> settled and is not a question for round 2. What remains for review is cost 1's
+> mitigation, at the end of this section — it weakens a security control, which
+> is a different kind of question from a layout preference.
 
 **Proposal: hybrid.** Unit tests co-located as `src/**/*.test.js`; a top-level
 `tests/` for what no single module owns — `build/` (parity, artifact, size,
@@ -548,11 +550,12 @@ Go, Rust and most Jest/Vitest projects work this way.
    scope** — that is a schema change wearing a tooling costume, and §35 forbids
    it in a move.
 
-> **Verdict requested.** Two things specifically. Is the suffix-rule exclusion
-> materially different from the per-file allowlist `csp.test.mjs` warns about,
-> or is that a distinction without a difference? And does co-location interact
-> badly with the deployment allowlist in a way the artifact test would not
-> catch?
+> **Verdict requested — on the mitigation, not the layout.** Two things.
+> Is a mechanical filename-suffix exclusion materially different from the
+> per-file allowlist `csp.test.mjs` warns against, or is that a distinction
+> without a difference? And does co-location interact badly with the deployment
+> allowlist in a way the artifact test would not catch? A "no" to the first
+> does not reopen the layout — it changes how the scan is written.
 
 ## What round 2 should look at
 
@@ -568,3 +571,81 @@ this round:
    `analyzeDomain()` result are legitimately nondeterministic, and how the DOM
    and HTML report are canonicalized without canonicalizing away the differences
    the surface exists to catch.
+
+---
+
+# Round 2 request — 2026-08-27
+
+**Spec:** `docs/specs/modular-architecture-and-production-build.md`, **`0.3 (Draft)`**
+**Plan:** `Modular Architecture, Production Build Refactor Implementation.md`
+**Branch:** `spec/modular-architecture-production-build`
+**Round 1:** all eight findings verified and accepted; disposition table above
+**Still true:** no code written. The branch is documentation only.
+
+## State of the eight open questions
+
+| ID | Status | Answer |
+| --- | --- | --- |
+| `OQ-ARCH-01` | Resolved, round 1 | esbuild, conditional on the spike |
+| `OQ-ARCH-02` | Resolved, round 1 | Commit the lockfile |
+| `OQ-ARCH-03` | Resolved, round 1 | `es2020` syntax + a separate required-API matrix |
+| `OQ-ARCH-04` | Resolved, round 1 | Ship linked external source maps |
+| `OQ-ARCH-05` | Resolved, round 1 | One bundle for 0.6.0 |
+| `OQ-ARCH-06` | **OPEN** | Proposed: IIFE output. Reverses a round-1 answer. |
+| `OQ-ARCH-07` | Resolved, round 1 | No duplicate tree; marked adapters |
+| `OQ-ARCH-08` | Resolved, round 1 | Add the strict locale gate to CI |
+| `OQ-ARCH-09` | **Decided by Ian, 2026-08-27** | Hybrid co-location. Layout not under review. |
+
+## What round 2 is asked for
+
+**1. `OQ-ARCH-06` — the only thing blocking implementation.**
+ESM source compiled to an IIFE bundle with `globalName: 'DnsAudit'`, rather than
+ESM output with `type="module"`. It keeps `file://` working, gives the parity
+test a documented access path to the shipped artifact (round 1's F3), and leaves
+the CSP shape unchanged. It reverses round 1's "loss accepted and documented"
+answer, which is why it needs a ruling rather than a decision. Full argument in
+*Returned item 1* above. The specific worry to test: does a bundler-generated
+global at the delivery boundary make it easier for a later change to reintroduce
+cross-module global coupling, and is the import-graph contract test enough?
+
+**2. The markup-sink mitigation under co-location.** The layout is settled. The
+question is narrower and is a security question: `tools/csp.test.mjs` derives
+its trustworthiness from an empty named-file allowlist, and co-location requires
+excluding `*.test.js`. Is a mechanical suffix rule plus a scan of
+`dist/app.min.js` an adequate substitute for the property being given up?
+
+**3. The two items round 1 named for this round**, both unspecified and both
+load-bearing:
+
+- **The composition root.** F3's PSL hazard means generated data must reach
+  modules through an injectable binding, not a static import — otherwise
+  `tools/scoring.test.mjs` swaps a four-rule fixture table for the real 165 KB
+  PSL and still reports 1,535 passing assertions. Where that binding lives, and
+  how a contract test proves the fixture table is the one in force during a
+  suite, is not yet written down.
+- **Four-surface canonicalization.** Which fields of the full `analyzeDomain()`
+  result are legitimately nondeterministic, and how the DOM and HTML report are
+  canonicalized without canonicalizing away the very differences the surface
+  exists to catch.
+
+**4. Round 1's own proposed agenda:** module API shapes, cycle risk in the
+proposed import graph, and whether the expanded fixture corpus covers each
+protocol's failure-state algebra.
+
+## Two things worth checking hard
+
+Both are places where this spec could be confidently wrong.
+
+**The phase reversal may have moved a risk rather than removed it.** Building
+first means `src/entry-legacy.js` bundles seven IIFEs that communicate through
+`window`. esbuild will treat each as a module with side effects; the globals
+still resolve at runtime because `window` is real. That reasoning has not been
+executed — it is Task 0.2's spike. If it is wrong, Phase 1 does not exist in the
+form described and the ordering question reopens.
+
+**The four-surface oracle may be too strict to be usable.** Byte-identical CSV
+and canonical DOM across a 5,704-line restructuring will surface differences
+that are genuinely inconsequential — key ordering, whitespace, float formatting.
+If the canonicalization rules end up absorbing those, they may absorb real
+regressions with them. A judgment on where that line sits is more useful now
+than after the corpus is built.

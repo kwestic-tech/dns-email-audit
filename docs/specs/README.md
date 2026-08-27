@@ -44,7 +44,7 @@ rationale, the dependency map, and the group-by-group execution plan.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [modular-architecture-and-production-build](modular-architecture-and-production-build.md) | 0.6.0 | 0.2 | Draft, revised after review round 1 |
+| [modular-architecture-and-production-build](modular-architecture-and-production-build.md) | 0.6.0 | 0.3 | Draft, awaiting review round 2 |
 | [findings-and-remediation](findings-and-remediation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
 | [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 0.1 | Draft, awaiting review |
 | [report-comparison](report-comparison.md) | 0.9.0 | 0.1 | Draft, awaiting review |
