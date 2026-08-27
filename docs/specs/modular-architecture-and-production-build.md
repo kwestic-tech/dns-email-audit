@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.1 (Final) |
+| Spec version | 1.2 (Final) |
 | Target release | 0.6.0 |
-| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11 — see [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
+| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, and to `1.2` to correct an overstated evidence claim about how that enumeration is guarded — see [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
 | Depends on | [dnssec-evidence](implemented/dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
 | Blocks | [findings-and-remediation](findings-and-remediation.md), [local-artifact-validation](local-artifact-validation.md), [report-comparison](report-comparison.md) — all three are scheduled after it |
 | Slug for open questions | `ARCH` |
@@ -902,9 +902,32 @@ injectable platform services.
 > a later leak invisible. The distinction the list draws is unchanged:
 > `navigator` is a host object, and host objects are injected.
 
-The set is **exhaustive by contract**, not by inspection. A module that reaches
-for an ambient primitive this list does not name is a defect in the list, and
-the platform module publishes the set so a test can assert the two agree.
+The set is **reviewed during conversion, synchronized bidirectionally, and
+guarded against the known ambient catalog.** A module that reaches for an
+ambient primitive this list does not name is a defect in the list.
+
+What that means precisely, because the distinction is the whole point of this
+paragraph:
+
+| Established | How |
+| --- | --- |
+| This list and `PLATFORM_PRIMITIVES` name the same set | Asserted in **both** directions, so neither can grow past the other |
+| Every declared primitive is actually provided | Asserted against a constructed platform |
+| No module under `src/` reads a **known** ambient name outside the platform module and the marked adapters | A lexical scan over a named catalog of ambient identifiers |
+
+And what is **not** established. The scan cannot discover an ambient identifier
+that is absent from its own catalog — the very omission that produced this
+amendment would not have been found by it, only by the conversion work that did
+find it. It is a lexical scan, not JavaScript name resolution: it does not model
+scope, shadowing, computed member access or aliasing, and it is not a substitute
+for reading a module while converting it.
+
+It is **defense in depth against regression**, which is a real and useful thing
+to have and a different thing from a proof of completeness. The completeness of
+this list rests on the conversion review that produced it. Anything stronger
+would need real name-resolution analysis, and this release adds no parser and no
+dependency for it — `OQ-ARCH-01` bought exactly one development dependency and
+this is not a good reason to spend another.
 
 #### Passed versus imported
 
@@ -1216,7 +1239,7 @@ Structural:
 - [ ] SPF, DKIM, DMARC, DNSSEC, MX, CAA, BIMI, MTA-STS, TLS-RPT and TLSA each have an owning directory and a checked-in API table.
 - [ ] The allowed-edge matrix holds; no SCC contains more than one module.
 - [ ] `src/runtime.js` is side-effect-free; importing it neither mounts the UI nor performs network I/O.
-- [ ] The browser platform provides the complete §11 primitive set, `navigator` included, and no module under `src/` reaches for an ambient primitive the platform does not name. Asserted against the platform module's own published set, so the spec and the code cannot drift.
+- [ ] The browser platform provides the §11 primitive set, `navigator` included. The spec list and the platform module's published set agree in both directions, every declared primitive is provided, and a lexical scan over a named catalog of ambient identifiers rejects a bare read outside the platform module and the marked adapters. The scan is defense in depth against regression, **not** exhaustive name-resolution analysis: completeness of the list rests on the conversion review, and the scan cannot find an identifier absent from its own catalog.
 - [ ] The namespace contract holds: no `src/` module touches any of the 24 globals outside a marked adapter.
 - [ ] `src/facade.expected.json` matches both the source exports and the bundle global.
 - [ ] Removal of unsupported legacy globals is one named compatibility delta with a manifest entry and release note.
@@ -1303,6 +1326,7 @@ current payload. `file://` support was bought and paid for.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.2 | 2026-08-27 | **Evidence correction, no design change.** `1.1` said §11's primitive set was "exhaustive by contract, not by inspection". It is not, and the phrasing claimed more than the check delivers — the same shape of overstatement this project has corrected twice before, in a paragraph written to correct an overstatement. `tests/contract/platform.test.mjs` establishes three things: the spec list and `PLATFORM_PRIMITIVES` agree bidirectionally, every declared primitive is provided, and a lexical scan over a **named catalog** of ambient identifiers rejects a bare read outside the platform module and the marked adapters. It cannot discover an ambient identifier absent from that catalog — the `navigator` omission `1.1` fixed would not have been caught by it — and a regex is not scope analysis. Replaced with "reviewed during conversion, synchronized bidirectionally, and guarded against the known ambient catalog", stated the scan as defense in depth against regression, and adjusted the acceptance criterion to match. No parser and no dependency added; no architecture or implementation decision reopened. Recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §17. |
 | 1.1 | 2026-08-27 | **Amended during Phase 2, Task 2.4.** §11's exact platform list omitted `navigator` while claiming to name *every* ambient primitive the moved code uses — false, because `detectLang()` reads `navigator.languages` and `navigator.language`. Found by converting `js/i18n.js`, where the module stopped being able to reach `window` and every dependency had to be named; four of its five ambient primitives were on the list. Added to §11, to §12's `platform/` API row, and to the acceptance criteria, with the completeness now asserted against the platform module's own published set rather than by inspection. Framework §6 trigger 5: a Final spec found wrong is amended and re-versioned, never quietly diverged from. The finding and Ian's decision are recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §16. **Narrow by design:** an omission from one enumeration. No design decision, phase ordering, acceptance threshold or behaviour changed, and nothing else in `1.0` is reopened. |
 | 1.0 | 2026-08-27 | **Final after Codex review round 3.** Replaced the ineffective `a.b.ck` fixture check with independently divergent PSL, DKIM-catalog and English-bundle fingerprints. Made cache ownership consistently per runtime, with one production runtime per page and cross-runtime isolation. Added a side-effect-free `runtime.js`, browser-platform adapter, complete allowed-edge rows and per-owner API contracts. Replaced the unsound static-extractor promise with a complete pre-refactor inventory covering computed DNSSEC claims, thrown paths, booleans, nullability and absence; the state matrix is complete before Gate 0. Bound equivalence subjects to complete roots with input hashes and fixed time/locale inputs. Declared the two-member facade the only supported 0.6.0 browser API and recorded removal of legacy globals as an intentional compatibility delta. Synchronized the implementation plan with the no-`globalName` legacy phase and the real four-boundary resolver model. Linux `npm ci` remains a Gate 1 measurement. |
 | 0.4 | 2026-08-27 | Revised after review round 2 and against measured evidence. **The `OQ-ARCH-01` spike ran** ([capture](fixtures/esbuild-legacy-bundle-spike-0.6.0.md)): the seven unmodified IIFEs bundle to an identical 24-global surface, `DnsAudit` intact at 95 members, −40.1% raw / −39.0% gzip, 22 ms — Phase 1 is confirmed viable, and esbuild's real footprint (2 packages, 1 `postinstall`) replaces the false "zero dependencies" claim. **`globalName` corrected**: it exports the entry's exports, so 0.2's claim was wrong and would have clobbered `window.DnsAudit` on the delivery-boundary commit; the facade is now staged in three steps (§10). **The global inventory was 24, not five** — `js/app.js` alone assigns 14, all of them **dead** (no consumer; `index.html` has no inline handlers). **The supported facade is two members**, `analyzeDomain` and `checkConnectivity`, the only ones `js/app.js` calls out of 95; the other 93 plus `__APP_TEST__` become direct ESM imports. **The transport model is four layers plus exception edges**, not a five-member union — the ten real kinds are enumerated with the cacheable ⊂ retry-terminal rule. **Composition root specified** (§11), justified by the spike demonstrating a bundled PSL silently replacing a fixture while 1,535 assertions still passed. **Allowed-edge matrix, SCC rejection and API tables added** (§12). **HTML report parity restored** to the gate — it had fallen out — making five surfaces, with executable canonicalization rules. **State matrix added**, self-policing via a test that fails on any discriminant lacking a row. **Co-location proof bound to `metafile.inputs`** rather than a sentinel. All nine open questions now resolved. |

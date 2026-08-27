@@ -113,10 +113,27 @@ eq('and declares nothing the spec does not name',
   PLATFORM_PRIMITIVES.filter(name => !SPEC_11.includes(name)), []);
 
 /**
- * The completeness rule the amendment turned from prose into a contract: no
- * module under `src/` may reach for an ambient primitive the platform does not
- * name. This is what would have caught the 1.0 omission, and it is why the
- * spec now says the set is exhaustive BY CONTRACT rather than by inspection.
+ * Defense in depth against REGRESSION. Not a completeness proof, and spec `1.2`
+ * corrects the `1.1` wording that called it one.
+ *
+ * What this establishes: no module under `src/` reads a name from the catalog
+ * below outside the platform module and the marked adapters.
+ *
+ * What it does not, and cannot:
+ *
+ *   • **It cannot find an ambient identifier absent from `AMBIENT`.** The
+ *     catalog is hand-written and bounded. The `navigator` omission that
+ *     produced the 1.1 amendment would NOT have been caught here — that was
+ *     found by converting `js/i18n.js`, where the module stopped being able to
+ *     reach `window` and every dependency had to be named. Completeness of the
+ *     §11 list rests on that conversion review, not on this scan.
+ *   • **A regex is not scope analysis.** No modelling of scope, shadowing,
+ *     computed member access or aliasing. The `declared` pattern below
+ *     approximates "this name was destructured or passed in", and an
+ *     approximation is what it is.
+ *
+ * Anything stronger needs real name-resolution analysis, and this release adds
+ * no parser and no dependency for it.
  */
 const AMBIENT = ['navigator', 'localStorage', 'document', 'fetch', 'crypto',
   'setTimeout', 'clearTimeout', 'sessionStorage', 'indexedDB', 'location', 'history'];
@@ -145,7 +162,8 @@ for (const file of srcFiles) {
 eq('no src/ module reaches for an ambient primitive the platform does not name', reaching, []);
 
 // And the scan can fail. Without this it would pass on a regex that matches
-// nothing, which is how a completeness check quietly stops being one.
+// nothing, which is how a regression check quietly stops being one. These
+// bound what it does catch; they do not turn it into a proof of completeness.
 const reachesFor = (body, name) => {
   const bare = new RegExp(`(^|[^.\\w$])${name}\\s*[.(\\[]`);
   const declared = new RegExp(`(?:const|let|var|function)\\s*\\{[^}]*\\b${name}\\b|\\b${name}\\s*[,}]\\s*=|\\(\\s*${name}\\b`);
@@ -161,6 +179,12 @@ eq('nor a property of something else',
   reachesFor('win.navigator.language; platform.document.title;', 'navigator'), false);
 eq('this is exactly the shape the 1.0 spec would have permitted',
   reachesFor('var preferred = navigator.languages || [navigator.language];', 'navigator'), true);
+// The stated limit, asserted so it cannot be forgotten: a name outside the
+// catalog is invisible to this scan, whatever the module does with it.
+eq('an ambient name absent from the catalog is NOT caught — a stated limit',
+  AMBIENT.includes('matchMedia'), false);
+eq('and the scan is silent about it',
+  reaching.some(entry => entry.includes('matchMedia')), false);
 
 // Language built-ins are NOT platform services — §11 is explicit. Injecting
 // them would be ceremony with no substitute anyone would want to supply.

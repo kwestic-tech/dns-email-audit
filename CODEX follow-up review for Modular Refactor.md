@@ -1232,3 +1232,62 @@ behaviour. Nothing else in `1.0` is reopened.
 
 Language built-ins remain required APIs rather than injectable services —
 `navigator` is a host object, which is precisely the distinction §11 draws.
+
+---
+
+## 17. Evidence correction — "exhaustive by contract" overstated the check — 2026-08-27
+
+**Raised by Ian against the `1.1` amendment itself. Spec `1.2 (Final)`.**
+
+### The finding
+
+§11 as amended in `1.1` said:
+
+> The set is **exhaustive by contract**, not by inspection.
+
+It is not, and the phrasing claims more than `tests/contract/platform.test.mjs`
+delivers. What the contract actually establishes:
+
+| Established | Not established |
+| --- | --- |
+| The spec list and `PLATFORM_PRIMITIVES` name the same set, asserted in both directions | That the set is complete |
+| Every declared primitive is provided by a constructed platform | — |
+| No module under `src/` reads a **known** ambient name outside the platform module and the marked adapters | That no module reads an **unknown** one |
+
+Two limits, both real:
+
+1. **The `AMBIENT` catalog is hand-written and bounded.** The scan can only
+   reject names it already knows to look for. The `navigator` omission that
+   produced the `1.1` amendment would **not** have been caught by it — that was
+   found by converting `js/i18n.js`, where the module stopped being able to
+   reach `window` and every dependency had to be named.
+2. **A regex is not scope analysis.** It does not model scope, shadowing,
+   computed member access or aliasing.
+
+### Why this matters more than the wording
+
+It is the same shape of error this project has now corrected three times: a
+check described as stronger than it is. The spike's `1535 passed, 0 failed`
+against a swapped public suffix list; the `a.b.ck` probe that would have passed
+under the substitution it existed to catch; and now a completeness claim in a
+paragraph written *to correct a completeness failure*. The correction is worth
+making precisely because the sentence was in the amendment.
+
+### Decision — approved by Ian, 2026-08-27
+
+Keep the test; it is genuine defense in depth against regression. Stop calling
+it exhaustive proof.
+
+- §11 now reads "reviewed during conversion, synchronized bidirectionally, and
+  guarded against the known ambient catalog", with a table of what is and is not
+  established.
+- The lexical scan is stated as defense in depth, **not** exhaustive JavaScript
+  name-resolution analysis, and the completeness of the list is attributed to
+  the conversion review that produced it.
+- The acceptance criterion is reworded to match.
+- Test comments adjusted so the file does not claim in code what the spec no
+  longer claims in prose.
+
+**No parser and no dependency added.** `OQ-ARCH-01` bought exactly one
+development dependency and this is not a good reason to spend another. No
+architecture or implementation decision is reopened, and no behaviour changes.

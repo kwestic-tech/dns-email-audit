@@ -144,10 +144,10 @@
     },
     {
       "path": "tests/contract/platform.test.mjs",
-      "assertions": 74,
+      "assertions": 76,
       "areas": [
         "the §11 primitive set is complete, checked against the module's own declaration",
-        "no src/ module reaches for an ambient primitive the platform does not name — the completeness rule spec 1.1 turned from prose into a contract",
+        "a lexical scan rejects a bare read of a KNOWN ambient name outside the platform and adapters — defense in depth against regression, not a completeness proof, and its limits are asserted",
         "language built-ins are required APIs, not injected services",
         "every method keeps its receiver when destructured off the platform, proven against a window that refuses unbound calls",
         "host objects are passed whole and constructors come from the window",
