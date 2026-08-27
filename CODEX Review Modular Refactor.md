@@ -413,3 +413,158 @@ Reviewer output is recorded in this file as a dated section below, and each
 resolution moves to the spec's **Resolved questions** with the spec version that
 resolved it. Declined findings get a one-line reason, per the same rule the
 pull-request process uses.
+
+---
+
+# Round 1 response — 2026-08-27
+
+**Reviewed:** [`CODEX follow-up review for Modular Refactor.md`](CODEX%20follow-up%20review%20for%20Modular%20Refactor.md), disposition *Changes requested before the spec reaches 1.0*
+**Spec:** `0.1 (Draft)` → **`0.2 (Draft)`**
+**Response:** **All eight findings verified and accepted. No finding declined.**
+**Two items returned:** `OQ-ARCH-06` (bundle output format) and `OQ-ARCH-09` (test co-location)
+
+## How the findings were checked
+
+Every finding was reproduced against the tree before being folded in, per the
+verify-before-folding rule in [`AGENTS.md`](AGENTS.md). This project's history
+includes a reviewer citing functions that do not exist, so the check was for
+that specifically. **Nothing of the kind was found — eleven of eleven claims
+held**, including the three that contradicted this spec's own text.
+
+| Finding | How it was verified | Result |
+| --- | --- | --- |
+| F1 | Read the plan's Gate 0.C against its own interim note | Direct self-contradiction, confirmed |
+| F2 (recipe) | Task 0.4.c checks out `v0.5.0`, then runs a file that exists only on this branch | Confirmed |
+| F2 (scope) | Compared the oracle's projection against the Non-goals text | Confirmed — "explanations" was promised and unobserved |
+| F3 | `grep __PUBLIC_SUFFIX_RULES__` → [`tools/scoring.test.mjs:21`](tools/scoring.test.mjs) injects `['com','co.uk','*.ck','!www.ck']` | Confirmed, and sharper than stated |
+| F4 | [`tools/scoring.test.mjs:1888-1891`](tools/scoring.test.mjs) asserts 3 queries then 1; [`js/app.js:1397`](js/app.js) passes no context; [`PRIVACY.md:30-33`](PRIVACY.md) publishes 41 and 61 | Confirmed |
+| F5 | `npm view esbuild version scripts optionalDependencies` → 0.28.2, `postinstall: node install.js`, 26 `@esbuild/*` | Confirmed empirically |
+| F6 | `head locales/en.json` (nested); `grep -c 'issue.spf-large-subnet.msg'` → 0 | Confirmed |
+| F7.1 | `grep -c '@license\|@preserve\|/\*!\|//!\|MIT'` across all four hand-written files → 0 on every pattern | Confirmed |
+| F7.2 | Spec line 90 said 17, line 448 said 329 | Confirmed, self-contradiction |
+| F7.3 | Read against this release's own no-`en.json`-edit promise | Confirmed |
+| BIMI | Spec tree omits BIMI; plan Task 3.3 filed it under `core/transport/` | Confirmed, both wrong |
+
+**F5 is the one worth naming.** "Zero transitive dependencies" was asserted
+twice and carried the entire `OQ-ARCH-01` recommendation. It was recall where
+verification cost one command. The standing rule adopted from it: **no
+external-tooling claim enters either document without a command behind it.**
+Task 0.2 of the plan now requires the spike's numbers rather than a restatement.
+
+## Disposition of each finding
+
+| # | Disposition | Where it landed in `0.2` |
+| --- | --- | --- |
+| F1 | **Accepted; phases reversed** | Scope; plan Phase 1 (build) now precedes Phase 2 (ESM), with adapters and a stable boundary from the first commit |
+| F2 | **Accepted** | Design §8 — four surfaces; `git worktree` baseline capture; plan Tasks 0.4.a–c |
+| F3 | **Accepted** | Design §6 and Testing item 4; plan Task 1.9 and the Task 2.1 hazard note; Risks R6 |
+| F4 | **Accepted; per-audit scoping withdrawn** | Corrections item 3, Design §5, plan Task 3.2, Risks R10, acceptance criterion |
+| F5 | **Accepted** | Design §6, Risks R3, `OQ-ARCH-01`; plan Task 0.2 |
+| F6 | **Accepted; grep withdrawn** | Design §3 — closed result algebra plus import-graph direction; plan Task 3.5 |
+| F7 | **Accepted, all three** | Design §6 (`banner.js`), Localization impact (17), `OQ-ARCH-05` |
+| F8 | **Accepted** | Testing item 1 — `tests/inventory.json` is the gate, count is a reported tripwire; plan Task 0.5 |
+
+The eight required changes in §6 of the review are all applied. Verdicts on
+C1–C8 and on the eight original open questions are recorded in the spec's
+Revision history and Resolved-questions table; none is disputed.
+
+## Returned item 1 — `OQ-ARCH-06`: the bundle should be IIFE, not ESM
+
+**This reverses an answer round 1 already gave**, which is why it is returned
+rather than decided.
+
+Round 1 answered the question `0.1` asked — *"is losing `file://` acceptable"* —
+with *"loss accepted and documented"*. That answer is correct for the question.
+But the question only exists because `0.1` specified `format: 'esm'`, and that
+choice was aesthetic: symmetry with ESM source. It is not a requirement, and
+following round 1's own reordering exposes it as the cause of three separate
+problems.
+
+**Proposal: ESM source, IIFE output.** `format: 'iife'`,
+`globalName: 'DnsAudit'`, `<script src="dist/app.min.js">` with no
+`type="module"`. The ordinary library-bundle pattern.
+
+1. **`file://` never breaks.** The loss round 1 accepted is avoidable rather
+   than inherent. `OQ-ARCH-06` stops needing an answer instead of getting one.
+2. **It resolves F3.** Round 1's objection was that a browser entry does not
+   normally re-export what a test needs and tree shaking may remove
+   test-only APIs — so *"load the bundle and re-run the fixtures"* had no stated
+   access path. `globalName` gives the artifact exactly the surface the existing
+   `node:vm` harness already reaches through `window.DnsAudit`. The parity test
+   loads `dist/app.min.js` where it loads `js/dns.js` today and changes little
+   else. This is the first of the two honest choices round 1 offered — a
+   deliberately exported audit API — but obtained from the bundler rather than
+   hand-designed, so there is no second API surface to keep correct.
+3. **The CSP story keeps its shape.** `csp.test.mjs` keeps asserting one
+   same-origin `<script src>`; no module semantics enter the policy.
+
+**The cost, stated plainly:** one bundler-generated global at the delivery
+boundary. Modules inside the bundle still communicate by `import`, so invariant
+8 and the no-shared-namespace goal hold. The global is the same shape as
+today's `window.DnsAudit`, so it is not a new concept in this codebase.
+
+> **Verdict requested.** Does IIFE output undermine anything round 1 was
+> protecting? The specific worry worth testing: does keeping a global at the
+> boundary make it easier for a later change to reintroduce cross-module global
+> coupling, and is the import-graph contract test enough to prevent that?
+
+## Returned item 2 — `OQ-ARCH-09`: unit tests beside the code
+
+**New question**, raised because it changes a layout round 1 commented on and
+because one of its costs touches a security control.
+
+**Proposal: hybrid.** Unit tests co-located as `src/**/*.test.js`; a top-level
+`tests/` for what no single module owns — `build/` (parity, artifact, size,
+CSP), `fixtures/equivalence/`, `contract/`, `integration/`.
+
+**The argument is §32's own.** The source proposal says a task like "correct
+DMARC organizational-domain discovery" should primarily affect
+`src/core/dmarc/` — then names a second directory, `tests/dmarc/`, that the same
+task must also touch. Co-location makes the claim true rather than nearly true.
+Go, Rust and most Jest/Vitest projects work this way.
+
+**Three costs, and how each is paid:**
+
+1. **The markup-sink scan's empty allowlist.**
+   [`tools/csp.test.mjs`](tools/csp.test.mjs) scans every `.js` under `js/`, and
+   its own comment states the property that makes it trustworthy: *"The
+   allowlist is EMPTY. That is what makes this check reliable: an empty
+   allowlist has no judgment calls in it."* Test files under `src/` need
+   excluding, and an exclusion is a judgment call — the exact erosion that
+   comment warns against.
+   *Paid by:* a mechanical filename-suffix rule (`*.test.js`), which contains no
+   per-file judgment, plus a scan of the built artifact — which proves the
+   property on what actually ships. The named-file allowlist stays empty.
+2. **Test code reaching the bundle.** esbuild includes only what the entry
+   transitively imports, so an unreferenced `*.test.js` is never bundled — but
+   "should not happen" is not a test.
+   *Paid by:* the artifact test asserting a per-test-file sentinel appears
+   nowhere in `dist/app.min.js`, plus metafile composition reporting.
+3. **Discovery and the assertion inventory.** Six explicit
+   `node tools/X.test.mjs` invocations become a glob.
+   *Paid by:* a small `tools/run-tests.mjs` that globs both trees and sums the
+   printed counts. The hand-rolled assertion style and the totals survive;
+   only discovery changes. **Migrating to `node:test` is explicitly out of
+   scope** — that is a schema change wearing a tooling costume, and §35 forbids
+   it in a move.
+
+> **Verdict requested.** Two things specifically. Is the suffix-rule exclusion
+> materially different from the per-file allowlist `csp.test.mjs` warns about,
+> or is that a distinction without a difference? And does co-location interact
+> badly with the deployment allowlist in a way the artifact test would not
+> catch?
+
+## What round 2 should look at
+
+Round 1 proposed the next round cover module API shapes, import-graph cycle
+risk, and per-protocol failure-state algebra. Agreed, with two additions from
+this round:
+
+1. **The composition root.** F3's PSL hazard means generated data must reach
+   modules through an injectable binding rather than a static import. Where that
+   binding lives, and how a contract test proves the fixture table is the one in
+   force during a suite, is unspecified and load-bearing.
+2. **The four-surface canonicalization rules.** Which fields of the full
+   `analyzeDomain()` result are legitimately nondeterministic, and how the DOM
+   and HTML report are canonicalized without canonicalizing away the differences
+   the surface exists to catch.
