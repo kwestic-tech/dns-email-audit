@@ -2,14 +2,15 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.3 (Draft) |
+| Spec version | 0.4 (Draft) |
 | Target release | 0.6.0 |
-| Status | Revised after review round 1; `OQ-ARCH-09` decided; awaiting round 2 |
+| Status | Revised after review rounds 1–2. **No open questions.** Awaiting round 3. |
 | Depends on | [dnssec-evidence](implemented/dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
 | Blocks | [findings-and-remediation](findings-and-remediation.md), [local-artifact-validation](local-artifact-validation.md), [report-comparison](report-comparison.md) — all three are scheduled after it |
 | Slug for open questions | `ARCH` |
 | Last updated | 2026-08-27 |
-| Reviews | Round 1 (Codex, 2026-08-27) recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md); this spec's responses in [`CODEX Review Modular Refactor.md`](../../CODEX%20Review%20Modular%20Refactor.md) |
+| Evidence | [esbuild-legacy-bundle-spike-0.6.0](fixtures/esbuild-legacy-bundle-spike-0.6.0.md) — settles `OQ-ARCH-01`, confirms Phase 1 viability, and demonstrates the fixture-substitution hazard |
+| Reviews | Rounds 1–2 (Codex, 2026-08-27) recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md); this spec's responses in [`CODEX Review Modular Refactor.md`](../../CODEX%20Review%20Modular%20Refactor.md) |
 | Source | Written from an external proposal, *DNS Email Audit Modular Architecture and Production Build Refactor Specification* (Codex, 2026-08). Section numbers of the form §N below refer to that document. Where this spec diverges from it, the divergence is recorded in [§ Corrections to the source proposal](#corrections-to-the-source-proposal). |
 
 ## Problem
@@ -365,32 +366,72 @@ documents disagreed and both were wrong. Codex raised this in round 1.
 
 ### 3. DNS transport boundary
 
-`src/core/dns/` owns obtaining DNS information and nothing else. It must not be
-able to express an opinion about whether a configuration is secure.
+`src/core/dns/` owns obtaining DNS information and nothing else.
 
-Version 0.1 proposed proving this by grepping for `locales/en.json` keys inside
-`src/core/dns/`. **That test was vacuous** and is withdrawn: `en.json` is
-nested, so a full key such as `issue.spf-large-subnet.msg` never appears as a
-literal string anywhere, and the tokens the code actually emits are *values*
-like `spf-missing` and `@none`, not keys. A resolver could emit a judgment token
-and the grep would pass.
+Version 0.2 proposed a grep for locale keys (vacuous — `en.json` is nested and
+the tokens are values). Version 0.3 then replaced it with a single five-member
+union that **this codebase does not have**. Both are withdrawn. What follows is
+the structure that exists at `v0.5.0`, documented rather than designed.
 
-The boundary is enforced two ways instead, neither of which is a text scan:
+#### Four processing layers, plus exception edges
 
-**A closed result algebra.** The resolver's public result is a discriminated
-union over a fixed, enumerated set of kinds — the five-way distinction shipped
-by [resilient-optional-checks](implemented/resilient-optional-checks.md):
-absent, invalid, transport failure, unsupported, indeterminate — plus record
-data. A contract test asserts that every value the resolver can return inhabits
-that set, and that no returned object carries a finding, a severity, a score or
-a locale reference. This tests behavior, not spelling.
+Not a five-stage pipeline: layer 5 is a set of deliberate bypasses, not a stage
+every query flows through. Round 2 made this correction and it is load-bearing
+for the API table and the allowed-edge matrix.
 
-**Dependency direction.** No module under `src/core/dns/` imports from
-`src/i18n/`, `src/ui/`, `src/audit/`, or any `src/core/<protocol>/`. Asserted by
-walking the real import graph, not by grepping paths.
+| # | Boundary | Implementation | Returns / raises |
+| --- | --- | --- | --- |
+| 1 | Raw transport | `dohFetch()` | One of ten kinds (below) |
+| 2 | Usability gate | `requireUsable()` [`js/dns.js:256`](../../js/dns.js) | Passes `success`/`nodata`/`nxdomain`; **throws** `dnsError(kind, …)` for the other seven |
+| 3 | Normalized records | `dohQuery()`, `dohAll()` [`js/dns.js:281`](../../js/dns.js) | Arrays of cleaned strings — **no kind** |
+| 4 | Error and cancellation policy | `optionalCheck()` [`js/dns.js:247`](../../js/dns.js) | Caller's declared unknown; **re-throws** `AbortError` and `DnsTypeError` |
+| — | **Exception edges** | `domainExists()`, `checkConnectivity()`, the DNSSEC `servfail` path | Read `.kind` directly, deliberately bypassing layer 3 |
 
-A static token scan may be kept as a secondary tripwire. It may not be cited as
-the proof of this boundary.
+#### Layer 1 — the ten transport kinds
+
+Every one verified at its construction site. This set is **closed** and is
+byte-compatible with `v0.5.0`; no member is renamed, merged or added.
+
+| Kind | Origin |
+| --- | --- |
+| `success` | `responseKind()`, status 0 with answers |
+| `nodata` | `responseKind()`, status 0 without answers |
+| `nxdomain` | `responseKind()`, status 3 |
+| `servfail` | `responseKind()`, status 2 |
+| `refused` | `responseKind()`, status 5 |
+| `dns-error` | `responseKind()`, any other status |
+| `http-error` | [`js/dns.js:189`](../../js/dns.js) |
+| `cancelled` | [`js/dns.js:195`](../../js/dns.js) |
+| `timeout` | [`js/dns.js:196`](../../js/dns.js) |
+| `network-error` | [`js/dns.js:196`](../../js/dns.js) |
+
+`DnsTypeError` is **thrown** at [`js/dns.js:121`](../../js/dns.js), never
+returned. It is not a kind and must not become one.
+
+Three cross-cutting rules the contract tests pin, because each is a distinction
+a coarser model would flatten:
+
+- **Cacheable ⊂ retry-terminal.** Retry stops on
+  `success`/`nodata`/`nxdomain`/**`cancelled`** ([`js/dns.js:216`](../../js/dns.js));
+  the cache admits only the first three ([`js/dns.js:219`](../../js/dns.js)).
+  `cancelled` is terminal but never cached.
+- **`servfail` is a security signal**, not merely a failure: it drives the
+  `resolver-bogus` DNSSEC claim at [`js/dns.js:4022`](../../js/dns.js).
+- **`nxdomain` ≠ `nodata`** at the exception edge: `domainExists()` maps
+  `nxdomain` → `'no'`, `success`/`nodata` → `'yes'`, everything else
+  → `'unknown'` ([`js/dns.js:2202-2205`](../../js/dns.js)).
+
+#### The protocol/audit algebras are separate
+
+Accepting the transport model above does not discharge the protocol half.
+Protocol modules have their own discriminants — `analyzeSpf().status` is one of
+`ok`/`warn`/`present`/`missing`/`softfail`/`permerror`; `checkDNSSEC().state` is
+one of `secure`/`insecure`/`bogus`/`unanchored`/`mismatch`/`indeterminate`; DMARC
+record diagnosis carries `absent`/`syntax`/`version`/`not-first`/`bad-value`.
+These are enumerated per owner in the API table (§12) and every member is mapped
+to a suite and a fixture by the state matrix (Testing item 3).
+
+`src/core/dns/` may emit none of them.
 
 ### 4. Protocol modules
 
@@ -440,69 +481,63 @@ and by this spec.
 
 ### 6. Build
 
-esbuild, pinned, as the sole **direct** development dependency. Its real
-dependency footprint is stated honestly in `OQ-ARCH-01` and Risks R3: at 0.28.2
-the package declares `postinstall: node install.js` and 26 platform-specific
-`@esbuild/*` `optionalDependencies`, of which npm installs one. That is a small
-supply chain. It is not zero, and 0.1 of this spec claimed it was.
+esbuild 0.28.2, exact-pinned, as the sole **direct** development dependency.
+Every figure below is measured, not estimated — see
+[fixtures/esbuild-legacy-bundle-spike-0.6.0](fixtures/esbuild-legacy-bundle-spike-0.6.0.md).
 
-```text
-src/main.js ──► esbuild ──► dist/app.min.js
-```
+#### Measured, not assumed
+
+| | Value |
+| --- | --- |
+| Packages installed on darwin-arm64 | **2** — `esbuild` + `@esbuild/darwin-arm64` |
+| Declared optional platform packages | 26, of which 25 resolve UNMET |
+| Install scripts | **1** — `postinstall: node install.js`, surfaced by npm's `allowScripts` gate |
+| Legacy bundle, raw | 430,750 (from 719,199 — **−40.1%**) |
+| Legacy bundle, gzip | 130,256 (from 213,467 — **−39.0%**) |
+| Build time | 22 ms |
+
+Two packages and one install script is a small supply chain and esbuild remains
+the right choice. It is **not zero**, which `0.1` of this spec claimed twice.
+Whether CI allows the install script is an explicit decision, not an implicit
+one — see Risks R3.
+
+> **Linux CI is still outstanding.** The spike ran on darwin-arm64 only and the
+> footprint is platform-specific by design. Round 2's condition is not fully
+> discharged until `npm ci` is confirmed on Linux. Tracked as an acceptance
+> criterion, deliberately deferred.
+
+#### Configuration
 
 | Setting | Value | Why |
 | --- | --- | --- |
 | `bundle` | `true` | One artifact, per §25 |
-| `format` | **`iife`** | See below. Changed from `esm` in 0.2. |
-| `globalName` | `DnsAudit` | The single delivery-boundary export |
-| `minify` | `true` | The delivery win |
-| `sourcemap` | `linked`, external | `OQ-ARCH-04`, answered: ship it |
-| `target` | `es2020` + a required-API matrix | `OQ-ARCH-03` |
-| `splitting` | `false` | §25; revisit only against a measurement |
-| `external` | *(empty)* | Nothing is external; there are no runtime dependencies |
-| `metafile` | `true` | Feeds the size report and shows bundle composition |
-| `banner.js` | explicit string | esbuild's `legalComments` cannot do this job — see below |
+| `format` | `iife` | §10; keeps `file://`, keeps the CSP shape |
+| `globalName` | **omitted in Phase 1**, `DnsAudit` only after the facade exists | §10. See below. |
+| `minify` | `true` | The measured 40% |
+| `sourcemap` | `linked`, external | `OQ-ARCH-04` |
+| `target` | `es2020` + required-API matrix | `OQ-ARCH-03` |
+| `splitting` | `false` | §25 |
+| `metafile` | `true` | Size reporting **and** the binding co-location proof (Testing item 7) |
+| `banner.js` | explicit string | `legalComments` cannot do this — no file under `js/` carries an `@license`, `@preserve`, `/*!` or `//!` comment, and the MIT text is the separate `LICENSE` file |
 
-#### Why `iife` and not `esm`
+#### `globalName` does not do what 0.2 claimed
 
-Version 0.1 specified `format: 'esm'` with
-`<script type="module" src="dist/app.min.js">`, for symmetry with ESM source.
-That symmetry is aesthetic, not a requirement, and it was generating three
-separate problems. ESM **source** compiled to an **IIFE bundle** is the ordinary
-library-bundle pattern and removes all three:
+Version 0.2 asserted that `globalName: 'DnsAudit'` would expose *"exactly the
+surface the existing harness already reaches"*. It does not: esbuild assigns
+**the entry point's exports** to that name, and `src/entry-legacy.js` has none.
+In a classic script the generated top-level `var DnsAudit` would have
+**overwritten** the real object from [`js/dns.js:5601`](../../js/dns.js) —
+breaking the application on Task 1.6, the commit that moves the delivery
+boundary.
 
-1. **`file://` keeps working.** `type="module"` is fetched with CORS semantics
-   and fails from the filesystem. A classic script does not. `OQ-ARCH-06` — "is
-   losing `file://` acceptable" — stops being a question that needs an answer.
-2. **Bundle parity gets an access path.** This was Codex's F3: a browser entry
-   does not normally re-export the functions a test needs, and tree shaking may
-   remove APIs only tests use. `globalName: 'DnsAudit'` makes the built artifact
-   expose exactly the surface the existing `node:vm` harness already reaches
-   today via `window.DnsAudit`. The parity test loads `dist/app.min.js` in place
-   of `js/dns.js` and changes almost nothing else.
-3. **The CSP story does not change shape.** `tools/csp.test.mjs` keeps asserting
-   one same-origin `<script src>`; no new module semantics enter the policy.
+The spike confirms the correct approach works: with **no** `globalName`, the
+bundled IIFEs create all 24 globals themselves, `DnsAudit` arrives with all 95
+members intact, and `WEIGHTS` and `GRADE_THRESHOLDS` are identical to source.
 
-The global exists only at the delivery boundary and is generated by the bundler.
-Modules inside the bundle communicate by `import`, so invariant 8
-("build-time dependencies do not become runtime dependencies") and the
-no-shared-namespace goal are both intact. This is a change to what 0.1 proposed
-and to what round 1 assumed, so it is put back to the reviewer as `OQ-ARCH-06`.
+`globalName` is therefore introduced only in §10's stage 3, against a facade
+that actually exports something.
 
-#### The banner is not a legal comment
-
-Version 0.1 said `legalComments: 'inline'` "preserves the MIT header". Both
-halves were wrong, and Codex caught it. esbuild only treats a comment as legal
-if it contains `@license` or `@preserve` or begins `//!` or `/*!`; **no file
-under `js/` contains any of those**, and none carries MIT text — the licence is
-the separately published `LICENSE` file, which the deployment allowlist already
-ships. The descriptive headers in `js/*.js` are ordinary block comments and
-esbuild will strip them, correctly.
-
-If a banner is wanted in the artifact, it is set explicitly via `banner.js` and
-asserted by the artifact test. It is a provenance note, not a licence notice.
-
-`index.html` changes from seven tags to one:
+`index.html` becomes:
 
 ```html
 <script src="dist/app.min.js"></script>
@@ -534,43 +569,77 @@ never committed.
 
 ### 8. Behavioral equivalence
 
-Version 0.1 defined equivalence over scores, grades and issue tokens. That was
-too narrow: the Non-goals promise statuses, findings, severities, scores **and
-explanations**, and a refactor could have changed MX detail, DNSSEC evidence,
-DKIM key facts, DMARC discovery provenance, provider detection, warnings,
-suggestions or export columns while passing. It also observed no DNS query
-counts, which are a published privacy figure. Codex raised both in round 1.
+**Five observed surfaces.** Version 0.3 said four and then enumerated only four
+in the gate while promising both exports in Scope — HTML report parity had
+fallen out. Round 2's R2-F4 caught it. Restored, and counted honestly.
 
-The binding definition:
-
-> Given identical fixture DNS responses, the refactored code produces a
-> byte-identical **canonical projection of the complete `analyzeDomain()`
-> result**, a byte-identical **DNS query trace**, byte-identical **CSV export**,
-> and an equivalent **rendered DOM**, compared against `v0.5.0` — and
+> Given identical fixture DNS responses, the refactored code produces an
+> identical canonical projection of the complete `analyzeDomain()` result, an
+> equivalent DNS query trace, byte-identical CSV, an equivalent canonical HTML
+> report, and an equivalent canonical DOM, compared against `v0.5.0` — and
 > `dist/app.min.js` produces the same as `src/`.
 
-Four observed surfaces, not one:
-
-| Surface | What is compared | Why it is separate |
+| Surface | Compared | Why separate |
 | --- | --- | --- |
-| **Result** | Canonical JSON of the whole `analyzeDomain()` return: every status, record, evidence field, warning, suggestion, issue token and score component, with ordered arrays preserved. Any excluded field is listed in the manifest with a reason. | The promise in Non-goals is the whole result, not the grade. |
-| **Query trace** | Exact query names, types and counts issued per fixture. | Fan-out is published in [`PRIVACY.md`](../../PRIVACY.md). Output equality does not prove request equality — a lost cache hit is invisible in the result and visible in the trace. |
-| **Export** | Byte-identical CSV columns and values; HTML report canonicalized only for genuinely nondeterministic values. | `exportCSV` writes positional columns; a reordering is a silent breaking change for anyone parsing them. |
-| **Render** | Canonical DOM tree for the same corpus. | A rendering difference is where a `this`-binding or escaping change surfaces, and it is invisible to all three surfaces above. |
+| Result | Canonical JSON of the whole return | Non-goals promise the whole result, not the grade |
+| Query trace | Normalized multiset + order where order is the behavior | Fan-out is published in `PRIVACY.md`; a lost cache hit is invisible in the result |
+| CSV | Exact bytes | Positional columns; a reorder silently breaks anyone parsing them |
+| HTML report | Canonical tree + exact CSP/stylesheet bytes | The report carries its own security policy |
+| DOM | Canonical tree | Where a `this`-binding or escaping change surfaces |
 
-**The oracle is fixtures, never live DNS.** `tools/backtest.mjs` queries
-Cloudflare — its own header says it *"requires outbound network access, so run
-it locally rather than in CI"* — so two runs differ because someone else's
-records changed. It is demoted to a local grade-*distribution* sanity check and
-is never a gate. The oracle is
-[`tools/lib/doh-fixture.mjs`](../../tools/lib/doh-fixture.mjs), which already
-underpins the 1,535-assertion scoring suite and defaults unmatched queries to
-NXDOMAIN so a missing fixture fails loudly.
+#### Canonicalization rules
 
-**Capturing the baseline.** Version 0.1 said `git checkout v0.5.0`, then run a
-test file that exists only on this branch — the checkout deletes the runner.
-Instead the branch's harness is pointed at tag content extracted without moving
-the worktree:
+Checked in as `tests/fixtures/equivalence/canonicalization.md` **before** the
+corpus is captured. Executable, not prose.
+
+**Result.** Recursively sort object keys only. **Preserve array order** —
+several are semantically ordered (DMARC walk steps, DNSSEC chain claims, issue
+lists). Distinguish an absent property from one present with `undefined`. Encode
+non-JSON primitives with tagged wrappers rather than coercing: `BigInt` (used
+throughout the SPF subnet arithmetic) becomes `{"$bigint":"…"}`, `NaN` and
+`±Infinity` become tagged strings. **No blanket removal of empty values and no
+float rounding** — both would hide real changes.
+
+**Query trace.** Gate on the multiset of normalized `(name, type, do, cd)` plus
+occurrence count, and on maximum observed concurrency and batch size. Do **not**
+gate on global chronology: independent `Promise.all` branches may interleave
+differently without any behavioral change, and gating on it would produce
+failures that mean nothing. Order **is** asserted, separately and explicitly,
+for the two algorithms where sequence is the behavior — the DMARC tree walk and
+SPF recursive evaluation.
+
+**CSV.** Exact bytes including header row and column order, under one documented
+newline convention.
+
+**HTML report.** Canonical parsed tree, with the embedded
+`default-src 'none'; style-src 'unsafe-inline'; img-src data:` policy and the
+inlined stylesheet compared as **exact bytes** — those are the parts a
+canonicalizer must not be allowed to normalize away.
+
+**DOM.** Ordered node and child structure with exact text. Attributes compared
+as a sorted name/value map. Properties that are not attributes — `value`,
+`checked`, `disabled`, visibility — compared explicitly. **Whitespace text nodes
+are not normalized away**; the hygiene sentinels (`‹RLO›`, `‹ZWSP›`) depend on
+exact text.
+
+**Exclusions.** One manifest entry per excluded field, each with a reason. **No
+wildcard field classes** — an exclusion nobody can enumerate is a hole nobody
+can review.
+
+> **The known tension, stated so round 3 can rule on it.** These rules are
+> strict enough that inconsequential differences will surface. That is
+> deliberate: a canonicalizer loose enough to never cry wolf is loose enough to
+> absorb a real regression. Each tolerance added must name the difference class
+> it admits and why that class cannot carry a defect. Round 3 is asked whether
+> the line is drawn correctly.
+
+#### The oracle, and capturing the baseline
+
+Fixtures, never live DNS. `tools/backtest.mjs` queries Cloudflare and is a local
+grade-*distribution* check only, never a gate. The oracle is
+[`tools/lib/doh-fixture.mjs`](../../tools/lib/doh-fixture.mjs).
+
+Capture without moving the worktree — the tag does not contain the runner:
 
 ```bash
 git worktree add ../dea-v050 v0.5.0
@@ -579,22 +648,8 @@ node tests/build/equivalence.mjs --source-root=../dea-v050/js --emit \
 git worktree remove ../dea-v050
 ```
 
-The baseline is committed. CI regenerates it from a clean clone and asserts it
-matches, so it cannot drift unnoticed.
-
-**One fixture-harness hazard, called out because it is easy to miss.**
-[`tools/scoring.test.mjs:21`](../../tools/scoring.test.mjs) injects a
-deliberately tiny public-suffix table — `['com','co.uk','*.ck','!www.ck']` —
-through `window.__PUBLIC_SUFFIX_RULES__`, and replaces the sandbox `fetch`
-repeatedly. A static `import` of `src/data/public-suffixes.js` would silently
-substitute the real 165 KB PSL, and Node's module cache plus a process-global
-`fetch` would change the second control. **The suite would still report 1,535
-passing assertions while testing something else.** Generated data must therefore
-be reachable through an injectable binding at the composition root, and the
-parity harness must install and restore DOM, `fetch`, crypto and generated-data
-inputs around a cache-busted load.
-
-A phase that cannot produce a clean four-surface diff does not merge.
+The baseline is committed; CI regenerates it from a clean clone and asserts it
+matches. A phase that cannot produce a clean five-surface diff does not merge.
 
 ### 9. Test placement
 
@@ -671,6 +726,217 @@ allowlist `tools/csp.test.mjs` warns against, and whether the added artifact
 scan carries the weight this spec claims for it. If the answer is no, the
 layout stands and the mitigation changes.
 
+### 10. The delivery boundary and the supported facade
+
+Required by round 2's R2-F1. The bundler cannot design this; it has to be
+decided and checked in.
+
+#### The global surface today: 24 names, not five
+
+Version 0.2 listed five and called it an inventory. The real count, taken from
+every assignment site:
+
+| Owner | Globals | Count |
+| --- | --- | ---: |
+| `js/app.js` | `startAudit`, `cancelAudit`, `clearAll`, `exportCSV`, `exportHTML`, `filterTable`, `loadExample`, `loadFile`, `openLearnMore`, `setLang`, `showHelp`, `sortTable`, `toggleDetail`, `toggleShowMe` | 14 |
+| `js/app.js` | `__APP_TEST__` | 1 |
+| `js/i18n.js` | `i18n`, `t`, `tp`, `tRaw` | 4 |
+| `js/dns.js` | `DnsAudit` | 1 |
+| `js/render.js` | `R` | 1 |
+| `js/public-suffixes.js` | `__PUBLIC_SUFFIX_RULES__` | 1 |
+| `js/dkim-selectors.js` | `__DKIM_SELECTOR_CATALOG__` | 1 |
+| `js/locales-en.js` | `__I18N_EN__` (via `window.`, not `global.`) | 1 |
+| | **Total** | **24** |
+
+The spike confirms the bundle reproduces all 24 exactly — none missing, none
+extra.
+
+#### Classification — and the finding that shapes the facade
+
+Every name was traced to its actual consumers:
+
+| Class | Names | Disposition |
+| --- | --- | --- |
+| **Supported API** | `analyzeDomain`, `checkConnectivity` | The facade. These are the **only** two `DnsAudit` members `js/app.js` calls. |
+| **Test-only surface** | the other 93 `DnsAudit` members (77 used by `scoring.test.mjs`, 4 by `backtest.mjs`), `__APP_TEST__` (used by `render.test.mjs:21`, `export.test.mjs:17`) | Become **direct ESM imports**. Never frozen into the facade. |
+| **Transition inputs** | `__PUBLIC_SUFFIX_RULES__`, `__DKIM_SELECTOR_CATALOG__`, `__I18N_EN__` | Generated data. Global reads/writes only during the legacy-to-ESM transition; replaced by injected bindings (§11). Not facade exports. |
+| **Internal wiring** | `i18n`, `t`, `tp`, `tRaw`, `R` | Become imports within the bundle. |
+| **Dead** | all 14 `js/app.js` function globals | **Zero consumers.** See below. |
+
+**The 14 function globals are dead.** `index.html` contains no inline event
+handlers — the CSP carries no `'unsafe-inline'`, so it cannot — and its single
+textual match for `cancelAudit` is `data-i18n="btn.cancelAudit"`, a locale key.
+Nothing in `index.html`, `tools/` or the test suites reads any of the 14.
+
+Removing them is dead-code deletion, and it is a **behavior change** in the
+strict sense that public globals disappear. Per §35 it is therefore **its own
+commit**, in Phase 2, never folded into a move. It is recorded here rather than
+discovered later.
+
+**The supported facade is two members.** From a 95-member surface. That is the
+answer to round 2's "derive the facade from actual consumers": the application
+needs `analyzeDomain` and `checkConnectivity`, and everything else is either
+internal or test surface that ESM imports serve better than a global ever did.
+
+#### Three stages, in order
+
+Round 2's required transition, made concrete:
+
+**Stage 1 — legacy bundle, no `globalName`.** The unmodified IIFEs create their
+own globals; parity reaches `window.DnsAudit` exactly as the current harness
+does. Verified by the spike.
+
+**Stage 2 — ESM facade designed and exported.** `src/main.js` exports the
+supported API as named exports. The expected member list is checked in as
+`src/facade.expected.json` and asserted against **both** the source module's
+exports and the built bundle's global.
+
+**Stage 3 — `globalName: 'DnsAudit'` enabled**, and only then, against an entry
+that genuinely exports those members. The legacy assignment in `js/dns.js` is
+removed in the same commit.
+
+#### The namespace source contract
+
+Asserted over the real import graph, not by grep: **no module under `src/` reads
+or writes `window.DnsAudit`, `globalThis.DnsAudit`, or any of the 24 names
+above**, except
+
+- the explicitly marked temporary adapters during Phase 2, and
+- the generated boundary esbuild produces at stage 3.
+
+This is the condition round 2 attached to accepting IIFE output: a generated
+global at the delivery boundary is acceptable *only if* the source graph is
+forbidden from using it as an internal dependency. Without this contract, the
+IIFE decision does not hold.
+
+### 11. The composition root
+
+Required by round 2's R2-F3, and the spike proved why it is not optional.
+
+#### The hazard, demonstrated
+
+`tools/scoring.test.mjs:21` injects a four-rule public suffix table. Bundle
+`js/public-suffixes.js` and load it into that sandbox:
+
+```text
+injected before load : 4
+in force after load  : 10239
+```
+
+The suite then reports **`1535 passed, 0 failed`** — byte-identical to the
+source baseline. Nothing failed. Nothing warned. The assertion count did not
+move. The suite was green while testing against the wrong public suffix list.
+
+A static `import` of generated data recreates this defect, because the bundle
+satisfies the import on its own and no test can intervene. This is also the
+final proof of Testing item 1: **a passing count is not a coverage signal.**
+
+#### The factory
+
+One production runtime factory. Generated data and platform primitives are
+**passed**, never imported by the modules that consume them:
+
+```js
+createAuditRuntime({
+  publicSuffixRules,        // from src/data/, or a fixture table
+  dkimSelectorCatalog,      // from src/data/, or a fixture catalog
+  englishBundle,            // __I18N_EN__ equivalent
+  platform,                 // { fetch, crypto, AbortController, now }
+}) -> { analyzeDomain, checkConnectivity, mount }
+```
+
+`src/main.js` imports the generated data and the browser platform, calls the
+factory **once**, mounts the UI, and exports the §10 facade. Unit tests call the
+same factory with fixture data. There is no second construction path, and no
+production branch that exists only for tests.
+
+#### Passed versus imported
+
+| Dependency | Passed | Imported | Why |
+| --- | :---: | :---: | --- |
+| Public suffix rules | ✓ | | The demonstrated hazard |
+| DKIM selector catalog | ✓ | | Same class |
+| English bundle | ✓ | | Same class |
+| `fetch`, `crypto`, `AbortController` | ✓ | | Platform; tests substitute at the lowest primitive |
+| Protocol modules | | ✓ | Pure logic, no ambient state |
+| Scoring constants | | ✓ | Immutable, and byte-identity is asserted |
+
+#### Lifetimes, stated
+
+| Scope | Holds | Constructed |
+| --- | --- | --- |
+| **Page** | The DoH cache; generated data; the resolver | Once, by the factory. The cache **must** be page-scoped — see Corrections item 3. |
+| **Audit** | Options in force, accumulated result, cancellation signal | Per `analyzeDomain()` call |
+| **Call** | Per-query retry and timeout state | Per resolver call |
+
+**Node's ESM module cache is not a dependency-injection mechanism.** Test
+isolation comes from constructing a fresh runtime per suite, never from
+cache-busted imports or module-level mutation. A suite that needs different
+generated data calls the factory again.
+
+#### Proving fixture identity behaviorally
+
+The lesson of the spike is that a green run proves nothing. So the contract test
+does not compare a count — it asserts a **behavioral** discriminator: with the
+four-rule fixture table in force, `getOrganizationalDomain('a.b.ck')` resolves
+under the `*.ck` wildcard and `!www.ck` exception, results the real 10,239-rule
+list does not produce. If the fixture has been substituted, that assertion fails
+loudly instead of passing quietly.
+
+Every suite that supplies generated data runs this check first.
+
+### 12. Module APIs and the allowed-edge matrix
+
+Required by round 2's R2-F5. The folder tree in §2 describes ownership; this
+describes interfaces and permitted direction.
+
+#### Allowed edges
+
+An edge absent from this matrix is a test failure, not a judgment call.
+
+| From | May import |
+| --- | --- |
+| `src/main.js` (composition) | `ui`, `audit`, `i18n`, `data`, platform |
+| `src/ui/` | `i18n`, rendering/report primitives |
+| `src/audit/` | `core/<protocol>/`, `providers/`, resolver **contracts** |
+| `src/core/<protocol>/` | resolver contracts, explicitly named pure shared data |
+| `src/core/dns/` | transport, cache, platform **only** |
+| `src/data/` | **nothing** |
+| `src/i18n/` | `src/data/locales-en.js` |
+
+Consequences that follow, each asserted:
+
+- No `src/core/` module imports `src/ui/` or `src/audit/`.
+- No protocol module imports a sibling protocol module. DMARC's public-suffix
+  need is satisfied by **injected data** (§11), not by importing `src/data/`
+  directly — that would be an implied convenience edge, which the matrix forbids.
+- `src/data/` is a sink. A generated file that imports anything has stopped
+  being generated data.
+
+#### Cycle rule
+
+The contract test parses the real static import graph and **rejects any strongly
+connected component containing more than one module.** Acyclic is necessary but
+not sufficient: an acyclic graph can still point the wrong way, which is what the
+matrix above catches.
+
+#### Per-directory API table
+
+Each owning directory checks in a table of: public exports, accepted inputs,
+returned discriminants, allowed dependencies, and state lifetime. Seeded from
+the verified discriminants:
+
+| Directory | Returns discriminants |
+| --- | --- |
+| `core/dns/` | the ten transport kinds (§3); throws `DnsTypeError`, `AbortError` |
+| `core/spf/` | `status`: `ok`, `warn`, `present`, `missing`, `softfail`, `permerror` |
+| `core/dnssec/` | `state`: `secure`, `insecure`, `bogus`, `unanchored`, `mismatch`, `indeterminate`; chain `claim`: `resolver-ad`, `resolver-bogus`, `resolver-unreachable`, `link-checked`, `lookup-incomplete`, `ds-confirms-dnskey`, `ds-unverifiable` |
+| `core/dmarc/` | diagnosis `reason`: `absent`, `syntax`, `version`, `not-first`, `bad-value`; `domainExists`: `yes`, `no`, `unknown` |
+| `core/dkim/`, `core/caa/`, `core/mx/`, `core/bimi/`, `core/transport/` | Enumerated during their Phase 4 extraction and added to the matrix in the same commit |
+
+The table is completed as each module is extracted, and the state matrix
+(Testing item 3) is what proves it complete.
+
 ## Localization impact
 
 **No key in `locales/en.json` is added, changed or removed by this release.**
@@ -699,116 +965,139 @@ runs unchanged apart from its import mechanism.
 
 ## Testing
 
-Existing suites are migrated, not rewritten (§21). Layout follows
-[Design §9](#9-test-placement).
+Layout per [Design §9](#9-test-placement), settled as the hybrid.
 
-**1. The gate is a checked-in contract inventory, not an assertion count.**
-Version 0.1 made `>= 2,121` a merge gate. Codex is right that it cannot be one:
-a refactor can delete a meaningful assertion and add an unrelated one while the
-total holds, and replacing three filename assertions with four bundle
-assertions moves the number without saying whether the original property is
-still covered.
+**1. The gate is a contract inventory, not an assertion count.** The spike
+settles this empirically rather than by argument: the scoring suite reported
+`1535 passed, 0 failed` while running against a public suffix list that had been
+silently swapped underneath it. The count was identical to the correct baseline.
 
-`tests/inventory.json` names every suite and the contract areas it covers. The
-gates are:
+`tests/inventory.json` names every suite and the contract areas it covers. Gates:
+every inventory area has a passing suite; the total is **reported** and any
+decrease must name the removed assertions and where the property moved; no entry
+is deleted without a stated replacement.
 
-- Every contract area in the inventory has at least one passing suite.
-- The assertion total is **reported** on every run, and a decrease requires the
-  commit message to name the removed assertions and where the property moved.
-- No inventory entry is deleted without a stated replacement.
+**2. Five-surface equivalence** per Design §8 — result, query trace, CSV, HTML
+report, DOM — three-way across `v0.5.0`, `src/` and `dist/app.min.js`. The
+release's primary gate.
 
-The count stays visible because it is a good tripwire. It stops being proof.
+**3. The state matrix**, `tests/state-matrix.json`, required by round 2's R2-F6.
+It replaces the prose corpus list as the Gate 0 proof of coverage.
 
-**2. Four-surface equivalence**, per Design §8: result projection, query trace,
-CSV bytes, canonical DOM — three-way across `v0.5.0`, `src/` and
-`dist/app.min.js`. This is the release's primary gate.
+Every discriminant in the codebase maps to three things:
 
-**3. Contract tests** in `tests/contract/`:
+| Column | Meaning |
+| --- | --- |
+| State | One member of one owner's closed set |
+| Unit/contract suite | Where the state is asserted in isolation |
+| Integration fixture | Where it is reached through the real transport path, where applicable |
+| Equivalence fixture | At least one, for every operator-visible result shape |
 
-- The resolver's result inhabits the closed kind set and carries no finding,
-  severity, score or locale reference (Design §3).
-- Import-graph direction: nothing under `src/core/dns/` imports `src/i18n/`,
-  `src/ui/`, `src/audit/` or a sibling protocol; nothing under `src/core/`
-  imports `src/ui/`. Asserted over the real graph, not by path grep.
+Seeded from the verified enumerations in §3 and §12 — the ten transport kinds,
+six DNSSEC states, seven chain claims, six SPF statuses, five DMARC diagnosis
+reasons, three `domainExists` results — and completed per module as Phase 4
+extracts it.
 
-**4. Bundle parity**, `tests/build/parity.test.mjs`. Loads the actual
-`dist/app.min.js` — reachable because `format: 'iife'` with
-`globalName: 'DnsAudit'` exposes the same surface the current harness uses —
-installs and restores DOM, `fetch`, crypto and generated-data inputs, and runs
-the equivalence corpus against it. A separate test-only bundle would prove
-nothing about the shipped artifact and is not permitted as a substitute.
+**The matrix is self-policing.** A prose list goes stale silently, which is the
+failure this project keeps meeting. So `tests/contract/state-matrix.test.mjs`
+extracts the discriminants from the source and **fails if any lacks a matrix
+row**, and fails if a row names a suite or fixture that does not exist. A new
+state cannot be added without its coverage.
 
-**5. Deployment artifact test**, `tests/build/artifact.test.mjs`. Runs
-`npm run build` and asserts on `_site/`:
+**4. Bundle parity.** Loads the real `dist/app.min.js`. In stage 1 it reaches
+`window.DnsAudit` as the current harness does; from stage 3 it asserts the
+facade's exported members against `src/facade.expected.json` on **both** the
+source module and the bundle. A test-only bundle proves nothing about the
+shipped artifact and is not an acceptable substitute.
 
-- Exact top-level allowlist: `index.html`, `CNAME`, `LICENSE`,
-  `THIRD_PARTY_NOTICES.md`, `css/`, `dist/`, `locales/` — nothing else.
-- Every `<script src>` and `<link href>` in `_site/index.html` resolves to a
-  file present in `_site/`; the source-map link resolves too.
-- `dist/app.min.js` is non-empty and contains no test sentinel.
-- `src/`, `tools/`, `tests/`, `docs/`, `node_modules/`, `package.json`,
-  `AGENTS.md` and every `*.test.*` are absent.
-- `locales/translation-status.json` is absent.
-- `assets/` is absent — it holds only `.gitkeep` and nothing references it.
+**5. Contract tests** in `tests/contract/`:
 
-**6. `tools/csp.test.mjs` amended, not weakened.** Its section 3 asserts script
-filenames and load order, which a single bundle makes meaningless. Replaced by:
-exactly one `<script src>`, it is `dist/app.min.js`, it is same-origin. Every
-policy assertion in section 1 is preserved byte-for-byte. The markup-sink scan
-covers `src/` excluding `*.test.js`, **and** `dist/app.min.js`. Source-map and
-reference-resolution checks go in the artifact suite rather than overloading
-this one.
+- The ten transport kinds are exhaustive; `cancelled` is retry-terminal and
+  never cached; `DnsTypeError` is thrown and is not a kind.
+- No resolver return carries a finding, severity, score or locale reference.
+- The allowed-edge matrix (§12) holds, and no SCC has more than one module.
+- The namespace contract (§10): no `src/` module reads or writes any of the 24
+  globals outside a marked adapter.
+- **Fixture identity** (§11): with the four-rule table in force,
+  `getOrganizationalDomain('a.b.ck')` gives the wildcard/exception result the
+  real list cannot. Runs first in every suite that supplies generated data.
 
-**7. Bundle size reported** from the esbuild metafile: raw, gzip, and per-input
-composition, so an accidental generated-data or test inclusion is visible.
-Reported, not enforced. The 0.5.0 comparison point is 719,199 raw / 213,467
-gzip across seven files. The source map is not counted — a normal visit does not
-fetch it.
+**6. Deployment artifact test.** Exact top-level allowlist —
+`index.html`, `CNAME`, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `css/`, `dist/`,
+`locales/`, nothing else. Every `<script src>`, `<link href>` and source-map link
+resolves inside `_site/`. Absent: `src/`, `tools/`, `tests/`, `docs/`,
+`node_modules/`, `package.json`, `AGENTS.md`, `*.test.*`,
+`locales/translation-status.json`, `assets/`.
 
-**8. `node tools/backtest.mjs --sample`** is a local grade-distribution sanity
-check at each phase boundary. Live DNS; never a gate.
+**7. Co-location safety is bound to the metafile, not a sentinel.** Round 2's
+R2-F7: a sentinel can be tree-shaken, renamed, duplicated, or simply omitted
+from a new test file. The binding checks are:
+
+- no `*.test.*` path appears in `metafile.inputs`;
+- no `*.test.*` path appears in the source map's `sources`;
+- the built artifact passes the markup-sink scan; and
+- `_site/` contains no source or test path.
+
+The sentinel remains as defence in depth and carries no acceptance criterion.
+
+**8. `tools/csp.test.mjs` amended, not weakened.** Section 3's filename and
+ordering assertions become: exactly one `<script src>`, it is
+`dist/app.min.js`, same-origin. Every section-1 policy assertion is preserved
+byte-for-byte. The markup-sink scan covers `src/` excluding `*.test.js` — a
+mechanical suffix rule, never a per-file list — **and** `dist/app.min.js`.
+
+**9. Bundle size** from the metafile: raw, gzip, per-input composition. Reported,
+never enforced. Baseline: 719,199 / 213,467 across seven files; measured legacy
+bundle 430,750 / 130,256.
 
 ## Acceptance criteria
 
 Structural:
 
 - [ ] All hand-written browser code lives under `src/` as ES modules. `js/` is gone.
-- [ ] Every temporary adapter is removed; a test asserts none remain.
-- [ ] DNS transport returns a closed result algebra carrying no finding, severity, score or locale reference, proven by contract test.
-- [ ] Each of SPF, DKIM, DMARC, DNSSEC, MX, CAA, BIMI, MTA-STS, TLS-RPT and TLSA has an identifiable owning directory.
-- [ ] Import-graph direction holds: no `src/core/` module imports `src/ui/`.
-- [ ] `AGENTS.md` documents module ownership and the expected modification boundary for a protocol change.
+- [ ] Every adapter removed; a test asserts none remain.
+- [ ] The ten transport kinds are preserved byte-for-byte; `cancelled` is retry-terminal and never cached; `DnsTypeError` is thrown, not returned.
+- [ ] No resolver return carries a finding, severity, score or locale reference.
+- [ ] SPF, DKIM, DMARC, DNSSEC, MX, CAA, BIMI, MTA-STS, TLS-RPT and TLSA each have an owning directory and a checked-in API table.
+- [ ] The allowed-edge matrix holds; no SCC contains more than one module.
+- [ ] The namespace contract holds: no `src/` module touches any of the 24 globals outside a marked adapter.
+- [ ] `src/facade.expected.json` matches both the source exports and the bundle global.
+- [ ] `AGENTS.md` documents module ownership and the modification boundary for a protocol change.
 
 Equivalence:
 
-- [ ] Four-surface, three-way equivalence — result projection, query trace, CSV bytes, canonical DOM — across `v0.5.0`, `src/` and `dist/app.min.js`, clean, or every difference documented and deliberate.
+- [ ] Five-surface, three-way equivalence — result, query trace, CSV, HTML report, DOM — across `v0.5.0`, `src/` and `dist/app.min.js`, clean or every difference documented and deliberate.
+- [ ] `canonicalization.md` is checked in **before** the corpus is captured.
 - [ ] The baseline regenerates from a clean clone in CI and matches the committed file.
-- [ ] `WEIGHTS`, `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` byte-identical to `v0.5.0`.
+- [ ] Every discriminant has a state-matrix row naming a suite and a fixture, enforced by `state-matrix.test.mjs`.
+- [ ] The fixture-identity check passes in every suite supplying generated data.
+- [ ] `WEIGHTS`, `PARKED_WEIGHTS`, `GRADE_THRESHOLDS` byte-identical to `v0.5.0`.
 - [ ] Issue-token vocabulary unchanged; no `locales/en.json` key added, changed or removed.
-- [ ] DNS query fan-out per fixture unchanged, so `PRIVACY.md`'s published figures still hold.
-- [ ] Every contract area in `tests/inventory.json` has a passing suite; assertion total reported, and any decrease accounted for.
+- [ ] DNS query fan-out per fixture unchanged, so `PRIVACY.md`'s figures still hold.
+- [ ] Every contract area in `tests/inventory.json` has a passing suite.
 - [ ] `npm run locale:gate` reports 13/13.
 
 Build and deployment:
 
 - [ ] `npm run build` produces `dist/app.min.js` from `src/` with no network access.
-- [ ] `package.json` has zero `dependencies` and exactly one direct `devDependency`, exact-pinned.
-- [ ] `package-lock.json` is committed, and the resolved package footprint is recorded rather than described as zero.
-- [ ] `npm ci` reproduces the build on macOS and Linux CI.
+- [ ] Zero `dependencies`; exactly one direct `devDependency`, exact-pinned.
+- [ ] `package-lock.json` committed; the resolved footprint recorded as measured, never described as zero.
+- [ ] **`npm ci` confirmed on Linux CI** — the spike covered darwin-arm64 only.
+- [ ] The `postinstall` script's treatment under npm's `allowScripts` gate is an explicit, recorded CI decision.
 - [ ] `dist/` remains git-ignored and is never committed.
-- [ ] CI builds the bundle, runs the full suite, and gates deployment on both.
-- [ ] `_site/` matches the exact allowlist, asserted by test, with no `src/`, `tools/`, `tests/` or `*.test.*`.
-- [ ] Bundle raw, gzip and per-input composition appear in CI output.
-- [ ] `index.html` is still the entry point and no public URL changed.
+- [ ] `_site/` matches the exact allowlist; no `*.test.*` in `metafile.inputs` or source-map `sources`.
+- [ ] Bundle raw, gzip and per-input composition in CI output.
+- [ ] `index.html` still the entry point; no public URL changed.
 - [ ] A clean clone runs `npm ci && npm test && npm run build` from documented instructions.
-- [ ] The `v0.5.0` tag can still be checked out and served, unmodified.
+- [ ] `v0.5.0` can still be checked out and served, unmodified.
 
 Preserved properties:
 
-- [ ] CSP `connect-src` still exactly `'self' https://cloudflare-dns.com`; every section-1 policy assertion byte-identical.
-- [ ] The markup-sink named-file allowlist is still empty, and the scan covers `src/` and `dist/app.min.js`.
-- [ ] The DoH cache retains page lifetime; the sibling-reuse assertion at `tools/scoring.test.mjs:1891` still passes.
-- [ ] `PRIVACY.md` needs no edit — confirmed by the query-trace surface, not assumed.
+- [ ] CSP `connect-src` exactly `'self' https://cloudflare-dns.com`; every section-1 assertion byte-identical.
+- [ ] Markup-sink named-file allowlist still empty; scan covers `src/` and `dist/app.min.js`.
+- [ ] DoH cache retains page lifetime; `tools/scoring.test.mjs:1891` still passes.
+- [ ] **`file://` still works** — `js/locales-en.js` exists to support it and its comments stay.
+- [ ] `PRIVACY.md` needs no edit, confirmed by the query-trace surface rather than assumed.
 - [ ] No runtime third-party JavaScript reaches the browser.
 - [ ] GitHub Actions remain SHA-pinned.
 
@@ -816,64 +1105,47 @@ Preserved properties:
 
 | # | Risk | Mitigation |
 | --- | --- | --- |
-| R1 | **Silent behavior change during extraction.** 5,704 lines moving between files is the highest-probability failure in the release. | Four-surface equivalence at every commit; one responsibility per commit; the build boundary established first so every move is checked against the shipped artifact. |
-| R2 | **The bundle differs from the source that was tested.** | Parity runs against the real `dist/app.min.js`, reachable via `globalName`. A test-only bundle is not accepted as a substitute. |
-| R3 | **First-ever supply-chain dependency.** esbuild 0.28.2 declares `postinstall: node install.js` and 26 `@esbuild/*` optional dependencies, of which npm installs one. This is small, not zero — 0.1 of this spec wrongly claimed zero. | Exact pin; committed lockfile; `npm ci` only; record the resolved package count and installed-binary provenance from the `OQ-ARCH-01` spike rather than describing the graph from memory. |
-| R4 | **ESM strict-mode semantics.** Module top-level `this` is `undefined` rather than the global, and `var` no longer creates a global. `js/dns.js` uses `var` throughout. | Convert one file per commit behind the stable bundle, with adapters for classic consumers; the DOM shim surfaces a `this`-binding error immediately. |
-| R5 | **Test harness rewrite loses coverage quietly**, and the assertion count will not catch it. | The contract inventory is the gate; the count is a reported tripwire. Migrate one suite per commit, naming moved properties. |
-| R6 | **The fixture harness silently stops testing what it claims.** `scoring.test.mjs:21` injects a four-rule PSL; a static data import would substitute the real 165 KB list and the suite would still report 1,535 passing. | Generated data reaches modules through an injectable binding at the composition root; a contract test asserts the fixture PSL is the one in force during the suite. |
-| R7 | **Deploy publishes something it should not**, now that non-shipping files live under `src/`. | Exact-allowlist artifact test asserting presence *and* absence, plus a test-sentinel scan of the bundle. |
-| R8 | **Scope creep.** Every phase surfaces a bug worth fixing. | §3 and §35: a behavior fix found during the refactor is filed and shipped separately unless it blocks the phase. Recorded in the commit message either way. |
-| R9 | **Cold-start regression.** One artifact replaces seven cacheable files. | Metafile size reporting; `OQ-ARCH-05` carries the measurement for a later split. |
-| R10 | **Cache-scope drift.** The page-lifetime cache is easy to narrow by accident once it is behind a factory, and the result is invisible in output while changing published privacy figures. | The query-trace equivalence surface; the sibling-reuse assertion; an explicit acceptance criterion. |
+| R1 | **Silent behavior change during extraction.** 5,704 lines moving between files. | Five-surface equivalence at every commit, through the bundle; one responsibility per commit; the delivery boundary established in Phase 1 so every move is checked against the shipped artifact. |
+| R2 | **The bundle differs from the source that was tested.** | Parity against the real `dist/app.min.js`; facade members asserted on both surfaces from stage 3. |
+| R3 | **First supply-chain dependency.** Measured: 2 packages on darwin-arm64, 1 `postinstall`, 25 unmet optional platform packages. | Exact pin; committed lockfile; `npm ci` only; an explicit recorded decision on npm's `allowScripts` gate; Linux confirmation outstanding. |
+| R4 | **ESM strict-mode semantics.** Top-level `this` is `undefined`; `var` no longer creates a global — and `js/dns.js` uses `var` throughout while 24 globals depend on that behavior. | One file per commit behind a working bundle; adapters for classic consumers; the namespace contract catches a missed conversion. |
+| R5 | **Coverage lost quietly, invisibly to the count.** Demonstrated, not hypothesised: 1,535 assertions passed against the wrong PSL. | Contract inventory is the gate; the state matrix is self-policing; the fixture-identity check runs first in every affected suite. |
+| R6 | **Generated data silently substituted.** The demonstrated hazard, and it generalizes to `__DKIM_SELECTOR_CATALOG__` and `__I18N_EN__`. | Composition root (§11): passed, never imported by consumers. Behavioral identity check, not a count. |
+| R7 | **Deploy publishes source or tests**, now that non-shipping files live under `src/`. | Exact-allowlist artifact test; `metafile.inputs` and source-map `sources` as the binding proof. |
+| R8 | **Scope creep.** Every phase surfaces something. The 14 dead globals are the first example — real, worth removing, and still its own commit. | §3 and §35: found behavior changes are filed separately unless they block the phase, and recorded in the commit message either way. |
+| R9 | **Cold-start regression.** One artifact replaces seven cacheable files. | Measured −40% raw / −39% gzip; metafile composition reporting; `OQ-ARCH-05` holds the split for later. |
+| R10 | **Cache-scope drift.** Easy to narrow accidentally once behind a factory; invisible in output; changes published privacy figures. | Query-trace surface; the sibling-reuse assertion; an explicit acceptance criterion; §11 fixes the cache at page scope. |
+| R11 | **Canonicalization absorbs a real regression** while tolerating noise it was written to tolerate. | Every tolerance names the difference class it admits and why that class cannot carry a defect; exclusions are per-field with reasons, no wildcards; put to round 3 explicitly. |
 
 ## Open questions
 
-Round 1 answered eight. Two remain open and one is new.
+**None.** All nine are resolved. What remains before `1.0 (Final)` is round 3's
+verdict on completeness and internal consistency, not a decision.
 
-### Open
-
-**`OQ-ARCH-06` — bundle output format: `iife` or `esm`?** *(reopened in 0.2)*
-Round 1 answered the question 0.1 asked — "is losing `file://` acceptable" —
-with "accepted and documented". This spec now argues the loss is avoidable:
-compiling ESM source to an **IIFE** bundle with `globalName: 'DnsAudit'` keeps
-`file://` working, keeps `index.html` on a plain `<script src>`, and gives the
-parity test a documented access path to the shipped artifact, which was round
-1's F3. The cost is one bundler-generated global at the delivery boundary;
-modules inside still communicate by `import`.
-*Recommendation:* `iife`. Put back to the reviewer because it reverses an answer
-already given and it interacts with F3's resolution.
-
-Only `OQ-ARCH-06` is open. `OQ-ARCH-09` was decided by Ian on 2026-08-27 and is
-recorded below.
-
-### Resolved by decision
-
-| ID | Question | Answer | Decided by |
+| ID | Question | Answer | Resolved |
 | --- | --- | --- | --- |
-| `OQ-ARCH-09` | Do unit tests live beside the code? | **Yes — hybrid.** `src/**/*.test.js` for unit tests; `tests/` for build, contract, integration and fixtures. Argument in [Design §9](#9-test-placement). | Ian, 2026-08-27 |
+| `OQ-ARCH-01` | Bundler | **esbuild**, on measured evidence: 2 packages on this platform, 1 install script, −40% raw / −39% gzip, 22 ms build, legacy IIFEs bundle with an identical 24-global surface | Round 1 conditionally; [spike](fixtures/esbuild-legacy-bundle-spike-0.6.0.md) 2026-08-27 |
+| `OQ-ARCH-02` | Commit `package-lock.json` | **Yes.** Exact pin + lockfile + `npm ci` | Round 1 |
+| `OQ-ARCH-03` | Browser target | **`es2020` syntax**, plus a separate required-API matrix for `AbortController`, `BigInt`, `Intl.PluralRules`, Web Crypto. No polyfills | Round 1 |
+| `OQ-ARCH-04` | Source maps | **Ship linked external maps.** Excluded from the transfer-size figure | Round 1 |
+| `OQ-ARCH-05` | Bundle split | **One bundle for 0.6.0.** Report metafile composition; revisit with measured repeat-visit data | Round 1 |
+| `OQ-ARCH-06` | Bundle output format | **IIFE.** Keeps `file://`, keeps the CSP shape, gives parity an access path. `globalName` only from §10 stage 3 | Round 2, conditional on R2-F1 and R2-F5 |
+| `OQ-ARCH-07` | `js/` transition | **No duplicate tree; marked adapters**, deleted as their last consumer migrates | Round 1 |
+| `OQ-ARCH-08` | Strict locale gate in CI | **Add it** | Round 1 |
+| `OQ-ARCH-09` | Test co-location | **Hybrid.** `src/**/*.test.js` for unit tests; `tests/` for build, contract, integration, fixtures | Ian, 2026-08-27 |
 
-The layout is settled. The **mitigation for cost 1** — excluding `*.test.js`
-from the markup-sink scan whose named-file allowlist is deliberately empty — is
-still a review item, because it weakens a security control rather than a
-convention. See Design §9.
-
-### Resolved in round 1
-
-| ID | Question | Answer | Notes |
-| --- | --- | --- | --- |
-| `OQ-ARCH-01` | Bundler | **esbuild, conditional on a spike** | Spike must bundle the unmodified IIFEs, run the exact artifact under the fixture harness, work on macOS and Linux from `npm ci`, and record the real lockfile footprint. Permitted before Final; it is research, not refactoring. |
-| `OQ-ARCH-02` | Commit `package-lock.json` | **Yes** | Exact direct pin + committed lockfile + `npm ci`. `.gitignore:3` entry removed when the first package lands. |
-| `OQ-ARCH-03` | Browser target | **Split syntax from platform support** | `target: ['es2020']` for syntax; a separate required-API matrix for `AbortController`, `BigInt`, `Intl.PluralRules`, Web Crypto — esbuild does not polyfill these, so "last two versions" proves nothing on its own. No polyfills. |
-| `OQ-ARCH-04` | Source maps | **Ship linked external maps** | Assert the map exists and its link resolves; exclude it from the transfer-size figure, since a normal visit never fetches it. |
-| `OQ-ARCH-05` | Bundle split | **One bundle for 0.6.0** | Report metafile composition; defer splitting until repeat-visit and cache-header behavior are measured. |
-| `OQ-ARCH-07` | `js/` transition | **No duplicate tree; adapters required** | 0.1 offered a false choice between two complete trees and no transition mechanism. One source of truth per responsibility, small marked adapters behind the stable bundle, each deleted as its last classic consumer migrates. |
-| `OQ-ARCH-08` | Strict locale gate in CI | **Add it** | Enforces an existing repository contract; not a behavioral expansion. |
+`OQ-ARCH-06`'s conditions are discharged by §10 (staged facade, namespace
+contract) and §12 (allowed-edge matrix, SCC rule). The `file://` answer is
+reinforced by evidence rather than argument: `js/locales-en.js` states in its own
+generated header that English is inlined *"so the app works when index.html is
+opened directly from disk"*, and that file is 125,172 bytes — about 18% of the
+current payload. `file://` support was bought and paid for.
 
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 0.4 | 2026-08-27 | Revised after review round 2 and against measured evidence. **The `OQ-ARCH-01` spike ran** ([capture](fixtures/esbuild-legacy-bundle-spike-0.6.0.md)): the seven unmodified IIFEs bundle to an identical 24-global surface, `DnsAudit` intact at 95 members, −40.1% raw / −39.0% gzip, 22 ms — Phase 1 is confirmed viable, and esbuild's real footprint (2 packages, 1 `postinstall`) replaces the false "zero dependencies" claim. **`globalName` corrected**: it exports the entry's exports, so 0.2's claim was wrong and would have clobbered `window.DnsAudit` on the delivery-boundary commit; the facade is now staged in three steps (§10). **The global inventory was 24, not five** — `js/app.js` alone assigns 14, all of them **dead** (no consumer; `index.html` has no inline handlers). **The supported facade is two members**, `analyzeDomain` and `checkConnectivity`, the only ones `js/app.js` calls out of 95; the other 93 plus `__APP_TEST__` become direct ESM imports. **The transport model is four layers plus exception edges**, not a five-member union — the ten real kinds are enumerated with the cacheable ⊂ retry-terminal rule. **Composition root specified** (§11), justified by the spike demonstrating a bundled PSL silently replacing a fixture while 1,535 assertions still passed. **Allowed-edge matrix, SCC rejection and API tables added** (§12). **HTML report parity restored** to the gate — it had fallen out — making five surfaces, with executable canonicalization rules. **State matrix added**, self-policing via a test that fails on any discriminant lacking a row. **Co-location proof bound to `metafile.inputs`** rather than a sentinel. All nine open questions now resolved. |
 | 0.3 | 2026-08-27 | `OQ-ARCH-09` decided by Ian: unit tests co-locate as `src/**/*.test.js`, with `tests/` retained for build, contract, integration and fixture suites. The layout is settled; the markup-sink exclusion that pays for it remains a round-2 review item because it touches a security control rather than a convention. `OQ-ARCH-06` is now the only open question. |
 | 0.2 | 2026-08-27 | Revised after review round 1 (Codex). All eight findings verified against the code and accepted. **Build now precedes ESM conversion** — 0.1's Phase 0 could not keep the browser working between its own commits. **Equivalence expanded from score/grade/token to four surfaces** — full result projection, DNS query trace, CSV bytes, canonical DOM. **Per-audit cache scoping declined**: page lifetime is tested at `scoring.test.mjs:1891` and underwrites `PRIVACY.md`'s published fan-out. **esbuild's dependency footprint corrected** — `postinstall` plus 26 platform optional dependencies, not zero. **Transport-boundary grep withdrawn as vacuous**, replaced by a closed result algebra plus import-graph direction. **Assertion count demoted** from merge gate to reported tripwire, with a contract inventory as the gate. Baseline capture moved to `git worktree`. `core/bimi/` added. `legalComments`, interpolation-count and `locales-en.js` claims corrected. Two new items opened: `OQ-ARCH-06` reopened to propose an **IIFE bundle** (keeps `file://`, resolves F3's access path), and `OQ-ARCH-09` added for **test co-location**. Seven questions resolved. |
 | 0.1 | 2026-08-27 | First draft, written from the Codex proposal of 2026-08 and checked against `main` at 0.5.0. Six claims in the source proposal corrected (ESM conversion omitted; finding identifiers already exist; DNS cache already exists; deployment allowlist already exists; no lockfile to pin against; behavioral equivalence unverifiable as specified). ESM conversion added as Phase 0. Bundle-parity testing added. Finding-identifier redesign declined. Eight open questions recorded. |

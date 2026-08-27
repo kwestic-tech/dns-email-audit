@@ -13,29 +13,22 @@ moving on. Where they disagree, the spec wins.
 
 ## 0. Before anything is written
 
-The spec is **`0.3 (Draft)`**, revised after review round 1, with `OQ-ARCH-09`
-decided, and reviewed again in round 2. [`docs/specs/README.md`](docs/specs/README.md) requires `1.0 (Final)` before
+The spec is **`0.4 (Draft)`** — revised after review rounds 1 and 2, with the
+`OQ-ARCH-01` spike run and captured. **No open questions remain.** Round 3
+reviews completeness and internal consistency; it is not a decision gate. [`docs/specs/README.md`](docs/specs/README.md) requires `1.0 (Final)` before
 implementation begins.
 
-Round 1 resolved seven of the original eight open questions. Ian decided
-`OQ-ARCH-09` on 2026-08-27. **One remains, and it changes the work:**
+All nine open questions are resolved — seven in round 1, `OQ-ARCH-06` in round
+2, `OQ-ARCH-09` by Ian. **Nothing blocks drafting; one thing blocks merging:**
 
-| Question | Blocks | Why it must be answered first |
+| Item | Blocks | State |
 | --- | --- | --- |
-| `OQ-ARCH-06` | Phase 1 | `iife` vs `esm` output decides the `index.html` tag, whether `file://` survives, and how the parity test reaches the bundle. |
+| `OQ-ARCH-01` spike | Phase 1 | **Done** — [capture](docs/specs/fixtures/esbuild-legacy-bundle-spike-0.6.0.md). Legacy IIFEs bundle to an identical 24-global surface; −40.1% raw. |
+| Linux `npm ci` | Gate 1 | **Outstanding.** The spike covered darwin-arm64 only and the footprint is platform-specific. |
+| Round 3 verdict | `1.0 (Final)` | Pending |
 
-**Settled, and binding on every phase below:**
-
-| Question | Answer | Decided by |
-| --- | --- | --- |
-| `OQ-ARCH-09` | **Hybrid.** Unit tests co-locate as `src/**/*.test.js`; `tests/` keeps build, contract, integration and fixture suites. | Ian, 2026-08-27 |
-
-The layout is settled. Its one open consequence is the markup-sink exclusion in
-Task 1.8 — a security control, not a convention — which round 2 reviews. If that
-mitigation is rejected, the layout stands and the mitigation changes.
-
-**Task 0.1** — Answer `OQ-ARCH-06`. Argued in the spec and put to the reviewer
-in [`CODEX Review Modular Refactor.md`](CODEX%20Review%20Modular%20Refactor.md).
+**Task 0.1** — Confirm `npm ci` on Linux CI and fold the footprint into the
+spike capture. Deferred deliberately; it does not block drafting.
 
 **Task 0.2** — Run the `OQ-ARCH-01` spike. Round 1 made esbuild conditional on
 it, and it is research rather than refactoring, so it is permitted before Final:
@@ -66,10 +59,13 @@ which rules out `tools/backtest.mjs` (live DNS). The oracle is
   malformed; at least one record carrying a bidirectional control, for the
   hygiene sentinels; **and the sibling-subdomain pair that exercises cache
   reuse**, so the query trace pins it.
-- **0.4.b** — `tests/build/equivalence.mjs`: replays the corpus through a given
-  source root and emits the **four surfaces** — canonical full-result JSON, DNS
-  query trace, CSV bytes, canonical DOM. Not score/grade/tokens; that was round
-  1's F2. Any deliberately excluded field goes in a manifest with a reason.
+- **0.4.b** — `tests/fixtures/equivalence/canonicalization.md` **first**, then
+  `tests/build/equivalence.mjs`. The runner replays the corpus through a given
+  source root and emits the **five surfaces** — canonical full-result JSON, DNS
+  query trace, CSV bytes, canonical HTML report, canonical DOM. HTML had fallen
+  out of the 0.3 gate (round 2, R2-F4). Rules are checked in **before** the
+  corpus is captured, not derived from it afterwards. Excluded fields go in a
+  manifest one at a time, with reasons; no wildcard classes.
 - **0.4.c** — Capture the baseline **without moving the worktree**. Version 0.1
   said `git checkout v0.5.0` and then ran a file that only exists on this
   branch:
@@ -85,10 +81,18 @@ which rules out `tools/backtest.mjs` (live DNS). The oracle is
   clone and asserts it matches.
 
 **Task 0.5** — `tests/inventory.json`: every suite and the contract areas it
-covers. This is the coverage gate; the assertion total is a reported tripwire
-beside it, not proof (round 1, F8).
+covers. The coverage gate; the assertion total is a reported tripwire beside it,
+not proof. The spike settled this empirically — 1,535 assertions passed against
+the wrong PSL.
 
-> **Gate 0.** Spec `1.0 (Final)`. Spike numbers recorded. Corpus, four-surface
+**Task 0.6** — `tests/state-matrix.json` and `tests/contract/state-matrix.test.mjs`
+(round 2, R2-F6). Seed from the verified enumerations: ten transport kinds, six
+DNSSEC states, seven chain claims, six SPF statuses, five DMARC diagnosis
+reasons, three `domainExists` results. **The test extracts discriminants from
+source and fails on any lacking a matrix row**, so the matrix cannot go stale the
+way a prose list would.
+
+> **Gate 0.** Spec `1.0 (Final)`. Spike numbers recorded. Corpus, five-surface
 > runner and committed baseline reproduce from a clean clone. **No file under
 > `js/` has been edited.**
 
@@ -103,7 +107,7 @@ extract exactly one responsibility
     ↓
 suite green, contract inventory intact
     ↓
-four-surface equivalence clean, through the bundle
+five-surface equivalence clean, through the bundle
     ↓
 commit
 ```
@@ -153,7 +157,7 @@ No code moves. This file is temporary and is deleted in Phase 6.
 bundle-then-assemble. Confirm `dependencies` is absent or empty.
 
 **Task 1.6** — `index.html`: seven tags → one. **This is the commit where the
-delivery boundary moves**, and the four-surface equivalence must be clean
+delivery boundary moves**, and the five-surface equivalence must be clean
 through it before anything else proceeds.
 
 **Task 1.7** — [`tools/build-site.mjs`](tools/build-site.mjs): allowlist `js` →
@@ -194,7 +198,7 @@ figure.
 SHA-pinned.
 
 > **Gate 1.** The site is served from one built artifact and behaves
-> identically. Parity, artifact and four-surface equivalence all green. Zero
+> identically. Parity, artifact and five-surface equivalence all green. Zero
 > runtime dependencies. **No application code has moved yet.**
 
 ---
@@ -245,7 +249,7 @@ IIFE design as fact.
 grade-distribution job and does **not** become the equivalence oracle.
 
 > **Gate 2.** All source is ESM. Adapter sentinels counted and shrinking. Test layout follows the
-> settled `OQ-ARCH-09` hybrid. Four-surface equivalence clean through the
+> settled `OQ-ARCH-09` hybrid. Five-surface equivalence clean through the
 > bundle.
 
 ---
@@ -302,7 +306,7 @@ one head before it meets a hard one.
 | 4.7 | `core/dkim/` | Discovery, catalog, key decode | `DKIM_SCAN_BATCH_SIZE = 24` moves **unchanged**. |
 | 4.8 | `core/spf/` | Parse, recursive evaluate, lookup accounting, subnets, redundancy | Hardest, most resolver-coupled. Last. |
 
-Each: extract → its tests → full suite → four-surface equivalence → commit.
+Each: extract → its tests → full suite → five-surface equivalence → commit.
 Eight commits minimum.
 
 **Task 4.9** — `providers/detectors.js`.
@@ -387,7 +391,7 @@ code change is constant, and a version bump buried in a commit that also moves
 
 **Task 6.10** — `pr-description.md`, structured like
 [PR #4](https://github.com/kwestic-tech/dns-email-audit/pull/4), with real
-numbers: before/after payload, contract inventory, four-surface diff.
+numbers: before/after payload, contract inventory, five-surface diff.
 
 **Task 6.11** — Push once. Open the PR. Stop. **The merge is Ian's call.** Tag
 `v0.6.0` annotated on the squashed commit after he merges.
@@ -423,7 +427,7 @@ node tools/backtest.mjs --sample
 
 Live DNS. Read it for a *distribution* shift and nothing finer. Never a gate.
 
-**Any equivalence diff on any of the four surfaces is a stop.** Not a note in
+**Any equivalence diff on any of the five surfaces is a stop.** Not a note in
 the PR description — a stop, until it is explained or reverted. A query-trace
 diff with an identical result is still a stop: it means cache or concurrency
 behavior moved, and that is a published privacy figure.
@@ -453,7 +457,7 @@ Spec risks, mapped to where they are actually mitigated.
 
 | Risk | Where |
 | --- | --- |
-| R1 silent behavior change | Every gate: four-surface equivalence, through the bundle |
+| R1 silent behavior change | Every gate: five-surface equivalence, through the bundle |
 | R2 bundle ≠ tested source | Task 1.9, and the boundary existing from Phase 1 |
 | R3 supply chain | Tasks 0.2, 1.1, 1.2 — spike numbers, not recollection |
 | R4 ESM strict-mode semantics | Tasks 2.3, 2.4 — one file per commit, behind a working bundle |
