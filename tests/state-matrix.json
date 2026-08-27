@@ -1,0 +1,3718 @@
+{
+  "$comment": [
+    "Coverage matrix for tests/state-algebras.json. Spec §12.1 and Testing item 3.",
+    "One row per registry member. A row must name at least one suite or one equivalence fixture.",
+    "`suites` was SEEDED by scanning the five v0.5.0 suites for the member as a string literal,",
+    "then reviewed. A literal hit is evidence the token appears, not proof it is asserted; rows",
+    "corrected by review carry a note. Members with no suite are the corpus's job, and a member",
+    "the corpus cannot reach is framework §6 trigger 3 — stop and write a Codex review.",
+    "`fixtures` is filled by Task 0.4.a as the equivalence corpus is designed."
+  ],
+  "version": 1,
+  "registry": "tests/state-algebras.json",
+  "rows": [
+    {
+      "algebra": "dns.transport.kind",
+      "member": "success",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.transport.kind",
+      "member": "nodata",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.transport.kind",
+      "member": "nxdomain",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.transport.kind",
+      "member": "servfail",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.transport.kind",
+      "member": "refused",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.transport.kind",
+      "member": "dns-error",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.transport.kind",
+      "member": "http-error",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.transport.kind",
+      "member": "cancelled",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.transport.kind",
+      "member": "timeout",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.transport.kind",
+      "member": "network-error",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.retryTerminal",
+      "member": "success",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.retryTerminal",
+      "member": "nodata",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.retryTerminal",
+      "member": "nxdomain",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.retryTerminal",
+      "member": "cancelled",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.cacheable",
+      "member": "success",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.cacheable",
+      "member": "nodata",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.cacheable",
+      "member": "nxdomain",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.usable",
+      "member": "success",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.usable",
+      "member": "nodata",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.usable",
+      "member": "nxdomain",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.thrown",
+      "member": "DnsTypeError",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.thrown",
+      "member": "AbortError",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.thrown",
+      "member": "DnsQueryError",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.optionalCheck.rethrow",
+      "member": "AbortError",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.optionalCheck.rethrow",
+      "member": "DnsTypeError",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.existence",
+      "member": "yes",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.existence",
+      "member": "no",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dns.existence",
+      "member": "unknown",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.status",
+      "member": "permerror",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.status",
+      "member": "missing",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.status",
+      "member": "warn",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.status",
+      "member": "ok",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.status",
+      "member": "softfail",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.status",
+      "member": "present",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.cls",
+      "member": "crit",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.cls",
+      "member": "warn",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.cls",
+      "member": "ok",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.warnings",
+      "member": "spf-multiple-records",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.warnings",
+      "member": "spf-missing-google",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.warnings",
+      "member": "spf-missing-icloud",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.warnings",
+      "member": "spf-missing-microsoft",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.warnings",
+      "member": "spf-all-permit",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.warnings",
+      "member": "spf-neutral",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.warnings",
+      "member": "spf-softfail",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.subnet.severity",
+      "member": "LOW",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.subnet.severity",
+      "member": "MEDIUM",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.subnet.severity",
+      "member": "HIGH",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.finding.type",
+      "member": "SPF_LARGE_SUBNET",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "spf.finding.type",
+      "member": "SPF_REDUNDANCY",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "ip.family",
+      "member": "ipv4",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "ip.family",
+      "member": "ipv6",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.confidence",
+      "member": "not-checked",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.confidence",
+      "member": "sampled",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.confidence",
+      "member": "observed",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.scanMode",
+      "member": "provider-aware",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.scanMode",
+      "member": "comprehensive",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.selector.type",
+      "member": "key",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.selector.type",
+      "member": "cname",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.note",
+      "member": "",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.note",
+      "member": "noteWildcard",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.note",
+      "member": "noteNotFoundWithErrors",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.note",
+      "member": "noteNotFound",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.recordSet.bucket",
+      "member": "keys",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.recordSet.bucket",
+      "member": "revoked",
+      "suites": [
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.recordSet.bucket",
+      "member": "unusable",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.recordSet.bucket",
+      "member": "malformed",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.keyType",
+      "member": "rsa",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.keyType",
+      "member": "ed25519",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.keyType",
+      "member": "unknown",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.keyEncoding",
+      "member": "null",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.keyEncoding",
+      "member": "pkcs1",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.keyEncoding",
+      "member": "spki",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.version",
+      "member": "null",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.version",
+      "member": "DKIM1",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.cryptoValidated",
+      "member": "null",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.cryptoValidated",
+      "member": "true",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.cryptoValidated",
+      "member": "false",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.errors",
+      "member": "invalid-tag-list",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.errors",
+      "member": "duplicate-tags",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.errors",
+      "member": "bad-version",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.errors",
+      "member": "version-not-first",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.errors",
+      "member": "invalid-key-type",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.errors",
+      "member": "missing-p",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.errors",
+      "member": "unparseable-key",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.errors",
+      "member": "bad-ed25519-length",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.errors",
+      "member": "invalid-notes",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.errors",
+      "member": "key-structure-invalid",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.restrictions",
+      "member": "unsupported-key-type",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.restrictions",
+      "member": "no-supported-hash",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dkim.key.restrictions",
+      "member": "service-not-email",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.status",
+      "member": "ok",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.status",
+      "member": "warn",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.status",
+      "member": "present",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.status",
+      "member": "missing",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.status",
+      "member": "unknown",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.status",
+      "member": "permerror",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.cls",
+      "member": "ok",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.cls",
+      "member": "warn",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.cls",
+      "member": "crit",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.tagState",
+      "member": "absent",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.tagState",
+      "member": "valid",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.tagState",
+      "member": "invalid",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.alignmentState",
+      "member": "absent",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.alignmentState",
+      "member": "r",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.alignmentState",
+      "member": "s",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.alignmentState",
+      "member": "invalid",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.alignment",
+      "member": "r",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.alignment",
+      "member": "s",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.policy",
+      "member": "none",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs",
+        "tools/csp.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.policy",
+      "member": "quarantine",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.policy",
+      "member": "reject",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.policy",
+      "member": "null",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.policy",
+      "member": "",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.version.reason",
+      "member": "null",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.version.reason",
+      "member": "absent",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.version.reason",
+      "member": "not-first",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.version.reason",
+      "member": "bad-value",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.diagnosis",
+      "member": "null",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.diagnosis",
+      "member": "version-bad-case",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.diagnosis",
+      "member": "version-not-first",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.diagnosis",
+      "member": "version-absent",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.walk.terminated",
+      "member": "root",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.walk.terminated",
+      "member": "error",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.walk.terminated",
+      "member": "psd-y",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.walk.terminated",
+      "member": "psd-n",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.observation.why",
+      "member": "at-apex-not-underscore",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.observation.why",
+      "member": "multiple-at-step",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.observation.why",
+      "member": "version-bad-case",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.observation.why",
+      "member": "version-not-first",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.observation.why",
+      "member": "version-absent",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.appliedBranch",
+      "member": "np",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.appliedBranch",
+      "member": "sp",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.appliedBranch",
+      "member": "weakest",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.psd",
+      "member": "u",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.psd",
+      "member": "y",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.psd",
+      "member": "n",
+      "suites": [
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.fo",
+      "member": "0",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.fo",
+      "member": "1",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.fo",
+      "member": "d",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.fo",
+      "member": "s",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.state",
+      "member": "authorized",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.state",
+      "member": "unauthorized",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.state",
+      "member": "unverifiable",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.state",
+      "member": "override-mismatch",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.via",
+      "member": "null",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.via",
+      "member": "exact",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.error",
+      "member": "absent",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.error",
+      "member": "name-too-long",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.error",
+      "member": "servfail",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.error",
+      "member": "refused",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.error",
+      "member": "dns-error",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.error",
+      "member": "http-error",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.error",
+      "member": "timeout",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.error",
+      "member": "network-error",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.error",
+      "member": "undefined",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.record.reason",
+      "member": "null",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.record.reason",
+      "member": "version",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.record.reason",
+      "member": "syntax",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.overrideReason",
+      "member": "null",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.overrideReason",
+      "member": "cross-host",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dmarc.reportAuth.overrideReason",
+      "member": "malformed",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.state",
+      "member": "secure",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.state",
+      "member": "insecure",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.state",
+      "member": "bogus",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.state",
+      "member": "unanchored",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.state",
+      "member": "mismatch",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.state",
+      "member": "indeterminate",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.chain.claim",
+      "member": "resolver-bogus",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.chain.claim",
+      "member": "resolver-unreachable",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.chain.claim",
+      "member": "resolver-ad",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.chain.claim",
+      "member": "link-checked",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.chain.claim",
+      "member": "ds-confirms-dnskey",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.chain.claim",
+      "member": "ds-no-matching-key",
+      "suites": [
+        "tools/render.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.chain.claim",
+      "member": "ds-digest-mismatch",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.chain.claim",
+      "member": "ds-unverifiable",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.chain.claim",
+      "member": "lookup-incomplete",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.chain.source",
+      "member": "resolver",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.chain.source",
+      "member": "local",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.match",
+      "member": "unverifiable",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.match",
+      "member": "unverifiable-digest-type",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.match",
+      "member": "no-matching-key",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.match",
+      "member": "confirmed",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.match",
+      "member": "digest-mismatch",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.unverifiableReason",
+      "member": "null",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.unverifiableReason",
+      "member": "invalid-ds",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.unverifiableReason",
+      "member": "invalid-owner",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.unverifiableReason",
+      "member": "runtime-unavailable",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.unverifiableReason",
+      "member": "unbuildable-key",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.algorithmEligibility",
+      "member": "eligible",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.algorithmEligibility",
+      "member": "ineligible",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.algorithmEligibility",
+      "member": "unknown",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestEligibility",
+      "member": "eligible",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestEligibility",
+      "member": "ineligible",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestEligibility",
+      "member": "unknown",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.keyStructure",
+      "member": "valid",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.keyStructure",
+      "member": "invalid",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.keyStructure",
+      "member": "unknown",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestName",
+      "member": "null",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestName",
+      "member": "RESERVED",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestName",
+      "member": "SHA-1",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestName",
+      "member": "SHA-256",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestName",
+      "member": "GOST-R-34.11-94",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestName",
+      "member": "SHA-384",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestName",
+      "member": "GOST-R-34.11-2012",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestName",
+      "member": "SM3",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.digestName",
+      "member": "PRIVATE-USE",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.evidence",
+      "member": "complete",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.evidence",
+      "member": "partial",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.evidence",
+      "member": "none",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs",
+        "tools/csp.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.error",
+      "member": "undefined",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.error",
+      "member": "servfail",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.error",
+      "member": "refused",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.error",
+      "member": "dns-error",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.error",
+      "member": "http-error",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.error",
+      "member": "cancelled",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.error",
+      "member": "timeout",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.error",
+      "member": "network-error",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.dnskey.errors",
+      "member": "unparseable-record",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.dnskey.errors",
+      "member": "unbalanced-parentheses",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.dnskey.errors",
+      "member": "bad-flags",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.dnskey.errors",
+      "member": "bad-protocol",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.dnskey.errors",
+      "member": "bad-algorithm",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.dnskey.errors",
+      "member": "empty-key",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.dnskey.errors",
+      "member": "bad-key-encoding",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.errors",
+      "member": "unparseable-record",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.errors",
+      "member": "unbalanced-parentheses",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.errors",
+      "member": "bad-key-tag",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.errors",
+      "member": "bad-algorithm",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.errors",
+      "member": "bad-digest-type",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.errors",
+      "member": "empty-digest",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.errors",
+      "member": "bad-digest",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.ds.errors",
+      "member": "bad-digest-length",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.lookup",
+      "member": "ns",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.lookup",
+      "member": "ds",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "dnssec.lookup",
+      "member": "dnskey",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "mx.host.resolves",
+      "member": "yes",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "mx.host.resolves",
+      "member": "no",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "mx.host.resolves",
+      "member": "unknown",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "mx.ipv6Coverage",
+      "member": "none",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs",
+        "tools/csp.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "mx.ipv6Coverage",
+      "member": "some",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "mx.ipv6Coverage",
+      "member": "all",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.errors",
+      "member": "unparseable-record",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.errors",
+      "member": "bad-flags",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.errors",
+      "member": "bad-tag",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.errors",
+      "member": "unquoted-value",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.errors",
+      "member": "bad-issue-value",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.errors",
+      "member": "bad-iodef-url",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.knownTags",
+      "member": "issue",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.knownTags",
+      "member": "issuewild",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.knownTags",
+      "member": "iodef",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.knownTags",
+      "member": "issuemail",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.knownTags",
+      "member": "contactemail",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "caa.knownTags",
+      "member": "contactphone",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.errors",
+      "member": "invalid-syntax",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.errors",
+      "member": "duplicate-tags",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaSts.errors",
+      "member": "invalid-syntax",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.tlsRpt.errors",
+      "member": "invalid-syntax",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.tlsa.errors",
+      "member": "unparseable-record",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.tlsa.errors",
+      "member": "unbalanced-parentheses",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.tlsa.errors",
+      "member": "bad-usage",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.tlsa.errors",
+      "member": "bad-selector",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.tlsa.errors",
+      "member": "bad-matching-type",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.tlsa.errors",
+      "member": "bad-association-data",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.tlsa.errors",
+      "member": "bad-digest-length",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.dns.sentinel",
+      "member": "@unknown",
+      "suites": [
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.dns.sentinel",
+      "member": "@self-hosted",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.dns.sentinel",
+      "member": "@custom",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.email.sentinel",
+      "member": "@null-mx",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.email.sentinel",
+      "member": "@implicit-mx",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.email.sentinel",
+      "member": "@none",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.email.sentinel",
+      "member": "@porkbun-forwarding",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.email.sentinel",
+      "member": "@self-hosted",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.email.sentinel",
+      "member": "@custom-unknown",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.hosting.sentinel",
+      "member": "@dash",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.hosting.sentinel",
+      "member": "@cloudflare-proxied",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.hosting.sentinel",
+      "member": "@no-web",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.hosting.sentinel",
+      "member": "@custom",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.hosting.sentinel",
+      "member": "@cname-loop",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "providers.hosting.sentinel",
+      "member": "@dns-error",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.grade",
+      "member": "A++",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.grade",
+      "member": "A+",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.grade",
+      "member": "A",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs",
+        "tools/interpolate.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.grade",
+      "member": "B",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/interpolate.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.grade",
+      "member": "C",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/interpolate.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.grade",
+      "member": "D",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.grade",
+      "member": "F",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.gradeCls",
+      "member": "score-aplusplus",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.gradeCls",
+      "member": "score-aplus",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.gradeCls",
+      "member": "score-a",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.gradeCls",
+      "member": "score-b",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.gradeCls",
+      "member": "score-c",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.gradeCls",
+      "member": "score-d",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.gradeCls",
+      "member": "score-f",
+      "suites": [
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.pillar",
+      "member": "dmarc",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.pillar",
+      "member": "spf",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.pillar",
+      "member": "dkim",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.pillar",
+      "member": "dnssec",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.pillar",
+      "member": "caa",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.pillar",
+      "member": "mtaSts",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.pillar",
+      "member": "bimi",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.pillar",
+      "member": "tlsRpt",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.parkedPillar",
+      "member": "spf",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.parkedPillar",
+      "member": "dmarc",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.parkedPillar",
+      "member": "dnssec",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.parkedPillar",
+      "member": "caa",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.unproven",
+      "member": "dmarc",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.unproven",
+      "member": "dkim",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.unproven",
+      "member": "dnssec",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.unproven",
+      "member": "caa",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.unproven",
+      "member": "mtaSts",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.unproven",
+      "member": "bimi",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.unproven",
+      "member": "tlsRpt",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.dmarcScore.parts",
+      "member": "policy",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.dmarcScore.parts",
+      "member": "subdomain",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.dmarcScore.parts",
+      "member": "rua",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.dmarcScore.parts",
+      "member": "alignment",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.dmarcScore.parts",
+      "member": "ruf",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.dmarcScore.parts",
+      "member": "uris",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.issue.sev",
+      "member": "crit",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.issue.sev",
+      "member": "warn",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.issue.sev",
+      "member": "info",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.guide",
+      "member": "dmarc-rfc9989",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.guide",
+      "member": "bimi",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.guide",
+      "member": "mta-sts",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.guide",
+      "member": "tls-rpt",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.guide",
+      "member": "caa",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.guide",
+      "member": "dnssec",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.key",
+      "member": "dmarc-pct-obsolete",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.key",
+      "member": "bimiEligible",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.key",
+      "member": "bimiPrereq",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.key",
+      "member": "mta-sts",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.key",
+      "member": "tls-rpt",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.key",
+      "member": "caa",
+      "suites": [
+        "tools/scoring.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.suggestion.key",
+      "member": "dnssec",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/export.test.mjs"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.result.shape",
+      "member": "unregistered",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.result.shape",
+      "member": "full",
+      "suites": [],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "bimi-invalid",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "bimi-multiple-records",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "caa-blocks-all-issuance",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "caa-malformed",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "caa-no-iodef",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "caa-single-issuer",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "caa-unknown-critical-tag",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "checks-unverified",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-key-1024",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-key-malformed",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-key-mixed",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-key-not-email",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-key-revoked",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-key-sha1",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-key-testing",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-key-unparseable",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-key-weak",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-missing",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-multiple-records",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-not-checked",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dkim-unverified",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-at-apex",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-at-apex-ignored",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-bad-adkim",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-bad-aspf",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-bad-fo",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-bad-np",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-bad-pct",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-bad-psd",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-bad-sp",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-bad-t",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-duplicate-tags",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-external-override-mismatch",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-external-reporting",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-external-unauthorized",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-external-unverifiable",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-fo-without-ruf",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-invalid-policy",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-missing",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-multiple-records",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-multiple-records-inherited",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-no-rua",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-none",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-np-not-applied",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-partial-pct",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-quarantine",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-removed-tags",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-report-destinations-truncated",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-rua-invalid",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tools/export.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-ruf-invalid",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-test-mode",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-unknown-tags",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-unverified",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-version-bad-value",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-version-missing",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-version-not-first",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-weak-np",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dmarc-weak-sp",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dns-loop",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dnssec-bogus",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dnssec-deprecated-algorithm",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dnssec-deprecated-digest",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dnssec-ds-orphan",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dnssec-indeterminate",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dnssec-key-algorithm-ineligible",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dnssec-key-malformed",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dnssec-key-not-zone-key",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dnssec-mismatch",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dnssec-revoke-flag",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "dnssec-unanchored",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "implicit-mx",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "mta-sts-invalid",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "mta-sts-multiple-records",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "mta-sts-policy-unverified",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "mx-cname-target",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "mx-dangling",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "mx-duplicate-preference",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "mx-no-ipv6",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "mx-same-prefix",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "mx-single-host",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "no-mx",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "porkbun-forward",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-all-permit",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-cycle",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-indeterminate",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-large-subnet",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-medium-subnet",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-missing",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tools/render.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-missing-google",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-missing-icloud",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-missing-microsoft",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-multiple-records",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-near-limit",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-neutral",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-over-limit",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-partial-coverage",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-redundant-mechanism",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-redundant-mechanism-nocount",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "spf-softfail",
+      "suites": [
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "tls-rpt-invalid",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "tls-rpt-multiple-records",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "tlsa-malformed",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "tlsa-partial-coverage",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "tlsa-published-unsigned",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "wildcard-txt-apex",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    },
+    {
+      "algebra": "audit.issue.key",
+      "member": "wildcard-txt-dkim",
+      "suites": [
+        "tools/scoring.test.mjs",
+        "tests/contract/legacy-shapes.test.mjs"
+      ],
+      "fixtures": [],
+      "note": "the full 106-token set is asserted as a closure against locales/en.json, section 6"
+    }
+  ]
+}
