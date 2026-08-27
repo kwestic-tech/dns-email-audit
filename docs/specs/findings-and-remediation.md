@@ -211,7 +211,7 @@ which is where hygiene items collect.
 
 ### 5. Interface
 
-The detail panel's issues block at [`js/app.js:513`](../../js/app.js) is replaced
+The detail panel's issues block at [`js/app.js:513`](../../src/main.js) is replaced
 by two views over the same finding set:
 
 - **By severity**, the default, preserving today's layout so nothing is lost for
@@ -221,7 +221,7 @@ by two views over the same finding set:
 
 Confidence is rendered where it is not `confirmed`. An `unverified` finding
 carries the same visual treatment as the existing unproven-pillar asterisk at
-[`js/app.js:403`](../../js/app.js), for consistency.
+[`js/app.js:403`](../../src/main.js), for consistency.
 
 Evidence renders under each finding as the record that produced it, using the
 node-building renderer from 0.2.3 so DNS-derived material stays a text node.
@@ -234,7 +234,7 @@ The CSV export gains `finding_ids`, `finding_severities` and
 Findings and their ordering must be identical across all fourteen locales. The
 rule registry contains no locale-dependent logic, and `buildRemediationPlan()`
 sorts on severity and effort tokens rather than on translated strings. The
-existing grade sort at [`js/app.js:618`](../../js/app.js) is the precedent: it
+existing grade sort at [`js/app.js:618`](../../src/main.js) is the precedent: it
 sorts on `dataset.grade` rather than on rendered text precisely to stay
 locale-independent.
 

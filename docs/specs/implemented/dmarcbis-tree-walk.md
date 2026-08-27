@@ -378,13 +378,13 @@ dmarcExistence: 'yes' | 'no' | 'unknown',
 one release so the CSV export and the report do not break, then removed.
 
 The detail panel gains a discovery line under the existing DMARC row at
-[`js/app.js:494`](../../../js/app.js), showing the found-at name, the number of
+[`js/app.js:494`](../../../src/main.js), showing the found-at name, the number of
 steps, and the termination reason. The existing `dmarc.inheritedFrom` message is
 kept and extended.
 
-The CSV export at [`js/app.js:737`](../../../js/app.js) gains columns for
+The CSV export at [`js/app.js:737`](../../../src/main.js) gains columns for
 `dmarc_found_at`, `dmarc_labels_up` and `dmarc_discovery_terminated`. Note the
-positional-header backfill logic at [`js/app.js:744`](../../../js/app.js): new
+positional-header backfill logic at [`js/app.js:744`](../../../src/main.js): new
 columns must be appended, never inserted, and `locales/en.json` `csv.headers`
 defines the column count.
 

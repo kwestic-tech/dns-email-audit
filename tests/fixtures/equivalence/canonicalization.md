@@ -89,7 +89,7 @@ Included in the comparison: the UTF-8 BOM, the header row, column order, the
 `\r\n` line ending that `toCsvText()` writes, and every quoted and escaped
 field including the formula-neutralization prefix.
 
-The columns are positional — [`js/app.js:1452`](../../../js/app.js) backfills a
+The columns are positional — [`js/app.js:1452`](../../../src/main.js) backfills a
 short translated header from English **by index** — so a reordered column
 silently breaks anyone parsing the file while every value in it stays correct.
 

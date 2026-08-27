@@ -100,8 +100,8 @@ written — the verification the spec required before merge.
 it a selector belonging to neither the MX provider nor anything the user typed
 appears with no explanation. Each finding carries `viaSpf`
 ([`js/dns.js:530`](../../../js/dns.js)) and renders as *via SPF: Zendesk* in the
-detail view ([`js/app.js:428`](../../../js/app.js)) and the CSV export
-([`js/app.js:761`](../../../js/app.js)). Selectors that would have been tested
+detail view ([`js/app.js:428`](../../../src/main.js)) and the CSV export
+([`js/app.js:761`](../../../src/main.js)). Selectors that would have been tested
 anyway are not tagged.
 
 **3. `spfReferencedCatalogKeys` is exported** ([`js/dns.js:1991`](../../../js/dns.js))

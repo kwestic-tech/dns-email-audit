@@ -367,13 +367,13 @@ dkimStatus: {
 ```
 
 CSV columns are appended, never inserted, per the positional-header backfill at
-[`js/app.js:1079`](../../../js/app.js): `dkim_key_type`, `dkim_key_bits`,
+[`js/app.js:1079`](../../../src/main.js): `dkim_key_type`, `dkim_key_bits`,
 `dkim_revoked`, `caa_issuers`, `caa_wildcard_issuers`, `mx_dangling`,
 `mx_host_count`, `tlsa_present`.
 
 The detail panel gains a key line under each DKIM selector at
-[`js/app.js:666`](../../../js/app.js), a parsed CAA block, and an MX health block
-replacing the plain `r.mx.join('\n')` at [`js/app.js:782`](../../../js/app.js).
+[`js/app.js:666`](../../../src/main.js), a parsed CAA block, and an MX health block
+replacing the plain `r.mx.join('\n')` at [`js/app.js:782`](../../../src/main.js).
 
 ## Localization impact
 

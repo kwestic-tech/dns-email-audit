@@ -94,7 +94,7 @@ Inputs, per artifact type:
 - A `<input type="file">` accepting `.txt` for MTA-STS and `.svg` for BIMI.
 
 Both read into a string with `FileReader`, following the existing upload pattern
-at [`js/app.js:848`](../../js/app.js), which already enforces a 1 MB cap through
+at [`js/app.js:848`](../../src/main.js), which already enforces a 1 MB cap through
 `MAX_UPLOAD_BYTES`.
 
 ### 2. Limits, enforced before parsing

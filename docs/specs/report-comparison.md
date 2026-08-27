@@ -14,9 +14,9 @@
 
 The tool answers "what is the state of these domains right now" and cannot answer
 "what changed". Both existing exports are terminal. `exportCSV()` at
-[`js/app.js:737`](../../js/app.js) writes localized, human-readable strings into
+[`js/app.js:737`](../../src/main.js) writes localized, human-readable strings into
 positional columns and flattens findings into a single pipe-joined cell.
-`exportHTML()` at [`js/app.js:811`](../../js/app.js) writes a static document with
+`exportHTML()` at [`js/app.js:811`](../../src/main.js) writes a static document with
 the stylesheet inlined. Neither can be read back, and neither should be: parsing
 localized display text back into structured data would break the moment someone
 exported in a different language.
@@ -120,7 +120,7 @@ with a clear message rather than attempting a partial parse.
 `exportJSON()` sits beside the existing two export buttons at
 [`index.html:80`](../../index.html). It builds the structure from the in-memory
 `results` array and downloads it through the existing `dl()` helper at
-[`js/app.js:729`](../../js/app.js).
+[`js/app.js:729`](../../src/main.js).
 
 The exported filename includes a UTC date so two exports do not collide in a
 downloads folder: `dns-email-audit-2026-08-20.json`.
@@ -219,11 +219,11 @@ Comparison mode is entered by importing a baseline report while results are on
 screen, or by importing two reports with no audit running.
 
 The results table gains a delta column and per-row change indicators, reusing the
-existing filter mechanism at [`js/app.js:571`](../../js/app.js) with new filter
+existing filter mechanism at [`js/app.js:571`](../../src/main.js) with new filter
 values for `improved`, `regressed`, `added` and `removed`.
 
 A comparison summary replaces the stats grid at
-[`js/app.js:548`](../../js/app.js) while in comparison mode.
+[`js/app.js:548`](../../src/main.js) while in comparison mode.
 
 Leaving comparison mode discards the imported report from memory. So does
 reloading, which is the point.

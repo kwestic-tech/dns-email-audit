@@ -437,7 +437,7 @@ held**, including the three that contradicted this spec's own text.
 | F2 (recipe) | Task 0.4.c checks out `v0.5.0`, then runs a file that exists only on this branch | Confirmed |
 | F2 (scope) | Compared the oracle's projection against the Non-goals text | Confirmed — "explanations" was promised and unobserved |
 | F3 | `grep __PUBLIC_SUFFIX_RULES__` → [`tools/scoring.test.mjs:21`](tools/scoring.test.mjs) injects `['com','co.uk','*.ck','!www.ck']` | Confirmed, and sharper than stated |
-| F4 | [`tools/scoring.test.mjs:1888-1891`](tools/scoring.test.mjs) asserts 3 queries then 1; [`js/app.js:1397`](js/app.js) passes no context; [`PRIVACY.md:30-33`](PRIVACY.md) publishes 41 and 61 | Confirmed |
+| F4 | [`tools/scoring.test.mjs:1888-1891`](tools/scoring.test.mjs) asserts 3 queries then 1; [`js/app.js:1397`](src/main.js) passes no context; [`PRIVACY.md:30-33`](PRIVACY.md) publishes 41 and 61 | Confirmed |
 | F5 | `npm view esbuild version scripts optionalDependencies` → 0.28.2, `postinstall: node install.js`, 26 `@esbuild/*` | Confirmed empirically |
 | F6 | `head locales/en.json` (nested); `grep -c 'issue.spf-large-subnet.msg'` → 0 | Confirmed |
 | F7.1 | `grep -c '@license\|@preserve\|/\*!\|//!\|MIT'` across all four hand-written files → 0 on every pattern | Confirmed |
@@ -689,8 +689,8 @@ global surface is **five separate namespaces**, not one:
 | Global | Assigned at |
 | --- | --- |
 | `DnsAudit` | [`js/dns.js:5601`](js/dns.js) |
-| `startAudit`, `cancelAudit`, `exportCSV`, … | [`js/app.js:1768`](js/app.js) |
-| `__APP_TEST__` | [`js/app.js:1785`](js/app.js) — read by `render.test.mjs:21`, `export.test.mjs:17` |
+| `startAudit`, `cancelAudit`, `exportCSV`, … | [`js/app.js:1768`](src/main.js) |
+| `__APP_TEST__` | [`js/app.js:1785`](src/main.js) — read by `render.test.mjs:21`, `export.test.mjs:17` |
 | `R` | [`js/render.js:551`](src/ui/render.js) |
 | `i18n`, `t`, `tp` | [`js/i18n.js:386`](src/i18n/index.js) |
 

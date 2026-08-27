@@ -400,8 +400,8 @@ structure exactly. **No concurrency change in this release.**
 **Task 5.4** — `src/audit/issues.js`: `buildIssues`, `buildSuggestions`.
 
 **Task 5.5** — `src/ui/report.js`: `exportCSV`
-([`js/app.js:1560`](js/app.js)), `exportHTML`
-([`js/app.js:1634`](js/app.js)). The report's own
+([`js/app.js:1560`](src/main.js)), `exportHTML`
+([`js/app.js:1634`](src/main.js)). The report's own
 `default-src 'none'; style-src 'unsafe-inline'; img-src data:` policy is
 asserted by `csp.test.mjs` §5 and must survive.
 

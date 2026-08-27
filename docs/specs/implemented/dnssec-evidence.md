@@ -654,15 +654,15 @@ reserved for demonstrably broken validation: `mismatch` and `bogus`
 
 ### 8. Interface
 
-The DNSSEC dot in the advanced strip at [`js/app.js:399`](../../../js/app.js) and
-[`js/app.js:416`](../../../js/app.js) gains an amber state for `unanchored` and
+The DNSSEC dot in the advanced strip at [`js/app.js:399`](../../../src/main.js) and
+[`js/app.js:416`](../../../src/main.js) gains an amber state for `unanchored` and
 `mismatch`, using the existing `partial` field that already drives the amber
-treatment for duplicated records at [`js/app.js:422`](../../../js/app.js) and
-[`js/app.js:464`](../../../js/app.js). The `done/5` count is unchanged: amber is not
+treatment for duplicated records at [`js/app.js:422`](../../../src/main.js) and
+[`js/app.js:464`](../../../src/main.js). The `done/5` count is unchanged: amber is not
 configured. Everything else — keys, DS records, match verdicts, the chain array
 — lives in the detail panel (`OQ-SEC9-06`).
 
-The CSV cell at [`js/app.js:1489`](../../../js/app.js) already emits
+The CSV cell at [`js/app.js:1489`](../../../src/main.js) already emits
 `dnssec.state` as a token when the domain is not signed, so `unanchored` and
 `mismatch` appear there without a schema change. That is a behaviour change for
 anything consuming the column and it is deliberate: tokens, not prose, is the
@@ -1032,8 +1032,8 @@ and confidence get a model.
 **OQ-SEC9-06: How much belongs in the collapsed row versus the detail panel?**
 *Amber in the dot, everything else in the panel.* Consistent with the
 duplicate-record precedent, and it needs no new rendering concept: the existing
-`partial` field already drives amber at [`js/app.js:422`](../../../js/app.js) and
-[`js/app.js:464`](../../../js/app.js). See §8.
+`partial` field already drives amber at [`js/app.js:422`](../../../src/main.js) and
+[`js/app.js:464`](../../../src/main.js). See §8.
 
 **OQ-SEC9-07: What becomes of `checkTlsa()`'s `qualified` flag?**
 *It is retired.* Raised during the 1.0 review; resolved by Ian. The draft's §6

@@ -223,7 +223,7 @@ published privacy figure:
   exact query counts across two *different* domains — a first DMARC walk issues
   3 queries and a sibling subdomain issues 1, reusing the cached upper steps.
   Per-audit scoping fails that assertion.
-- [`js/app.js:1397`](../../js/app.js) calls `analyzeDomain(domain, opts)` once
+- [`js/app.js:1397`](../../src/main.js) calls `analyzeDomain(domain, opts)` once
   per queued domain from a shared worker pool, with no audit context passed.
   The reuse exists *because* the cache outlives a single domain.
 - [`PRIVACY.md:30-33`](../../PRIVACY.md) publishes the consequence: "roughly 41
