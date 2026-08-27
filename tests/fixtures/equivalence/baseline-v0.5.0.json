@@ -89,7 +89,7 @@
       "id": "legacy-function-globals-removed",
       "task": "2.8",
       "status": "planned",
-      "summary": "The 14 standalone js/app.js function globals are removed, with __APP_TEST__, the i18n/renderer wiring globals, and the three generated-data transition inputs."
+      "summary": "The 14 unsupported js/app.js function globals are removed. Nothing else."
     }
   ],
   "cases": [

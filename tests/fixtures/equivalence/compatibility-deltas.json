@@ -15,7 +15,17 @@
     "The load-bearing distinction, and the reason this file exists: the search proved NO REPOSITORY",
     "CONSUMER. It cannot prove no consumer. A static site can be driven from a console, an",
     "extension, or an embedding page absent from this checkout. These are authorized decisions, not",
-    "discoveries, and neither may be described as 'nothing used it'."
+    "discoveries, and neither may be described as 'nothing used it'.",
+    "",
+    "CORRECTED 2026-08-27, before Task 2.7 was implemented. The previous revision of this file",
+    "over-scoped Task 2.8: it folded __APP_TEST__, the i18n/renderer wiring globals and the three",
+    "generated-data transition inputs into the fourteen-function-global delta, and claimed the end",
+    "state was DnsAudit alone. Neither the binding plan's Task 2.8 nor spec §10 authorizes that.",
+    "Those nine names have REPOSITORY CONSUMERS and no direct ESM owner yet — tools/render.test.mjs",
+    "and tools/export.test.mjs read __APP_TEST__ across 528 assertions — so removing them before",
+    "the phase that gives each a home would delete coverage rather than retire an adapter. They",
+    "stay behind marked adapters and retire on their owners' schedule, recorded below rather than",
+    "silently folded into a compatibility entry that does not cover them."
   ],
   "release": "0.6.0",
   "baseline": "v0.5.0",
@@ -43,22 +53,29 @@
         "an early globalName would emit a top-level var that overwrites the real object, which is the",
         "mistake spec 0.2 nearly shipped.",
         "Five-surface equivalence must stay clean through the commit."
-      ]
+      ],
+      "instrumentConsequence": [
+        "The contracted global is esbuild's export namespace: non-configurable accessors, and NOT the",
+        "engine object src/main.js calls. Measured — the assignment throws, and the artifact contains",
+        "the string window.DnsAudit zero times. The equivalence runner captured the RESULT surface by",
+        "wrapping window.DnsAudit.analyzeDomain, so this commit must also rebuild the oracle to the",
+        "two-execution shape spec 1.4 §8 now specifies: the facade for the result, the real UI",
+        "controls for the other four, one deterministic case, cross-surface binding asserted. No",
+        "exclusion is added and no surface is relaxed."
+      ],
+      "globalCount": { "before": 24, "after": 24, "note": "The NAME set is unchanged; DnsAudit's membership contracts from 95 to 2. The producer moves from src/main.js to esbuild's generated boundary, so the source graph creates 23 and the bundle 24." }
     },
     {
       "id": "legacy-function-globals-removed",
       "task": "2.8",
       "status": "planned",
-      "summary": "The 14 standalone js/app.js function globals are removed, with __APP_TEST__, the i18n/renderer wiring globals, and the three generated-data transition inputs.",
+      "summary": "The 14 unsupported js/app.js function globals are removed. Nothing else.",
       "removed": {
         "functionGlobals": [
           "startAudit", "cancelAudit", "clearAll", "exportCSV", "exportHTML",
           "filterTable", "loadExample", "loadFile", "openLearnMore", "setLang",
           "showHelp", "sortTable", "toggleDetail", "toggleShowMe"
-        ],
-        "testSurface": ["__APP_TEST__"],
-        "internalWiring": ["i18n", "t", "tp", "tRaw", "R"],
-        "transitionInputs": ["__PUBLIC_SUFFIX_RULES__", "__DKIM_SELECTOR_CATALOG__", "__I18N_EN__"]
+        ]
       },
       "why": [
         "index.html contains no inline event handlers — the CSP carries no 'unsafe-inline', so it",
@@ -67,25 +84,64 @@
         "package.json declares no main, exports or files, so this project publishes no documented",
         "JavaScript API. The names are unsupported legacy surface, not compatibility API."
       ],
-      "authorizedBy": "Spec §10, 'The 14 function globals have no repository consumer'. Sequencing confirmed by Ian 2026-08-27.",
+      "authorizedBy": "Spec §10, 'The 14 function globals have no repository consumer'. Scope confirmed as these fourteen only, 2026-08-27.",
       "verification": [
-        "By this point Task 2.7 has already contracted DnsAudit to two members, so there is no",
-        "unsupported DnsAudit member left to remove — this delta is the standalone globals only.",
-        "End state: of the former 24-global surface, only DnsAudit.{analyzeDomain, checkConnectivity}",
-        "remains.",
-        "tests/contract/namespace.test.mjs asserts zero adapters remain reachable and the 24-name",
-        "inventory is gone from the artifact; tests/build/parity.test.mjs asserts the bundle's global",
-        "set matches the facade exactly.",
+        "tests/build/parity.test.mjs asserts the artifact's global set is exactly the ten names",
+        "below — the facade plus the nine adapters that have not reached their owners yet.",
         "Five-surface equivalence must stay clean, which requires the equivalence runner to drive the",
         "application through real DOM events rather than through window.startAudit()."
       ],
+      "globalCount": {
+        "before": 24,
+        "after": 10,
+        "remaining": [
+          "DnsAudit", "__APP_TEST__", "i18n", "t", "tp", "tRaw", "R",
+          "__PUBLIC_SUFFIX_RULES__", "__DKIM_SELECTOR_CATALOG__", "__I18N_EN__"
+        ],
+        "note": "NOT DnsAudit alone. The previous revision of this file said so and it was wrong: the nine names beside the facade have repository consumers and no ESM owner yet. They are marked adapters, not compatibility API, and their removal is adapter retirement rather than a compatibility delta."
+      },
       "knownConsequence": [
-        "tests/lib/subject.mjs currently drives the app by calling win.startAudit(), win.exportCSV()",
-        "and win.exportHTML(). All three disappear here. The runner must dispatch real click events",
-        "on #auditBtn, #exportCsvBtn and #exportHtmlBtn instead, which needs tools/lib/dom-shim.mjs to",
-        "actually dispatch to its stored listeners — it records them today and its click() is a no-op.",
-        "That is a more faithful driver, not a workaround: a user clicks a button."
+        "tests/lib/subject.mjs drives the app by calling win.startAudit(), win.exportCSV() and",
+        "win.exportHTML(). All three disappear here. The runner must dispatch real click events on",
+        "#auditBtn, #exportCsvBtn and #exportHtmlBtn instead, which needs tools/lib/dom-shim.mjs to",
+        "actually dispatch to its stored listeners — it records them today and its click() is a",
+        "no-op. That is a more faithful driver, not a workaround: a user clicks a button.",
+        "It lands in the SAME commit as the removals. No commit may remove startAudit, exportCSV or",
+        "exportHTML while leaving the runner red."
       ]
     }
-  ]
+  ],
+  "adapterRetirement": {
+    "$comment": [
+      "NOT compatibility deltas, and deliberately kept out of the two entries above.",
+      "",
+      "Each of these nine globals has a repository consumer today. Removing one is finished work on",
+      "an adapter whose ESM owner now exists — not an authorized change to a supported surface — and",
+      "recording them here keeps that distinction visible instead of letting nine names ride out on",
+      "an entry written about fourteen others.",
+      "",
+      "tests/contract/state-matrix.test.mjs and tests/contract/namespace.test.mjs count the marked",
+      "adapters, and Phase 6 asserts the count reached zero."
+    ],
+    "pending": [
+      {
+        "globals": ["__APP_TEST__"],
+        "consumers": ["tools/render.test.mjs:21 (329 assertions)", "tools/export.test.mjs:17 (199 assertions)"],
+        "retiresAt": "Phase 5",
+        "why": "Spec §10 classes it as test-only surface that becomes DIRECT ESM IMPORTS. It cannot be exported from src/main.js — the entry's exports ARE the facade, and Task 2.7 pins them at exactly two. It moves when Task 5.5 and Task 5.6 create src/ui/report.js and src/ui/events.js to export the helpers it holds."
+      },
+      {
+        "globals": ["i18n", "t", "tp", "tRaw", "R"],
+        "consumers": ["none in the repository as of Task 2.6; src/main.js installs them so that commit moved no browser-visible surface"],
+        "retiresAt": "no later than Task 6.2",
+        "why": "The wiring globals src/legacy-bridge.js used to publish for js/app.js. Their last reader became src/main.js's own module scope in Task 2.6, so what holds them now is surface neutrality, not a consumer."
+      },
+      {
+        "globals": ["__PUBLIC_SUFFIX_RULES__", "__DKIM_SELECTOR_CATALOG__", "__I18N_EN__"],
+        "consumers": ["tests/build/parity.test.mjs section 5 reads all three from both sides", "tests/build/file-url.test.mjs probes them in a real browser"],
+        "retiresAt": "no later than Task 6.2, with src/data/legacy-globals.js",
+        "why": "Spec §10 classes them as TRANSITION INPUTS, not facade exports: global reads and writes only during the legacy-to-ESM transition. Nothing in the application has read them since Task 2.1 made the data injected."
+      }
+    ]
+  }
 }
