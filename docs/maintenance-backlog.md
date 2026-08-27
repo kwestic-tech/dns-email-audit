@@ -96,3 +96,62 @@ claim is that nothing moved. The three real window builders stay as they are:
 they differ on purpose, and collapsing them into one helper would give the
 equivalence subject and the unit harness the same substitutions, which is the
 opposite of what each needs.
+
+---
+
+## The public suffix list is shipped and read by nothing
+
+**Found:** 2026-08-27, during 0.6.0 Task 2.7, while trying to carry spec §11's
+PSL fixture-identity fingerprint across the facade contraction.
+**Status:** open. **Deliberately not changed in 0.6.0.**
+
+`getOrganizationalDomain()` is the only reader of the public suffix sets
+([`js/dns.js:335-355`](../js/dns.js)), and no application code calls it.
+Measured at two commits, not inferred:
+
+```console
+$ grep -c 'getOrganizationalDomain(' js/dns.js          # declaration only
+1
+$ git show v0.5.0:js/app.js | grep -c 'getOrganizationalDomain'
+0
+```
+
+The audit result's `organizationalDomain` field is produced by
+`selectOrganizationalDomain()`, which walks the RFC 9989 discovery chain and
+never consults the PSL. So no audit result, query trace, CSV export, HTML report
+or DOM node depends on the public suffix list.
+
+### What it costs
+
+| | |
+| --- | --- |
+| `src/data/public-suffixes.js` in the bundle | **160.6 KB**, the largest single input |
+| Share of a 422 KB artifact | **38.1%** |
+| Rules carried | 10,239 |
+
+Every visitor downloads it. It is the single biggest thing in the payload.
+
+### Why it stays in 0.6.0
+
+Removing shipped data is a **behaviour and size decision, not a refactor**. This
+release's contract is five-surface equivalence against `v0.5.0`, and its Risk R8
+exists to refuse exactly this kind of in-passing change: "every other found
+behavior change is filed separately unless it blocks the phase". It does not
+block the phase.
+
+There is also a live question underneath it, and it should be answered before
+the data is removed rather than after: `getOrganizationalDomain()` implements
+the PSL algorithm correctly and three suites assert it. Is the RFC 9989 walk the
+right substitute in every case, or is the absence of a PSL call site a **latent
+defect** — somewhere the organizational domain should have been computed from
+the public suffix list and instead falls back to discovery? That is a protocol
+question for [findings-and-remediation](specs/findings-and-remediation.md) or
+[report-comparison](specs/report-comparison.md) to answer.
+
+### What to do
+
+Answer the protocol question first. Then either delete the table, its generator
+`tools/update-psl.mjs` and `getOrganizationalDomain()` together — a ~38% payload
+cut, with its own equivalence run and release note — or wire the function to its
+missing call site. Do not do half of it: shipping the table without a reader and
+keeping a function nobody calls is the state this entry exists to end.

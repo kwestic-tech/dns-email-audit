@@ -2,15 +2,15 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.3 (Final) |
+| Spec version | 1.4 (Final) |
 | Target release | 0.6.0 |
-| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, to `1.2` to correct an overstated evidence claim about how that enumeration is guarded, and to `1.3` to add the last ambient primitive the conversion sweep found — see [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
+| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, to `1.2` to correct an overstated evidence claim about how that enumeration is guarded, to `1.3` to add the last ambient primitive the conversion sweep found, and to `1.4` — during Task 2.7 — to state the oracle's provenance once the supported facade replaces the legacy engine global, and to reclassify the PSL fixture-identity fingerprint as binding-level. See [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
 | Depends on | [dnssec-evidence](implemented/dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
 | Blocks | [findings-and-remediation](findings-and-remediation.md), [local-artifact-validation](local-artifact-validation.md), [report-comparison](report-comparison.md) — all three are scheduled after it |
 | Slug for open questions | `ARCH` |
 | Last updated | 2026-08-27 |
 | Evidence | [esbuild-legacy-bundle-spike-0.6.0](fixtures/esbuild-legacy-bundle-spike-0.6.0.md) — settles `OQ-ARCH-01`, confirms Phase 1 viability, and demonstrates the fixture-substitution hazard; [gate-0-evidence-0.6.0](fixtures/gate-0-evidence-0.6.0.md) — the Gate 0 conditions, met 2026-08-27; [gate-1-evidence-0.6.0](fixtures/gate-1-evidence-0.6.0.md) — the Gate 1 conditions, including native-Linux `npm ci` and `file://` in a real browser |
-| Reviews | Rounds 1–3 (Codex, 2026-08-27) recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md); the author's requests and responses are in [`CODEX Review Modular Refactor.md`](../../CODEX%20Review%20Modular%20Refactor.md) |
+| Reviews | Rounds 1–3 (Codex, 2026-08-27) recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md); the author's requests and responses are in [`CODEX Review Modular Refactor.md`](../../CODEX%20Review%20Modular%20Refactor.md). The Task-2.7 round, which produced `1.4`, is in [`CODEX Review Facade Contraction and Fixture Identity.md`](../../CODEX%20Review%20Facade%20Contraction%20and%20Fixture%20Identity.md) and [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md) |
 | Source | Written from an external proposal, *DNS Email Audit Modular Architecture and Production Build Refactor Specification* (Codex, 2026-08). Section numbers of the form §N below refer to that document. Where this spec diverges from it, the divergence is recorded in [§ Corrections to the source proposal](#corrections-to-the-source-proposal). |
 
 ## Problem
@@ -655,6 +655,52 @@ Fixtures, never live DNS. `tools/backtest.mjs` queries Cloudflare and is a local
 grade-*distribution* check only, never a gate. The oracle is
 [`tools/lib/doh-fixture.mjs`](../../tools/lib/doh-fixture.mjs).
 
+> **Amended in 1.4: the five surfaces are bound to one deterministic CASE, not
+> to one runtime.** Through `v0.5.0` and up to Task 2.6 they were both, and the
+> distinction never had to be drawn: the runner captured the result surface by
+> wrapping `window.DnsAudit.analyzeDomain`, which worked because the global and
+> the engine the UI called were the same object.
+>
+> Stage 3 of §10 ends that, deliberately. `globalName` makes `window.DnsAudit`
+> esbuild's export namespace — non-configurable accessors, and **not** the
+> engine object `src/main.js` calls. Measured against the built artifact: the
+> assignment throws, and the string `window.DnsAudit` occurs zero times in the
+> shipped code. That is the namespace boundary working, not a bundler defect,
+> and it is the boundary §10's source contract exists to create.
+>
+> So from stage 3 the runner uses **two isolated executions of the same
+> deterministic case**:
+>
+> 1. a fresh subject and runtime calls the supported facade's `analyzeDomain`
+>    for the **result** surface; and
+> 2. a separate fresh subject and runtime drives the real UI controls for the
+>    **query trace, CSV, HTML report and DOM**.
+>
+> The result execution has its own DoH fixture and its own trace. That trace is
+> **not an exclusion** from the query-trace surface — no exclusion is added, and
+> the exclusion manifest stays empty. It belongs to a different instrument
+> execution and is not the trace being reported; the emitted query trace is the
+> UI execution's complete trace.
+>
+> Both executions take the same case data profile, options, fixed instant,
+> locale and platform profile, and neither warms the other: one runtime, one
+> cache, per execution. Because a joined pair is now an assertion rather than a
+> fact, the runner asserts **cross-surface binding** on the stable user-visible
+> fields present on both sides — at minimum domain, score, grade and the issue
+> token set — so two accidentally different cases cannot be reported under one
+> case id. Within-case domain order and the UI's worker behaviour are preserved
+> in the UI execution.
+>
+> What this costs is stated plainly: the result surface and the other four are
+> no longer captured from the same process image. What replaces the lost
+> guarantee is the binding assertion, which is checked rather than assumed.
+> Alternatives were rejected for the reasons recorded in
+> [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md)
+> §1: calling `analyzeDomain` directly instead of `startAudit()` leaves the
+> application's `results` array empty and blanks three surfaces; auditing twice
+> in one runtime doubles the DNS fan-out, which **is** the trace surface; and a
+> capture hook inside the application is the test seam §11 forbids.
+
 Each subject is a complete repository or built-artifact root. The runner must
 load that subject's own `index.html`, stylesheet, generated English bundle and
 JavaScript; it may not pair baseline JavaScript with current-branch assets.
@@ -989,6 +1035,48 @@ fixture. `a.b.ck` and `a.www.ck` are not fingerprints: both fixture rules are
 also in the real PSL and therefore produce identical results. A test replacing
 any one binding while leaving the other two correct must fail its own probe.
 
+> **Amended in 1.4: the PSL fingerprint is a BINDING-LEVEL engine/runtime
+> fingerprint, and cannot be an application one.**
+>
+> `1.0` introduced these three as one uniform class. Two of them are: the DKIM
+> catalog and the English bundle are each observed through a real consumer, and
+> both survive the facade contraction. The PSL is not, and calling it the same
+> kind of thing claimed more than the code delivers — the third time this spec
+> has had to correct that shape of overstatement, after `1.2`.
+>
+> `getOrganizationalDomain()` is the only reader of the public suffix sets
+> (`js/dns.js:335-355`), and **nothing in the application calls it.** Measured,
+> not argued: zero call sites at `v0.5.0` and zero at `f1a2842`, and
+> `result.organizationalDomain` is produced by the RFC 9989 discovery walk in
+> `selectOrganizationalDomain()`, which never consults the PSL. No audit result,
+> query trace, CSV, report or DOM node depends on the public suffix list.
+>
+> So the probe stands, unchanged, in the suites that can run it — the unit,
+> legacy-contract and runtime suites that supply the binding directly through
+> `createAuditRuntime()`, which is the direct-ESM disposition §10 gives the
+> test-only surface. It is a fingerprint of the **engine/runtime contract**, and
+> that is what it is now called.
+>
+> An artifact-driven suite is **not** required to claim a behavioural PSL
+> fingerprint through the two-member facade, because no such production path
+> exists and inventing one would be a test seam. Generated-source identity,
+> build-input provenance and the runtime contract remain **separate evidence**;
+> input hashes are provenance and are never represented as behavioural
+> equivalence, which the runner already states.
+>
+> The DKIM-catalog fingerprint keeps a real application-level form:
+> `dkimStatus.selectors[].uncommon` is `!isRecognizedDkimSelector(sel)`
+> (`js/dns.js:1255`), measured `true` under the production catalog and `false`
+> under a fixture catalog that contributes the selector. The English
+> fingerprint is `t()`, its actual consumer.
+>
+> **The PSL stays in the release.** It is 160.6 KB of a 422 KB bundle and
+> reaches nothing, which is a real finding and a real question — and it is a
+> behaviour-and-size decision, not a refactor. Removing it here would be scope
+> creep of exactly the kind Risk R8 exists to refuse. Recorded in
+> [`docs/maintenance-backlog.md`](../maintenance-backlog.md) with the measured
+> size, and the bundle is not changed in 0.6.0.
+
 ### 12. Module APIs and the allowed-edge matrix
 
 Required by round 2's R2-F5. The folder tree in §2 describes ownership; this
@@ -1176,7 +1264,9 @@ is deleted without a stated replacement.
 
 **2. Five-surface equivalence** per Design §8 — result, query trace, CSV, HTML
 report, DOM — three-way across `v0.5.0`, `src/` and `dist/app.min.js`. The
-release's primary gate.
+release's primary gate. From §10 stage 3 the five are bound to one deterministic
+case captured by **two isolated executions**, with the cross-surface binding
+asserted rather than assumed; §8 states why and what it costs.
 
 **3. The state matrix**, `tests/state-matrix.json`, required by round 2's R2-F6.
 It replaces the prose corpus list as the Gate 0 proof of coverage.
@@ -1214,7 +1304,11 @@ shipped artifact and is not an acceptable substitute.
 - The namespace contract (§10): no `src/` module reads or writes any of the 24
   globals outside a marked adapter.
 - **Fixture identity** (§11): separate divergent PSL, DKIM-catalog and English
-  fingerprints run first according to the suite's declared data profile.
+  fingerprints run first according to the suite's declared data profile. As of
+  `1.4` the PSL fingerprint is **binding-level** — it belongs to suites that
+  supply the binding through `createAuditRuntime()`, because nothing in the
+  application reads the public suffix list. The DKIM-catalog and English
+  fingerprints stay behavioural through their real consumers.
 - Runtime lifetime: sibling audits through one runtime reuse the cache; two
   independently constructed runtimes do not share it.
 
@@ -1265,11 +1359,11 @@ Structural:
 
 Equivalence:
 
-- [ ] Five-surface, three-way equivalence — result, query trace, CSV, HTML report, DOM — across `v0.5.0`, `src/` and `dist/app.min.js`, clean or every difference documented and deliberate.
+- [ ] Five-surface, three-way equivalence — result, query trace, CSV, HTML report, DOM — across `v0.5.0`, `src/` and `dist/app.min.js`, clean or every difference documented and deliberate. From §10 stage 3 the surfaces come from two isolated executions of one case, bound by an asserted cross-surface identity and with no exclusion added.
 - [ ] `canonicalization.md` is checked in **before** the corpus is captured.
 - [ ] The baseline binds complete subject roots, input hashes, fixed time, locale, Node and ICU; it regenerates from a clean clone in CI and matches the committed file.
 - [ ] Every §12.1 member and meaningful non-enum shape has a state-matrix row naming a suite and fixture, enforced by `state-matrix.test.mjs`.
-- [ ] The PSL, DKIM-catalog and English fixture-identity checks pass independently in every suite supplying those bindings.
+- [ ] The PSL, DKIM-catalog and English fixture-identity checks pass independently in every suite supplying those bindings. The PSL check is binding-level (§11, `1.4`); an artifact-driven suite is not required to claim a behavioural one.
 - [ ] `WEIGHTS`, `PARKED_WEIGHTS`, `GRADE_THRESHOLDS` byte-identical to `v0.5.0`.
 - [ ] Issue-token vocabulary unchanged; no `locales/en.json` key added, changed or removed.
 - [ ] DNS query fan-out per fixture unchanged, so `PRIVACY.md`'s figures still hold.
@@ -1309,7 +1403,7 @@ Preserved properties:
 | R3 | **First supply-chain dependency.** Measured: 2 packages on darwin-arm64, 1 `postinstall`, 25 unmet optional platform packages. | Exact pin; committed lockfile; `npm ci` only; an explicit recorded decision on npm's `allowScripts` gate; Linux confirmation outstanding. |
 | R4 | **ESM strict-mode semantics.** Top-level `this` is `undefined`; `var` no longer creates a global — and `js/dns.js` uses `var` throughout while 24 globals depend on that behavior. | One file per commit behind a working bundle; adapters for classic consumers; the namespace contract catches a missed conversion. |
 | R5 | **Coverage lost quietly, invisibly to the count.** Demonstrated, not hypothesised: 1,535 assertions passed against the wrong PSL. | Contract inventory plus the reviewed §12.1 registry and state matrix are the gate; targeted contracts cover computed and non-string shapes. |
-| R6 | **Generated data silently substituted.** The demonstrated hazard, and it generalizes to `__DKIM_SELECTOR_CATALOG__` and `__I18N_EN__`. | Composition root (§11): passed, never imported by consumers. One divergent behavioral fingerprint per binding, not one proxy and not a count. |
+| R6 | **Generated data silently substituted.** The demonstrated hazard, and it generalizes to `__DKIM_SELECTOR_CATALOG__` and `__I18N_EN__`. | Composition root (§11): passed, never imported by consumers. One divergent fingerprint per binding, not one proxy and not a count — behavioural through the real consumer for the DKIM catalog and the English bundle, binding-level for the PSL, which no application code reads (`1.4`). |
 | R7 | **Deploy publishes source or tests**, now that non-shipping files live under `src/`. | Exact-allowlist artifact test; `metafile.inputs` and source-map `sources` as the binding proof. |
 | R8 | **Scope creep.** Every phase surfaces something. The 14 unsupported legacy globals are the first example. | Their removal is the one authorized compatibility delta: its own commit, manifest entry and release note. Every other found behavior change is filed separately unless it blocks the phase. |
 | R9 | **Cold-start regression.** One artifact replaces seven cacheable files. | Measured −40% raw / −39% gzip; metafile composition reporting; `OQ-ARCH-05` holds the split for later. |
@@ -1344,6 +1438,7 @@ current payload. `file://` support was bought and paid for.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.4 | 2026-08-27 | **Amended during Phase 2, Task 2.7 — two corrections, both about what the instrument proves.** **(a) Oracle provenance, §8.** Stage 3 of §10 makes `window.DnsAudit` esbuild's export namespace: non-configurable accessors, and **not** the engine object `src/main.js` calls. Measured against the artifact — the assignment throws, and `window.DnsAudit` occurs zero times in shipped code. The runner captured the result surface by wrapping that global, so the five surfaces can no longer all come from one runtime. They are now bound to one deterministic **case** captured by two isolated executions: the facade's `analyzeDomain` for the result, the real UI controls for trace, CSV, report and DOM, with the same data profile, options, instant, locale and platform, neither warming the other. The result execution's trace is a different instrument execution, **not an exclusion** — no exclusion is added and the manifest stays empty. Cross-surface binding on domain, score, grade and issue tokens is asserted so two different cases cannot be joined under one id. The rejected alternatives, and why, are recorded. **(b) The PSL fingerprint is binding-level, §11.** `getOrganizationalDomain()` is the only reader of the public suffix sets and **no application code calls it** — zero call sites at `v0.5.0` and at `f1a2842`; `result.organizationalDomain` comes from the RFC 9989 walk. So `1.0`'s claim of a behavioural fingerprint per binding was true for the DKIM catalog and the English bundle and not for the PSL, the same shape of overstatement `1.2` corrected. The probe is unchanged and stays in the suites that supply the binding through `createAuditRuntime()`, reclassified as an engine/runtime fingerprint; an artifact-driven suite is not required to claim one through the two-member facade. The unused 160.6 KB PSL payload **stays in 0.6.0** — removing shipped data is a behaviour-and-size decision, Risk R8 — and is filed in `docs/maintenance-backlog.md` with its measured size. No architecture, phase ordering or acceptance threshold is reopened; the five surfaces, the strict canonicalization line and the empty exclusion manifest are unchanged. Recorded in [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md) §1–§2. |
 | 1.3 | 2026-08-27 | **Added `open` to §11's primitive set.** `openLearnMore()` opens the generated Learn-more page with `open(url, '_blank', 'noopener')` (`js/app.js:385`), and the list did not name it. Found by the **completed conversion sweep over `js/app.js`**, the last unconverted file, which enumerated its full ambient set — eight already listed, this one missing. It is the last such finding because there is no further legacy source to sweep, and it is expressly **not** evidence that the lexical contract is exhaustive: that contract could not have found it either, per `1.2`. Implemented as `win.open.bind(win)`, with a receiver-sensitive contract asserting the exact `url`, `_blank` and `noopener` arguments; the 60-second `revokeObjectURL` timeout and every other behaviour are unchanged. Recorded as the first **navigation side-effect** capability on the list; its final UI-facing abstraction is a **Phase 5** question and is not redesigned now. Added to §11, §12's platform API row, the acceptance criteria, `PLATFORM_PRIMITIVES`, `SPEC_11` and the known-ambient catalog. No architecture or implementation decision reopened. Recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §18. |
 | 1.2 | 2026-08-27 | **Evidence correction, no design change.** `1.1` said §11's primitive set was "exhaustive by contract, not by inspection". It is not, and the phrasing claimed more than the check delivers — the same shape of overstatement this project has corrected twice before, in a paragraph written to correct an overstatement. `tests/contract/platform.test.mjs` establishes three things: the spec list and `PLATFORM_PRIMITIVES` agree bidirectionally, every declared primitive is provided, and a lexical scan over a **named catalog** of ambient identifiers rejects a bare read outside the platform module and the marked adapters. It cannot discover an ambient identifier absent from that catalog — the `navigator` omission `1.1` fixed would not have been caught by it — and a regex is not scope analysis. Replaced with "reviewed during conversion, synchronized bidirectionally, and guarded against the known ambient catalog", stated the scan as defense in depth against regression, and adjusted the acceptance criterion to match. No parser and no dependency added; no architecture or implementation decision reopened. Recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §17. |
 | 1.1 | 2026-08-27 | **Amended during Phase 2, Task 2.4.** §11's exact platform list omitted `navigator` while claiming to name *every* ambient primitive the moved code uses — false, because `detectLang()` reads `navigator.languages` and `navigator.language`. Found by converting `js/i18n.js`, where the module stopped being able to reach `window` and every dependency had to be named; four of its five ambient primitives were on the list. Added to §11, to §12's `platform/` API row, and to the acceptance criteria, with the completeness now asserted against the platform module's own published set rather than by inspection. Framework §6 trigger 5: a Final spec found wrong is amended and re-versioned, never quietly diverged from. The finding and Ian's decision are recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §16. **Narrow by design:** an omission from one enumeration. No design decision, phase ordering, acceptance threshold or behaviour changed, and nothing else in `1.0` is reopened. |
