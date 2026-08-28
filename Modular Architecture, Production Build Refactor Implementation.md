@@ -449,6 +449,29 @@ repo-wide, link-check every markdown file, add **As implemented**, convert Open
 questions to **Resolved questions**, bump to `1.0 (Implemented)`, add the
 Revision history row.
 
+**Task 6.7a — Final documentation housekeeping.** Leave no modular-refactor
+working document in the repository root:
+
+- move `Modular Architecture, Production Build Refactor Implementation.md` to
+  `docs/specs/implemented/modular-architecture-and-production-build-implementation.md`
+  beside the implemented spec, then repair every inbound and relative link;
+- fold every still-relevant decision from `CODEX Review Modular Refactor.md`
+  and `CODEX follow-up review for Modular Refactor.md` into the implemented
+  spec's **Revision history** and **As implemented** sections, then remove both
+  tracked root review logs and their links;
+- fold the reusable rules from `MODULAR-BUILD-FRAMEWORK.md` into `AGENTS.md`,
+  then remove the temporary framework as Task 6 already requires; and
+- delete the excluded working files `HANDOFF.md`,
+  `modular-build-task-summary.md`, `CODEX Review Facade Contraction and Fixture
+  Identity.md`, and `CODEX follow-up review for Facade Contraction and Fixture
+  Identity.md` after their decisions are represented in the implemented spec.
+
+Run the repository-wide Markdown link check after all moves and deletions. The
+final root must contain no `CODEX Review*`, `CODEX review*`, `CODEX follow-up*`,
+handoff, framework, or modular-spec working document. `pr-description.md`
+remains an excluded root working file because Task 6.10 writes it once from the
+finished branch and uses it to open the PR; it is never committed.
+
 **Task 6.8** — `CHANGELOG.md`, in the voice of the finished thing.
 
 **Task 6.9** — **Cut the release as its own commit, over its own file set.**
