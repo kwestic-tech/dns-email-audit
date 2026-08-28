@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 63,
+      "assertions": 64,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -83,7 +83,7 @@
         "the markup-sink scan over the built artifact, which is what pays for that exclusion",
         "the exported report declares its own policy"
       ],
-      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. Task 4.0's four core/shared modules took it from 58 to 62, and Task 4.1's core/caa/caa.js to 63."
+      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. Task 4.0's four core/shared modules took it from 58 to 62, Task 4.1's core/caa/caa.js to 63, and Task 4.2's core/mx/mx.js to 64."
     },
     {
       "path": "src/core/dns/doh.test.js",
@@ -202,6 +202,21 @@
         "contactemail and contactphone are known and deliberately unvalidated",
         "the tree walk climbs to the parent, stops before the TLD, and counts only type-257 answers",
         "a resolver failure throws rather than becoming a stated unknown, and two checks over two transports share nothing"
+      ]
+    },
+    {
+      "path": "src/core/mx/mx.test.js",
+      "assertions": 63,
+      "note": "Co-located per spec §9. Phase 4, Task 4.2. The audit runs against a fake resolver and the REAL optionalCheck policy, not a stub of it — the module has to work against the function it will actually be handed.",
+      "areas": [
+        "the two published state constants, with every value the audit can produce shown to be one of them and all six shown to be reachable",
+        "RFC 7505: a null MX is exactly one record and exactly `0 .`, so a null MX beside another record is not one",
+        "resolves is three values, and `no` — a total inbound mail outage — is claimed only when both address lookups returned",
+        "an unknown host is never dangling and never contributes to the block-concentration grouping",
+        "optionalCheck applied per host: one unreachable target does not turn the others into an outage report",
+        "two records naming one exchange are one host, queried once, still a single point of failure — while duplicate PREFERENCES are about the records",
+        "block concentration through core/shared/ip.js at /24 and /48",
+        "two audits over two resolvers share nothing"
       ]
     },
     {

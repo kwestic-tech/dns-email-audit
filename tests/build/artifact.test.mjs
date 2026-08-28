@@ -108,6 +108,7 @@ eq('the inputs are exactly the modules the entry point reaches', inputs.sort(),
     'src/core/caa/caa.js',
     'src/core/dns/cache.js', 'src/core/dns/doh.js', 'src/core/dns/errors.js', 'src/core/dns/existence.js',
     'src/core/dns/optional.js', 'src/core/dns/resolver.js',
+    'src/core/mx/mx.js',
     'src/core/shared/base64.js', 'src/core/shared/ip.js',
     'src/core/shared/record-fields.js', 'src/core/shared/uri.js',
     'src/data/dkim-selectors.js', 'src/data/legacy-globals.js',
@@ -132,7 +133,7 @@ eq('no path under tests/ appears in the source map',
 // code-bearing as of Task 2.6, which retired the two import-only adapters.
 eq('every mapped source is one of the bundle inputs',
   sourceMap.sources.map(p => p.replace(/^(\.\.\/)+/, '')).filter(p => !inputs.includes(p)), []);
-eq('every code-bearing input is mapped', sourceMap.sources.length, 21);
+eq('every code-bearing input is mapped', sourceMap.sources.length, 22);
 
 // Defence in depth, carrying no acceptance criterion of its own: a string that
 // appears in every cross-cutting suite must appear nowhere in the artifact.

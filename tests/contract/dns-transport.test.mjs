@@ -147,6 +147,7 @@ section('5. Allowed edges and the cycle rule');
 const ALLOWED_EDGES = {
   'core/caa': ['core/shared'],
   'core/dns': ['core/dns', 'core/shared'],
+  'core/mx': ['core/shared'],
   'core/shared': [],
   'data': [],
   'platform': [],
