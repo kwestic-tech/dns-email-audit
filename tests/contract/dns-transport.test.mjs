@@ -148,6 +148,7 @@ const ALLOWED_EDGES = {
   'core/bimi': ['core/shared'],
   'core/caa': ['core/shared'],
   'core/dns': ['core/dns', 'core/shared'],
+  'core/dnssec': ['core/shared'],
   'core/mx': ['core/shared'],
   'core/shared': [],
   'core/transport': ['core/shared'],

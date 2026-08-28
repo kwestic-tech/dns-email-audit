@@ -217,6 +217,7 @@ eq('src/ holds the entry point, the runtime and the converted layers',
   ['core/bimi/bimi.js', 'core/caa/caa.js',
     'core/dns/cache.js', 'core/dns/doh.js', 'core/dns/errors.js', 'core/dns/existence.js',
     'core/dns/optional.js', 'core/dns/resolver.js',
+    'core/dnssec/chain.js', 'core/dnssec/matching.js', 'core/dnssec/records.js',
     'core/mx/mx.js',
     'core/shared/base64.js', 'core/shared/ip.js', 'core/shared/record-fields.js',
     'core/shared/uri.js',
@@ -250,7 +251,48 @@ eq('and the facade names the global it governs', facade.globalName, 'DnsAudit');
  * against an empty set rather than deferred to the phase where it first has
  * something to say.
  */
+/**
+ * A state vocabulary and a code→name lookup table are different things, and
+ * Task 4.5 is where the difference first mattered.
+ *
+ * The comparison below treats any all-string export as a closed vocabulary.
+ * That was true of everything `src/` exported until `core/dnssec/records.js`
+ * arrived carrying three IANA REGISTRY tables — `DNSSEC_ALGORITHMS`,
+ * `DNSSEC_DIGESTS` and `DNSSEC_DIGEST_WEBCRYPTO`. They map a numeric protocol
+ * code to its registered name. They are reference data, they are open (IANA
+ * adds to them), and no result field ranges over them as an algebra: what a
+ * result carries is `algorithmName`, one value read out of a table, which is
+ * why the reviewed registry models the eligibility ANSWER and not the name.
+ *
+ * Inventing an algebra for each would have made the registry claim a closed
+ * set where the authority publishes an open one — the exact failure the
+ * registry exists to prevent, arriving through the check meant to enforce it.
+ *
+ * So the classifier is mechanical, not a named exclusion list: **an exported
+ * object whose keys are ALL numeric is a lookup table**; everything else is a
+ * vocabulary and must match an algebra. `DNSSEC_ZONE_SIGNING` was already
+ * passing for the wrong reason — its values are booleans, so it was skipped by
+ * accident rather than classified.
+ *
+ * Proven in both directions below, because a classifier that cannot fail is
+ * not one.
+ */
+const isLookupTable = value => value && typeof value === 'object' && !Array.isArray(value) &&
+  Object.keys(value).length > 0 && Object.keys(value).every(k => /^\d+$/.test(k));
+
+eq('a code-to-name table is classified as a lookup table',
+  isLookupTable({ 1: 'SHA-1', 2: 'SHA-256' }), true);
+eq('a vocabulary array is not',
+  isLookupTable(['secure', 'insecure']), false);
+eq('and neither is an object keyed by name — that would be a vocabulary',
+  isLookupTable({ secure: 'a', insecure: 'b' }), false);
+eq('nor is an empty object, which claims nothing either way',
+  isLookupTable({}), false);
+eq('a mixed-key object is not a lookup table',
+  isLookupTable({ 1: 'a', named: 'b' }), false);
+
 const unknownConstants = [];
+const lookupTables = [];
 for (const relative of codeModules) {
   const source = readFileSync(join(srcDir, relative), 'utf8');
   if (!declaredExports(source).length) continue;
@@ -262,6 +304,7 @@ for (const relative of codeModules) {
   if (source.includes(ADAPTER_SENTINEL)) continue;
   const module = await import(pathToFileURL(join(srcDir, relative)).href);
   for (const [name, value] of Object.entries(module)) {
+    if (isLookupTable(value)) { lookupTables.push(`${relative}:${name}`); continue; }
     const members = Array.isArray(value) ? value
       : (value && typeof value === 'object' ? Object.values(value) : null);
     if (!members || !members.length || !members.every(m => typeof m === 'string')) continue;
@@ -274,6 +317,16 @@ for (const relative of codeModules) {
 }
 eq('every state constant a src/ module exports matches a registry algebra',
   unknownConstants, []);
+
+// The tables the rule above excused, named rather than counted, so one
+// appearing that nobody added is a decision someone has to make. An empty list
+// here would also mean the classifier had stopped matching anything.
+eq('and the lookup tables it excused are exactly these',
+  lookupTables.sort(),
+  ['core/dnssec/matching.js:DNSSEC_DIGEST_WEBCRYPTO',
+    'core/dnssec/records.js:DNSSEC_ALGORITHMS',
+    'core/dnssec/records.js:DNSSEC_DIGESTS',
+    'core/dnssec/records.js:DNSSEC_ZONE_SIGNING']);
 
 /* ── 4. The targeted legacy contracts are wired ───────────────────────── */
 section('4. Legacy contract delegation');

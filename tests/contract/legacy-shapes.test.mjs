@@ -311,12 +311,33 @@ section('4. Computed values (spec §12.1)');
 // The two DNSSEC chain claims built as 'ds-' + record.match. Nine claims, not
 // seven, and these two exist nowhere in the source as literals.
 const chainSource = readFileSync(join(REPO, 'js/dns.js'), 'utf8');
-eq("'ds-no-matching-key' appears nowhere as a literal",
-  chainSource.includes("'ds-no-matching-key'"), false);
-eq("'ds-digest-mismatch' appears nowhere as a literal",
-  chainSource.includes("'ds-digest-mismatch'"), false);
-eq('the claim is concatenated from the match verdict',
-  chainSource.includes("claim: 'ds-' + record.match"), true);
+// The chain claims moved to their owner at Task 4.5; the issue-key scan below
+// still reads js/dns.js, because buildIssues() has not moved. Two sources, and
+// each assertion names the one it means.
+const DNSSEC_CHAIN = 'src/core/dnssec/chain.js';
+const dnssecChainSource = readFileSync(join(REPO, DNSSEC_CHAIN), 'utf8');
+/**
+ * These two claims are still COMPUTED, and the evidence has changed shape.
+ *
+ * Before Task 4.5 they appeared nowhere as literals at all, which is what made
+ * them the example of a literal scan under-reporting. The extraction published
+ * `DNSSEC_CHAIN_CLAIMS`, so the vocabulary is now declared in one place — an
+ * improvement, and it costs the old assertion its exact form.
+ *
+ * The property that actually mattered is preserved and asserted more precisely:
+ * neither claim is written at its CONSTRUCTION SITE. The only literal is the
+ * published constant, and `claim:` is never given either string directly.
+ */
+for (const claim of ['ds-no-matching-key', 'ds-digest-mismatch']) {
+  eq(`'${claim}' is never written at a claim: construction site`,
+    chainSource.includes(`claim: '${claim}'`) || dnssecChainSource.includes(`claim: '${claim}'`),
+    false);
+  eq(`and its only literal is the published vocabulary`,
+    (dnssecChainSource.match(new RegExp(`'${claim}'`, 'g')) || []).length, 1);
+  eq(`which js/dns.js does not carry at all`, chainSource.includes(`'${claim}'`), false);
+}
+eq(`the claim is concatenated from the match verdict, in ${DNSSEC_CHAIN}`,
+  dnssecChainSource.includes("claim: 'ds-' + record.match"), true);
 
 // And they are genuinely produced. An orphan DS — a DS whose key tag matches
 // no published DNSKEY — yields no-matching-key.

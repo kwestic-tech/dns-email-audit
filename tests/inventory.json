@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 69,
+      "assertions": 72,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -274,8 +274,53 @@
       ]
     },
     {
+      "path": "src/core/dnssec/records.test.js",
+      "assertions": 99,
+      "note": "Co-located per spec §9. Phase 4, Task 4.5. Pure parsers, no resolver and no crypto. The RSA fixture is BUILT rather than pasted: a hand-typed base64 string that is not a multiple of four decodes to null and every assertion then tests the failure path by accident.",
+      "areas": [
+        "the two error vocabularies, one record per token, seven and eight",
+        "a DS digest folds to lowercase hex and a DNSKEY public key does NOT — the two normalizers are separate because folding base64 destroys the key and reports a healthy zone as a broken chain",
+        "`valid` is about the RECORD; keyStructure and the zone flag are separate answers",
+        "unknown is not ineligible, and unknown key structure does not disqualify",
+        "digest 0 is RESERVED — named, not eligible for validation, and not rejected",
+        "deprecation is reported and never rejected, for both algorithms and digests",
+        "digest length follows the digest type",
+        "the wire name is length-prefixed, lowercased and root-terminated; rdata and key tag are stable",
+        "a mnemonic algorithm field is unparseable-record — deliberate scope, and not bad-algorithm"
+      ]
+    },
+    {
+      "path": "src/core/dnssec/matching.test.js",
+      "assertions": 52,
+      "note": "Co-located per spec §9. Phase 4, Task 4.5. Crypto is a passed capability, so the runtime-failure paths are driven directly: the same records go through a matcher over Node's webcrypto, one over a crypto with no subtle, and one that refuses the algorithm.",
+      "areas": [
+        "the two published state constants, and the three digest types Web Crypto implements",
+        "confirmed and digest-mismatch, the only two verdicts arithmetic that RAN can produce",
+        "every failure path lands on unverifiable, never digest-mismatch — invalid DS, invalid owner, uncomputable digest type, and a runtime that cannot hash",
+        "the owner name is part of the digest input, so the same records under a different owner do not confirm",
+        "unbuildable-key is asserted UNREACHABLE rather than faked — the property that makes it dead code",
+        "anchoring is a separate question from matching, and the one rule is read three ways",
+        "two matchers over two runtimes disagree exactly as their runtimes do"
+      ]
+    },
+    {
+      "path": "src/core/dnssec/chain.test.js",
+      "assertions": 64,
+      "note": "Co-located per spec §9. Phase 4, Task 4.5. The chain check is driven by a fake transport and a fake matcher, which is what makes rule precedence testable: a matcher that CONFIRMS while the resolver says nothing must not promote the zone.",
+      "areas": [
+        "the four published state constants",
+        "dnssecLookupStatus completes on exactly two of the ten transport kinds, so nxdomain stays indeterminate rather than becoming insecure",
+        "secure comes only from AD: a confirmed local anchor cannot promote an unauthenticated zone, and cannot un-bogus one either",
+        "the validated-servfail path — a servfail that RESOLVES with cd=1 is bogus, one that persists is indeterminate",
+        "every one of the ten transport kinds produces a state rather than an exception",
+        "unanchored, mismatch and the residual insecure, with positive local proof required for mismatch",
+        "evidence is complete/partial/none and incompleteness is stated rather than inferred",
+        "the type filter, without which a do=1 RRSIG parses as a DS with key tag NaN"
+      ]
+    },
+    {
       "path": "tests/contract/transport-edges.test.mjs",
-      "assertions": 37,
+      "assertions": 42,
       "note": "Spec §3's two inventories as amended in 1.6. Phase 3, Task 3.6.",
       "areas": [
         "the raw-kind reader allowlist: six reader entries across four owners, by function or family, with the layer implementations excluded",
@@ -283,7 +328,8 @@
         "a thrown error's kind is classified as the §12.1 thrown path, not as a raw-response read",
         "the eleven typed propagation paths, taken from the registry so the two cannot drift",
         "every value on a declared path is a transport kind or its own owner's, and eight paths are transport-only",
-        "the dmarc-unverified issue copy tested against its own key, with the negative control that an unrelated issue argument cannot earn transport coverage"
+        "the dmarc-unverified issue copy tested against its own key, with the negative control that an unrelated issue argument cannot earn transport coverage",
+        "the allowlist's owners are LOCATED in the files the scan reads, so a protocol extraction that leaves the scanned set stale fails instead of quietly covering less"
       ]
     },
     {
@@ -302,7 +348,7 @@
     },
     {
       "path": "tests/contract/legacy-shapes.test.mjs",
-      "assertions": 131,
+      "assertions": 135,
       "areas": [
         "fixture identity: divergent PSL and DKIM-catalog fingerprints, with their negative cases",
         "generated data is injected, not imported: each of the three bindings has an independent probe, proven in both directions",
@@ -334,7 +380,7 @@
     },
     {
       "path": "tests/contract/state-matrix.test.mjs",
-      "assertions": 40,
+      "assertions": 46,
       "areas": [
         "every registry member has exactly one coverage row",
         "every row names a suite or corpus case that exists",
@@ -344,7 +390,8 @@
         "the legacy entry point has no exports, which is what keeps globalName safe to omit",
         "src/data/ is a sink: the generated tables import nothing and export exactly one table each",
         "every adapter carries the LEGACY_ADAPTER sentinel, and the remaining count is reported",
-        "the import-graph FLOOR is defined mechanically: src/data/ and src/platform/ import nothing, and a file that grows an import rejoins the state comparison"
+        "the import-graph FLOOR is defined mechanically: src/data/ and src/platform/ import nothing, and a file that grows an import rejoins the state comparison",
+        "a code-to-name lookup table is classified mechanically and excused from the state-constant comparison, with the classifier proven in both directions and the excused tables named"
       ]
     },
     {

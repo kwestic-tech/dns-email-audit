@@ -80,13 +80,30 @@ section('2. No raw-kind reader outside the named owners');
  */
 const SCANNED = ['js/dns.js', ...LAYER_IMPLEMENTATIONS,
   'src/core/dns/existence.js', 'src/core/dns/cache.js', 'src/core/dns/errors.js',
-  'src/core/dns/optional.js', 'src/main.js', 'src/runtime.js'];
+  'src/core/dns/optional.js', 'src/main.js', 'src/runtime.js',
+  // Protocol owners extracted in Phase 4. `core/dnssec/chain.js` is the one
+  // that actually holds readers — Task 4.5 moved `dnssecLookupStatus` and
+  // `checkDNSSEC` out of `js/dns.js`, so the allowlist's `core/dnssec` row now
+  // names code in this file. The others are scanned because a reader added to
+  // a protocol owner must be caught wherever it lands, not only in the file
+  // that happens to hold one today.
+  'src/core/caa/caa.js', 'src/core/mx/mx.js', 'src/core/bimi/bimi.js',
+  'src/core/transport/mta-sts.js', 'src/core/transport/tls-rpt.js',
+  'src/core/transport/tlsa.js', 'src/core/transport/ext-value.js',
+  'src/core/dnssec/records.js', 'src/core/dnssec/matching.js',
+  'src/core/dnssec/chain.js',
+  'src/core/shared/uri.js', 'src/core/shared/record-fields.js',
+  'src/core/shared/ip.js', 'src/core/shared/base64.js'];
 
 /** Function names the allowlist covers, plus the layer implementations' own. */
 const ALLOWED_FUNCTIONS = new Set([
   'existenceFromResponse', 'domainExists', 'checkConnectivity',
   'checkExternalReportAuth', 'discoverDmarc', 'dnssecLookupStatus', 'checkDNSSEC',
   'analyzeDomain',
+  // `checkDNSSEC` is returned from this factory since Task 4.5, so a backwards
+  // walk from a comparison inside it lands on the factory's name — the same
+  // shape `createExistence` already had.
+  'createDnssecCheck',
   // `domainExists` is returned from this factory, so a backwards walk from the
   // comparison lands on the factory's name rather than the reader's.
   'createExistence',
@@ -137,6 +154,44 @@ for (const file of SCANNED) {
 }
 eq('no raw-kind reader exists outside the named owners and the layer implementations',
   unnamedReaders, []);
+
+/**
+ * An empty `unnamedReaders` is also what a scan that reads NOTHING produces.
+ * A protocol extraction moves a reader into a new file, and if the scanned set
+ * is not extended in the same commit the check keeps passing while covering
+ * less — silently, and in exactly the direction that matters.
+ *
+ * So the allowlist's owners are located: every owner named in section 1 must
+ * be found by the same scan, in some scanned file, inside a function the
+ * allowlist knows. This is what makes a stale `SCANNED` list a failure rather
+ * than a quiet loss of coverage.
+ */
+const locatedIn = new Map();
+for (const file of SCANNED) {
+  const path = join(REPO, file);
+  if (!existsSync(path)) continue;
+  const lines = readFileSync(path, 'utf8').split('\n');
+  lines.forEach((line, i) => {
+    const code = line.replace(/\/\/.*$/, '');
+    if (!KIND_LITERAL.test(code) || CAUGHT_RECEIVERS.test(code)) return;
+    const fn = enclosingFunction(lines, i);
+    if (!locatedIn.has(fn)) locatedIn.set(fn, file);
+  });
+}
+eq('the scan actually reads something — an empty result would pass vacuously',
+  locatedIn.size > 0, true);
+// Task 4.5 moved these two out of js/dns.js. Named by FILE so the move is
+// visible here rather than only in the diff.
+eq('dnssecLookupStatus is found in core/dnssec/chain.js',
+  locatedIn.get('dnssecLookupStatus'), 'src/core/dnssec/chain.js');
+eq('and checkDNSSEC with it', locatedIn.get('checkDNSSEC'), 'src/core/dnssec/chain.js');
+eq('while the core/dns readers are still where core/dns keeps them',
+  locatedIn.get('existenceFromResponse'), 'src/core/dns/existence.js');
+// The two DMARC readers and the audit preflight have not moved yet; Tasks 4.6
+// and Phase 5 own them. Asserted so the NEXT move has to update this too.
+eq('the DMARC readers are still in js/dns.js',
+  [locatedIn.get('checkExternalReportAuth'), locatedIn.get('discoverDmarc')],
+  ['js/dns.js', 'js/dns.js']);
 
 // And the scan can fail. Without this it would pass on a pattern that matches
 // nothing, which is how a regression check quietly stops being one.
