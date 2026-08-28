@@ -31,6 +31,27 @@ reaches this directory at all.
 | `DOH_ENDPOINT` | string | `https://cloudflare-dns.com/dns-query`. The only third-party host this application contacts. |
 | `DOH_TIMEOUT_MS`, `DOH_RETRIES`, `MAX_DOH_CONCURRENCY` | numbers | 8000, 1, 16. |
 
+### `resolver.js` — layers 2 and 3 (Task 3.4)
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `createResolver({ dohFetch })` | factory | Returns `{ requireUsable, dohQuery, dohAll, checkConnectivity, cleanAnswerData }`. |
+| `requireUsable(result, name, type)` | pure | Returns the raw result for `success`/`nodata`/`nxdomain`; **throws** `dnsError(kind, …)` for the other seven. |
+| `dohQuery(name, type, opts)` | async | Cleaned strings for answers **of the requested type**. No kind. |
+| `dohAll(name, type, opts)` | async | Cleaned strings for **every** answer, so a CNAME in front of the record survives. No kind. |
+| `checkConnectivity()` | async | `true` for `success`/`nodata`. A **named exception edge** — reads `.kind` directly. |
+| `cleanAnswerData(data, type)` | pure | One answer's value. TXT chunks are concatenated; a malformed escape keeps its literal source text, a confirmed divergence. |
+| `USABLE_KINDS` | frozen array | `success`, `nodata`, `nxdomain`. |
+
+**Layer 3 drops the kind deliberately.** That is what makes a normalized array
+safe for a protocol module: it can read records without deciding what a
+`servfail` means, because layer 2 refused to hand it one. `nodata` and
+`nxdomain` are indistinguishable after normalization — anything that needs to
+tell them apart is a named exception edge and reads `dohFetch` directly.
+
+**`nxdomain` is an answer.** It means the name does not exist, which is
+information, not a failure to obtain information.
+
 ### `errors.js` — the thrown paths (Task 3.3)
 
 | Export | Kind | Contract |

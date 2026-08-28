@@ -36,6 +36,7 @@
 import { createDohTransport, DOH_ENDPOINT } from '../src/core/dns/doh.js';
 import { createDohCache } from '../src/core/dns/cache.js';
 import { dnsTypeNum, dnsError, DNS_TYPES } from '../src/core/dns/errors.js';
+import { createResolver } from '../src/core/dns/resolver.js';
 
 export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
   // Named, not reached for. `fetch` is the load-bearing one: the DoH fixture
@@ -146,47 +147,15 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
     }
   }
 
-  function requireUsable(result, name, type) {
-    if (result.kind === 'success' || result.kind === 'nodata' || result.kind === 'nxdomain') return result;
-    throw dnsError(result.kind, name, type, result.httpStatus ? 'HTTP ' + result.httpStatus : '');
-  }
-
-  function cleanAnswerData(data, type) {
-    var value = String(data || '').trim();
-    if (type !== 'TXT') return value.replace(/^"|"$/g, '').trim();
-    var chunks = [];
-    var re = /"((?:\\.|[^"\\])*)"/g;
-    var match;
-    while ((match = re.exec(value))) {
-      // Confirmed divergence (spec 0.2.3 §4): the success path decodes \uXXXX
-      // escapes, the fallback keeps the chunk verbatim, so a malformed escape
-      // renders as its literal source text rather than as a decoded character.
-      // That is the honest reading of an undecodable chunk and it is left
-      // alone deliberately — changing it would change parsed record values.
-      // Any lone surrogate JSON.parse does emit is normalized to U+FFFD at
-      // display time by js/render.js, not here, so grades are unaffected.
-      try { chunks.push(JSON.parse('"' + match[1] + '"')); }
-      catch (e) { chunks.push(match[1]); }
-    }
-    return chunks.length ? chunks.join('') : value.replace(/^"|"$/g, '');
-  }
-
-  async function dohQuery(name, type, opts) {
-    const { answers } = requireUsable(await dohFetch(name, type, opts), name, type);
-    const num = dnsTypeNum(type);
-    return answers.filter(a => a.type === num).map(a => cleanAnswerData(a.data, type));
-  }
-
-  async function dohAll(name, type, opts) {
-    const { answers } = requireUsable(await dohFetch(name, type, opts), name, type);
-    return answers.map(a => cleanAnswerData(a.data, a.type === 16 ? 'TXT' : type));
-  }
-
-  /** Pre-flight: can we reach the resolver at all? */
-  async function checkConnectivity() {
-    const result = await dohFetch('example.com', 'A', { noCache: true, retries: 0, timeoutMs: 5000 });
-    return result.kind === 'success' || result.kind === 'nodata';
-  }
+  /**
+   * Layers 2 and 3, over this engine's transport.
+   *
+   * `requireUsable` gates; `dohQuery` and `dohAll` normalize and drop the kind.
+   * `checkConnectivity` is a named exception edge that reads the kind directly.
+   * Every call site below still uses these by name.
+   */
+  const { requireUsable, dohQuery, dohAll, checkConnectivity, cleanAnswerData } =
+    createResolver({ dohFetch });
 
   /* ── Provider detection ─────────────────────────────────────────────── */
 

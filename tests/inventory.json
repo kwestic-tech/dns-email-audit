@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 55,
+      "assertions": 56,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -117,6 +117,18 @@
         "dnsTypeNum throws rather than defaulting to TXT, including for Object.prototype names",
         "the throw/kind boundary: no thrown name is among the ten transport kinds",
         "dnsError names a cancelled query AbortError while its kind stays cancelled"
+      ]
+    },
+    {
+      "path": "src/core/dns/resolver.test.js",
+      "assertions": 61,
+      "note": "Co-located per spec §9. Phase 3, Task 3.4.",
+      "areas": [
+        "the usability gate: three kinds pass unchanged, the other seven throw with the query named",
+        "nxdomain is an answer rather than a failure to obtain one",
+        "layer 3 carries no kind, and nodata and nxdomain are indistinguishable after normalization",
+        "answer cleaning, including the TXT chunk join and the kept malformed-escape divergence",
+        "checkConnectivity as a named exception edge: one fixed uncached query, kind read directly"
       ]
     },
     {
