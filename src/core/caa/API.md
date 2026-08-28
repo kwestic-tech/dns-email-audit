@@ -23,14 +23,23 @@ capabilities it needs and can reach no others, which is what lets
 
 | Export | Kind | Contract |
 | --- | --- | --- |
-| `createCaaCheck({ dohFetch, requireUsable })` | factory | Returns `checkCAA(domain, queryOpts)`. Holds no state; two checks over two transports share nothing. |
-| `checkCAA(domain, queryOpts)` | async | `{ found, records, atDomain }` merged with a `summarizeCaa()` summary. **Throws** on a resolver failure — see below. |
+| `createCaaCheck({ dohFetch, requireUsable })` | factory | Returns the `checkCAA` closure below. Holds no state; two checks over two transports share nothing. |
 | `parseCaaRecord(presentationString)` | pure | One record from `<flags> <tag> "<value>"`. Always returns a record; `valid` and `errors` say whether it parsed. |
 | `summarizeCaa(records)` | pure | The derived policy: issuers, wildcard issuers, the two blocked flags, `iodef`, `unknownCritical`, `malformed`. |
 | `parseCaaIssueValue(value)` | pure | The issuer-domain-name, `''` for a value naming nobody, `null` for one that does not parse. The three are distinct and the distinction is load-bearing. |
 | `isCaaIodefUrl(value)` | pure | RFC 8659 §4.4: a `mailto`, `http` or `https` **URL**, via `core/shared/uri.js`. |
 | `CAA_KNOWN_TAGS` | frozen array | The six properties. Registry algebra `caa.knownTags`. |
 | `CAA_ERRORS` | frozen array | The six error tokens `parseCaaRecord()` can emit. Registry algebra `caa.errors`. |
+
+### Factory product
+
+Not an export. `checkCAA` is the closure `createCaaCheck()` returns, and it is
+reachable only through the factory — which is the point: it cannot be called
+without someone having named the transport it runs on.
+
+| Product | Kind | Contract |
+| --- | --- | --- |
+| `checkCAA(domain, queryOpts)` | async | `{ found, records, atDomain }` merged with a `summarizeCaa()` summary. Climbs to the parent (CAA is inherited) and stops before the bare TLD. **Throws** on a resolver failure — see below. |
 
 ## The three states of an issuer value
 

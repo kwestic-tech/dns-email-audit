@@ -127,9 +127,15 @@ export function parseCaaIssueValue(value) {
  * A scheme prefix is not a URL. `mailto:not an address` starts with a
  * supported scheme and is not a destination anything can report to, so the
  * whole value goes through the same validators the other records use.
+ *
+ * Neither call passes options: `iodef` adds no `httpsOnly` and no
+ * `requireFqdn`, which is exactly why those two are the caller's to opt into.
+ * The legacy `isHttpUri(value, false)` this replaced was behaviourally
+ * identical — `false || {}` is `{}` — but `false` is not the options object
+ * `core/shared/uri.js` documents.
  */
 export function isCaaIodefUrl(value) {
-  return isMailtoUri(value) || isHttpUri(value, false);
+  return isMailtoUri(value) || isHttpUri(value);
 }
 
 /**
