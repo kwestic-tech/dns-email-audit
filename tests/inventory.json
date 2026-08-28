@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 62,
+      "assertions": 63,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -83,7 +83,7 @@
         "the markup-sink scan over the built artifact, which is what pays for that exclusion",
         "the exported report declares its own policy"
       ],
-      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. Task 4.0's four core/shared modules took it from 58 to 62."
+      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. Task 4.0's four core/shared modules took it from 58 to 62, and Task 4.1's core/caa/caa.js to 63."
     },
     {
       "path": "src/core/dns/doh.test.js",
@@ -190,6 +190,21 @@
       ]
     },
     {
+      "path": "src/core/caa/caa.test.js",
+      "assertions": 86,
+      "note": "Co-located per spec §9. Phase 4, Task 4.1 — the first protocol owner, and the one that proves the pattern: the resolver is passed, so the tree walk is driven by a fake transport with core/dns/ nowhere in the graph.",
+      "areas": [
+        "the two published state constants, with every error token the parser can emit shown to be one of them — the constant is a second statement of a fact the parser holds as literals, and this is what stops them drifting",
+        "the three states of an issue value — a name, '' for nobody, null for unparseable — asserted as three, because collapsing any two reports the policy backwards",
+        "RFC 8659 §4.2's own %%%%% example blocks issuance rather than authorizing a CA of that name",
+        "an absent issuewild is not an open wildcard policy (RFC 8659 §4.3)",
+        "the Issuer Critical bit is bit 0, so flag 1 is not critical and flag 128 is",
+        "contactemail and contactphone are known and deliberately unvalidated",
+        "the tree walk climbs to the parent, stops before the TLD, and counts only type-257 answers",
+        "a resolver failure throws rather than becoming a stated unknown, and two checks over two transports share nothing"
+      ]
+    },
+    {
       "path": "tests/contract/transport-edges.test.mjs",
       "assertions": 37,
       "note": "Spec §3's two inventories as amended in 1.6. Phase 3, Task 3.6.",
@@ -204,7 +219,7 @@
     },
     {
       "path": "tests/contract/dns-transport.test.mjs",
-      "assertions": 36,
+      "assertions": 38,
       "note": "The transport layer's cross-cutting contracts. Phase 3, Task 3.7.",
       "areas": [
         "the code's kind sets and the reviewed registry's algebras are compared rather than restated",
@@ -212,7 +227,8 @@
         "seven usability throws, counted rather than listed",
         "optionalCheck is policy-neutral: a static fallback acquires no kind, and exactly three fallback factories copy one",
         "no transport result or error shape carries a finding, severity, score or locale reference",
-        "the §12 allowed-edge matrix and the cycle rule over the real import graph, with core/shared's zero-outgoing-edge floor asserted directly because an empty matrix row cannot catch a sibling import"
+        "the §12 allowed-edge matrix and the cycle rule over the real import graph, with core/shared's zero-outgoing-edge floor asserted directly because an empty matrix row cannot catch a sibling import",
+        "§12's floor for a protocol owner, asserted over every protocol directory that exists: core/shared and own siblings only, so an import of core/dns/ — the convenient one — fails"
       ]
     },
     {

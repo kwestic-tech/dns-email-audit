@@ -145,6 +145,7 @@ section('5. Allowed edges and the cycle rule');
  * matrix is a test failure, not a judgment call.
  */
 const ALLOWED_EDGES = {
+  'core/caa': ['core/shared'],
   'core/dns': ['core/dns', 'core/shared'],
   'core/shared': [],
   'data': [],
@@ -203,6 +204,25 @@ eq('no core/dns module imports ui or audit',
 // the way src/platform's and src/data's are.
 eq('src/core/shared imports nothing, siblings included',
   modules.filter(m => m.startsWith(join('core', 'shared')) && graph.get(m).length), []);
+/**
+ * §12's floor for a protocol owner, asserted over every protocol directory
+ * that exists rather than one row at a time. A protocol reaches `core/shared/`
+ * and its own siblings; the resolver and generated data are PASSED, so an
+ * import of `core/dns/` is the specific failure this catches — it is the
+ * convenient one, and it is the one that makes the module untestable without
+ * a transport.
+ */
+const protocolDirs = [...new Set(modules
+  .filter(m => m.startsWith(`core${sep}`) && !m.startsWith(join('core', 'dns')) &&
+    !m.startsWith(join('core', 'shared')))
+  .map(m => m.split(sep).slice(0, 2).join('/')))];
+eq('there is at least one protocol owner to check', protocolDirs.length > 0, true);
+eq('no protocol owner imports anything but core/shared and its own siblings',
+  modules.filter(m => protocolDirs.includes(areaOf(m)) &&
+    graph.get(m).some(t => {
+      const to = areaOf(t.split('/').join(sep));
+      return to !== areaOf(m) && to !== 'core/shared';
+    })), []);
 
 /**
  * The cycle rule: no strongly connected component with more than one module.
