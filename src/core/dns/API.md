@@ -31,6 +31,21 @@ reaches this directory at all.
 | `DOH_ENDPOINT` | string | `https://cloudflare-dns.com/dns-query`. The only third-party host this application contacts. |
 | `DOH_TIMEOUT_MS`, `DOH_RETRIES`, `MAX_DOH_CONCURRENCY` | numbers | 8000, 1, 16. |
 
+### `errors.js` — the thrown paths (Task 3.3)
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `dnsTypeNum(type)` | pure | The IANA number, or **throws** `DnsTypeError`. Partial on purpose: it used to end in `?? 16`, which answered every unknown type with the TXT number and produced a confident "no records published" about a type never asked for. |
+| `dnsError(kind, name, type, detail)` | pure | **Returns** an `Error` carrying `kind`, `queryName`, `queryType`. Returned rather than thrown so the call site reads as `throw dnsError(…)`. |
+| `DNS_TYPES` | frozen object | The eleven supported record types. |
+
+**The throw/kind boundary.** `DnsTypeError` is thrown and is not a transport
+kind; spec §3 forbids it becoming one. `dnsError` names a `cancelled` query
+`AbortError` and everything else `DnsQueryError` — the **name** is what
+`optionalCheck()` re-throws on, so it decides whether a failure degrades to a
+stated "unknown" or ends the run, while the **kind** still says what happened at
+the transport.
+
 ### `cache.js` — the DoH response cache (Task 3.2)
 
 | Export | Kind | Contract |

@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 54,
+      "assertions": 55,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -106,6 +106,17 @@
         "the ceiling holds under 500 writes into a 10-entry cache and at the shipped 4096",
         "two caches share nothing, which is the isolation half of the per-runtime privacy invariant",
         "the module retains no state of its own across factory calls"
+      ]
+    },
+    {
+      "path": "src/core/dns/errors.test.js",
+      "assertions": 29,
+      "note": "Co-located per spec §9. Phase 3, Task 3.3.",
+      "areas": [
+        "the eleven supported record types and their IANA numbers",
+        "dnsTypeNum throws rather than defaulting to TXT, including for Object.prototype names",
+        "the throw/kind boundary: no thrown name is among the ten transport kinds",
+        "dnsError names a cancelled query AbortError while its kind stays cancelled"
       ]
     },
     {

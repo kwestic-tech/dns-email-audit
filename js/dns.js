@@ -35,6 +35,7 @@
  */
 import { createDohTransport, DOH_ENDPOINT } from '../src/core/dns/doh.js';
 import { createDohCache } from '../src/core/dns/cache.js';
+import { dnsTypeNum, dnsError, DNS_TYPES } from '../src/core/dns/errors.js';
 
 export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
   // Named, not reached for. `fetch` is the load-bearing one: the DoH fixture
@@ -96,48 +97,6 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
   const dohCache = createDohCache();
   /* ── DNS-over-HTTPS core ────────────────────────────────────────────── */
 
-  var DNS_TYPES = {
-    A: 1, NS: 2, CNAME: 5, PTR: 12, MX: 15, TXT: 16, AAAA: 28,
-    DS: 43, DNSKEY: 48, TLSA: 52, CAA: 257,
-  };
-
-  /**
-   * Map a record type name to its IANA number.
-   *
-   * This used to end in `?? 16`, which made the function total by answering
-   * every unknown type with the TXT number. The cost of that totality was the
-   * worst failure this codebase can produce: a caller asking for `DS` issued a
-   * TXT query, filtered the answers for type 16, found none, and received a
-   * plausible-looking empty array. No error, no warning, and a confident
-   * "no records published" about a type that was never asked for.
-   *
-   * Every existing call site passes a supported literal, so throwing is
-   * behaviour-preserving for the code that exists and fail-fast for the code
-   * that comes next. `hasOwnProperty` rather than a bare lookup so a type name
-   * that collides with `Object.prototype` ("constructor", "toString") throws
-   * instead of returning a function.
-   */
-  function dnsTypeNum(type) {
-    if (!Object.prototype.hasOwnProperty.call(DNS_TYPES, type)) {
-      var error = new Error('unsupported DNS type: ' + type);
-      // Named so optionalCheck() re-throws it. An unsupported type is a
-      // programming error, not a resolver hiccup, and degrading it to a stated
-      // "unknown" would hide exactly what the throw exists to surface.
-      error.name = 'DnsTypeError';
-      throw error;
-    }
-    return DNS_TYPES[type];
-  }
-
-  function dnsError(kind, name, type, detail) {
-    var e = new Error(kind + ' while querying ' + name + ' ' + type + (detail ? ': ' + detail : ''));
-    e.name = kind === 'cancelled' ? 'AbortError' : 'DnsQueryError';
-    e.kind = kind;
-    e.queryName = name;
-    e.queryType = type;
-    return e;
-  }
-
   /**
    * The transport, built over this runtime's platform and this runtime's cache.
    *
@@ -152,12 +111,7 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
    * reuse that lifetime produces and `PRIVACY.md` publishes the fan-out, so
    * narrowing it is a privacy change rather than a refactor.
    */
-  const { dohFetch } = createDohTransport({
-    platform,
-    cache: dohCache,
-    dnsError,
-    dnsTypeNum,
-  });
+  const { dohFetch } = createDohTransport({ platform, cache: dohCache, dnsError, dnsTypeNum });
 
   /**
    * Run an optional enrichment check, turning a DNS failure into a stated
