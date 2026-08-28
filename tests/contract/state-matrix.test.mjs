@@ -220,6 +220,8 @@ eq('src/ holds the entry point, the runtime and the converted layers',
     'core/mx/mx.js',
     'core/shared/base64.js', 'core/shared/ip.js', 'core/shared/record-fields.js',
     'core/shared/uri.js',
+    'core/transport/ext-value.js', 'core/transport/mta-sts.js',
+    'core/transport/tls-rpt.js', 'core/transport/tlsa.js',
     'i18n/index.js', 'main.js', 'runtime.js', 'ui/render.js']);
 
 /**

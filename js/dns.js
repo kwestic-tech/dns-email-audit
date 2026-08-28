@@ -39,13 +39,18 @@ import { dnsTypeNum, dnsError, DNS_TYPES } from '../src/core/dns/errors.js';
 import { createResolver } from '../src/core/dns/resolver.js';
 import { optionalCheck } from '../src/core/dns/optional.js';
 import { createExistence, existenceFromResponse } from '../src/core/dns/existence.js';
-import { isHttpUri, isMailtoUri } from '../src/core/shared/uri.js';
-import { parseOrderedFields, EXT_NAME } from '../src/core/shared/record-fields.js';
+// uri.js and record-fields.js are no longer imported here: CAA, BIMI,
+// MTA-STS and TLS-RPT own every call site, and Task 4.4 moved the last of
+// them. Only DKIM/DNSSEC (base64) and MX/SPF (ip) still read core/shared/
+// from this file.
 import { base64ToBytes } from '../src/core/shared/base64.js';
 import { ipv4ToBigInt, ipv6ToBigInt, parseIpCidr } from '../src/core/shared/ip.js';
 import { createCaaCheck, parseCaaRecord, summarizeCaa } from '../src/core/caa/caa.js';
 import { createMxAudit, isNullMx, parseMxRecord } from '../src/core/mx/mx.js';
 import { validateBimiRecord } from '../src/core/bimi/bimi.js';
+import { validateMtaStsRecord } from '../src/core/transport/mta-sts.js';
+import { validateTlsRptRecord } from '../src/core/transport/tls-rpt.js';
+import { createTlsaCheck, parseTlsaRecord } from '../src/core/transport/tlsa.js';
 
 export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
   // Named, not reached for. `fetch` is the load-bearing one: the DoH fixture
@@ -2033,149 +2038,14 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
 
   /* ── Advanced checks ────────────────────────────────────────────────── */
 
-  // CAA moved to src/core/caa/ at Task 4.1 and MX health to src/core/mx/ at
-  // Task 4.2. Each names the resolver capabilities it reads, because a
-  // protocol directory has no edge to core/dns/.
+  // CAA moved to src/core/caa/ at Task 4.1, MX health to src/core/mx/ at 4.2
+  // and TLSA to src/core/transport/ at 4.4. Each names the resolver
+  // capabilities it reads, because a protocol directory has no edge to
+  // core/dns/. TLSA takes four: it needs the raw response for the AD bit and
+  // the type-52 filter, so it does layer 3's cleaning itself.
   const checkCAA = createCaaCheck({ dohFetch, requireUsable });
   const auditMxHosts = createMxAudit({ dohQuery, optionalCheck });
-
-  /* ── TLSA / DANE (RFC 6698, RFC 7671) ─────────────────────────────────
-     Syntax only. Nothing here connects to port 25 and nothing compares a TLSA
-     record against a certificate, so what is reported is what is published.
-
-     The labelling rule matters more than the parsing. DANE is meaningful only
-     when the TLSA record is carried by a validated DNSSEC chain: without one,
-     anyone on the path can strip or rewrite the record, so an unsigned TLSA
-     record provides no protection whatsoever while looking exactly like
-     protection.
-
-     `authenticated` is the AD bit the validating resolver returned for this
-     exact name — real evidence, gated per host, and what the unsigned finding
-     fires on. Without it the finding would announce "your TLSA is unprotected"
-     on a correctly signed zone purely because nothing had looked.
-
-     0.4.0 kept a second flag, `qualified`, for the stronger claim that the
-     chain had been walked and verified, expecting dnssec-evidence to supply
-     it. **0.5.0 retired the flag instead of completing it** (`OQ-SEC9-07`).
-     A TLSA record lives at `_25._tcp.<host>`, usually in a zone unrelated to
-     the audited domain, so the audited domain's chain evidence says nothing
-     about it — and local DS-to-DNSKEY matching never validates RRSIGs, so it
-     can never exceed the per-host AD bit already recorded here. A second field
-     that can only ever equal the first is a claim, not a distinction.
-
-     So `authenticated` is the ceiling, per host, and every string the
-     interface shows says "published", never "enabled".
-     ───────────────────────────────────────────────────────────────────── */
-
-  var TLSA_MATCHING_LENGTHS = { 1: 32, 2: 64 };   // SHA-256, SHA-512; 0 is a full cert, any length
-
-  /**
-   * Parse one TLSA record from its presentation form.
-   *
-   * Captured from the resolver before this was written, because the shape is
-   * not the one the neighbouring DS parser would suggest: Cloudflare returns
-   * TLSA as `3 1 1 ( 87D109DD… )` — parenthesised, with spaces inside the
-   * parentheses, in uppercase hex — where DS comes back as four plain fields
-   * in lowercase. Splitting on whitespace the way a DS parser does yields
-   * ['3','1','1','('] and reads the association data as an empty string,
-   * raising no error at all. Hence the explicit strip.
-   */
-  function parseTlsaRecord(presentationString) {
-    var text = String(presentationString || '').trim();
-    var match = /^(\d+)\s+(\d+)\s+(\d+)\s+([\s\S]+)$/.exec(text);
-    if (!match) {
-      return { usage: null, selector: null, matchingType: null, data: '', valid: false, errors: ['unparseable-record'] };
-    }
-    var usage = Number(match[1]);
-    var selector = Number(match[2]);
-    var matchingType = Number(match[3]);
-
-    var errors = [];
-    // The wrapper is either absent or one balanced outer pair. Stripping each
-    // side independently accepted `( ABCD…` and `ABCD… )` alike, which defeats
-    // the syntactic contract of a parser written specifically for this
-    // presentation form.
-    var body = match[4].trim();
-    var opened = body.charAt(0) === '(';
-    var closed = body.length > 1 && body.charAt(body.length - 1) === ')';
-    if (opened !== closed) {
-      return {
-        usage: usage, selector: selector, matchingType: matchingType,
-        data: '', valid: false, errors: ['unbalanced-parentheses'],
-      };
-    }
-    if (opened) body = body.slice(1, -1);
-    var data = body.replace(/\s+/g, '').toLowerCase();
-
-    // RFC 6698 §2.1.1–2.1.3, and RFC 7671 §4 for the SMTP-usable subset.
-    if (!(usage >= 0 && usage <= 3)) errors.push('bad-usage');
-    if (!(selector >= 0 && selector <= 1)) errors.push('bad-selector');
-    if (!(matchingType >= 0 && matchingType <= 2)) errors.push('bad-matching-type');
-    if (!/^[0-9a-f]+$/.test(data) || data.length % 2 !== 0) errors.push('bad-association-data');
-    else {
-      var expected = TLSA_MATCHING_LENGTHS[matchingType];
-      // Matching type 0 is the full certificate or SPKI, of no fixed length.
-      if (expected !== undefined && data.length / 2 !== expected) errors.push('bad-digest-length');
-    }
-
-    return {
-      usage: usage, selector: selector, matchingType: matchingType,
-      data: data, valid: errors.length === 0, errors: errors,
-    };
-  }
-
-  /**
-   * Look up `_25._tcp.<host>` for every MX host and validate what comes back.
-   */
-  async function checkTlsa(mxHosts, queryOpts) {
-    var hosts = await Promise.all((mxHosts || []).map(async function (host) {
-      var queryName = '_25._tcp.' + host;
-      var UNKNOWN = {};
-      // `do=1` costs nothing — the query is being made anyway — and it is the
-      // difference between "this record is not protected" and "we did not
-      // look". The filter on type 52 is not optional either: a TLSA query
-      // commonly returns a CNAME alongside the records, because pointing
-      // _25._tcp.<host> at a shared _dane.<zone> name is ordinary practice,
-      // and handing that CNAME string to the record parser would report a
-      // malformed TLSA record on a correctly configured host.
-      var result = await optionalCheck(function () {
-        return dohFetch(queryName, 'TLSA', Object.assign({}, queryOpts, { dnssec: true }))
-          .then(function (r) { return requireUsable(r, queryName, 'TLSA'); });
-      }, UNKNOWN);
-      if (result === UNKNOWN) {
-        return { host: host, queryName: queryName, records: [], present: false, authenticated: null, unknown: true };
-      }
-      var records = result.answers.filter(function (a) { return a.type === 52; })
-        .map(function (a) { return parseTlsaRecord(cleanAnswerData(a.data, 'TLSA')); });
-      return {
-        host: host,
-        queryName: queryName,
-        records: records,
-        present: records.length > 0,
-        // The AD bit from the same validating resolver checkDNSSEC() already
-        // trusts, read for THIS name rather than for the audited domain — an
-        // MX host usually lives in someone else's zone, so the audited
-        // domain's DNSSEC status says nothing about whether this record is
-        // protected. null means the lookup did not complete.
-        authenticated: result.ad === true,
-        unknown: false,
-      };
-    }));
-
-    var present = hosts.filter(function (h) { return h.present; });
-    return {
-      hosts: hosts,
-      anyPresent: present.length > 0,
-      // Every host that publishes TLSA does so under an authenticated chain.
-      // Evidence, not a verdict: it is what the `tlsa-published-unsigned`
-      // finding is gated on. This is the strongest true statement available
-      // about a record in someone else's zone.
-      allAuthenticated: present.length > 0 && present.every(function (h) { return h.authenticated === true; }),
-      unauthenticatedHosts: present.filter(function (h) { return h.authenticated === false; })
-        .map(function (h) { return h.host; }),
-      unknown: hosts.some(function (h) { return h.unknown; }),
-    };
-  }
+  const checkTlsa = createTlsaCheck({ dohFetch, requireUsable, optionalCheck, cleanAnswerData });
 
   /**
    * Records at a protocol's dedicated owner that MENTION its version field.
@@ -2211,100 +2081,6 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
       else tags[key] = value;
     });
     return { tags: tags, duplicates: duplicates };
-  }
-
-  // RFC 8461 §3.1: sts-id = 1*32(ALPHA / DIGIT). No hyphens, no 33rd character.
-  var STS_ID = /^[a-z0-9]{1,32}$/i;
-  // sts-ext-value = 1*(%x21-3A / %x3C-7E) — VCHAR without ';', and no space.
-  // sts-ext-value / tlsrpt-ext-value = 1*(%x21-3A / %x3C / %x3E-7E) — VCHAR
-  // excluding ';' (0x3B), '=' (0x3D), SP and controls. The earlier range
-  // included 0x3D, so `ext=a=b` validated in both protocols.
-  var RECORD_EXT_VALUE = /^[\x21-\x3A\x3C\x3E-\x7E]+$/;
-  // BIMI's pinned grammar does not carry the same exclusion, so it keeps the
-
-  /**
-   * Validate an MTA-STS TXT record against RFC 8461 §3.1.
-   *
-   * Ordered and anchored, not a tag-bag lookup. The ABNF puts the version
-   * FIRST and writes it `%s"STSv1"`, which is case-SENSITIVE — so
-   * `id=abc; v=STSv1` and `v=stsv1` are both unusable and both previously
-   * validated. `id` is 1–32 alphanumerics: `has-hyphen` is not one, nor is a
-   * 33-character string. A bare `garbage` field is not an extension; the
-   * extension grammar requires a name and a value, so it cannot be dropped
-   * silently.
-   *
-   * Getting this wrong suppressed `mta-sts-invalid` — a finding whose entire
-   * purpose is to catch a control the operator believes is working.
-   */
-  function validateMtaStsRecord(record) {
-    var fields = parseOrderedFields(record, { strictFieldSyntax: true });
-    if (!fields || !fields.length) return { valid: false, id: '', errors: ['invalid-syntax'] };
-
-    var seen = Object.create(null);
-    var syntax = fields[0].name === 'v' && fields[0].value === 'STSv1';
-    var id = '';
-    for (var i = 0; i < fields.length; i++) {
-      var name = fields[i].name;
-      // RFC 8461 §3.1: "Parsers MUST accept TXT records ... If any non-repeated
-      // field is duplicated, all entries except for the first SHALL be
-      // ignored." A blanket duplicate rejection is the opposite of that: it
-      // called a conformant record invalid, and then reported the LAST id as
-      // effective — the one every sender discards.
-      if (seen[name]) continue;
-      seen[name] = true;
-      if (i === 0) continue;
-      if (name === 'id') { id = fields[i].value; if (!STS_ID.test(id)) syntax = false; }
-      else if (name === 'v') continue;
-      else if (!EXT_NAME.test(name) || !RECORD_EXT_VALUE.test(fields[i].value)) syntax = false;
-    }
-    if (!id) syntax = false;
-    return { valid: syntax, id: id, errors: syntax ? [] : ['invalid-syntax'] };
-  }
-
-  /**
-   * Validate a TLS-RPT TXT record against RFC 8460 §3.
-   *
-   * Same shape as MTA-STS: version first, `%s"TLSRPTv1"` case-sensitive, and
-   * every `rua` destination a real `https:` or `mailto:` URI. Prefix matching
-   * accepted `mailto:not an address`, which is a string beginning with a
-   * scheme and not a URI.
-   */
-  function validateTlsRptRecord(record) {
-    var fields = parseOrderedFields(record, { strictFieldSyntax: true });
-    if (!fields || !fields.length) return { valid: false, destinations: [], errors: ['invalid-syntax'] };
-
-    var seen = Object.create(null);
-    var syntax = fields[0].name === 'v' && fields[0].value === 'TLSRPTv1';
-    var destinations = [];
-    var sawRua = false;
-    for (var i = 0; i < fields.length; i++) {
-      var name = fields[i].name;
-      if (i === 0) { seen[name] = true; continue; }
-      // `tlsrpt-record = tlsrpt-version 1*(field-delim tlsrpt-field)` with
-      // `tlsrpt-field = tlsrpt-rua / tlsrpt-extension`, so MORE THAN ONE `rua`
-      // field is grammatical and conformant. Rejecting it discarded a valid
-      // record and threw away the first destination as evidence.
-      if (name === 'rua') {
-        sawRua = true;
-        var uris = fields[i].value.split(',').map(function (v) { return v.trim(); }).filter(Boolean);
-        if (!uris.length) syntax = false;
-        uris.forEach(function (uri) {
-          // RFC 8460 imports RFC 3986 whole; it adds no FQDN rule.
-          // It does add one encoding rule: comma, exclamation and semicolon
-          // must not occur raw inside a destination URI.
-          if (/[!,;]/.test(uri) || (!isMailtoUri(uri) && !isHttpUri(uri, { httpsOnly: true }))) syntax = false;
-          destinations.push(uri);
-        });
-        continue;
-      }
-      // Everything else is non-repeatable: keep the first, ignore later copies.
-      if (seen[name]) continue;
-      seen[name] = true;
-      if (name === 'v') continue;
-      if (!EXT_NAME.test(name) || !RECORD_EXT_VALUE.test(fields[i].value)) syntax = false;
-    }
-    if (!sawRua) syntax = false;
-    return { valid: syntax, destinations: destinations, errors: syntax ? [] : ['invalid-syntax'] };
   }
 
   async function resolveWebsite(domain, queryOpts) {

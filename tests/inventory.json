@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 65,
+      "assertions": 69,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -83,7 +83,7 @@
         "the markup-sink scan over the built artifact, which is what pays for that exclusion",
         "the exported report declares its own policy"
       ],
-      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. Task 4.0's four core/shared modules took it from 58 to 62, Task 4.1's core/caa/caa.js to 63, Task 4.2's core/mx/mx.js to 64, and Task 4.3's core/bimi/bimi.js to 65."
+      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. 58 before Task 4.0; +4 core/shared, +1 core/caa, +1 core/mx, +1 core/bimi, +4 core/transport."
     },
     {
       "path": "src/core/dns/doh.test.js",
@@ -231,6 +231,46 @@
         "l= is where BIMI turns on core/shared/uri.js's httpsOnly and requireFqdn, and adds the SVG suffix rule that a= does not carry",
         "BIMI does NOT inherit MTA-STS's exclusion of = from the extension value class — asserted, which is why EXT_NAME is shared and RECORD_EXT_VALUE is not",
         "every emitted token is in the constant, and both are reachable"
+      ]
+    },
+    {
+      "path": "src/core/transport/mta-sts.test.js",
+      "assertions": 34,
+      "note": "Co-located per spec §9. Phase 4, Task 4.4. Pure validator, no resolver.",
+      "areas": [
+        "the published error vocabulary, one member, emitted and only that",
+        "the version field is first and case-sensitive — the two readings that suppressed mta-sts-invalid",
+        "sts-id = 1*32(ALPHA/DIGIT), with the bad id still reported so the operator can see what they published",
+        "RFC 8461 §3.1 duplicate handling: a duplicated field is CONFORMANT, the FIRST wins, and the first copy still has to parse",
+        "an = in an extension value is refused here and accepted in BIMI — the executable half of why RECORD_EXT_VALUE is not shared"
+      ]
+    },
+    {
+      "path": "src/core/transport/tls-rpt.test.js",
+      "assertions": 37,
+      "note": "Co-located per spec §9. Phase 4, Task 4.4. Pure validator, no resolver.",
+      "areas": [
+        "the published error vocabulary",
+        "more than one rua field is conformant, and BOTH destinations survive — rejecting the second also threw away the first",
+        "a destination is a URI, not a scheme prefix; https is required and no FQDN rule is added",
+        "RFC 8460's raw comma/exclamation/semicolon exclusion, with the percent-encoded form accepted",
+        "the shared-with-MTA-STS extension value class"
+      ]
+    },
+    {
+      "path": "src/core/transport/tlsa.test.js",
+      "assertions": 79,
+      "note": "Co-located per spec §9. Phase 4, Task 4.4. The only transport module that takes a resolver, and the only one whose contract needs the RAW response — driven here by a fake transport and the real requireUsable, optionalCheck and cleanAnswerData.",
+      "areas": [
+        "the seven-token error vocabulary, one record per token",
+        "the captured Cloudflare presentation form: parenthesised, spaced, uppercase — where a DS-style whitespace split reads the data as empty and raises no error at all",
+        "the wrapper is one balanced outer pair, so a lone parenthesis on either side is unbalanced",
+        "usage, selector and matching type ranges, reported together rather than first-only",
+        "digest length follows the matching type, and type 0 has none",
+        "do=1 is requested, and the AD bit is read for the query name rather than the audited domain",
+        "authenticated is true, false and null — the third is what stops the unsigned finding firing on a signed zone nobody looked at",
+        "the type-52 filter, without which an ordinary _dane CNAME reports a malformed record",
+        "per-host degradation, and two checks over two transports sharing nothing"
       ]
     },
     {

@@ -150,6 +150,7 @@ const ALLOWED_EDGES = {
   'core/dns': ['core/dns', 'core/shared'],
   'core/mx': ['core/shared'],
   'core/shared': [],
+  'core/transport': ['core/shared'],
   'data': [],
   'platform': [],
   'i18n': ['core/shared'],
