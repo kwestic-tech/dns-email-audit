@@ -112,37 +112,59 @@ directory cannot quietly become a dumping ground.
 | `parseTagList` | `core/dmarc/` only | The line in `dkimRecordSet()` that names it is a comment explaining why DKIM does **not** use it. |
 | `versionCandidates`, `leadingVersionMatches` | `audit` only | One owner, and audit has no edge here. |
 | `startsWithCI` | `core/spf/` + `audit` | One protocol owner. Audit has no edge here; it keeps its own. |
-| `isNullMx` | `providers/` + `audit` | No protocol-owner caller. MX semantics; belongs to `core/mx/`. See the Task 4.2 finding. |
+| `isNullMx` | `providers/` + `audit` | No protocol-owner caller. MX semantics; belongs to `core/mx/`. See finding 4. |
 | `cap` | `providers/` only | One owner. |
 | `bytesToHex`, `splitRdataFields`, `dnsWireName` | `core/dnssec/` only | One owner. |
 | `bigIntToIp` | `core/mx/` only | One owner, even though `ip.js` is next to it. |
 | `cidrContains`, `classifySpfSubnet`, `stripSpfQualifier` | `core/spf/` only | One owner. |
 | `domainLabels`, `oneLabelBelow` | `core/dmarc/` only | One owner. |
 | the `derReadTlv` family | `core/dkim/` only | One owner. |
-| `parseSpfTerms` | `core/dkim/` + `core/spf/` | Two owners, but it is **one protocol's grammar**, not shared vocabulary. See the Task 4.7 finding. |
+| `parseSpfTerms` | `core/dkim/` + `core/spf/` | Two owners, but it is **one protocol's grammar**, not shared vocabulary. See finding 1. |
 
-### Findings recorded, not acted on
+### Findings, and the rulings on them
 
-Task 4.0 moves code; it does not redesign it.
+Task 4.0 moves code; it does not redesign it. Each finding below was reviewed
+and ruled on at the Task 4.0 boundary — the ruling binds the later task, so a
+future phase inherits a decision rather than an open question.
 
 1. **`core/dkim/` cannot import `core/spf/`.** `spfReferencedCatalogKeys()`
    calls `parseSpfTerms()` to widen the selector list from the SPF record, and
    §12 gives a protocol directory an edge to `core/shared/` only. Putting SPF
    term parsing here would make this directory a place for one protocol's
    grammar, which is the failure mode the admission test exists to prevent.
-   Three resolutions are open — audit passes parsed terms or catalog keys into
-   DKIM, DKIM does its own minimal `include:`/`redirect=` extraction, or the
-   edge table is amended — and the choice belongs to Task 4.7, with 4.8 in
-   view. `checkDKIM()` already receives the SPF record as a string from the
-   audit layer.
+
+   **Ruled.** DKIM neither imports `core/spf/` nor grows a second SPF parser.
+   Cross-protocol composition is audit's job: `core/spf/` eventually exposes
+   its parsed references, and audit passes the derived input into DKIM. Until
+   both owners exist, the current wiring is preserved unchanged —
+   `checkDKIM()` keeps receiving the SPF record as a string. Task 4.7, with
+   4.8 in view.
 
 2. **`core/dmarc/`'s `parseDmarcUriList()` parses `mailto:` by hand** rather
    than through `isMailtoUri()`, with a looser rule — `/^[^\s@]+\.[^\s@.]+$/`
    on the domain. The two disagree about which report destinations are valid.
-   Reconciling them is a behaviour change and belongs to Task 4.6 or later,
-   under the equivalence instrument, not to this move.
 
-3. **The `{ address, prefix, bits }` record is an open value.** Both owners
-   read its fields directly — `auditMxHosts()` computes its own network
-   address from `.bits` and `.prefix`. Moving the accessors here would not
-   have closed it, so it was not a reason to move them.
+   **Ruled.** Task 4.6 **preserves DMARC's current, looser behaviour exactly.**
+   Reconciliation is outside 0.6.0 unless separately authorized. The
+   equivalence instrument DETECTS a behaviour change here; it does not
+   authorize one, and a green run is not permission to have made the change.
+
+3. **`{ address, prefix, bits }` is an open value.** Both owners read its
+   fields directly — `auditMxHosts()` computes its own network address from
+   `.bits` and `.prefix`. Moving the accessors here would not have closed it,
+   so it was not a reason to move them.
+
+4. **`isNullMx` belongs to `core/mx/`,** and `providers/` must not import it
+   from there.
+
+   **Ruled.** Same shape as finding 1: audit derives the null-MX fact and
+   passes it to `providers/`. Task 4.2 gives the predicate its owner; Task 4.9
+   takes the derived fact as input.
+
+5. **`src/audit/` has no edge to `core/shared/`.**
+
+   **Ruled.** Do not add one for convenience. A helper doing protocol
+   interpretation moves to its protocol owner; a genuinely audit-local helper
+   stays local, duplicated if need be. §12's matrix is amended only if a real
+   architectural need survives Phase 5 — and that is an amendment, argued on
+   its own, not a side effect of an extraction.

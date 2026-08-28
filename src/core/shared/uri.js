@@ -168,6 +168,12 @@ export function isHttpUri(value, opts) {
   // path-abempty = *( "/" segment ); query/fragment add pchar, "/" and
   // "?". Validate the productions, not merely the absence of whitespace —
   // `<`, `>`, `"`, `{` and friends are not URI characters.
+  //
+  // STRUCTURALLY UNREACHABLE, and kept anyway. The authority group above is
+  // `[^/?#]*`, so it consumes everything up to the first `/`, `?` or `#`;
+  // group 3 is `[^?#]*`, so a non-empty group 3 necessarily begins with `/`.
+  // No input reaches the `return false`. Preserved because Task 4.0 moves
+  // code — deleting a guard is cleanup, and cleanup is its own decision.
   if (match[3] && match[3].charAt(0) !== '/') return false;
   var pchar = /^[a-z0-9._~!$&'()*+,;=:@\/-]$/i;
   var qchar = /^[a-z0-9._~!$&'()*+,;=:@\/?-]$/i;

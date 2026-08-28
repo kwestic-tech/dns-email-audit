@@ -41,7 +41,11 @@ eq('a space is refused', isHttpUri('https://example.test/a b'), false);
 eq('an angle bracket in the path is refused', isHttpUri('https://example.test/<a>'), false);
 eq('a brace in the query is refused', isHttpUri('https://example.test/?a={b}'), false);
 eq('a legal query and fragment pass', isHttpUri('https://example.test/p?a=b&c=d#frag'), true);
-eq('a path that does not start with / is refused', isHttpUri('https://example.testpath'), true);
+// No path at all: the authority production is greedy up to `/`, `?` or `#`,
+// so this is the host `example.testpath` and a legal URI. It is NOT the
+// slashless-path case its old label claimed — see the note on that guard in
+// uri.js, which no input can reach.
+eq('a host with no path is a URI', isHttpUri('https://example.testpath'), true);
 
 /**
  * The IP-literal case, which is why the host rule is RFC 3986 §3.2.2 and not
