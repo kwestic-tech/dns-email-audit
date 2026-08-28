@@ -24,23 +24,36 @@ Neither `core/dns/` nor `src/platform/` is imported.
 | --- | --- | --- |
 | `records.js` | nothing | The parsers and the IANA tables. Pure, so they are tested with no injection at all. |
 | `matching.js` | `crypto` | **The one piece of this release that computes rather than reports.** |
-| `chain.js` | resolver, `matchDsSet` | Decides `state`, and must not be able to reach the crypto. |
+| `chain.js` | resolver, `matchDsSet` | Decides `state`, and holds no crypto capability of its own. |
 
-`chain.js` receives the matcher rather than constructing it. That is the
-structural half of the rule below: the module that decides the chain state
-holds no way to compute a digest, so it cannot derive state from local
-arithmetic even by accident.
+`chain.js` receives the matcher rather than constructing it. What that buys is
+worth stating exactly, because the obvious reading is wrong:
+
+- `chain.js` has **no crypto capability** and implements no digest arithmetic.
+- It consumes the matcher's **declared verdicts**.
+- Those verdicts **do** reach classification — `mismatch` is selected from them
+  when resolver authentication is already false.
+- What it can never do is promote a zone to `secure`, override a validated
+  `bogus`, or demote a zone the resolver authenticated.
+
+So passing the matcher makes the computation/classification boundary
+**injectable and independently testable**; it does not prevent matcher output
+from influencing classification, and it was never meant to.
 
 ## Two axes, and keeping them apart is the whole design
 
-`secure` comes **only** from the resolver's AD verdict. The DS-to-DNSKEY
-arithmetic can diagnose a definite mismatch when AD is already false, but it
-can never promote a zone to secure or demote one the resolver authenticated.
+`secure` and `bogus` come **only** from the resolver. The DS-to-DNSKEY
+arithmetic can establish `mismatch` when AD is already false — a real influence
+on the classifier, not merely on findings — but it can never promote a zone to
+`secure`, override a validated `bogus`, or demote one the resolver
+authenticated.
 
 `servfail.nl` is why: its DS confirms its KSK by SHA-256, its DNSKEY set is
 published, and the zone is bogus. **Local evidence agreeing is not the same as
-the chain validating.** `chain.test.js` asserts it with a matcher that confirms
-an anchor while the resolver says nothing, and the zone stays `insecure`.
+the chain validating.** `chain.test.js` asserts both halves — a matcher that
+confirms an anchor while the resolver says nothing leaves the zone `insecure`
+and cannot un-bogus one, while a matcher returning `digest-mismatch` does move
+the state to `mismatch`.
 
 ## The raw resolver handle, and why it is required
 
@@ -93,7 +106,7 @@ signed domain audited.
 | `createDsMatcher({ crypto })` | factory | Returns `{ matchDsToDnskeys, matchDsSet }`. Holds no state. |
 | `anchorFactsUsable`, `dnskeyCanAnchor`, `matchConfirmsAnchor` | pure | One anchoring rule, read three ways. |
 | `DS_MATCH_STATES`, `DS_UNVERIFIABLE_REASONS` | frozen arrays | `dnssec.ds.match`, `dnssec.ds.unverifiableReason`. |
-| `DNSSEC_DIGEST_WEBCRYPTO` | table | The three digest types Web Crypto implements. |
+| `DNSSEC_DIGEST_WEBCRYPTO` | table | **Not an IANA registry.** This implementation's map from a numeric digest code to the Web Crypto algorithm name that computes it. It grows when a runtime gains an algorithm, not when a registry does. |
 
 ### `chain.js`
 
@@ -108,6 +121,22 @@ signed domain audited.
 | Product | Kind | Contract |
 | --- | --- | --- |
 | `checkDNSSEC(domain, queryOpts)` | async | The chain state, its evidence, the parsed records and their verdicts. **Never throws.** |
+
+### The four numeric-keyed tables
+
+`DNSSEC_ALGORITHMS`, `DNSSEC_ZONE_SIGNING` and `DNSSEC_DIGESTS` are IANA
+registries; `DNSSEC_DIGEST_WEBCRYPTO` is a capability map of this
+implementation's. None of the four is a state algebra — no result field ranges
+over them, and what a result carries is one value read out of a table.
+
+[`tests/contract/state-matrix.test.mjs`](../../../tests/contract/state-matrix.test.mjs)
+excuses them from spec §12.1 rule 3's comparison under two controls: a
+mechanical shape test that finds numeric-keyed candidates, and a **closed
+four-entry inventory** that is the semantic allowlist. The shape test alone
+proves nothing — a numeric-keyed state map has the same shape — so a fifth
+table fails until someone reviews it and names it. Recorded there as a Task 4.5
+contract clarification, not a spec defect: §12.1 requires exported STATE
+CONSTANTS to match the registry and never said every all-string export is one.
 
 ### Not exported
 

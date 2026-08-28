@@ -380,7 +380,7 @@
     },
     {
       "path": "tests/contract/state-matrix.test.mjs",
-      "assertions": 46,
+      "assertions": 47,
       "areas": [
         "every registry member has exactly one coverage row",
         "every row names a suite or corpus case that exists",
@@ -391,7 +391,7 @@
         "src/data/ is a sink: the generated tables import nothing and export exactly one table each",
         "every adapter carries the LEGACY_ADAPTER sentinel, and the remaining count is reported",
         "the import-graph FLOOR is defined mechanically: src/data/ and src/platform/ import nothing, and a file that grows an import rejoins the state comparison",
-        "a code-to-name lookup table is classified mechanically and excused from the state-constant comparison, with the classifier proven in both directions and the excused tables named"
+        "numeric-keyed reference tables are excused from the state-constant comparison by TWO controls — a shape test that finds candidates, proven in both directions AND proven unable to tell a numeric-keyed state map apart, and a closed four-entry inventory that is the semantic allowlist"
       ]
     },
     {

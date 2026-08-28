@@ -10,9 +10,15 @@
  * SHA-256, its DNSKEY set is published, and the zone is bogus. Local evidence
  * agreeing is not the same as the chain validating.
  *
- * That is also why the matcher is PASSED in rather than constructed here: this
- * module decides state, and it must not be able to reach the crypto that could
- * tempt someone to derive state from it.
+ * The matcher is PASSED in rather than constructed here, and it is worth being
+ * exact about what that buys. This module has no crypto capability and
+ * implements no digest arithmetic; it consumes the matcher's DECLARED verdicts.
+ * Those verdicts do reach the classifier — `mismatch` below is selected from
+ * them — so the injection does not stop matcher output influencing state, and
+ * it was never meant to. What it buys is that the computation and the
+ * classification are separable and independently testable, which is why
+ * `chain.test.js` can drive rule precedence with a matcher that confirms an
+ * anchor and watch the zone stay `insecure`.
  *
  * ── A named raw-kind reader, and why ────────────────────────────────────
  *

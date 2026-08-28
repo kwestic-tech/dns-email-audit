@@ -252,47 +252,64 @@ eq('and the facade names the global it governs', facade.globalName, 'DnsAudit');
  * something to say.
  */
 /**
- * A state vocabulary and a code→name lookup table are different things, and
- * Task 4.5 is where the difference first mattered.
+ * A CONTRACT CLARIFICATION, recorded at Task 4.5. Not a spec defect.
  *
- * The comparison below treats any all-string export as a closed vocabulary.
- * That was true of everything `src/` exported until `core/dnssec/records.js`
- * arrived carrying three IANA REGISTRY tables — `DNSSEC_ALGORITHMS`,
- * `DNSSEC_DIGESTS` and `DNSSEC_DIGEST_WEBCRYPTO`. They map a numeric protocol
- * code to its registered name. They are reference data, they are open (IANA
- * adds to them), and no result field ranges over them as an algebra: what a
+ * Spec §12.1 rule 3 requires an owner's exported STATE CONSTANTS to match the
+ * reviewed registry. It does not say every all-string export is a state
+ * algebra — this check had generalized beyond the requirement, and the
+ * generalization held only because nothing under `src/` had yet exported a
+ * code-keyed reference table.
+ *
+ * `core/dnssec/records.js` and `matching.js` export four:
+ *
+ * | Table | Source |
+ * | --- | --- |
+ * | `DNSSEC_ALGORITHMS` | IANA DNS Security Algorithm Numbers |
+ * | `DNSSEC_ZONE_SIGNING` | IANA, the Zone Signing column |
+ * | `DNSSEC_DIGESTS` | IANA DS Digest Algorithms |
+ * | `DNSSEC_DIGEST_WEBCRYPTO` | **NOT IANA** — this implementation's map from a numeric digest code to the Web Crypto algorithm name that computes it. A capability map, and open in a different direction: it grows when a runtime gains an algorithm, not when a registry does. |
+ *
+ * None of the four is an algebra. No result field ranges over them: what a
  * result carries is `algorithmName`, one value read out of a table, which is
  * why the reviewed registry models the eligibility ANSWER and not the name.
+ * Inventing an algebra for each would make the registry claim a closed set
+ * where the source publishes an open one — the exact failure the registry
+ * exists to prevent, arriving through the check meant to enforce it.
  *
- * Inventing an algebra for each would have made the registry claim a closed
- * set where the authority publishes an open one — the exact failure the
- * registry exists to prevent, arriving through the check meant to enforce it.
+ * ── What actually proves this, and what does not ────────────────────────
  *
- * So the classifier is mechanical, not a named exclusion list: **an exported
- * object whose keys are ALL numeric is a lookup table**; everything else is a
- * vocabulary and must match an algebra. `DNSSEC_ZONE_SIGNING` was already
- * passing for the wrong reason — its values are booleans, so it was skipped by
- * accident rather than classified.
+ * TWO controls, and only together:
  *
- * Proven in both directions below, because a classifier that cannot fail is
- * not one.
+ *  1. `isNumericKeyedTable()` finds CANDIDATES mechanically. **Numeric keys do
+ *     not semantically prove a table is reference data** — a state
+ *     representation keyed by numeric code is perfectly possible, and this
+ *     predicate would excuse it. It is a shape test, named for its shape.
+ *  2. The closed four-entry inventory below is the SEMANTIC allowlist. Every
+ *     accepted table is a reviewed decision, and a fifth is a decision someone
+ *     has to make rather than something the shape test waves through.
+ *
+ * The shape test is proven in both directions, because a classifier that
+ * cannot fail is not one. `DNSSEC_ZONE_SIGNING` was previously passing for the
+ * wrong reason — its values are booleans, so it was skipped by accident rather
+ * than classified.
  */
-const isLookupTable = value => value && typeof value === 'object' && !Array.isArray(value) &&
+const isNumericKeyedTable = value => value && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).length > 0 && Object.keys(value).every(k => /^\d+$/.test(k));
 
-eq('a code-to-name table is classified as a lookup table',
-  isLookupTable({ 1: 'SHA-1', 2: 'SHA-256' }), true);
-eq('a vocabulary array is not',
-  isLookupTable(['secure', 'insecure']), false);
-eq('and neither is an object keyed by name — that would be a vocabulary',
-  isLookupTable({ secure: 'a', insecure: 'b' }), false);
-eq('nor is an empty object, which claims nothing either way',
-  isLookupTable({}), false);
-eq('a mixed-key object is not a lookup table',
-  isLookupTable({ 1: 'a', named: 'b' }), false);
+eq('a code-keyed table has the shape', isNumericKeyedTable({ 1: 'SHA-1', 2: 'SHA-256' }), true);
+eq('a vocabulary array does not', isNumericKeyedTable(['secure', 'insecure']), false);
+eq('and neither does an object keyed by name — that would be a vocabulary',
+  isNumericKeyedTable({ secure: 'a', insecure: 'b' }), false);
+eq('nor an empty object, which claims nothing either way', isNumericKeyedTable({}), false);
+eq('a mixed-key object does not have the shape', isNumericKeyedTable({ 1: 'a', named: 'b' }), false);
+// The stated limit, asserted so it cannot be forgotten: a numeric-keyed STATE
+// map has the same shape and would be excused by the predicate alone. The
+// inventory below is what stops that, not this.
+eq('a numeric-keyed state map has the same shape — the predicate cannot tell',
+  isNumericKeyedTable({ 0: 'secure', 1: 'insecure' }), true);
 
 const unknownConstants = [];
-const lookupTables = [];
+const numericKeyedTables = [];
 for (const relative of codeModules) {
   const source = readFileSync(join(srcDir, relative), 'utf8');
   if (!declaredExports(source).length) continue;
@@ -304,7 +321,7 @@ for (const relative of codeModules) {
   if (source.includes(ADAPTER_SENTINEL)) continue;
   const module = await import(pathToFileURL(join(srcDir, relative)).href);
   for (const [name, value] of Object.entries(module)) {
-    if (isLookupTable(value)) { lookupTables.push(`${relative}:${name}`); continue; }
+    if (isNumericKeyedTable(value)) { numericKeyedTables.push(`${relative}:${name}`); continue; }
     const members = Array.isArray(value) ? value
       : (value && typeof value === 'object' ? Object.values(value) : null);
     if (!members || !members.length || !members.every(m => typeof m === 'string')) continue;
@@ -318,11 +335,17 @@ for (const relative of codeModules) {
 eq('every state constant a src/ module exports matches a registry algebra',
   unknownConstants, []);
 
-// The tables the rule above excused, named rather than counted, so one
-// appearing that nobody added is a decision someone has to make. An empty list
-// here would also mean the classifier had stopped matching anything.
-eq('and the lookup tables it excused are exactly these',
-  lookupTables.sort(),
+/**
+ * THE SEMANTIC CONTROL. The shape test above finds candidates; this decides
+ * which are accepted, and it is closed.
+ *
+ * A new numeric-keyed export fails here until someone reviews it and adds it
+ * by name — which is what keeps the shape test from becoming a loophole for a
+ * numeric-keyed state map. An empty list would also mean the shape test had
+ * stopped matching anything at all.
+ */
+eq('and the numeric-keyed tables it excused are exactly these, all reviewed',
+  numericKeyedTables.sort(),
   ['core/dnssec/matching.js:DNSSEC_DIGEST_WEBCRYPTO',
     'core/dnssec/records.js:DNSSEC_ALGORITHMS',
     'core/dnssec/records.js:DNSSEC_DIGESTS',

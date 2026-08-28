@@ -829,9 +829,12 @@ cases.push({
  * The states §4's rules derive from the resolver's verdict and from what the
  * child and parent publish.
  *
- * Local DS-to-DNSKEY matching feeds findings and never the classifier: nothing
- * computed here can demote a zone the resolver validated. `servfail.nl` is the
- * reason — its DS confirms its KSK by SHA-256 and the zone is bogus.
+ * Local DS-to-DNSKEY matching reaches the classifier — `mismatch` is selected
+ * from its verdicts — but it can never overturn the resolver: nothing computed
+ * locally promotes a zone to `secure`, overrides a validated `bogus`, or
+ * demotes a zone the resolver authenticated. `servfail.nl` is the reason for
+ * the last of those — its DS confirms its KSK by SHA-256 and the zone is
+ * bogus.
  */
 cases.push({
   id: 'dnssec-chain-states',

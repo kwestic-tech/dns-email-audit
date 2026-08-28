@@ -3,11 +3,22 @@
  *
  * **The one piece of this release that computes rather than reports**, which
  * is why it is the only module here that takes the platform's crypto — and why
- * it is a separate file from `chain.js`. Its output feeds findings and never
- * the state classifier: §4's rules derive `state` from the resolver's AD
- * verdict and from what is published, so nothing here can promote or demote a
- * zone the resolver already judged. `servfail.nl` is the case that settles it
- * — its DS confirms its KSK by SHA-256 and the zone is bogus.
+ * it is a separate file from `chain.js`.
+ *
+ * ── What this module's output can and cannot do ─────────────────────────
+ *
+ * It feeds findings, AND it feeds the classifier: `chain.js` selects
+ * `mismatch` over the residual `insecure` from the verdicts below. Saying it
+ * "never reaches the state classifier" was an overclaim, and correcting it is
+ * the point of stating the boundary precisely instead.
+ *
+ * What it can do: establish `mismatch` when the resolver's AD verdict is
+ * already false.
+ *
+ * What it can never do: promote a zone to `secure`, override a validated
+ * `bogus`, or demote a zone the resolver authenticated. `servfail.nl` is the
+ * case that settles the last of those — its DS confirms its KSK by SHA-256 and
+ * the zone is bogus, so local agreement is not the chain validating.
  *
  * ── Crypto is passed, and only as a capability ──────────────────────────
  *
@@ -53,10 +64,12 @@ export const DS_UNVERIFIABLE_REASONS = Object.freeze([
 
 /* ── Local DS-to-DNSKEY matching (RFC 4034 §5.1.4) ─────────────────────
    The one piece of this release that computes rather than reports. Its
-   output feeds findings and never the state classifier: §4's rules derive
-   `state` from the resolver's AD verdict and from what is published, so
-   nothing here can demote a zone Cloudflare validated. `servfail.nl` is why
-   — its DS confirms its KSK by SHA-256 and the zone is bogus.
+   output feeds findings AND the classifier — `chain.js` reads these verdicts
+   to choose `mismatch` over the residual `insecure`. What it cannot do is
+   overturn the resolver: §4's rules take `secure` and `bogus` from the AD
+   verdict alone, so nothing here can promote a zone, override a validated
+   `bogus`, or demote one Cloudflare authenticated. `servfail.nl` is why — its
+   DS confirms its KSK by SHA-256 and the zone is bogus.
 
    Every failure path lands on `unverifiable`, never on `digest-mismatch`.
    A mismatch verdict tells an operator their DNSSEC is broken, and the only
