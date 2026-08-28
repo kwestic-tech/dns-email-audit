@@ -34,6 +34,7 @@
  * replaces it with `src/platform/browser.js` and the complete §11 primitive set.
  */
 import { createDohTransport, DOH_ENDPOINT } from '../src/core/dns/doh.js';
+import { createDohCache } from '../src/core/dns/cache.js';
 
 export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
   // Named, not reached for. `fetch` is the load-bearing one: the DoH fixture
@@ -84,30 +85,15 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
       DKIM_CATALOG.temporal || []
     )
   );
-  // Bounded, least-recently-used. The Map previously grew for the lifetime of
-  // the page, so a long session auditing several batches retained every answer
-  // it had ever seen. 4096 comfortably holds a full 200-domain run (including
-  // comprehensive DKIM) while staying a fixed ceiling rather than a leak.
-  var MAX_DOH_CACHE_ENTRIES = 4096;
-  var dohCache = new Map();
-
-  function dohCacheGet(key) {
-    if (!dohCache.has(key)) return undefined;
-    // Re-insert to move the entry to the most-recently-used end. Map preserves
-    // insertion order, so the oldest key is always the first one.
-    var value = dohCache.get(key);
-    dohCache.delete(key);
-    dohCache.set(key, value);
-    return value;
-  }
-
-  function dohCacheSet(key, value) {
-    if (dohCache.has(key)) dohCache.delete(key);
-    dohCache.set(key, value);
-    while (dohCache.size > MAX_DOH_CACHE_ENTRIES) {
-      dohCache.delete(dohCache.keys().next().value);
-    }
-  }
+  /**
+   * ONE cache, for this engine and therefore for this runtime.
+   *
+   * Spec Design §5. `createAuditRuntime()` builds one engine per call and
+   * `src/main.js` builds one runtime per page, so this is the page-lifetime
+   * cache v0.5.0 had. Narrowing it would raise the DNS fan-out `PRIVACY.md`
+   * publishes, which makes the scope a privacy decision rather than a detail.
+   */
+  const dohCache = createDohCache();
   /* ── DNS-over-HTTPS core ────────────────────────────────────────────── */
 
   var DNS_TYPES = {
@@ -168,7 +154,7 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
    */
   const { dohFetch } = createDohTransport({
     platform,
-    cache: { get: dohCacheGet, set: dohCacheSet },
+    cache: dohCache,
     dnsError,
     dnsTypeNum,
   });

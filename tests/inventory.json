@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 53,
+      "assertions": 54,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -95,6 +95,17 @@
         "the cache key: name normalization, and the do/cd bits that keep the DNSSEC probes from colliding",
         "DnsTypeError is thrown before the request is attempted, on a cache hit as well as a miss",
         "the concurrency ceiling bounds in-flight requests and queues the rest"
+      ]
+    },
+    {
+      "path": "src/core/dns/cache.test.js",
+      "assertions": 24,
+      "note": "Co-located per spec §9. Phase 3, Task 3.2.",
+      "areas": [
+        "least-recently-used eviction, distinguished from first-in-first-out by a read that rescues the oldest write",
+        "the ceiling holds under 500 writes into a 10-entry cache and at the shipped 4096",
+        "two caches share nothing, which is the isolation half of the per-runtime privacy invariant",
+        "the module retains no state of its own across factory calls"
       ]
     },
     {

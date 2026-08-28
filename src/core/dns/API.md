@@ -31,6 +31,26 @@ reaches this directory at all.
 | `DOH_ENDPOINT` | string | `https://cloudflare-dns.com/dns-query`. The only third-party host this application contacts. |
 | `DOH_TIMEOUT_MS`, `DOH_RETRIES`, `MAX_DOH_CONCURRENCY` | numbers | 8000, 1, 16. |
 
+### `cache.js` — the DoH response cache (Task 3.2)
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `createDohCache({ maxEntries })` | factory | Returns `{ get, set, size }`. Bounded, least-recently-used. **One per runtime**, never a singleton. |
+| `get(key)` | | The stored value, or `undefined` for a miss. Re-inserts, so a read counts as a use. |
+| `set(key, value)` | | Stores, then evicts from the least-recently-used end until the ceiling holds. |
+| `size` | getter | Observable for tests and for reasoning about the ceiling. Never a gate. |
+| `MAX_DOH_CACHE_ENTRIES` | number | 4096 — a full 200-domain run with comprehensive DKIM, as a fixed ceiling rather than a leak. |
+
+**This module decides nothing about what may be cached.** It stores what it is
+given. The rule that only `success`, `nodata` and `nxdomain` are admitted lives
+in `doh.js`, where the kind is known; holding it in both places is how two
+copies of one rule drift apart.
+
+**Least-recently-used, not first-in-first-out**, and the difference is
+load-bearing: a DMARC tree walk re-reads one organizational domain across
+siblings, so an entry can be old and hot at once. Evicting it would re-issue a
+query the published fan-out assumes is cached.
+
 **`opts`**: `signal`, `timeoutMs`, `retries`, `noCache`, `dnssec`,
 `checkingDisabled`. `dnssec` sets `do=1`, `checkingDisabled` sets `cd=1`, and
 both are part of the **cache key** — `checkDNSSEC()` asks for the same name
