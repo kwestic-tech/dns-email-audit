@@ -9,7 +9,7 @@
  */
 
 import { createSuite } from '../../../tests/lib/assert.mjs';
-import { parseOrderedFields } from './record-fields.js';
+import { parseOrderedFields, EXT_NAME } from './record-fields.js';
 
 const { eq, section, report } = createSuite();
 
@@ -58,8 +58,29 @@ eq('strict mode keeps the space inside the value',
 eq('and loose mode trims it away',
   parseOrderedFields('v = STSv1'), [{ name: 'v', value: 'STSv1' }]);
 
-/* ── 4. Total over non-strings ────────────────────────────────────────── */
-section('4. It returns rather than throws');
+/* ── 4. The extension-name production ─────────────────────────────────── */
+section('4. EXT_NAME');
+
+// `sts-ext-name = (ALPHA / DIGIT) *31(ALPHA / DIGIT / "_" / "-" / ".")`, read
+// by MTA-STS, TLS-RPT and BIMI. Shared because it is ONE production; the
+// extension VALUE class differs per protocol and stays with each owner.
+eq('a simple name', EXT_NAME.test('ext'), true);
+eq('digits, underscore, hyphen and dot are all legal', EXT_NAME.test('a9_b-c.d'), true);
+eq('a single character is enough', EXT_NAME.test('a'), true);
+eq('32 characters is the limit', EXT_NAME.test('a'.repeat(32)), true);
+eq('33 is not', EXT_NAME.test('a'.repeat(33)), false);
+eq('it must START with ALPHA or DIGIT', EXT_NAME.test('_ext'), false);
+eq('a hyphen may not lead either', EXT_NAME.test('-ext'), false);
+eq('an empty name is not one', EXT_NAME.test(''), false);
+eq('and neither is one with a space', EXT_NAME.test('a b'), false);
+
+// No `g` flag, so `.test()` retains nothing between calls — which is what lets
+// a directory forbidden to hold state export a regex at all.
+eq('the pattern carries no g flag', EXT_NAME.global, false);
+eq('so repeated tests agree', [EXT_NAME.test('ext'), EXT_NAME.test('ext')], [true, true]);
+
+/* ── 5. Total over non-strings ────────────────────────────────────────── */
+section('5. It returns rather than throws');
 
 eq('undefined is an empty record', parseOrderedFields(undefined), null);
 eq('null is an empty record', parseOrderedFields(null), null);

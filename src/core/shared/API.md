@@ -60,8 +60,22 @@ inherit them.
 | Export | Kind | Contract |
 | --- | --- | --- |
 | `parseOrderedFields(record, opts)` | pure | `[{ name, value }]` in record order, or `null` if any field is not `name=value`. One trailing delimiter is permitted. `opts.strictFieldSyntax` keeps whitespace around `=` inside the field. |
+| `EXT_NAME` | regex | `sts-ext-name = (ALPHA / DIGIT) *31(ALPHA / DIGIT / "_" / "-" / ".")`. No `g` flag, so `.test()` retains nothing. |
 
 Read by `core/transport/` (MTA-STS, TLS-RPT) and `core/bimi/` — two owners.
+
+**`EXT_NAME` arrived at Task 4.3, and should have arrived at 4.0.** The Task
+4.0 sweep analysed FUNCTION callers mechanically and read the constant list by
+eye; a constant used directly by three validators rather than through a moved
+helper fell between the two methods. It meets the admission test unchanged —
+one production, three call sites, two owners, pure and value-only — so it
+moved when BIMI needed it rather than being duplicated.
+
+`RECORD_EXT_VALUE` deliberately did **not** come with it. The extension NAME
+production is one grammar all three share; the extension VALUE class is not —
+BIMI's pinned draft does not carry MTA-STS's exclusion of `=` — so each owner
+keeps its own, and `bimi.test.js` asserts the difference rather than
+describing it.
 
 **Order is the contract**, because RFC 8461 §3.1 and RFC 8460 §3 both put the
 version field first, and a bare token is a malformed record rather than a

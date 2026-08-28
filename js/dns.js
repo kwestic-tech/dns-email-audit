@@ -40,11 +40,12 @@ import { createResolver } from '../src/core/dns/resolver.js';
 import { optionalCheck } from '../src/core/dns/optional.js';
 import { createExistence, existenceFromResponse } from '../src/core/dns/existence.js';
 import { isHttpUri, isMailtoUri } from '../src/core/shared/uri.js';
-import { parseOrderedFields } from '../src/core/shared/record-fields.js';
+import { parseOrderedFields, EXT_NAME } from '../src/core/shared/record-fields.js';
 import { base64ToBytes } from '../src/core/shared/base64.js';
 import { ipv4ToBigInt, ipv6ToBigInt, parseIpCidr } from '../src/core/shared/ip.js';
 import { createCaaCheck, parseCaaRecord, summarizeCaa } from '../src/core/caa/caa.js';
 import { createMxAudit, isNullMx, parseMxRecord } from '../src/core/mx/mx.js';
+import { validateBimiRecord } from '../src/core/bimi/bimi.js';
 
 export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
   // Named, not reached for. `fetch` is the load-bearing one: the DoH fixture
@@ -2214,17 +2215,12 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
 
   // RFC 8461 §3.1: sts-id = 1*32(ALPHA / DIGIT). No hyphens, no 33rd character.
   var STS_ID = /^[a-z0-9]{1,32}$/i;
-  // sts-ext-name = (ALPHA / DIGIT) *31(ALPHA / DIGIT / "_" / "-" / ".")
-  var EXT_NAME = /^[a-z0-9][a-z0-9_.-]{0,31}$/i;
   // sts-ext-value = 1*(%x21-3A / %x3C-7E) — VCHAR without ';', and no space.
   // sts-ext-value / tlsrpt-ext-value = 1*(%x21-3A / %x3C / %x3E-7E) — VCHAR
   // excluding ';' (0x3B), '=' (0x3D), SP and controls. The earlier range
   // included 0x3D, so `ext=a=b` validated in both protocols.
   var RECORD_EXT_VALUE = /^[\x21-\x3A\x3C\x3E-\x7E]+$/;
   // BIMI's pinned grammar does not carry the same exclusion, so it keeps the
-  // looser value class rather than inheriting a restriction from a different
-  // specification.
-  var BIMI_EXT_VALUE = /^[\x21-\x3A\x3C-\x7E]+$/;
 
   /**
    * Validate an MTA-STS TXT record against RFC 8461 §3.1.
@@ -2309,67 +2305,6 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
     }
     if (!sawRua) syntax = false;
     return { valid: syntax, destinations: destinations, errors: syntax ? [] : ['invalid-syntax'] };
-  }
-
-  // Indicator formats the BIMI draft registers. SVG Tiny PS, plain or gzipped.
-  var BIMI_LOGO_SUFFIX = /\.svgz?(\?[^#]*)?(#.*)?$/i;
-
-  /**
-   * Validate a BIMI TXT record against draft-brand-indicators-for-message-
-   * identification §4.3 (revision as of 2026-08; BIMI is still an
-   * Internet-Draft, so this is pinned deliberately and a later revision should
-   * be a deliberate change here and in the fixtures).
-   *
-   * Three things the previous version could not express:
-   *
-   *  - `l=` PRESENT AND EMPTY is a valid, explicit declination to publish an
-   *    indicator. `parsed.tags.l || ''` collapsed that into "missing", so a
-   *    conformant record was reported invalid.
-   *  - `v=BIMI1` is case-sensitive and must come first, so `v=bimi1` and
-   *    `l=…; v=BIMI1` are both unusable and both validated before.
-   *  - `https://` is a scheme and two slashes. A logo URL needs a real host,
-   *    and an indicator needs an SVG suffix — a `.png` is not one.
-   */
-  function validateBimiRecord(record) {
-    var fields = parseOrderedFields(record);
-    if (!fields || !fields.length) {
-      return { valid: false, logo: '', authority: '', declined: false, errors: ['invalid-syntax'] };
-    }
-
-    var seen = Object.create(null);
-    var duplicates = [];
-    var syntax = fields[0].name === 'v' && fields[0].value === 'BIMI1';
-    var logo = '';
-    var authority = '';
-    var sawLogo = false;
-    for (var i = 0; i < fields.length; i++) {
-      var name = fields[i].name;
-      if (seen[name]) duplicates.push(name);
-      seen[name] = true;
-      if (i === 0) continue;
-      if (name === 'l') {
-        sawLogo = true;
-        logo = fields[i].value;
-        // BIMI is the protocol that adds the FQDN and HTTPS constraints.
-        if (logo && !(isHttpUri(logo, { httpsOnly: true, requireFqdn: true }) && BIMI_LOGO_SUFFIX.test(logo))) syntax = false;
-      } else if (name === 'a') {
-        authority = fields[i].value;
-        if (authority && !isHttpUri(authority, { httpsOnly: true, requireFqdn: true })) syntax = false;
-      } else if (name === 'v') syntax = false;
-      else if (!EXT_NAME.test(name) || !BIMI_EXT_VALUE.test(fields[i].value)) syntax = false;
-    }
-    // `l=` is required; it may be empty, but it may not be absent.
-    if (!sawLogo) syntax = false;
-    var valid = syntax && !duplicates.length;
-    return {
-      valid: valid,
-      logo: logo,
-      authority: authority,
-      // An explicit "we publish no indicator", which is a conformant record and
-      // not a broken one. The caller decides what to show; this only reports it.
-      declined: valid && sawLogo && !logo,
-      errors: duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'],
-    };
   }
 
   async function resolveWebsite(domain, queryOpts) {

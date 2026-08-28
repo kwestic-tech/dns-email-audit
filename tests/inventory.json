@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 64,
+      "assertions": 65,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -83,7 +83,7 @@
         "the markup-sink scan over the built artifact, which is what pays for that exclusion",
         "the exported report declares its own policy"
       ],
-      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. Task 4.0's four core/shared modules took it from 58 to 62, Task 4.1's core/caa/caa.js to 63, and Task 4.2's core/mx/mx.js to 64."
+      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. Task 4.0's four core/shared modules took it from 58 to 62, Task 4.1's core/caa/caa.js to 63, Task 4.2's core/mx/mx.js to 64, and Task 4.3's core/bimi/bimi.js to 65."
     },
     {
       "path": "src/core/dns/doh.test.js",
@@ -158,12 +158,13 @@
     },
     {
       "path": "src/core/shared/record-fields.test.js",
-      "assertions": 16,
+      "assertions": 27,
       "note": "Co-located per spec §9. Phase 4, Task 4.0.",
       "areas": [
         "fields come back in record order, with the reversed record proven to be a different parse",
         "a field that is not name=value fails the whole record rather than being dropped",
         "field-delim is *WSP \";\" *WSP, and one trailing delimiter is permitted while two are not",
+        "EXT_NAME, the one extension-name production MTA-STS, TLS-RPT and BIMI share, including its 32-character bound and the absence of a g flag that lets a state-free directory export a regex",
         "strictFieldSyntax keeps whitespace inside the field, which is what makes `v = STSv1` unusable in MTA-STS and legal in BIMI"
       ]
     },
@@ -217,6 +218,19 @@
         "two records naming one exchange are one host, queried once, still a single point of failure — while duplicate PREFERENCES are about the records",
         "block concentration through core/shared/ip.js at /24 and /48, with the private label renderer observed through sharedPrefixes[].prefix rather than exported for the test",
         "two audits over two resolvers share nothing"
+      ]
+    },
+    {
+      "path": "src/core/bimi/bimi.test.js",
+      "assertions": 49,
+      "note": "Co-located per spec §9. Phase 4, Task 4.3. No resolver appears anywhere in the file, because the module takes none — the lookup and the present/declined/advertised shaping stay in the audit layer.",
+      "areas": [
+        "the published error vocabulary, with duplicate-tags shown to suppress invalid-syntax on a record that is both",
+        "l= present and EMPTY is a conformant declination, and is distinguishable from l= absent, which is invalid",
+        "v=BIMI1 is case-sensitive and must come first",
+        "l= is where BIMI turns on core/shared/uri.js's httpsOnly and requireFqdn, and adds the SVG suffix rule that a= does not carry",
+        "BIMI does NOT inherit MTA-STS's exclusion of = from the extension value class — asserted, which is why EXT_NAME is shared and RECORD_EXT_VALUE is not",
+        "every emitted token is in the constant, and both are reachable"
       ]
     },
     {

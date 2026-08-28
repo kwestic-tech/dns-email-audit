@@ -15,13 +15,32 @@
  * depends on. Merging them would be a redesign wearing a de-duplication costume.
  *
  * The `strictFieldSyntax` option is the same arrangement as `uri.js`'s: the
- * grammar is shared, the per-protocol tightening is the caller's.
+ * grammar is shared, the per-protocol tightening is the caller's. `EXT_NAME`
+ * is here for the same reason and `RECORD_EXT_VALUE` is not: the extension
+ * NAME grammar is one production all three validators share, while the
+ * extension VALUE class differs — BIMI's pinned draft does not carry
+ * MTA-STS's `=` exclusion — so each owner keeps its own.
  *
  * ── Moved, not redesigned ────────────────────────────────────────────────
  *
- * `js/dns.js`'s `parseOrderedFields`, unchanged apart from the two-space dedent
- * and the `export` keyword.
+ * `js/dns.js`'s `parseOrderedFields` and `EXT_NAME`, unchanged apart from the
+ * two-space dedent and the `export` keywords. `EXT_NAME` should have moved at
+ * Task 4.0 and did not: that sweep analysed FUNCTION callers mechanically and
+ * read the constant list by eye, and a constant used directly by three
+ * validators rather than through a moved helper fell between the two. Found at
+ * Task 4.3, when BIMI needed it.
  */
+
+/**
+ * `sts-ext-name = (ALPHA / DIGIT) *31(ALPHA / DIGIT / "_" / "-" / ".")`.
+ *
+ * RFC 8461 §3.1's production, reused verbatim by RFC 8460 §3 and by the BIMI
+ * draft. Exported as the regex rather than as a predicate so the three call
+ * sites stay byte-identical through the move; it carries no `g` flag, so
+ * `.test()` retains nothing between calls and the directory's no-state rule
+ * holds.
+ */
+export const EXT_NAME = /^[a-z0-9][a-z0-9_.-]{0,31}$/i;
 
 /**
  * Split a record into ordered `{ name, value }` fields, or null if any field

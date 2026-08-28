@@ -145,6 +145,7 @@ section('5. Allowed edges and the cycle rule');
  * matrix is a test failure, not a judgment call.
  */
 const ALLOWED_EDGES = {
+  'core/bimi': ['core/shared'],
   'core/caa': ['core/shared'],
   'core/dns': ['core/dns', 'core/shared'],
   'core/mx': ['core/shared'],
