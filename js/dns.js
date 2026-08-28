@@ -37,6 +37,8 @@ import { createDohTransport, DOH_ENDPOINT } from '../src/core/dns/doh.js';
 import { createDohCache } from '../src/core/dns/cache.js';
 import { dnsTypeNum, dnsError, DNS_TYPES } from '../src/core/dns/errors.js';
 import { createResolver } from '../src/core/dns/resolver.js';
+import { optionalCheck } from '../src/core/dns/optional.js';
+import { createExistence, existenceFromResponse } from '../src/core/dns/existence.js';
 
 export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
   // Named, not reached for. `fetch` is the load-bearing one: the DoH fixture
@@ -113,39 +115,6 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
    * narrowing it is a privacy change rather than a refactor.
    */
   const { dohFetch } = createDohTransport({ platform, cache: dohCache, dnsError, dnsTypeNum });
-
-  /**
-   * Run an optional enrichment check, turning a DNS failure into a stated
-   * "unknown" instead of an exception.
-   *
-   * Everything behind opts.www / opts.wildcard / opts.advanced is enrichment:
-   * the domain's actual email-security posture is already established by the
-   * core NS/MX/TXT lookups. Before this existed, a transient SERVFAIL on any
-   * one of them threw, and the throw discarded the entire audit — SPF, DKIM,
-   * DMARC and all — for a domain whose real records had resolved perfectly.
-   * Across a 200-domain run that is close to guaranteed to happen to someone.
-   *
-   * A resolver hiccup must degrade one check, never delete the result. What it
-   * must NOT do is quietly become a passing or failing verdict, so every
-   * fallback here marks itself unknown and the scorer treats it as unscored
-   * rather than as zero.
-   *
-   * Cancellation is re-thrown: an aborted audit is not an unknown result.
-   *
-   * So is DnsTypeError. A query for a record type the transport does not know
-   * is a bug in this file, not a resolver hiccup, and reporting it as a stated
-   * "unknown" would restore the very failure dnsTypeNum() throws to prevent:
-   * the check silently never runs and the interface says so in the calm voice
-   * it uses for a domain the resolver was merely slow about.
-   */
-  async function optionalCheck(run, fallback) {
-    try {
-      return await run();
-    } catch (error) {
-      if (error && (error.name === 'AbortError' || error.name === 'DnsTypeError')) throw error;
-      return typeof fallback === 'function' ? fallback(error) : fallback;
-    }
-  }
 
   /**
    * Layers 2 and 3, over this engine's transport.
@@ -2054,18 +2023,7 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
    * than calling here; this exists for the destinations and fixtures that have
    * no such response to hand.
    */
-  async function domainExists(name, queryOpts) {
-    var response = await dohFetch(name, 'NS', queryOpts);
-    if (response.kind === 'cancelled') throw dnsError('cancelled', name, 'NS');
-    return existenceFromResponse(response);
-  }
-
-  function existenceFromResponse(response) {
-    if (!response) return 'unknown';
-    if (response.kind === 'nxdomain') return 'no';
-    if (response.kind === 'success' || response.kind === 'nodata') return 'yes';
-    return 'unknown';
-  }
+  const domainExists = createExistence({ dohFetch });
 
   /**
    * Apply the discovered record's inheritance rules to a parsed DMARC status,

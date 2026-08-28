@@ -31,6 +31,39 @@ reaches this directory at all.
 | `DOH_ENDPOINT` | string | `https://cloudflare-dns.com/dns-query`. The only third-party host this application contacts. |
 | `DOH_TIMEOUT_MS`, `DOH_RETRIES`, `MAX_DOH_CONCURRENCY` | numbers | 8000, 1, 16. |
 
+### `optional.js` — layer 4, error and cancellation policy (Task 3.5)
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `optionalCheck(run, fallback)` | async | Returns `run()`'s value, or the caller's declared unknown if it throws. `fallback` may be a value or a function of the error. |
+| `RETHROWN_ERROR_NAMES` | frozen array | `AbortError`, `DnsTypeError`. |
+
+**A resolver hiccup must degrade one check, never delete the result.** Before
+this existed, a transient SERVFAIL on one enrichment lookup discarded the whole
+audit for a domain whose real records had resolved perfectly.
+
+**It re-throws by NAME, not by kind.** That is why `dnsError()` names a
+`cancelled` query `AbortError` while leaving its kind `cancelled`. An aborted
+audit is not an unknown result, and an unsupported record type is a defect in
+this repository rather than a resolver hiccup.
+
+### `existence.js` — name existence, a named exception edge (Task 3.5)
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `existenceFromResponse(response)` | pure | `no` for `nxdomain`, `yes` for `success`/`nodata`, `unknown` for the other seven and for a missing response. |
+| `createExistence({ dohFetch })` | factory | Returns `domainExists(name, opts)`. Re-throws a cancelled probe rather than reporting `unknown`. |
+| `EXISTENCE_STATES` | frozen array | `yes`, `no`, `unknown`. |
+
+**This module bypasses layer 3 deliberately**, and has to: after normalization
+`nodata` and `nxdomain` are both an empty array, and which of the two it was is
+the entire question. Spec §3 names it an exception edge for that reason.
+
+**The third value is load-bearing.** An audit that collapsed `unknown` into `no`
+would tell someone their domain is unregistered because a query timed out.
+`unknown` claims the resolver was asked and would not say — which is why a
+cancelled probe throws instead: it never got that far.
+
 ### `resolver.js` — layers 2 and 3 (Task 3.4)
 
 | Export | Kind | Contract |

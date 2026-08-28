@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 56,
+      "assertions": 58,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -129,6 +129,18 @@
         "layer 3 carries no kind, and nodata and nxdomain are indistinguishable after normalization",
         "answer cleaning, including the TXT chunk join and the kept malformed-escape divergence",
         "checkConnectivity as a named exception edge: one fixed uncached query, kind read directly"
+      ]
+    },
+    {
+      "path": "src/core/dns/optional.test.js",
+      "assertions": 39,
+      "note": "Co-located per spec §9; covers optional.js and existence.js, which decide the same question. Phase 3, Task 3.5.",
+      "areas": [
+        "an optional check degrades to the caller's declared unknown for every non-cancelled kind",
+        "the rethrow set is AbortError and DnsTypeError, keyed on name rather than kind",
+        "the two modules agree: only a cancelled query carries a re-thrown name",
+        "existence maps nxdomain to no, success and nodata to yes, and the other seven to unknown",
+        "a cancelled existence probe throws rather than claiming the resolver was asked"
       ]
     },
     {
