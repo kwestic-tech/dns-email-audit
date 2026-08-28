@@ -148,7 +148,7 @@
       "assertions": 37,
       "note": "Spec §3's two inventories as amended in 1.6. Phase 3, Task 3.6.",
       "areas": [
-        "the raw-kind reader allowlist: six owners by function or family, with the layer implementations excluded",
+        "the raw-kind reader allowlist: six reader entries across four owners, by function or family, with the layer implementations excluded",
         "a structural closed-list control that fails on a new raw-kind reader in an unnamed function, with its lexical limits asserted",
         "a thrown error's kind is classified as the §12.1 thrown path, not as a raw-response read",
         "the eleven typed propagation paths, taken from the registry so the two cannot drift",

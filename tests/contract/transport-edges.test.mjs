@@ -230,14 +230,17 @@ for (const testCase of baseline.cases) {
 }
 
 /**
- * A declared path carries transport kinds — and, on two of the eleven, its own
- * owner's values as well.
+ * A declared path carries transport kinds — and, on three of the eleven, its
+ * own owner's algebra governs the field as well.
  *
- * `advanced.dnssec.error` and `advanced.reportAuth[].error` each have their own
- * registered algebra whose members are a SUPERSET: the transport kinds that can
- * reach the field, plus values only that owner can produce — `undefined`,
- * `absent`, `name-too-long`. Found by writing the naive assertion ("every value
- * is a transport kind") and watching `name-too-long` fail it.
+ * `advanced.dnssec.error`, `advanced.reportAuth[].error` and
+ * `advanced.reportAuth[].exactKind` each have their own registered algebra.
+ * Two of the three are a SUPERSET of the transport kinds that can reach the
+ * field, adding values only that owner can produce — `undefined` on
+ * `dnssec.error`, `absent` and `name-too-long` on `reportAuth.error`. The
+ * third, `reportAuth.exactKind`, is a subset: `success`, `nodata`, `nxdomain`
+ * and nothing else. Found by writing the naive assertion ("every value is a
+ * transport kind") and watching `name-too-long` fail it.
  *
  * So the contract is the union, taken from the registry rather than restated
  * here: a value belonging to neither the transport algebra nor the path's own
@@ -269,7 +272,7 @@ for (const [path, values] of observed) {
 eq('every value on every declared path is a transport kind or its own owner\'s',
   offPath, []);
 
-// Nine of the eleven carry transport kinds and nothing else.
+// Eight of the eleven carry transport kinds and nothing else.
 const transportOnly = transport.resultPaths.filter(path =>
   !registry.algebras.some(a => a.id !== 'dns.transport.kind' && (a.resultPaths || []).includes(path)));
 eq('eight paths are transport-only', transportOnly.length, 8);
@@ -278,8 +281,8 @@ for (const path of transportOnly) {
   eq(`${path} carries only closed transport kinds`, stray, []);
 }
 
-// And the two that are not, named, so a third appearing is a decision someone
-// has to make rather than something that slips through the union above.
+// And the three that are not, named, so a fourth appearing is a decision
+// someone has to make rather than something that slips through the union above.
 eq('three paths share their field with an owner algebra',
   transport.resultPaths.filter(p => !transportOnly.includes(p)).sort(),
   ['advanced.dnssec.error', 'advanced.reportAuth[].error', 'advanced.reportAuth[].exactKind']);

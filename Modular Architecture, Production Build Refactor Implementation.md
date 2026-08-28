@@ -337,17 +337,20 @@ caller's declared unknown result and rethrows `AbortError` and `DnsTypeError`.
 **Task 3.6** — Test **both** of spec §3's inventories, as amended in `1.6`.
 They are separate contracts and neither substitutes for the other:
 
-1. **The raw-kind reader allowlist** — six owners, by function or family. A
-   structural closed-list control must fail when a new raw `.kind` reader
-   appears outside those owners and the layer implementations. `doh.js` and
-   `requireUsable()` are layers 1 and 2, not exception edges, and stay out of
-   the allowlist. If the control is lexical, say so and state its limits — a
+1. **The raw-kind reader allowlist** — six reader entries across four owners
+   (`core/dns` ×2, `core/dmarc` ×2, `core/dnssec`, `audit`), by function or
+   family. A structural closed-list control must fail when a new raw `.kind`
+   reader appears outside those owners and the layer implementations. `doh.js`
+   and `requireUsable()` are layers 1 and 2, not exception edges, and stay out
+   of the allowlist. If the control is lexical, say so and state its limits — a
    regex is not scope analysis, and `1.2` is the precedent for not claiming
    otherwise.
 2. **The eleven typed propagation paths** — every one carries only closed
-   transport kinds. `advanced.spfLookups.queryError` is on the list even while
-   the corpus does not reach it: source-reachability is the contract, corpus
-   observation is coverage evidence, and the two are recorded separately.
+   transport kinds. `advanced.spfLookups.queryError` was on the list even
+   though the corpus did not reach it when the defect was found — the
+   `spf-lookup-query-error` case added at this task now does. The contract is
+   source-reachability, corpus observation is coverage evidence, and the two
+   are recorded separately.
 
 Behavioural tests for the distinction each allowed reader exists to preserve —
 `nxdomain` versus `nodata`, the validated-`servfail` security signal, a failed
@@ -537,7 +540,7 @@ npm ci
 npm test                      # contract inventory intact; total reported
 npm run locale:gate           # 13/13
 npm run build                 # dist/app.min.js + _site/
-node tests/build/equivalence.mjs --subject-root=. --entry=src
+node tests/build/equivalence.mjs --subject-root=.
 node tests/build/equivalence.mjs --subject-root=_site
 ```
 
