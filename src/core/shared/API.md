@@ -1,0 +1,148 @@
+# `src/core/shared/` — API contract
+
+Required by spec [§12](../../../docs/specs/modular-architecture-and-production-build.md#12-module-apis-and-the-allowed-edge-matrix):
+each owning directory checks in `API.md` in the same commit that creates it.
+
+**Responsibility.** Pure value helpers that **two or more protocol owners**
+read. Nothing else. This directory emits no finding, severity, score, locale
+key or protocol verdict, performs no I/O, and retains no state.
+
+## Allowed edges
+
+| May import | May not |
+| --- | --- |
+| **nothing** | everything, including a sibling in this directory |
+
+Spec §12's matrix gives `src/core/shared/` no outgoing edges at all. The
+sibling case is the one worth stating out loud, because it is the one that
+looks harmless: `uri.js` keeps its own IP-literal predicates rather than
+importing `ip.js`, and that is not duplication — the two answer different
+questions (*is this text a legal URI host* versus *what number is this
+address*) and were already two implementations before the move.
+[`tests/contract/dns-transport.test.mjs`](../../../tests/contract/dns-transport.test.mjs)
+asserts the floor directly, the way it does for `src/platform/` and `src/data/`.
+
+## The admission test (Task 4.0)
+
+A helper belongs here only if all four hold:
+
+1. **Two or more protocol owners call it.** Not two call sites — two owning
+   directories. Audit and `providers/` do not count: §12 gives `src/audit/` no
+   edge to this directory at all.
+2. **Pure.** No resolver, no platform, no generated data, no closure state.
+3. **Value-only.** In and out are plain values; it decides no verdict.
+4. **The same grammar, not the same policy.** Where callers need different
+   constraints, the constraint is an argument the caller passes, and the
+   caller keeps ownership of it.
+
+If a helper fails the test it stays with its one owner, even when a sibling
+here looks related. Duplication is preferable to a false shared owner.
+
+## Public exports
+
+### `uri.js` — RFC 3986 and RFC 6068 productions
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `isHttpUri(value, opts)` | pure | An `http`/`https` URI. `opts.httpsOnly` and `opts.requireFqdn` both default OFF. |
+| `isMailtoUri(value, opts)` | pure | An RFC 6068 `mailtoURI`, including a percent-encoded quoted local part or domain literal. `opts.requireFqdn` defaults OFF. |
+
+Read by `core/caa/` (`iodef`), `core/transport/` (TLS-RPT `rua`) and
+`core/bimi/` (`l=`, `a=`) — three owners. The eleven helpers these are built
+from are module-private and are covered through them.
+
+**The defaults are load-bearing.** Requiring HTTPS or an FQDN everywhere
+rejected conforming TLS-RPT and CAA records. BIMI adds both; nobody else may
+inherit them.
+
+### `record-fields.js` — ordered `name=value` records
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `parseOrderedFields(record, opts)` | pure | `[{ name, value }]` in record order, or `null` if any field is not `name=value`. One trailing delimiter is permitted. `opts.strictFieldSyntax` keeps whitespace around `=` inside the field. |
+
+Read by `core/transport/` (MTA-STS, TLS-RPT) and `core/bimi/` — two owners.
+
+**Order is the contract**, because RFC 8461 §3.1 and RFC 8460 §3 both put the
+version field first, and a bare token is a malformed record rather than a
+field to drop. `core/dmarc/`'s `parseTagList()` is a *different* reader — it
+lowercases names, trims unconditionally, ignores fields without `=`, and
+reports duplicates — and stays where it is.
+
+### `ip.js` — address and CIDR arithmetic
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `ipv4ToBigInt(text)` | pure | 32-bit `BigInt`, or `null`. |
+| `ipv6ToBigInt(text)` | pure | 128-bit `BigInt`, or `null`. Expands `::` to exactly eight hextets and folds an embedded IPv4 (RFC 4291 §2.2.3). |
+| `parseIpCidr(text, family)` | pure | `{ address, prefix, bits }`, or `null`. An absent prefix is a single host; `family` is the caller's declaration, never guessed from the text. |
+
+Read by `core/mx/` (`auditMxHosts()` block concentration) and `core/spf/`
+(`classifySpfSubnets()`, `findSpfRedundancy()`) — two owners.
+
+`BigInt` end to end: 128 bits does not fit in a Number, and an IPv6 address
+that rounds is wrong in a way no test output makes obvious.
+
+`bigIntToIp()` (MX only) and `cidrContains()` (SPF only) are **not** here.
+
+### `base64.js` — RFC 4648 decoding
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `base64ToBytes(value)` | pure | `Uint8Array`, or `null` for input that is not canonical base64. Never throws. |
+
+Read by `core/dkim/` (`analyzeDkimKey()`, `validateDkimKeyStructure()`) and
+`core/dnssec/` (`dnskeyRdata()`, `parseDnskey()`) — two owners.
+
+Hand-written rather than `atob`: `atob` throws where it is absent, and the
+caller reads a throw as "this key does not decode", so every DKIM key on every
+domain would be reported unparseable in such an environment. Unused pad bits
+must be zero (RFC 4648), and only the folding whitespace RFC 6376 §3.2 allows
+is removed — a bare LF makes the record malformed and must not disappear.
+
+`bytesToHex()` is not here; `core/dnssec/` is its only reader.
+
+## Considered and rejected
+
+Recorded so a later phase does not reopen a settled question, and so the
+directory cannot quietly become a dumping ground.
+
+| Helper | Callers | Why not shared |
+| --- | --- | --- |
+| `parseTagList` | `core/dmarc/` only | The line in `dkimRecordSet()` that names it is a comment explaining why DKIM does **not** use it. |
+| `versionCandidates`, `leadingVersionMatches` | `audit` only | One owner, and audit has no edge here. |
+| `startsWithCI` | `core/spf/` + `audit` | One protocol owner. Audit has no edge here; it keeps its own. |
+| `isNullMx` | `providers/` + `audit` | No protocol-owner caller. MX semantics; belongs to `core/mx/`. See the Task 4.2 finding. |
+| `cap` | `providers/` only | One owner. |
+| `bytesToHex`, `splitRdataFields`, `dnsWireName` | `core/dnssec/` only | One owner. |
+| `bigIntToIp` | `core/mx/` only | One owner, even though `ip.js` is next to it. |
+| `cidrContains`, `classifySpfSubnet`, `stripSpfQualifier` | `core/spf/` only | One owner. |
+| `domainLabels`, `oneLabelBelow` | `core/dmarc/` only | One owner. |
+| the `derReadTlv` family | `core/dkim/` only | One owner. |
+| `parseSpfTerms` | `core/dkim/` + `core/spf/` | Two owners, but it is **one protocol's grammar**, not shared vocabulary. See the Task 4.7 finding. |
+
+### Findings recorded, not acted on
+
+Task 4.0 moves code; it does not redesign it.
+
+1. **`core/dkim/` cannot import `core/spf/`.** `spfReferencedCatalogKeys()`
+   calls `parseSpfTerms()` to widen the selector list from the SPF record, and
+   §12 gives a protocol directory an edge to `core/shared/` only. Putting SPF
+   term parsing here would make this directory a place for one protocol's
+   grammar, which is the failure mode the admission test exists to prevent.
+   Three resolutions are open — audit passes parsed terms or catalog keys into
+   DKIM, DKIM does its own minimal `include:`/`redirect=` extraction, or the
+   edge table is amended — and the choice belongs to Task 4.7, with 4.8 in
+   view. `checkDKIM()` already receives the SPF record as a string from the
+   audit layer.
+
+2. **`core/dmarc/`'s `parseDmarcUriList()` parses `mailto:` by hand** rather
+   than through `isMailtoUri()`, with a looser rule — `/^[^\s@]+\.[^\s@.]+$/`
+   on the domain. The two disagree about which report destinations are valid.
+   Reconciling them is a behaviour change and belongs to Task 4.6 or later,
+   under the equivalence instrument, not to this move.
+
+3. **The `{ address, prefix, bits }` record is an open value.** Both owners
+   read its fields directly — `auditMxHosts()` computes its own network
+   address from `.bits` and `.prefix`. Moving the accessors here would not
+   have closed it, so it was not a reason to move them.

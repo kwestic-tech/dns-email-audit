@@ -107,6 +107,8 @@ eq('the inputs are exactly the modules the entry point reaches', inputs.sort(),
   ['js/dns.js',
     'src/core/dns/cache.js', 'src/core/dns/doh.js', 'src/core/dns/errors.js', 'src/core/dns/existence.js',
     'src/core/dns/optional.js', 'src/core/dns/resolver.js',
+    'src/core/shared/base64.js', 'src/core/shared/ip.js',
+    'src/core/shared/record-fields.js', 'src/core/shared/uri.js',
     'src/data/dkim-selectors.js', 'src/data/legacy-globals.js',
     'src/data/locales-en.js', 'src/data/public-suffixes.js',
     'src/i18n/index.js', 'src/main.js',
@@ -125,11 +127,11 @@ eq('no path under tests/ appears in the source map',
   sourceMap.sources.filter(p => p.includes('/tests/')), []);
 // NOT a 1:1 correspondence, and assuming one was wrong: a module that
 // contributes no code of its own is left out of the map's sources. The real
-// invariant is that every mapped source is an input. All ten are code-bearing
-// as of Task 2.6, which retired the two import-only adapters.
+// invariant is that every mapped source is an input. All of them are
+// code-bearing as of Task 2.6, which retired the two import-only adapters.
 eq('every mapped source is one of the bundle inputs',
   sourceMap.sources.map(p => p.replace(/^(\.\.\/)+/, '')).filter(p => !inputs.includes(p)), []);
-eq('every code-bearing input is mapped', sourceMap.sources.length, 16);
+eq('every code-bearing input is mapped', sourceMap.sources.length, 20);
 
 // Defence in depth, carrying no acceptance criterion of its own: a string that
 // appears in every cross-cutting suite must appear nowhere in the artifact.

@@ -146,6 +146,7 @@ section('5. Allowed edges and the cycle rule');
  */
 const ALLOWED_EDGES = {
   'core/dns': ['core/dns', 'core/shared'],
+  'core/shared': [],
   'data': [],
   'platform': [],
   'i18n': ['core/shared'],
@@ -196,6 +197,12 @@ eq('src/data imports nothing but its own siblings',
 eq('no core/dns module imports ui or audit',
   modules.filter(m => m.startsWith(join('core', 'dns')) &&
     graph.get(m).some(t => t.startsWith('ui/') || t.startsWith('audit/'))), []);
+// §12 gives core/shared no outgoing edges at all — not even to a sibling here.
+// The matrix row above is empty, but an empty row only fires on a CROSS-area
+// import, and a sibling import is same-area. So the floor is asserted directly,
+// the way src/platform's and src/data's are.
+eq('src/core/shared imports nothing, siblings included',
+  modules.filter(m => m.startsWith(join('core', 'shared')) && graph.get(m).length), []);
 
 /**
  * The cycle rule: no strongly connected component with more than one module.
