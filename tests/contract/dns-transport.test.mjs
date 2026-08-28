@@ -95,13 +95,41 @@ eq('with the declared default when the error carries no kind',
 
 /**
  * The three fallback factories in the shipped source that copy a kind, and the
- * two other mechanisms that are not `optionalCheck()` fallbacks at all. Spec
- * §3 distinguishes them and this counts them, so a fourth appearing is a
+ * one other mechanism that is not an `optionalCheck()` fallback at all. Spec
+ * §3 distinguishes them and this counts them, so a fifth appearing is a
  * decision rather than a drift.
+ *
+ * Counted across `js/dns.js` AND every extracted owner, because Phase 4 moves
+ * them: Task 4.6 took `checkExternalReportAuth()`'s internal catch to
+ * `core/dmarc/report-auth.js`, and a scan of the legacy file alone would have
+ * reported the count falling from four to three as though a site had been
+ * deleted. Located as well as counted, for the same reason.
  */
+const KIND_COPY = /\(\s*(error|e|err)\s*&&\s*\1\.kind\s*\)|(?:^|[^\w$])(e)\s*&&\s*\2\.kind/gm;
+const kindCopySources = ['js/dns.js', ...(function walk(dir, base) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) return walk(full, base);
+    return entry.name.endsWith('.js') && !entry.name.endsWith('.test.js')
+      ? [`src/${relative(base, full).split(sep).join('/')}`] : [];
+  });
+}(join(REPO, 'src'), join(REPO, 'src')))];
+const kindCopiesBySource = new Map();
+for (const file of kindCopySources) {
+  const path = join(REPO, file);
+  if (!existsSync(path)) continue;
+  const n = [...readFileSync(path, 'utf8').matchAll(KIND_COPY)].length;
+  if (n) kindCopiesBySource.set(file, n);
+}
+eq('four sites copy a caught error\'s kind, wherever they now live',
+  [...kindCopiesBySource.values()].reduce((a, b) => a + b, 0), 4);
+eq('and they are in these files',
+  [...kindCopiesBySource].sort().map(([f, n]) => `${f}:${n}`),
+  ['js/dns.js:3', 'src/core/dmarc/report-auth.js:1']);
+
 const engine = readFileSync(join(REPO, 'js/dns.js'), 'utf8');
-const kindCopies = [...engine.matchAll(/\(\s*(error|e|err)\s*&&\s*\1\.kind\s*\)|(?:^|[^\w$])(e)\s*&&\s*\2\.kind/gm)];
-eq('four sites copy a caught error\'s kind', kindCopies.length, 4);
+// The three fallback factories are all still at their call sites in the audit
+// layer, which has not moved. The fourth is DMARC's internal catch, above.
 eq('three of them are optionalCheck fallback factories, one is an internal catch',
   engine.split('\n').filter(l => /error\s*=>\s*\(\{/.test(l) && /\.kind/.test(l)).length, 3);
 
@@ -147,6 +175,7 @@ section('5. Allowed edges and the cycle rule');
 const ALLOWED_EDGES = {
   'core/bimi': ['core/shared'],
   'core/caa': ['core/shared'],
+  'core/dmarc': ['core/shared'],
   'core/dns': ['core/dns', 'core/shared'],
   'core/dnssec': ['core/shared'],
   'core/mx': ['core/shared'],

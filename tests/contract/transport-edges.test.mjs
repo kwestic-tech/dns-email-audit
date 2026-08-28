@@ -88,6 +88,8 @@ const SCANNED = ['js/dns.js', ...LAYER_IMPLEMENTATIONS,
   // a protocol owner must be caught wherever it lands, not only in the file
   // that happens to hold one today.
   'src/core/caa/caa.js', 'src/core/mx/mx.js', 'src/core/bimi/bimi.js',
+  'src/core/dmarc/record.js', 'src/core/dmarc/org-domain.js',
+  'src/core/dmarc/tree-walk.js', 'src/core/dmarc/report-auth.js',
   'src/core/transport/mta-sts.js', 'src/core/transport/tls-rpt.js',
   'src/core/transport/tlsa.js', 'src/core/transport/ext-value.js',
   'src/core/dnssec/records.js', 'src/core/dnssec/matching.js',
@@ -100,10 +102,13 @@ const ALLOWED_FUNCTIONS = new Set([
   'existenceFromResponse', 'domainExists', 'checkConnectivity',
   'checkExternalReportAuth', 'discoverDmarc', 'dnssecLookupStatus', 'checkDNSSEC',
   'analyzeDomain',
-  // `checkDNSSEC` is returned from this factory since Task 4.5, so a backwards
-  // walk from a comparison inside it lands on the factory's name — the same
-  // shape `createExistence` already had.
-  'createDnssecCheck',
+  // NOT the protocol factories. `createDnssecCheck`, `createDmarcDiscovery`
+  // and `createReportAuth` each wrap a reader declared as `function NAME`, so
+  // the backwards walk finds the READER and never reaches the factory —
+  // proven by removing them and watching this list stay empty. `createExistence`
+  // is the exception because its reader is a returned function EXPRESSION,
+  // which the walk has nothing to land on. An allowlist entry that covers
+  // nothing is worse than absent: it reads as coverage.
   // `domainExists` is returned from this factory, so a backwards walk from the
   // comparison lands on the factory's name rather than the reader's.
   'createExistence',
@@ -187,11 +192,22 @@ eq('dnssecLookupStatus is found in core/dnssec/chain.js',
 eq('and checkDNSSEC with it', locatedIn.get('checkDNSSEC'), 'src/core/dnssec/chain.js');
 eq('while the core/dns readers are still where core/dns keeps them',
   locatedIn.get('existenceFromResponse'), 'src/core/dns/existence.js');
-// The two DMARC readers and the audit preflight have not moved yet; Tasks 4.6
-// and Phase 5 own them. Asserted so the NEXT move has to update this too.
-eq('the DMARC readers are still in js/dns.js',
+// Task 4.6 moved the last two protocol readers out. What remains in
+// `js/dns.js` is the audit preflight, which Phase 5 owns — asserted so that
+// move has to update this too.
+eq('the DMARC readers moved to their owner at Task 4.6',
   [locatedIn.get('checkExternalReportAuth'), locatedIn.get('discoverDmarc')],
-  ['js/dns.js', 'js/dns.js']);
+  ['src/core/dmarc/report-auth.js', 'src/core/dmarc/tree-walk.js']);
+/**
+ * Both DMARC readers live inside a factory and are still found under their own
+ * names, because each is declared `function NAME`. That is what makes the
+ * factory entries above unnecessary, and it is why these assertions name the
+ * FILE: a reader can keep its name while moving anywhere, and the file is the
+ * part a stale scanned set gets wrong.
+ */
+eq('and nothing raw-kind is left in js/dns.js but the audit preflight',
+  [...locatedIn].filter(([, file]) => file === 'js/dns.js').map(([fn]) => fn),
+  ['analyzeDomain']);
 
 // And the scan can fail. Without this it would pass on a pattern that matches
 // nothing, which is how a regression check quietly stops being one.

@@ -215,6 +215,8 @@ const entryPoint = 'main.js';
 eq('src/ holds the entry point, the runtime and the converted layers',
   codeModules.sort(),
   ['core/bimi/bimi.js', 'core/caa/caa.js',
+    'core/dmarc/org-domain.js', 'core/dmarc/record.js',
+    'core/dmarc/report-auth.js', 'core/dmarc/tree-walk.js',
     'core/dns/cache.js', 'core/dns/doh.js', 'core/dns/errors.js', 'core/dns/existence.js',
     'core/dns/optional.js', 'core/dns/resolver.js',
     'core/dnssec/chain.js', 'core/dnssec/matching.js', 'core/dnssec/records.js',
@@ -308,8 +310,31 @@ eq('a mixed-key object does not have the shape', isNumericKeyedTable({ 1: 'a', n
 eq('a numeric-keyed state map has the same shape — the predicate cannot tell',
   isNumericKeyedTable({ 0: 'secure', 1: 'insecure' }), true);
 
+/**
+ * The same clarification as the numeric-keyed tables, arriving as an ARRAY.
+ *
+ * `DMARC_TAGS_RFC9989` and `DMARC_TAGS_REMOVED` are RFC 9989's tag NAME lists.
+ * No result field ranges over either: `unknownTags` and `removedTags` are
+ * computed by filtering a record's tags AGAINST them, so they are the input to
+ * a comparison rather than the range of a field. The registry models the
+ * ANSWERS — `dmarc.tagState` is `absent`/`valid`/`invalid` — and `dmarc.policy`
+ * is five members because the FIELD can also be null or empty, which is why a
+ * three-value list of the policy names RFC 9989 defines does not match it and
+ * should not be invented to.
+ *
+ * There is no shape test here and there cannot be one: a reference vocabulary
+ * and a state vocabulary are both arrays of strings. The control is the closed
+ * inventory alone, which is the same semantic allowlist the numeric-keyed
+ * tables get and is the half that was doing the work there too.
+ */
+const REFERENCE_VOCABULARIES = [
+  'core/dmarc/record.js:DMARC_TAGS_RFC9989',
+  'core/dmarc/record.js:DMARC_TAGS_REMOVED',
+];
+
 const unknownConstants = [];
 const numericKeyedTables = [];
+const referenceVocabularies = [];
 for (const relative of codeModules) {
   const source = readFileSync(join(srcDir, relative), 'utf8');
   if (!declaredExports(source).length) continue;
@@ -322,6 +347,9 @@ for (const relative of codeModules) {
   const module = await import(pathToFileURL(join(srcDir, relative)).href);
   for (const [name, value] of Object.entries(module)) {
     if (isNumericKeyedTable(value)) { numericKeyedTables.push(`${relative}:${name}`); continue; }
+    if (REFERENCE_VOCABULARIES.includes(`${relative}:${name}`)) {
+      referenceVocabularies.push(`${relative}:${name}`); continue;
+    }
     const members = Array.isArray(value) ? value
       : (value && typeof value === 'object' ? Object.values(value) : null);
     if (!members || !members.length || !members.every(m => typeof m === 'string')) continue;
@@ -344,6 +372,11 @@ eq('every state constant a src/ module exports matches a registry algebra',
  * numeric-keyed state map. An empty list would also mean the shape test had
  * stopped matching anything at all.
  */
+// Each named entry must actually be exported, or the inventory is carrying a
+// name for something that no longer exists and quietly excuses nothing.
+eq('every named reference vocabulary is really exported',
+  referenceVocabularies.sort(), [...REFERENCE_VOCABULARIES].sort());
+
 eq('and the numeric-keyed tables it excused are exactly these, all reviewed',
   numericKeyedTables.sort(),
   ['core/dnssec/matching.js:DNSSEC_DIGEST_WEBCRYPTO',

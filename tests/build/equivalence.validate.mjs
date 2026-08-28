@@ -181,7 +181,11 @@ const MUTATIONS = [
     // The R10 case, and the reason the trace surface exists at all. The result
     // is byte-identical and the fan-out changes — which is a published figure.
     label: 'narrow the cache (noCache on the DMARC walk)',
-    file: 'js/dns.js',
+    // Followed the walk to its owner at Task 4.6. A mutation probe naming a
+    // file the code has left does not fail loudly — it fails as "the mutation
+    // moved nothing", which reads like the instrument being insensitive rather
+    // than like a stale path.
+    file: 'src/core/dmarc/tree-walk.js',
     from: "      var response = await dohFetch(queryName, 'TXT', queryOpts);",
     to: "      var response = await dohFetch(queryName, 'TXT', Object.assign({}, queryOpts, { noCache: true }));",
     mustMove: ['trace'],

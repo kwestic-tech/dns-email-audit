@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 72,
+      "assertions": 76,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -319,8 +319,55 @@
       ]
     },
     {
+      "path": "src/core/dmarc/record.test.js",
+      "assertions": 58,
+      "note": "Co-located per spec §9. Phase 4, Task 4.6. Pure and resolver-free.",
+      "areas": [
+        "the RFC 9989 tag vocabulary, and the three DMARCbis removed — reported, neither scored nor treated as errors",
+        "status ok/present/missing is separate from malformed: a record that is there and cannot be applied is not no record",
+        "parseTagList is DMARC's own tag bag, with the four behavioural differences from core/shared's parseOrderedFields asserted",
+        "the hand-written mailto: rule is asserted to DISAGREE with core/shared/uri.js — preserved for 0.6.0, not endorsed"
+      ]
+    },
+    {
+      "path": "src/core/dmarc/org-domain.test.js",
+      "assertions": 18,
+      "note": "Co-located per spec §9. Phase 4, Task 4.6. Every assertion runs against a FOUR-RULE fixture list, never the shipped 10,239 — which is the property the factory exists for.",
+      "areas": [
+        "exact, wildcard and exception rules, and the prevailing single-label fallback",
+        "two factories over two lists read the same name differently and share nothing"
+      ]
+    },
+    {
+      "path": "src/core/dmarc/tree-walk.test.js",
+      "assertions": 62,
+      "note": "Co-located per spec §9. Phase 4, Task 4.6. The walk is driven by a fake transport; discoverDmarc is one of the two raw-kind readers this task moved.",
+      "areas": [
+        "the eight-query budget is reached by SHORTENING at thirteen labels, not by aborting, so no query-limit state is needed",
+        "the walk does not stop at the first record — selection happens after every target is queried, which is what makes the organizational domain computable",
+        "a FAILED walk carries an error and an absence does not; both are an empty array after normalization",
+        "RFC 9989 §4.10 step 2: duplicate records at a name are discarded and the walk continues",
+        "a cancelled walk throws under the name AbortError so optionalCheck rethrows it",
+        "inheritance applies a parent's sp to the subdomain and returns a NEW object"
+      ]
+    },
+    {
+      "path": "src/core/dmarc/report-auth.test.js",
+      "assertions": 46,
+      "note": "Co-located per spec §9. Phase 4, Task 4.6. The other raw-kind reader, and the RFC whose duplicate rule points the opposite way to the Tree Walk's.",
+      "areas": [
+        "the three published state constants, with exactKind's THREE members and nxdomain shown to reach it",
+        "RFC 9990 §4 step 8 is permissive — one valid record among several authorizes — which is deliberately the opposite of §4.10 step 2",
+        "exactly ONE constructed name is queried, because a wildcard is synthesized while answering it",
+        "a DNS failure is unverifiable and never unauthorized",
+        "an over-long constructed name is unverifiable with no query made",
+        "an override pointing at a third party is override-mismatch, not authorized",
+        "the destination cap reports external, total and omitted so a capped list is visible"
+      ]
+    },
+    {
       "path": "tests/contract/transport-edges.test.mjs",
-      "assertions": 42,
+      "assertions": 43,
       "note": "Spec §3's two inventories as amended in 1.6. Phase 3, Task 3.6.",
       "areas": [
         "the raw-kind reader allowlist: six reader entries across four owners, by function or family, with the layer implementations excluded",
@@ -329,18 +376,19 @@
         "the eleven typed propagation paths, taken from the registry so the two cannot drift",
         "every value on a declared path is a transport kind or its own owner's, and eight paths are transport-only",
         "the dmarc-unverified issue copy tested against its own key, with the negative control that an unrelated issue argument cannot earn transport coverage",
-        "the allowlist's owners are LOCATED in the files the scan reads, so a protocol extraction that leaves the scanned set stale fails instead of quietly covering less"
+        "the allowlist's owners are LOCATED in the files the scan reads, so a protocol extraction that leaves the scanned set stale fails instead of quietly covering less",
+        "the DMARC readers are located in core/dmarc, and js/dns.js is shown to hold nothing raw-kind but the audit preflight"
       ]
     },
     {
       "path": "tests/contract/dns-transport.test.mjs",
-      "assertions": 38,
+      "assertions": 39,
       "note": "The transport layer's cross-cutting contracts. Phase 3, Task 3.7.",
       "areas": [
         "the code's kind sets and the reviewed registry's algebras are compared rather than restated",
         "cacheable is a strict subset of retry-terminal, and the usable set equals the cacheable set",
         "seven usability throws, counted rather than listed",
-        "optionalCheck is policy-neutral: a static fallback acquires no kind, and exactly three fallback factories copy one",
+        "optionalCheck is policy-neutral: a static fallback acquires no kind, and the four kind-copying sites are counted AND located across js/dns.js and every extracted owner, so a move does not read as a deletion",
         "no transport result or error shape carries a finding, severity, score or locale reference",
         "the §12 allowed-edge matrix and the cycle rule over the real import graph, with core/shared's zero-outgoing-edge floor asserted directly because an empty matrix row cannot catch a sibling import",
         "§12's floor for a protocol owner, asserted over every protocol directory that exists: core/shared and own siblings only, so an import of core/dns/ — the convenient one — fails"
@@ -380,7 +428,7 @@
     },
     {
       "path": "tests/contract/state-matrix.test.mjs",
-      "assertions": 47,
+      "assertions": 48,
       "areas": [
         "every registry member has exactly one coverage row",
         "every row names a suite or corpus case that exists",
@@ -391,7 +439,8 @@
         "src/data/ is a sink: the generated tables import nothing and export exactly one table each",
         "every adapter carries the LEGACY_ADAPTER sentinel, and the remaining count is reported",
         "the import-graph FLOOR is defined mechanically: src/data/ and src/platform/ import nothing, and a file that grows an import rejoins the state comparison",
-        "numeric-keyed reference tables are excused from the state-constant comparison by TWO controls — a shape test that finds candidates, proven in both directions AND proven unable to tell a numeric-keyed state map apart, and a closed four-entry inventory that is the semantic allowlist"
+        "numeric-keyed reference tables are excused from the state-constant comparison by TWO controls — a shape test that finds candidates, proven in both directions AND proven unable to tell a numeric-keyed state map apart, and a closed four-entry inventory that is the semantic allowlist",
+        "reference VOCABULARIES exported as arrays are excused by a closed named inventory alone — there is no shape test, because a reference list and a state list are both arrays of strings"
       ]
     },
     {
