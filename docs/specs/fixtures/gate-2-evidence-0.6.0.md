@@ -7,8 +7,18 @@
 | Captured | 2026-08-28 |
 | Platform | macOS (darwin arm64), Node v26.7.0, ICU 78.3, Unicode 17.0 |
 | Baseline | `v0.5.0`, commit `5c08364cc3270101f07c2d1b925a6d584e551527` |
-| Spec | `1.4 (Final)` — amended at Task 2.7; see [Revision history](../modular-architecture-and-production-build.md#revision-history) |
-| Head | `1905ab1` |
+| Spec | `1.5 (Final)` — amended at Task 2.7 and again at this gate's audit; see [Revision history](../modular-architecture-and-production-build.md#revision-history) |
+| Head | `1905ab1`, audited at `c903a86` |
+
+## Status
+
+**Met**, after the Gate 2 audit
+([`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md)
+§5) and the two documentation corrections it required, both carried by spec
+`1.5`. The audit changed no runtime code, no baseline and no surface: it found
+one spec claim that overstated what the implemented binding does, and one
+privacy conclusion in this capture that was wrong. Both are corrected in place
+below, with what they originally said preserved in the `1.5` revision row.
 
 ## Gate 2, as the plan states it
 
@@ -123,7 +133,16 @@ by damaging a **real** pair rather than a hand-written literal.
 
 The issue **token** set is not compared, and that is a limitation rather than a
 choice: `src/main.js:1240` renders issues as translated prose with no token
-attribute, so the tokens are not observable on the UI side.
+attribute, so the tokens are not observable on the UI side. Spec `1.4` said the
+binding included them; the Gate 2 audit found this capture and the code honest
+and the spec overstated, and `1.5` corrects the spec to match rather than
+bending the application to manufacture a token attribute for the oracle.
+
+**The tokens lose no coverage by this.** They are carried in full by the
+**result** surface, which is compared byte for byte against the baseline. A
+changed token has always been caught there, and still is. What the binding
+cannot do is use them as a cross-execution *join key* — only one execution can
+see them.
 
 ## 4. The trace moved by one query per case, and it is the honest one
 
@@ -147,12 +166,28 @@ The runner had been measuring a page that never booted. Both sides move
 together, so the comparison stays clean, and the trace is now what a visitor
 actually pays.
 
-**`PRIVACY.md` needs no edit, and that was checked rather than assumed.** Its
-published figures are per-**domain** audit fan-out measured by
-`tools/backtest.mjs`, which builds the engine directly and loads no page. The
-boot check is a page-load cost that was always paid and never counted here. A
-moved fan-out is a framework §6 trigger, so it was verified before being
-dismissed.
+**`PRIVACY.md` DID need an edit.** This capture originally concluded it did not,
+and the Gate 2 audit corrected that — spec `1.5`, and the reasoning is worth
+keeping visible because the first conclusion was half right.
+
+The half that held: the published **per-domain** figures — 41 typical, 61 for
+`cloudflare.com` — come from `tools/backtest.mjs`, which builds the engine
+directly and loads no page. They are unchanged, and that was verified rather
+than assumed.
+
+The half that did not: the document described **one** fixed `example.com A`
+probe, "before each run". The trace now proves **two** — one when the page
+initializes and one before each audit run — and a session that loads the page
+and never audits anything still sends the first. Measured: exactly two per case
+across all thirty, whether the case audits one domain or nine, so both are fixed
+costs independent of what was entered. Confirmed separately by booting a subject
+and clicking nothing, which issues the probe on its own.
+
+That is **pre-existing behaviour newly measured, not a 0.6.0 behaviour change**
+— the old runner drove a page that had never booted — but a privacy document
+that understates what a browser session sends is wrong regardless of when the
+behaviour started. `PRIVACY.md` now distinguishes both probes, and plan Task 6.6
+carries the correction forward instead of re-deriving it.
 
 The boot is **settled** before anything is clicked. An audit started while the
 boot's request was still open would report a maximum concurrency that depended

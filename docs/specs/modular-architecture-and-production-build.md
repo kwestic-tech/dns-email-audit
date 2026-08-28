@@ -2,15 +2,15 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.4 (Final) |
+| Spec version | 1.5 (Final) |
 | Target release | 0.6.0 |
-| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, to `1.2` to correct an overstated evidence claim about how that enumeration is guarded, to `1.3` to add the last ambient primitive the conversion sweep found, and to `1.4` — during Task 2.7 — to state the oracle's provenance once the supported facade replaces the legacy engine global, and to reclassify the PSL fixture-identity fingerprint as binding-level. See [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
+| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, to `1.2` to correct an overstated evidence claim about how that enumeration is guarded, to `1.3` to add the last ambient primitive the conversion sweep found, and to `1.4` — during Task 2.7 — to state the oracle's provenance once the supported facade replaces the legacy engine global and reclassify the PSL fixture-identity fingerprint as binding-level, and to `1.5` at the Gate 2 audit to correct two claims `1.4` overstated. See [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
 | Depends on | [dnssec-evidence](implemented/dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
 | Blocks | [findings-and-remediation](findings-and-remediation.md), [local-artifact-validation](local-artifact-validation.md), [report-comparison](report-comparison.md) — all three are scheduled after it |
 | Slug for open questions | `ARCH` |
 | Last updated | 2026-08-27 |
 | Evidence | [esbuild-legacy-bundle-spike-0.6.0](fixtures/esbuild-legacy-bundle-spike-0.6.0.md) — settles `OQ-ARCH-01`, confirms Phase 1 viability, and demonstrates the fixture-substitution hazard; [gate-0-evidence-0.6.0](fixtures/gate-0-evidence-0.6.0.md) — the Gate 0 conditions, met 2026-08-27; [gate-1-evidence-0.6.0](fixtures/gate-1-evidence-0.6.0.md) — the Gate 1 conditions, including native-Linux `npm ci` and `file://` in a real browser; [gate-2-evidence-0.6.0](fixtures/gate-2-evidence-0.6.0.md) — the Gate 2 conditions, met 2026-08-28, with both compatibility deltas performed and the oracle's two-execution rebuild |
-| Reviews | Rounds 1–3 (Codex, 2026-08-27) recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md); the author's requests and responses are in [`CODEX Review Modular Refactor.md`](../../CODEX%20Review%20Modular%20Refactor.md). The Task-2.7 round, which produced `1.4`, is in [`CODEX Review Facade Contraction and Fixture Identity.md`](../../CODEX%20Review%20Facade%20Contraction%20and%20Fixture%20Identity.md) and [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md) |
+| Reviews | Rounds 1–3 (Codex, 2026-08-27) recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md); the author's requests and responses are in [`CODEX Review Modular Refactor.md`](../../CODEX%20Review%20Modular%20Refactor.md). The Task-2.7 round, which produced `1.4`, is in [`CODEX Review Facade Contraction and Fixture Identity.md`](../../CODEX%20Review%20Facade%20Contraction%20and%20Fixture%20Identity.md) and [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md); §5 of that follow-up is the Gate 2 audit that produced `1.5` |
 | Source | Written from an external proposal, *DNS Email Audit Modular Architecture and Production Build Refactor Specification* (Codex, 2026-08). Section numbers of the form §N below refer to that document. Where this spec diverges from it, the divergence is recorded in [§ Corrections to the source proposal](#corrections-to-the-source-proposal). |
 
 ## Problem
@@ -685,11 +685,58 @@ grade-*distribution* check only, never a gate. The oracle is
 > Both executions take the same case data profile, options, fixed instant,
 > locale and platform profile, and neither warms the other: one runtime, one
 > cache, per execution. Because a joined pair is now an assertion rather than a
-> fact, the runner asserts **cross-surface binding** on the stable user-visible
-> fields present on both sides — at minimum domain, score, grade and the issue
-> token set — so two accidentally different cases cannot be reported under one
-> case id. Within-case domain order and the UI's worker behaviour are preserved
-> in the UI execution.
+> fact, the runner asserts **cross-surface binding** so that two accidentally
+> different cases cannot be reported under one case id. Within-case domain order
+> and the UI's worker behaviour are preserved in the UI execution.
+>
+> **Corrected in 1.5.** `1.4` named the issue **token set** among the bound
+> fields. It is not, and cannot honestly be: the UI renders each issue as
+> translated prose through `issueMessage()` and attaches no token attribute, so
+> the tokens are not observable on the UI side at all. Adding one for the
+> oracle's benefit would be a production test seam, which §11 forbids. The
+> fields actually bound, all read structurally from the DOM, are:
+>
+> | Field | Result execution | UI execution |
+> | --- | --- | --- |
+> | domain set | `result.domain` | `tr[data-domain]` |
+> | grade | `result.score.grade` | `tr[data-grade]` |
+> | score | `result.score.pts` | `span.score-total`'s text node |
+> | issue count | `result.issues.length` | `div.issue` |
+> | suggestion count | `result.suggestions.length` | `div.issue.tip` |
+>
+> **The issue tokens lose nothing by this.** They are carried in full by the
+> **result** surface, which is compared byte for byte against the baseline —
+> that is where a changed token is caught, and it always was. What `1.4`
+> overclaimed is narrower than it reads: not that the tokens are checked, but
+> that they serve as a cross-execution *join key*. They do not, because only one
+> execution can see them.
+>
+> Only fields that **cannot** differ because the code under test changed may be
+> bound here. That rule was learned by breaking it: an earlier version read the
+> score from the CSV's `Score` column, and the mutation battery's own
+> "reorder two CSV columns" case — which must move the `csv` surface and nothing
+> else — aborted the run instead of reporting a difference. A binding is not a
+> second surface comparison; anything a change could move on one side alone
+> belongs in the diff, where it is reported.
+>
+> **The UI execution boots the page, and 1.5 records what that showed.** The
+> driver clicks `#auditBtn`, `#exportCsvBtn` and `#exportHtmlBtn` rather than
+> calling the globals Task 2.8 removes, which means it must first fire
+> `DOMContentLoaded` — every control is wired inside that listener. Firing it
+> runs the boot's own `checkConnectivity()`, and because that call passes
+> `noCache: true` it is a genuine second query. So the trace now shows **two**
+> fixed `example.com A` probes per run where it showed one: one when the page
+> initializes, one before each audit run. Measured across all thirty corpus
+> cases, the count is exactly two whether the case audits one domain or nine —
+> both are fixed costs, independent of what was entered.
+>
+> That is **pre-existing behaviour newly measured**, not a 0.6.0 change: the old
+> runner called `window.startAudit()` on a page that had never booted, so a real
+> visitor always paid the first probe and the trace never showed it.
+> `PRIVACY.md` described only the second, and `1.5` corrects it to distinguish
+> both. The per-domain fan-out figures it publishes — 41 typical, 61 for
+> `cloudflare.com` — come from `tools/backtest.mjs`, which builds the engine
+> directly and loads no page, and are unchanged.
 >
 > What this costs is stated plainly: the result surface and the other four are
 > no longer captured from the same process image. What replaces the lost
@@ -1390,7 +1437,7 @@ Preserved properties:
 - [ ] Markup-sink named-file allowlist still empty; scan covers `src/` and `dist/app.min.js`.
 - [ ] DoH cache retains runtime/page lifetime; `tools/scoring.test.mjs:1891` still passes and two runtimes are proved isolated.
 - [ ] **`file://` still works** — `js/locales-en.js` exists to support it and its comments stay.
-- [ ] `PRIVACY.md` needs no edit, confirmed by the query-trace surface rather than assumed.
+- [ ] `PRIVACY.md` distinguishes the **two** fixed `example.com A` probes the query-trace surface proves — one at page initialization, one before each audit run — and its per-domain fan-out figures are unchanged. Confirmed by the trace rather than assumed; `1.4` concluded no edit was needed and `1.5` corrects that.
 - [ ] No runtime third-party JavaScript reaches the browser.
 - [ ] GitHub Actions remain SHA-pinned.
 
@@ -1438,6 +1485,7 @@ current payload. `file://` support was bought and paid for.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.5 | 2026-08-28 | **Corrects two claims `1.4` overstated. Found by the Gate 2 audit, not by the implementation — which was right both times.** **(a) The cross-execution binding does not include issue tokens, §8.** `1.4` named them among the bound fields. The UI renders each issue as translated prose through `issueMessage()` and attaches no token attribute, so they are not observable on that side at all, and manufacturing one for the oracle would be the production test seam §11 forbids. The fields actually bound — domain set, grade, score, issue count, suggestion count — are now named, with the DOM node each is read from. **The tokens lose no coverage**: they are carried in full by the result surface, compared byte for byte against the baseline, which is where a changed token has always been caught. What was overclaimed is narrower than it reads — not that the tokens are checked, but that they serve as a cross-execution join key, which they cannot, because only one execution can see them. The rule that decides what may be bound is recorded with it: only fields that cannot differ because the code under test changed, learned by breaking it. **(b) `PRIVACY.md` did need an edit, §8 and the acceptance criteria.** `1.4`'s driver change fires `DOMContentLoaded`, which runs the boot's `checkConnectivity()`; because that call passes `noCache: true` it is a genuine second query. The trace proves **two** fixed `example.com A` probes per run — one at page initialization, one before each audit run — and the count is exactly two across all thirty corpus cases whether one domain is audited or nine. `1.4` concluded the document needed no edit; it described only the second probe, so a browser session sent one more query than it disclosed. **Pre-existing behaviour newly measured, not a 0.6.0 behaviour change**: the old runner drove a page that had never booted. The per-domain figures — 41 typical, 61 for `cloudflare.com` — come from `tools/backtest.mjs`, which loads no page, and are unchanged. `PRIVACY.md`, plan Task 6.6 and the Gate 2 capture are corrected to distinguish both probes. No runtime code, baseline, surface, exclusion or acceptance threshold changed; the empty exclusion manifest and the strict canonicalization line are untouched. The `1.4` row above is preserved exactly as written. Recorded in [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md) §5. |
 | 1.4 | 2026-08-27 | **Amended during Phase 2, Task 2.7 — two corrections, both about what the instrument proves.** **(a) Oracle provenance, §8.** Stage 3 of §10 makes `window.DnsAudit` esbuild's export namespace: non-configurable accessors, and **not** the engine object `src/main.js` calls. Measured against the artifact — the assignment throws, and `window.DnsAudit` occurs zero times in shipped code. The runner captured the result surface by wrapping that global, so the five surfaces can no longer all come from one runtime. They are now bound to one deterministic **case** captured by two isolated executions: the facade's `analyzeDomain` for the result, the real UI controls for trace, CSV, report and DOM, with the same data profile, options, instant, locale and platform, neither warming the other. The result execution's trace is a different instrument execution, **not an exclusion** — no exclusion is added and the manifest stays empty. Cross-surface binding on domain, score, grade and issue tokens is asserted so two different cases cannot be joined under one id. The rejected alternatives, and why, are recorded. **(b) The PSL fingerprint is binding-level, §11.** `getOrganizationalDomain()` is the only reader of the public suffix sets and **no application code calls it** — zero call sites at `v0.5.0` and at `f1a2842`; `result.organizationalDomain` comes from the RFC 9989 walk. So `1.0`'s claim of a behavioural fingerprint per binding was true for the DKIM catalog and the English bundle and not for the PSL, the same shape of overstatement `1.2` corrected. The probe is unchanged and stays in the suites that supply the binding through `createAuditRuntime()`, reclassified as an engine/runtime fingerprint; an artifact-driven suite is not required to claim one through the two-member facade. The unused 160.6 KB PSL payload **stays in 0.6.0** — removing shipped data is a behaviour-and-size decision, Risk R8 — and is filed in `docs/maintenance-backlog.md` with its measured size. No architecture, phase ordering or acceptance threshold is reopened; the five surfaces, the strict canonicalization line and the empty exclusion manifest are unchanged. Recorded in [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md) §1–§2. |
 | 1.3 | 2026-08-27 | **Added `open` to §11's primitive set.** `openLearnMore()` opens the generated Learn-more page with `open(url, '_blank', 'noopener')` (`js/app.js:385`), and the list did not name it. Found by the **completed conversion sweep over `js/app.js`**, the last unconverted file, which enumerated its full ambient set — eight already listed, this one missing. It is the last such finding because there is no further legacy source to sweep, and it is expressly **not** evidence that the lexical contract is exhaustive: that contract could not have found it either, per `1.2`. Implemented as `win.open.bind(win)`, with a receiver-sensitive contract asserting the exact `url`, `_blank` and `noopener` arguments; the 60-second `revokeObjectURL` timeout and every other behaviour are unchanged. Recorded as the first **navigation side-effect** capability on the list; its final UI-facing abstraction is a **Phase 5** question and is not redesigned now. Added to §11, §12's platform API row, the acceptance criteria, `PLATFORM_PRIMITIVES`, `SPEC_11` and the known-ambient catalog. No architecture or implementation decision reopened. Recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §18. |
 | 1.2 | 2026-08-27 | **Evidence correction, no design change.** `1.1` said §11's primitive set was "exhaustive by contract, not by inspection". It is not, and the phrasing claimed more than the check delivers — the same shape of overstatement this project has corrected twice before, in a paragraph written to correct an overstatement. `tests/contract/platform.test.mjs` establishes three things: the spec list and `PLATFORM_PRIMITIVES` agree bidirectionally, every declared primitive is provided, and a lexical scan over a **named catalog** of ambient identifiers rejects a bare read outside the platform module and the marked adapters. It cannot discover an ambient identifier absent from that catalog — the `navigator` omission `1.1` fixed would not have been caught by it — and a regex is not scope analysis. Replaced with "reviewed during conversion, synchronized bidirectionally, and guarded against the known ambient catalog", stated the scan as defense in depth against regression, and adjusted the acceptance criterion to match. No parser and no dependency added; no architecture or implementation decision reopened. Recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §17. |

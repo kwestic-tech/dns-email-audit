@@ -104,9 +104,26 @@ That last category matters: because the SPF chain is resolved, the pattern of
 queries can reveal **which email and SaaS vendors the audited domain uses**,
 not merely that you looked the domain up.
 
-The app also issues one `A` query for `example.com` before each run, as a
-pre-flight check that the resolver is reachable. This is a fixed probe and
-does not depend on what you entered.
+### Two fixed probes that are not about your domains
+
+Separately from the audit itself, the app issues an `A` query for `example.com`
+**twice**, to check that the resolver is reachable:
+
+| When | How often |
+| --- | --- |
+| When the page finishes loading, before you have typed anything | once per page load |
+| Immediately before an audit run starts | once per run, however many domains that run covers |
+
+Both are fixed probes for the same fixed name. Neither depends on what you
+entered, and neither is repeated per domain — a run covering nine domains sends
+the second probe once, not nine times. They are excluded from the per-domain
+figures above, which count only the queries an audit makes about the domain you
+asked about.
+
+The page-load probe is why `example.com` is queried even in a session where you
+never run an audit. It has always been sent; it was measured for the first time
+in 0.6.0, when the equivalence runner began driving the page through its real
+`DOMContentLoaded` boot instead of skipping straight to the audit.
 
 All of these query names are visible to Cloudflare and are governed by
 Cloudflare's own privacy policy, not this project's. If that is not an
@@ -153,10 +170,11 @@ Every claim above is checkable in code, at
 
 - `js/dns.js` contains the only third-party network calls — every request to
   Cloudflare's DoH endpoint goes through the `DOH` constant defined there.
-- `js/i18n.js` contains the only `localStorage` call in the app
+- `src/i18n/index.js` contains the only `localStorage` call in the app
   (`localStorage.setItem` / `getItem` on `dns-email-audit-lang`), and the
-  same-origin fetch of `locales/*.json`.
-- `js/app.js` fetches `css/style.css` from the same origin when building an
+  same-origin fetch of `locales/*.json` — including the `locales/index.json`
+  read at page load.
+- `src/main.js` fetches `css/style.css` from the same origin when building an
   exported report, so the export is self-contained.
 - The `Content-Security-Policy` in `index.html` enforces this at the browser
   level: `connect-src` permits only `'self'` and `https://cloudflare-dns.com`,

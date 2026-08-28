@@ -44,7 +44,7 @@ rationale, the dependency map, and the group-by-group execution plan.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [modular-architecture-and-production-build](modular-architecture-and-production-build.md) | 0.6.0 | 1.4 | Final, in implementation — amended during Phase 2 to complete §11's platform primitive set, to state precisely how it is guarded, to add the last ambient the conversion sweep found, and at Task 2.7 to state the oracle's provenance behind the supported facade and reclassify the PSL fixture-identity fingerprint as binding-level |
+| [modular-architecture-and-production-build](modular-architecture-and-production-build.md) | 0.6.0 | 1.5 | Final, in implementation — amended during Phase 2 to complete §11's platform primitive set, to state precisely how it is guarded, to add the last ambient the conversion sweep found, at Task 2.7 to state the oracle's provenance behind the supported facade and reclassify the PSL fixture-identity fingerprint as binding-level, and at the Gate 2 audit to correct the binding's claimed fields and the privacy conclusion |
 | [findings-and-remediation](findings-and-remediation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
 | [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 0.1 | Draft, awaiting review |
 | [report-comparison](report-comparison.md) | 0.9.0 | 0.1 | Draft, awaiting review |

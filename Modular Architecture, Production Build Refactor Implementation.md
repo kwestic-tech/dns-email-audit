@@ -433,8 +433,15 @@ not a nicety — §32's argument is that a DMARC task should be boundable to
 **Task 6.5** — `README.md`: build commands, the source/artifact distinction, and
 the assertion count **read out of a real `npm test` run**.
 
-**Task 6.6** — `PRIVACY.md`: confirm in writing that no edit is needed, citing
-the query-trace surface rather than assuming it.
+**Task 6.6** — `PRIVACY.md`: verify against the query-trace surface rather than
+assuming, and **carry forward the `1.5` correction** rather than re-deriving it.
+The trace proves **two** fixed `example.com A` probes — one at page
+initialization, one before each audit run — and the document described only the
+second until Task 2.8's driver began booting the page. Both are already
+distinguished there; this task confirms the wording still matches the trace at
+release, and that the per-domain figures (41 typical, 61 for `cloudflare.com`,
+from `tools/backtest.mjs`, which loads no page) are unchanged. Any *further*
+difference is a framework §6 trigger, not an edit to make quietly.
 
 **Task 6.7** — Move the spec to `docs/specs/implemented/` by the five-step
 procedure in `AGENTS.md`: `git mv`, re-depth every link, fix inbound references
