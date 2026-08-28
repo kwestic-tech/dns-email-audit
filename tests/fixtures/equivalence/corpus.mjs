@@ -1182,3 +1182,66 @@ cases.push({
     'mail.other.test A': a('198.51.100.10'),
   }),
 });
+
+/* ── 30. Report authorization at a name that does not exist ───────────── */
+
+/**
+ * `exactKind: 'nxdomain'`, which nothing else in the corpus reaches.
+ *
+ * The inline usability gate in `checkExternalReportAuth()` admits `success`,
+ * `nodata` and `nxdomain` alike — the same three `requireUsable()` admits — so
+ * an absent authorization record reaches the `unauthorized` branch carrying its
+ * kind, rather than the `unverifiable` branch that a failed lookup takes.
+ *
+ * Added with spec `1.6`, which gave `advanced.reportAuth[].exactKind` its own
+ * three-member algebra. The corpus had observed `success` and `nodata` and the
+ * registry had no owner for the field at all; defining a two-member algebra
+ * from that observation would have been describing what was measured as though
+ * it were what is reachable.
+ */
+cases.push({
+  id: 'dmarc-report-auth-absent',
+  description: 'an external report destination whose authorization name is NXDOMAIN — exactKind nxdomain',
+  domains: [{ domain: 'absentauth.test' }],
+  fetch: () => corpusFixture({
+    'absentauth.test NS': ns('ns1.other.test'),
+    'absentauth.test MX': mx('10 mail.other.test'),
+    'absentauth.test TXT': txt('v=spf1 -all'),
+    '_dmarc.absentauth.test TXT': txt('v=DMARC1; p=reject; rua=mailto:r@gone.vendor.test'),
+    // Explicit rather than relying on the fixture's unmatched-query default:
+    // the absence is the point of the case, so it is written down.
+    'absentauth.test._report._dmarc.gone.vendor.test TXT': 'nxdomain',
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});
+
+/* ── 31. A resolver failure inside SPF lookup counting ────────────────── */
+
+/**
+ * `advanced.spfLookups.queryError`, the eleventh typed propagation path.
+ *
+ * `countSpfLookups()` calls `requireUsable()` on each `include:` target, so a
+ * SERVFAIL there throws; the `optionalCheck()` fallback at the advanced-checks
+ * call site catches it and copies `error.kind` into `queryError`. That is one
+ * of exactly three fallback factories that copy a kind, and one of the two
+ * whose copy escapes into the result.
+ *
+ * Spec `1.6` put this path in the contract while the corpus could not reach it.
+ * A source-reachable path the corpus misses is a corpus finding, not permission
+ * to omit the path — so this case closes the finding rather than the path being
+ * quietly dropped.
+ */
+cases.push({
+  id: 'spf-lookup-query-error',
+  description: 'a SERVFAIL on an include: target — the layer-4 fallback records queryError',
+  domains: [{ domain: 'spfbroken.test' }],
+  spfNames: ['broken.spf.test'],
+  fetch: () => corpusFixture({
+    'spfbroken.test NS': ns('ns1.other.test'),
+    'spfbroken.test MX': mx('10 mail.other.test'),
+    'spfbroken.test TXT': txt('v=spf1 include:broken.spf.test -all'),
+    '_dmarc.spfbroken.test TXT': txt('v=DMARC1; p=none; rua=mailto:s@spfbroken.test'),
+    'broken.spf.test TXT': 'servfail',
+    'mail.other.test A': a('198.51.100.10'),
+  }),
+});

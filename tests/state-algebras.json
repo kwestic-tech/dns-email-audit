@@ -48,8 +48,20 @@
         "timeout": "js/dns.js:196",
         "network-error": "js/dns.js:196"
       },
-      "note": "Closed and byte-compatible with v0.5.0. DnsTypeError is thrown at js/dns.js:121 and is NOT a kind.",
-      "resultPaths": []
+      "note": "Closed and byte-compatible with v0.5.0. DnsTypeError is thrown at js/dns.js:121 and is NOT a kind. resultPaths was EMPTY until spec 1.6, which asserted the algebra is not observable in an audit result; it is, on the eleven typed paths listed, derived from result construction and then checked against the baseline. The DMARC walk kind copied into the dmarc-unverified issue arguments is a DERIVED PRESENTATION MIRROR and is deliberately absent: a bare issues[].args[] pattern would let an unrelated argument equal to a kind earn transport coverage. The thrown audit error.kind is a thrown path under spec 12.1, not a result path.",
+      "resultPaths": [
+        "dmarcDiscovery.steps[].kind",
+        "dmarcDiscovery.error",
+        "advanced.dnssec.lookups.ns.kind",
+        "advanced.dnssec.lookups.ds.kind",
+        "advanced.dnssec.lookups.dnskey.kind",
+        "advanced.dnssec.chain[].detail.kind",
+        "advanced.dnssec.error",
+        "advanced.reportAuth[].error",
+        "advanced.reportAuth[].exactKind",
+        "advanced.caa.error",
+        "advanced.spfLookups.queryError"
+      ]
     },
     {
       "id": "dns.retryTerminal",
@@ -691,6 +703,26 @@
       },
       "resultPaths": [
         "advanced.reportAuth[].state"
+      ]
+    },
+    {
+      "id": "dmarc.reportAuth.exactKind",
+      "owner": "core/dmarc",
+      "field": "checkExternalReportAuth()[].exactKind",
+      "closed": true,
+      "members": [
+        "success",
+        "nodata",
+        "nxdomain"
+      ],
+      "memberSites": {
+        "success": "js/dns.js:1667 (authorized/override-mismatch) and js/dns.js:1679 (unauthorized)",
+        "nodata": "js/dns.js:1679 — a destination publishing no TXT at the exact name",
+        "nxdomain": "js/dns.js:1679 — the inline usability gate accepts nxdomain, so an absent name reaches the unauthorized branch carrying its kind"
+      },
+      "note": "ADDED IN SPEC 1.6. The field had no owning algebra at all; the Gate-0 inventory recorded 74 algebras and 427 members without it. Absent on unverifiable results, which carry `error` instead, and on the name-too-long case, which never queries. THREE members, not the two the corpus had been observed to produce: nxdomain is source-reachable through requireUsable()'s inline equivalent at js/dns.js:1636, which admits success, nodata and nxdomain alike. Defining a two-member algebra from corpus observation would be the same mistake as an empty resultPaths list — describing what was measured as though it were what is reachable.",
+      "resultPaths": [
+        "advanced.reportAuth[].exactKind"
       ]
     },
     {

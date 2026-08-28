@@ -98837,6 +98837,2136 @@
         "            <button class=\"learnmore-btn\" data-guide=\"dnssec\" type=\"button\">",
         "              #3 \"Learn more \\u2192\""
       ]
+    },
+    {
+      "id": "dmarc-report-auth-absent",
+      "description": "an external report destination whose authorization name is NXDOMAIN — exactKind nxdomain",
+      "platform": "native",
+      "result": [
+        {
+          "domain": "absentauth.test",
+          "outcome": "result",
+          "result": {
+            "aRec": [],
+            "aaaaRec": [],
+            "advScore": {
+              "done": 0,
+              "total": 5,
+              "unknown": 0
+            },
+            "advanced": {
+              "bimi": {
+                "advertised": false,
+                "candidates": [],
+                "declined": false,
+                "multiple": false,
+                "present": false,
+                "record": "",
+                "unknown": false,
+                "validation": {
+                  "authority": "",
+                  "declined": false,
+                  "errors": [
+                    "invalid-syntax"
+                  ],
+                  "logo": "",
+                  "valid": false
+                }
+              },
+              "caa": {
+                "atDomain": null,
+                "found": false,
+                "iodef": [],
+                "issuanceBlocked": false,
+                "issuers": [],
+                "malformed": [],
+                "parsed": [],
+                "records": [],
+                "unknownCritical": [],
+                "wildcardBlocked": false,
+                "wildcardIssuers": []
+              },
+              "dnssec": {
+                "anchorConfirmed": false,
+                "chain": [
+                  {
+                    "claim": "resolver-ad",
+                    "detail": {
+                      "ad": false
+                    },
+                    "source": "resolver"
+                  },
+                  {
+                    "claim": "lookup-incomplete",
+                    "detail": {
+                      "kind": "nxdomain",
+                      "query": "ds"
+                    },
+                    "source": "local"
+                  },
+                  {
+                    "claim": "lookup-incomplete",
+                    "detail": {
+                      "kind": "nxdomain",
+                      "query": "dnskey"
+                    },
+                    "source": "local"
+                  }
+                ],
+                "deprecatedAlgorithms": [],
+                "deprecatedDigests": [],
+                "ds": [],
+                "error": {
+                  "$undefined": true
+                },
+                "evidence": "none",
+                "keys": [],
+                "lookups": {
+                  "dnskey": {
+                    "completed": false,
+                    "kind": "nxdomain"
+                  },
+                  "ds": {
+                    "completed": false,
+                    "kind": "nxdomain"
+                  },
+                  "ns": {
+                    "completed": true,
+                    "kind": "success"
+                  }
+                },
+                "orphanDs": [],
+                "resolverValidated": false,
+                "signed": false,
+                "state": "insecure"
+              },
+              "mtaSts": {
+                "advertised": false,
+                "candidates": [],
+                "multiple": false,
+                "policyVerified": false,
+                "present": false,
+                "record": "",
+                "unknown": false,
+                "validation": {
+                  "errors": [
+                    "invalid-syntax"
+                  ],
+                  "id": "",
+                  "valid": false
+                }
+              },
+              "mxHealth": {
+                "cnameHosts": [],
+                "danglingHosts": [],
+                "duplicatePreferences": [],
+                "hosts": [
+                  {
+                    "addresses": [
+                      "198.51.100.10"
+                    ],
+                    "cnameUnknown": false,
+                    "host": "mail.other.test",
+                    "inAudited": false,
+                    "isCname": false,
+                    "preference": 10,
+                    "preferences": [
+                      10
+                    ],
+                    "resolves": "yes",
+                    "v4Count": 1,
+                    "v6Count": 0
+                  }
+                ],
+                "ipv6Coverage": "none",
+                "sharedPrefixes": [],
+                "singleHost": true,
+                "unknown": false
+              },
+              "reportAuth": [
+                {
+                  "destination": "gone.vendor.test",
+                  "exactKind": "nxdomain",
+                  "malformed": false,
+                  "queryName": "absentauth.test._report._dmarc.gone.vendor.test",
+                  "record": "",
+                  "state": "unauthorized",
+                  "via": null
+                }
+              ],
+              "spfLookups": {
+                "count": 0,
+                "cycles": [],
+                "error": false,
+                "indeterminate": false,
+                "voidLookups": 0,
+                "warning": false
+              },
+              "spfSubnets": {
+                "redundancy": [],
+                "subnets": [],
+                "unknown": false
+              },
+              "tlsRpt": {
+                "advertised": false,
+                "candidates": [],
+                "multiple": false,
+                "present": false,
+                "record": "",
+                "unknown": false,
+                "validation": {
+                  "destinations": [],
+                  "errors": [
+                    "invalid-syntax"
+                  ],
+                  "valid": false
+                }
+              },
+              "tlsa": {
+                "allAuthenticated": false,
+                "anyPresent": false,
+                "hosts": [
+                  {
+                    "authenticated": false,
+                    "host": "mail.other.test",
+                    "present": false,
+                    "queryName": "_25._tcp.mail.other.test",
+                    "records": [],
+                    "unknown": false
+                  }
+                ],
+                "unauthenticatedHosts": [],
+                "unknown": false
+              }
+            },
+            "dkimStatus": {
+              "confidence": "sampled",
+              "duplicated": [],
+              "failedSelectors": [],
+              "found": false,
+              "keyProfile": {
+                "algorithms": [],
+                "maxBits": null,
+                "minBits": null,
+                "mixed": false
+              },
+              "malformedSelectors": [],
+              "missingSelectors": [],
+              "note": "noteNotFound",
+              "revokedSelectors": [],
+              "scanMode": "provider-aware",
+              "selectors": [],
+              "testedSelectors": [
+                "google",
+                "default",
+                "mail",
+                "s1",
+                "s2",
+                "selector1",
+                "selector2",
+                "dkim",
+                "sig1",
+                "odoo"
+              ],
+              "unusableSelectors": []
+            },
+            "dmarcAtDomain": "absentauth.test",
+            "dmarcDiscovery": {
+              "applied": {
+                "foundAt": "absentauth.test",
+                "inherited": false,
+                "labelsUp": 0,
+                "record": "v=DMARC1; p=reject; rua=mailto:r@gone.vendor.test"
+              },
+              "error": null,
+              "observed": [],
+              "organizationalDomain": "absentauth.test",
+              "policyDomain": "absentauth.test",
+              "psdBoundary": null,
+              "queries": 2,
+              "steps": [
+                {
+                  "dmarcCount": 1,
+                  "kind": "success",
+                  "queryName": "_dmarc.absentauth.test",
+                  "selected": true,
+                  "txtCount": 1
+                },
+                {
+                  "dmarcCount": 0,
+                  "kind": "nxdomain",
+                  "queryName": "_dmarc.test",
+                  "selected": false,
+                  "txtCount": 0
+                }
+              ],
+              "terminated": "root"
+            },
+            "dmarcExistence": "yes",
+            "dmarcRecord": "v=DMARC1; p=reject; rua=mailto:r@gone.vendor.test",
+            "dmarcStatus": {
+              "adkim": "r",
+              "adkimRaw": null,
+              "adkimState": "absent",
+              "aspf": "r",
+              "aspfRaw": null,
+              "aspfState": "absent",
+              "cls": "ok",
+              "duplicateTags": [],
+              "effectiveNp": "reject",
+              "effectivePolicy": "reject",
+              "effectiveSp": "reject",
+              "enforcing": true,
+              "fo": "0",
+              "foPresent": false,
+              "foValid": true,
+              "malformed": false,
+              "np": null,
+              "npRaw": null,
+              "npState": "absent",
+              "pct": 100,
+              "pctPresent": false,
+              "pctValid": true,
+              "policy": "reject",
+              "policyRaw": "reject",
+              "psd": "u",
+              "psdPresent": false,
+              "psdValid": true,
+              "removedTags": [],
+              "rua": true,
+              "ruaUris": {
+                "count": 1,
+                "domains": [
+                  "gone.vendor.test"
+                ],
+                "invalid": [],
+                "uris": [
+                  {
+                    "domain": "gone.vendor.test",
+                    "mailbox": "r@gone.vendor.test",
+                    "raw": "mailto:r@gone.vendor.test",
+                    "scheme": "mailto",
+                    "sizeLimit": "",
+                    "unsupportedScheme": false,
+                    "uri": "mailto:r@gone.vendor.test",
+                    "valid": true
+                  }
+                ],
+                "valid": true
+              },
+              "ruf": false,
+              "rufUris": {
+                "count": 0,
+                "domains": [],
+                "invalid": [],
+                "uris": [],
+                "valid": false
+              },
+              "sp": null,
+              "spRaw": null,
+              "spState": "absent",
+              "status": "ok",
+              "tValid": true,
+              "testMode": false,
+              "unknownTags": [],
+              "version": {
+                "reason": null,
+                "valid": true
+              }
+            },
+            "dnsProvider": "Other",
+            "domain": "absentauth.test",
+            "emailProvider": "@custom-unknown",
+            "hosting": "@no-web",
+            "issues": [
+              {
+                "key": "dkim-unverified",
+                "noteArgs": [
+                  10,
+                  0
+                ],
+                "noteKey": "noteNotFound",
+                "sev": "warn"
+              },
+              {
+                "args": [
+                  "gone.vendor.test"
+                ],
+                "key": "dmarc-external-unauthorized",
+                "sev": "warn"
+              },
+              {
+                "args": [
+                  "mail.other.test"
+                ],
+                "key": "mx-single-host",
+                "sev": "info"
+              },
+              {
+                "key": "mx-no-ipv6",
+                "sev": "info"
+              }
+            ],
+            "mx": [
+              "10 mail.other.test"
+            ],
+            "ns": [
+              "ns1.other.test"
+            ],
+            "organizationalDomain": "absentauth.test",
+            "score": {
+              "breakdown": {
+                "dmarc": {
+                  "alignment": 0,
+                  "policy": 12,
+                  "rua": 6,
+                  "ruf": 0,
+                  "subdomain": 6,
+                  "uris": 1
+                },
+                "pillars": [
+                  {
+                    "key": "dmarc",
+                    "max": 30,
+                    "pts": 25
+                  },
+                  {
+                    "key": "spf",
+                    "max": 15,
+                    "pts": 15
+                  },
+                  {
+                    "key": "dkim",
+                    "max": 15,
+                    "pts": 0
+                  },
+                  {
+                    "key": "dnssec",
+                    "max": 15,
+                    "pts": 0
+                  },
+                  {
+                    "key": "caa",
+                    "max": 10,
+                    "pts": 0
+                  },
+                  {
+                    "key": "mtaSts",
+                    "max": 8,
+                    "pts": 0
+                  },
+                  {
+                    "key": "bimi",
+                    "max": 4,
+                    "pts": 0
+                  },
+                  {
+                    "key": "tlsRpt",
+                    "max": 3,
+                    "pts": 0
+                  }
+                ]
+              },
+              "cls": "score-c",
+              "grade": "C",
+              "max": 100,
+              "parked": false,
+              "pts": 40,
+              "unproven": [
+                "dkim"
+              ]
+            },
+            "spfRecord": "v=spf1 -all",
+            "spfRecords": [
+              "v=spf1 -all"
+            ],
+            "spfStatus": {
+              "cls": "ok",
+              "status": "ok",
+              "warnings": []
+            },
+            "suggestions": [
+              {
+                "guide": "bimi",
+                "key": "bimiPrereq"
+              },
+              {
+                "guide": "mta-sts",
+                "key": "mta-sts"
+              },
+              {
+                "guide": "tls-rpt",
+                "key": "tls-rpt"
+              },
+              {
+                "guide": "caa",
+                "key": "caa"
+              },
+              {
+                "guide": "dnssec",
+                "key": "dnssec"
+              }
+            ],
+            "txt": [
+              "v=spf1 -all"
+            ],
+            "verifications": [],
+            "wildcardApex": false,
+            "wildcardDkim": false
+          }
+        }
+      ],
+      "trace": {
+        "queries": [
+          {
+            "query": "_25._tcp.mail.other.test TLSA do=1 cd=0",
+            "count": 1
+          },
+          {
+            "query": "_dmarc.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "_dmarc.gone.vendor.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "_dmarc.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "_dmarc.vendor.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "_mta-sts.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "_smtp._tls.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "absentauth.test A do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "absentauth.test AAAA do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "absentauth.test CAA do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "absentauth.test DNSKEY do=1 cd=0",
+            "count": 1
+          },
+          {
+            "query": "absentauth.test DS do=1 cd=0",
+            "count": 1
+          },
+          {
+            "query": "absentauth.test MX do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "absentauth.test NS do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "absentauth.test NS do=1 cd=0",
+            "count": 1
+          },
+          {
+            "query": "absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "absentauth.test._report._dmarc.gone.vendor.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "default._bimi.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "default._domainkey.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "dkim._domainkey.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "example.com A do=0 cd=0",
+            "count": 2
+          },
+          {
+            "query": "google._domainkey.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "mail._domainkey.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "mail.other.test A do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "mail.other.test AAAA do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "mail.other.test CNAME do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "odoo._domainkey.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "s1._domainkey.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "s2._domainkey.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "selector1._domainkey.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "selector2._domainkey.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "sig1._domainkey.absentauth.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "www.absentauth.test A do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "www.absentauth.test AAAA do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "www.absentauth.test CNAME do=0 cd=0",
+            "count": 1
+          }
+        ],
+        "total": 36,
+        "distinct": 35,
+        "maxConcurrency": 10,
+        "maxBatchSize": null,
+        "dmarcWalk": [
+          "_dmarc.absentauth.test TXT",
+          "_dmarc.test TXT",
+          "_dmarc.gone.vendor.test TXT",
+          "_dmarc.vendor.test TXT"
+        ],
+        "spfEvaluation": []
+      },
+      "csv": {
+        "lines": [
+          "﻿\"Domain\",\"Registered\",\"Grade\",\"Score\",\"DNS Provider\",\"Email Provider\",\"SPF Status\",\"SPF Record\",\"DKIM Found\",\"DKIM Selectors\",\"DMARC Status\",\"DMARC Policy\",\"DMARC Test Mode (t=)\",\"DMARC sp\",\"DMARC np\",\"DMARC pct\",\"DMARC adkim\",\"DMARC aspf\",\"DMARC RUA\",\"DMARC RUF\",\"BIMI\",\"MTA-STS\",\"TLS-RPT\",\"CAA\",\"DNSSEC\",\"SPF Lookups\",\"Issues\",\"Suggestions\",\"Record Hygiene\",\"DMARC Found At\",\"DMARC Labels Up\",\"DMARC Discovery Terminated\",\"DKIM Key Type\",\"DKIM Key Bits\",\"DKIM Revoked Selectors\",\"CAA Issuers\",\"CAA Wildcard Issuers\",\"MX Dangling\",\"MX Host Count\",\"TLSA Present\"",
+          "\"absentauth.test\",\"Yes\",\"C\",\"40\",\"Other\",\"Custom/Unknown\",\"ok\",\"v=spf1 -all\",\"Unknown\",\"\",\"ok\",\"reject\",\"No\",\"\",\"\",\"100\",\"r\",\"r\",\"Yes\",\"No\",\"No\",\"No\",\"No\",\"No\",\"insecure\",\"0\",\"No tested DKIM selector was found. No active DKIM key found among 10 tested selectors. Scored as if DKIM is not configured. If you know your DKIM selector, add it to \"\"Additional DKIM selectors\"\" and re-run the audit to get credit for it. | DMARC reports to gone.vendor.test are being discarded — that domain has not authorized your reports. | Only one MX host is published: mail.other.test — mail queues at the sender while it is unreachable. | No MX host has an IPv6 address — IPv6-only senders cannot reach your mail.\",\"BIMI (logo in inbox): requires DMARC at p=quarantine or p=reject + DKIM. Get those in place first, then add BIMI. | MTA-STS not configured. Publishing a _mta-sts TXT record and hosting a policy file forces TLS on inbound mail delivery, preventing downgrade attacks. | TLS-RPT (_smtp._tls TXT) not configured. This companion to MTA-STS sends you reports when TLS negotiation fails — easy to add, zero downside. | No CAA records — any certificate authority can issue SSL certs for this domain. Add CAA records naming only your preferred CA (e.g. Let's Encrypt, DigiCert). | DNSSEC not detected. Signing your DNS records prevents cache poisoning and MX hijacking. Cloudflare and most modern DNS providers enable this with one click.\",\"\",\"absentauth.test\",\"0\",\"root\",\"\",\"\",\"\",\"\",\"\",\"No\",\"1\",\"No\""
+        ],
+        "bytes": 2066,
+        "sha256": "36de22774b323af0f3f6a4e33a251edf33cf06facf2b6249174f27ddada462b8"
+      },
+      "report": {
+        "generated": "Generated 1/15/2026, 12:00:00 PM · 1 domains",
+        "bytes": {
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+          "stylesheet": "/* DNS & Email Security Auditor — stylesheet\n   https://github.com/kwestic-tech/dns-email-audit\n   Licensed MIT. */\n\n*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }\n\n:root {\n  --bg: #f0f2f5;\n  --surface: #ffffff;\n  --surface2: #f6f8fa;\n  --surface3: #eef1f5;\n  --border: #dde1e9;\n  --ink: #111827;\n  --ink2: #4b5563;\n  --ink3: #9ca3af;\n  --accent: #2563eb;\n  --radius: 10px;\n  --shadow: 0 1px 4px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.05);\n  --ok: #16a34a; --ok-bg: #f0fdf4; --ok-border: #bbf7d0;\n  --warn: #d97706; --warn-bg: #fffbeb; --warn-border: #fde68a;\n  --crit: #dc2626; --crit-bg: #fef2f2; --crit-border: #fecaca;\n  --info: #0284c7; --info-bg: #f0f9ff; --info-border: #bae6fd;\n  --tip: #7c3aed; --tip-bg: #f5f3ff; --tip-border: #ddd6fe;\n  --muted: #64748b; --muted-bg: #f8fafc; --muted-border: #e2e8f0;\n}\n\nbody { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.6; min-height: 100vh; }\n\n/* ── Topbar ── */\n.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; min-height: 56px; flex-wrap: wrap; gap: 6px; position: sticky; top: 0; z-index: 100; }\n.topbar-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; padding: 10px 0; }\n.topbar-brand .logo { width: 30px; height: 30px; background: linear-gradient(135deg, #2563eb, #7c3aed); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; flex-shrink: 0; }\n.topbar-brand h1 { font-size: 15px; font-weight: 700; white-space: nowrap; }\n.topbar-sub { font-size: 12px; color: var(--ink3); white-space: nowrap; }\n.topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0; }\n.page { max-width: 1340px; margin: 0 auto; padding: 28px 24px 80px; }\n\n/* ── Network error banner ── */\n#netBanner { display:none; background:#fef2f2; border:1px solid #fecaca; border-radius: var(--radius); padding:18px 24px; margin-bottom:20px; }\n#netBanner strong { color:#dc2626; font-size:14px; }\n#netBanner p { color:#7f1d1d; font-size:13px; margin-top:6px; line-height:1.6; }\n#netBanner code { background:#fee2e2; border-radius:4px; padding:1px 5px; font-family: 'SF Mono','Fira Code',monospace; font-size:12px; }\n\n/* ── Input card ── */\n.input-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px 32px; margin-bottom: 28px; }\n.input-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }\n.input-card p { font-size: 13px; color: var(--ink2); margin-bottom: 20px; }\n.input-area { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }\n@media (max-width: 700px) { .input-area { grid-template-columns: 1fr; } }\ntextarea#domainInput { width: 100%; height: 130px; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: 'SF Mono','Fira Code',monospace; font-size: 12.5px; color: var(--ink); background: var(--surface2); resize: vertical; outline: none; transition: border-color .15s; line-height: 1.7; }\ntextarea#domainInput:focus { border-color: var(--accent); background: var(--surface); }\ntextarea#domainInput::placeholder { color: var(--ink3); }\n.side-controls { display: flex; flex-direction: column; gap: 10px; min-width: 180px; }\n\n/* ── Buttons ── */\n.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; white-space: nowrap; }\n.btn-primary { background: var(--accent); color: #fff; }\n.btn-primary:hover { background: #1d4ed8; }\n.btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }\n.btn-outline { background: var(--surface); color: var(--ink2); border: 1px solid var(--border); }\n.btn-outline:hover { background: var(--surface2); color: var(--ink); }\n.btn-sm { padding: 6px 12px; font-size: 12px; }\n.file-upload-label { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; background: var(--surface); color: var(--ink2); border: 1px solid var(--border); transition: all .15s; text-align: center; }\n.file-upload-label:hover { background: var(--surface2); color: var(--ink); }\ninput[type=\"file\"] { display: none; }\n\n/* ── Options ── */\n.options-row { display: flex; align-items: center; gap: 20px; margin-top: 14px; flex-wrap: wrap; }\n.checkbox-group { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink2); cursor: pointer; }\n.checkbox-group input[type=\"checkbox\"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }\n/* The auto-disable notice. Deliberately not a toast: a toast is gone in three\n   seconds, and this explains why a checkbox the user last saw ticked is now\n   clear. It has to still be there when they look. */\n.opt-notice { font-size: 12px; color: var(--warn, var(--ink2)); flex-basis: 100%; }\n.spf-conflict-note { color: var(--crit, var(--warn)); margin-bottom: 4px; }\n.spf-conflict-record { margin-bottom: 3px; }\n.selector-group { display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink2); }\n.selector-group input { width:180px; border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; color:var(--ink); background:#fff; }\n.selector-group input:focus { outline:2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-color:var(--accent); }\n\n/* ── Progress ── */\n#progressSection { display: none; margin-bottom: 24px; }\n.progress-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }\n.progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }\n.progress-header h3 { font-size: 14px; font-weight: 600; }\n.progress-counts { font-size: 12px; color: var(--ink3); }\n.progress-track { height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }\n.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #7c3aed); border-radius: 3px; transition: width .3s ease; width: 0%; }\n.progress-log { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; color: var(--ink3); max-height: 80px; overflow-y: auto; line-height: 1.8; }\n.log-ok { color: var(--ok); } .log-err { color: var(--crit); } .log-info { color: var(--info); }\n\n/* ── Summary stats ── */\n#summarySection { display: none; margin-bottom: 24px; }\n.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 12px; }\n.stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); }\n.stat-tile .num { font-size: 30px; font-weight: 800; line-height: 1; margin-bottom: 4px; }\n.stat-tile .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink3); }\n.c-ok{color:var(--ok)} .c-warn{color:var(--warn)} .c-crit{color:var(--crit)} .c-info{color:var(--info)} .c-tip{color:var(--tip)} .c-muted{color:var(--muted)}\n\n/* ── Toolbar ── */\n#resultsToolbar { display: none; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }\n.toolbar-left { display: flex; align-items: center; gap: 10px; }\n.search-box { border: 1px solid var(--border); border-radius: 7px; padding: 7px 12px; font-size: 13px; background: var(--surface); outline: none; width: 220px; transition: border-color .15s; }\n.search-box:focus { border-color: var(--accent); }\n.filter-select { border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; font-size: 12px; background: var(--surface); outline: none; color: var(--ink2); cursor: pointer; }\n\n/* ── Table ── */\n#resultsSection { display: none; }\n.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; -webkit-overflow-scrolling: touch; box-shadow: var(--shadow); }\ntable { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 960px; }\nthead th { background: var(--surface2); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); font-weight: 700; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }\nthead th:hover { background: var(--surface3); color: var(--ink2); }\nthead th.sorted-asc::after { content: ' ↑'; }\nthead th.sorted-desc::after { content: ' ↓'; }\ntbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }\ntbody tr:last-child { border-bottom: none; }\ntbody tr:hover { background: var(--surface2); }\ntbody tr.hidden { display: none; }\ntd { padding: 10px 12px; vertical-align: middle; }\ntd.domain-cell { font-weight: 700; font-size: 12.5px; white-space: nowrap; }\n\n/* ── Mobile card layout ── */\n@media (max-width: 768px) {\n  .topbar { padding: 0 16px; }\n  .topbar-brand { width: 100%; padding: 10px 0 4px; }\n  .topbar-actions { padding: 0 0 10px; }\n  .topbar-sub { display: none; }\n  .page { padding: 16px 12px 60px; }\n  .input-card { padding: 20px 16px; }\n  .stats-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }\n\n  /* Table → cards */\n  .table-wrap { overflow-x: visible; border-left: none; border-right: none; border-radius: 0; box-shadow: none; background: transparent; }\n  .table-wrap table { display: block; min-width: 0; }\n  .table-wrap thead { display: none; }\n  .table-wrap tbody { display: flex; flex-direction: column; gap: 10px; }\n\n  /* Each data row becomes a card */\n  .table-wrap tbody tr:not(.detail-row) {\n    display: grid;\n    grid-template-columns: 40px 1fr;\n    border: 1px solid var(--border);\n    border-radius: var(--radius);\n    background: var(--surface);\n    box-shadow: var(--shadow);\n    overflow: hidden;\n  }\n  .table-wrap tbody tr.hidden { display: none; }\n\n  /* Expand toggle cell — left strip of card header */\n  .table-wrap tbody tr:not(.detail-row) td:nth-child(1) {\n    grid-column: 1; grid-row: 1;\n    display: flex; align-items: center; justify-content: center;\n    background: var(--surface2); border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);\n    padding: 12px 0;\n  }\n\n  /* Domain cell — right side of card header */\n  .table-wrap tbody tr:not(.detail-row) td.domain-cell {\n    grid-column: 2; grid-row: 1;\n    display: flex; align-items: center;\n    background: var(--surface2); border-bottom: 1px solid var(--border);\n    padding: 10px 14px; white-space: normal; font-size: 13px;\n  }\n\n  /* All other data cells — full-width label:value rows */\n  .table-wrap tbody tr:not(.detail-row) td:not(:nth-child(1)):not(.domain-cell) {\n    grid-column: 1 / -1;\n    display: flex; align-items: center; gap: 10px;\n    padding: 8px 14px; border-bottom: 1px solid var(--surface3); font-size: 12.5px;\n  }\n  .table-wrap tbody tr:not(.detail-row) td:not(:nth-child(1)):not(.domain-cell):last-child { border-bottom: none; }\n  .table-wrap tbody tr:not(.detail-row) td:not(:nth-child(1)):not(.domain-cell)::before {\n    content: attr(data-label);\n    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;\n    color: var(--ink3); min-width: 72px; flex-shrink: 0;\n  }\n\n  /* Detail row — full-width block below its card */\n  .table-wrap tbody .detail-row { display: none; }\n  .table-wrap tbody .detail-row.open { display: block; }\n  .table-wrap tbody .detail-row > td { display: block; padding: 16px; border-radius: 0 0 var(--radius) var(--radius); }\n  .detail-grid { grid-template-columns: 1fr; }\n}\n\n/* ── Badges ── */\n.badge { display: inline-flex; align-items: center; gap: 3px; border-radius: 4px; padding: 2px 7px; font-size: 10.5px; font-weight: 700; white-space: nowrap; border: 1px solid; }\n.badge-ok   { background:var(--ok-bg);   color:var(--ok);   border-color:var(--ok-border); }\n.badge-warn { background:var(--warn-bg); color:var(--warn); border-color:var(--warn-border); }\n.badge-crit { background:var(--crit-bg); color:var(--crit); border-color:var(--crit-border); }\n.badge-info { background:var(--info-bg); color:var(--info); border-color:var(--info-border); }\n.badge-muted{ background:var(--muted-bg);color:var(--muted);border-color:var(--muted-border); }\n\n/* ── Score circle / pill ── */\n.score { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; font-size: 13px; font-weight: 800; border: 2.5px solid; white-space: nowrap; }\n.score-a         { background:var(--ok-bg);   color:var(--ok);   border-color:var(--ok); }\n.score-aplus,\n.score-aplusplus { background:var(--ok-bg);   color:var(--ok);   border-color:var(--ok);\n                   width:auto; min-width:36px; padding:0 8px; border-radius:20px; font-size:11px; letter-spacing:-.3px; }\n.score-b         { background:var(--info-bg); color:var(--info); border-color:var(--info); }\n.score-c         { background:var(--warn-bg); color:var(--warn); border-color:var(--warn); }\n.score-d         { background:#fff7ed;         color:#ea580c;     border-color:#fdba74; }\n.score-f         { background:var(--crit-bg); color:var(--crit); border-color:var(--crit); }\n\n/* A grade resting on a check this audit could not verify. The tier colour is\n   deliberately kept — the grade is the real grade, not a warning — and only the\n   border is broken, so the marker reads as \"incomplete evidence\" rather than\n   \"worse result\". The asterisk carries the same meaning for anyone who cannot\n   distinguish the border treatment. */\n.score-unproven  { border-style: dashed; }\n.score-unproven .score-star { font-size: .78em; font-weight: 700; opacity: .75; margin-left: 1px; }\n\n/* ── Expand row ── */\n.expand-toggle { background: none; border: none; cursor: pointer; color: var(--ink3); font-size: 13px; padding: 2px 4px; border-radius: 4px; transition: color .1s, background .1s; }\n.expand-toggle:hover { background: var(--surface3); color: var(--ink2); }\n.detail-row { display: none; }\n.detail-row.open { display: table-row; } /* overridden to block in mobile media query */\n.detail-row td { background: var(--surface2); padding: 16px 20px; border-top: 1px dashed var(--border); }\n.detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }\n.detail-item .di-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); margin-bottom: 3px; }\n.detail-item .di-value { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; color: var(--ink2); word-break: break-all; line-height: 1.6; }\n.dkim-record { margin-bottom: 8px; word-break: break-word; }\n.dkim-record:last-child { margin-bottom: 0; }\n.dkim-record div { margin-top: 3px; }\n.dkim-record code { white-space: normal; word-break: break-all; }\n.dkim-record-missing { color: var(--warn); }\n.dkim-via-spf { display: inline-block; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 700;\n  white-space: nowrap; vertical-align: 1px;\n  background: var(--tip-bg); color: var(--tip); border: 1px solid var(--tip-border); }\n\n/* ── Issues / suggestions ── */\n.issues-block { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }\n.issues-section-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); margin-bottom: 6px; font-weight: 700; }\n.issue { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 5px; font-size: 12px; line-height: 1.5; }\n.issue .icon { flex-shrink: 0; margin-top: 1px; }\n.issue .msg { color: var(--ink2); }\n.issue.tip .msg { color: var(--tip); }\n.suggestions-sep { margin: 10px 0 8px; border: none; border-top: 1px dashed var(--border); }\n\n/* ── Show me dropdowns ── */\n.issue-body { display: flex; flex-direction: column; }\n.showme-wrap { margin-top: 4px; }\n.showme-btn { background: none; border: none; color: var(--accent); font-size: 11px; font-weight: 600; cursor: pointer; padding: 2px 0; text-decoration: underline; text-underline-offset: 2px; }\n.showme-btn:hover { color: #1d4ed8; }\n.showme-content { display: none; margin-top: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; }\n.showme-lbl { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); font-weight: 700; margin-bottom: 4px; }\n.showme-text { font-size: 12px; color: var(--ink2); line-height: 1.6; margin-bottom: 10px; }\n.showme-text:last-child { margin-bottom: 0; }\n.showme-code { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 8px 10px; margin-top: 6px; white-space: pre-wrap; word-break: break-all; color: var(--ink); line-height: 1.7; }\n\n/* ── Learn more button ── */\n.learnmore-btn { display: inline-block; margin-top: 5px; background: none; border: 1px solid var(--tip); color: var(--tip); border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 9px; transition: background .15s; }\n.learnmore-btn:hover { background: var(--tip-bg); }\n\n/* ── Advanced security dots ── */\n.adv-strip { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }\n.adv-strip-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); margin-bottom: 10px; font-weight: 700; }\n.adv-dots { display: flex; flex-wrap: wrap; gap: 8px; }\n.adv-dot {\n  display: inline-flex; align-items: center; gap: 6px;\n  padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;\n  border: 1px solid; cursor: default; position: relative;\n  transition: box-shadow .1s;\n}\n.adv-dot:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }\n.adv-dot .dot-pip { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }\n.adv-dot.dot-ok   { background:var(--ok-bg);   color:var(--ok);   border-color:var(--ok-border); }\n.adv-dot.dot-ok   .dot-pip { background: var(--ok); }\n.adv-dot.dot-miss { background:var(--muted-bg); color:var(--muted); border-color:var(--muted-border); }\n.adv-dot.dot-miss .dot-pip { background: #cbd5e1; }\n.adv-dot.dot-warn { background:var(--warn-bg); color:var(--warn); border-color:var(--warn-border); }\n.adv-dot.dot-warn .dot-pip { background: var(--warn); }\n/* tooltip */\n.adv-dot[data-tip]::after {\n  content: attr(data-tip);\n  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);\n  background: var(--ink); color: #fff; font-size: 11px; font-weight: 400;\n  padding: 5px 9px; border-radius: 5px; white-space: nowrap; pointer-events: none;\n  opacity: 0; transition: opacity .15s; z-index: 200; max-width: 280px; white-space: normal; text-align: center;\n}\n.adv-dot[data-tip]:hover::after { opacity: 1; }\n\n/* SPF lookup meter */\n.spf-meter { display: flex; align-items: center; gap: 8px; margin-top: 4px; }\n.spf-meter-bar { flex: 1; height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; }\n.spf-meter-fill { height: 100%; border-radius: 3px; }\n.spf-meter-label { font-size: 11px; font-weight: 600; white-space: nowrap; }\n\n/* ── Callout ── */\n.callout { border-radius: 8px; padding: 14px 16px; border-left: 4px solid; font-size: 13px; margin-bottom: 20px; }\n.callout-info { background: var(--info-bg); border-color: var(--info); }\n.callout-info strong { color: var(--info); }\n.callout a { color: var(--accent); }\n\n/* ── Empty state ── */\n.empty-state { text-align: center; padding: 60px 20px; color: var(--ink3); }\n.empty-state .es-icon { font-size: 48px; margin-bottom: 12px; }\n\n/* ── Spinner ── */\n@keyframes spin { to { transform: rotate(360deg); } }\n.spinner { width: 16px; height: 16px; border: 2px solid #e5e7eb; border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; flex-shrink: 0; }\n\n/* ── Footer ── */\n.app-footer { text-align: center; margin-top: 60px; font-size: 12px; color: var(--ink3); }\n.app-footer a { color: var(--accent); text-decoration: none; }\n\n/* ── Toast ── */\n.toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,.2); transform: translateY(100px); opacity: 0; transition: all .3s ease; z-index: 9999; }\n.toast.show { transform: translateY(0); opacity: 1; }\n\n/* ── Language select ── */\n.lang-select { border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 12px; background: var(--surface); color: var(--ink2); cursor: pointer; outline: none; transition: background .15s; }\n.lang-select:hover { background: var(--surface2); color: var(--ink); }\n\n/* ── Score breakdown (detail row) ── */\n.score-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-top: 14px; }\n.score-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }\n.score-total { font-size: 22px; font-weight: 800; line-height: 1; }\n.score-total small { font-size: 12px; font-weight: 500; opacity: .5; }\n.score-note { font-size: 11px; color: var(--ink3); margin-left: auto; }\n.sb-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 6px 20px; }\n.sb-row { display: grid; grid-template-columns: 66px 1fr 52px; align-items: center; gap: 8px; }\n.sb-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink3); }\n.sb-track { height: 5px; background: var(--surface3); border-radius: 3px; overflow: hidden; }\n.sb-fill { display: block; height: 100%; border-radius: 3px; transition: width .3s ease; }\n.sb-val { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--ink2); text-align: right; }\n.sb-val small { opacity: .45; }\n.sb-dmarc { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }\n.sb-dmarc-label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--ink3); width: 100%; margin-bottom: 2px; }\n.sb-part { font-size: 11px; color: var(--ink2); }\n.sb-part strong { font-variant-numeric: tabular-nums; color: var(--ink); }\n.sb-part-zero { opacity: .4; }\n@media (max-width: 768px) {\n  .sb-rows { grid-template-columns: 1fr; }\n  .score-note { margin-left: 0; width: 100%; }\n}\n\n/* Duplicated record: configured but silently inactive — neither pass nor absent. */\n.adv-dot.dot-dup { border-color: var(--warn-border); background: var(--warn-bg); color: var(--warn); }\n.adv-dot.dot-dup .dot-pip { background: var(--warn); }\n\n/* ── Rendered DNS values (spec 0.2.3 §4) ──────────────────────────────────\n   Isolation stops a value reordering its NEIGHBOURS. It cannot stop an\n   override reordering the value's own contents — that is what the sentinel\n   substitution in js/render.js does — but it is free and contains anything\n   residual. */\n.rv { unicode-bidi: isolate; }\n.rv-none { color: var(--ink3); font-style: italic; }\n\n/* A marker, not content: never let a sentinel be mistaken for published data. */\n.rv-sentinel {\n  unicode-bidi: isolate;\n  display: inline-block;\n  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;\n  font-size: 10px;\n  font-weight: 700;\n  line-height: 1.4;\n  padding: 0 3px;\n  margin: 0 1px;\n  border-radius: 3px;\n  background: var(--crit-bg);\n  border: 1px solid var(--crit-border);\n  color: var(--crit);\n  vertical-align: baseline;\n  white-space: nowrap;\n}\n\n.rv-more {\n  display: inline-block;\n  margin-left: 6px;\n  padding: 0 6px;\n  font-size: 11px;\n  font-family: inherit;\n  color: var(--accent);\n  background: none;\n  border: 1px solid var(--border);\n  border-radius: 4px;\n  cursor: pointer;\n}\n.rv-more:hover { background: var(--surface3); }\n.rv-remainder { font-size: 11px; color: var(--ink3); font-style: italic; }\n\n.rv-hygiene {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 6px;\n  margin: 10px 0 0;\n  padding: 8px 10px;\n  border: 1px solid var(--warn-border);\n  background: var(--warn-bg);\n  border-radius: var(--radius);\n}\n.rv-hygiene-label {\n  font-size: 9.5px;\n  font-weight: 700;\n  text-transform: uppercase;\n  letter-spacing: .07em;\n  color: var(--warn);\n}\n.rv-hygiene-item { font-size: 11.5px; color: var(--ink2); }\n\n/* Tree Walk evidence (0.3.0). The step list reuses the .showme-* disclosure\n   so it needs no event wiring of its own. */\n.dmarc-discovery { margin-top: 6px; }\n.dmarc-discovery .walk-step { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.8; color: var(--ink2); }\n.dmarc-discovery .walk-hit { color: var(--ok); font-weight: 600; }\n.dmarc-discovery .walk-miss { color: var(--ink3); }\n.dmarc-discovery .walk-applied { text-decoration: underline; text-underline-offset: 2px; }\n\n/* static report overrides */\n.detail-row{display:table-row!important}.showme-content{display:block!important}\n.rv-rest{display:inline!important}.rv-more{display:none!important}\nthead th{cursor:default}\n",
+          "stylesheetBytes": 25555
+        },
+        "structure": "html head meta meta meta title /title style /style /head body div h1 /h1 p /p div div div div /div div /div /div div div /div div /div /div div div /div div /div /div div div small /small /div div /div /div div div /div div /div /div div div small /small /div div /div /div div div small /small /div div /div /div div div small /small /div div /div /div div div small /small /div div /div /div div div small /small /div div /div /div /div /div table tbody tr td button /button /td td span /span span span /span span /span /span /td td span span /span /span /td td span /span /td td span /span /td td span /span /td td span /span /td td span /span /td td span span /span span /span span /span span /span span /span span /span /span /td td span /span /td /tr tr td div div div /div div span /span /div /div div div /div div div code span /span /code span span /span /span /div /div /div div div /div div span /span div div div /div /div span /span /div /div /div div div /div div span /span div small /small button /button div div /div div span /span span /span /div div span /span span /span /div /div /div /div /div div div /div div /div /div div div /div div div span /span strong /strong /div div span /span div small /small span /span /div div small /small span /span /div div small /small span /span /div /div /div /div div div /div div div em /em /div div code span /span /code span /span /div /div /div div div /div div /div /div /div div div span small /small /span span /span /div div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div /div div span /span span strong /strong /span span strong /strong /span span strong /strong /span span strong /strong /span span strong /strong /span span strong /strong /span /div /div div div /div div span span /span /span span span /span /span span span /span /span span span /span /span span span /span /span /div /div div div /div div span /span div span /span /div /div div span /span div span /span div button /button div div /div div /div div /div div div /div /div /div /div /div /div div span /span div span /span div button /button div div /div div /div div /div div /div /div /div /div /div div span /span div span /span div button /button div div /div div /div div /div div /div /div /div /div /div hr div /div div span /span div span /span button /button /div /div div span /span div span /span button /button /div /div div span /span div span /span button /button /div /div div span /span div span /span button /button /div /div div span /span div span /span button /button /div /div /div /td /tr /tbody /table div /div /div /body /html",
+        "length": 42221,
+        "sha256": "3c6faedef8094ae2909798cafeb7778754edd8ef14a48a04da5f505753bd44eb"
+      },
+      "dom": [
+        "<tbody id=\"tableBody\">",
+        "  <tr data-bimi=\"no\" data-caa=\"no\" data-dkim=\"unknown\" data-dmarc=\"yes\" data-dnssec=\"no\" data-domain=\"absentauth.test\" data-email=\"yes\" data-grade=\"C\" data-overall=\"warn\" data-spf=\"yes\" data-unproven=\"yes\" id=\"row-absentauth-test\">",
+        "    <td>",
+        "      <button class=\"expand-toggle\" data-detail-id=\"det-absentauth-test\" type=\"button\">",
+        "        #3 \"\\u25b6\"",
+        "    <td class=\"domain-cell\">",
+        "      <span class=\"rv\">",
+        "        #3 \"absentauth.test\"",
+        "      <span style=\"margin-left:5px;font-size:11px;\">",
+        "        <span title=\"2 warnings\">",
+        "          #3 \"\\ud83d\\udfe1\"",
+        "        <span title=\"5 suggestions\">",
+        "          #3 \"\\ud83d\\udca1\"",
+        "    <td data-label=\"Grade\" style=\"text-align:center\">",
+        "      <span class=\"score score-c score-unproven\" title=\"40 / 100 \\u2014 checks that could not be verified scored zero: DKIM. Open this row to see how to recover those points.\">",
+        "        #3 \"C\"",
+        "        <span class=\"score-star\">",
+        "          #3 \"*\"",
+        "    <td data-label=\"DNS Provider\">",
+        "      <span class=\"badge badge-info\">",
+        "        #3 \"Other\"",
+        "    <td data-label=\"Email Provider\">",
+        "      <span class=\"badge badge-info\">",
+        "        #3 \"Custom/Unknown\"",
+        "    <td data-label=\"SPF\">",
+        "      <span class=\"badge badge-ok\">",
+        "        #3 \"\\u2713 -all\"",
+        "    <td data-label=\"DKIM\">",
+        "      <span class=\"badge badge-warn\">",
+        "        #3 \"? No Domain Key Found in tested selectors\"",
+        "    <td data-label=\"DMARC\">",
+        "      <span class=\"badge badge-ok\">",
+        "        #3 \"\\u2713 reject\"",
+        "    <td data-label=\"Advanced\">",
+        "      <span style=\"display:inline-flex;align-items:center;gap:4px;\">",
+        "        <span style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:2px;\" title=\"BIMI: Not configured\">",
+        "        <span style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:2px;\" title=\"MTA-STS: Not configured\">",
+        "        <span style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:2px;\" title=\"TLS-RPT: Not configured\">",
+        "        <span style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:2px;\" title=\"CAA: Not configured\">",
+        "        <span style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:2px;\" title=\"DNSSEC: Not configured\">",
+        "        <span style=\"font-size:10px;color:var(--ink3);margin-left:2px;\">",
+        "          #3 \"0/5\"",
+        "    <td data-label=\"Hosting\">",
+        "      <span class=\"badge badge-muted\">",
+        "        #3 \"No web presence\"",
+        "  <tr class=\"detail-row\" id=\"det-absentauth-test\">",
+        "    <td colspan=\"11\">",
+        "      <div class=\"detail-grid\">",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"Nameservers\"",
+        "          <div class=\"di-value\">",
+        "            <span class=\"rv\">",
+        "              #3 \"ns1.other.test\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"MX Records\"",
+        "          <div class=\"di-value\">",
+        "            <div class=\"mx-host mx-host-yes\">",
+        "              <code>",
+        "                <span class=\"rv\">",
+        "                  #3 \"10 mail.other.test\"",
+        "              #3 \" \\u2014 \"",
+        "              <span>",
+        "                <span class=\"rv\">",
+        "                  #3 \"198.51.100.10\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"SPF Record \\u00b7 DNS Lookups\"",
+        "          <div class=\"di-value\">",
+        "            <span class=\"rv\">",
+        "              #3 \"v=spf1 -all\"",
+        "            <div class=\"spf-meter\" style=\"margin-top:6px;\">",
+        "              <div class=\"spf-meter-bar\">",
+        "                <div class=\"spf-meter-fill\" style=\"width:0%;background:var(--ok);\">",
+        "              <span class=\"spf-meter-label\" style=\"color:var(--ok);\">",
+        "                #3 \"0/10 \\u2713 DNS lookups\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"DMARC Record\"",
+        "          <div class=\"di-value\">",
+        "            <span class=\"rv\">",
+        "              #3 \"v=DMARC1; p=reject; rua=mailto:r@gone.vendor.test\"",
+        "            <div class=\"showme-wrap dmarc-discovery\">",
+        "              <small>",
+        "                #3 \"Policy found at absentauth.test after 2 lookups\"",
+        "                #3 \" \\u00b7 \"",
+        "                #3 \"walked to the top-level domain\"",
+        "              <button class=\"showme-btn\" data-close-label=\"Show me \\u25b4\" data-open-label=\"Show the Tree Walk\" type=\"button\">",
+        "                #3 \"Show the Tree Walk\"",
+        "              <div class=\"showme-content\">",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"Tree Walk\"",
+        "                <div class=\"walk-step\">",
+        "                  <span class=\"rv\">",
+        "                    #3 \"_dmarc.absentauth.test\"",
+        "                  #3 \" \\u00b7 \"",
+        "                  <span class=\"walk-hit walk-applied\">",
+        "                    #3 \"record applied\"",
+        "                <div class=\"walk-step\">",
+        "                  <span class=\"rv\">",
+        "                    #3 \"_dmarc.test\"",
+        "                  #3 \" \\u00b7 \"",
+        "                  <span class=\"walk-miss\">",
+        "                    #3 \"name does not exist\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"DKIM Selectors\"",
+        "          <div class=\"di-value\">",
+        "            #3 \"No active DKIM key found among 10 tested selectors.\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"DNSSEC Chain\"",
+        "          <div class=\"di-value\">",
+        "            <div>",
+        "              <span>",
+        "                #3 \"Status:\"",
+        "              #3 \" \"",
+        "              <strong>",
+        "                #3 \"Not signed\"",
+        "            <div>",
+        "              <span>",
+        "                #3 \"Evidence:\"",
+        "              #3 \" \"",
+        "              <div>",
+        "                <small>",
+        "                  #3 \"Resolver\"",
+        "                #3 \" \\u2014 \"",
+        "                <span>",
+        "                  #3 \"does not report this answer as authenticated\"",
+        "              <div>",
+        "                <small>",
+        "                  #3 \"Computed here\"",
+        "                #3 \" \\u2014 \"",
+        "                <span>",
+        "                  #3 \"the ds lookup did not complete (nxdomain)\"",
+        "              <div>",
+        "                <small>",
+        "                  #3 \"Computed here\"",
+        "                #3 \" \\u2014 \"",
+        "                <span>",
+        "                  #3 \"the dnskey lookup did not complete (nxdomain)\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"TLSA (DANE)\"",
+        "          <div class=\"di-value\">",
+        "            <div>",
+        "              <em>",
+        "                #3 \"Published, not proven active \\u2014 DANE protects a connection only when the TLSA record is carried by a validated DNSSEC chain. Each mail host below reports whether the resolver authenticated its own answer.\"",
+        "            <div>",
+        "              <code>",
+        "                <span class=\"rv\">",
+        "                  #3 \"mail.other.test\"",
+        "              #3 \" \\u2014 \"",
+        "              <span>",
+        "                #3 \"not published\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"Verifications (TXT)\"",
+        "          <div class=\"di-value\">",
+        "            #3 \"\\u2014\"",
+        "      <div class=\"score-block\">",
+        "        <div class=\"score-head\">",
+        "          <span class=\"score-total score-c\">",
+        "            #3 \"40\"",
+        "            <small>",
+        "              #3 \"/100\"",
+        "          <span class=\"issues-section-label\">",
+        "            #3 \"Security score\"",
+        "        <div class=\"sb-rows\">",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"DMARC\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:83%;background:var(--warn);\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"25\"",
+        "              <small>",
+        "                #3 \"/30\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"SPF\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:100%;background:var(--ok);\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"15\"",
+        "              <small>",
+        "                #3 \"/15\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"DKIM\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/15\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"DNSSEC\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/15\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"CAA\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/10\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"MTA-STS\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/8\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"BIMI\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/4\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"TLS-RPT\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/3\"",
+        "        <div class=\"sb-dmarc\">",
+        "          <span class=\"sb-dmarc-label\">",
+        "            #3 \"DMARC breakdown\"",
+        "          <span class=\"sb-part\">",
+        "            #3 \"Policy (p=) \"",
+        "            <strong>",
+        "              #3 \"12\"",
+        "          <span class=\"sb-part\">",
+        "            #3 \"Subdomain coverage \"",
+        "            <strong>",
+        "              #3 \"6\"",
+        "          <span class=\"sb-part\">",
+        "            #3 \"Aggregate reports (rua=) \"",
+        "            <strong>",
+        "              #3 \"6\"",
+        "          <span class=\"sb-part sb-part-zero\">",
+        "            #3 \"Strict alignment \"",
+        "            <strong>",
+        "              #3 \"0\"",
+        "          <span class=\"sb-part sb-part-zero\">",
+        "            #3 \"Forensic reports (ruf=) \"",
+        "            <strong>",
+        "              #3 \"0\"",
+        "          <span class=\"sb-part\">",
+        "            #3 \"Report destinations \"",
+        "            <strong>",
+        "              #3 \"1\"",
+        "      <div class=\"adv-strip\">",
+        "        <div class=\"adv-strip-label\">",
+        "          #3 \"Advanced Security\"",
+        "        <div class=\"adv-dots\">",
+        "          <span class=\"adv-dot dot-miss\" data-tip=\"Not configured \\u2014 display your logo in Gmail & Apple Mail\">",
+        "            <span class=\"dot-pip\">",
+        "            #3 \"BIMI\"",
+        "          <span class=\"adv-dot dot-miss\" data-tip=\"Not configured \\u2014 publish _mta-sts TXT to force TLS on inbound mail\">",
+        "            <span class=\"dot-pip\">",
+        "            #3 \"MTA-STS\"",
+        "          <span class=\"adv-dot dot-miss\" data-tip=\"Not configured \\u2014 companion to MTA-STS; publish _smtp._tls TXT\">",
+        "            <span class=\"dot-pip\">",
+        "            #3 \"TLS-RPT\"",
+        "          <span class=\"adv-dot dot-miss\" data-tip=\"Not found \\u2014 add CAA records to restrict which CAs can issue certs for this domain\">",
+        "            <span class=\"dot-pip\">",
+        "            #3 \"CAA\"",
+        "          <span class=\"adv-dot dot-miss\" data-tip=\"Not detected \\u2014 enable DNSSEC in your DNS provider to prevent cache poisoning\">",
+        "            <span class=\"dot-pip\">",
+        "            #3 \"DNSSEC\"",
+        "      <div class=\"issues-block\">",
+        "        <div class=\"issues-section-label\">",
+        "          #3 \"Issues\"",
+        "        <div class=\"issue\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\u26a0\\ufe0f\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"No tested DKIM selector was found. No active DKIM key found among 10 tested selectors. Scored as if DKIM is not configured. If you know your DKIM selector, add it to \\\"Additional DKIM selectors\\\" and re-run the audit to get credit for it.\"",
+        "        <div class=\"issue\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\u26a0\\ufe0f\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"DMARC reports to gone.vendor.test are being discarded \\u2014 that domain has not authorized your reports.\"",
+        "            <div class=\"showme-wrap\">",
+        "              <button class=\"showme-btn\" type=\"button\">",
+        "                #3 \"Show me \\u25be\"",
+        "              <div class=\"showme-content\">",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it is\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"When a report destination sits outside your organizational domain, RFC 9990 \\u00a74 requires the receiving domain to publish a record granting permission. We looked, and it is not there. Conformant receivers therefore drop every report bound for {0}: nothing errors and nothing bounces, you simply get less data than you think you do \\u2014 which is easy to mistake for \\\"nobody is spoofing us\\\". Authorization is checked per destination, so any other addresses in your record keep working normally; only this one is being dropped.\"",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it needs to be\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"Ask the operator of {0} to publish an authorization record for your domain. Most reporting vendors do this automatically when you add a domain, so if you have just set this up it is worth checking the vendor dashboard first \\u2014 the record may only appear once the domain is verified on their side.\"",
+        "                  <div class=\"showme-code\">",
+        "                    #3 \"; The DESTINATION domain publishes this in its own zone,\\u000a; naming the domain whose reports it accepts:\\u000ayourdomain.com._report._dmarc.{0}    TXT    \\\"v=DMARC1\\\"\\u000a\\u000a; Vendors accepting many customers usually publish the wildcard form instead:\\u000a*._report._dmarc.{0}    TXT    \\\"v=DMARC1\\\"\"",
+        "        <div class=\"issue\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\u2139\\ufe0f\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"Only one MX host is published: mail.other.test \\u2014 mail queues at the sender while it is unreachable.\"",
+        "            <div class=\"showme-wrap\">",
+        "              <button class=\"showme-btn\" type=\"button\">",
+        "                #3 \"Show me \\u25be\"",
+        "              <div class=\"showme-content\">",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it is\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"With one MX host, any period where that host is unreachable is a period where inbound mail sits in other people's queues. Nothing is lost immediately \\u2014 sending servers retry for days before returning a message \\u2014 but delivery stops, and it stops for a maintenance window as readily as for a failure. Many hosted mail providers publish several MX hosts precisely to avoid this; a single one is more often a self-hosted setup or a provider entry that was only half-copied.\"",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it needs to be\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"Publish a second MX host at a higher preference number if your mail platform offers one. If your provider gave you several hostnames, check that all of them made it into DNS.\"",
+        "        <div class=\"issue\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\u2139\\ufe0f\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"No MX host has an IPv6 address \\u2014 IPv6-only senders cannot reach your mail.\"",
+        "            <div class=\"showme-wrap\">",
+        "              <button class=\"showme-btn\" type=\"button\">",
+        "                #3 \"Show me \\u25be\"",
+        "              <div class=\"showme-content\">",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it is\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"A sending server on an IPv6-only network reaches an IPv4-only mail host through whatever translation its operator provides, or not at all. This is not a security finding and it is not urgent: IPv4 mail delivery is not going away. It is a reachability note, and it also affects reputation, because some large receivers treat dual-stack availability as a signal of a well-maintained mail system.\"",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it needs to be\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"Add AAAA records for your MX hosts once the hosts themselves accept mail over IPv6. Publishing an AAAA record for a host that is not actually listening on IPv6 is worse than having none \\u2014 senders will try it first and fail.\"",
+        "        <hr class=\"suggestions-sep\">",
+        "        <div class=\"issues-section-label\">",
+        "          #3 \"\\ud83d\\udca1 Recommendations\"",
+        "        <div class=\"issue tip\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\ud83d\\udca1\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"BIMI (logo in inbox): requires DMARC at p=quarantine or p=reject + DKIM. Get those in place first, then add BIMI.\"",
+        "            <button class=\"learnmore-btn\" data-guide=\"bimi\" type=\"button\">",
+        "              #3 \"Learn more \\u2192\"",
+        "        <div class=\"issue tip\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\ud83d\\udca1\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"MTA-STS not configured. Publishing a _mta-sts TXT record and hosting a policy file forces TLS on inbound mail delivery, preventing downgrade attacks.\"",
+        "            <button class=\"learnmore-btn\" data-guide=\"mta-sts\" type=\"button\">",
+        "              #3 \"Learn more \\u2192\"",
+        "        <div class=\"issue tip\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\ud83d\\udca1\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"TLS-RPT (_smtp._tls TXT) not configured. This companion to MTA-STS sends you reports when TLS negotiation fails \\u2014 easy to add, zero downside.\"",
+        "            <button class=\"learnmore-btn\" data-guide=\"tls-rpt\" type=\"button\">",
+        "              #3 \"Learn more \\u2192\"",
+        "        <div class=\"issue tip\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\ud83d\\udca1\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"No CAA records \\u2014 any certificate authority can issue SSL certs for this domain. Add CAA records naming only your preferred CA (e.g. Let's Encrypt, DigiCert).\"",
+        "            <button class=\"learnmore-btn\" data-guide=\"caa\" type=\"button\">",
+        "              #3 \"Learn more \\u2192\"",
+        "        <div class=\"issue tip\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\ud83d\\udca1\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"DNSSEC not detected. Signing your DNS records prevents cache poisoning and MX hijacking. Cloudflare and most modern DNS providers enable this with one click.\"",
+        "            <button class=\"learnmore-btn\" data-guide=\"dnssec\" type=\"button\">",
+        "              #3 \"Learn more \\u2192\""
+      ]
+    },
+    {
+      "id": "spf-lookup-query-error",
+      "description": "a SERVFAIL on an include: target — the layer-4 fallback records queryError",
+      "platform": "native",
+      "result": [
+        {
+          "domain": "spfbroken.test",
+          "outcome": "result",
+          "result": {
+            "aRec": [],
+            "aaaaRec": [],
+            "advScore": {
+              "done": 0,
+              "total": 5,
+              "unknown": 0
+            },
+            "advanced": {
+              "bimi": {
+                "advertised": false,
+                "candidates": [],
+                "declined": false,
+                "multiple": false,
+                "present": false,
+                "record": "",
+                "unknown": false,
+                "validation": {
+                  "authority": "",
+                  "declined": false,
+                  "errors": [
+                    "invalid-syntax"
+                  ],
+                  "logo": "",
+                  "valid": false
+                }
+              },
+              "caa": {
+                "atDomain": null,
+                "found": false,
+                "iodef": [],
+                "issuanceBlocked": false,
+                "issuers": [],
+                "malformed": [],
+                "parsed": [],
+                "records": [],
+                "unknownCritical": [],
+                "wildcardBlocked": false,
+                "wildcardIssuers": []
+              },
+              "dnssec": {
+                "anchorConfirmed": false,
+                "chain": [
+                  {
+                    "claim": "resolver-ad",
+                    "detail": {
+                      "ad": false
+                    },
+                    "source": "resolver"
+                  },
+                  {
+                    "claim": "lookup-incomplete",
+                    "detail": {
+                      "kind": "nxdomain",
+                      "query": "ds"
+                    },
+                    "source": "local"
+                  },
+                  {
+                    "claim": "lookup-incomplete",
+                    "detail": {
+                      "kind": "nxdomain",
+                      "query": "dnskey"
+                    },
+                    "source": "local"
+                  }
+                ],
+                "deprecatedAlgorithms": [],
+                "deprecatedDigests": [],
+                "ds": [],
+                "error": {
+                  "$undefined": true
+                },
+                "evidence": "none",
+                "keys": [],
+                "lookups": {
+                  "dnskey": {
+                    "completed": false,
+                    "kind": "nxdomain"
+                  },
+                  "ds": {
+                    "completed": false,
+                    "kind": "nxdomain"
+                  },
+                  "ns": {
+                    "completed": true,
+                    "kind": "success"
+                  }
+                },
+                "orphanDs": [],
+                "resolverValidated": false,
+                "signed": false,
+                "state": "insecure"
+              },
+              "mtaSts": {
+                "advertised": false,
+                "candidates": [],
+                "multiple": false,
+                "policyVerified": false,
+                "present": false,
+                "record": "",
+                "unknown": false,
+                "validation": {
+                  "errors": [
+                    "invalid-syntax"
+                  ],
+                  "id": "",
+                  "valid": false
+                }
+              },
+              "mxHealth": {
+                "cnameHosts": [],
+                "danglingHosts": [],
+                "duplicatePreferences": [],
+                "hosts": [
+                  {
+                    "addresses": [
+                      "198.51.100.10"
+                    ],
+                    "cnameUnknown": false,
+                    "host": "mail.other.test",
+                    "inAudited": false,
+                    "isCname": false,
+                    "preference": 10,
+                    "preferences": [
+                      10
+                    ],
+                    "resolves": "yes",
+                    "v4Count": 1,
+                    "v6Count": 0
+                  }
+                ],
+                "ipv6Coverage": "none",
+                "sharedPrefixes": [],
+                "singleHost": true,
+                "unknown": false
+              },
+              "reportAuth": [],
+              "spfLookups": {
+                "count": 0,
+                "cycles": [],
+                "error": false,
+                "indeterminate": true,
+                "queryError": "servfail",
+                "unknown": true,
+                "voidLookups": 0,
+                "warning": false
+              },
+              "spfSubnets": {
+                "redundancy": [],
+                "subnets": [],
+                "unknown": false
+              },
+              "tlsRpt": {
+                "advertised": false,
+                "candidates": [],
+                "multiple": false,
+                "present": false,
+                "record": "",
+                "unknown": false,
+                "validation": {
+                  "destinations": [],
+                  "errors": [
+                    "invalid-syntax"
+                  ],
+                  "valid": false
+                }
+              },
+              "tlsa": {
+                "allAuthenticated": false,
+                "anyPresent": false,
+                "hosts": [
+                  {
+                    "authenticated": false,
+                    "host": "mail.other.test",
+                    "present": false,
+                    "queryName": "_25._tcp.mail.other.test",
+                    "records": [],
+                    "unknown": false
+                  }
+                ],
+                "unauthenticatedHosts": [],
+                "unknown": false
+              }
+            },
+            "dkimStatus": {
+              "confidence": "sampled",
+              "duplicated": [],
+              "failedSelectors": [],
+              "found": false,
+              "keyProfile": {
+                "algorithms": [],
+                "maxBits": null,
+                "minBits": null,
+                "mixed": false
+              },
+              "malformedSelectors": [],
+              "missingSelectors": [],
+              "note": "noteNotFound",
+              "revokedSelectors": [],
+              "scanMode": "provider-aware",
+              "selectors": [],
+              "testedSelectors": [
+                "google",
+                "default",
+                "mail",
+                "s1",
+                "s2",
+                "selector1",
+                "selector2",
+                "dkim",
+                "sig1",
+                "odoo"
+              ],
+              "unusableSelectors": []
+            },
+            "dmarcAtDomain": "spfbroken.test",
+            "dmarcDiscovery": {
+              "applied": {
+                "foundAt": "spfbroken.test",
+                "inherited": false,
+                "labelsUp": 0,
+                "record": "v=DMARC1; p=none; rua=mailto:s@spfbroken.test"
+              },
+              "error": null,
+              "observed": [],
+              "organizationalDomain": "spfbroken.test",
+              "policyDomain": "spfbroken.test",
+              "psdBoundary": null,
+              "queries": 2,
+              "steps": [
+                {
+                  "dmarcCount": 1,
+                  "kind": "success",
+                  "queryName": "_dmarc.spfbroken.test",
+                  "selected": true,
+                  "txtCount": 1
+                },
+                {
+                  "dmarcCount": 0,
+                  "kind": "nxdomain",
+                  "queryName": "_dmarc.test",
+                  "selected": false,
+                  "txtCount": 0
+                }
+              ],
+              "terminated": "root"
+            },
+            "dmarcExistence": "yes",
+            "dmarcRecord": "v=DMARC1; p=none; rua=mailto:s@spfbroken.test",
+            "dmarcStatus": {
+              "adkim": "r",
+              "adkimRaw": null,
+              "adkimState": "absent",
+              "aspf": "r",
+              "aspfRaw": null,
+              "aspfState": "absent",
+              "cls": "warn",
+              "duplicateTags": [],
+              "effectiveNp": "none",
+              "effectivePolicy": "none",
+              "effectiveSp": "none",
+              "enforcing": false,
+              "fo": "0",
+              "foPresent": false,
+              "foValid": true,
+              "malformed": false,
+              "np": null,
+              "npRaw": null,
+              "npState": "absent",
+              "pct": 100,
+              "pctPresent": false,
+              "pctValid": true,
+              "policy": "none",
+              "policyRaw": "none",
+              "psd": "u",
+              "psdPresent": false,
+              "psdValid": true,
+              "removedTags": [],
+              "rua": true,
+              "ruaUris": {
+                "count": 1,
+                "domains": [
+                  "spfbroken.test"
+                ],
+                "invalid": [],
+                "uris": [
+                  {
+                    "domain": "spfbroken.test",
+                    "mailbox": "s@spfbroken.test",
+                    "raw": "mailto:s@spfbroken.test",
+                    "scheme": "mailto",
+                    "sizeLimit": "",
+                    "unsupportedScheme": false,
+                    "uri": "mailto:s@spfbroken.test",
+                    "valid": true
+                  }
+                ],
+                "valid": true
+              },
+              "ruf": false,
+              "rufUris": {
+                "count": 0,
+                "domains": [],
+                "invalid": [],
+                "uris": [],
+                "valid": false
+              },
+              "sp": null,
+              "spRaw": null,
+              "spState": "absent",
+              "status": "warn",
+              "tValid": true,
+              "testMode": false,
+              "unknownTags": [],
+              "version": {
+                "reason": null,
+                "valid": true
+              }
+            },
+            "dnsProvider": "Other",
+            "domain": "spfbroken.test",
+            "emailProvider": "@custom-unknown",
+            "hosting": "@no-web",
+            "issues": [
+              {
+                "key": "dkim-unverified",
+                "noteArgs": [
+                  10,
+                  0
+                ],
+                "noteKey": "noteNotFound",
+                "sev": "warn"
+              },
+              {
+                "key": "dmarc-none",
+                "sev": "warn"
+              },
+              {
+                "key": "spf-indeterminate",
+                "sev": "info"
+              },
+              {
+                "args": [
+                  "mail.other.test"
+                ],
+                "key": "mx-single-host",
+                "sev": "info"
+              },
+              {
+                "key": "mx-no-ipv6",
+                "sev": "info"
+              },
+              {
+                "args": [
+                  "SPF"
+                ],
+                "key": "checks-unverified",
+                "sev": "warn"
+              }
+            ],
+            "mx": [
+              "10 mail.other.test"
+            ],
+            "ns": [
+              "ns1.other.test"
+            ],
+            "organizationalDomain": "spfbroken.test",
+            "score": {
+              "breakdown": {
+                "dmarc": {
+                  "alignment": 0,
+                  "policy": 3,
+                  "rua": 6,
+                  "ruf": 0,
+                  "subdomain": 1,
+                  "uris": 1
+                },
+                "pillars": [
+                  {
+                    "key": "dmarc",
+                    "max": 30,
+                    "pts": 11
+                  },
+                  {
+                    "key": "spf",
+                    "max": 15,
+                    "pts": 15
+                  },
+                  {
+                    "key": "dkim",
+                    "max": 15,
+                    "pts": 0
+                  },
+                  {
+                    "key": "dnssec",
+                    "max": 15,
+                    "pts": 0
+                  },
+                  {
+                    "key": "caa",
+                    "max": 10,
+                    "pts": 0
+                  },
+                  {
+                    "key": "mtaSts",
+                    "max": 8,
+                    "pts": 0
+                  },
+                  {
+                    "key": "bimi",
+                    "max": 4,
+                    "pts": 0
+                  },
+                  {
+                    "key": "tlsRpt",
+                    "max": 3,
+                    "pts": 0
+                  }
+                ]
+              },
+              "cls": "score-d",
+              "grade": "D",
+              "max": 100,
+              "parked": false,
+              "pts": 26,
+              "unproven": [
+                "dkim"
+              ]
+            },
+            "spfRecord": "v=spf1 include:broken.spf.test -all",
+            "spfRecords": [
+              "v=spf1 include:broken.spf.test -all"
+            ],
+            "spfStatus": {
+              "cls": "ok",
+              "status": "ok",
+              "warnings": []
+            },
+            "suggestions": [
+              {
+                "guide": "bimi",
+                "key": "bimiPrereq"
+              },
+              {
+                "guide": "mta-sts",
+                "key": "mta-sts"
+              },
+              {
+                "guide": "tls-rpt",
+                "key": "tls-rpt"
+              },
+              {
+                "guide": "caa",
+                "key": "caa"
+              },
+              {
+                "guide": "dnssec",
+                "key": "dnssec"
+              }
+            ],
+            "txt": [
+              "v=spf1 include:broken.spf.test -all"
+            ],
+            "verifications": [],
+            "wildcardApex": false,
+            "wildcardDkim": false
+          }
+        }
+      ],
+      "trace": {
+        "queries": [
+          {
+            "query": "_25._tcp.mail.other.test TLSA do=1 cd=0",
+            "count": 1
+          },
+          {
+            "query": "_dmarc.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "_dmarc.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "_mta-sts.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "_smtp._tls.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "broken.spf.test TXT do=0 cd=0",
+            "count": 2
+          },
+          {
+            "query": "default._bimi.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "default._domainkey.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "dkim._domainkey.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "example.com A do=0 cd=0",
+            "count": 2
+          },
+          {
+            "query": "google._domainkey.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "mail._domainkey.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "mail.other.test A do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "mail.other.test AAAA do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "mail.other.test CNAME do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "odoo._domainkey.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "s1._domainkey.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "s2._domainkey.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "selector1._domainkey.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "selector2._domainkey.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "sig1._domainkey.spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "spfbroken.test A do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "spfbroken.test AAAA do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "spfbroken.test CAA do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "spfbroken.test DNSKEY do=1 cd=0",
+            "count": 1
+          },
+          {
+            "query": "spfbroken.test DS do=1 cd=0",
+            "count": 1
+          },
+          {
+            "query": "spfbroken.test MX do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "spfbroken.test NS do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "spfbroken.test NS do=1 cd=0",
+            "count": 1
+          },
+          {
+            "query": "spfbroken.test TXT do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "www.spfbroken.test A do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "www.spfbroken.test AAAA do=0 cd=0",
+            "count": 1
+          },
+          {
+            "query": "www.spfbroken.test CNAME do=0 cd=0",
+            "count": 1
+          }
+        ],
+        "total": 35,
+        "distinct": 33,
+        "maxConcurrency": 10,
+        "maxBatchSize": null,
+        "dmarcWalk": [
+          "_dmarc.spfbroken.test TXT",
+          "_dmarc.test TXT"
+        ],
+        "spfEvaluation": [
+          "broken.spf.test TXT",
+          "broken.spf.test TXT"
+        ]
+      },
+      "csv": {
+        "lines": [
+          "﻿\"Domain\",\"Registered\",\"Grade\",\"Score\",\"DNS Provider\",\"Email Provider\",\"SPF Status\",\"SPF Record\",\"DKIM Found\",\"DKIM Selectors\",\"DMARC Status\",\"DMARC Policy\",\"DMARC Test Mode (t=)\",\"DMARC sp\",\"DMARC np\",\"DMARC pct\",\"DMARC adkim\",\"DMARC aspf\",\"DMARC RUA\",\"DMARC RUF\",\"BIMI\",\"MTA-STS\",\"TLS-RPT\",\"CAA\",\"DNSSEC\",\"SPF Lookups\",\"Issues\",\"Suggestions\",\"Record Hygiene\",\"DMARC Found At\",\"DMARC Labels Up\",\"DMARC Discovery Terminated\",\"DKIM Key Type\",\"DKIM Key Bits\",\"DKIM Revoked Selectors\",\"CAA Issuers\",\"CAA Wildcard Issuers\",\"MX Dangling\",\"MX Host Count\",\"TLSA Present\"",
+          "\"spfbroken.test\",\"Yes\",\"D\",\"26\",\"Other\",\"Custom/Unknown\",\"ok\",\"v=spf1 include:broken.spf.test -all\",\"Unknown\",\"\",\"warn\",\"none\",\"No\",\"\",\"\",\"100\",\"r\",\"r\",\"Yes\",\"No\",\"No\",\"No\",\"No\",\"No\",\"insecure\",\"0\",\"No tested DKIM selector was found. No active DKIM key found among 10 tested selectors. Scored as if DKIM is not configured. If you know your DKIM selector, add it to \"\"Additional DKIM selectors\"\" and re-run the audit to get credit for it. | DMARC p=none is monitoring only. Upgrade to p=quarantine then p=reject. | The SPF lookup total is indeterminate because the record uses macros, excessive depth, or an invalid included policy. | Only one MX host is published: mail.other.test — mail queues at the sender while it is unreachable. | No MX host has an IPv6 address — IPv6-only senders cannot reach your mail. | Some checks could not be completed (SPF) — they are scored as if the record is not published.\",\"BIMI (logo in inbox): requires DMARC at p=quarantine or p=reject + DKIM. Get those in place first, then add BIMI. | MTA-STS not configured. Publishing a _mta-sts TXT record and hosting a policy file forces TLS on inbound mail delivery, preventing downgrade attacks. | TLS-RPT (_smtp._tls TXT) not configured. This companion to MTA-STS sends you reports when TLS negotiation fails — easy to add, zero downside. | No CAA records — any certificate authority can issue SSL certs for this domain. Add CAA records naming only your preferred CA (e.g. Let's Encrypt, DigiCert). | DNSSEC not detected. Signing your DNS records prevents cache poisoning and MX hijacking. Cloudflare and most modern DNS providers enable this with one click.\",\"\",\"spfbroken.test\",\"0\",\"root\",\"\",\"\",\"\",\"\",\"\",\"No\",\"1\",\"No\""
+        ],
+        "bytes": 2275,
+        "sha256": "65193d14ceac555f4446f72c14467bf23c98c62e813284f3d13b9994511ad68d"
+      },
+      "report": {
+        "generated": "Generated 1/15/2026, 12:00:00 PM · 1 domains",
+        "bytes": {
+          "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+          "stylesheet": "/* DNS & Email Security Auditor — stylesheet\n   https://github.com/kwestic-tech/dns-email-audit\n   Licensed MIT. */\n\n*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }\n\n:root {\n  --bg: #f0f2f5;\n  --surface: #ffffff;\n  --surface2: #f6f8fa;\n  --surface3: #eef1f5;\n  --border: #dde1e9;\n  --ink: #111827;\n  --ink2: #4b5563;\n  --ink3: #9ca3af;\n  --accent: #2563eb;\n  --radius: 10px;\n  --shadow: 0 1px 4px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.05);\n  --ok: #16a34a; --ok-bg: #f0fdf4; --ok-border: #bbf7d0;\n  --warn: #d97706; --warn-bg: #fffbeb; --warn-border: #fde68a;\n  --crit: #dc2626; --crit-bg: #fef2f2; --crit-border: #fecaca;\n  --info: #0284c7; --info-bg: #f0f9ff; --info-border: #bae6fd;\n  --tip: #7c3aed; --tip-bg: #f5f3ff; --tip-border: #ddd6fe;\n  --muted: #64748b; --muted-bg: #f8fafc; --muted-border: #e2e8f0;\n}\n\nbody { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.6; min-height: 100vh; }\n\n/* ── Topbar ── */\n.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; min-height: 56px; flex-wrap: wrap; gap: 6px; position: sticky; top: 0; z-index: 100; }\n.topbar-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; padding: 10px 0; }\n.topbar-brand .logo { width: 30px; height: 30px; background: linear-gradient(135deg, #2563eb, #7c3aed); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; flex-shrink: 0; }\n.topbar-brand h1 { font-size: 15px; font-weight: 700; white-space: nowrap; }\n.topbar-sub { font-size: 12px; color: var(--ink3); white-space: nowrap; }\n.topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0; }\n.page { max-width: 1340px; margin: 0 auto; padding: 28px 24px 80px; }\n\n/* ── Network error banner ── */\n#netBanner { display:none; background:#fef2f2; border:1px solid #fecaca; border-radius: var(--radius); padding:18px 24px; margin-bottom:20px; }\n#netBanner strong { color:#dc2626; font-size:14px; }\n#netBanner p { color:#7f1d1d; font-size:13px; margin-top:6px; line-height:1.6; }\n#netBanner code { background:#fee2e2; border-radius:4px; padding:1px 5px; font-family: 'SF Mono','Fira Code',monospace; font-size:12px; }\n\n/* ── Input card ── */\n.input-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px 32px; margin-bottom: 28px; }\n.input-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }\n.input-card p { font-size: 13px; color: var(--ink2); margin-bottom: 20px; }\n.input-area { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }\n@media (max-width: 700px) { .input-area { grid-template-columns: 1fr; } }\ntextarea#domainInput { width: 100%; height: 130px; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: 'SF Mono','Fira Code',monospace; font-size: 12.5px; color: var(--ink); background: var(--surface2); resize: vertical; outline: none; transition: border-color .15s; line-height: 1.7; }\ntextarea#domainInput:focus { border-color: var(--accent); background: var(--surface); }\ntextarea#domainInput::placeholder { color: var(--ink3); }\n.side-controls { display: flex; flex-direction: column; gap: 10px; min-width: 180px; }\n\n/* ── Buttons ── */\n.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; white-space: nowrap; }\n.btn-primary { background: var(--accent); color: #fff; }\n.btn-primary:hover { background: #1d4ed8; }\n.btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }\n.btn-outline { background: var(--surface); color: var(--ink2); border: 1px solid var(--border); }\n.btn-outline:hover { background: var(--surface2); color: var(--ink); }\n.btn-sm { padding: 6px 12px; font-size: 12px; }\n.file-upload-label { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; background: var(--surface); color: var(--ink2); border: 1px solid var(--border); transition: all .15s; text-align: center; }\n.file-upload-label:hover { background: var(--surface2); color: var(--ink); }\ninput[type=\"file\"] { display: none; }\n\n/* ── Options ── */\n.options-row { display: flex; align-items: center; gap: 20px; margin-top: 14px; flex-wrap: wrap; }\n.checkbox-group { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink2); cursor: pointer; }\n.checkbox-group input[type=\"checkbox\"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }\n/* The auto-disable notice. Deliberately not a toast: a toast is gone in three\n   seconds, and this explains why a checkbox the user last saw ticked is now\n   clear. It has to still be there when they look. */\n.opt-notice { font-size: 12px; color: var(--warn, var(--ink2)); flex-basis: 100%; }\n.spf-conflict-note { color: var(--crit, var(--warn)); margin-bottom: 4px; }\n.spf-conflict-record { margin-bottom: 3px; }\n.selector-group { display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink2); }\n.selector-group input { width:180px; border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; color:var(--ink); background:#fff; }\n.selector-group input:focus { outline:2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-color:var(--accent); }\n\n/* ── Progress ── */\n#progressSection { display: none; margin-bottom: 24px; }\n.progress-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }\n.progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }\n.progress-header h3 { font-size: 14px; font-weight: 600; }\n.progress-counts { font-size: 12px; color: var(--ink3); }\n.progress-track { height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }\n.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #7c3aed); border-radius: 3px; transition: width .3s ease; width: 0%; }\n.progress-log { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; color: var(--ink3); max-height: 80px; overflow-y: auto; line-height: 1.8; }\n.log-ok { color: var(--ok); } .log-err { color: var(--crit); } .log-info { color: var(--info); }\n\n/* ── Summary stats ── */\n#summarySection { display: none; margin-bottom: 24px; }\n.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 12px; }\n.stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); }\n.stat-tile .num { font-size: 30px; font-weight: 800; line-height: 1; margin-bottom: 4px; }\n.stat-tile .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink3); }\n.c-ok{color:var(--ok)} .c-warn{color:var(--warn)} .c-crit{color:var(--crit)} .c-info{color:var(--info)} .c-tip{color:var(--tip)} .c-muted{color:var(--muted)}\n\n/* ── Toolbar ── */\n#resultsToolbar { display: none; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }\n.toolbar-left { display: flex; align-items: center; gap: 10px; }\n.search-box { border: 1px solid var(--border); border-radius: 7px; padding: 7px 12px; font-size: 13px; background: var(--surface); outline: none; width: 220px; transition: border-color .15s; }\n.search-box:focus { border-color: var(--accent); }\n.filter-select { border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; font-size: 12px; background: var(--surface); outline: none; color: var(--ink2); cursor: pointer; }\n\n/* ── Table ── */\n#resultsSection { display: none; }\n.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; -webkit-overflow-scrolling: touch; box-shadow: var(--shadow); }\ntable { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 960px; }\nthead th { background: var(--surface2); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); font-weight: 700; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }\nthead th:hover { background: var(--surface3); color: var(--ink2); }\nthead th.sorted-asc::after { content: ' ↑'; }\nthead th.sorted-desc::after { content: ' ↓'; }\ntbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }\ntbody tr:last-child { border-bottom: none; }\ntbody tr:hover { background: var(--surface2); }\ntbody tr.hidden { display: none; }\ntd { padding: 10px 12px; vertical-align: middle; }\ntd.domain-cell { font-weight: 700; font-size: 12.5px; white-space: nowrap; }\n\n/* ── Mobile card layout ── */\n@media (max-width: 768px) {\n  .topbar { padding: 0 16px; }\n  .topbar-brand { width: 100%; padding: 10px 0 4px; }\n  .topbar-actions { padding: 0 0 10px; }\n  .topbar-sub { display: none; }\n  .page { padding: 16px 12px 60px; }\n  .input-card { padding: 20px 16px; }\n  .stats-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }\n\n  /* Table → cards */\n  .table-wrap { overflow-x: visible; border-left: none; border-right: none; border-radius: 0; box-shadow: none; background: transparent; }\n  .table-wrap table { display: block; min-width: 0; }\n  .table-wrap thead { display: none; }\n  .table-wrap tbody { display: flex; flex-direction: column; gap: 10px; }\n\n  /* Each data row becomes a card */\n  .table-wrap tbody tr:not(.detail-row) {\n    display: grid;\n    grid-template-columns: 40px 1fr;\n    border: 1px solid var(--border);\n    border-radius: var(--radius);\n    background: var(--surface);\n    box-shadow: var(--shadow);\n    overflow: hidden;\n  }\n  .table-wrap tbody tr.hidden { display: none; }\n\n  /* Expand toggle cell — left strip of card header */\n  .table-wrap tbody tr:not(.detail-row) td:nth-child(1) {\n    grid-column: 1; grid-row: 1;\n    display: flex; align-items: center; justify-content: center;\n    background: var(--surface2); border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);\n    padding: 12px 0;\n  }\n\n  /* Domain cell — right side of card header */\n  .table-wrap tbody tr:not(.detail-row) td.domain-cell {\n    grid-column: 2; grid-row: 1;\n    display: flex; align-items: center;\n    background: var(--surface2); border-bottom: 1px solid var(--border);\n    padding: 10px 14px; white-space: normal; font-size: 13px;\n  }\n\n  /* All other data cells — full-width label:value rows */\n  .table-wrap tbody tr:not(.detail-row) td:not(:nth-child(1)):not(.domain-cell) {\n    grid-column: 1 / -1;\n    display: flex; align-items: center; gap: 10px;\n    padding: 8px 14px; border-bottom: 1px solid var(--surface3); font-size: 12.5px;\n  }\n  .table-wrap tbody tr:not(.detail-row) td:not(:nth-child(1)):not(.domain-cell):last-child { border-bottom: none; }\n  .table-wrap tbody tr:not(.detail-row) td:not(:nth-child(1)):not(.domain-cell)::before {\n    content: attr(data-label);\n    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;\n    color: var(--ink3); min-width: 72px; flex-shrink: 0;\n  }\n\n  /* Detail row — full-width block below its card */\n  .table-wrap tbody .detail-row { display: none; }\n  .table-wrap tbody .detail-row.open { display: block; }\n  .table-wrap tbody .detail-row > td { display: block; padding: 16px; border-radius: 0 0 var(--radius) var(--radius); }\n  .detail-grid { grid-template-columns: 1fr; }\n}\n\n/* ── Badges ── */\n.badge { display: inline-flex; align-items: center; gap: 3px; border-radius: 4px; padding: 2px 7px; font-size: 10.5px; font-weight: 700; white-space: nowrap; border: 1px solid; }\n.badge-ok   { background:var(--ok-bg);   color:var(--ok);   border-color:var(--ok-border); }\n.badge-warn { background:var(--warn-bg); color:var(--warn); border-color:var(--warn-border); }\n.badge-crit { background:var(--crit-bg); color:var(--crit); border-color:var(--crit-border); }\n.badge-info { background:var(--info-bg); color:var(--info); border-color:var(--info-border); }\n.badge-muted{ background:var(--muted-bg);color:var(--muted);border-color:var(--muted-border); }\n\n/* ── Score circle / pill ── */\n.score { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; font-size: 13px; font-weight: 800; border: 2.5px solid; white-space: nowrap; }\n.score-a         { background:var(--ok-bg);   color:var(--ok);   border-color:var(--ok); }\n.score-aplus,\n.score-aplusplus { background:var(--ok-bg);   color:var(--ok);   border-color:var(--ok);\n                   width:auto; min-width:36px; padding:0 8px; border-radius:20px; font-size:11px; letter-spacing:-.3px; }\n.score-b         { background:var(--info-bg); color:var(--info); border-color:var(--info); }\n.score-c         { background:var(--warn-bg); color:var(--warn); border-color:var(--warn); }\n.score-d         { background:#fff7ed;         color:#ea580c;     border-color:#fdba74; }\n.score-f         { background:var(--crit-bg); color:var(--crit); border-color:var(--crit); }\n\n/* A grade resting on a check this audit could not verify. The tier colour is\n   deliberately kept — the grade is the real grade, not a warning — and only the\n   border is broken, so the marker reads as \"incomplete evidence\" rather than\n   \"worse result\". The asterisk carries the same meaning for anyone who cannot\n   distinguish the border treatment. */\n.score-unproven  { border-style: dashed; }\n.score-unproven .score-star { font-size: .78em; font-weight: 700; opacity: .75; margin-left: 1px; }\n\n/* ── Expand row ── */\n.expand-toggle { background: none; border: none; cursor: pointer; color: var(--ink3); font-size: 13px; padding: 2px 4px; border-radius: 4px; transition: color .1s, background .1s; }\n.expand-toggle:hover { background: var(--surface3); color: var(--ink2); }\n.detail-row { display: none; }\n.detail-row.open { display: table-row; } /* overridden to block in mobile media query */\n.detail-row td { background: var(--surface2); padding: 16px 20px; border-top: 1px dashed var(--border); }\n.detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }\n.detail-item .di-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); margin-bottom: 3px; }\n.detail-item .di-value { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; color: var(--ink2); word-break: break-all; line-height: 1.6; }\n.dkim-record { margin-bottom: 8px; word-break: break-word; }\n.dkim-record:last-child { margin-bottom: 0; }\n.dkim-record div { margin-top: 3px; }\n.dkim-record code { white-space: normal; word-break: break-all; }\n.dkim-record-missing { color: var(--warn); }\n.dkim-via-spf { display: inline-block; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 700;\n  white-space: nowrap; vertical-align: 1px;\n  background: var(--tip-bg); color: var(--tip); border: 1px solid var(--tip-border); }\n\n/* ── Issues / suggestions ── */\n.issues-block { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }\n.issues-section-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); margin-bottom: 6px; font-weight: 700; }\n.issue { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 5px; font-size: 12px; line-height: 1.5; }\n.issue .icon { flex-shrink: 0; margin-top: 1px; }\n.issue .msg { color: var(--ink2); }\n.issue.tip .msg { color: var(--tip); }\n.suggestions-sep { margin: 10px 0 8px; border: none; border-top: 1px dashed var(--border); }\n\n/* ── Show me dropdowns ── */\n.issue-body { display: flex; flex-direction: column; }\n.showme-wrap { margin-top: 4px; }\n.showme-btn { background: none; border: none; color: var(--accent); font-size: 11px; font-weight: 600; cursor: pointer; padding: 2px 0; text-decoration: underline; text-underline-offset: 2px; }\n.showme-btn:hover { color: #1d4ed8; }\n.showme-content { display: none; margin-top: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; }\n.showme-lbl { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); font-weight: 700; margin-bottom: 4px; }\n.showme-text { font-size: 12px; color: var(--ink2); line-height: 1.6; margin-bottom: 10px; }\n.showme-text:last-child { margin-bottom: 0; }\n.showme-code { font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 8px 10px; margin-top: 6px; white-space: pre-wrap; word-break: break-all; color: var(--ink); line-height: 1.7; }\n\n/* ── Learn more button ── */\n.learnmore-btn { display: inline-block; margin-top: 5px; background: none; border: 1px solid var(--tip); color: var(--tip); border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 9px; transition: background .15s; }\n.learnmore-btn:hover { background: var(--tip-bg); }\n\n/* ── Advanced security dots ── */\n.adv-strip { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }\n.adv-strip-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); margin-bottom: 10px; font-weight: 700; }\n.adv-dots { display: flex; flex-wrap: wrap; gap: 8px; }\n.adv-dot {\n  display: inline-flex; align-items: center; gap: 6px;\n  padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;\n  border: 1px solid; cursor: default; position: relative;\n  transition: box-shadow .1s;\n}\n.adv-dot:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }\n.adv-dot .dot-pip { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }\n.adv-dot.dot-ok   { background:var(--ok-bg);   color:var(--ok);   border-color:var(--ok-border); }\n.adv-dot.dot-ok   .dot-pip { background: var(--ok); }\n.adv-dot.dot-miss { background:var(--muted-bg); color:var(--muted); border-color:var(--muted-border); }\n.adv-dot.dot-miss .dot-pip { background: #cbd5e1; }\n.adv-dot.dot-warn { background:var(--warn-bg); color:var(--warn); border-color:var(--warn-border); }\n.adv-dot.dot-warn .dot-pip { background: var(--warn); }\n/* tooltip */\n.adv-dot[data-tip]::after {\n  content: attr(data-tip);\n  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);\n  background: var(--ink); color: #fff; font-size: 11px; font-weight: 400;\n  padding: 5px 9px; border-radius: 5px; white-space: nowrap; pointer-events: none;\n  opacity: 0; transition: opacity .15s; z-index: 200; max-width: 280px; white-space: normal; text-align: center;\n}\n.adv-dot[data-tip]:hover::after { opacity: 1; }\n\n/* SPF lookup meter */\n.spf-meter { display: flex; align-items: center; gap: 8px; margin-top: 4px; }\n.spf-meter-bar { flex: 1; height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; }\n.spf-meter-fill { height: 100%; border-radius: 3px; }\n.spf-meter-label { font-size: 11px; font-weight: 600; white-space: nowrap; }\n\n/* ── Callout ── */\n.callout { border-radius: 8px; padding: 14px 16px; border-left: 4px solid; font-size: 13px; margin-bottom: 20px; }\n.callout-info { background: var(--info-bg); border-color: var(--info); }\n.callout-info strong { color: var(--info); }\n.callout a { color: var(--accent); }\n\n/* ── Empty state ── */\n.empty-state { text-align: center; padding: 60px 20px; color: var(--ink3); }\n.empty-state .es-icon { font-size: 48px; margin-bottom: 12px; }\n\n/* ── Spinner ── */\n@keyframes spin { to { transform: rotate(360deg); } }\n.spinner { width: 16px; height: 16px; border: 2px solid #e5e7eb; border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; flex-shrink: 0; }\n\n/* ── Footer ── */\n.app-footer { text-align: center; margin-top: 60px; font-size: 12px; color: var(--ink3); }\n.app-footer a { color: var(--accent); text-decoration: none; }\n\n/* ── Toast ── */\n.toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,.2); transform: translateY(100px); opacity: 0; transition: all .3s ease; z-index: 9999; }\n.toast.show { transform: translateY(0); opacity: 1; }\n\n/* ── Language select ── */\n.lang-select { border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 12px; background: var(--surface); color: var(--ink2); cursor: pointer; outline: none; transition: background .15s; }\n.lang-select:hover { background: var(--surface2); color: var(--ink); }\n\n/* ── Score breakdown (detail row) ── */\n.score-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-top: 14px; }\n.score-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }\n.score-total { font-size: 22px; font-weight: 800; line-height: 1; }\n.score-total small { font-size: 12px; font-weight: 500; opacity: .5; }\n.score-note { font-size: 11px; color: var(--ink3); margin-left: auto; }\n.sb-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 6px 20px; }\n.sb-row { display: grid; grid-template-columns: 66px 1fr 52px; align-items: center; gap: 8px; }\n.sb-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink3); }\n.sb-track { height: 5px; background: var(--surface3); border-radius: 3px; overflow: hidden; }\n.sb-fill { display: block; height: 100%; border-radius: 3px; transition: width .3s ease; }\n.sb-val { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--ink2); text-align: right; }\n.sb-val small { opacity: .45; }\n.sb-dmarc { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }\n.sb-dmarc-label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--ink3); width: 100%; margin-bottom: 2px; }\n.sb-part { font-size: 11px; color: var(--ink2); }\n.sb-part strong { font-variant-numeric: tabular-nums; color: var(--ink); }\n.sb-part-zero { opacity: .4; }\n@media (max-width: 768px) {\n  .sb-rows { grid-template-columns: 1fr; }\n  .score-note { margin-left: 0; width: 100%; }\n}\n\n/* Duplicated record: configured but silently inactive — neither pass nor absent. */\n.adv-dot.dot-dup { border-color: var(--warn-border); background: var(--warn-bg); color: var(--warn); }\n.adv-dot.dot-dup .dot-pip { background: var(--warn); }\n\n/* ── Rendered DNS values (spec 0.2.3 §4) ──────────────────────────────────\n   Isolation stops a value reordering its NEIGHBOURS. It cannot stop an\n   override reordering the value's own contents — that is what the sentinel\n   substitution in js/render.js does — but it is free and contains anything\n   residual. */\n.rv { unicode-bidi: isolate; }\n.rv-none { color: var(--ink3); font-style: italic; }\n\n/* A marker, not content: never let a sentinel be mistaken for published data. */\n.rv-sentinel {\n  unicode-bidi: isolate;\n  display: inline-block;\n  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;\n  font-size: 10px;\n  font-weight: 700;\n  line-height: 1.4;\n  padding: 0 3px;\n  margin: 0 1px;\n  border-radius: 3px;\n  background: var(--crit-bg);\n  border: 1px solid var(--crit-border);\n  color: var(--crit);\n  vertical-align: baseline;\n  white-space: nowrap;\n}\n\n.rv-more {\n  display: inline-block;\n  margin-left: 6px;\n  padding: 0 6px;\n  font-size: 11px;\n  font-family: inherit;\n  color: var(--accent);\n  background: none;\n  border: 1px solid var(--border);\n  border-radius: 4px;\n  cursor: pointer;\n}\n.rv-more:hover { background: var(--surface3); }\n.rv-remainder { font-size: 11px; color: var(--ink3); font-style: italic; }\n\n.rv-hygiene {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 6px;\n  margin: 10px 0 0;\n  padding: 8px 10px;\n  border: 1px solid var(--warn-border);\n  background: var(--warn-bg);\n  border-radius: var(--radius);\n}\n.rv-hygiene-label {\n  font-size: 9.5px;\n  font-weight: 700;\n  text-transform: uppercase;\n  letter-spacing: .07em;\n  color: var(--warn);\n}\n.rv-hygiene-item { font-size: 11.5px; color: var(--ink2); }\n\n/* Tree Walk evidence (0.3.0). The step list reuses the .showme-* disclosure\n   so it needs no event wiring of its own. */\n.dmarc-discovery { margin-top: 6px; }\n.dmarc-discovery .walk-step { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.8; color: var(--ink2); }\n.dmarc-discovery .walk-hit { color: var(--ok); font-weight: 600; }\n.dmarc-discovery .walk-miss { color: var(--ink3); }\n.dmarc-discovery .walk-applied { text-decoration: underline; text-underline-offset: 2px; }\n\n/* static report overrides */\n.detail-row{display:table-row!important}.showme-content{display:block!important}\n.rv-rest{display:inline!important}.rv-more{display:none!important}\nthead th{cursor:default}\n",
+          "stylesheetBytes": 25555
+        },
+        "structure": "html head meta meta meta title /title style /style /head body div h1 /h1 p /p div div div div /div div /div /div div div /div div /div /div div div /div div /div /div div div small /small /div div /div /div div div /div div /div /div div div small /small /div div /div /div div div small /small /div div /div /div div div small /small /div div /div /div div div small /small /div div /div /div div div small /small /div div /div /div /div /div table tbody tr td button /button /td td span /span span span /span span /span /span /td td span span /span /span /td td span /span /td td span /span /td td span /span /td td span /span /td td span /span /td td span span /span span /span span /span span /span span /span span /span /span /td td span /span /td /tr tr td div div div /div div span /span /div /div div div /div div div code span /span /code span span /span /span /div /div /div div div /div div span /span div div div /div /div span /span /div /div /div div div /div div span /span div small /small button /button div div /div div span /span span /span /div div span /span span /span /div /div /div /div /div div div /div div /div /div div div /div div div span /span strong /strong /div div span /span div small /small span /span /div div small /small span /span /div div small /small span /span /div /div /div /div div div /div div div em /em /div div code span /span /code span /span /div /div /div div div /div div /div /div /div div div span small /small /span span /span /div div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div div span /span span span /span /span span small /small /span /div /div div span /span span strong /strong /span span strong /strong /span span strong /strong /span span strong /strong /span span strong /strong /span span strong /strong /span /div /div div div /div div span span /span /span span span /span /span span span /span /span span span /span /span span span /span /span /div /div div div /div div span /span div span /span /div /div div span /span div span /span div button /button div div /div div code /code em /em code /code /div div /div div div /div /div /div /div /div /div div span /span div span /span /div /div div span /span div span /span div button /button div div /div div /div div /div div /div /div /div /div /div div span /span div span /span div button /button div div /div div /div div /div div /div /div /div /div /div div span /span div span /span div button /button div div /div div /div div /div div div /div /div /div /div /div /div hr div /div div span /span div span /span button /button /div /div div span /span div span /span button /button /div /div div span /span div span /span button /button /div /div div span /span div span /span button /button /div /div div span /span div span /span button /button /div /div /div /td /tr /tbody /table div /div /div /body /html",
+        "length": 43736,
+        "sha256": "d3e6e43c6766360e26eba2e810fd6f453a2b95a3e292a8f51ba46c5c494a3271"
+      },
+      "dom": [
+        "<tbody id=\"tableBody\">",
+        "  <tr data-bimi=\"no\" data-caa=\"no\" data-dkim=\"unknown\" data-dmarc=\"yes\" data-dnssec=\"no\" data-domain=\"spfbroken.test\" data-email=\"yes\" data-grade=\"D\" data-overall=\"warn\" data-spf=\"yes\" data-unproven=\"yes\" id=\"row-spfbroken-test\">",
+        "    <td>",
+        "      <button class=\"expand-toggle\" data-detail-id=\"det-spfbroken-test\" type=\"button\">",
+        "        #3 \"\\u25b6\"",
+        "    <td class=\"domain-cell\">",
+        "      <span class=\"rv\">",
+        "        #3 \"spfbroken.test\"",
+        "      <span style=\"margin-left:5px;font-size:11px;\">",
+        "        <span title=\"3 warnings\">",
+        "          #3 \"\\ud83d\\udfe1\"",
+        "        <span title=\"5 suggestions\">",
+        "          #3 \"\\ud83d\\udca1\"",
+        "    <td data-label=\"Grade\" style=\"text-align:center\">",
+        "      <span class=\"score score-d score-unproven\" title=\"26 / 100 \\u2014 checks that could not be verified scored zero: DKIM. Open this row to see how to recover those points.\">",
+        "        #3 \"D\"",
+        "        <span class=\"score-star\">",
+        "          #3 \"*\"",
+        "    <td data-label=\"DNS Provider\">",
+        "      <span class=\"badge badge-info\">",
+        "        #3 \"Other\"",
+        "    <td data-label=\"Email Provider\">",
+        "      <span class=\"badge badge-info\">",
+        "        #3 \"Custom/Unknown\"",
+        "    <td data-label=\"SPF\">",
+        "      <span class=\"badge badge-ok\">",
+        "        #3 \"\\u2713 -all\"",
+        "    <td data-label=\"DKIM\">",
+        "      <span class=\"badge badge-warn\">",
+        "        #3 \"? No Domain Key Found in tested selectors\"",
+        "    <td data-label=\"DMARC\">",
+        "      <span class=\"badge badge-warn\">",
+        "        #3 \"\\u26a0 none (monitor)\"",
+        "    <td data-label=\"Advanced\">",
+        "      <span style=\"display:inline-flex;align-items:center;gap:4px;\">",
+        "        <span style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:2px;\" title=\"BIMI: Not configured\">",
+        "        <span style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:2px;\" title=\"MTA-STS: Not configured\">",
+        "        <span style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:2px;\" title=\"TLS-RPT: Not configured\">",
+        "        <span style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:2px;\" title=\"CAA: Not configured\">",
+        "        <span style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:2px;\" title=\"DNSSEC: Not configured\">",
+        "        <span style=\"font-size:10px;color:var(--ink3);margin-left:2px;\">",
+        "          #3 \"0/5\"",
+        "    <td data-label=\"Hosting\">",
+        "      <span class=\"badge badge-muted\">",
+        "        #3 \"No web presence\"",
+        "  <tr class=\"detail-row\" id=\"det-spfbroken-test\">",
+        "    <td colspan=\"11\">",
+        "      <div class=\"detail-grid\">",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"Nameservers\"",
+        "          <div class=\"di-value\">",
+        "            <span class=\"rv\">",
+        "              #3 \"ns1.other.test\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"MX Records\"",
+        "          <div class=\"di-value\">",
+        "            <div class=\"mx-host mx-host-yes\">",
+        "              <code>",
+        "                <span class=\"rv\">",
+        "                  #3 \"10 mail.other.test\"",
+        "              #3 \" \\u2014 \"",
+        "              <span>",
+        "                <span class=\"rv\">",
+        "                  #3 \"198.51.100.10\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"SPF Record \\u00b7 DNS Lookups\"",
+        "          <div class=\"di-value\">",
+        "            <span class=\"rv\">",
+        "              #3 \"v=spf1 include:broken.spf.test -all\"",
+        "            <div class=\"spf-meter\" style=\"margin-top:6px;\">",
+        "              <div class=\"spf-meter-bar\">",
+        "                <div class=\"spf-meter-fill\" style=\"width:0%;background:var(--ok);\">",
+        "              <span class=\"spf-meter-label\" style=\"color:var(--ok);\">",
+        "                #3 \"0/10 \\u2713 DNS lookups\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"DMARC Record\"",
+        "          <div class=\"di-value\">",
+        "            <span class=\"rv\">",
+        "              #3 \"v=DMARC1; p=none; rua=mailto:s@spfbroken.test\"",
+        "            <div class=\"showme-wrap dmarc-discovery\">",
+        "              <small>",
+        "                #3 \"Policy found at spfbroken.test after 2 lookups\"",
+        "                #3 \" \\u00b7 \"",
+        "                #3 \"walked to the top-level domain\"",
+        "              <button class=\"showme-btn\" data-close-label=\"Show me \\u25b4\" data-open-label=\"Show the Tree Walk\" type=\"button\">",
+        "                #3 \"Show the Tree Walk\"",
+        "              <div class=\"showme-content\">",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"Tree Walk\"",
+        "                <div class=\"walk-step\">",
+        "                  <span class=\"rv\">",
+        "                    #3 \"_dmarc.spfbroken.test\"",
+        "                  #3 \" \\u00b7 \"",
+        "                  <span class=\"walk-hit walk-applied\">",
+        "                    #3 \"record applied\"",
+        "                <div class=\"walk-step\">",
+        "                  <span class=\"rv\">",
+        "                    #3 \"_dmarc.test\"",
+        "                  #3 \" \\u00b7 \"",
+        "                  <span class=\"walk-miss\">",
+        "                    #3 \"name does not exist\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"DKIM Selectors\"",
+        "          <div class=\"di-value\">",
+        "            #3 \"No active DKIM key found among 10 tested selectors.\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"DNSSEC Chain\"",
+        "          <div class=\"di-value\">",
+        "            <div>",
+        "              <span>",
+        "                #3 \"Status:\"",
+        "              #3 \" \"",
+        "              <strong>",
+        "                #3 \"Not signed\"",
+        "            <div>",
+        "              <span>",
+        "                #3 \"Evidence:\"",
+        "              #3 \" \"",
+        "              <div>",
+        "                <small>",
+        "                  #3 \"Resolver\"",
+        "                #3 \" \\u2014 \"",
+        "                <span>",
+        "                  #3 \"does not report this answer as authenticated\"",
+        "              <div>",
+        "                <small>",
+        "                  #3 \"Computed here\"",
+        "                #3 \" \\u2014 \"",
+        "                <span>",
+        "                  #3 \"the ds lookup did not complete (nxdomain)\"",
+        "              <div>",
+        "                <small>",
+        "                  #3 \"Computed here\"",
+        "                #3 \" \\u2014 \"",
+        "                <span>",
+        "                  #3 \"the dnskey lookup did not complete (nxdomain)\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"TLSA (DANE)\"",
+        "          <div class=\"di-value\">",
+        "            <div>",
+        "              <em>",
+        "                #3 \"Published, not proven active \\u2014 DANE protects a connection only when the TLSA record is carried by a validated DNSSEC chain. Each mail host below reports whether the resolver authenticated its own answer.\"",
+        "            <div>",
+        "              <code>",
+        "                <span class=\"rv\">",
+        "                  #3 \"mail.other.test\"",
+        "              #3 \" \\u2014 \"",
+        "              <span>",
+        "                #3 \"not published\"",
+        "        <div class=\"detail-item\">",
+        "          <div class=\"di-label\">",
+        "            #3 \"Verifications (TXT)\"",
+        "          <div class=\"di-value\">",
+        "            #3 \"\\u2014\"",
+        "      <div class=\"score-block\">",
+        "        <div class=\"score-head\">",
+        "          <span class=\"score-total score-d\">",
+        "            #3 \"26\"",
+        "            <small>",
+        "              #3 \"/100\"",
+        "          <span class=\"issues-section-label\">",
+        "            #3 \"Security score\"",
+        "        <div class=\"sb-rows\">",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"DMARC\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:37%;background:var(--warn);\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"11\"",
+        "              <small>",
+        "                #3 \"/30\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"SPF\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:100%;background:var(--ok);\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"15\"",
+        "              <small>",
+        "                #3 \"/15\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"DKIM\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/15\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"DNSSEC\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/15\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"CAA\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/10\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"MTA-STS\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/8\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"BIMI\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/4\"",
+        "          <div class=\"sb-row\">",
+        "            <span class=\"sb-label\">",
+        "              #3 \"TLS-RPT\"",
+        "            <span class=\"sb-track\">",
+        "              <span class=\"sb-fill\" style=\"width:0%;background:#cbd5e1;\">",
+        "            <span class=\"sb-val\">",
+        "              #3 \"0\"",
+        "              <small>",
+        "                #3 \"/3\"",
+        "        <div class=\"sb-dmarc\">",
+        "          <span class=\"sb-dmarc-label\">",
+        "            #3 \"DMARC breakdown\"",
+        "          <span class=\"sb-part\">",
+        "            #3 \"Policy (p=) \"",
+        "            <strong>",
+        "              #3 \"3\"",
+        "          <span class=\"sb-part\">",
+        "            #3 \"Subdomain coverage \"",
+        "            <strong>",
+        "              #3 \"1\"",
+        "          <span class=\"sb-part\">",
+        "            #3 \"Aggregate reports (rua=) \"",
+        "            <strong>",
+        "              #3 \"6\"",
+        "          <span class=\"sb-part sb-part-zero\">",
+        "            #3 \"Strict alignment \"",
+        "            <strong>",
+        "              #3 \"0\"",
+        "          <span class=\"sb-part sb-part-zero\">",
+        "            #3 \"Forensic reports (ruf=) \"",
+        "            <strong>",
+        "              #3 \"0\"",
+        "          <span class=\"sb-part\">",
+        "            #3 \"Report destinations \"",
+        "            <strong>",
+        "              #3 \"1\"",
+        "      <div class=\"adv-strip\">",
+        "        <div class=\"adv-strip-label\">",
+        "          #3 \"Advanced Security\"",
+        "        <div class=\"adv-dots\">",
+        "          <span class=\"adv-dot dot-miss\" data-tip=\"Not configured \\u2014 display your logo in Gmail & Apple Mail\">",
+        "            <span class=\"dot-pip\">",
+        "            #3 \"BIMI\"",
+        "          <span class=\"adv-dot dot-miss\" data-tip=\"Not configured \\u2014 publish _mta-sts TXT to force TLS on inbound mail\">",
+        "            <span class=\"dot-pip\">",
+        "            #3 \"MTA-STS\"",
+        "          <span class=\"adv-dot dot-miss\" data-tip=\"Not configured \\u2014 companion to MTA-STS; publish _smtp._tls TXT\">",
+        "            <span class=\"dot-pip\">",
+        "            #3 \"TLS-RPT\"",
+        "          <span class=\"adv-dot dot-miss\" data-tip=\"Not found \\u2014 add CAA records to restrict which CAs can issue certs for this domain\">",
+        "            <span class=\"dot-pip\">",
+        "            #3 \"CAA\"",
+        "          <span class=\"adv-dot dot-miss\" data-tip=\"Not detected \\u2014 enable DNSSEC in your DNS provider to prevent cache poisoning\">",
+        "            <span class=\"dot-pip\">",
+        "            #3 \"DNSSEC\"",
+        "      <div class=\"issues-block\">",
+        "        <div class=\"issues-section-label\">",
+        "          #3 \"Issues\"",
+        "        <div class=\"issue\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\u26a0\\ufe0f\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"No tested DKIM selector was found. No active DKIM key found among 10 tested selectors. Scored as if DKIM is not configured. If you know your DKIM selector, add it to \\\"Additional DKIM selectors\\\" and re-run the audit to get credit for it.\"",
+        "        <div class=\"issue\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\u26a0\\ufe0f\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"DMARC p=none is monitoring only. Upgrade to p=quarantine then p=reject.\"",
+        "            <div class=\"showme-wrap\">",
+        "              <button class=\"showme-btn\" type=\"button\">",
+        "                #3 \"Show me \\u25be\"",
+        "              <div class=\"showme-content\">",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it is\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"Your DMARC record is set to \"",
+        "                  <code>",
+        "                    #3 \"p=none\"",
+        "                  #3 \", which is monitoring-only mode. It instructs receiving servers to collect data and send you reports, but to take \"",
+        "                  <em>",
+        "                    #3 \"no action\"",
+        "                  #3 \" on failing emails \\u2014 spoofed messages still get delivered. \"",
+        "                  <code>",
+        "                    #3 \"p=none\"",
+        "                  #3 \" is a diagnostic tool meant as a temporary first step, not a final configuration.\"",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it needs to be\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"Review your DMARC aggregate reports (rua=) to confirm all your legitimate mail sources are passing. Once confident, upgrade the policy to quarantine, then reject.\"",
+        "                  <div class=\"showme-code\">",
+        "                    #3 \"; Step 1 \\u2014 quarantine (sends failing mail to spam):\\u000a_dmarc    TXT    \\\"v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com;\\\"\\u000a\\u000a; Step 2 \\u2014 reject (blocks failing mail entirely):\\u000a_dmarc    TXT    \\\"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain.com;\\\"\"",
+        "        <div class=\"issue\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\u2139\\ufe0f\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"The SPF lookup total is indeterminate because the record uses macros, excessive depth, or an invalid included policy.\"",
+        "        <div class=\"issue\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\u2139\\ufe0f\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"Only one MX host is published: mail.other.test \\u2014 mail queues at the sender while it is unreachable.\"",
+        "            <div class=\"showme-wrap\">",
+        "              <button class=\"showme-btn\" type=\"button\">",
+        "                #3 \"Show me \\u25be\"",
+        "              <div class=\"showme-content\">",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it is\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"With one MX host, any period where that host is unreachable is a period where inbound mail sits in other people's queues. Nothing is lost immediately \\u2014 sending servers retry for days before returning a message \\u2014 but delivery stops, and it stops for a maintenance window as readily as for a failure. Many hosted mail providers publish several MX hosts precisely to avoid this; a single one is more often a self-hosted setup or a provider entry that was only half-copied.\"",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it needs to be\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"Publish a second MX host at a higher preference number if your mail platform offers one. If your provider gave you several hostnames, check that all of them made it into DNS.\"",
+        "        <div class=\"issue\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\u2139\\ufe0f\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"No MX host has an IPv6 address \\u2014 IPv6-only senders cannot reach your mail.\"",
+        "            <div class=\"showme-wrap\">",
+        "              <button class=\"showme-btn\" type=\"button\">",
+        "                #3 \"Show me \\u25be\"",
+        "              <div class=\"showme-content\">",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it is\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"A sending server on an IPv6-only network reaches an IPv4-only mail host through whatever translation its operator provides, or not at all. This is not a security finding and it is not urgent: IPv4 mail delivery is not going away. It is a reachability note, and it also affects reputation, because some large receivers treat dual-stack availability as a signal of a well-maintained mail system.\"",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it needs to be\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"Add AAAA records for your MX hosts once the hosts themselves accept mail over IPv6. Publishing an AAAA record for a host that is not actually listening on IPv6 is worse than having none \\u2014 senders will try it first and fail.\"",
+        "        <div class=\"issue\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\u26a0\\ufe0f\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"Some checks could not be completed (SPF) \\u2014 they are scored as if the record is not published.\"",
+        "            <div class=\"showme-wrap\">",
+        "              <button class=\"showme-btn\" type=\"button\">",
+        "                #3 \"Show me \\u25be\"",
+        "              <div class=\"showme-content\">",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it is\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"One or more DNS lookups for this domain did not return a usable answer, usually a SERVFAIL or a timeout from the resolver. That can be a genuinely broken nameserver, but it is just as often a transient hiccup that clears within minutes. The rest of the audit completed normally and is accurate. The affected checks are scored as zero, because a grade this tool cannot stand behind is worth less than a grade that is simply strict \\u2014 so a failed lookup does cost you points until it is re-run.\"",
+        "                <div class=\"showme-lbl\">",
+        "                  #3 \"What it needs to be\"",
+        "                <div class=\"showme-text\">",
+        "                  #3 \"Re-run the audit first \\u2014 a transient failure clears on its own and the points come back. If the same checks keep failing, query the affected names directly to see whether your nameservers answer them. A server that returns SERVFAIL instead of NXDOMAIN for names that do not exist will trip this repeatedly.\"",
+        "                  <div class=\"showme-code\">",
+        "                    #3 \"; Check whether your nameservers answer a name that should not exist.\\u000a; A healthy server returns NXDOMAIN; a broken one returns SERVFAIL:\\u000adig +short does-not-exist-test.yourdomain.com\\u000a\\u000a; Ask your authoritative servers directly, bypassing the resolver:\\u000adig @ns1.yourprovider.com www.yourdomain.com A\"",
+        "        <hr class=\"suggestions-sep\">",
+        "        <div class=\"issues-section-label\">",
+        "          #3 \"\\ud83d\\udca1 Recommendations\"",
+        "        <div class=\"issue tip\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\ud83d\\udca1\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"BIMI (logo in inbox): requires DMARC at p=quarantine or p=reject + DKIM. Get those in place first, then add BIMI.\"",
+        "            <button class=\"learnmore-btn\" data-guide=\"bimi\" type=\"button\">",
+        "              #3 \"Learn more \\u2192\"",
+        "        <div class=\"issue tip\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\ud83d\\udca1\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"MTA-STS not configured. Publishing a _mta-sts TXT record and hosting a policy file forces TLS on inbound mail delivery, preventing downgrade attacks.\"",
+        "            <button class=\"learnmore-btn\" data-guide=\"mta-sts\" type=\"button\">",
+        "              #3 \"Learn more \\u2192\"",
+        "        <div class=\"issue tip\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\ud83d\\udca1\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"TLS-RPT (_smtp._tls TXT) not configured. This companion to MTA-STS sends you reports when TLS negotiation fails \\u2014 easy to add, zero downside.\"",
+        "            <button class=\"learnmore-btn\" data-guide=\"tls-rpt\" type=\"button\">",
+        "              #3 \"Learn more \\u2192\"",
+        "        <div class=\"issue tip\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\ud83d\\udca1\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"No CAA records \\u2014 any certificate authority can issue SSL certs for this domain. Add CAA records naming only your preferred CA (e.g. Let's Encrypt, DigiCert).\"",
+        "            <button class=\"learnmore-btn\" data-guide=\"caa\" type=\"button\">",
+        "              #3 \"Learn more \\u2192\"",
+        "        <div class=\"issue tip\">",
+        "          <span class=\"icon\">",
+        "            #3 \"\\ud83d\\udca1\"",
+        "          <div class=\"issue-body\">",
+        "            <span class=\"msg\">",
+        "              #3 \"DNSSEC not detected. Signing your DNS records prevents cache poisoning and MX hijacking. Cloudflare and most modern DNS providers enable this with one click.\"",
+        "            <button class=\"learnmore-btn\" data-guide=\"dnssec\" type=\"button\">",
+        "              #3 \"Learn more \\u2192\""
+      ]
     }
   ]
 }

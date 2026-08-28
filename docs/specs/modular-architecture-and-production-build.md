@@ -2,15 +2,15 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.5 (Final) |
+| Spec version | 1.6 (Final) |
 | Target release | 0.6.0 |
-| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, to `1.2` to correct an overstated evidence claim about how that enumeration is guarded, to `1.3` to add the last ambient primitive the conversion sweep found, and to `1.4` — during Task 2.7 — to state the oracle's provenance once the supported facade replaces the legacy engine global and reclassify the PSL fixture-identity fingerprint as binding-level, and to `1.5` at the Gate 2 audit to correct two claims `1.4` overstated. See [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
+| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, to `1.2` to correct an overstated evidence claim about how that enumeration is guarded, to `1.3` to add the last ambient primitive the conversion sweep found, and to `1.4` — during Task 2.7 — to state the oracle's provenance once the supported facade replaces the legacy engine global and reclassify the PSL fixture-identity fingerprint as binding-level, to `1.5` at the Gate 2 audit to correct two claims `1.4` overstated, and to `1.6` at Task 3.6 to replace §3's three-name exception-edge row with two separate inventories. See [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
 | Depends on | [dnssec-evidence](implemented/dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
 | Blocks | [findings-and-remediation](findings-and-remediation.md), [local-artifact-validation](local-artifact-validation.md), [report-comparison](report-comparison.md) — all three are scheduled after it |
 | Slug for open questions | `ARCH` |
 | Last updated | 2026-08-27 |
 | Evidence | [esbuild-legacy-bundle-spike-0.6.0](fixtures/esbuild-legacy-bundle-spike-0.6.0.md) — settles `OQ-ARCH-01`, confirms Phase 1 viability, and demonstrates the fixture-substitution hazard; [gate-0-evidence-0.6.0](fixtures/gate-0-evidence-0.6.0.md) — the Gate 0 conditions, met 2026-08-27; [gate-1-evidence-0.6.0](fixtures/gate-1-evidence-0.6.0.md) — the Gate 1 conditions, including native-Linux `npm ci` and `file://` in a real browser; [gate-2-evidence-0.6.0](fixtures/gate-2-evidence-0.6.0.md) — the Gate 2 conditions, met 2026-08-28, with both compatibility deltas performed and the oracle's two-execution rebuild |
-| Reviews | Rounds 1–3 (Codex, 2026-08-27) recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md); the author's requests and responses are in [`CODEX Review Modular Refactor.md`](../../CODEX%20Review%20Modular%20Refactor.md). The Task-2.7 round, which produced `1.4`, is in [`CODEX Review Facade Contraction and Fixture Identity.md`](../../CODEX%20Review%20Facade%20Contraction%20and%20Fixture%20Identity.md) and [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md); §5 of that follow-up is the Gate 2 audit that produced `1.5` |
+| Reviews | Rounds 1–3 (Codex, 2026-08-27) recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md); the author's requests and responses are in [`CODEX Review Modular Refactor.md`](../../CODEX%20Review%20Modular%20Refactor.md). The Task-2.7 round, which produced `1.4`, is in [`CODEX Review Facade Contraction and Fixture Identity.md`](../../CODEX%20Review%20Facade%20Contraction%20and%20Fixture%20Identity.md) and [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md); §5 of that follow-up is the Gate 2 audit that produced `1.5`. The Task-3.6 round, which produced `1.6`, is in [`CODEX Review Transport Exception Edges.md`](../../CODEX%20Review%20Transport%20Exception%20Edges.md) and [`CODEX follow-up review for Transport Exception Edges.md`](../../CODEX%20follow-up%20review%20for%20Transport%20Exception%20Edges.md) |
 | Source | Written from an external proposal, *DNS Email Audit Modular Architecture and Production Build Refactor Specification* (Codex, 2026-08). Section numbers of the form §N below refer to that document. Where this spec diverges from it, the divergence is recorded in [§ Corrections to the source proposal](#corrections-to-the-source-proposal). |
 
 ## Problem
@@ -396,7 +396,98 @@ for the API table and the allowed-edge matrix.
 | 2 | Usability gate | `requireUsable()` [`js/dns.js:256`](../../js/dns.js) | Passes `success`/`nodata`/`nxdomain`; **throws** `dnsError(kind, …)` for the other seven |
 | 3 | Normalized records | `dohQuery()`, `dohAll()` [`js/dns.js:281`](../../js/dns.js) | Arrays of cleaned strings — **no kind** |
 | 4 | Error and cancellation policy | `optionalCheck()` [`js/dns.js:247`](../../js/dns.js) | Caller's declared unknown; **re-throws** `AbortError` and `DnsTypeError` |
-| — | **Exception edges** | `domainExists()`, `checkConnectivity()`, the DNSSEC `servfail` path | Read `.kind` directly, deliberately bypassing layer 3 |
+| — | **Exception edges** | See the two inventories below | Read `.kind` directly, deliberately bypassing layer 3 |
+
+> **Amended in 1.6: this row named three sites and conflated two different
+> contracts.** Both were found at Task 3.6, whose job is to name and test these
+> edges — the same way `1.1`, `1.3` and `1.5` were found by the work that had to
+> use them.
+>
+> The two contracts are:
+>
+> 1. **Raw-kind readers** — code allowed to inspect a raw resolver response
+>    instead of consuming normalized record arrays.
+> 2. **Kind propagation paths** — fields in an `analyzeDomain()` result that can
+>    retain one of the ten closed transport kinds.
+>
+> One list cannot serve both. `domainExists()` and `checkConnectivity()` are
+> legitimate raw-kind readers and **neither propagates a kind** — one maps to
+> `yes`/`no`/`unknown`, the other to a boolean. Conversely a layer-4 fallback can
+> propagate a caught `DnsError.kind` without reading a raw resolver response at
+> all. Naming three sites answered neither question completely.
+
+#### The raw-kind reader inventory
+
+Organized by **owning function or family**, not by line number, so a move within
+an owner does not invalidate it. Anything outside this list and the layer
+implementations must consume normalized arrays.
+
+| Owner | Allowed raw-kind consumer | What it exists to preserve |
+| --- | --- | --- |
+| `core/dns` | `existenceFromResponse()` / `domainExists()` | `nxdomain` versus `nodata`, which is `no` versus `yes` |
+| `core/dns` | `checkConnectivity()` | The raw answer as a reachability boolean |
+| `core/dmarc` | `checkExternalReportAuth()` | The exact response kind, and the conversion of failed kinds at the protocol boundary |
+| `core/dmarc` | `discoverDmarc()` | Each walk step, and a failed walk distinguished from absence |
+| `core/dnssec` | `dnssecLookupStatus()` / `checkDNSSEC()` | Lookup completeness, and the validated-`servfail` security signal |
+| `audit` | the NS `servfail` DNSSEC preflight in `analyzeDomain()` | The deliberate unchecked retry, before orchestration continues |
+
+**`doh.js` and `requireUsable()` are not exception edges.** They *are* layers 1
+and 2. Keeping them out of the allowlist is what stops the term meaning
+"anywhere a kind is mentioned".
+
+#### The kind propagation inventory
+
+Derived from **result construction**, then checked against the baseline — not
+the other way round. The corpus is coverage evidence; the source is the
+contract, and a path the corpus does not currently reach is a corpus finding
+rather than permission to omit it.
+
+| Result path | Mechanism |
+| --- | --- |
+| `dmarcDiscovery.steps[].kind` | `discoverDmarc()` records each step |
+| `dmarcDiscovery.error` | `discoverDmarc()` on a failed walk |
+| `advanced.dnssec.lookups.ns.kind` | `dnssecLookupStatus()` |
+| `advanced.dnssec.lookups.ds.kind` | `dnssecLookupStatus()` |
+| `advanced.dnssec.lookups.dnskey.kind` | `dnssecLookupStatus()` |
+| `advanced.dnssec.chain[].detail.kind` | `checkDNSSEC()` claims |
+| `advanced.dnssec.error` | `checkDNSSEC()` |
+| `advanced.reportAuth[].error` | `checkExternalReportAuth()`'s internal `catch` |
+| `advanced.reportAuth[].exactKind` | `checkExternalReportAuth()` on an unauthorized destination |
+| `advanced.caa.error` | the `checkCAA()` layer-4 fallback |
+| `advanced.spfLookups.queryError` | the `countSpfLookups()` layer-4 fallback |
+
+Eleven typed paths, and one **derived presentation copy**: the DMARC walk's kind
+is interpolated into the `dmarc-unverified` issue's arguments. That copy is
+tested against **its own issue key** and is deliberately **not** added to
+`dns.transport.kind`'s `resultPaths` — a bare `issues[].args[]` pattern would let
+an unrelated argument that happened to equal `timeout` earn transport coverage,
+which is the vacuous credit the measured state matrix exists to remove.
+
+The **thrown** audit `error.kind` is not on this list. It is not a result, and
+§12.1 already owns it as a thrown path; mixing it into `resultPaths` would blur
+the two.
+
+#### Layer 4 may carry a kind — but `optionalCheck()` does not decide that
+
+`optionalCheck()` is **policy-neutral**. It re-throws `AbortError` and
+`DnsTypeError` and otherwise returns whatever the caller declared. Many callers
+declare `null`, `[]`, or a shape with no kind at all, and those must never
+acquire one implicitly.
+
+**A caller-supplied fallback alone owns the unknown result's shape, and it may
+copy `DnsError.kind` deliberately.** Three fallback factories do:
+
+| Fallback | Escapes as |
+| --- | --- |
+| website resolution | **nothing** — copied to a temporary `website.error`, then collapsed to the `hosting` sentinel `@dns-error` |
+| `checkCAA()` | `advanced.caa.error` |
+| `countSpfLookups()` | `advanced.spfLookups.queryError` |
+
+`checkExternalReportAuth()` is a fourth kind-copying site and is **not** one of
+these: it is an internal `catch`, and its `optionalCheck()` wrapper supplies a
+static `[]`. `discoverDmarc()` is a third mechanism again — it records raw
+response kinds directly into its walk result. The three are distinct and the
+contract tests them as such.
 
 #### Layer 1 — the ten transport kinds
 
@@ -1203,7 +1294,7 @@ been declared complete.
 
 | Owner / field | Complete members at `v0.5.0` |
 | --- | --- |
-| DNS `result.kind` | `success`, `nodata`, `nxdomain`, `servfail`, `refused`, `dns-error`, `http-error`, `cancelled`, `timeout`, `network-error` |
+| DNS `result.kind` | `success`, `nodata`, `nxdomain`, `servfail`, `refused`, `dns-error`, `http-error`, `cancelled`, `timeout`, `network-error`. **`1.6`:** the algebra's `resultPaths` were empty, which said it is not observable in a result. It is, on the eleven typed paths §3 now lists. |
 | DNS thrown paths | `DnsTypeError`, `AbortError`, and `DnsError.kind` for the seven kinds rejected by `requireUsable()` |
 | Domain existence | `yes`, `no`, `unknown` |
 | SPF `status` | `ok`, `warn`, `present`, `missing`, `softfail`, `permerror` |
@@ -1218,6 +1309,7 @@ been declared complete.
 | DMARC walk `terminated` | `root`, `error`, `psd-y`, `psd-n` |
 | DMARC observation `why` | `at-apex-not-underscore`, `multiple-at-step`, `version-bad-case`, `version-not-first`, `version-absent` |
 | External report authorization `state` | `authorized`, `unauthorized`, `unverifiable`, `override-mismatch` |
+| External report authorization `exactKind` | `success`, `nodata`, `nxdomain`. **Added in `1.6`**, owned by `core/dmarc`: the field had no algebra at all. Absent on `unverifiable` results and on the name-too-long case. `nxdomain` is reachable because the inline usability gate accepts it and the unauthorized result carries `exactKind: response.kind` — the corpus having observed only two of the three is a corpus finding, not a two-member algebra. |
 | External report override reason | `null`, `cross-host`, `malformed` |
 | MX host `resolves` | `yes`, `no`, `unknown` |
 | MX `ipv6Coverage` | `none`, `some`, `all` |
@@ -1394,6 +1486,7 @@ Structural:
 - [ ] All hand-written browser code lives under `src/` as ES modules. `js/` is gone.
 - [ ] Every adapter removed; a test asserts none remain.
 - [ ] The ten transport kinds are preserved byte-for-byte; `cancelled` is retry-terminal and never cached; `DnsTypeError` is thrown, not returned.
+- [ ] §3's **two** exception inventories both hold: no raw-kind reader exists outside the named owners and the layer implementations, and every typed propagation path carries only closed transport kinds. The derived `dmarc-unverified` issue copy is tested against its own key, never as a bare `issues[].args[]` pattern.
 - [ ] No resolver return carries a finding, severity, score or locale reference.
 - [ ] SPF, DKIM, DMARC, DNSSEC, MX, CAA, BIMI, MTA-STS, TLS-RPT and TLSA each have an owning directory and a checked-in API table.
 - [ ] The allowed-edge matrix holds; no SCC contains more than one module.
@@ -1485,6 +1578,7 @@ current payload. `file://` support was bought and paid for.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.6 | 2026-08-28 | **Amended during Phase 3, Task 3.6 — §3's exception-edge row named three sites and conflated two contracts.** Found by the task whose job is to name and test those edges, which is how `1.1`, `1.3` and `1.5` were found too. **(a) Two inventories, not one.** A **raw-kind reader** inspects a raw resolver response instead of a normalized array; a **propagation path** is a result field that retains a closed transport kind. One list could not serve both: `domainExists()` and `checkConnectivity()` are legitimate readers and propagate nothing, while a layer-4 fallback can propagate a caught `DnsError.kind` without reading a raw response at all. The reader inventory is now six entries organized by owning function or family — `core/dns` twice, `core/dmarc` twice, `core/dnssec`, `audit` — and `doh.js` and `requireUsable()` are expressly excluded, because they ARE layers 1 and 2 and an allowlist that includes them stops meaning anything. **(b) Eleven typed propagation paths, derived from result construction and then checked against the baseline, not the reverse.** The Task-3.6 request proposed the eleven the corpus had been observed to produce; that set was a lower bound and one of its members was not a typed field. `advanced.spfLookups.queryError` is source-reachable through the `countSpfLookups()` fallback and the corpus does not currently reach it — a corpus finding, not permission to omit the path. The DMARC walk's kind copied into the `dmarc-unverified` issue's arguments is a **derived presentation copy**, tested against its own issue key and deliberately kept out of `resultPaths`: a bare `issues[].args[]` pattern would let an unrelated argument equal to `timeout` earn transport coverage, which is the vacuous credit the measured matrix exists to remove. The thrown audit `error.kind` stays a thrown path under §12.1 and is not mixed into `resultPaths`. **(c) Layer 4's rule stated precisely.** `optionalCheck()` is policy-neutral: it re-throws `AbortError` and `DnsTypeError` and otherwise returns what the caller declared, and many callers declare `null` or `[]`. A caller-supplied fallback alone owns the unknown's shape and MAY copy `DnsError.kind` deliberately. Exactly three fallback factories do — website resolution, which collapses to the `@dns-error` hosting sentinel and escapes nothing; `checkCAA()`; and `countSpfLookups()`. `checkExternalReportAuth()` is an internal `catch` under a static `[]` fallback, and `discoverDmarc()` records raw kinds directly: three distinct mechanisms, tested as such. **(d) Registry corrections.** `dns.transport.kind.resultPaths` was empty, which asserted the algebra is not observable in a result; it now names the eleven typed paths. A three-member algebra for `advanced.reportAuth[].exactKind` — `success`, `nodata`, `nxdomain` — is added under `core/dmarc`, a field that previously had no owner. Both change the Gate-0 inventory totals, recorded as an explicit post-Gate-0 addendum rather than by rewriting the historical claim. No runtime behaviour, phase ordering or acceptance threshold changed. Recorded in [`CODEX follow-up review for Transport Exception Edges.md`](../../CODEX%20follow-up%20review%20for%20Transport%20Exception%20Edges.md). |
 | 1.5 | 2026-08-28 | **Corrects two claims `1.4` overstated. Found by the Gate 2 audit, not by the implementation — which was right both times.** **(a) The cross-execution binding does not include issue tokens, §8.** `1.4` named them among the bound fields. The UI renders each issue as translated prose through `issueMessage()` and attaches no token attribute, so they are not observable on that side at all, and manufacturing one for the oracle would be the production test seam §11 forbids. The fields actually bound — domain set, grade, score, issue count, suggestion count — are now named, with the DOM node each is read from. **The tokens lose no coverage**: they are carried in full by the result surface, compared byte for byte against the baseline, which is where a changed token has always been caught. What was overclaimed is narrower than it reads — not that the tokens are checked, but that they serve as a cross-execution join key, which they cannot, because only one execution can see them. The rule that decides what may be bound is recorded with it: only fields that cannot differ because the code under test changed, learned by breaking it. **(b) `PRIVACY.md` did need an edit, §8 and the acceptance criteria.** `1.4`'s driver change fires `DOMContentLoaded`, which runs the boot's `checkConnectivity()`; because that call passes `noCache: true` it is a genuine second query. The trace proves **two** fixed `example.com A` probes per run — one at page initialization, one before each audit run — and the count is exactly two across all thirty corpus cases whether one domain is audited or nine. `1.4` concluded the document needed no edit; it described only the second probe, so a browser session sent one more query than it disclosed. **Pre-existing behaviour newly measured, not a 0.6.0 behaviour change**: the old runner drove a page that had never booted. The per-domain figures — 41 typical, 61 for `cloudflare.com` — come from `tools/backtest.mjs`, which loads no page, and are unchanged. `PRIVACY.md`, plan Task 6.6 and the Gate 2 capture are corrected to distinguish both probes. No runtime code, baseline, surface, exclusion or acceptance threshold changed; the empty exclusion manifest and the strict canonicalization line are untouched. The `1.4` row above is preserved exactly as written. Recorded in [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md) §5. |
 | 1.4 | 2026-08-27 | **Amended during Phase 2, Task 2.7 — two corrections, both about what the instrument proves.** **(a) Oracle provenance, §8.** Stage 3 of §10 makes `window.DnsAudit` esbuild's export namespace: non-configurable accessors, and **not** the engine object `src/main.js` calls. Measured against the artifact — the assignment throws, and `window.DnsAudit` occurs zero times in shipped code. The runner captured the result surface by wrapping that global, so the five surfaces can no longer all come from one runtime. They are now bound to one deterministic **case** captured by two isolated executions: the facade's `analyzeDomain` for the result, the real UI controls for trace, CSV, report and DOM, with the same data profile, options, instant, locale and platform, neither warming the other. The result execution's trace is a different instrument execution, **not an exclusion** — no exclusion is added and the manifest stays empty. Cross-surface binding on domain, score, grade and issue tokens is asserted so two different cases cannot be joined under one id. The rejected alternatives, and why, are recorded. **(b) The PSL fingerprint is binding-level, §11.** `getOrganizationalDomain()` is the only reader of the public suffix sets and **no application code calls it** — zero call sites at `v0.5.0` and at `f1a2842`; `result.organizationalDomain` comes from the RFC 9989 walk. So `1.0`'s claim of a behavioural fingerprint per binding was true for the DKIM catalog and the English bundle and not for the PSL, the same shape of overstatement `1.2` corrected. The probe is unchanged and stays in the suites that supply the binding through `createAuditRuntime()`, reclassified as an engine/runtime fingerprint; an artifact-driven suite is not required to claim one through the two-member facade. The unused 160.6 KB PSL payload **stays in 0.6.0** — removing shipped data is a behaviour-and-size decision, Risk R8 — and is filed in `docs/maintenance-backlog.md` with its measured size. No architecture, phase ordering or acceptance threshold is reopened; the five surfaces, the strict canonicalization line and the empty exclusion manifest are unchanged. Recorded in [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md) §1–§2. |
 | 1.3 | 2026-08-27 | **Added `open` to §11's primitive set.** `openLearnMore()` opens the generated Learn-more page with `open(url, '_blank', 'noopener')` (`js/app.js:385`), and the list did not name it. Found by the **completed conversion sweep over `js/app.js`**, the last unconverted file, which enumerated its full ambient set — eight already listed, this one missing. It is the last such finding because there is no further legacy source to sweep, and it is expressly **not** evidence that the lexical contract is exhaustive: that contract could not have found it either, per `1.2`. Implemented as `win.open.bind(win)`, with a receiver-sensitive contract asserting the exact `url`, `_blank` and `noopener` arguments; the 60-second `revokeObjectURL` timeout and every other behaviour are unchanged. Recorded as the first **navigation side-effect** capability on the list; its final UI-facing abstraction is a **Phase 5** question and is not redesigned now. Added to §11, §12's platform API row, the acceptance criteria, `PLATFORM_PRIMITIVES`, `SPEC_11` and the known-ambient catalog. No architecture or implementation decision reopened. Recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §18. |

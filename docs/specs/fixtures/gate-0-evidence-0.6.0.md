@@ -25,10 +25,10 @@ is not a baseline.
 | --- | --- |
 | Spec `1.0 (Final)` | Unchanged; no amendment was needed |
 | Spike numbers recorded | [esbuild-legacy-bundle-spike-0.6.0](esbuild-legacy-bundle-spike-0.6.0.md) |
-| §12.1 registry | `tests/state-algebras.json` — 74 algebras, **427 members**, 17 non-enum shapes, 124 axes |
-| §12.1 matrix | `tests/state-matrix.json` — 427 rows, **427 covered** |
+| §12.1 registry | `tests/state-algebras.json` — 74 algebras, **427 members**, 17 non-enum shapes, 124 axes — *corrected to 75 / 430; see the [addendum](#addendum--post-gate-0-inventory-correction-2026-08-28)* |
+| §12.1 matrix | `tests/state-matrix.json` — 427 rows, **427 covered** — *corrected to 430 / 430* |
 | Three identity profiles | `tests/lib/fixture-identity.mjs`; all three run in the equivalence runner, both directions asserted |
-| Corpus | `tests/fixtures/equivalence/corpus.mjs` — **30 cases**, 5,840 fixture queries |
+| Corpus | `tests/fixtures/equivalence/corpus.mjs` — **30 cases**, 5,840 fixture queries — *grown to 32 / 5,941* |
 | Five-surface runner | `tests/build/equivalence.mjs`, validated against mutations before use |
 | Committed baseline | `tests/fixtures/equivalence/baseline-v0.5.0.json` — reproduces byte-identically |
 | `js/` untouched | `git diff main...HEAD -- js/ index.html css/ locales/` is empty |
@@ -262,3 +262,92 @@ Empty. The only file outside `tests/` and `package.json` that changed is
 `tools/lib/dom-shim.mjs`, which gained a no-op `click()` so the runner measures
 the real `exportCSV()` and `exportHTML()` rather than a re-implementation of
 them.
+
+---
+
+## Addendum — post-Gate-0 inventory correction, 2026-08-28
+
+**This section corrects the totals above. It does not rewrite them.** The
+figures in the original capture were true of the registry as it stood when Gate
+0 closed; one owner was missing from it, and the honest record is that the gap
+existed at the gate and was found later — not that the gate measured something
+it did not.
+
+**Found:** Phase 3, Task 3.6, and recorded in
+[`CODEX follow-up review for Transport Exception Edges.md`](../../../CODEX%20follow-up%20review%20for%20Transport%20Exception%20Edges.md)
+§4. Carried into the spec as [`1.6`](../modular-architecture-and-production-build.md#revision-history).
+
+### What changed
+
+| | At Gate 0 | Corrected |
+| --- | ---: | ---: |
+| Algebras | 74 | **75** |
+| Members | 427 | **430** |
+| Matrix rows | 427 | **430** |
+| Covered | 427 | **430** |
+| Uncovered | 0 | **0** |
+| Corpus cases | 30 | **32** |
+| Fixture queries | 5,840 | **5,941** |
+
+### The missing owner
+
+`advanced.reportAuth[].exactKind` had **no algebra at all**. The field is
+constructed at two sites in `checkExternalReportAuth()` and reaches the audit
+result, so it is exactly the kind of discriminant §12.1 exists to close, and the
+Gate 0 claim that the registry was "the minimum closed vocabulary" was
+therefore short by one owner and three members.
+
+It is now `dmarc.reportAuth.exactKind`, owned by `core/dmarc`, with three
+members: `success`, `nodata`, `nxdomain`.
+
+**Three, not the two the corpus had produced.** The corpus reached `success`
+and `nodata`; `nxdomain` is reachable because the inline usability gate in
+`checkExternalReportAuth()` admits it exactly as `requireUsable()` does, so an
+absent authorization name lands on the `unauthorized` branch carrying its kind
+rather than on the `unverifiable` branch a failed lookup takes. Defining a
+two-member algebra from what had been observed would have been the same mistake
+as the empty `resultPaths` below — describing a measurement as though it were a
+reachability claim.
+
+### The empty `resultPaths`
+
+`dns.transport.kind` declared `"resultPaths": []`, which asserts the algebra is
+not observable in an audit result. It is, on eleven typed paths, now listed in
+the algebra and in spec §3's kind-propagation inventory. 66 of the registry's 74
+algebras already declared their paths; this was one of the eight that did not,
+and the only one where the omission was a false claim rather than an absence.
+
+### Two corpus cases, and why they were added rather than waived
+
+`dmarc-report-auth-absent` and `spf-lookup-query-error`. The first reaches
+`exactKind: 'nxdomain'`; the second reaches `advanced.spfLookups.queryError`,
+the eleventh propagation path, which the source has always been able to produce
+and the corpus had never asked for.
+
+Both were **captured from the unmodified `v0.5.0` subject first**, which is what
+makes them evidence of pre-existing behaviour rather than of anything this
+release does. The expansion is purely additive: all thirty pre-existing cases
+are **byte-identical** in the recaptured baseline, and the manifest and
+environment blocks are unchanged.
+
+> An unobserved but reachable path is a corpus finding, not permission to omit
+> the path. Coverage was closed by measurement — 430 of 430, from 32 real cases
+> — and not by assigning it on inspection.
+
+### What is deliberately NOT in `resultPaths`
+
+The DMARC walk's kind is also copied into the `dmarc-unverified` issue's
+arguments. That is a **derived presentation mirror** and it is tested against
+that issue key, not added to the algebra: the coverage reader treats every
+matching string as a member, so a bare `issues[].args[]` pattern would let an
+unrelated argument equal to `timeout` earn transport coverage — the vacuous
+credit the measured matrix was built to remove.
+
+The thrown audit `error.kind` also stays out. It is not a result, and §12.1
+already owns it as a thrown path.
+
+### Zero equivalence exclusions
+
+None was added. `tests/lib/canonical.mjs`'s exclusion manifest is still empty,
+and the run is **32 cases, 5 surfaces, 0 differences** through both the working
+tree and `_site/`.

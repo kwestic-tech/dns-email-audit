@@ -20,7 +20,39 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "enforcing-signed",
+        "bare-registered",
+        "cache-reuse-siblings",
+        "parked-null-mx",
+        "dnssec-bogus",
+        "dnssec-orphan-ds",
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
+      ]
     },
     {
       "algebra": "dns.transport.kind",
@@ -28,7 +60,12 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "enforcing-signed",
+        "provider-sentinels",
+        "dmarc-report-authorization",
+        "dnssec-chain-states"
+      ]
     },
     {
       "algebra": "dns.transport.kind",
@@ -36,7 +73,39 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "enforcing-signed",
+        "bare-registered",
+        "cache-reuse-siblings",
+        "parked-null-mx",
+        "dnssec-bogus",
+        "dnssec-orphan-ds",
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
+      ]
     },
     {
       "algebra": "dns.transport.kind",
@@ -44,7 +113,14 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dnssec-bogus",
+        "dmarc-tree-walk",
+        "dmarc-report-unverifiable",
+        "dnssec-evidence-missing",
+        "unverified-controls",
+        "spf-lookup-query-error"
+      ]
     },
     {
       "algebra": "dns.transport.kind",
@@ -52,7 +128,10 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization",
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dns.transport.kind",
@@ -60,7 +139,10 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-unverifiable",
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dns.transport.kind",
@@ -68,7 +150,10 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-authorization",
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dns.transport.kind",
@@ -84,7 +169,10 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-unverifiable",
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dns.transport.kind",
@@ -92,7 +180,10 @@
       "suites": [
         "tests/contract/legacy-shapes.test.mjs"
       ],
-      "fixtures": []
+      "fixtures": [
+        "dmarc-report-unverifiable",
+        "dnssec-evidence-missing"
+      ]
     },
     {
       "algebra": "dns.retryTerminal",
@@ -249,7 +340,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -330,7 +423,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -400,7 +495,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -554,7 +651,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -600,7 +699,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -687,7 +788,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -926,7 +1029,8 @@
         "dmarc-report-authorization",
         "dmarc-report-unverifiable",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent"
       ]
     },
     {
@@ -937,7 +1041,8 @@
         "dnssec-bogus",
         "dnssec-orphan-ds",
         "hygiene-sentinels",
-        "dkim-discovery-notes"
+        "dkim-discovery-notes",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1001,7 +1106,8 @@
         "dmarc-report-authorization",
         "dmarc-report-unverifiable",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent"
       ]
     },
     {
@@ -1014,7 +1120,8 @@
         "hygiene-sentinels",
         "dkim-discovery-notes",
         "dmarc-record-variants",
-        "dmarc-tree-walk"
+        "dmarc-tree-walk",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1070,7 +1177,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1121,7 +1230,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1180,7 +1291,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1201,7 +1314,8 @@
         "dnssec-orphan-ds",
         "hygiene-sentinels",
         "dkim-discovery-notes",
-        "dmarc-record-variants"
+        "dmarc-record-variants",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1230,7 +1344,8 @@
         "dmarc-report-authorization",
         "dmarc-report-unverifiable",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent"
       ]
     },
     {
@@ -1266,7 +1381,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1312,7 +1429,9 @@
         "dmarc-report-authorization",
         "dmarc-report-unverifiable",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1418,7 +1537,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1543,7 +1664,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1595,7 +1718,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1635,7 +1760,8 @@
       "member": "unauthorized",
       "suites": [],
       "fixtures": [
-        "dmarc-report-authorization"
+        "dmarc-report-authorization",
+        "dmarc-report-auth-absent"
       ]
     },
     {
@@ -1656,12 +1782,37 @@
       ]
     },
     {
+      "algebra": "dmarc.reportAuth.exactKind",
+      "member": "success",
+      "suites": [],
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
+    },
+    {
+      "algebra": "dmarc.reportAuth.exactKind",
+      "member": "nodata",
+      "suites": [],
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
+    },
+    {
+      "algebra": "dmarc.reportAuth.exactKind",
+      "member": "nxdomain",
+      "suites": [],
+      "fixtures": [
+        "dmarc-report-auth-absent"
+      ]
+    },
+    {
       "algebra": "dmarc.reportAuth.via",
       "member": "null",
       "suites": [],
       "fixtures": [
         "dmarc-report-authorization",
-        "dmarc-report-unverifiable"
+        "dmarc-report-unverifiable",
+        "dmarc-report-auth-absent"
       ]
     },
     {
@@ -1677,7 +1828,8 @@
       "member": "absent",
       "suites": [],
       "fixtures": [
-        "dmarc-report-authorization"
+        "dmarc-report-authorization",
+        "dmarc-report-auth-absent"
       ]
     },
     {
@@ -1821,7 +1973,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1906,7 +2060,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -1987,7 +2143,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -2023,7 +2181,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -2059,7 +2219,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -2363,7 +2525,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -2401,7 +2565,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -2621,7 +2787,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -2671,7 +2839,9 @@
         "dnssec-digest-unavailable",
         "caa-policy",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -2823,7 +2993,9 @@
         "dnssec-digest-unavailable",
         "caa-policy",
         "mx-health-and-tlsa",
-        "unverified-controls"
+        "unverified-controls",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -2866,7 +3038,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -2901,7 +3075,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3062,7 +3238,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3112,7 +3290,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3183,7 +3363,8 @@
         "dmarc-report-authorization",
         "dmarc-report-unverifiable",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent"
       ]
     },
     {
@@ -3204,7 +3385,8 @@
         "dnssec-evidence-missing",
         "dnssec-digest-unavailable",
         "caa-policy",
-        "mx-health-and-tlsa"
+        "mx-health-and-tlsa",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3267,7 +3449,8 @@
         "dmarc-report-authorization",
         "dmarc-report-unverifiable",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent"
       ]
     },
     {
@@ -3288,7 +3471,8 @@
         "dnssec-evidence-missing",
         "dnssec-digest-unavailable",
         "caa-policy",
-        "mx-health-and-tlsa"
+        "mx-health-and-tlsa",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3340,7 +3524,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3376,7 +3562,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3411,7 +3599,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3447,7 +3637,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3483,7 +3675,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3518,7 +3712,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3553,7 +3749,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3588,7 +3786,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3624,7 +3824,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3660,7 +3862,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3696,7 +3900,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3732,7 +3938,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3770,7 +3978,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3862,7 +4072,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3898,7 +4110,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3939,7 +4153,9 @@
         "dnssec-digest-unavailable",
         "caa-policy",
         "mx-health-and-tlsa",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -3972,7 +4188,9 @@
         "dnssec-digest-unavailable",
         "caa-policy",
         "mx-health-and-tlsa",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -4005,7 +4223,9 @@
         "dnssec-digest-unavailable",
         "caa-policy",
         "mx-health-and-tlsa",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -4037,7 +4257,9 @@
         "dnssec-unverifiable-reasons",
         "dnssec-digest-unavailable",
         "mx-health-and-tlsa",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -4068,7 +4290,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -4116,7 +4340,9 @@
         "dnssec-digest-unavailable",
         "caa-policy",
         "mx-health-and-tlsa",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -4149,7 +4375,9 @@
         "dnssec-digest-unavailable",
         "caa-policy",
         "mx-health-and-tlsa",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -4182,7 +4410,9 @@
         "dnssec-digest-unavailable",
         "caa-policy",
         "mx-health-and-tlsa",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -4214,7 +4444,9 @@
         "dnssec-unverifiable-reasons",
         "dnssec-digest-unavailable",
         "mx-health-and-tlsa",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -4245,7 +4477,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -4328,7 +4562,8 @@
       "fixtures": [
         "provider-sentinels",
         "mx-health-and-tlsa",
-        "unverified-controls"
+        "unverified-controls",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -4473,7 +4708,9 @@
         "caa-policy",
         "mx-health-and-tlsa",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -4605,7 +4842,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "dmarc-report-authorization"
+        "dmarc-report-authorization",
+        "dmarc-report-auth-absent"
       ]
     },
     {
@@ -4699,7 +4937,8 @@
         "dnssec-bogus",
         "dnssec-orphan-ds",
         "hygiene-sentinels",
-        "dkim-discovery-notes"
+        "dkim-discovery-notes",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -5049,7 +5288,9 @@
         "dnssec-digest-unavailable",
         "caa-policy",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -5095,7 +5336,9 @@
         "dnssec-digest-unavailable",
         "caa-policy",
         "unverified-controls",
-        "bimi-duplicate-tags"
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
       ]
     },
     {
@@ -5145,7 +5388,8 @@
         "tests/contract/legacy-shapes.test.mjs"
       ],
       "fixtures": [
-        "spf-subnets-and-lookups"
+        "spf-subnets-and-lookups",
+        "spf-lookup-query-error"
       ]
     },
     {

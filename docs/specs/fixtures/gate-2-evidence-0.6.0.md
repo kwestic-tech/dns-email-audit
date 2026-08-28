@@ -38,7 +38,7 @@ below, with what they originally said preserved in the `1.5` revision row.
 | `npm run inventory` | 80 passed, every area covered |
 | `npm run test:file-url` | 28 passed, real headless Chrome |
 | `npm run locale:gate` | 13/13, 0 errors, 0 warnings |
-| State-matrix coverage | 427 of 427 rows covered, 0 uncovered |
+| State-matrix coverage | 427 of 427 rows covered, 0 uncovered — *the registry gained an owner at Task 3.6; now 430 of 430, see the [Gate 0 addendum](gate-0-evidence-0.6.0.md#addendum--post-gate-0-inventory-correction-2026-08-28)* |
 | Documentation | 41 tracked markdown files, 0 broken links |
 
 ## 1. The browser surface, at each of the three commits

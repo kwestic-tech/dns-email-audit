@@ -334,16 +334,39 @@ and normalized APIs return cleaned string arrays with no kind.
 caller's declared unknown result and rethrows `AbortError` and `DnsTypeError`.
 `src/core/dns/existence.js` owns `yes` / `no` / `unknown` mapping.
 
-**Task 3.6** — Name and test the direct-kind exception edges. Connectivity and
-name existence may read raw kinds; DNSSEC receives the raw resolver handle so
-its `servfail` security path remains possible. No normalized API may flatten
-those paths.
+**Task 3.6** — Test **both** of spec §3's inventories, as amended in `1.6`.
+They are separate contracts and neither substitutes for the other:
+
+1. **The raw-kind reader allowlist** — six owners, by function or family. A
+   structural closed-list control must fail when a new raw `.kind` reader
+   appears outside those owners and the layer implementations. `doh.js` and
+   `requireUsable()` are layers 1 and 2, not exception edges, and stay out of
+   the allowlist. If the control is lexical, say so and state its limits — a
+   regex is not scope analysis, and `1.2` is the precedent for not claiming
+   otherwise.
+2. **The eleven typed propagation paths** — every one carries only closed
+   transport kinds. `advanced.spfLookups.queryError` is on the list even while
+   the corpus does not reach it: source-reachability is the contract, corpus
+   observation is coverage evidence, and the two are recorded separately.
+
+Behavioural tests for the distinction each allowed reader exists to preserve —
+`nxdomain` versus `nodata`, the validated-`servfail` security signal, a failed
+walk versus absence. The `dmarc-unverified` issue copy is tested as a **derived
+presentation mirror against its own key**, never as a bare `issues[].args[]`
+pattern, and a negative control must prove an unrelated issue argument cannot
+earn transport coverage.
 
 **Task 3.7** — `tests/contract/`: the ten-kind raw algebra; cacheable and
 retry-terminal sets; seven usability throws; normalized arrays; optional-check
-rethrow set; named exception edges; no resolver result carrying a finding,
+rethrow set; **both** §3 inventories; no resolver result carrying a finding,
 severity, score or locale reference; and import-graph direction. The locale-key
 grep from the old plan remains withdrawn as vacuous.
+
+The layer-4 rule is asserted as `1.6` states it: `optionalCheck()` is
+policy-neutral, a caller-supplied fallback alone owns the unknown's shape, and
+exactly three fallback factories copy `DnsError.kind` — of which only two let it
+escape. `checkExternalReportAuth()`'s internal `catch` and `discoverDmarc()`'s
+direct recording are separate mechanisms and are asserted separately.
 
 > **Gate 3.** Result-algebra and direction contracts pass. Query trace
 > unchanged. Sibling-reuse assertion still green.
@@ -463,8 +486,10 @@ working document in the repository root:
   then remove the temporary framework as Task 6 already requires; and
 - delete the excluded working files `HANDOFF.md`,
   `modular-build-task-summary.md`, `CODEX Review Facade Contraction and Fixture
-  Identity.md`, and `CODEX follow-up review for Facade Contraction and Fixture
-  Identity.md` after their decisions are represented in the implemented spec.
+  Identity.md`, `CODEX follow-up review for Facade Contraction and Fixture
+  Identity.md`, `CODEX Review Transport Exception Edges.md`, and `CODEX
+  follow-up review for Transport Exception Edges.md` after their decisions are
+  represented in the implemented spec.
 
 Run the repository-wide Markdown link check after all moves and deletions. The
 final root must contain no `CODEX Review*`, `CODEX review*`, `CODEX follow-up*`,
