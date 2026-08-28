@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 52,
+      "assertions": 53,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -82,6 +82,19 @@
         "the markup-sink scan over js/ and src/, with an EMPTY named-file allowlist and a mechanical *.test.js suffix exclusion",
         "the markup-sink scan over the built artifact, which is what pays for that exclusion",
         "the exported report declares its own policy"
+      ]
+    },
+    {
+      "path": "src/core/dns/doh.test.js",
+      "assertions": 59,
+      "note": "Co-located per spec §9: the unit test lives beside the module it owns. Phase 3, Task 3.1.",
+      "areas": [
+        "the ten transport kinds at their construction sites, six from the response status and four from the request failing",
+        "cacheable is a strict subset of retry-terminal, observed at the cache rather than only declared",
+        "cancellation has two shapes: an already-aborted signal throws before any request, an abort in flight returns the cancelled kind",
+        "the cache key: name normalization, and the do/cd bits that keep the DNSSEC probes from colliding",
+        "DnsTypeError is thrown before the request is attempted, on a cache hit as well as a miss",
+        "the concurrency ceiling bounds in-flight requests and queues the rest"
       ]
     },
     {
@@ -185,7 +198,7 @@
     },
     {
       "path": "tests/build/artifact.test.mjs",
-      "assertions": 43,
+      "assertions": 44,
       "areas": [
         "the exact top-level _site allowlist, asserted as a set",
         "absence: src, tools, tests, docs, node_modules, js, assets, package files, AGENTS.md",

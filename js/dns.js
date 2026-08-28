@@ -33,13 +33,14 @@
  * `platform` is the temporary object literal Task 2.2 introduced; Task 2.4
  * replaces it with `src/platform/browser.js` and the complete §11 primitive set.
  */
+import { createDohTransport, DOH_ENDPOINT } from '../src/core/dns/doh.js';
+
 export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
   // Named, not reached for. `fetch` is the load-bearing one: the DoH fixture
   // works by substituting it, and a module that resolved `fetch` from Node's
   // globals would quietly query the real internet from a unit test.
   const { fetch, crypto, AbortController, URLSearchParams, setTimeout, clearTimeout } = platform;
 
-  var DOH = 'https://cloudflare-dns.com/dns-query';
   var DKIM_SELECTORS = ['google', 'default', 'mail', 's1', 's2', 'selector1', 'selector2', 'dkim', 'sig1', 'odoo'];
   var DKIM_CATALOG = dkimSelectorCatalog || { providers: {}, generic: [], temporal: [], prefixes: [], excluded: [] };
   var DKIM_SCAN_BATCH_SIZE = 24;
@@ -83,9 +84,6 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
       DKIM_CATALOG.temporal || []
     )
   );
-  var DOH_TIMEOUT_MS = 8000;
-  var DOH_RETRIES = 1;
-  var MAX_DOH_CONCURRENCY = 16;
   // Bounded, least-recently-used. The Map previously grew for the lifetime of
   // the page, so a long session auditing several batches retained every answer
   // it had ever seen. 4096 comfortably holds a full 200-domain run (including
@@ -110,9 +108,6 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
       dohCache.delete(dohCache.keys().next().value);
     }
   }
-  var activeDoh = 0;
-  var dohWaiters = [];
-
   /* ── DNS-over-HTTPS core ────────────────────────────────────────────── */
 
   var DNS_TYPES = {
@@ -157,92 +152,26 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
     return e;
   }
 
-  async function acquireDohSlot(signal) {
-    if (signal && signal.aborted) throw dnsError('cancelled', '', '');
-    if (activeDoh < MAX_DOH_CONCURRENCY) { activeDoh++; return; }
-    await new Promise(function (resolve, reject) {
-      var waiter = { resolve: resolve, reject: reject, signal: signal, onAbort: null };
-      if (signal) {
-        waiter.onAbort = function () {
-          var idx = dohWaiters.indexOf(waiter);
-          if (idx !== -1) dohWaiters.splice(idx, 1);
-          reject(dnsError('cancelled', '', ''));
-        };
-        signal.addEventListener('abort', waiter.onAbort, { once: true });
-      }
-      dohWaiters.push(waiter);
-    });
-    activeDoh++;
-  }
-
-  function releaseDohSlot() {
-    activeDoh = Math.max(0, activeDoh - 1);
-    var waiter = dohWaiters.shift();
-    if (!waiter) return;
-    if (waiter.signal && waiter.onAbort) waiter.signal.removeEventListener('abort', waiter.onAbort);
-    waiter.resolve();
-  }
-
-  function responseKind(status, answerCount) {
-    if (status === 0) return answerCount ? 'success' : 'nodata';
-    if (status === 3) return 'nxdomain';
-    if (status === 2) return 'servfail';
-    if (status === 5) return 'refused';
-    return 'dns-error';
-  }
-
-  async function fetchDohOnce(name, type, opts) {
-    // Resolved before the slot and before the try: the catch below turns every
-    // throw into 'network-error', so an unsupported type checked inside it
-    // would be reported as a resolver failure — the same silent-wrong-answer
-    // shape dnsTypeNum() was changed to prevent, one layer up.
-    const typeNum = dnsTypeNum(type);
-    await acquireDohSlot(opts.signal);
-    var controller = new AbortController();
-    var timedOut = false;
-    var timer = setTimeout(function () { timedOut = true; controller.abort(); }, opts.timeoutMs || DOH_TIMEOUT_MS);
-    var forwardAbort = function () { controller.abort(); };
-    if (opts.signal) opts.signal.addEventListener('abort', forwardAbort, { once: true });
-    try {
-      const params = new URLSearchParams({ name: name, type: String(typeNum) });
-      if (opts.dnssec) params.set('do', '1');
-      if (opts.checkingDisabled) params.set('cd', '1');
-      const r = await fetch(`${DOH}?${params}`, {
-        headers: { Accept: 'application/dns-json' }, signal: controller.signal,
-      });
-      if (!r.ok) return { answers: [], ad: false, status: -1, kind: 'http-error', httpStatus: r.status };
-      const j = await r.json();
-      const answers = Array.isArray(j.Answer) ? j.Answer : [];
-      const status = Number.isInteger(j.Status) ? j.Status : -1;
-      return { answers: answers, ad: j.AD === true, status: status, kind: responseKind(status, answers.length) };
-    } catch (e) {
-      if (opts.signal && opts.signal.aborted) return { answers: [], ad: false, status: -1, kind: 'cancelled' };
-      return { answers: [], ad: false, status: -1, kind: timedOut ? 'timeout' : 'network-error' };
-    } finally {
-      clearTimeout(timer);
-      if (opts.signal) opts.signal.removeEventListener('abort', forwardAbort);
-      releaseDohSlot();
-    }
-  }
-
-  async function dohFetch(name, type, opts = {}) {
-    dnsTypeNum(type);   // throw on an unsupported type before the cache, not only on a miss
-    const normalizedName = String(name || '').toLowerCase().replace(/\.$/, '');
-    const key = [normalizedName, type, opts.dnssec ? 1 : 0, opts.checkingDisabled ? 1 : 0].join('|');
-    if (!opts.noCache) {
-      var cached = dohCacheGet(key);
-      if (cached !== undefined) return cached;
-    }
-    var result;
-    var retries = opts.retries ?? DOH_RETRIES;
-    for (var attempt = 0; attempt <= retries; attempt++) {
-      result = await fetchDohOnce(normalizedName, type, opts);
-      if (result.kind === 'success' || result.kind === 'nodata' || result.kind === 'nxdomain' || result.kind === 'cancelled') break;
-      if (attempt < retries) await new Promise(function (resolve) { setTimeout(resolve, 150 * (attempt + 1)); });
-    }
-    if (!opts.noCache && result && (result.kind === 'success' || result.kind === 'nodata' || result.kind === 'nxdomain')) dohCacheSet(key, result);
-    return result;
-  }
+  /**
+   * The transport, built over this runtime's platform and this runtime's cache.
+   *
+   * `dohFetch` is the same function it always was — spec Design §3 layer 1,
+   * ten kinds, cache and retry rules unchanged — living in
+   * `src/core/dns/doh.js` as of Task 3.1. Everything below still calls it by
+   * name, so no call site moved.
+   *
+   * ONE transport per engine, and therefore one per runtime: the cache and the
+   * concurrency limiter are its state, and `createAuditRuntime()` builds one
+   * engine per call. `tools/scoring.test.mjs:1888-1891` asserts the sibling
+   * reuse that lifetime produces and `PRIVACY.md` publishes the fan-out, so
+   * narrowing it is a privacy change rather than a refactor.
+   */
+  const { dohFetch } = createDohTransport({
+    platform,
+    cache: { get: dohCacheGet, set: dohCacheSet },
+    dnsError,
+    dnsTypeNum,
+  });
 
   /**
    * Run an optional enrichment check, turning a DNS failure into a stated
@@ -5623,7 +5552,10 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
   }
 
   return {
-    DOH,
+    // Re-exported rather than dropped. Nothing in the repository reads it, but
+    // it is one of the engine's members and Task 3.1 is a move: a member
+    // disappearing would be a surface change riding along with one.
+    DOH: DOH_ENDPOINT,
     DKIM_SELECTORS,
     buildDkimSelectorList,
     catalogSelectors,

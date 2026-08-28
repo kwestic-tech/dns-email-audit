@@ -214,7 +214,7 @@ const entryPoint = 'main.js';
 // now, and it is the last file that was under `js/` apart from `dns.js`.
 eq('src/ holds the entry point, the runtime and the converted layers',
   codeModules.sort(),
-  ['i18n/index.js', 'main.js', 'runtime.js', 'ui/render.js']);
+  ['core/dns/doh.js', 'i18n/index.js', 'main.js', 'runtime.js', 'ui/render.js']);
 
 /**
  * The entry point exports the §10 facade and NOTHING else.

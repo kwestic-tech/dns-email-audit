@@ -168,8 +168,10 @@ visit.
 Every claim above is checkable in code, at
 [github.com/kwestic-tech/dns-email-audit](https://github.com/kwestic-tech/dns-email-audit):
 
-- `js/dns.js` contains the only third-party network calls — every request to
-  Cloudflare's DoH endpoint goes through the `DOH` constant defined there.
+- `src/core/dns/doh.js` contains the only third-party network calls — every
+  request to Cloudflare's DoH endpoint goes through the `DOH_ENDPOINT` constant
+  defined there, and it is the only module in the application that calls
+  `fetch` against a host this project does not serve.
 - `src/i18n/index.js` contains the only `localStorage` call in the app
   (`localStorage.setItem` / `getItem` on `dns-email-audit-lang`), and the
   same-origin fetch of `locales/*.json` — including the `locales/index.json`
