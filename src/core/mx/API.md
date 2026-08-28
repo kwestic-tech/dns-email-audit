@@ -24,6 +24,12 @@ attempt would do.
 grouping; `core/spf/` will read the same function for a different question.
 The resolver is **passed**.
 
+`bigIntToIp()` is **private**: it renders a network address back to text for
+the prefix label and has one internal caller. Its observable contract is
+`sharedPrefixes[].prefix`, which is where the tests read it — exporting it so a
+unit test could call it directly would widen the API for the test's
+convenience.
+
 ## Public exports
 
 | Export | Kind | Contract |
@@ -31,7 +37,6 @@ The resolver is **passed**.
 | `createMxAudit({ dohQuery, optionalCheck })` | factory | Returns the `auditMxHosts` closure below. Holds no state; two audits over two resolvers share nothing. |
 | `isNullMx(mx)` | pure | RFC 7505: exactly one record, exactly `0 .`. Not an absent MX and not a broken one. |
 | `parseMxRecord(record)` | pure | `10 mail.example.com.` → `{ preference, host }`, host lowercased with the trailing dot dropped; `null` if it is not a record. |
-| `bigIntToIp(value, family)` | pure | A network address back to text, for the prefix label only. |
 | `MX_HOST_RESOLVES` | frozen array | `yes`, `no`, `unknown`. Registry algebra `mx.host.resolves`. |
 | `MX_IPV6_COVERAGE` | frozen array | `none`, `some`, `all`. Registry algebra `mx.ipv6Coverage`. |
 

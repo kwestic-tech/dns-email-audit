@@ -71,8 +71,16 @@ export function isNullMx(mx) {
 /** Prefix width used to notice that every MX host sits in one block. */
 var MX_PREFIX_BITS = { ipv4: 24, ipv6: 48 };
 
-/** Render a network address back to text, for the prefix label only. */
-export function bigIntToIp(value, family) {
+/**
+ * Render a network address back to text, for the prefix label only.
+ *
+ * Private. Its only caller is the concentration grouping below, and its
+ * observable contract is the `sharedPrefixes[].prefix` label — which is where
+ * the tests read it. Exporting a function so a unit test can reach it widens
+ * the module's API for the test's convenience, and this one was never a legacy
+ * engine member either.
+ */
+function bigIntToIp(value, family) {
   if (family === 'ipv4') {
     return [24n, 16n, 8n, 0n].map(function (shift) { return String((value >> shift) & 0xffn); }).join('.');
   }

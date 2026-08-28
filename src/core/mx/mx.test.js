@@ -10,12 +10,17 @@
  *
  * The audit is driven by a fake resolver, because both capabilities are
  * passed — the property Task 4.1 established and every owner after it keeps.
+ * The POLICY, though, is the real `optionalCheck` imported from `core/dns/`:
+ * the module has to work against the function it will actually be handed, and
+ * a local reimplementation would only prove the test agrees with itself. A
+ * test import is not a production edge, so this does not touch §12's graph —
+ * `dns-transport.test.mjs` walks `*.js` and excludes `*.test.js`.
  */
 
 import { createSuite } from '../../../tests/lib/assert.mjs';
+import { optionalCheck } from '../dns/optional.js';
 import {
-  createMxAudit, isNullMx, parseMxRecord, bigIntToIp,
-  MX_HOST_RESOLVES, MX_IPV6_COVERAGE,
+  createMxAudit, isNullMx, parseMxRecord, MX_HOST_RESOLVES, MX_IPV6_COVERAGE,
 } from './mx.js';
 
 const { eq, section, report } = createSuite();
@@ -57,18 +62,8 @@ eq('an empty string is not one', parseMxRecord(''), null);
 eq('undefined is not one', parseMxRecord(undefined), null);
 eq('a bare dot target survives as a host', parseMxRecord('0 .'), null);
 
-/* ── 4. Rendering a network address back to text ──────────────────────── */
-section('4. bigIntToIp');
-
-eq('an IPv4 network', bigIntToIp(3221225984n, 'ipv4'), '192.0.2.0');
-eq('the zero address', bigIntToIp(0n, 'ipv4'), '0.0.0.0');
-eq('the broadcast address', bigIntToIp(4294967295n, 'ipv4'), '255.255.255.255');
-eq('an IPv6 network', bigIntToIp(0x20010db8n << 96n, 'ipv6'), '2001:db8:0:0:0:0:0:0');
-eq('the all-ones IPv6 address', bigIntToIp(2n ** 128n - 1n, 'ipv6'),
-  'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff');
-
-/* ── 5. The audit, over a passed resolver ─────────────────────────────── */
-section('5. createMxAudit');
+/* ── 4. The audit, over a passed resolver ─────────────────────────────── */
+section('4. createMxAudit');
 
 /**
  * A resolver that answers from a table and can be told to fail one lookup.
@@ -87,15 +82,6 @@ function fakeResolver(table) {
     },
   };
 }
-// The real layer-4 policy, not a stub: the module must work against the
-// function it will actually be handed.
-const optionalCheck = async (run, fallback) => {
-  try { return await run(); }
-  catch (error) {
-    if (error && (error.name === 'AbortError' || error.name === 'DnsTypeError')) throw error;
-    return typeof fallback === 'function' ? fallback(error) : fallback;
-  }
-};
 const audit = table => createMxAudit({ dohQuery: fakeResolver(table).dohQuery, optionalCheck });
 const auditWith = table => {
   const r = fakeResolver(table);
@@ -193,6 +179,38 @@ const spread = await audit({
 })(['10 a.example.test.', '20 b.example.test.'], 'example.test');
 eq('hosts in different /24s share nothing', spread.sharedPrefixes, []);
 
+/**
+ * IPv6 groups at /48, not /24, and the label is rendered by a private helper
+ * whose whole observable contract is this string. Both halves are load-bearing:
+ * the WIDTH, because reusing the IPv4 table would group by /24 of a 128-bit
+ * address and call unrelated networks one block; and the FORM, because a
+ * mis-rendered label is what an operator is asked to go and look for.
+ */
+const v6Concentrated = await audit({
+  'a.example.test': { A: [], AAAA: ['2001:db8:1::1'], CNAME: [] },
+  'b.example.test': { A: [], AAAA: ['2001:db8:1:ffff::9'], CNAME: [] },
+})(['10 a.example.test.', '20 b.example.test.'], 'example.test');
+eq('two hosts in one /48 share a prefix',
+  v6Concentrated.sharedPrefixes,
+  [{ prefix: '2001:db8:1:0:0:0:0:0/48', hosts: ['a.example.test', 'b.example.test'] }]);
+
+// One hextet further out is a different /48, which is the negative control
+// for the width: at /24 of a v6 address these two would still group together.
+const v6Spread = await audit({
+  'a.example.test': { A: [], AAAA: ['2001:db8:1::1'], CNAME: [] },
+  'b.example.test': { A: [], AAAA: ['2001:db8:2::1'], CNAME: [] },
+})(['10 a.example.test.', '20 b.example.test.'], 'example.test');
+eq('hosts in different /48s share nothing', v6Spread.sharedPrefixes, []);
+
+// The two families are grouped separately and never mixed into one label.
+const bothFamilies = await audit({
+  'a.example.test': { A: ['192.0.2.1'], AAAA: ['2001:db8:1::1'], CNAME: [] },
+  'b.example.test': { A: ['192.0.2.9'], AAAA: ['2001:db8:1::9'], CNAME: [] },
+})(['10 a.example.test.', '20 b.example.test.'], 'example.test');
+eq('a host pair sharing both families produces two prefixes',
+  bothFamilies.sharedPrefixes.map(p => p.prefix).sort(),
+  ['192.0.2.0/24', '2001:db8:1:0:0:0:0:0/48']);
+
 // An unknown host is left OUT of the concentration analysis rather than
 // counted as sharing or not sharing a block.
 const unknownBlock = await audit({
@@ -222,11 +240,11 @@ const outside = await audit({
 eq('a third-party exchange is not inside the audited domain',
   outside.hosts[0].inAudited, false);
 
-/* ── 6. Every produced value is in its published algebra ──────────────── */
-section('6. The constants are not decoration');
+/* ── 5. Every produced value is in its published algebra ──────────────── */
+section('5. The constants are not decoration');
 
 const observed = [healthy, dangling, partial, mixed, deduped, tied, concentrated,
-  spread, unknownBlock, someV6, cnamed, outside];
+  spread, v6Concentrated, v6Spread, bothFamilies, unknownBlock, someV6, cnamed, outside];
 eq('every resolves value observed is one of the three',
   [...new Set(observed.flatMap(a => a.hosts.map(h => h.resolves)))]
     .filter(v => !MX_HOST_RESOLVES.includes(v)), []);
