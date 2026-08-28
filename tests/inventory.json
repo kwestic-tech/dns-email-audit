@@ -144,6 +144,32 @@
       ]
     },
     {
+      "path": "tests/contract/transport-edges.test.mjs",
+      "assertions": 37,
+      "note": "Spec §3's two inventories as amended in 1.6. Phase 3, Task 3.6.",
+      "areas": [
+        "the raw-kind reader allowlist: six owners by function or family, with the layer implementations excluded",
+        "a structural closed-list control that fails on a new raw-kind reader in an unnamed function, with its lexical limits asserted",
+        "a thrown error's kind is classified as the §12.1 thrown path, not as a raw-response read",
+        "the eleven typed propagation paths, taken from the registry so the two cannot drift",
+        "every value on a declared path is a transport kind or its own owner's, and eight paths are transport-only",
+        "the dmarc-unverified issue copy tested against its own key, with the negative control that an unrelated issue argument cannot earn transport coverage"
+      ]
+    },
+    {
+      "path": "tests/contract/dns-transport.test.mjs",
+      "assertions": 35,
+      "note": "The transport layer's cross-cutting contracts. Phase 3, Task 3.7.",
+      "areas": [
+        "the code's kind sets and the reviewed registry's algebras are compared rather than restated",
+        "cacheable is a strict subset of retry-terminal, and the usable set equals the cacheable set",
+        "seven usability throws, counted rather than listed",
+        "optionalCheck is policy-neutral: a static fallback acquires no kind, and exactly three fallback factories copy one",
+        "no transport result or error shape carries a finding, severity, score or locale reference",
+        "the §12 allowed-edge matrix and the cycle rule over the real import graph"
+      ]
+    },
+    {
       "path": "tests/contract/legacy-shapes.test.mjs",
       "assertions": 131,
       "areas": [
