@@ -1,7 +1,7 @@
 # Gate 4 evidence — 0.6.0
 
-**Captured:** 2026-08-28, at `3ea55ea`, on the
-`spec/modular-architecture-production-build` branch.
+**Captured:** 2026-08-29 (+08:00), at `3ea55ea`, on the
+`spec/modular-architecture-production-build` branch. `5c56903` records it.
 
 Gate 4 as the implementation plan states it: *"Every protocol has an owning
 directory. **Token vocabulary byte-identical** — diff issue tokens against
@@ -29,16 +29,66 @@ vocabulary being unchanged.
 | `src/core/spf/` | 4.8 | `dohQuery`, `dohFetch`, `requireUsable`, `cleanAnswerData` |
 | `src/providers/` | 4.9 | `isNullMx` |
 
-`js/dns.js` fell from **5,527 lines at Gate 3 to 1,494**, and now holds only
-the scoring model, issue and suggestion construction, and `analyzeDomain()` —
-all of which belong to Phase 5.
-
 Every directory carries its own `API.md` and co-located tests.
+
+`js/dns.js` fell from **5,527 lines at Gate 3 to 1,494**. What remains is not a
+short list and is not claimed as one — its substantive behaviour is Phase-5
+audit and composition work. It includes, without this being exhaustive:
+
+- the **transitional composition root** — every `create*` call that wires the
+  owning directories together, including the two collaborators in §4;
+- `analyzeDomain()`, the orchestration itself;
+- the **scoring model** — `WEIGHTS`, `PARKED_WEIGHTS`, `GRADE_THRESHOLDS`,
+  `calcDmarcScore`, `calcSpfScore`, `calcAdvScore`, `gradeFor`, `calcScore`,
+  `unprovenPillars`;
+- **issue and suggestion construction** — `buildIssues`, `buildSuggestions`;
+- **audit-local helpers** — `startsWithCI`, `versionCandidates`,
+  `leadingVersionMatches`;
+- `resolveWebsite()` and the **NS `servfail` DNSSEC preflight**, which is the
+  last raw-kind reader outside an owning directory;
+- the **legacy engine surface assembly** — the returned object that keeps every
+  `v0.5.0` member reachable.
+
+Phase 5 owns all of it.
 
 ## 2. Token vocabulary, diffed against `v0.5.0`
 
-Read out of the tag with `git show v0.5.0:locales/en.json` and compared as
-sorted key lists, with values compared by serialized content:
+### The instrument
+
+Reproducible as written. Run from the repository root, on a checkout that has
+the `v0.5.0` tag:
+
+```bash
+node --input-type=module -e "
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+const at050 = JSON.parse(execSync('git show v0.5.0:locales/en.json', { encoding: 'utf8' }));
+const now   = JSON.parse(readFileSync('locales/en.json', 'utf8'));
+const a = Object.keys(at050.issue).sort();
+const b = Object.keys(now.issue).sort();
+const added   = b.filter(k => !a.includes(k));
+const removed = a.filter(k => !b.includes(k));
+// Serialized content, NOT reference identity — see the note below.
+const changed = a.filter(k => b.includes(k)
+  && JSON.stringify(at050.issue[k]) !== JSON.stringify(now.issue[k]));
+console.log('v0.5.0 issue tokens: ' + a.length);
+console.log('HEAD    issue tokens: ' + b.length);
+console.log('added:   ' + (added.length   ? added.join(', ')   : '(none)'));
+console.log('removed: ' + (removed.length ? removed.join(', ') : '(none)'));
+console.log('byte-identical key list: ' + (JSON.stringify(a) === JSON.stringify(b)));
+console.log('tokens whose English content moved: ' + (changed.length ? changed.join(', ') : '(none)'));
+const reg = JSON.parse(readFileSync('tests/state-algebras.json', 'utf8'));
+const alg = reg.algebras.find(x => x.id === 'audit.issue.key').members.slice().sort();
+console.log('registry algebra matches HEAD: '    + (JSON.stringify(alg) === JSON.stringify(b)));
+console.log('registry algebra matches v0.5.0: ' + (JSON.stringify(alg) === JSON.stringify(a)));
+"
+```
+
+Four comparisons, all four required: the sorted key lists, the serialized
+English content per token, and the reviewed registry's `audit.issue.key`
+members against each side.
+
+### The output
 
 ```text
 v0.5.0 issue tokens: 106
@@ -57,10 +107,14 @@ reviewed registry's `audit.issue.key` algebra records.
 > **A defect in the first run of this check, recorded because it is the kind
 > that reads as a finding.** The comparison initially reported all 106 tokens
 > as having changed content. The tokens had not moved; the script compared
-> `en.json`'s issue OBJECTS with `!==`, which is reference identity. Fixed to
-> compare serialized content. A byte-for-byte gate that produces a false
-> positive on every entry is worth writing down, because the temptation is to
-> conclude something about the code rather than about the instrument.
+> `en.json`'s issue OBJECTS with `!==`, which is reference identity — every
+> value in `en.json.issue` is an object (`msg`, and often `what` / `fix` /
+> `fixCode`), so no two ever compare equal that way. The `JSON.stringify` on
+> both sides of the `changed` filter above is the fix.
+>
+> A byte-for-byte gate that produces a false positive on every entry is worth
+> writing down, because the temptation is to conclude something about the code
+> rather than about the instrument.
 
 ## 3. Full gate run
 
