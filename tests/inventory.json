@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 78,
+      "assertions": 79,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -392,6 +392,17 @@
         "countSpfLookups THROWS on a resolver failure — this directory states no unknown, and the caller's fallback owns the shape",
         "spfReferencedCatalogKeys is SPF-owned: include: and redirect= of the domain's OWN record only, and a macro is not a hostname",
         "two checks over two resolvers are distinguished by voidLookups — the field that actually differs — with the note that lookup count alone would not have shown it"
+      ]
+    },
+    {
+      "path": "src/providers/detectors.test.js",
+      "assertions": 21,
+      "note": "Co-located per spec §9. Phase 4, Task 4.9 — the last extraction of Phase 4.",
+      "areas": [
+        "DNS operator naming, including the ccSLD rule that steps past a second-level label",
+        "the THREE ways to have no mail — @null-mx, @implicit-mx, @none — proven distinct, with the null-MX test shown to come first",
+        "isNullMx is a capability and not an import: a detector over a predicate that never fires cannot produce @null-mx, and one that always fires produces it for any MX set",
+        "hosting detection and the same-domain CNAME that is not a loop"
       ]
     },
     {

@@ -121,7 +121,8 @@ eq('the inputs are exactly the modules the entry point reaches', inputs.sort(),
     'src/data/dkim-selectors.js', 'src/data/legacy-globals.js',
     'src/data/locales-en.js', 'src/data/public-suffixes.js',
     'src/i18n/index.js', 'src/main.js',
-    'src/platform/browser.js', 'src/runtime.js', 'src/ui/render.js']);
+    'src/platform/browser.js', 'src/providers/detectors.js',
+    'src/runtime.js', 'src/ui/render.js']);
 // Co-located unit tests are the reason this list is asserted rather than
 // counted: `src/core/dns/doh.test.js` sits beside the module above and must
 // never appear here. The suffix checks earlier in this section are the general
@@ -140,7 +141,7 @@ eq('no path under tests/ appears in the source map',
 // code-bearing as of Task 2.6, which retired the two import-only adapters.
 eq('every mapped source is one of the bundle inputs',
   sourceMap.sources.map(p => p.replace(/^(\.\.\/)+/, '')).filter(p => !inputs.includes(p)), []);
-eq('every code-bearing input is mapped', sourceMap.sources.length, 36);
+eq('every code-bearing input is mapped', sourceMap.sources.length, 37);
 
 // Defence in depth, carrying no acceptance criterion of its own: a string that
 // appears in every cross-cutting suite must appear nowhere in the artifact.

@@ -189,6 +189,7 @@ const ALLOWED_EDGES = {
   'ui': ['ui', 'i18n'],
   'runtime.js': ['core/dns', 'core/shared', 'audit', 'ui', 'i18n'],
   'main.js': ['runtime.js', 'platform', 'data'],
+  'providers': ['core/shared'],
 };
 
 function srcModules(dir, base) {
