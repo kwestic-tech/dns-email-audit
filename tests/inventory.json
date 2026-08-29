@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 77,
+      "assertions": 78,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -377,6 +377,20 @@
         "a revoked key is a VALID record that does not apply to email — collapsing revocation into a parse failure loses an existing finding",
         "the catalog is injected and reached through the provider-name-to-catalog-key indirection, so two catalogs disagree",
         "the TRANSITIONAL spfReferencedCatalogKeys collaborator widens the scan, and attribution omits selectors the baseline would have supplied anyway"
+      ]
+    },
+    {
+      "path": "src/core/spf/spf.test.js",
+      "assertions": 62,
+      "note": "Co-located per spec §9. Phase 4, Task 4.8 — the last protocol owner. Driven by a fake transport and the real requireUsable/cleanAnswerData.",
+      "areas": [
+        "permerror outranks the record's contents: two v=spf1 records fail all mail even where -all would have been ok",
+        "term parsing — qualifiers, modifiers, and the raw term kept for reporting",
+        "TWO subnet tables, asserted by their consequence: prefix 32 is HIGH in IPv6 and LOW in IPv4, because RFC 4291 §2.5.4 makes /64 one subnet and the IPv4 host-count reasoning would call it eighteen quintillion hosts",
+        "blocks are separated by family so a v4 address is never tested against an ip6: mechanism",
+        "the ten-lookup accounting, the exclusive 8-10 warning band, cycle detection, and a void lookup distinguished from a failure",
+        "countSpfLookups THROWS on a resolver failure — this directory states no unknown, and the caller's fallback owns the shape",
+        "spfReferencedCatalogKeys is SPF-owned: include: and redirect= of the domain's OWN record only, and a macro is not a hostname"
       ]
     },
     {

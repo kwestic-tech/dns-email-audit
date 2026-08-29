@@ -181,6 +181,7 @@ const ALLOWED_EDGES = {
   'core/dnssec': ['core/shared'],
   'core/mx': ['core/shared'],
   'core/shared': [],
+  'core/spf': ['core/shared'],
   'core/transport': ['core/shared'],
   'data': [],
   'platform': [],
