@@ -3,15 +3,22 @@
 Required by spec [§12](../../../docs/specs/modular-architecture-and-production-build.md#12-module-apis-and-the-allowed-edge-matrix):
 each owning directory checks in `API.md` in the same commit that creates it.
 
-**Responsibility.** DMARC as RFC 9989 (DMARCbis, May 2026) defines it: record
-parsing, the DNS Tree Walk, the organizational domain, and external report
-authorization. This directory emits no finding, severity, score or locale key.
+**Responsibility.** Two specifications, kept distinct because they answer
+different questions and disagree in at least one place:
+
+- **RFC 9989** (DMARCbis, May 2026) — record parsing, the DNS Tree Walk, the
+  organizational domain, and the inheritance rules. What policy applies to a
+  name, and how it was found.
+- **RFC 9990 §4** — external report authorization. Whether a destination
+  outside the organizational domain has agreed to receive reports.
+
+This directory emits no finding, severity, score or locale key.
 
 ## Allowed edges
 
 | May import | May not |
 | --- | --- |
-| `core/shared/`, siblings in this directory | everything else — including `core/dns/`, `src/data/`, another protocol directory, `audit/`, `ui/`, `data/` and the platform |
+| `core/shared/`, siblings in this directory | everything else — including `core/dns/`, `src/data/`, another protocol directory, `audit/`, `ui/` and the platform |
 
 Both the resolver and the **Public Suffix List** are passed. The PSL is
 generated data, and §12 gives a protocol directory no edge to `src/data/`.
@@ -23,12 +30,20 @@ generated data, and §12 gives a protocol directory no edge to `src/data/`.
 | `record.js` | nothing | The tag vocabulary and the parsers. Pure and domain-agnostic. |
 | `org-domain.js` | `publicSuffixRules` | The organizational domain. |
 | `tree-walk.js` | resolver | Discovery, selection and inheritance. |
-| `report-auth.js` | resolver + two collaborators | RFC 9990 §4 authorization. |
+| `report-auth.js` | resolver + one collaborator | RFC 9990 §4 authorization. |
 
-`report-auth.js` receives `getOrganizationalDomain` and `discoverDmarc` as
-arguments rather than importing them. It could import both as siblings — but
-the caller has already built them, and passing what exists beats constructing a
-second walk with its own state.
+`report-auth.js` receives `discoverDmarc` as an argument rather than importing
+it. It could import the sibling — but the caller has already built that
+factory, and passing what exists beats constructing a second walk with its own
+state.
+
+It does **not** take `getOrganizationalDomain`. The Task 4.6 extraction
+accepted, passed and documented it and never read it: the destination org
+domains this module resolves come from `discoverDmarc()`'s own walk, not from
+the PSL. A declared-and-unused capability is a false statement about what a
+module can reach, and it was removed. `org-domain.js`, the PSL, its runtime
+construction and the legacy engine member are all untouched — PSL retirement is
+a separately recorded finding, not this.
 
 ## Public exports
 
@@ -36,8 +51,8 @@ second walk with its own state.
 
 | Export | Kind | Contract |
 | --- | --- | --- |
-| `analyzeDmarc(record, multiple)` | pure | The full status. `status` is `ok` / `present` / `missing`; `malformed` is separate, because a record that is there and cannot be applied is not the same as no record. |
-| `emptyDmarcStatus(status)` | pure | The same shape with nothing in it. `policy` is `''`, not `null`. |
+| `analyzeDmarc(record, multiple)` | pure | The full status — see the state table below. `malformed` is separate from `status`, because a record that is there and cannot be applied is not the same as no record. |
+| `emptyDmarcStatus(status)` | pure | The same shape with nothing in it, carrying whatever state the caller names. `policy` is `''`, not `null`. |
 | `parseDmarcTag`, `normalizePolicy`, `validateDmarcVersion`, `parseDmarcUriList`, `parseTagList` | pure | The pieces `analyzeDmarc` is built from, each an engine member in its own right. |
 | `POLICY_RANK` | table | `none` 0, `quarantine` 1, `reject` 2. |
 | `DMARC_TAGS_RFC9989`, `DMARC_TAGS_REMOVED` | arrays | RFC 9989's tag names, and the three DMARCbis removed. **Reference vocabularies, not state algebras** — see below. |
@@ -61,9 +76,26 @@ second walk with its own state.
 
 | Export | Kind | Contract |
 | --- | --- | --- |
-| `createReportAuth({ dohFetch, dnsError, cleanAnswerData, optionalCheck, getOrganizationalDomain, discoverDmarc })` | factory | Returns `{ resolveDestinationOrgDomains, checkExternalReportAuth }`. |
+| `createReportAuth({ dohFetch, dnsError, cleanAnswerData, optionalCheck, discoverDmarc })` | factory | Returns `{ resolveDestinationOrgDomains, checkExternalReportAuth }`. |
 | `reportDestinationHosts`, `planReportDestinations`, `findExternalReportDestinations`, `parseReportAuthRecord` | pure | The plan reports `external`, `total` and `omitted`, so a capped list is visible rather than silently short. |
 | `REPORT_AUTH_STATES`, `REPORT_AUTH_EXACT_KINDS`, `REPORT_AUTH_VIA` | frozen arrays | `dmarc.reportAuth.state`, `.exactKind`, `.via`. |
+
+## The status algebra
+
+Registry algebra `dmarc.status`, six members, produced by two functions:
+
+| State | Produced by | Meaning |
+| --- | --- | --- |
+| `ok` | `analyzeDmarc()` | A record that parses and applies. |
+| `warn` | `analyzeDmarc()` | Applies, with something worth saying about it. |
+| `present` | `analyzeDmarc()` | A record is there and cannot be applied. |
+| `missing` | `emptyDmarcStatus()` | No record. |
+| `unknown` | `emptyDmarcStatus()` | The lookup did not complete. |
+| `permerror` | `emptyDmarcStatus()` | Retained as the documented **legacy direct-call** state. |
+
+`present` and `missing` are the pair that must not be collapsed: the first
+means the operator published something, and telling them to publish a record
+they already have sends them to the wrong place.
 
 ## The two raw-kind readers
 

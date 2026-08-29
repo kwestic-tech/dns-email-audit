@@ -1087,14 +1087,13 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
 
   // DMARC, Task 4.6. The PSL is generated data and is PASSED to its own
   // factory; the walk and the report-authorization checks each name the
-  // resolver capabilities they read. Report authorization takes the org-domain
-  // reader and the walk as collaborators rather than reaching for them,
-  // because a protocol directory has no edge to core/dns/ or to src/data/.
+  // resolver capabilities they read. Report authorization takes the walk as a
+  // collaborator rather than reaching for it, because a protocol directory has
+  // no edge to core/dns/ or to src/data/.
   const getOrganizationalDomain = createOrgDomain({ publicSuffixRules });
   const discoverDmarc = createDmarcDiscovery({ dohFetch, dnsError, cleanAnswerData });
   const { resolveDestinationOrgDomains, checkExternalReportAuth } = createReportAuth({
-    dohFetch, dnsError, cleanAnswerData, optionalCheck,
-    getOrganizationalDomain, discoverDmarc,
+    dohFetch, dnsError, cleanAnswerData, optionalCheck, discoverDmarc,
   });
 
   /* ── Advanced checks ────────────────────────────────────────────────── */

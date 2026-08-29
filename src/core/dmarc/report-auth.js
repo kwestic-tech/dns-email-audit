@@ -217,13 +217,19 @@ var MAX_REPORT_DESTINATIONS = 10;
  * `dohFetch` is the RAW handle — `checkExternalReportAuth()` keeps the exact
  * response kind, which layer 2 throws away — plus `dnsError` for cancellation,
  * `cleanAnswerData` for the TXT answers it kept, `optionalCheck` for the
- * per-destination org-domain resolution, and the two collaborators
- * `getOrganizationalDomain` and `discoverDmarc`, which belong to sibling
- * modules and to a factory the caller already built.
+ * per-destination walk, and ONE collaborator: `discoverDmarc`, from a factory
+ * the caller has already built.
+ *
+ * `getOrganizationalDomain` is deliberately NOT here. It was accepted, passed
+ * and documented in the Task 4.6 extraction and never read — the destination
+ * org domains this module resolves come from `discoverDmarc()`'s own walk, not
+ * from the PSL. A capability that is declared and unused is a false statement
+ * about what a module can reach, so it is gone. `org-domain.js` and its
+ * runtime construction are untouched; PSL retirement is a separately recorded
+ * finding and is not this.
  */
 export function createReportAuth({
-  dohFetch, dnsError, cleanAnswerData, optionalCheck,
-  getOrganizationalDomain, discoverDmarc,
+  dohFetch, dnsError, cleanAnswerData, optionalCheck, discoverDmarc,
 }) {
 
   async function resolveDestinationOrgDomains(dmarcStatus, policyDomain, policyOrgDomain, queryOpts) {

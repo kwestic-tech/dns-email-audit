@@ -26,7 +26,6 @@ import {
 import { analyzeDmarc } from './record.js';
 
 const { eq, section, report } = createSuite();
-const orgDomain = d => String(d).split('.').slice(-2).join('.');
 
 /* ── 1. Published state constants ─────────────────────────────────────── */
 section('1. State constants');
@@ -96,7 +95,7 @@ function build(table) {
   };
   const api = createReportAuth({
     dohFetch, dnsError, cleanAnswerData: d => String(d), optionalCheck,
-    getOrganizationalDomain: orgDomain, discoverDmarc: async () => null,
+    discoverDmarc: async () => null,
   });
   return { asked, ...api };
 }
