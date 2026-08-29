@@ -381,7 +381,7 @@
     },
     {
       "path": "src/core/spf/spf.test.js",
-      "assertions": 62,
+      "assertions": 63,
       "note": "Co-located per spec §9. Phase 4, Task 4.8 — the last protocol owner. Driven by a fake transport and the real requireUsable/cleanAnswerData.",
       "areas": [
         "permerror outranks the record's contents: two v=spf1 records fail all mail even where -all would have been ok",
@@ -390,7 +390,8 @@
         "blocks are separated by family so a v4 address is never tested against an ip6: mechanism",
         "the ten-lookup accounting, the exclusive 8-10 warning band, cycle detection, and a void lookup distinguished from a failure",
         "countSpfLookups THROWS on a resolver failure — this directory states no unknown, and the caller's fallback owns the shape",
-        "spfReferencedCatalogKeys is SPF-owned: include: and redirect= of the domain's OWN record only, and a macro is not a hostname"
+        "spfReferencedCatalogKeys is SPF-owned: include: and redirect= of the domain's OWN record only, and a macro is not a hostname",
+        "two checks over two resolvers are distinguished by voidLookups — the field that actually differs — with the note that lookup count alone would not have shown it"
       ]
     },
     {

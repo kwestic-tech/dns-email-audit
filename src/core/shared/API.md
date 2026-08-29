@@ -125,7 +125,7 @@ directory cannot quietly become a dumping ground.
 | --- | --- | --- |
 | `parseTagList` | `core/dmarc/` only | The line in `dkimRecordSet()` that names it is a comment explaining why DKIM does **not** use it. |
 | `versionCandidates`, `leadingVersionMatches` | `audit` only | One owner, and audit has no edge here. |
-| `startsWithCI` | `core/spf/` + `audit` | One protocol owner. Audit has no edge here; it keeps its own. |
+| `startsWithCI` | `core/spf/` + `audit` | One protocol owner. Audit has no edge here, so each keeps its own three lines — applied at Task 4.8, not reopened. |
 | `isNullMx` | `providers/` + `audit` | No protocol-owner caller. MX semantics; belongs to `core/mx/`. See finding 4. |
 | `cap` | `providers/` only | One owner. |
 | `bytesToHex`, `splitRdataFields`, `dnsWireName` | `core/dnssec/` only | One owner. |
@@ -148,11 +148,18 @@ future phase inherits a decision rather than an open question.
    grammar, which is the failure mode the admission test exists to prevent.
 
    **Ruled.** DKIM neither imports `core/spf/` nor grows a second SPF parser.
-   Cross-protocol composition is audit's job: `core/spf/` eventually exposes
-   its parsed references, and audit passes the derived input into DKIM. Until
-   both owners exist, the current wiring is preserved unchanged —
-   `checkDKIM()` keeps receiving the SPF record as a string. Task 4.7, with
-   4.8 in view.
+   Cross-protocol composition is audit's job.
+
+   **Where it stands after Task 4.8.** `spfReferencedCatalogKeys()` is
+   SPF-owned, living beside the grammar it reads, and the COMPOSITION ROOT
+   imports it and injects it into `createDkimCheck()`. There is no
+   `core/dkim → core/spf` edge and no second parser. `checkDKIM()` still
+   receives the SPF record as a string.
+
+   That injection is transitional. **Phase 5** replaces the string-taking
+   collaborator with audit-derived input — audit parses the references once and
+   passes the derived catalog keys — after which the helper stops being reached
+   across the composition root.
 
 2. **`core/dmarc/`'s `parseDmarcUriList()` parses `mailto:` by hand** rather
    than through `isMailtoUri()`, with a looser rule — `/^[^\s@]+\.[^\s@.]+$/`

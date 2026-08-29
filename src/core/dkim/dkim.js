@@ -19,12 +19,15 @@
  * this must NOT become: DKIM does not import `core/spf/`, does not copy
  * `parseSpfTerms()`, and does not grow a second SPF grammar.
  *
- * So until Task 4.8 creates the SPF owner, `spfReferencedCatalogKeys()` stays
- * beside the existing SPF parser in `js/dns.js` and arrives here as an
- * argument. That is a **transitional capability, not the target shape**:
- * cross-protocol composition belongs to the audit layer, which will pass the
- * derived DKIM input once `core/spf/` can expose its parsed references.
- * Task 4.8 and Phase 5 move it; nothing here should be built to depend on the
+ * So `spfReferencedCatalogKeys()` lives with the grammar it reads. Since Task
+ * 4.8 that is `core/spf/`, and the COMPOSITION ROOT imports it from there and
+ * injects it here.
+ *
+ * That is still a **transitional capability, not the target shape**.
+ * Cross-protocol composition belongs to the audit layer: **Phase 5** replaces
+ * this string-taking collaborator with audit-derived input — audit parses the
+ * references once and passes the derived catalog keys — after which this
+ * parameter goes away. Nothing here should be built to depend on the
  * arrangement lasting.
  *
  * `checkDKIM()`'s signature is unchanged — it still receives the SPF record as
@@ -560,7 +563,8 @@ export function createDkimCheck(capabilities) {
   // limit of a lexical scan; adjusted to rather than adjusted.
   const {
     dohFetch, requireUsable, cleanAnswerData, crypto, dkimSelectorCatalog,
-    // TEMPORARY, Task 4.7. Moves to the audit layer once core/spf/ exists.
+    // TEMPORARY. SPF-owned since Task 4.8 and injected by the composition
+    // root; Phase 5 replaces it with audit-derived input.
     spfReferencedCatalogKeys,
   } = capabilities;
   /**

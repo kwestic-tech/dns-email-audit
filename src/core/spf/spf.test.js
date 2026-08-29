@@ -220,13 +220,23 @@ eq('the audit carries the classification', audit.subnets.length, 1);
 eq('and the redundancy list', Array.isArray(audit.redundancy), true);
 eq('and states it is not unknown', audit.unknown, false);
 
-// The negative control for the injection: no resolver is held here.
+/**
+ * The negative control for the injection: no resolver is held here.
+ *
+ * `count` is the WRONG field to compare — both fixtures reach one include and
+ * both return 1, so an assertion on it proves nothing about isolation.
+ * `voidLookups` is the field that actually differs: the populated transport
+ * answers with an SPF record (0), the empty one answers with none (1).
+ */
 const a = build({ 'x.test': ['v=spf1 -all'] });
 const b = build({});
-eq('two checks over two resolvers stay separate',
-  [(await a.countSpfLookups('v=spf1 include:x.test -all', 'e.test', {})).count,
-    (await b.countSpfLookups('v=spf1 include:x.test -all', 'e.test', {})).count].length, 2);
-eq('and each asked its own transport',
-  [a.asked.length > 0, b.asked.length > 0], [true, true]);
+const fromA = await a.countSpfLookups('v=spf1 include:x.test -all', 'e.test', {});
+const fromB = await b.countSpfLookups('v=spf1 include:x.test -all', 'e.test', {});
+eq('two checks over two resolvers see different answers',
+  [fromA.voidLookups, fromB.voidLookups], [0, 1]);
+eq('and the lookup count alone would NOT have shown it',
+  [fromA.count, fromB.count], [1, 1]);
+eq('while each asked its own transport, once',
+  [a.asked.length, b.asked.length], [1, 1]);
 
 report();

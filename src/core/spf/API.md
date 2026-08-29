@@ -4,10 +4,26 @@ Required by spec [§12](../../../docs/specs/modular-architecture-and-production-
 each owning directory checks in `API.md` in the same commit that creates it.
 
 **Responsibility.** SPF as RFC 7208 defines it: record status, term parsing,
-the ten-lookup accounting, subnet classification and redundancy. This directory
-emits no finding, severity, score or locale key.
+the ten-lookup accounting, subnet classification and redundancy. The last
+protocol owner extracted.
 
-The last protocol owner extracted.
+### What it emits, stated accurately
+
+This directory emits no **score** and no **locale key**, and it decides no
+user-facing issue. It does emit protocol findings, which spec §12 assigns to
+the owning directory:
+
+| Emitted | Shape | Who turns it into user-facing output |
+| --- | --- | --- |
+| `analyzeSpf().warnings[]` | issue-key tokens such as `spf-softfail`, `spf-multiple-records` | forwarded **verbatim** into the audit layer's issue list |
+| `classifySpfSubnets().subnets[]` | objects carrying `SPF_LARGE_SUBNET` | audit maps them into issues and scoring |
+| `findSpfRedundancy()` | entries carrying `SPF_REDUNDANCY` | as above |
+| `classifySpfSubnet()` | `LOW` / `MEDIUM` / `HIGH` | a protocol severity, which audit weights |
+
+These are **protocol facts about the record**, not presentation. Nothing here
+looks up prose, computes a grade, or decides what the interface shows — the
+tokens are stable identifiers the i18n layer resolves and the audit layer
+ranks.
 
 ## Allowed edges
 
@@ -92,9 +108,11 @@ What must **not** happen:
 - a copy of `parseSpfTerms()`.
 
 **The injection is transitional.** Cross-protocol composition belongs to the
-audit layer: Phase 5 derives the catalog keys there and passes the derived
-input, after which this export stops being reached across the composition root.
-Nothing should be built to depend on the arrangement lasting.
+audit layer. **Phase 5** replaces the string-taking collaborator with
+audit-derived input — audit parses the references once and passes the derived
+catalog keys — after which this export stops being reached across the
+composition root. Nothing should be built to depend on the arrangement
+lasting.
 
 Only the domain's **own** `include:`/`redirect=` hostnames count. Following an
 include into its own includes would attribute the vendor's upstream to the

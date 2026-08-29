@@ -20,7 +20,7 @@ This directory emits no finding, severity, score or locale key.
 | `dohFetch`, `requireUsable`, `cleanAnswerData` | §12 gives no edge to `core/dns/`. The RAW handle is required: `inspectDkimSelector()` walks CNAMEs and reads the answer chain, which a normalized array does not carry. |
 | `crypto` | The platform's, not the platform. Validation is optional — see below. |
 | `dkimSelectorCatalog` | Generated data; §12 gives no edge to `src/data/`. The fixture-identity probes work by substituting it. |
-| `spfReferencedCatalogKeys` | **Transitional.** See below. |
+| `spfReferencedCatalogKeys` | **Transitional**, and SPF-owned since Task 4.8 — injected by the composition root, never imported. See below. |
 
 ## The transitional SPF collaborator
 
@@ -35,14 +35,16 @@ is for the inbound provider. Deriving that needs SPF's term grammar.
 - copy `parseSpfTerms()`;
 - grow a second SPF grammar.
 
-So until Task 4.8 creates the SPF owner, `spfReferencedCatalogKeys()` stays
-beside the existing SPF parser in `js/dns.js` and arrives here as an argument.
+So `spfReferencedCatalogKeys()` lives with the grammar it reads. **Since Task
+4.8 that is [`core/spf/`](../spf/API.md)**, and the composition root imports it
+from there and injects it here.
 
-**This is a transitional capability, not the target shape.** Cross-protocol
-composition belongs to the audit layer: once `core/spf/` can expose its parsed
-references, audit derives the catalog keys and passes the derived input, and
-this parameter goes away. Task 4.8 and Phase 5 own that move. Nothing here
-should be built to depend on the arrangement lasting.
+**This is still a transitional capability, not the target shape.**
+Cross-protocol composition belongs to the audit layer: **Phase 5** replaces
+this string-taking collaborator with audit-derived input — audit parses the
+references once and passes the derived catalog keys — after which this
+parameter goes away. Nothing here should be built to depend on the arrangement
+lasting.
 
 `checkDKIM()`'s signature is **unchanged** — it still takes the SPF record as a
 string — because changing it is the composition decision this task is
