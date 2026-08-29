@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 79,
+      "assertions": 80,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -403,6 +403,18 @@
         "the THREE ways to have no mail — @null-mx, @implicit-mx, @none — proven distinct, with the null-MX test shown to come first",
         "isNullMx is a capability and not an import: a detector over a predicate that never fires cannot produce @null-mx, and one that always fires produces it for any MX set",
         "hosting detection and the same-domain CNAME that is not a loop"
+      ]
+    },
+    {
+      "path": "src/audit/context.test.js",
+      "assertions": 39,
+      "areas": [
+        "the audited name, normalized the way analyzeDomain() has always normalized it",
+        "the options in force, carried without defaulting or coercion",
+        "the query options: the abort signal, and exactly nothing else",
+        "the cd=1 re-issue, which never mutates options a query already holds",
+        "the accumulated result, its key order and its isolation from the audit",
+        "the boundary: no cache, no resolver, no parsing, no scoring"
       ]
     },
     {

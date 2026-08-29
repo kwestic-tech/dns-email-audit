@@ -173,6 +173,13 @@ section('5. Allowed edges and the cycle rule');
  * matrix is a test failure, not a judgment call.
  */
 const ALLOWED_EDGES = {
+  // Created at Task 5.1. §12: audit reaches the protocol owners, `providers/`
+  // and its own siblings — NOT `core/dns/` (the resolver handle is passed) and
+  // not `core/shared/`, which the matrix does not give it. The row is written
+  // from the matrix rather than from what `context.js` happens to import
+  // today, which is nothing at all.
+  'audit': ['core/bimi', 'core/caa', 'core/dkim', 'core/dmarc', 'core/dnssec',
+    'core/mx', 'core/spf', 'core/transport', 'providers', 'audit'],
   'core/bimi': ['core/shared'],
   'core/caa': ['core/shared'],
   'core/dkim': ['core/shared'],

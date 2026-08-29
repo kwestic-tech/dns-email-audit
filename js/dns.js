@@ -83,6 +83,7 @@ import {
   classifySpfSubnets, stripSpfQualifier, spfReferencedCatalogKeys,
 } from '../src/core/spf/spf.js';
 import { createDetectors } from '../src/providers/detectors.js';
+import { createAuditContext } from '../src/audit/context.js';
 
 export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
   // Named, not reached for. `fetch` is the load-bearing one: the DoH fixture
@@ -1130,8 +1131,14 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
   /* ── Orchestrated per-domain audit ──────────────────────────────────── */
 
   async function analyzeDomain(domain, opts) {
-    const d = domain.toLowerCase().trim();
-    let queryOpts = { signal: opts.signal };
+    // Task 5.1. The state that belongs to THIS audit — the options in force,
+    // the query options they produce, and the result being accumulated — is
+    // the context's. Everything else below is still this function's, including
+    // the Promise.all structure Task 5.2 moves. `queryOpts` keeps its name, so
+    // no query call site changed.
+    const ctx = createAuditContext({ domain, options: opts });
+    const d = ctx.domain;
+    let queryOpts = ctx.queryOptions;
     let dnssecPreflight = null;
 
     // Probe NS first — NXDOMAIN (Status 3) means the domain isn't registered
@@ -1144,17 +1151,18 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
     // retrieve the remaining diagnostic records with checking disabled. The
     // DNSSEC result still comes from the validating query; cd=1 merely lets the
     // rest of the row exist so the operator can see the failure and its data.
-    if (nsResult.kind === 'servfail' && opts.advanced) {
+    if (nsResult.kind === 'servfail' && ctx.options.advanced) {
       dnssecPreflight = await checkDNSSEC(d, queryOpts);
       if (dnssecPreflight.state === 'bogus') {
-        queryOpts = Object.assign({}, queryOpts, { checkingDisabled: true });
+        queryOpts = ctx.disableDnssecChecking();
         nsResult = await dohFetch(d, 'NS', queryOpts);
       }
     }
     requireUsable(nsResult, d, 'NS');
     const ns = nsResult.answers.filter(a => a.type === 2).map(a => a.data.replace(/^"|"$/g, '').trim());
     if (nsResult.status === 3) {
-      return { domain: d, unregistered: true, error: false };
+      ctx.record({ unregistered: true, error: false });
+      return ctx.result();
     }
 
     const [mx, txt, aRec, aaaaRec] = await Promise.all([
@@ -1245,7 +1253,7 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
     let wildcardApex = false;
     let wildcardDkim = false;
     let wildcardDkimRecords = [];
-    if (opts.wildcard) {
+    if (ctx.options.wildcard) {
       const [apexProbe, dkimProbe] = await Promise.all([
         optionalCheck(() => dohQuery(`_wildcardtest99xyz.${d}`, 'TXT', queryOpts), null),
         optionalCheck(() => dohQuery(`_wildcardtest99xyz._domainkey.${d}`, 'TXT', queryOpts), null),
@@ -1256,12 +1264,12 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
     }
 
     let dkimStatus = { found: false, selectors: [], testedSelectors: [], confidence: 'not-checked', note: '' };
-    if (opts.dkim && emailProvider !== '@none' && emailProvider !== '@null-mx') {
-      dkimStatus = await checkDKIM(d, { dkim: wildcardDkim, records: wildcardDkimRecords }, opts.selectors, emailProvider, opts.dkimComprehensive, spfRecord, queryOpts);
+    if (ctx.options.dkim && emailProvider !== '@none' && emailProvider !== '@null-mx') {
+      dkimStatus = await checkDKIM(d, { dkim: wildcardDkim, records: wildcardDkimRecords }, ctx.options.selectors, emailProvider, ctx.options.dkimComprehensive, spfRecord, queryOpts);
     }
 
     let hosting = '@dash';
-    if (opts.www) {
+    if (ctx.options.www) {
       const website = await optionalCheck(
         () => resolveWebsite(d, queryOpts),
         error => ({ loop: false, chain: [], addresses: [], error: (error && error.kind) || 'dns-error' })
@@ -1273,7 +1281,7 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
 
     // ── Advanced checks ──
     let advanced = { bimi: null, mtaSts: null, tlsRpt: null, caa: null, dnssec: null, spfLookups: null, spfSubnets: null, reportAuth: null, mxHealth: null, tlsa: null };
-    if (opts.advanced) {
+    if (ctx.options.advanced) {
       // Every entry is wrapped independently. Promise.all rejects on the first
       // failure, so without this one unlucky lookup would take the other six
       // down with it and abort the audit.
@@ -1358,7 +1366,7 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
       //
       // A null MX (RFC 7505) is skipped: the domain has declared it accepts no
       // mail, so there is no host to resolve and nothing to say about TLSA.
-      if (opts.deepChecks && mx.length && !isNullMx(mx)) {
+      if (ctx.options.deepChecks && mx.length && !isNullMx(mx)) {
         const mxHealth = await optionalCheck(() => auditMxHosts(mx, d, queryOpts),
           () => ({ hosts: [], danglingHosts: [], cnameHosts: [], duplicatePreferences: [], singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [], unknown: true }));
         const tlsaHosts = mxHealth.hosts.map(h => h.host);
@@ -1372,17 +1380,18 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
     const issues = buildIssues({ emailProvider, spfStatus, spfRecords, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan, wildcardApex, wildcardDkim, hosting, advanced, domain: d });
     const suggestions = buildSuggestions({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
     const score = calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
-    const advScore = opts.advanced ? calcAdvScore(advanced) : null;
+    const advScore = ctx.options.advanced ? calcAdvScore(advanced) : null;
 
-    return {
-      domain: d, ns, mx, txt, aRec, aaaaRec, dnsProvider, emailProvider,
+    ctx.record({
+      ns, mx, txt, aRec, aaaaRec, dnsProvider, emailProvider,
       spfRecord, spfRecords, spfStatus, dmarcRecord, dmarcStatus, dmarcDiscovery, dmarcExistence,
       // Retained as an alias of dmarcDiscovery.applied.foundAt for one release
       // so the CSV export and the saved report keep working, then removed.
       dmarcAtDomain, organizationalDomain, dkimStatus,
       wildcardApex, wildcardDkim, hosting, verifications, advanced, advScore,
       issues, suggestions, score,
-    };
+    });
+    return ctx.result();
   }
 
   return {

@@ -214,7 +214,8 @@ const entryPoint = 'main.js';
 // now, and it is the last file that was under `js/` apart from `dns.js`.
 eq('src/ holds the entry point, the runtime and the converted layers',
   codeModules.sort(),
-  ['core/bimi/bimi.js', 'core/caa/caa.js', 'core/dkim/dkim.js',
+  ['audit/context.js',
+    'core/bimi/bimi.js', 'core/caa/caa.js', 'core/dkim/dkim.js',
     'core/dmarc/org-domain.js', 'core/dmarc/record.js',
     'core/dmarc/report-auth.js', 'core/dmarc/tree-walk.js',
     'core/dns/cache.js', 'core/dns/doh.js', 'core/dns/errors.js', 'core/dns/existence.js',
