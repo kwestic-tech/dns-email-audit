@@ -5,9 +5,11 @@
  * The properties held still here are the ones where a wrong answer is
  * confident rather than absent:
  *
- *  - `cryptoValidated` is `null` / `true` / `false`, and `null` must never
- *    collapse into `false`. "We could not check" and "your key is broken" are
- *    different sentences.
+ *  - `cryptoValidated` is `null` / `true` / `false`, and each is asserted by
+ *    identity. `null` is "we could not check" — no implementation, or a format
+ *    `importKey` has no name for. `false` is "Web Crypto rejected an SPKI key
+ *    it should have read", which DOES claim structural invalidity. Collapsing
+ *    either into the other says something the code does not.
  *  - a revoked key (`p=`) is a FINDING, not an absent key.
  *  - `DKIM_SCAN_BATCH_SIZE` is 24 — it bounds concurrency, not the query
  *    count, and Phase 4 forbids concurrency changes.
@@ -197,12 +199,23 @@ eq('with no subtle implementation the answer stays null', unchecked.cryptoValida
 eq('and the DER-derived size is untouched', unchecked.keyBits, key.keyBits);
 eq('and the key is still valid', unchecked.valid, key.valid);
 
-// A runtime that refuses every import: still not the operator's fault.
+/**
+ * An SPKI key Web Crypto REJECTS. This is the `false` case, and it is a real
+ * claim of structural invalidity — not the same as a missing API or a format
+ * `importKey` has no name for, both of which stay `null`.
+ *
+ * Asserted exactly, because an assertion that accepts `false || null` here
+ * would pass whichever value the implementation produced and prove neither.
+ */
 const refuses = build({ subtle: { subtle: { importKey: async () => { throw new Error('nope'); } } } });
 const declined = await refuses.validateDkimKeyStructure({ ...key }, `v=DKIM1; k=rsa; p=${rsaKey()}`);
-eq('a refused import does not claim the key is broken',
-  declined.cryptoValidated === false || declined.cryptoValidated === null, true);
-eq('and the size survives it', declined.keyBits, key.keyBits);
+eq('a rejected SPKI import is false, not null', declined.cryptoValidated, false);
+eq('and it invalidates the key', declined.valid, false);
+eq('naming the reason', declined.errors.includes('key-structure-invalid'), true);
+// The size was read from the DER without the browser's help and does not
+// become less true because the browser declined to confirm it.
+eq('while the DER-derived size is unchanged', declined.keyBits, key.keyBits);
+eq('which was 2048 before the attempt', key.keyBits, 2048);
 
 // A runtime that accepts: the confirmation is recorded.
 const accepts = build({ subtle: { subtle: { importKey: async () => ({}) } } });

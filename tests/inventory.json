@@ -367,13 +367,13 @@
     },
     {
       "path": "src/core/dkim/dkim.test.js",
-      "assertions": 54,
+      "assertions": 57,
       "note": "Co-located per spec §9. Phase 4, Task 4.7. Runs against a fake transport, a substitute catalog, a REAL 2048-bit RSA SPKI key, and where it matters a runtime with no subtle implementation at all.",
       "areas": [
         "DKIM_SCAN_BATCH_SIZE is 24 and bounds CONCURRENCY, not the query count — a list longer than one batch is shown to be queried in full",
         "the factory returns its ten members, counted rather than trusted to a doc comment",
+        "cryptoValidated is null / true / false asserted BY IDENTITY: a rejected SPKI import is false and claims structural invalidity — valid false, key-structure-invalid, DER size unchanged — while a missing implementation stays null",
         "tag names are NOT lowercased — RFC 6376 §3.2 makes them case-sensitive, unlike DMARC's",
-        "cryptoValidated is null / true / false, and null never collapses into false; the DER-derived size survives every case",
         "a revoked key is a VALID record that does not apply to email — collapsing revocation into a parse failure loses an existing finding",
         "the catalog is injected and reached through the provider-name-to-catalog-key indirection, so two catalogs disagree",
         "the TRANSITIONAL spfReferencedCatalogKeys collaborator widens the scan, and attribution omits selectors the baseline would have supplied anyway"

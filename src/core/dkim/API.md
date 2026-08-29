@@ -93,9 +93,19 @@ It is preserved for two other reasons, and they are the real ones:
 | `false` | Web Crypto rejected an SPKI key it should have been able to read. |
 
 `null` must never collapse into `false`. Silence about our own environment and
-a verdict about the operator's key are different sentences, and the DER-derived
-size stays exactly as it was in every case — it was read without the browser's
-help and does not become less true because the browser declined to confirm it.
+a verdict about the operator's key are different sentences.
+
+The `false` case is a **real claim of structural invalidity**, and it carries
+consequences the other two do not:
+
+| | `cryptoValidated` | `valid` | `errors` | `keyBits` |
+| --- | --- | --- | --- | --- |
+| No implementation, or a format `importKey` has no name for | `null` | unchanged | unchanged | unchanged |
+| Accepted | `true` | unchanged | unchanged | unchanged |
+| **SPKI rejected** | `false` | **`false`** | gains `key-structure-invalid` | **unchanged** |
+
+The DER-derived size survives all three. It was read without the browser's help
+and does not become less true because the browser declined to confirm it.
 
 ## Revoked is not absent
 
