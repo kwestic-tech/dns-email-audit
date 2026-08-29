@@ -214,7 +214,7 @@ const entryPoint = 'main.js';
 // now, and it is the last file that was under `js/` apart from `dns.js`.
 eq('src/ holds the entry point, the runtime and the converted layers',
   codeModules.sort(),
-  ['core/bimi/bimi.js', 'core/caa/caa.js',
+  ['core/bimi/bimi.js', 'core/caa/caa.js', 'core/dkim/dkim.js',
     'core/dmarc/org-domain.js', 'core/dmarc/record.js',
     'core/dmarc/report-auth.js', 'core/dmarc/tree-walk.js',
     'core/dns/cache.js', 'core/dns/doh.js', 'core/dns/errors.js', 'core/dns/existence.js',
@@ -330,6 +330,12 @@ eq('a numeric-keyed state map has the same shape — the predicate cannot tell',
 const REFERENCE_VOCABULARIES = [
   'core/dmarc/record.js:DMARC_TAGS_RFC9989',
   'core/dmarc/record.js:DMARC_TAGS_REMOVED',
+  // Accepted at Task 4.7. INPUT vocabulary, not a result algebra: it defines
+  // the selector names the audit TRIES, while the selectors a result reports
+  // as observed are unbounded. Its export is also required to reconstruct the
+  // transitional legacy engine surface. Third instance of the same
+  // clarification, first outside `core/dmarc/`.
+  'core/dkim/dkim.js:DKIM_SELECTORS',
 ];
 
 const unknownConstants = [];

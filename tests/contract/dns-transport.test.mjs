@@ -175,6 +175,7 @@ section('5. Allowed edges and the cycle rule');
 const ALLOWED_EDGES = {
   'core/bimi': ['core/shared'],
   'core/caa': ['core/shared'],
+  'core/dkim': ['core/shared'],
   'core/dmarc': ['core/shared'],
   'core/dns': ['core/dns', 'core/shared'],
   'core/dnssec': ['core/shared'],

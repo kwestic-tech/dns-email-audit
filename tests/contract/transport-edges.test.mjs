@@ -88,6 +88,7 @@ const SCANNED = ['js/dns.js', ...LAYER_IMPLEMENTATIONS,
   // a protocol owner must be caught wherever it lands, not only in the file
   // that happens to hold one today.
   'src/core/caa/caa.js', 'src/core/mx/mx.js', 'src/core/bimi/bimi.js',
+  'src/core/dkim/dkim.js',
   'src/core/dmarc/record.js', 'src/core/dmarc/org-domain.js',
   'src/core/dmarc/tree-walk.js', 'src/core/dmarc/report-auth.js',
   'src/core/transport/mta-sts.js', 'src/core/transport/tls-rpt.js',
