@@ -45,7 +45,7 @@ The element builder and row renderer. Covered by `tools/render.test.mjs`.
 
 | Export | Kind | Contract |
 | --- | --- | --- |
-| `createUi(capabilities)` | factory | Wires the page and returns the members `__APP_TEST__` publishes. Constructing it registers the one `DOMContentLoaded` listener. |
+| `createUi(capabilities)` | factory | Wires the page and returns a test-accessible UI object. Constructing it registers the one `DOMContentLoaded` listener. |
 
 **It receives the audit, it does not import it.** `analyzeDomain` and
 `checkConnectivity` — the two supported facade members — arrive as callbacks,
@@ -64,13 +64,17 @@ equivalence surfaces measures. `runtime.test.mjs` §2b asserts the count
 structurally, and that the entry point registers none. It is a lexical scan and
 says so: it counts registration sites, not runtime behaviour.
 
-#### The compatibility surfaces did not move
+#### Reached by import, not by a published name
 
-`__APP_TEST__` and the five i18n/renderer global names stay in `src/main.js`,
-which is the marked adapter. This module returns the members and lets the
-composition root do the assigning, so the global surface is still written in
-exactly one place a sentinel scan can find. Phase 6 retires them with their
-owners.
+`createUi()` returns the page's internals, and **production owns them**:
+`src/runtime.js` holds the object as `runtime.ui`. `tools/render.test.mjs` and
+`tools/export.test.mjs` reach it through the harness's `loadUi()`, which
+composes a real runtime and hands back what it built.
+
+**No global is involved.** Through Task 6.1 these members were published as
+`window.__APP_TEST__` by a marked adapter in `src/main.js`; Task 6.2 retired
+the adapter, and both suites kept their counts — 329 and 199 — across the
+move.
 
 ### `report.js`
 

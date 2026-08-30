@@ -130,8 +130,10 @@ eq('and declares nothing the spec does not name',
  * Defense in depth against REGRESSION. Not a completeness proof, and spec `1.2`
  * corrects the `1.1` wording that called it one.
  *
- * What this establishes: no module under `src/` reads a name from the catalog
- * below outside the platform module and the marked adapters.
+ * What this establishes: **no module under `src/` reads a name from the
+ * catalog below, with one exemption — the platform module itself.** There were
+ * two more until Task 6.2 retired both adapters; the scan covers everything
+ * they used to be excused from.
  *
  * What it does not, and cannot:
  *
@@ -161,8 +163,12 @@ const srcFiles = (function walk(dir) {
 const reaching = [];
 for (const file of srcFiles) {
   const text = readFileSync(file, 'utf8');
-  if (text.includes('LEGACY_ADAPTER')) continue;             // marked adapters may
-  if (file.endsWith(join('platform', 'browser.js'))) continue; // and the adapter itself
+  // ONE exemption, and it is the module whose whole job is the ambient read.
+  // The marked-adapter escape that used to sit here is gone: Task 6.2 retired
+  // both adapters, so every other module under `src/` is scanned — which makes
+  // "zero adapters" an architectural state this contract depends on, not just
+  // a number two other tests count.
+  if (file.endsWith(join('platform', 'browser.js'))) continue;
   const body = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
   for (const name of AMBIENT) {
     // A bare reference, not a property of something and not a declared local.
@@ -316,7 +322,8 @@ eq('the platform module exists', existsSync(join(REPO, 'src/platform/browser.js'
 eq('and imports nothing — §12 gives it no outgoing edges',
   /^\s*import\s/m.test(source), false);
 // It reads ambient names only through its `win` argument, which is what keeps
-// browser-global access confined to it and to the marked adapters.
+// browser-global access confined to this module and to the one ambient read an
+// entry point has to make — `createBrowserPlatform(window)` in `src/main.js`.
 eq('it never reaches for the ambient window itself',
   /\b(?:^|[^.\w])window\s*\./.test(source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')), false);
 

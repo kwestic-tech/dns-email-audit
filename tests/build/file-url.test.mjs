@@ -161,9 +161,9 @@ const facts = await evaluate(`JSON.stringify({
   protocol: location.protocol,
   scripts: [...document.querySelectorAll('script[src]')].map(s => s.getAttribute('src')),
   moduleScripts: document.querySelectorAll('script[type=module]').length,
-  // Every name the application has EVER published, probed for presence. The
-  // nine Task 6.2 removed are in the list on purpose: a real browser is the
-  // last place they could still be hiding.
+  // Every name the application has EVER published, probed for presence — a
+  // watchlist, not an inventory. The nine Task 6.2 removed are in the list on
+  // purpose: a real browser is the last place they could still be hiding.
   globals: ['DnsAudit','R','i18n','t','tp','tRaw','__APP_TEST__',
             '__PUBLIC_SUFFIX_RULES__','__I18N_EN__','__DKIM_SELECTOR_CATALOG__']
            .filter(n => typeof window[n] !== 'undefined'),
@@ -218,7 +218,10 @@ section('3. i18n resolved with no network');
 
 // The point of the inlined English bundle. Under file:// a fetch of
 // locales/en.json is blocked, so if the app is showing real text it can only
-// have come from __I18N_EN__.
+// have come from `src/data/locales-en.js`, bundled INTO the artifact. It used
+// to be reachable as `window.__I18N_EN__`; Task 6.2 retired that global with
+// the last adapter, and the evidence is the rendered prose rather than the
+// name.
 eq('the i18n layer selected English', page1?.lang, 'en');
 eq('t() returns real text, not the key',
   page1?.title, 'DNS & Email Security Auditor — Free SPF, DKIM, DMARC & DNSSEC Checker');

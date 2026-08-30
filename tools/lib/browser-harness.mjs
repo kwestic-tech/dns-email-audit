@@ -11,7 +11,23 @@
    What the shim still provides is the browser: a document, a window object and
    the §11 primitive set. `src/main.js` builds its platform from
    `globalThis.window`, so this file installs one before importing it. That
-   read is the reason `src/main.js` carries the LEGACY_ADAPTER sentinel.
+   ambient read is the one an entry point has to make; it is not a debt, and
+   since Task 6.2 there is no adapter marker on the file.
+
+   ── Three modes, and they answer different questions ─────────────────────
+
+   | Mode | Builds | Gives back |
+   | --- | --- | --- |
+   | `loadApp()` | imports `src/main.js` — the real entry point | the shim window, on which the application publishes exactly ONE name: the `DnsAudit` global esbuild generates from the entry's two exports |
+   | `loadApp({ app: false })` | the lower layers, test-locally, with fixture bindings allowed | the same window, plus **shim properties this file attaches for the suite** — `i18n`, `t`, `R`, and the three `__…__` table bindings |
+   | `loadUi()` | a production runtime, via `createAuditRuntime()` | its parts — renderer, i18n, and the UI object — returned, never published |
+
+   **The `app: false` shim properties are not application globals.** Nothing in
+   `src/` writes them; this file does, on a private window, so a suite can prove
+   WHICH generated table it was handed rather than trusting that it asked for
+   the right one. Describing them as the application's surface would be exactly
+   backwards — the application's surface is one name, and `parity.test.mjs` and
+   `file-url.test.mjs` assert that against the artifact and against Chrome.
 
    ── One application per process ─────────────────────────────────────────
 
@@ -92,9 +108,11 @@ function createWindow() {
 }
 
 /**
- * Returns the application's window: `R`, `i18n`, `t`, `__APP_TEST__` and the
- * rest of the surface `src/main.js` installs, plus a few ids the renderer
- * writes into.
+ * Load the application, or the layers beneath it, into a shim window.
+ *
+ * With `app: true` (the default) this imports the real entry point, which
+ * publishes ONE name — the `DnsAudit` global esbuild generates from its two
+ * exports. Everything else on the returned window is the shim's own.
  *
  * `opts.app: false` stops before the entry point and constructs only the i18n
  * and render layers, for the interpolation suite, which needs neither a DOM

@@ -549,7 +549,7 @@
         "the targeted legacy contracts are wired",
         "the legacy entry point has no exports, which is what keeps globalName safe to omit",
         "src/data/ is a sink: the generated tables import nothing and export exactly one table each",
-        "every adapter carries the LEGACY_ADAPTER sentinel, and the remaining count is reported",
+        "no marked adapter remains under src/ — asserted at exactly zero, with the sentinel scan proven able to see one",
         "the import-graph FLOOR is defined mechanically: src/data/ and src/platform/ import nothing, and a file that grows an import rejoins the state comparison",
         "numeric-keyed reference tables are excused from the state-constant comparison by TWO controls — a shape test that finds candidates, proven in both directions AND proven unable to tell a numeric-keyed state map apart, and a closed four-entry inventory that is the semantic allowlist",
         "reference VOCABULARIES exported as arrays are excused by a closed named inventory alone — there is no shape test, because a reference list and a state list are both arrays of strings",
@@ -561,8 +561,8 @@
       "assertions": 18,
       "areas": [
         "the 24-name global inventory is closed",
-        "no module under src/ reads or writes one of them outside a marked adapter",
-        "the marked adapters are named, and the remaining count is reported",
+        "no module under src/ reads or writes a browser global at all — there is no adapter left to excuse one",
+        "the marked-adapter list is empty, and the 24 historical names remain a watchlist so a reintroduction fails",
         "the scan catches window, globalThis and self, and ignores comments and same-named locals",
         "what still reaches for globals under js/ is counted, so a phase that adds one is visible"
       ]
@@ -602,8 +602,8 @@
       "assertions": 70,
       "areas": [
         "the artifact under test is the one index.html names and _site publishes",
-        "the built artifact creates the same 24 globals as the source, and introduces none of its own",
-        "DnsAudit's 95 members and __APP_TEST__ match between source and bundle",
+        "the artifact creates exactly one global, DnsAudit, and the source graph creates none — the one name esbuild generates from the entry point’s exports",
+        "DnsAudit is the two-member facade on both sides, and __APP_TEST__ is absent from both",
         "WEIGHTS, PARKED_WEIGHTS, GRADE_THRESHOLDS and POLICY_RANK are byte-identical",
         "generated data survived bundling: the whole PSL, the catalog, and the inlined English bundle",
         "computed behaviour agrees — the PSL-reading org-domain walk and the DER key walk",
@@ -626,7 +626,7 @@
     },
     {
       "path": "tests/build/equivalence.validate.mjs",
-      "assertions": 76,
+      "assertions": 77,
       "areas": [
         "the runner is deterministic across two runs of one root",
         "each of the five surfaces distinguishes cases",

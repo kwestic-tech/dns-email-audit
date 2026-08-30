@@ -19,10 +19,17 @@
    ── It writes no global ─────────────────────────────────────────────────
 
    **Task 6.2 retired the last adapter.** This file used to publish nine names
-   on `window` — `__APP_TEST__`, the i18n and renderer wiring, and the three
-   generated tables — and carried the adapter sentinel that counted it. Every
-   one of them had a consumer with no ESM owner; each owner exists now, so the
-   source graph creates **zero** globals.
+   on `window` and carried the adapter sentinel that counted it. They were not
+   nine of a kind, and the retained record in
+   `tests/fixtures/equivalence/compatibility-deltas.json` says so per group:
+
+   | Names | What actually read them |
+   | --- | --- |
+   | `__APP_TEST__` | two test suites, 528 assertions — real consumers, now direct ESM imports |
+   | `__PUBLIC_SUFFIX_RULES__`, `__DKIM_SELECTOR_CATALOG__`, `__I18N_EN__` | test-only artifact and fixture-identity probes, now reading the artifact and the source modules |
+   | `i18n`, `t`, `tp`, `tRaw`, `R` | **nothing** — retained for browser-surface neutrality, not for a consumer |
+
+   The source graph creates **zero** globals.
 
    The sentinel string is deliberately not written here, not even in prose:
    `state-matrix.test.mjs` counts literal occurrences, and a file that

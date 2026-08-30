@@ -427,8 +427,15 @@ const lastImportAt = [...entry.matchAll(/^import\b.*$/gm)].pop().index;
 const runtimeAt = entry.indexOf('createAuditRuntime({');
 eq('the entry point constructs its runtime after every import',
   runtimeAt > lastImportAt, true);
+// Comments first: the entry point's header names all three while explaining
+// that they were retired, and a scan that counted prose would report the
+// opposite of the truth. Second time that shape has bitten in Phase 6.
+const entryCode = entry.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 eq('and it installs no generated-data global at all',
-  /__PUBLIC_SUFFIX_RULES__|__DKIM_SELECTOR_CATALOG__|__I18N_EN__/.test(entry), false);
+  /__PUBLIC_SUFFIX_RULES__|__DKIM_SELECTOR_CATALOG__|__I18N_EN__/.test(entryCode), false);
+// Proven able to fire: the names ARE in the file, just not in its code.
+eq('while the header does discuss them',
+  /__PUBLIC_SUFFIX_RULES__/.test(entry), true);
 eq('the namespace contract exists to hold the property this used to test',
   existsSync(join(REPO, 'tests/contract/namespace.test.mjs')), true);
 

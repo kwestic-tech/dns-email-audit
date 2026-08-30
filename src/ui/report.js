@@ -332,8 +332,10 @@ export function createReport(capabilities) {
 
   return {
     exportCSV, exportHTML,
-    // Reached by `tools/export.test.mjs` through `__APP_TEST__`, which drives
-    // these directly rather than through a live page.
+    // Reached by `tools/export.test.mjs` through the UI object `createUi()`
+    // returns — `loadUi()` composes a runtime and hands it back — so these are
+    // driven directly rather than through a live page, and by import rather
+    // than through any published name.
     buildCsvRows, toCsvText, neutralizeCsvCell, buildReportDocument,
   };
 }

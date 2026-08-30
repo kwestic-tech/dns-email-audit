@@ -37,9 +37,23 @@ const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '.
 const { eq, section, report } = createSuite();
 
 /**
- * The 24 globals the application created at v0.5.0, from spec §10's inventory.
- * Closed, and asserted against the built artifact by
- * `tests/build/parity.test.mjs` — this file governs the SOURCE graph.
+ * A HISTORICAL WATCHLIST, not the current published inventory.
+ *
+ * These are the 24 names the application created at `v0.5.0`, from spec §10.
+ * Every one of them is gone: Task 2.7 contracted `DnsAudit` to two members,
+ * Task 2.8 removed the fourteen function globals, and Task 6.2 retired the
+ * last nine with both marked adapters.
+ *
+ * **All 24 are kept deliberately**, because the check this list feeds is about
+ * REINTRODUCTION: a module that starts writing any of them fails here. A
+ * watchlist that shrank as names were retired would stop watching exactly the
+ * names most likely to come back.
+ *
+ * The CURRENT runtime surface is one generated global with two members —
+ * `window.DnsAudit`, produced by esbuild from the entry point's exports.
+ * `tests/build/parity.test.mjs` asserts it against the artifact and
+ * `tests/build/file-url.test.mjs` against real Chrome. This file governs the
+ * SOURCE graph, which creates none.
  */
 const GLOBALS = [
   'DnsAudit', '__APP_TEST__',

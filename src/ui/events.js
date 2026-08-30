@@ -33,11 +33,13 @@
  * be, so nothing was reflowed. No control, no listener, no concurrency limit
  * and no boot order changed.
  *
- * The compatibility surfaces stay in `src/main.js` and are NOT moved here —
- * `__APP_TEST__` and the five i18n/renderer global names are marked adapters
- * that retire in Phase 6 with their owners. This module returns the members
- * `__APP_TEST__` needs and lets the composition root do the assigning, so the
- * global surface is still written in exactly one marked place.
+ * `createUi()` returns a test-accessible UI object alongside wiring the page.
+ * **Production owns it:** `src/runtime.js` builds it and exposes it as
+ * `runtime.ui`, and `tools/render.test.mjs` and `tools/export.test.mjs` reach
+ * it through the harness's `loadUi()`, which composes a real runtime. **No
+ * global is involved.** Through Task 6.1 those members were published as
+ * `window.__APP_TEST__` by a marked adapter in `src/main.js`; Task 6.2 retired
+ * the adapter and the name with it.
  */
 import { createReport, serializeDocument, styleElement } from './report.js';
 
@@ -73,7 +75,9 @@ export function createUi(capabilities) {
    * ambient scan recognizes `const { … } = platform` as a declaration and does
    * not recognize the assignment form — a stated limit of a lexical scan. The
    * nine lines this replaced lived in `src/main.js`, which the scan skips
-   * entirely because it is a marked adapter, so they were never checked there.
+   * entirely — it was a marked adapter then — so they were never checked
+   * there. There are no adapters now, and `platform.test.mjs` scans every
+   * module under `src/` except the platform adapter itself.
    * Adjusted to rather than exempted, the way `core/dns/doh.js` did.
    */
   const {
@@ -1593,10 +1597,12 @@ export function createUi(capabilities) {
   });
 
   /**
-   * The members `__APP_TEST__` needs, handed back for the composition root to
-   * assign. `tools/render.test.mjs` and `tools/export.test.mjs` drive these
-   * directly rather than through a live page; the marked adapter that puts
-   * them on the window stays in `src/main.js` and retires in Phase 6.
+   * The page's internals, returned rather than published.
+   *
+   * `src/runtime.js` holds this as `runtime.ui`; `tools/render.test.mjs` and
+   * `tools/export.test.mjs` reach it through the harness's `loadUi()`, which
+   * composes a real runtime and hands back what it built. They drive these
+   * directly rather than through a live page, and no global carries them.
    */
   return {
     appendRow, buildLearnMorePage, buildReportDocument, buildCsvRows, toCsvText,
