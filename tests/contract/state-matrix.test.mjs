@@ -228,7 +228,7 @@ eq('src/ holds the entry point, the runtime and the converted layers',
     'core/transport/ext-value.js', 'core/transport/mta-sts.js',
     'core/transport/tls-rpt.js', 'core/transport/tlsa.js',
     'i18n/index.js', 'main.js', 'providers/detectors.js', 'runtime.js',
-    'ui/render.js']);
+    'ui/render.js', 'ui/report.js']);
 
 /**
  * The entry point exports the §10 facade and NOTHING else.

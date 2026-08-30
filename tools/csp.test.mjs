@@ -196,11 +196,23 @@ for (const file of scanned) {
 /* ── 5. The report's own policy ──────────────────────────────────────── */
 section('5. The exported report declares its own policy');
 
-const app = readFileSync(join(REPO, 'src', 'main.js'), 'utf8');
+// Follows the report builder, which moved to its owner at Task 5.5. A source
+// assertion that keeps reading the file the code has LEFT goes green while
+// checking nothing — so the file is named once and the presence of the builder
+// in it is asserted before its policy is.
+const REPORT = join('src', 'ui', 'report.js');
+const report = readFileSync(join(REPO, REPORT), 'utf8');
+eq(`${REPORT} is where the report is built`,
+  report.includes('function buildReportDocument('), true);
 eq('the report builder emits a CSP meta tag',
-  app.includes('Content-Security-Policy'), true);
+  report.includes('Content-Security-Policy'), true);
 eq("the report's policy is default-src 'none'",
-  app.includes("default-src 'none'; style-src 'unsafe-inline'; img-src data:"), true);
+  report.includes("default-src 'none'; style-src 'unsafe-inline'; img-src data:"), true);
+// One construction site, so there is one place to change it. The module's
+// header quotes the policy too, which is documentation rather than a second
+// source of truth — so the count is of `content:` sites, not of the string.
+eq('the policy is constructed in exactly one place',
+  (report.match(/content: "default-src 'none'; style-src 'unsafe-inline'; img-src data:"/g) || []).length, 1);
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

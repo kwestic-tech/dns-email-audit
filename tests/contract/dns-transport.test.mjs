@@ -257,7 +257,16 @@ const ALLOWED_EDGES = {
   'i18n': ['core/shared'],
   'ui': ['ui', 'i18n'],
   'runtime.js': ['core/dns', 'core/shared', 'audit', 'ui', 'i18n'],
-  'main.js': ['runtime.js', 'platform', 'data'],
+  // §12's row is `runtime.js`, `platform/`, `data/` — and that describes
+  // `src/main.js` AFTER Task 5.6, when the UI body it still holds has moved to
+  // `ui/events.js` and this file is composition alone.
+  //
+  // Task 5.5 moved the exported CSV and report to `ui/report.js` while their
+  // only caller is still here, which is a real edge the matrix does not grant.
+  // It is admitted as TRANSITIONAL rather than pretended away — and it is
+  // made self-removing: the assertion below fails the moment `main.js` stops
+  // importing `ui/`, so the exemption cannot outlive the thing it excuses.
+  'main.js': ['runtime.js', 'platform', 'data', 'ui'],
   'providers': ['core/shared'],
 };
 
@@ -293,6 +302,16 @@ for (const path of modules) {
   }
 }
 eq('every import follows an allowed edge', violations, []);
+
+/**
+ * The transitional `main.js -> ui` exemption, forced to expire.
+ *
+ * An exemption nothing obliges you to remove is a permanent hole. This asserts
+ * the exemption is still NEEDED: once Task 5.6 moves the UI body out of
+ * `src/main.js`, this fails and the `'ui'` entry above has to come out with it.
+ */
+eq('the transitional main.js -> ui edge is still in use — remove it at Task 5.6',
+  (graph.get('main.js') || []).some(t => t.startsWith('ui/')), true);
 eq('and the graph is not empty — the check has something to walk', graph.size > 5, true);
 
 // Spec §12's floors.

@@ -91,6 +91,11 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 import { createAuditRuntime } from './runtime.js';
+// The exported CSV and HTML report, Task 5.5. `serializeDocument` and
+// `styleElement` come back here because `buildLearnMorePage()` emits a
+// standalone document too and must not hold a second copy of the `</style>`
+// escape rule.
+import { createReport, serializeDocument, styleElement } from './ui/report.js';
 import { createBrowserPlatform } from './platform/browser.js';
 import { LOCALE_EN } from './data/locales-en.js';
 import { PUBLIC_SUFFIX_RULES } from './data/public-suffixes.js';
@@ -460,20 +465,6 @@ global.R = R;
      construction — a text node containing `<script>` serializes to
      `&lt;script&gt;` and reparses back to the same text node.
      ──────────────────────────────────────────────────────────────────── */
-
-  function serializeDocument(doc) {
-    return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
-  }
-
-  // <style> is a raw-text element, so its contents are not entity-escaped by
-  // any serializer: a `</style>` inside the CSS would end the element early and
-  // everything after it would be parsed as markup. CSS has no legitimate use
-  // for '<' at all, so every one is rewritten to the CSS escape `\3c `, which
-  // renders identically and leaves no character that can open a tag. The
-  // stylesheet is ours either way; this costs nothing and removes the question.
-  function styleElement(D, css) {
-    return D.el('style', null, String(css).replace(/</g, '\\3c '));
-  }
 
   // Structure and styling live here; every word comes from the locale file
   // under learnMore.<key>.
@@ -1599,245 +1590,23 @@ global.R = R;
 
   /* ── Export ─────────────────────────────────────────────────────────── */
 
-  function dl(name, type, content) {
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([content], { type: type }));
-    a.download = name;
-    a.click();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
-  }
-
   /**
-   * Build the CSV rows. Split out from exportCSV so the export tests can
-   * assert on the data without a DOM or a download.
+   * The exported artifacts, Task 5.5. `src/ui/report.js` owns them now.
    *
-   * OQ-SEC-11: the data columns carry the published bytes exactly as received.
-   * Rewriting a cell to a sentinel string would break anyone piping this into
-   * a script, so the warning goes in its own `record_hygiene` column instead.
-   * That column is APPENDED, never inserted, because `csv.headers` is
-   * positional and a locale that predates it would otherwise misalign.
+   * `getResults` is an ACCESSOR rather than the array: `results` is REPLACED
+   * on each run, so a captured reference would export the previous one. The
+   * five row formatters are passed because they belong to the table renderer,
+   * which is still in this file; §12 gives `src/ui/` an edge to `ui/` siblings
+   * and `i18n/` only, so everything else here is supplied rather than reached
+   * for.
    */
-  function buildCsvRows(rows) {
-    var yes = t('csv.yes');
-    var no = t('csv.no');
-    var unknown = t('csv.unknown');
-    // Header arrays are positional, so a locale that predates a new column
-    // would silently misalign every CSV it exports. Backfill per index from
-    // English: English defines the column count, translations fill what they
-    // have. Never let the header row be shorter than the data row.
-    var enCols = (global.__I18N_EN__ && global.__I18N_EN__.csv && global.__I18N_EN__.csv.headers) || [];
-    var localeCols = tRaw('csv.headers') || [];
-    var cols = (enCols.length ? enCols : localeCols).map(function (h, i) { return localeCols[i] || h; });
-
-    var data = rows.filter(function (r) { return !r.error; }).map(function (r) {
-      if (r.unregistered) {
-        return [r.domain, no].concat(new Array(cols.length - 2).fill(''));
-      }
-      return [
-        r.domain, yes,
-        r.score.grade, r.score.pts,
-        label(r.dnsProvider), label(r.emailProvider),
-        r.spfStatus.status, spfRecordCell(r),
-        r.dkimStatus.found ? yes : (r.dkimStatus.confidence === 'sampled' || r.dkimStatus.confidence === 'not-checked') ? unknown : no,
-        (r.dkimStatus.selectors || []).map(function (s) {
-          return (s.uncommon ? t('dkim.uncommon', s.queryName) : s.sel + ' — ' + s.queryName) +
-            (s.viaSpf ? ' (' + t('dkim.viaSpf', s.viaSpf) + ')' : '') +
-            (s.cname ? ' | CNAME: ' + s.cname : '') + ' | TXT: ' + s.value;
-        }).concat((r.dkimStatus.missingSelectors || []).map(function (s) {
-          return t('dkim.noDomainKeyFound', s.queryName);
-        })).join(' || '),
-        r.dmarcStatus.status, r.dmarcStatus.policy || '',
-        r.dmarcStatus.testMode ? yes : no,
-        r.dmarcStatus.sp || '', r.dmarcStatus.np || '', r.dmarcStatus.pct,
-        r.dmarcStatus.adkim, r.dmarcStatus.aspf,
-        r.dmarcStatus.rua ? yes : no, r.dmarcStatus.ruf ? yes : no,
-        r.advanced?.bimi?.present ? yes : no,
-        r.advanced?.mtaSts?.policyVerified ? yes : r.advanced?.mtaSts?.present ? t('csv.txtOnly') : no,
-        r.advanced?.tlsRpt?.present ? yes : no,
-        r.advanced?.caa?.found ? t('csv.yesAt', r.advanced.caa.atDomain) : no,
-        r.advanced?.dnssec?.signed ? yes : r.advanced?.dnssec?.state || no,
-        r.advanced?.spfLookups?.count ?? '',
-        r.issues.map(function (i) { return issueMessage(i, false); }).join(' | '),
-        (r.suggestions || []).map(function (s) { return t('suggestion.' + s.key); }).join(' | '),
-        // Appended, never inserted, per the positional-header rule above.
-        R.hygieneOf(rowHygieneValues(r)).join(' '),
-        // Tree Walk provenance (spec §7). Tokens, not prose: `terminated` is
-        // the same vocabulary js/dns.js reports, so a script consuming this
-        // column does not have to parse a translated sentence.
-        r.dmarcDiscovery && r.dmarcDiscovery.applied ? r.dmarcDiscovery.applied.foundAt : '',
-        r.dmarcDiscovery && r.dmarcDiscovery.applied ? r.dmarcDiscovery.applied.labelsUp : '',
-        r.dmarcDiscovery ? r.dmarcDiscovery.terminated : '',
-        // 0.4.0 protocol depth. Appended, never inserted — `csv.headers` is
-        // positional and a consumer's column index must keep meaning what it
-        // meant last release.
-        (r.dkimStatus?.keyProfile?.algorithms || []).join(', '),
-        dkimKeyBitsCell(r.dkimStatus?.keyProfile),
-        (r.dkimStatus?.revokedSelectors || []).map(function (x) { return x.sel; }).join(', '),
-        (r.advanced?.caa?.issuers || []).join(', '),
-        // An absent issuewild set means the issue set governs wildcards. An
-        // empty cell here would be read as "wildcards unrestricted", which is
-        // the opposite of what the domain published, so it is named instead.
-        r.advanced?.caa?.found && r.advanced.caa.parsed
-          ? (r.advanced.caa.wildcardBlocked ? t('caa.wildcardBlocked')
-            : (r.advanced.caa.wildcardIssuers || []).length ? r.advanced.caa.wildcardIssuers.join(', ')
-              : t('caa.wildcardViaIssue'))
-          : '',
-        // Hosts we could not check are absent from danglingHosts by
-        // construction, so this column never accuses a host the audit did not
-        // actually resolve.
-        r.advanced?.mxHealth ? ((r.advanced.mxHealth.danglingHosts || []).join(', ') || no) : unknown,
-        r.advanced?.mxHealth ? (r.advanced.mxHealth.hosts || []).length : unknown,
-        r.advanced?.tlsa ? (r.advanced.tlsa.anyPresent ? yes : no) : unknown,
-      ];
+  const { exportCSV, exportHTML, buildCsvRows, toCsvText, neutralizeCsvCell, buildReportDocument } =
+    createReport({
+      document, platform, i18n, renderer: R,
+      englishBundle: global.__I18N_EN__,
+      label, issueMessage, spfRecordCell, dkimKeyBitsCell, rowHygieneValues,
+      showToast, $, getResults: function () { return results; },
     });
-
-    return [cols].concat(data);
-  }
-
-  /**
-   * Neutralize a cell a spreadsheet would execute as a formula.
-   *
-   * A domain controls its SPF, DMARC, DKIM, BIMI and CAA record text, so a
-   * value beginning `=`, `+`, `-`, `@`, or a tab/CR/LF becomes an active
-   * formula when the downloaded file is opened in Excel or Sheets. RFC 4180
-   * quoting does not prevent that — the quotes are stripped before the cell is
-   * evaluated.
-   *
-   * The file is named `.csv` and the button says "Export CSV", which invites
-   * exactly that. Spreadsheet safety therefore wins over byte fidelity here,
-   * reversing this release's earlier deferral; the change is disclosed by the
-   * `formula-leading` token in the `record_hygiene` column rather than applied
-   * silently. A leading apostrophe is the standard neutralizer and is not
-   * displayed by the spreadsheet.
-   */
-  function neutralizeCsvCell(value) {
-    var text = String(value === undefined || value === null ? '' : value);
-    return R.isFormulaLeading(text) ? "'" + text : text;
-  }
-
-  function toCsvText(rows) {
-    return rows.map(function (row) {
-      return row.map(function (c) {
-        // Neutralize first, quote second: the quoting is RFC 4180 transport,
-        // the neutralization is about what the spreadsheet does after parsing.
-        return '"' + neutralizeCsvCell(c).replace(/"/g, '""') + '"';
-      }).join(',');
-    }).join('\n');
-  }
-
-  function exportCSV() {
-    var csv = toCsvText(buildCsvRows(results));
-    // BOM keeps Excel happy with UTF-8 (accents, CJK) on Windows.
-    dl('dns-email-audit.csv', 'text/csv;charset=utf-8', '﻿' + csv);
-    showToast(t('toast.csvExported'));
-  }
-
-  // The app is no longer a single file, so the old
-  // `document.documentElement.outerHTML` trick would export a report with
-  // dead <link>/<script> references. Instead we build a self-contained,
-  // script-free snapshot with the stylesheet inlined.
-  async function getStylesheetText() {
-    try {
-      var r = await fetch('css/style.css');
-      if (r.ok) return await r.text();
-    } catch (e) { /* file:// or offline — fall through */ }
-    try {
-      return Array.from(document.styleSheets).map(function (sheet) {
-        try {
-          return Array.from(sheet.cssRules).map(function (rule) { return rule.cssText; }).join('\n');
-        } catch (e) { return ''; }
-      }).join('\n');
-    } catch (e) { return ''; }
-  }
-
-  /**
-   * Build the exported report as a detached tree and serialize once.
-   *
-   * Split from exportHTML so the export tests can drive it with synthetic
-   * nodes rather than a live page. `opts.content` are already-built nodes to
-   * adopt into the report document.
-   */
-  function buildReportDocument(opts) {
-    var doc = document.implementation.createHTMLDocument('');
-    var D = R.for(doc);
-
-    doc.documentElement.setAttribute('lang', opts.lang || 'en');
-    doc.head.appendChild(D.el('meta', { charset: 'UTF-8' }));
-    doc.head.appendChild(D.el('meta', {
-      name: 'viewport', content: 'width=device-width, initial-scale=1.0',
-    }));
-    // This file leaves the project's control the moment someone emails it, so
-    // it carries its own policy. 'unsafe-inline' for styles is acceptable here
-    // and only here: the report inlines the stylesheet by necessity and
-    // contains no script at all.
-    doc.head.appendChild(D.el('meta', {
-      'http-equiv': 'Content-Security-Policy',
-      content: "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
-    }));
-    doc.head.appendChild(D.el('title', null, opts.title));
-    doc.head.appendChild(styleElement(D, (opts.css || '') +
-      '\n/* static report overrides */\n' +
-      '.detail-row{display:table-row!important}.showme-content{display:block!important}\n' +
-      '.rv-rest{display:inline!important}.rv-more{display:none!important}\n' +
-      'thead th{cursor:default}\n'));
-
-    var page = D.el('div', { className: 'page' }, [
-      D.el('h1', { style: 'font-size:20px;margin-bottom:4px' }, opts.title),
-      D.el('p', { style: 'font-size:12px;color:var(--ink3);margin-bottom:20px' }, opts.generated),
-    ]);
-
-    if (opts.stats) {
-      page.appendChild(D.el('div', {
-        id: 'summarySection',
-        style: 'display:block;margin-bottom:24px',
-      }, [D.el('div', { className: 'stats-grid' }, opts.stats)]));
-    }
-    if (opts.content) page.appendChild(opts.content);
-    page.appendChild(D.el('div', { className: 'app-footer' }, opts.note));
-
-    doc.body.appendChild(page);
-    return serializeDocument(doc);
-  }
-
-  async function exportHTML() {
-    var css = await getStylesheetText();
-    if (!css) { showToast(t('toast.htmlExportFailed')); return; }
-
-    var table = $('resultsSection').cloneNode(true);
-    // Static report: every detail row open, every explainer expanded, no toggles.
-    table.querySelectorAll('.detail-row').forEach(function (el) {
-      el.classList.add('open');
-      el.style.display = '';
-    });
-    table.querySelectorAll('tr').forEach(function (el) { el.classList.remove('hidden'); });
-    table.querySelectorAll('.expand-toggle, .showme-btn, .learnmore-btn, .rv-more').forEach(function (el) { el.remove(); });
-    table.querySelectorAll('.showme-content').forEach(function (el) { el.style.display = 'block'; });
-    // Display caps never reach the data: the truncated remainder is revealed
-    // in the exported report rather than dropped from it.
-    table.querySelectorAll('.rv-rest').forEach(function (el) { el.style.display = 'inline'; });
-
-    var generated = platform.formatDateTime(undefined, i18n.lang);
-    var counted = results.filter(function (r) { return !r.error; }).length;
-
-    var content = document.createDocumentFragment();
-    Array.from(table.childNodes).forEach(function (n) { content.appendChild(n); });
-
-    var stats = document.createDocumentFragment();
-    Array.from($('statsGrid').cloneNode(true).childNodes).forEach(function (n) { stats.appendChild(n); });
-
-    var html = buildReportDocument({
-      lang: i18n.lang,
-      css: css,
-      title: t('report.title'),
-      generated: t('report.generated', generated, counted),
-      note: t('report.note'),
-      stats: stats,
-      content: content,
-    });
-
-    dl('dns-email-audit-report.html', 'text/html', html);
-    showToast(t('toast.htmlExported'));
-  }
 
   /* ── Input helpers ──────────────────────────────────────────────────── */
 

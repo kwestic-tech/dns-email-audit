@@ -205,7 +205,9 @@ const MUTATIONS = [
   },
   {
     label: 'reorder two CSV columns',
-    file: 'src/main.js',
+    // Followed the CSV builder to `src/ui/report.js` at Task 5.5. The block
+    // moved at its own indentation, so only the path changed.
+    file: 'src/ui/report.js',
     from: "        r.score.grade, r.score.pts,",
     to: "        r.score.pts, r.score.grade,",
     mustMove: ['csv'],
@@ -213,7 +215,7 @@ const MUTATIONS = [
   },
   {
     label: "weaken the exported report's own CSP",
-    file: 'src/main.js',
+    file: 'src/ui/report.js',
     from: "content: \"default-src 'none'; style-src 'unsafe-inline'; img-src data:\",",
     to: "content: \"default-src 'none'; style-src 'unsafe-inline'; img-src *\",",
     mustMove: ['report'],
