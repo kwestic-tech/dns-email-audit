@@ -39,11 +39,10 @@ import { dnsTypeNum, dnsError, DNS_TYPES } from '../src/core/dns/errors.js';
 import { createResolver } from '../src/core/dns/resolver.js';
 import { optionalCheck } from '../src/core/dns/optional.js';
 import { createExistence, existenceFromResponse } from '../src/core/dns/existence.js';
-// uri.js and record-fields.js are no longer imported here: CAA, BIMI,
-// MTA-STS and TLS-RPT own every call site, and Task 4.4 moved the last of
-// them. Only DKIM/DNSSEC (base64) and MX/SPF (ip) still read core/shared/
-// from this file.
-import { base64ToBytes } from '../src/core/shared/base64.js';
+// core/shared/ is down to one import here. uri.js and record-fields.js went
+// with their call sites at Task 4.4; base64.js followed at 4.5 and 4.7 and the
+// import outlived its last reader until Task 5.2 noticed. Only the three IP
+// helpers are still read from this file, and only as engine members.
 import { ipv4ToBigInt, ipv6ToBigInt, parseIpCidr } from '../src/core/shared/ip.js';
 import { createCaaCheck, parseCaaRecord, summarizeCaa } from '../src/core/caa/caa.js';
 import { createMxAudit, isNullMx, parseMxRecord } from '../src/core/mx/mx.js';
@@ -75,12 +74,11 @@ import {
   planReportDestinations, parseReportAuthRecord,
 } from '../src/core/dmarc/report-auth.js';
 import {
-  createDkimCheck, analyzeDkimKey, parseDkimKeyTagList, validDkimSelector,
-  DKIM_SELECTORS, DKIM_SCAN_BATCH_SIZE,
+  createDkimCheck, analyzeDkimKey, DKIM_SELECTORS,
 } from '../src/core/dkim/dkim.js';
 import {
   createSpfChecks, analyzeSpf, parseSpfTerms, cidrContains, classifySpfSubnet,
-  classifySpfSubnets, stripSpfQualifier, spfReferencedCatalogKeys,
+  classifySpfSubnets, spfReferencedCatalogKeys,
 } from '../src/core/spf/spf.js';
 import { detectDNSProvider, detectEmailProvider, detectHosting } from '../src/providers/detectors.js';
 import { createAuditDomain, startsWithCI } from '../src/audit/audit-domain.js';
