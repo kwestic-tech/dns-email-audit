@@ -352,10 +352,6 @@ for (const relative of codeModules) {
   const source = readFileSync(join(srcDir, relative), 'utf8');
   if (!declaredExports(source).length) continue;
   if (/from\s+['"][^'"]*\/js\//.test(source)) continue;   // still reaches legacy browser code
-  // A marked adapter reads the ambient window by definition, so importing one
-  // into a Node process with no browser globals throws before it can be
-  // inspected. Its exports are read syntactically above instead — which is
-  // where the entry point's facade is pinned.
   // The entry point reads the ambient `window` to build its platform, so
   // importing it into a Node process with no browser globals throws before it
   // can be inspected. Its exports are read SYNTACTICALLY above, which is where

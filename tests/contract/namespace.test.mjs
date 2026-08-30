@@ -84,8 +84,8 @@ section('1. The closed global inventory');
 eq('the inventory is 24 names', GLOBALS.length, 24);
 eq('with no duplicates', GLOBALS.length, new Set(GLOBALS).size);
 
-/* ── 2. Only marked adapters may touch a global ───────────────────────── */
-section('2. Only marked adapters touch the namespace');
+/* ── 2. Nothing under src/ touches the watched namespace ──────────────── */
+section('2. No source module touches the watched namespace');
 
 /**
  * Reads and writes both. A module that reads `window.DnsAudit` has taken an
@@ -119,7 +119,7 @@ for (const relativePath of sources) {
   }
 }
 
-eq('no module under src/ touches a global outside a marked adapter', offenders, []);
+eq('no module under src/ reads or writes a watched namespace property', offenders, []);
 
 // **Task 6.2 emptied this list**, which is the Phase 6 end state: every global
 // the application published had a consumer with no ESM owner, and each owner
@@ -156,7 +156,7 @@ eq('nor is a property access on something else',
  * literal receivers. `src/main.js` used to write its globals through one — the
  * IIFE's old `global` parameter, kept as `const global = window` — and that
  * was survivable only because the rule was "no module outside a MARKED ADAPTER
- * touches a global" and it was the marked adapter.
+ * touches a watched namespace property" and it was the marked adapter.
  *
  * **There are no adapters now**, so the exemption is gone and the hole matters
  * more, not less. It is written down, and the RUNTIME surface is what actually
@@ -170,8 +170,8 @@ eq('an aliased write is NOT caught — a stated limit',
 eq('and the entry point no longer aliases window',
   /const global = window;/.test(readFileSync(join(srcDir, 'main.js'), 'utf8')), false);
 
-/* ── 4. What still reaches for globals, and why ───────────────────────── */
-section('4. The legacy consumers, counted');
+/* ── 4. The legacy tree is gone ───────────────────────────────────────── */
+section('4. js/ no longer exists');
 
 /**
  * `js/` was not under the contract — it was what the contract existed to

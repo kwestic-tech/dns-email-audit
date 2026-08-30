@@ -28,7 +28,7 @@ import {
 } from '../lib/fixture-identity.mjs';
 import { dohFixture, txt, ns, caa, ds, dnskey } from '../../tools/lib/doh-fixture.mjs';
 import { PLATFORM_PROFILES } from '../lib/platform.mjs';
-import { loadApp } from '../../tools/lib/browser-harness.mjs';
+import { loadLayers } from '../../tools/lib/browser-harness.mjs';
 import { probeEnglishBundle, FIXTURE_ENGLISH_TITLE } from '../lib/fixture-identity.mjs';
 import { PUBLIC_SUFFIX_RULES } from '../../src/data/public-suffixes.js';
 import { createDnsEngine } from '../../tools/lib/legacy-engine.mjs';
@@ -124,13 +124,13 @@ section('0b. Generated data is injected, and each binding has its own probe');
 // Every layer is an ES module now; the harness constructs the i18n layer
 // directly rather than loading the entry point, which is what lets one process
 // build three of them with different bindings.
-const productionApp = await loadApp({ app: false });
+const productionApp = await loadLayers();
 eq('with no override, the harness supplies production English',
   probeEnglishBundle(productionApp.t, 'production').actual,
   probeEnglishBundle(productionApp.t, 'production').expected);
 
 const fixtureEnglish = { meta: { code: 'en' }, doc: { title: FIXTURE_ENGLISH_TITLE } };
-const fixtureApp = await loadApp({ app: false, data: { englishBundle: fixtureEnglish } });
+const fixtureApp = await loadLayers({ data: { englishBundle: fixtureEnglish } });
 eq('a suite can inject a fixture English bundle instead',
   probeEnglishBundle(fixtureApp.t, 'fixture').actual, FIXTURE_ENGLISH_TITLE);
 throws('and claiming production while the fixture is in force fails the probe',
@@ -143,7 +143,7 @@ throws('as does the reverse',
 
 // The three probes are INDEPENDENT: substituting one leaves the others correct,
 // which is what makes each of them evidence about its own binding.
-const mixed = await loadApp({ app: false, data: { englishBundle: fixtureEnglish } });
+const mixed = await loadLayers({ data: { englishBundle: fixtureEnglish } });
 eq('substituting English does not disturb the PSL binding',
   mixed.__PUBLIC_SUFFIX_RULES__.length > 10000, true);
 eq('nor the DKIM catalog binding',

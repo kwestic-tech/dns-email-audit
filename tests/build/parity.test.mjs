@@ -112,7 +112,8 @@ function load(files) {
  * hand-written IIFE, so the source side is now an `import` of `src/main.js` —
  * the same entry point esbuild compiles — over a window this file supplies.
  * `src/main.js` reads the ambient `window` to build its platform, which is the
- * read that makes it a marked adapter, so the window is installed first.
+ * one ambient read an entry point has to make, so the window is installed
+ * first. It carried an adapter marker until Task 6.2; it does not now.
  *
  * ONCE PER PROCESS, and it has to be: Node caches ES modules, so a second
  * import would return the first application and this window would never be

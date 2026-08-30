@@ -408,7 +408,7 @@ section('4. Module evaluation order');
  *
  * Asserting a failure that cannot happen would be worse than useless, so the
  * protection lives in that contract: no module under `src/` may read or write
- * one of the 24 globals outside a marked adapter. That catches the hazard
+ * one of the 24 watched namespace properties. That catches the hazard
  * COMING BACK, which is the only way it can return.
  *
  * **The generated-data globals are gone as of Task 6.2**, and with them the

@@ -1,43 +1,44 @@
 /* ──────────────────────────────────────────────────────────────────────────
-   Load the application into a DOM shim, and hand back its window.
+   Build the application's layers in a DOM shim, and hand them back.
 
-   There is no `node:vm` here any more, and no script evaluation. Every layer
-   the browser runs is an ES module as of Task 2.6 — `src/main.js` is the entry
-   point and, since Task 6.1, `js/` is gone entirely — so this
-   module IMPORTS the application rather than reading it off disk and running
-   it in a sandbox. That is the second half of Task 2.9: a sandbox cannot
-   evaluate a module, and pretending otherwise is what forced the migration.
+   There is no `node:vm` here and no script evaluation. Every layer the browser
+   runs is an ES module — `src/main.js` is the entry point and, since Task 6.1,
+   `js/` is gone entirely — so this module IMPORTS what it builds rather than
+   reading it off disk and running it in a sandbox. That is the second half of
+   Task 2.9: a sandbox cannot evaluate a module, and pretending otherwise is
+   what forced the migration.
 
-   What the shim still provides is the browser: a document, a window object and
-   the §11 primitive set. `src/main.js` builds its platform from
-   `globalThis.window`, so this file installs one before importing it. That
-   ambient read is the one an entry point has to make; it is not a debt, and
-   since Task 6.2 there is no adapter marker on the file.
+   What the shim provides is the browser: a document, a window object and the
+   §11 primitive set.
 
-   ── Three modes, and they answer different questions ─────────────────────
+   ── Two modes, and they answer different questions ───────────────────────
 
    | Mode | Builds | Gives back |
    | --- | --- | --- |
-   | `loadApp()` | imports `src/main.js` — the real entry point | the shim window, on which the application publishes exactly ONE name: the `DnsAudit` global esbuild generates from the entry's two exports |
-   | `loadApp({ app: false })` | the lower layers, test-locally, with fixture bindings allowed | the same window, plus **shim properties this file attaches for the suite** — `i18n`, `t`, `R`, and the three `__…__` table bindings |
-   | `loadUi()` | a production runtime, via `createAuditRuntime()` | its parts — renderer, i18n, and the UI object — returned, never published |
+   | `loadLayers()` | the i18n, render and legacy-engine layers, test-locally, with injectable generated data | a shim window carrying **the harness's own properties** — `i18n`, `t`, `R`, `DnsAudit` and the three `__…__` table bindings |
+   | `loadUi()` | a real production runtime, via `createAuditRuntime()` | its parts — renderer, i18n and the UI object — RETURNED, never published |
 
-   **The `app: false` shim properties are not application globals.** Nothing in
-   `src/` writes them; this file does, on a private window, so a suite can prove
-   WHICH generated table it was handed rather than trusting that it asked for
-   the right one. Describing them as the application's surface would be exactly
-   backwards — the application's surface is one name, and `parity.test.mjs` and
-   `file-url.test.mjs` assert that against the artifact and against Chrome.
+   **`loadLayers()`'s window properties are not application globals.** Nothing
+   under `src/` writes them; this file does, on a private object, so a suite can
+   prove WHICH generated table it was handed rather than trusting that it asked
+   for the right one. Calling them the application's surface would be exactly
+   backwards: the application publishes one name, and it publishes it only in
+   the BUILT artifact.
 
-   ── One application per process ─────────────────────────────────────────
+   ── It does not load the artifact, and no longer pretends to ─────────────
 
-   Node's ES module cache is not a dependency-injection mechanism, and this
-   file does not pretend it is. Importing `src/main.js` twice returns the SAME
-   module instance, wired to the FIRST window — so a second `loadApp()` in one
-   process would hand back a window the application never touched, and every
-   assertion after it would be measuring nothing. That is the spike's failure
-   mode exactly, so it throws instead. A suite that needs two independent
-   applications is a suite that needs two processes.
+   A third mode used to import `src/main.js` and claim the result carried the
+   generated `DnsAudit` global. **It could not.** `globalName` is an esbuild
+   wrapper around the built bundle; importing the source entry point returns
+   module exports and writes nothing to any window. The branch had zero callers,
+   so nothing ever looked at the empty window it produced. Task 6.2a removed it
+   with its `globalThis.window` install and the one-per-process guard that
+   existed only to protect it.
+
+   Artifact loading belongs to the suites that own it, each measuring the
+   generated global where it actually exists: `tests/build/parity.test.mjs`
+   evaluates the bundle, the equivalence runner loads it as a subject, and
+   `tests/build/file-url.test.mjs` opens it in Chrome.
 
    Test isolation for everything below the entry point comes from calling
    `createAuditRuntime()` again — two runtimes share no cache, no i18n instance
@@ -46,16 +47,15 @@
 
    ── Generated data ──────────────────────────────────────────────────────
 
-   `opts.data` still supplies fixture tables, and it still applies to every
-   layer this file constructs itself. It does NOT reach `src/main.js`: the
-   entry point imports the production tables, because that is what an entry
-   point is. A suite that wants a fixture table builds the layer it is testing
-   with `createAuditRuntime()` and injects there — the composition root exists
-   so that a consumer can never be handed different data by accident, and the
-   entry point is the one place where the data is deliberately fixed.
+   `opts.data` supplies fixture tables to every layer this file constructs.
+   `loadLayers()` takes it directly; `loadUi()` passes it to
+   `createAuditRuntime()`, which is the composition root and the one place a
+   consumer's data can be substituted on purpose. Nothing can be handed
+   different data by accident, which is the whole reason generated tables are
+   injected rather than imported by their consumers.
 
-   This module exists so render, export and interpolate share one definition of
-   "the app, loaded".
+   This module exists so render, export, interpolate and the legacy-shape
+   contracts share one definition of each layer.
    ────────────────────────────────────────────────────────────────────────── */
 
 import { createDocument, MarkupSinkError } from './dom-shim.mjs';
@@ -69,7 +69,6 @@ import { createBrowserPlatform } from '../../src/platform/browser.js';
 import { createAuditRuntime } from '../../src/runtime.js';
 
 /** Set once the entry point has been imported. See "One application per process". */
-let entryLoaded = false;
 
 /**
  * A window carrying the whole §11 primitive set.
@@ -108,71 +107,59 @@ function createWindow() {
 }
 
 /**
- * Load the application, or the layers beneath it, into a shim window.
+ * The layers BENEATH the application, built test-locally with injectable
+ * generated data.
  *
- * With `app: true` (the default) this imports the real entry point, which
- * publishes ONE name — the `DnsAudit` global esbuild generates from its two
- * exports. Everything else on the returned window is the shim's own.
+ * Renamed from `loadApp()` at Task 6.2a, because the name had stopped being
+ * true: its default branch imported `src/main.js` and its documentation said
+ * that produced `window.DnsAudit`. **It could not.** `globalName` is an
+ * esbuild wrapper around the BUILT artifact; importing the source ESM entry
+ * point returns module exports and writes no global at all. The branch had
+ * zero callers, so nothing ever observed the empty window it handed back —
+ * another green path nothing reached. It is gone, along with the
+ * `globalThis.window` install and the one-per-process guard that existed only
+ * for it.
  *
- * `opts.app: false` stops before the entry point and constructs only the i18n
- * and render layers, for the interpolation suite, which needs neither a DOM
- * nor an engine. That path takes `opts.data`.
+ * **Artifact loading belongs to the suites that own it:**
+ * `tests/build/parity.test.mjs` evaluates the real bundle, the equivalence
+ * runner loads it as a subject, and `tests/build/file-url.test.mjs` opens it in
+ * Chrome. Each of those measures the generated global where it actually exists.
+ *
+ * Production generated data by default; a suite that wants a fixture table says
+ * so, and says which. Never a silent substitution.
  */
-export async function loadApp(opts = {}) {
+export async function loadLayers(opts = {}) {
   const win = createWindow();
   const document = win.document;
-
-  if (opts.app === false) {
-    // Production generated data by default; a suite that wants a fixture table
-    // says so, and says which. Never a silent substitution.
-    const data = {
-      publicSuffixRules: PUBLIC_SUFFIX_RULES,
-      dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
-      englishBundle: LOCALE_EN,
-      ...(opts.data || {}),
-    };
-    const platform = createBrowserPlatform(win);
-    const i18n = createI18n({ englishBundle: data.englishBundle, platform });
-    win.i18n = i18n;
-    win.t = i18n.t;
-    win.tp = i18n.tp;
-    win.tRaw = i18n.tRaw;
-    // The bindings actually in force, published so a suite can prove WHICH
-    // table it was handed rather than trusting that it asked for the right one.
-    // tests/contract/legacy-shapes.test.mjs reads all three and asserts they
-    // are independent: substituting English must leave the other two correct.
-    win.__PUBLIC_SUFFIX_RULES__ = data.publicSuffixRules;
-    win.__DKIM_SELECTOR_CATALOG__ = data.dkimSelectorCatalog;
-    win.__I18N_EN__ = data.englishBundle;
-    if (opts.render !== false) win.R = createRenderer(() => win.document, i18n);
-    if (opts.engine !== false) {
-      win.DnsAudit = createDnsEngine({
-        publicSuffixRules: data.publicSuffixRules,
-        dkimSelectorCatalog: data.dkimSelectorCatalog,
-        platform,
-      });
-    }
-  } else {
-    if (entryLoaded) {
-      throw new Error(
-        'browser-harness: src/main.js is already loaded in this process. Node caches ES ' +
-        'modules, so a second import would return the FIRST application and this window ' +
-        'would never be touched — every assertion after it would measure nothing. ' +
-        'Use one process per application, or loadApp({ app: false }) for the lower layers.');
-    }
-    if (opts.data) {
-      throw new Error(
-        'browser-harness: opts.data cannot reach src/main.js — the entry point imports the ' +
-        'production tables by design. Build the layer under test with createAuditRuntime() ' +
-        'and inject there, or pass { app: false }.');
-    }
-    // src/main.js reads the ambient window to build its platform. This is the
-    // read that makes it a marked adapter, and this is where it is satisfied.
-    globalThis.window = win;
-    entryLoaded = true;
-    await import('../../src/main.js');
+  const data = {
+    publicSuffixRules: PUBLIC_SUFFIX_RULES,
+    dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
+    englishBundle: LOCALE_EN,
+    ...(opts.data || {}),
+  };
+  const platform = createBrowserPlatform(win);
+  const i18n = createI18n({ englishBundle: data.englishBundle, platform });
+  win.i18n = i18n;
+  win.t = i18n.t;
+  win.tp = i18n.tp;
+  win.tRaw = i18n.tRaw;
+  // The bindings actually in force, published ON THIS SHIM WINDOW so a suite
+  // can prove WHICH table it was handed rather than trusting that it asked for
+  // the right one. These are the harness's own properties on a private object;
+  // no module under `src/` writes them, and they are not application globals.
+  // `tests/contract/legacy-shapes.test.mjs` reads all three and asserts they
+  // are independent: substituting English must leave the other two correct.
+  win.__PUBLIC_SUFFIX_RULES__ = data.publicSuffixRules;
+  win.__DKIM_SELECTOR_CATALOG__ = data.dkimSelectorCatalog;
+  win.__I18N_EN__ = data.englishBundle;
+  if (opts.render !== false) win.R = createRenderer(() => win.document, i18n);
+  if (opts.engine !== false) {
+    win.DnsAudit = createDnsEngine({
+      publicSuffixRules: data.publicSuffixRules,
+      dkimSelectorCatalog: data.dkimSelectorCatalog,
+      platform,
+    });
   }
-
   attachAppElements(document);
   return win;
 }

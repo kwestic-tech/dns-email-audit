@@ -561,7 +561,7 @@
       "assertions": 18,
       "areas": [
         "the 24-name global inventory is closed",
-        "no module under src/ reads or writes a browser global at all — there is no adapter left to excuse one",
+        "no module under src/ reads or writes any of the 24 watched namespace properties; src/main.js's one ambient read is createBrowserPlatform(window)",
         "the marked-adapter list is empty, and the 24 historical names remain a watchlist so a reintroduction fails",
         "the scan catches window, globalThis and self, and ignores comments and same-named locals",
         "what still reaches for globals under js/ is counted, so a phase that adds one is visible"
