@@ -18,9 +18,11 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **The application is ES modules under `src/`, bundled to one artifact.** The
   engine was a single 5,704-line IIFE, `js/dns.js`, loaded beside six other
-  scripts in an order the page could not state a reason for. **Twenty-four
-  names had to exist on `window`** for those files to find each other, which
-  meant every one of them was also a browser API nobody had agreed to.
+  scripts in an order the page could not state a reason for. Separate files
+  could only reach each other through `window`, and **twenty-four top-level
+  globals** was the surface that arrangement left behind — some of it load-
+  bearing between files, some of it published alongside a purely internal
+  function. Either way, all of it was reachable by anything on the page.
 
   There are now **thirteen owning directories** under `src/` — `audit/`, eight
   protocol owners, `core/dns/`, `core/shared/`, `providers/` and `ui/` — each
@@ -34,10 +36,12 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   files it replaces.
 
 - **`window.DnsAudit` is the supported browser API, and it has two members** —
-  `analyzeDomain` and `checkConnectivity`. That is the whole global surface:
-  24 names at 0.5.0, two now. A contract test asserts the bundle's global
-  matches the entry module's exports exactly, in both directions, so a third
-  export cannot appear by accident.
+  `analyzeDomain` and `checkConnectivity`. The bundle publishes **one top-level
+  global** where 0.5.0 published twenty-four, and that one global carries two
+  members. A contract test asserts the artifact creates exactly that one name,
+  and that its members match the entry module's exports exactly in both
+  directions, so neither a second global nor a third member can appear by
+  accident.
 
   **This is a breaking change for anything that drove the page from outside
   it.** Three groups went:
@@ -47,12 +51,15 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     the other 93, this repository's own tools reached 81 (77 in the scoring
     suite, four in the backtest) and now import the modules directly; the
     remaining twelve had no consumer here at all.
-  - The fourteen `js/app.js` UI functions — `startAudit`, `cancelAudit`,
-    `clearAll`, `exportCSV`, `exportHTML`, `filterTable`, `loadExample`,
-    `loadFile`, `openLearnMore`, `setLang`, `showHelp`, `sortTable`,
-    `toggleDetail`, `toggleShowMe`. The page never called them: it has no
-    inline handlers, because its CSP carries no `unsafe-inline`. Drive the
-    controls by clicking them.
+  - The fourteen `js/app.js` UI function globals — `startAudit`,
+    `cancelAudit`, `clearAll`, `exportCSV`, `exportHTML`, `filterTable`,
+    `loadExample`, `loadFile`, `openLearnMore`, `setLang`, `showHelp`,
+    `sortTable`, `toggleDetail`, `toggleShowMe`. **The functions themselves
+    were doing the work** — the page wired them to its controls with
+    `addEventListener` and called them from its own handlers. What went is the
+    published `window` binding beside each one, which nothing reached through:
+    `index.html` has no inline handlers, because its CSP carries no
+    `unsafe-inline`. Drive the controls by clicking them.
   - The wiring and generated-data names — `i18n`, `t`, `tp`, `tRaw`, `R`,
     `__APP_TEST__`, `__PUBLIC_SUFFIX_RULES__`, `__DKIM_SELECTOR_CATALOG__`,
     `__I18N_EN__`. Every module now takes its renderer and translator as an
@@ -73,13 +80,22 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **A build, and exactly one dependency to run it.** esbuild `0.28.2`,
-  exact-pinned, is the only dependency of any kind — no framework, and still
-  nothing at runtime. It runs one install script, named explicitly in
-  `package.json`'s `allowScripts` gate so the approval is a decision rather
-  than a default. `npm test` builds first, because several suites assert
-  against the artifact and a source-only run would be testing something the
-  browser never sees.
+- **A build, and one direct dependency to run it.** `package.json` declares
+  exactly one: esbuild `0.28.2`, exact-pinned, as a dev dependency — no
+  framework, and still nothing at runtime.
+
+  What that resolves to is worth stating separately, because "one dependency"
+  and "one package" are different claims. On a given platform `npm ci`
+  installs **two packages**: `esbuild` and the one `@esbuild/*` binary for
+  your architecture, out of 26 declared optional platform packages of which 25
+  go unmet. esbuild declares a `postinstall` script, and
+  **`package.json`'s `allowScripts` gate sets `esbuild: false`, so it does not
+  run** — the optional platform package supplies the binary directly. The
+  install runs no scripts at all, and that is a recorded decision rather than
+  a default.
+
+  `npm test` builds first, because several suites assert against the artifact
+  and a source-only run would be testing something the browser never sees.
 
 - **An allowed-import matrix that a test enforces.** `AGENTS.md` carries the
   edges the architecture permits, and
@@ -114,9 +130,13 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Verification
 
-No behaviour changed, and that is a measured claim rather than an intention.
-The five-surface oracle reports **32 cases, 5 surfaces, 0 differences** against
-the `v0.5.0` baseline, covering **430 of 430** registry rows. `WEIGHTS`,
+**No behaviour changed across the five equivalence surfaces** — the result
+object, the DNS query trace, the CSV export, the HTML report and the rendered
+DOM — and that is a measured claim rather than an intention. The oracle reports
+**32 cases, 5 surfaces, 0 differences** against the `v0.5.0` baseline, covering
+**430 of 430** registry rows. The browser compatibility surface — the global
+namespace described above — **did change, deliberately**; it is observed by
+none of the five, which is why it is documented rather than diffed. `WEIGHTS`,
 `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` are byte-identical to `v0.5.0`.
 
 `tools/scoring.test.mjs` still reaches the engine's 95-member surface by name,

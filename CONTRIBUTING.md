@@ -187,9 +187,10 @@ npm start          # serves the app at http://127.0.0.1:8080
 ```
 
 **`npm ci` installs two packages** on a given platform: `esbuild` and the
-binary for your architecture. esbuild is the only dependency of any kind, it is
-exact-pinned, and it runs one install script — `package.json`'s `allowScripts`
-gate names it so the approval is explicit rather than implicit.
+binary for your architecture. esbuild is the only direct dependency, and it is
+exact-pinned. It declares a `postinstall` script, but `package.json`'s
+`allowScripts` gate sets `esbuild: false`, so the install runs no scripts —
+the optional platform package supplies the binary.
 
 **`npm test` builds first.** `pretest` runs `npm run build:bundle`, because
 several suites assert against `dist/app.min.js` — a source-only run would be
