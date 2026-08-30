@@ -195,6 +195,54 @@ eq('and does not find one it only calls',
   declaresFunction(coordinator, 'summarizeBimi'), false);
 eq('a call is not a declaration', declaresFunction('  const x = summarizeBimi(txt);', 'summarizeBimi'), false);
 
+/* ── 3c. Gate 5: no protocol interpretation under src/ui/ ─────────────── */
+section('3c. src/ui/ presents facts, it does not interpret protocols');
+
+/**
+ * Gate 5's second condition, stated as a property of a directory.
+ *
+ * `src/ui/` formats completed audit facts. It must not decide what a record
+ * means, what a finding is, or what anything is worth — those belong to
+ * `core/<protocol>/`, `audit/issues.js` and `audit/scoring.js`.
+ *
+ * ── What this establishes, and what it does not ─────────────────────────
+ *
+ * A lexical scan, like §3b. It establishes that no parser or selector is
+ * DECLARED there, that no issue token from the reviewed vocabulary is emitted
+ * there, and that no severity is. It does not establish that no interpretation
+ * of any kind could be written under another name.
+ *
+ * `ui/events.js` does write `key: 'BIMI'` and its siblings — those are the
+ * protocol NAMES that label the advanced-check dots, read off booleans an
+ * owner produced. A label is not a finding, which is why the check below is
+ * against the reviewed issue vocabulary rather than against the string `key:`.
+ */
+// `srcDir` belongs to §5 and is declared below; this section names its own.
+const UI_DIR = join(REPO, 'src', 'ui');
+const uiFiles = readdirSync(UI_DIR)
+  .filter(f => f.endsWith('.js') && !f.endsWith('.test.js'))
+  .map(f => `ui/${f}`);
+eq('the ui directory is the three modules', uiFiles.sort(), ['ui/events.js', 'ui/render.js', 'ui/report.js']);
+
+const uiSource = uiFiles.map(f => readFileSync(join(UI_DIR, f.slice(3)), 'utf8')).join('\n');
+eq('no parser or selector is declared under src/ui/',
+  PARSER_OWNERS.filter(h => declaresFunction(uiSource, h.name)).map(h => h.name), []);
+eq('and neither is a finding or scoring builder',
+  ['buildIssues', 'buildSuggestions', 'calcScore', 'calcSpfScore', 'calcDmarcScore']
+    .filter(n => declaresFunction(uiSource, n)), []);
+
+const issueVocabulary = JSON.parse(readFileSync(join(REPO, 'tests/state-algebras.json'), 'utf8'))
+  .algebras.find(a => a.id === 'audit.issue.key').members;
+const uiKeys = [...new Set([...uiSource.matchAll(/key: '([^']+)'/g)].map(m => m[1]))];
+eq('no issue token from the reviewed vocabulary is emitted under src/ui/',
+  uiKeys.filter(k => issueVocabulary.includes(k)), []);
+eq('and no severity is assigned there', /sev: '/.test(uiSource), false);
+// The scan can fail in the direction that matters: it does see the keys that
+// ARE written there, and they are protocol names labelling status dots.
+eq('the scan sees the display labels it is meant to allow',
+  uiKeys.filter(k => ['BIMI', 'MTA-STS', 'TLS-RPT', 'CAA', 'DNSSEC'].includes(k)).sort(),
+  ['BIMI', 'CAA', 'DNSSEC', 'MTA-STS', 'TLS-RPT']);
+
 /* ── 4. No transport result carries a finding, severity, score or locale ─ */
 section('4. The transport emits no protocol vocabulary');
 

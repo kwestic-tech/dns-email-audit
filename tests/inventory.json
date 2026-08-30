@@ -491,7 +491,7 @@
     },
     {
       "path": "tests/contract/dns-transport.test.mjs",
-      "assertions": 47,
+      "assertions": 53,
       "note": "The transport layer's cross-cutting contracts. Phase 3, Task 3.7.",
       "areas": [
         "the code's kind sets and the reviewed registry's algebras are compared rather than restated",
@@ -501,7 +501,8 @@
         "no transport result or error shape carries a finding, severity, score or locale reference",
         "the §12 allowed-edge matrix and the cycle rule over the real import graph, with core/shared's zero-outgoing-edge floor asserted directly because an empty matrix row cannot catch a sibling import",
         "§12's floor for a protocol owner, asserted over every protocol directory that exists: core/shared and own siblings only, so an import of core/dns/ — the convenient one — fails",
-        "parsing ownership: the coordinator declares none of the selector or parser helpers, and each owner declares its own"
+        "parsing ownership: the coordinator declares none of the selector or parser helpers, and each owner declares its own",
+        "Gate 5: no parser, selector, finding builder, issue token or severity under src/ui/"
       ]
     },
     {
