@@ -14,7 +14,124 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **The application is ES modules under `src/`, bundled to one artifact.** The
+  engine was a single 5,704-line IIFE, `js/dns.js`, loaded beside six other
+  scripts in an order the page could not state a reason for. **Twenty-four
+  names had to exist on `window`** for those files to find each other, which
+  meant every one of them was also a browser API nobody had agreed to.
+
+  There are now **thirteen owning directories** under `src/` — `audit/`, eight
+  protocol owners, `core/dns/`, `core/shared/`, `providers/` and `ui/` — each
+  with a checked-in `API.md` and tests beside the code they test. Imports are
+  explicit, so load order is derived rather than declared, and the only names
+  that reach the browser are the two the app actually offers.
+
+- **`index.html` loads one script instead of seven.** `dist/app.min.js`, built
+  by esbuild, is the single delivery boundary: 437 KB raw and 131 KB gzipped,
+  down from 719 KB and 212 KB across the seven files it replaces.
+
+- **`window.DnsAudit` is the supported browser API, and it has two members** —
+  `analyzeDomain` and `checkConnectivity`. That is the whole global surface:
+  24 names at 0.5.0, two now. A contract test asserts the bundle's global
+  matches the entry module's exports exactly, in both directions, so a third
+  export cannot appear by accident.
+
+  **This is a breaking change for anything that drove the page from outside
+  it.** Three groups went:
+
+  - `DnsAudit` itself carried the entire 95-member engine; it now carries the
+    two members above — the only two the application itself ever called. Of
+    the other 93, this repository's own tools reached 81 (77 in the scoring
+    suite, four in the backtest) and now import the modules directly; the
+    remaining twelve had no consumer here at all.
+  - The fourteen `js/app.js` UI functions — `startAudit`, `cancelAudit`,
+    `clearAll`, `exportCSV`, `exportHTML`, `filterTable`, `loadExample`,
+    `loadFile`, `openLearnMore`, `setLang`, `showHelp`, `sortTable`,
+    `toggleDetail`, `toggleShowMe`. The page never called them: it has no
+    inline handlers, because its CSP carries no `unsafe-inline`. Drive the
+    controls by clicking them.
+  - The wiring and generated-data names — `i18n`, `t`, `tp`, `tRaw`, `R`,
+    `__APP_TEST__`, `__PUBLIC_SUFFIX_RULES__`, `__DKIM_SELECTOR_CATALOG__`,
+    `__I18N_EN__`. Every module now takes its renderer and translator as an
+    argument, and the generated tables live inside the bundle's closure.
+
+  A search of this repository found no consumer for any of them outside the
+  suites that moved. That is the basis for removing them, and it is worth
+  stating precisely: **it proves no repository consumer, not no consumer.** A
+  static site can be driven from a console or an embedding page that is not in
+  this checkout.
+
+- **Opening `index.html` from disk still works, and is still tested.** The
+  bundle is emitted as a classic script rather than `type="module"` — a module
+  script is blocked by CORS under `file://` — and the English locale is inlined
+  into the artifact rather than fetched. `npm run test:file-url` drives a real
+  Chrome over `file://` and asserts it. Other languages still need the app
+  served over HTTP, unchanged from 0.5.0.
+
+### Added
+
+- **A build, and exactly one dependency to run it.** esbuild `0.28.2`,
+  exact-pinned, is the only dependency of any kind — no framework, and still
+  nothing at runtime. It runs one install script, named explicitly in
+  `package.json`'s `allowScripts` gate so the approval is a decision rather
+  than a default. `npm test` builds first, because several suites assert
+  against the artifact and a source-only run would be testing something the
+  browser never sees.
+
+- **An allowed-import matrix that a test enforces.** `AGENTS.md` carries the
+  edges the architecture permits, and
+  `tests/contract/dns-transport.test.mjs` checks them against the real import
+  graph: **an edge absent from the matrix is a test failure, not a judgement
+  call.** Adding or widening a row is an architectural change and takes the
+  same review as any other.
+
+- **A five-surface equivalence oracle.** `npm run equivalence` replays 32
+  corpus cases and compares the result object, the DNS query trace, the CSV
+  export, the HTML report and the rendered DOM against a baseline captured
+  from `v0.5.0`. It also validates itself: `npm run equivalence:validate`
+  mutates each surface in turn and fails if a mutation is *not* caught, so the
+  oracle cannot pass by reaching nothing.
+
+- **An assertion inventory.** `npm run inventory` runs every suite as a
+  subprocess and compares each one's count against `tests/inventory.json`. It
+  fails in both directions — a silent decrease is coverage leaving, a silent
+  increase is work nobody recorded.
+
+- **Contract suites for the seams the unit tests cannot see**: the transport
+  kinds each layer may use, the closed issue-token vocabulary, the browser
+  namespace, the platform boundary, and source-to-bundle parity.
+
+### Removed
+
+- **`js/` is deleted** — `dns.js`, `app.js`, `render.js`, `i18n.js` and the
+  three generated data files. Forks or self-hosted copies that reference those
+  paths should load `dist/app.min.js` instead. The generated tables now live in
+  `src/data/` and are still never hand-edited; `npm run build:fallback`
+  regenerates the inlined English bundle.
+
+### Verification
+
+No behaviour changed, and that is a measured claim rather than an intention.
+The five-surface oracle reports **32 cases, 5 surfaces, 0 differences** against
+the `v0.5.0` baseline, covering **430 of 430** registry rows. `WEIGHTS`,
+`PARKED_WEIGHTS` and `GRADE_THRESHOLDS` are byte-identical to `v0.5.0`.
+
+`tools/scoring.test.mjs` still reaches the engine's 95-member surface by name,
+and passes the **same 1,535 assertions** it passed before the refactor, with
+**the count unmoved through all six phases**. It was not rewritten to match
+the new structure — that would have retired the
+instrument measuring the refactor. What did change in it is the loading
+mechanism (a `node:vm` sandbox cannot evaluate an ES module) and three DNSSEC
+tests that used to reassign `sandbox.crypto` between calls; a platform is fixed
+for the life of a runtime now, so "a runtime without crypto" is expressed by
+building one. No assertion's subject or expectation moved.
+
+`npm test` passes **4,451 assertions across 46 suites**, up from 2,121 at
+0.5.0; the increase is the new contract, build and co-located unit suites, not
+new behaviour. `npm run inventory` passes 240, `npm run test:file-url` passes
+22, and `npm run locale:gate` passes 13/13 at 771/771 keys.
 
 ## [0.5.0] — 2026-08-26
 
