@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 88,
+      "assertions": 89,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -610,7 +610,7 @@
     },
     {
       "path": "tests/build/artifact.test.mjs",
-      "assertions": 44,
+      "assertions": 45,
       "areas": [
         "the exact top-level _site allowlist, asserted as a set",
         "absence: src, tools, tests, docs, node_modules, js, assets, package files, AGENTS.md",
@@ -618,7 +618,8 @@
         "every script, stylesheet and source-map reference resolves inside _site",
         "co-location safety bound to metafile.inputs and the source map's sources, not to a sentinel",
         "no third-party JavaScript and no cross-origin reference at the delivery boundary",
-        "the allowlist and the pattern scans are each shown to catch an addition"
+        "the allowlist and the pattern scans are each shown to catch an addition",
+        "no file under js/ is a bundle input"
       ]
     },
     {

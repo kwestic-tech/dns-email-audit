@@ -103,10 +103,12 @@ eq('no node_modules path is an input', inputs.filter(p => p.includes('node_modul
 // Phase 2 commit, and a file appearing here that nobody added is what it exists
 // to catch. Task 2.6 removed three at once — `js/app.js` became `src/main.js`,
 // which absorbed `src/entry-legacy.js` and `src/legacy-bridge.js`.
+// `js/dns.js` LEFT this list at Task 6.1, when `src/audit/create-audit.js`
+// took the protocol composition and `src/runtime.js` took the DNS layer. The
+// delivery boundary no longer contains a single file from `js/`.
 eq('the inputs are exactly the modules the entry point reaches', inputs.sort(),
-  ['js/dns.js',
-    'src/audit/audit-domain.js', 'src/audit/context.js', 'src/audit/issues.js',
-    'src/audit/scoring.js',
+  ['src/audit/audit-domain.js', 'src/audit/context.js',
+    'src/audit/create-audit.js', 'src/audit/issues.js', 'src/audit/scoring.js',
     'src/core/bimi/bimi.js', 'src/core/caa/caa.js', 'src/core/dkim/dkim.js',
     'src/core/dmarc/org-domain.js', 'src/core/dmarc/record.js',
     'src/core/dmarc/report-auth.js', 'src/core/dmarc/tree-walk.js',
@@ -127,6 +129,7 @@ eq('the inputs are exactly the modules the entry point reaches', inputs.sort(),
     'src/platform/browser.js', 'src/providers/detectors.js',
     'src/runtime.js', 'src/ui/events.js', 'src/ui/render.js',
     'src/ui/report.js']);
+eq('and no file under js/ is an input any more', inputs.filter(p => p.startsWith('js/')), []);
 // Co-located unit tests are the reason this list is asserted rather than
 // counted: `src/core/dns/doh.test.js` sits beside the module above and must
 // never appear here. The suffix checks earlier in this section are the general

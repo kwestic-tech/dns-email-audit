@@ -44,44 +44,42 @@ import { createExistence, existenceFromResponse } from '../src/core/dns/existenc
 // import outlived its last reader until Task 5.2 noticed. Only the three IP
 // helpers are still read from this file, and only as engine members.
 import { ipv4ToBigInt, ipv6ToBigInt, parseIpCidr } from '../src/core/shared/ip.js';
-import { createCaaCheck, parseCaaRecord, summarizeCaa } from '../src/core/caa/caa.js';
-import { createMxAudit, isNullMx, parseMxRecord } from '../src/core/mx/mx.js';
+import { parseCaaRecord, summarizeCaa } from '../src/core/caa/caa.js';
+import { isNullMx, parseMxRecord } from '../src/core/mx/mx.js';
 import { validateBimiRecord } from '../src/core/bimi/bimi.js';
 import { validateMtaStsRecord } from '../src/core/transport/mta-sts.js';
 import { validateTlsRptRecord } from '../src/core/transport/tls-rpt.js';
-import { createTlsaCheck, parseTlsaRecord } from '../src/core/transport/tlsa.js';
+import { parseTlsaRecord } from '../src/core/transport/tlsa.js';
 import {
   parseDnskey, parseDs, dnskeyRdata, dnskeyKeyTag, dnsWireName, dnskeyStructure,
   dnssecAlgorithmEligibility, dnssecDigestEligibility, dnssecDigestName,
   DNSSEC_ALGORITHMS, DNSSEC_ZONE_SIGNING, DNSSEC_DIGESTS,
 } from '../src/core/dnssec/records.js';
 import {
-  createDsMatcher, anchorFactsUsable, dnskeyCanAnchor, matchConfirmsAnchor,
+  anchorFactsUsable, dnskeyCanAnchor, matchConfirmsAnchor,
   DNSSEC_DIGEST_WEBCRYPTO,
 } from '../src/core/dnssec/matching.js';
-import { createDnssecCheck } from '../src/core/dnssec/chain.js';
-import { createOrgDomain } from '../src/core/dmarc/org-domain.js';
 import {
   analyzeDmarc, parseDmarcTag, parseDmarcUriList,
   validateDmarcVersion, POLICY_RANK, DMARC_TAGS_RFC9989, DMARC_TAGS_REMOVED,
 } from '../src/core/dmarc/record.js';
 import {
-  createDmarcDiscovery, dmarcWalkTargets, isDmarcPolicyRecord, diagnoseDmarcRecord,
+  dmarcWalkTargets, isDmarcPolicyRecord, diagnoseDmarcRecord,
   selectOrganizationalDomain, selectAppliedRecord, applyInheritance,
 } from '../src/core/dmarc/tree-walk.js';
 import {
-  createReportAuth, findExternalReportDestinations, reportDestinationHosts,
+  findExternalReportDestinations, reportDestinationHosts,
   planReportDestinations, parseReportAuthRecord,
 } from '../src/core/dmarc/report-auth.js';
 import {
-  createDkimCheck, analyzeDkimKey, DKIM_SELECTORS,
+  analyzeDkimKey, DKIM_SELECTORS,
 } from '../src/core/dkim/dkim.js';
 import {
-  createSpfChecks, analyzeSpf, parseSpfTerms, cidrContains, classifySpfSubnet,
+  analyzeSpf, parseSpfTerms, cidrContains, classifySpfSubnet,
   classifySpfSubnets, spfReferencedCatalogKeys,
 } from '../src/core/spf/spf.js';
 import { detectDNSProvider, detectEmailProvider, detectHosting } from '../src/providers/detectors.js';
-import { createAuditDomain } from '../src/audit/audit-domain.js';
+import { createAudit } from '../src/audit/create-audit.js';
 // The scoring model, Task 5.3. Byte-identical to v0.5.0 and verified as such
 // against the tag; these are legacy engine members and the coordinator imports
 // them itself.
@@ -157,51 +155,37 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
   const domainExists = createExistence({ dohFetch });
 
   /**
-   * Provider detection, Task 4.9, with its collaborator retired at Task 5.2.
+   * Every protocol check, and the coordinator over them.
    *
-   * `providers/` is three pure functions now: audit derives the RFC 7505
-   * null-MX boolean with `core/mx/`'s predicate and passes the FACT, which is
-   * Task 4.0 finding 4's stated end state. The legacy three-argument member is
-   * this wrapper — it performs the old derivation and delegates, because
-   * `tools/scoring.test.mjs` asserts that form directly. An adapter, not
-   * architecture; Phase 6 removes it with this file.
+   * Constructed by `src/audit/create-audit.js` since Task 6.1 — the layer §12
+   * gives the `core/<protocol>/` and `providers/` edges to. This file builds
+   * the DNS layer above and hands over the handle, which is what the runtime
+   * does too; the two differ only in what they assemble on top.
    */
-  const legacyDetectEmailProvider = (mx, domain, addressRecords) =>
-    detectEmailProvider(mx, domain, addressRecords, isNullMx(mx));
-
-  // SPF, Task 4.8. Two of the three checks need the RAW handle as well as
-  // layer 3, because countSpfLookups()'s fallback copies DnsError.kind.
-  const { countSpfLookups, findSpfRedundancy, auditSpfSubnets } = createSpfChecks({
-    dohQuery, dohFetch, requireUsable, cleanAnswerData,
+  const audit = createAudit({
+    dohFetch, dohQuery, requireUsable, cleanAnswerData, optionalCheck,
+    existenceFromResponse, dnsError,
+    crypto, publicSuffixRules, dkimSelectorCatalog,
   });
-
-  // DKIM, Task 4.7. The catalog is generated data and the crypto is the
-  // platform's, so both are passed — and that is now the whole list. Task
-  // 4.8's injected `spfReferencedCatalogKeys` was retired at Task 5.2: audit
-  // derives the catalog keys with SPF's own helper and passes them, so there
-  // is still no core/dkim -> core/spf edge and still one SPF grammar. The
-  // string-taking legacy members are the wrappers below.
   const {
+    analyzeDomain,
+    countSpfLookups, findSpfRedundancy, auditSpfSubnets,
     checkDKIM, catalogSelectors, spfSelectorSources, buildDkimSelectorList,
     isRecognizedDkimSelector, inspectDkimSelector, summarizeDkimKeys,
     validateDkimKeyStructure, dkimKeyRecords, dkimRecordSet,
-  } = createDkimCheck({
-    dohFetch, requireUsable, cleanAnswerData, crypto, dkimSelectorCatalog,
-  });
+    getOrganizationalDomain, discoverDmarc,
+    resolveDestinationOrgDomains, checkExternalReportAuth,
+    checkCAA, auditMxHosts, checkTlsa,
+    matchDsToDnskeys, matchDsSet, checkDNSSEC,
+  } = audit;
 
   /**
-   * The legacy engine surface for the four SPF-aware DKIM members.
-   *
-   * Thin compatibility wrappers, and exactly what the Phase-5 ruling
-   * authorizes. The TARGET path — `src/audit/` — derives the catalog keys with
-   * SPF's own helper and passes the KEYS, which is what retires the
-   * `core/dkim` → `core/spf` composition from the real audit. The observed
-   * legacy signatures still take an SPF record STRING, and
-   * `tools/scoring.test.mjs` asserts them directly, so each wrapper performs
-   * the old derivation and delegates to the fact-taking API.
-   *
-   * Adapters, not architecture. Phase 6 removes them with this file.
+   * The four SPF-aware DKIM members and provider detection, in their observed
+   * legacy shapes. Thin compatibility wrappers over the fact-taking APIs; the
+   * audit path uses those directly. Phase 6 removes them with this file.
    */
+  const legacyDetectEmailProvider = (mx, domain, addressRecords) =>
+    detectEmailProvider(mx, domain, addressRecords, isNullMx(mx));
   const legacyCatalogSelectors = (emailProvider, comprehensive, spfRecord) =>
     catalogSelectors(emailProvider, comprehensive, spfReferencedCatalogKeys(spfRecord));
   const legacySpfSelectorSources = (selectors, emailProvider, comprehensive, spfRecord) =>
@@ -211,54 +195,6 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
   const legacyCheckDKIM = (domain, wildcard, selectors, emailProvider, comprehensive, spfRecord, queryOpts) =>
     checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive,
       spfReferencedCatalogKeys(spfRecord), queryOpts);
-
-  // DMARC, Task 4.6. The PSL is generated data and is PASSED to its own
-  // factory; the walk and the report-authorization checks each name the
-  // resolver capabilities they read. Report authorization takes the walk as a
-  // collaborator rather than reaching for it, because a protocol directory has
-  // no edge to core/dns/ or to src/data/.
-  const getOrganizationalDomain = createOrgDomain({ publicSuffixRules });
-  const discoverDmarc = createDmarcDiscovery({ dohFetch, dnsError, cleanAnswerData });
-  const { resolveDestinationOrgDomains, checkExternalReportAuth } = createReportAuth({
-    dohFetch, dnsError, cleanAnswerData, optionalCheck, discoverDmarc,
-  });
-
-  /* ── Advanced checks ────────────────────────────────────────────────── */
-
-  // CAA moved to src/core/caa/ at Task 4.1, MX health to src/core/mx/ at 4.2
-  // and TLSA to src/core/transport/ at 4.4. Each names the resolver
-  // capabilities it reads, because a protocol directory has no edge to
-  // core/dns/. TLSA takes four: it needs the raw response for the AD bit and
-  // the type-52 filter, so it does layer 3's cleaning itself.
-  const checkCAA = createCaaCheck({ dohFetch, requireUsable });
-  const auditMxHosts = createMxAudit({ dohQuery, optionalCheck });
-  const checkTlsa = createTlsaCheck({ dohFetch, requireUsable, optionalCheck, cleanAnswerData });
-  // DNSSEC, Task 4.5. The matcher is constructed here and PASSED to the chain
-  // check: the crypto belongs to the module that computes digests, and the
-  // module that decides `state` must not be able to reach it. Both matcher
-  // functions are engine members in their own right.
-  const { matchDsToDnskeys, matchDsSet } = createDsMatcher({ crypto });
-  const checkDNSSEC = createDnssecCheck({ dohFetch, cleanAnswerData, matchDsSet });
-
-  /**
-   * The audit coordinator, Task 5.2.
-   *
-   * `analyzeDomain()` and its helpers live in `src/audit/audit-domain.js` now.
-   * What it needs is handed to it here, because this file is still the
-   * transitional composition root: the resolver handle §12 forbids `audit/`
-   * from importing, and every protocol check already built over that resolver.
-   *
-   * That is now the WHOLE list. Tasks 5.3 and 5.4 took the scorers and the
-   * issue builders off it — they are `audit/` siblings, so the coordinator
-   * imports them — and what remains is exactly the set §12 says must be
-   * passed. Nothing temporary is left here.
-   */
-  const { analyzeDomain } = createAuditDomain({
-    dohFetch, dohQuery, requireUsable, optionalCheck, existenceFromResponse,
-    checkDNSSEC, checkCAA, checkTlsa, auditMxHosts, checkDKIM,
-    discoverDmarc, resolveDestinationOrgDomains, checkExternalReportAuth,
-    countSpfLookups, auditSpfSubnets,
-  });
 
 
   return {

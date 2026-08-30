@@ -40,7 +40,13 @@
 import { createI18n } from './i18n/index.js';
 import { createRenderer } from './ui/render.js';
 import { createUi } from './ui/events.js';
-import { createDnsEngine } from '../js/dns.js';
+import { createAudit } from './audit/create-audit.js';
+import { createDohCache } from './core/dns/cache.js';
+import { createDohTransport } from './core/dns/doh.js';
+import { createResolver } from './core/dns/resolver.js';
+import { createExistence, existenceFromResponse } from './core/dns/existence.js';
+import { optionalCheck } from './core/dns/optional.js';
+import { dnsError, dnsTypeNum } from './core/dns/errors.js';
 
 /**
  * Build one audit runtime.
@@ -63,7 +69,34 @@ export function createAuditRuntime({
 
   const i18n = createI18n({ englishBundle, platform });
   const renderer = createRenderer(() => platform.document, i18n);
-  const engine = createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform });
+
+  /**
+   * The DNS layer, and the split §12 draws through this composition.
+   *
+   * This module has the `core/dns/` edge and `src/audit/` does not; `audit/`
+   * has the `core/<protocol>/` and `providers/` edges and this module does
+   * not. So the cache, the transport and the resolver are built HERE, and the
+   * handle is passed to `createAudit()`, which builds every protocol check
+   * over it. Neither half can do the other's job without an edge the matrix
+   * forbids.
+   *
+   * **ONE cache, and therefore one per page.** Spec Design §5:
+   * `createAuditRuntime()` is called once by `src/main.js`, so this is the
+   * page-lifetime cache `v0.5.0` had. `tools/scoring.test.mjs` asserts the
+   * sibling reuse it produces and `PRIVACY.md` publishes the fan-out, so
+   * narrowing it is a privacy change rather than a refactor.
+   */
+  const cache = createDohCache();
+  const { dohFetch } = createDohTransport({ platform, cache, dnsError, dnsTypeNum });
+  const { requireUsable, dohQuery, dohAll, checkConnectivity, cleanAnswerData } =
+    createResolver({ dohFetch });
+  const domainExists = createExistence({ dohFetch });
+
+  const audit = createAudit({
+    dohFetch, dohQuery, requireUsable, cleanAnswerData, optionalCheck,
+    existenceFromResponse, dnsError,
+    crypto: platform.crypto, publicSuffixRules, dkimSelectorCatalog,
+  });
 
   /**
    * Wire this runtime to its page: pick a locale, load it, paint the DOM.
@@ -101,8 +134,8 @@ export function createAuditRuntime({
     platform,
     i18n,
     renderer,
-    analyzeDomain: (domain, options) => engine.analyzeDomain(domain, options),
-    checkConnectivity: () => engine.checkConnectivity(),
+    analyzeDomain: (domain, options) => audit.analyzeDomain(domain, options),
+    checkConnectivity: () => checkConnectivity(),
     mount,
     englishBundle,
   });
@@ -115,8 +148,8 @@ export function createAuditRuntime({
      * internal or test surface that an import serves better than a global ever
      * did.
      */
-    analyzeDomain: (domain, options) => engine.analyzeDomain(domain, options),
-    checkConnectivity: () => engine.checkConnectivity(),
+    analyzeDomain: (domain, options) => audit.analyzeDomain(domain, options),
+    checkConnectivity: () => checkConnectivity(),
 
     /**
      * The mount, and **the same function object the UI was given** — declared
@@ -133,7 +166,12 @@ export function createAuditRuntime({
      */
     i18n,
     renderer,
-    engine,
+    /**
+     * The audit's constructed parts and the DNS layer beneath them, for the
+     * contract tests that exercise a protocol owner over a real transport.
+     * Not facade members — `src/facade.expected.json` names those two.
+     */
+    engine: { ...audit, dohFetch, dohQuery, dohAll, requireUsable, cleanAnswerData, checkConnectivity, domainExists },
     ui,
   };
 }
