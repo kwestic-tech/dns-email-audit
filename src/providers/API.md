@@ -18,21 +18,20 @@ audit's reasoning, never a verdict.
 | --- | --- |
 | `core/shared/` | everything else — including any `core/<protocol>/`, `core/dns/`, `audit/`, `ui/`, `src/data/` and the platform |
 
-It currently imports nothing at all.
+It imports nothing at all, and takes no capability either.
 
 ## Public exports
 
 | Export | Kind | Contract |
 | --- | --- | --- |
-| `createDetectors({ isNullMx })` | factory | Returns `{ detectDNSProvider, detectEmailProvider, detectHosting }`. |
+| `detectDNSProvider(ns, domain)` | pure | A vendor name, or `@unknown` / `@custom`. |
+| `detectEmailProvider(mx, domain, addressRecords, nullMx)` | pure | A vendor name, or `@null-mx` / `@implicit-mx` / `@none` / `@custom-unknown`. `nullMx` is a derived FACT — see below. |
+| `detectHosting(aRecs, wwwCname, domain)` | pure | A host name, or `@no-web` / `@custom`. |
 
-### Factory product
-
-| Product | Contract |
-| --- | --- |
-| `detectDNSProvider(ns, domain)` | A vendor name, or `@unknown` / `@custom`. |
-| `detectEmailProvider(mx, domain, addressRecords)` | A vendor name, or `@null-mx` / `@implicit-mx` / `@none` / `@custom-unknown`. |
-| `detectHosting(aRecs, wwwCname, domain)` | A host name, or `@no-web` / `@custom`. |
+**There is no factory.** Task 4.9 had one for the single injected capability;
+Task 5.2 retired that capability, and a factory that injects nothing is a false
+statement about what a module needs. Three pure functions, which is what §12's
+table said this directory was.
 
 `cap()` is private. One reader, and never an engine member.
 
@@ -50,38 +49,41 @@ they did not publish:
 The null-MX test comes **first**, so a `0 .` domain that also publishes
 addresses is not read as implicit MX.
 
-## The null-MX collaborator
+## The null-MX fact, and why it is an argument
 
 `detectEmailProvider()` needs to know whether an MX set is `0 .`, and that
 predicate is MX semantics owned by [`core/mx/`](../core/mx/API.md). §12 gives
 this directory an edge to `core/shared/` only.
 
-**Ruled at Task 4.0, finding 4:** `providers/` receives the null-MX
-determination rather than importing `core/mx/`. `isNullMx` therefore arrives as
-an injected capability, supplied by the composition root — the same arrangement
-`core/dkim/` has for SPF's `spfReferencedCatalogKeys`.
+**Ruled at Task 4.0, finding 4; completed at Task 5.2.** Task 4.9 injected
+`isNullMx` — the PREDICATE — because the ruling's end state needed an
+`src/audit/` that did not exist yet. It exists now, so this directory receives
+the derived **fact**: [`src/audit/`](../audit/API.md) computes the boolean once
+with `core/mx/`'s own predicate and reads it twice, here and at its deep-check
+gate.
 
-`detectors.test.js` proves the edge rather than describing it: a detector built
-over a predicate that never fires cannot produce `@null-mx`, and one built over
-a predicate that always fires produces it for any MX set. Neither would be
-possible if this module reached for the real one.
+`detectors.test.js` proves the edge rather than describing it, and the control
+is stronger than the injected predicate's was: the verdict follows the
+ARGUMENT rather than the records. `['0 .']` with the fact `false` answers
+`@custom-unknown`; `['10 mail.example.test']` with the fact `true` answers
+`@null-mx`. Neither would be possible if this module decided for itself.
 
-### What is still owed
+An omitted fourth argument is `undefined`, which is falsy, so an old
+three-argument call never invents a null MX — it simply gets the wrong answer,
+which is why the legacy shape is wrapped rather than left to degrade.
 
-The ruling's end state is audit passing the derived **fact** — a boolean — not
-the predicate. That cannot be built here:
+### The legacy signature, preserved
 
-- `detectEmailProvider(mx, domain, addressRecords)` is a legacy engine member
-  whose three-argument form is asserted directly by `tools/scoring.test.mjs`;
-- there is no `src/audit/` to derive the fact in until Phase 5.
-
-Injecting the predicate removes the forbidden **edge** today and leaves every
-signature untouched. **Phase 5** extracts audit, derives the boolean there, and
-retires this parameter with the same move that retires the SPF collaborator.
+`detectEmailProvider(mx, domain, addressRecords)` is a legacy engine member
+whose three-argument form is asserted directly by `tools/scoring.test.mjs`. It
+survives unchanged as a thin compatibility wrapper in `js/dns.js` that derives
+the boolean and delegates here. An adapter, not architecture; Phase 6 removes
+it with that file. `scoring.test.mjs`'s count did not move.
 
 ## Moved, not redesigned
 
-`js/dns.js`'s provider-detection block, unchanged apart from the two-space
-dedent, the `export` keyword, and becoming the body of a factory. Every
-pattern, every token and every fallback order is byte-identical; both
-five-surface equivalence subjects report zero differences.
+`js/dns.js`'s provider-detection block, unchanged apart from the dedent and the
+`export` keywords. Every pattern, every token and every fallback order is
+byte-identical — including the order that matters most, in which the null-MX
+test comes FIRST so a `0 .` domain that also publishes addresses is not read as
+implicit MX. Both five-surface equivalence subjects report zero differences.

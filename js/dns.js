@@ -82,7 +82,7 @@ import {
   createSpfChecks, analyzeSpf, parseSpfTerms, cidrContains, classifySpfSubnet,
   classifySpfSubnets, stripSpfQualifier, spfReferencedCatalogKeys,
 } from '../src/core/spf/spf.js';
-import { createDetectors } from '../src/providers/detectors.js';
+import { detectDNSProvider, detectEmailProvider, detectHosting } from '../src/providers/detectors.js';
 import { createAuditDomain, startsWithCI } from '../src/audit/audit-domain.js';
 
 export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
@@ -144,13 +144,18 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
    */
   const domainExists = createExistence({ dohFetch });
 
-  // Provider detection, Task 4.9. `isNullMx` is MX semantics owned by
-  // core/mx/, and §12 gives providers/ an edge to core/shared/ only — so the
-  // composition root injects it rather than letting providers import it.
-  // Task 4.0 finding 4's end state is audit passing the derived BOOLEAN;
-  // that needs src/audit/, so Phase 5 finishes it.
-  const { detectDNSProvider, detectEmailProvider, detectHosting } =
-    createDetectors({ isNullMx });
+  /**
+   * Provider detection, Task 4.9, with its collaborator retired at Task 5.2.
+   *
+   * `providers/` is three pure functions now: audit derives the RFC 7505
+   * null-MX boolean with `core/mx/`'s predicate and passes the FACT, which is
+   * Task 4.0 finding 4's stated end state. The legacy three-argument member is
+   * this wrapper — it performs the old derivation and delegates, because
+   * `tools/scoring.test.mjs` asserts that form directly. An adapter, not
+   * architecture; Phase 6 removes it with this file.
+   */
+  const legacyDetectEmailProvider = (mx, domain, addressRecords) =>
+    detectEmailProvider(mx, domain, addressRecords, isNullMx(mx));
 
   // SPF, Task 4.8. Two of the three checks need the RAW handle as well as
   // layer 3, because countSpfLookups()'s fallback copies DnsError.kind.
@@ -1114,7 +1119,6 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
     checkDNSSEC, checkCAA, checkTlsa, auditMxHosts, checkDKIM,
     discoverDmarc, resolveDestinationOrgDomains, checkExternalReportAuth,
     countSpfLookups, auditSpfSubnets,
-    detectDNSProvider, detectEmailProvider, detectHosting,
     buildIssues, buildSuggestions, calcScore, calcAdvScore,
   });
 
@@ -1176,7 +1180,7 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
     dohFetch,
     // exported for unit testing / reuse
     detectDNSProvider,
-    detectEmailProvider,
+    detectEmailProvider: legacyDetectEmailProvider,
     isNullMx,
     detectHosting,
     getOrganizationalDomain,

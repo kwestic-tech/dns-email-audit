@@ -396,7 +396,7 @@
     },
     {
       "path": "src/providers/detectors.test.js",
-      "assertions": 21,
+      "assertions": 22,
       "note": "Co-located per spec §9. Phase 4, Task 4.9 — the last extraction of Phase 4.",
       "areas": [
         "DNS operator naming, including the ccSLD rule that steps past a second-level label",
@@ -420,13 +420,14 @@
     },
     {
       "path": "src/audit/audit-domain.test.js",
-      "assertions": 46,
+      "assertions": 52,
       "areas": [
         "the unregistered short-circuit, and that nothing downstream runs after it",
         "the NS servfail DNSSEC preflight: the unchecked retry, its gate, and the verdict it does not re-derive",
         "the Promise.all structure — the four core lookups, the advanced batch and the wildcard pair, each proven in flight together",
         "which checks the options run and which they skip",
         "the deep-check gate, including the RFC 7505 null-MX skip",
+        "the derived null-MX fact and both of its readers, with the control that proves neither passes for want of an MX record",
         "error isolation: a degraded check, the two different kind-copy policies, and cancellation escaping both",
         "that the coordinator carries each protocol owner's answer rather than re-deriving it"
       ]

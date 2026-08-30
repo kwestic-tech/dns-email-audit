@@ -7,17 +7,21 @@
  * `@null-mx` are three different statements about a domain's mail, and they
  * are reached by testing in a particular sequence.
  *
- * `isNullMx` is injected, so this file also proves the edge: the detectors
- * work against a supplied determination and reach for nothing.
+ * The null-MX determination is a FACT this module is given, not one it makes,
+ * so this file also proves the edge: `detectEmailProvider()` answers from the
+ * boolean it was handed and reaches for nothing. `core/mx/`'s real predicate
+ * is imported HERE, in the test, to compute what audit computes — which is
+ * exactly the edge `providers/` itself does not have.
  */
 
 import { createSuite } from '../../tests/lib/assert.mjs';
 import { isNullMx } from '../core/mx/mx.js';
-import { createDetectors } from './detectors.js';
+import { detectDNSProvider, detectEmailProvider, detectHosting } from './detectors.js';
 
 const { eq, section, report } = createSuite();
-const { detectDNSProvider, detectEmailProvider, detectHosting } =
-  createDetectors({ isNullMx });
+
+/** What audit does: derive the fact once, with the owner's predicate. */
+const forMx = (mx, domain, addresses) => detectEmailProvider(mx, domain, addresses, isNullMx(mx));
 
 /* ── 1. DNS provider ──────────────────────────────────────────────────── */
 section('1. detectDNSProvider');
@@ -39,52 +43,56 @@ eq('a trailing dot is not a label', detectDNSProvider(['ns1.cloudns.net.'], 'exa
 section('2. detectEmailProvider');
 
 eq('a known provider is named',
-  detectEmailProvider(['1 aspmx.l.google.com'], 'example.test', []), 'Google Workspace');
+  forMx(['1 aspmx.l.google.com'], 'example.test', []), 'Google Workspace');
 
 /**
  * Three different statements, reached in order. Collapsing any two of them
  * would tell an operator something they did not publish.
  */
 eq('RFC 7505 `0 .` is an explicit refusal of mail',
-  detectEmailProvider(['0 .'], 'example.test', ['192.0.2.1']), '@null-mx');
+  forMx(['0 .'], 'example.test', ['192.0.2.1']), '@null-mx');
 eq('no MX but an address is implicit MX — RFC 5321 §5.1',
-  detectEmailProvider([], 'example.test', ['192.0.2.1']), '@implicit-mx');
+  forMx([], 'example.test', ['192.0.2.1']), '@implicit-mx');
 eq('no MX and no address is no mail at all',
-  detectEmailProvider([], 'example.test', []), '@none');
+  forMx([], 'example.test', []), '@none');
 eq('and the three are distinct', new Set([
-  detectEmailProvider(['0 .'], 'example.test', ['192.0.2.1']),
-  detectEmailProvider([], 'example.test', ['192.0.2.1']),
-  detectEmailProvider([], 'example.test', []),
+  forMx(['0 .'], 'example.test', ['192.0.2.1']),
+  forMx([], 'example.test', ['192.0.2.1']),
+  forMx([], 'example.test', []),
 ]).size, 3);
 
 // The null-MX test comes FIRST: a `0 .` domain with addresses must not be read
 // as implicit MX.
 eq('a null MX outranks the address records it also publishes',
-  detectEmailProvider(['0 .'], 'example.test', ['192.0.2.1', '2001:db8::1']), '@null-mx');
+  forMx(['0 .'], 'example.test', ['192.0.2.1', '2001:db8::1']), '@null-mx');
 // RFC 7505 §3: a null MX is exclusive, so `0 .` beside a real exchange is not
-// one — and the injected predicate is what says so.
+// one — and `core/mx/`'s predicate is what says so, from outside this module.
 eq('a null MX beside a real exchange is not a null MX',
-  detectEmailProvider(['0 .', '10 mail.example.test'], 'example.test', []) === '@null-mx', false);
+  forMx(['0 .', '10 mail.example.test'], 'example.test', []) === '@null-mx', false);
 
-/* ── 3. The injected determination is really injected ─────────────────── */
-section('3. isNullMx is a capability, not an import');
+/* ── 3. The determination is a fact, not a decision made here ─────────── */
+section('3. The null-MX answer comes from the fact it is given');
 
-// The negative control for the edge: a detector built over a predicate that
-// never fires cannot produce `@null-mx`, which it could not fail to produce if
-// it were reaching for the real one.
-const neverNull = createDetectors({ isNullMx: () => false });
-// `0 .` then falls through to the vendor patterns, matches none, and lands on
-// `@custom-unknown` — an MX set that exists and is not recognized. The point
-// is that it is NOT `@null-mx`.
-eq('a predicate that never fires yields no null-MX verdict',
-  neverNull.detectEmailProvider(['0 .'], 'example.test', ['192.0.2.1']), '@custom-unknown');
-eq('while the real predicate does', 
-  detectEmailProvider(['0 .'], 'example.test', ['192.0.2.1']), '@null-mx');
-const alwaysNull = createDetectors({ isNullMx: () => true });
-eq('and one that always fires yields it for any MX set',
-  alwaysNull.detectEmailProvider(['10 mail.example.test'], 'example.test', []), '@null-mx');
-eq('while the real predicate disagrees with both',
-  detectEmailProvider(['10 mail.example.test'], 'example.test', []) === '@null-mx', false);
+// The negative control for the edge, and it is stronger than the injected
+// predicate's was: the verdict follows the ARGUMENT rather than the records,
+// which it could not do if this module were deciding for itself.
+//
+// `0 .` with the fact false falls through to the vendor patterns, matches
+// none, and lands on `@custom-unknown` — an MX set that exists and is not
+// recognized. The point is that it is NOT `@null-mx`.
+eq('a false fact yields no null-MX verdict, whatever the records say',
+  detectEmailProvider(['0 .'], 'example.test', ['192.0.2.1'], false), '@custom-unknown');
+eq('while the fact audit really derives does',
+  forMx(['0 .'], 'example.test', ['192.0.2.1']), '@null-mx');
+eq('and a true fact yields it for any MX set',
+  detectEmailProvider(['10 mail.example.test'], 'example.test', [], true), '@null-mx');
+eq('while the derived fact disagrees with both',
+  forMx(['10 mail.example.test'], 'example.test', []) === '@null-mx', false);
+// A missing fourth argument is `undefined`, which is falsy — so an old
+// three-argument call never invents a null MX. That is what makes the legacy
+// wrapper in `js/dns.js` the only thing standing between the two shapes.
+eq('and an omitted fact is simply not a null MX',
+  detectEmailProvider(['0 .'], 'example.test', []) === '@null-mx', false);
 
 /* ── 4. Hosting ───────────────────────────────────────────────────────── */
 section('4. detectHosting');

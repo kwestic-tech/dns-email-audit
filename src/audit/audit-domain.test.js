@@ -48,7 +48,10 @@ function build(overrides = {}) {
 
   const capabilities = {
     dohFetch: async (name, type, opts) => { log('dohFetch', name, type, opts); return NS_OK; },
-    dohQuery: async (name, type, opts) => { log('dohQuery', name, type, opts); return []; },
+    // A real MX set: `providers/` is imported by the coordinator rather than
+    // injected, so `emailProvider` is a real answer here and the DKIM gate —
+    // which skips `@none` and `@null-mx` — sees what production sees.
+    dohQuery: async (name, type, opts) => { log('dohQuery', name, type, opts); return type === 'MX' ? ['10 mail.example.test'] : []; },
     requireUsable,
     optionalCheck,
     existenceFromResponse,
@@ -62,9 +65,6 @@ function build(overrides = {}) {
     checkExternalReportAuth: async () => { log('checkExternalReportAuth'); return []; },
     countSpfLookups: async () => { log('countSpfLookups'); return sentinel('lookups'); },
     auditSpfSubnets: async () => { log('auditSpfSubnets'); return sentinel('subnets'); },
-    detectDNSProvider: () => '@custom',
-    detectEmailProvider: () => 'Google Workspace',
-    detectHosting: () => 'GitHub Pages',
     buildIssues: () => [sentinel('issues')],
     buildSuggestions: () => [sentinel('suggestions')],
     calcScore: () => sentinel('score'),
@@ -304,6 +304,32 @@ const cancelled = build({
 await rejects('an aborted check aborts the audit rather than degrading',
   () => cancelled.analyzeDomain('example.test', { ...NONE, advanced: true }),
   error => error.name === 'AbortError');
+
+/* ── 7b. The derived null-MX fact ─────────────────────────────────────── */
+section('7b. The fact audit derives, and both of its readers');
+
+/**
+ * RFC 7505's `0 .` is MX semantics, and §12 gives `providers/` an edge to
+ * `core/shared/` only — so `providers/` cannot decide it and audit does,
+ * once. Task 4.9 injected the PREDICATE as a stated debt; Task 5.2 pays it by
+ * deriving the FACT here. Two readers, and both are asserted: provider
+ * detection and the deep-check gate.
+ */
+const refusesMail = withMx(['0 .']);
+const refused = await refusesMail.analyzeDomain('example.test', { ...NONE, advanced: true, deepChecks: true, dkim: true });
+eq('the null-MX fact reaches provider detection', refused.emailProvider, '@null-mx');
+eq('and the deep-check gate reads the same fact', refusesMail.named('auditMxHosts').length, 0);
+// A domain that refuses mail has no DKIM to find either — the gate skips
+// `@null-mx`, which is only reachable because the fact was derived correctly.
+eq('and no DKIM check runs for a domain that refuses mail', refusesMail.named('checkDKIM').length, 0);
+
+// The control: the same audit over an ordinary MX set answers differently on
+// all three, so none of the assertions above passes for want of an MX record.
+const acceptsMail = withMx(['10 mail.example.test']);
+const accepted = await acceptsMail.analyzeDomain('example.test', { ...NONE, advanced: true, deepChecks: true, dkim: true });
+eq('an ordinary MX set is not null-MX', accepted.emailProvider === '@null-mx', false);
+eq('its deep checks run', acceptsMail.named('auditMxHosts').length, 1);
+eq('and its DKIM check runs', acceptsMail.named('checkDKIM').length, 1);
 
 /* ── 8. The coordinator interprets nothing ────────────────────────────── */
 section('8. No protocol rule lives here');

@@ -23,7 +23,7 @@
  *
  * | Reached by import | Passed as a capability |
  * | --- | --- |
- * | The PURE protocol functions — `analyzeSpf`, `analyzeDmarc`, `applyInheritance`, the three record validators, `isNullMx`, `classifySpfSubnets`, `planReportDestinations` | Everything built over the resolver — `dohFetch`, `dohQuery`, `requireUsable`, `optionalCheck`, and every protocol check constructed with them |
+ * | The PURE protocol functions — `analyzeSpf`, `analyzeDmarc`, `applyInheritance`, the three record validators, `isNullMx`, `spfReferencedCatalogKeys`, `classifySpfSubnets`, `planReportDestinations`, and `providers/`'s three detectors | Everything built over the resolver — `dohFetch`, `dohQuery`, `requireUsable`, `optionalCheck`, and every protocol check constructed with them |
  * | The sibling `context.js` | `existenceFromResponse`, which is `core/dns/`'s and cannot be imported here |
  *
  * Injecting a pure function would be a false capability; importing a resolver
@@ -53,6 +53,7 @@ import { analyzeSpf, classifySpfSubnets, spfReferencedCatalogKeys } from '../cor
 import { analyzeDmarc, emptyDmarcStatus } from '../core/dmarc/record.js';
 import { applyInheritance } from '../core/dmarc/tree-walk.js';
 import { planReportDestinations } from '../core/dmarc/report-auth.js';
+import { detectDNSProvider, detectEmailProvider, detectHosting } from '../providers/detectors.js';
 
 // Record selection must be case-insensitive. RFC 7489 and RFC 7208 tag names
 // are case-insensitive, so `V=DMARC1` and `V=SPF1` are valid records that a
@@ -77,8 +78,6 @@ export function createAuditDomain(capabilities) {
     checkDNSSEC, checkCAA, checkTlsa, auditMxHosts, checkDKIM,
     discoverDmarc, resolveDestinationOrgDomains, checkExternalReportAuth,
     countSpfLookups, auditSpfSubnets,
-    // Provider detection.
-    detectDNSProvider, detectEmailProvider, detectHosting,
     // TEMPORARY — audit siblings awaiting Tasks 5.3 and 5.4, then imports.
     buildIssues, buildSuggestions, calcScore, calcAdvScore,
   } = capabilities;
@@ -170,7 +169,13 @@ export function createAuditDomain(capabilities) {
     ]);
 
     const dnsProvider = detectDNSProvider(ns, d);
-    const emailProvider = detectEmailProvider(mx, d, aRec.concat(aaaaRec));
+    // RFC 7505's `0 .` is MX semantics, and §12 gives `providers/` an edge to
+    // `core/shared/` only — so the fact is derived HERE, once, and read twice:
+    // by provider detection and by the deep-check gate below. Task 4.0 finding
+    // 4's end state, and what retires the predicate `providers/` was injected
+    // with at Task 4.9.
+    const nullMx = isNullMx(mx);
+    const emailProvider = detectEmailProvider(mx, d, aRec.concat(aaaaRec), nullMx);
     // Count matches rather than .find() — every one of these record types
     // fails closed when more than one exists (see the multiple-record checks
     // in buildIssues), so the count is part of the signal, not noise.
@@ -371,7 +376,7 @@ export function createAuditDomain(capabilities) {
       //
       // A null MX (RFC 7505) is skipped: the domain has declared it accepts no
       // mail, so there is no host to resolve and nothing to say about TLSA.
-      if (ctx.options.deepChecks && mx.length && !isNullMx(mx)) {
+      if (ctx.options.deepChecks && mx.length && !nullMx) {
         const mxHealth = await optionalCheck(() => auditMxHosts(mx, d, queryOpts),
           () => ({ hosts: [], danglingHosts: [], cnameHosts: [], duplicatePreferences: [], singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [], unknown: true }));
         const tlsaHosts = mxHealth.hosts.map(h => h.host);
