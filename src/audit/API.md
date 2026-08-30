@@ -87,10 +87,15 @@ actually happened rather than a proof of absence.
 implementation plan both forbid changing concurrency and moving code in the same
 phase, and this release changes it nowhere. `audit-domain.test.js` asserts it
 with an instrument rather than a claim: each stub records the moment it is
-CALLED and does not resolve until the whole batch has arrived, so a batch
-rewritten as a sequence of awaits fails there instead of passing with an
-identical result. Three batches are covered — the four core lookups, the
-advanced checks and the wildcard pair.
+CALLED and holds until the whole batch has arrived, so a batch rewritten as a
+sequence of awaits cannot complete. Because that failure mode is a HANG, every
+such run is raced against a bounded deadline measured in **event-loop turns**
+— the right unit for a question about the event loop, and not flaky the way a
+wall-clock threshold would be — so a regression reports in milliseconds instead
+of running to the CI timeout. The deadline itself is proven to fire.
+
+Three batches are covered, and they are **this file's**: the four core lookups,
+all eight advanced checks, and the wildcard pair.
 
 **The one raw-kind read.** The NS `servfail` DNSSEC preflight reads
 `nsResult.kind` directly, which is spec §3's audit-owned exception edge. It was

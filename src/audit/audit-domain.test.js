@@ -17,9 +17,15 @@
  * The concurrency assertions are the ones to keep. Spec §35 and the
  * implementation plan both forbid changing concurrency in this release, and
  * "the `Promise.all` structure is preserved" is a claim that needs an
- * instrument: each stub records the moment it is CALLED, so a batch rewritten
- * as a sequence of awaits fails here rather than passing quietly with an
- * identical result.
+ * instrument: each stub records the moment it is CALLED and holds until the
+ * whole batch has arrived, so a batch rewritten as a sequence of awaits cannot
+ * complete. Every such run is raced against a **tick deadline** so that a
+ * sequential regression fails in under a second with a readable diagnostic
+ * instead of hanging until the suite or CI timeout.
+ *
+ * The three batches asserted here are the coordinator's own. DKIM's selector
+ * scan is batched inside `core/dkim/` and is that module's contract to keep;
+ * nothing here exercises it and nothing here claims to.
  */
 
 import { createSuite } from '../../tests/lib/assert.mjs';
@@ -154,65 +160,107 @@ eq('and the preflight never ran', preflightCalls.length, 0);
 section('3. The Promise.all structure is preserved');
 
 /**
- * A stub that does not resolve until every expected call has arrived. If the
- * coordinator awaited these one at a time it would deadlock rather than fail
- * an assertion — so the run is raced against a tick budget and a hang is
- * reported as a sequence, which is the failure this asserts against.
+ * A stub that does not resolve until every expected call has arrived.
+ *
+ * If the coordinator awaited these one at a time the gate would never open, so
+ * the failure mode is a HANG rather than a failed assertion. That is why every
+ * run below is raced against `ticks()`.
  */
 function batchProbe(expected) {
   let seen = 0;
   let release;
   const gate = new Promise(resolve => { release = resolve; });
   return {
-    arrive() {
+    arrive(value) {
       seen += 1;
       if (seen >= expected) release();
-      return gate;
+      return gate.then(() => value);
     },
     get seen() { return seen; },
   };
 }
 
+/**
+ * A bounded deadline measured in EVENT-LOOP TURNS, not milliseconds.
+ *
+ * The question is whether the coordinator issued its calls before awaiting
+ * any of them, which is a question about the event loop; a wall-clock
+ * threshold would answer a different question and would be flaky on a loaded
+ * machine. `setImmediate` runs in the check phase, so a chain of them lets
+ * every pending promise continuation drain in between — a batch that is
+ * genuinely concurrent fills within a handful of turns, and one that is
+ * sequential never fills at all.
+ *
+ * 2,000 turns is far more than the audit needs and still resolves in
+ * milliseconds, so a regression reports promptly instead of running to the
+ * suite or CI timeout.
+ */
+const TICK_BUDGET = 2000;
+function ticks(n = TICK_BUDGET) {
+  return new Promise(resolve => {
+    let left = n;
+    const step = () => (left-- <= 0 ? resolve('deadline') : setImmediate(step));
+    setImmediate(step);
+  });
+}
+/** Run an audit against the deadline. Returns 'completed' or 'deadline'. */
+const within = run => Promise.race([run.then(() => 'completed', () => 'completed'), ticks()]);
+
+// The deadline proven to fire. Without this, `within()` returning 'completed'
+// everywhere would be indistinguishable from a race that never times out —
+// and the assertions below would be measuring nothing.
+eq('the deadline fires on work that never finishes',
+  await Promise.race([new Promise(() => {}), ticks(10)]), 'deadline');
+eq('and does not fire on work that does', await within(Promise.resolve()), 'completed');
+
 const core = batchProbe(4);
 const concurrent = build({
   dohQuery: async (name, type, opts) => {
     concurrent.calls.push({ name: 'dohQuery', args: [name, type, opts] });
-    await core.arrive();
-    return [];
+    return core.arrive([]);
   },
 });
-await concurrent.analyzeDomain('example.test', NONE);
+eq('the core batch completes rather than deadlocking',
+  await within(concurrent.analyzeDomain('example.test', NONE)), 'completed');
 eq('the four core lookups are all in flight before any of them resolves', core.seen, 4);
 eq('and they are the four v0.5.0 issued',
   concurrent.named('dohQuery').map(c => c.args[1]).sort(), ['A', 'AAAA', 'MX', 'TXT']);
 
 /**
- * The advanced batch, same instrument. Six of the eight entries reach a
- * collaborator on this fixture: the three `_bimi` / `_mta-sts` / `_smtp._tls`
- * TXT probes, CAA, DNSSEC and report authorization. The two SPF entries do
- * not, because there is no SPF record to account for — which section 8 asserts
- * separately rather than hiding here.
+ * The advanced batch, same instrument, and all EIGHT entries live.
+ *
+ * Two of them only exist when the domain has an SPF record — with none, the
+ * coordinator states the zero itself rather than asking the SPF owner, which
+ * section 8 asserts separately. So the apex TXT here carries one, and both SPF
+ * entries are gated with the other six.
  */
-const advancedProbe = batchProbe(6);
-const arrive = async value => { await advancedProbe.arrive(); return value; };
-const batched = build({
-  // `default._bimi.<d>` does not begin with an underscore; the three probes
-  // are identified as "a TXT query at a name other than the apex".
-  dohQuery: async (name, type) => (type === 'TXT' && name !== 'example.test' ? arrive([]) : []),
-  checkCAA: () => arrive({ sentinel: 'caa' }),
-  checkDNSSEC: () => arrive({ state: 'insecure' }),
-  checkExternalReportAuth: () => arrive([]),
+const advancedProbe = batchProbe(8);
+const advanced = build({
+  // `default._bimi.<d>` does not begin with an underscore, so the three probes
+  // are identified as "a TXT query at a name other than the apex". The apex
+  // TXT is part of the CORE batch and answers immediately, with the SPF record
+  // that makes the last two advanced entries reachable.
+  dohQuery: async (name, type) => {
+    if (type !== 'TXT') return [];
+    return name === 'example.test' ? ['v=spf1 -all'] : advancedProbe.arrive([]);
+  },
+  checkCAA: () => advancedProbe.arrive({ sentinel: 'caa' }),
+  checkDNSSEC: () => advancedProbe.arrive({ state: 'insecure' }),
+  checkExternalReportAuth: () => advancedProbe.arrive([]),
+  countSpfLookups: () => advancedProbe.arrive({ sentinel: 'lookups' }),
+  auditSpfSubnets: () => advancedProbe.arrive({ sentinel: 'subnets' }),
 });
-await batched.analyzeDomain('example.test', { ...NONE, advanced: true });
-eq('the advanced checks are one batch, not a sequence', advancedProbe.seen, 6);
+eq('the advanced batch completes rather than deadlocking',
+  await within(advanced.analyzeDomain('example.test', { ...NONE, advanced: true })), 'completed');
+eq('all eight advanced checks are one batch, not a sequence', advancedProbe.seen, 8);
 
 // The wildcard pair, which is its own Promise.all.
 const wildcardProbe = batchProbe(2);
 const probes = build({
-  dohQuery: async (name) => (name.includes('_wildcardtest99xyz') ? arrive2(wildcardProbe) : []),
+  dohQuery: async (name) => (name.includes('_wildcardtest99xyz') ? wildcardProbe.arrive([]) : []),
 });
-async function arrive2(probe) { await probe.arrive(); return []; }
-await probes.analyzeDomain('example.test', { ...NONE, wildcard: true });
+eq('the wildcard pair completes rather than deadlocking',
+  await within(probes.analyzeDomain('example.test', { ...NONE, wildcard: true })), 'completed');
 eq('and both wildcard depths are probed together', wildcardProbe.seen, 2);
 
 /* ── 4. Option gating ─────────────────────────────────────────────────── */

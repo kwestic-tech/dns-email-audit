@@ -435,7 +435,7 @@
     },
     {
       "path": "src/audit/audit-domain.test.js",
-      "assertions": 49,
+      "assertions": 54,
       "areas": [
         "the unregistered short-circuit, and that nothing downstream runs after it",
         "the NS servfail DNSSEC preflight: the unchecked retry, its gate, and the verdict it does not re-derive",
@@ -444,7 +444,7 @@
         "the derived null-MX fact and both of its readers, with the control that proves neither passes for want of an MX record",
         "error isolation: a degraded check, the two different kind-copy policies, and cancellation escaping both",
         "that the coordinator carries each protocol owner's answer rather than re-deriving it",
-        "the Promise.all structure — the four core lookups, the advanced batch and the wildcard pair, each proven in flight together"
+        "the Promise.all structure — the four core lookups, all eight advanced checks and the wildcard pair, each proven in flight together against a bounded tick deadline"
       ]
     },
     {
