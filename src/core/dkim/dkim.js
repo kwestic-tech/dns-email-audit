@@ -9,30 +9,26 @@
  * | `dohFetch`, `requireUsable`, `cleanAnswerData` | §12 gives a protocol directory no edge to `core/dns/`. The RAW handle is needed: `inspectDkimSelector()` walks CNAMEs and reads the answer chain, which a normalized array does not carry. |
  * | `crypto` | The platform's, not the platform. Web Crypto validation is OPTIONAL — see below. |
  * | `dkimSelectorCatalog` | Generated data. §12 gives no edge to `src/data/`, and the fixture-identity probes work by handing this a substitute catalog. |
- * | `spfReferencedCatalogKeys` | **TEMPORARY.** See below. |
  *
- * ── The temporary SPF collaborator ──────────────────────────────────────
+ * ── The SPF collaborator, RETIRED at Task 5.2 ───────────────────────────
  *
  * `catalogSelectors()` widens the selector scan using the vendors a domain's
  * SPF record names, which needs SPF's term grammar. §12 gives DKIM no edge to
- * `core/spf/`, and the ruling at Task 4.0 was explicit about the three things
- * this must NOT become: DKIM does not import `core/spf/`, does not copy
+ * `core/spf/`, and Task 4.0's ruling was explicit about the three things this
+ * must NOT become: DKIM does not import `core/spf/`, does not copy
  * `parseSpfTerms()`, and does not grow a second SPF grammar.
  *
- * So `spfReferencedCatalogKeys()` lives with the grammar it reads. Since Task
- * 4.8 that is `core/spf/`, and the COMPOSITION ROOT imports it from there and
- * injects it here.
+ * Task 4.8 satisfied that by INJECTING SPF's `spfReferencedCatalogKeys` from
+ * the composition root, and recorded it as a debt rather than as design.
+ * **Task 5.2 pays it.** `src/audit/` derives the catalog keys once, with the
+ * SPF-owned helper, and passes the KEYS — so cross-protocol composition
+ * happens in the layer that composes, and this module holds no opinion about
+ * SPF at all. The four selector functions take `spfCatalogKeys` where they took
+ * an SPF record string.
  *
- * That is still a **transitional capability, not the target shape**.
- * Cross-protocol composition belongs to the audit layer: **Phase 5** replaces
- * this string-taking collaborator with audit-derived input — audit parses the
- * references once and passes the derived catalog keys — after which this
- * parameter goes away. Nothing here should be built to depend on the
- * arrangement lasting.
- *
- * `checkDKIM()`'s signature is unchanged — it still receives the SPF record as
- * a STRING — because changing it is the composition decision this task is
- * explicitly not making.
+ * The legacy engine surface still offers the string-taking form. That is a thin
+ * compatibility wrapper in `js/dns.js` which derives the keys and delegates
+ * here — an adapter, not architecture, removed with `js/dns.js` in Phase 6.
  *
  * ── Optional Web Crypto validation ──────────────────────────────────────
  *
@@ -555,6 +551,9 @@ export function analyzeDkimKey(txtValue) {
  * and not a file one: the catalog constants close over `dkimSelectorCatalog`,
  * so they cannot sit at module scope without importing generated data.
  */
+/** Absent SPF catalog keys are the same as none, and shared rather than rebuilt. */
+const EMPTY_CATALOG_KEYS = Object.freeze(new Set());
+
 export function createDkimCheck(capabilities) {
   // Destructured in the BODY, not in the parameter list — the same adjustment
   // `core/dnssec/matching.js` makes. `platform.test.mjs` recognizes
@@ -563,9 +562,6 @@ export function createDkimCheck(capabilities) {
   // limit of a lexical scan; adjusted to rather than adjusted.
   const {
     dohFetch, requireUsable, cleanAnswerData, crypto, dkimSelectorCatalog,
-    // TEMPORARY. SPF-owned since Task 4.8 and injected by the composition
-    // root; Phase 5 replaces it with audit-derived input.
-    spfReferencedCatalogKeys,
   } = capabilities;
   /**
    * Two readers that look pure and are not: both take RAW answers and clean
@@ -700,7 +696,24 @@ export function createDkimCheck(capabilities) {
   }
 
 
-  function catalogSelectors(emailProvider, comprehensive, spfRecord) {
+  /**
+   * The DERIVED fact this module reads, replacing the SPF collaborator.
+   *
+   * Task 4.8 injected SPF's `spfReferencedCatalogKeys` here because §12 forbids
+   * a `core/dkim` → `core/spf` edge and Task 4.0 forbade copying the grammar.
+   * Task 5.2 retires it: `src/audit/` derives the catalog keys with the
+   * SPF-owned helper and passes the KEYS, which is where cross-protocol
+   * composition belongs. This module now reads a set of catalog keys and holds
+   * no opinion about SPF at all.
+   *
+   * Absent is the same as empty, which is what `spfReferencedCatalogKeys('')`
+   * returned and what the legacy wrapper still produces for a missing record.
+   */
+  function catalogKeySet(spfCatalogKeys) {
+    return spfCatalogKeys || EMPTY_CATALOG_KEYS;
+  }
+
+  function catalogSelectors(emailProvider, comprehensive, spfCatalogKeys) {
     var providerKey = DKIM_PROVIDER_CATALOG_KEYS[emailProvider];
     var providerSelectors = providerKey && DKIM_CATALOG.providers[providerKey]
       ? DKIM_CATALOG.providers[providerKey] : [];
@@ -711,7 +724,7 @@ export function createDkimCheck(capabilities) {
     // Comprehensive mode already covers every provider, so this only widens the
     // provider-aware scan. .concat() returns a new array each time, leaving the
     // catalog's own arrays untouched.
-    spfReferencedCatalogKeys(spfRecord).forEach(function (key) {
+    catalogKeySet(spfCatalogKeys).forEach(function (key) {
       if (key !== providerKey && DKIM_CATALOG.providers[key]) {
         providerSelectors = providerSelectors.concat(DKIM_CATALOG.providers[key]);
       }
@@ -722,12 +735,12 @@ export function createDkimCheck(capabilities) {
   // Which tested selectors exist *only* because SPF named their vendor. A
   // selector the MX provider (or the base list, or the user) would have
   // supplied anyway is not attributed here — it needed no explaining.
-  function spfSelectorSources(selectors, emailProvider, comprehensive, spfRecord) {
+  function spfSelectorSources(selectors, emailProvider, comprehensive, spfCatalogKeys) {
     var sources = new Map();
     if (comprehensive) return sources;
     var providerKey = DKIM_PROVIDER_CATALOG_KEYS[emailProvider];
     var baseline = new Set(buildDkimSelectorList(selectors, emailProvider, false));
-    spfReferencedCatalogKeys(spfRecord).forEach(function (key) {
+    catalogKeySet(spfCatalogKeys).forEach(function (key) {
       if (key === providerKey || !DKIM_CATALOG.providers[key]) return;
       DKIM_CATALOG.providers[key].forEach(function (selector) {
         var name = String(selector || '').trim().toLowerCase();
@@ -740,9 +753,9 @@ export function createDkimCheck(capabilities) {
     return sources;
   }
 
-  function buildDkimSelectorList(selectors, emailProvider, comprehensive, spfRecord) {
+  function buildDkimSelectorList(selectors, emailProvider, comprehensive, spfCatalogKeys) {
     return Array.from(new Set(
-      (selectors || []).concat(DKIM_SELECTORS, catalogSelectors(emailProvider, comprehensive, spfRecord))
+      (selectors || []).concat(DKIM_SELECTORS, catalogSelectors(emailProvider, comprehensive, spfCatalogKeys))
         .map(function (selector) { return String(selector || '').trim().toLowerCase(); })
         .filter(validDkimSelector)
     ));
@@ -786,11 +799,11 @@ export function createDkimCheck(capabilities) {
     return { sel: selector, queryName: queryName, keys: [], revoked: [], unusable: [], malformed: [], cname: firstCname };
   }
 
-  async function checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive, spfRecord, queryOpts) {
+  async function checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive, spfCatalogKeys, queryOpts) {
     var wildcardDkim = !!(wildcard && wildcard.dkim);
     var synthesized = new Set((wildcard && wildcard.records) || []);
-    var selectorList = buildDkimSelectorList(selectors, emailProvider, comprehensive, spfRecord);
-    var spfSources = spfSelectorSources(selectors, emailProvider, comprehensive, spfRecord);
+    var selectorList = buildDkimSelectorList(selectors, emailProvider, comprehensive, spfCatalogKeys);
+    var spfSources = spfSelectorSources(selectors, emailProvider, comprehensive, spfCatalogKeys);
     var suppliedSelectors = new Set((selectors || [])
       .map(function (selector) { return String(selector || '').trim().toLowerCase(); })
       .filter(validDkimSelector));

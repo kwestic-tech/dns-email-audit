@@ -20,35 +20,45 @@ This directory emits no finding, severity, score or locale key.
 | `dohFetch`, `requireUsable`, `cleanAnswerData` | §12 gives no edge to `core/dns/`. The RAW handle is required: `inspectDkimSelector()` walks CNAMEs and reads the answer chain, which a normalized array does not carry. |
 | `crypto` | The platform's, not the platform. Validation is optional — see below. |
 | `dkimSelectorCatalog` | Generated data; §12 gives no edge to `src/data/`. The fixture-identity probes work by substituting it. |
-| `spfReferencedCatalogKeys` | **Transitional**, and SPF-owned since Task 4.8 — injected by the composition root, never imported. See below. |
 
-## The transitional SPF collaborator
+**There is no longer a fourth.** `spfReferencedCatalogKeys` was injected here
+from Task 4.8 and retired at Task 5.2 — see below.
+
+## The SPF collaborator, retired at Task 5.2
 
 `catalogSelectors()` widens the selector scan using the vendors a domain's own
-SPF record names — a `include:` is the domain stating that this vendor sends
+SPF record names — an `include:` is the domain stating that this vendor sends
 mail for it, which is as good a reason to probe that vendor's selectors as MX
 is for the inbound provider. Deriving that needs SPF's term grammar.
 
-**Ruled at Task 4.0 and in force here.** DKIM does **not**:
+**Ruled at Task 4.0 and still in force.** DKIM does **not**:
 
 - import `core/spf/` — §12 gives a protocol directory no such edge;
 - copy `parseSpfTerms()`;
 - grow a second SPF grammar.
 
-So `spfReferencedCatalogKeys()` lives with the grammar it reads. **Since Task
-4.8 that is [`core/spf/`](../spf/API.md)**, and the composition root imports it
-from there and injects it here.
+Task 4.8 satisfied that by injecting SPF's `spfReferencedCatalogKeys` from the
+composition root, and recorded it as a debt. **Task 5.2 pays the debt.**
+[`src/audit/`](../../audit/API.md) derives the catalog keys once, with the
+SPF-owned helper, and passes the KEYS. Cross-protocol composition now happens
+in the layer whose job it is, and this directory holds no opinion about SPF.
 
-**This is still a transitional capability, not the target shape.**
-Cross-protocol composition belongs to the audit layer: **Phase 5** replaces
-this string-taking collaborator with audit-derived input — audit parses the
-references once and passes the derived catalog keys — after which this
-parameter goes away. Nothing here should be built to depend on the arrangement
-lasting.
+Four members changed their last argument from an SPF record STRING to a Set of
+catalog keys:
 
-`checkDKIM()`'s signature is **unchanged** — it still takes the SPF record as a
-string — because changing it is the composition decision this task is
-explicitly not making.
+| Member | Now takes |
+| --- | --- |
+| `catalogSelectors(emailProvider, comprehensive, spfCatalogKeys)` | the derived keys |
+| `spfSelectorSources(selectors, emailProvider, comprehensive, spfCatalogKeys)` | the derived keys |
+| `buildDkimSelectorList(selectors, emailProvider, comprehensive, spfCatalogKeys)` | the derived keys |
+| `checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive, spfCatalogKeys, queryOpts)` | the derived keys |
+
+Absent is the same as empty, which is exactly what `spfReferencedCatalogKeys('')`
+returned — so a missing argument still widens nothing.
+
+**The legacy engine surface is unchanged.** `js/dns.js` wraps all four in the
+string-taking form, deriving the keys and delegating. Those wrappers are
+adapters, not architecture, and Phase 6 removes them with `js/dns.js`.
 
 ## Public exports
 

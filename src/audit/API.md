@@ -178,22 +178,30 @@ members.
 
 Both five-surface equivalence subjects report zero differences at each commit.
 
-## What Phase 5 still owes this directory
+## The derived facts this directory owns
 
-Recorded at Task 4.0 and in the Phase-5 compatibility ruling, and not payable
-until Task 5.2 brings the coordinator here:
+Phase 4 left two cross-protocol compositions injected into the wrong owner and
+recorded both as debts rather than as design. Task 5.2 pays them here, which is
+the layer whose job composition is.
 
-1. `spfReferencedCatalogKeys` — SPF-owned, injected into `createDkimCheck()` —
-   becomes **audit-derived catalog keys** passed into DKIM.
-2. `isNullMx` — MX-owned, injected into `createDetectors()` — becomes the
-   **derived boolean** passed into provider detection.
-3. The NS `servfail` DNSSEC preflight, the last raw-kind reader outside an
-   owning directory, moves here with the coordinator — and the assertion in
-   [`transport-edges.test.mjs`](../../tests/contract/transport-edges.test.mjs)
-   that names it as the only one left in `js/dns.js` moves in the same commit.
+| Derived here | Passed to | Retires |
+| --- | --- | --- |
+| The catalog keys an SPF record names, via SPF's own `spfReferencedCatalogKeys` | `checkDKIM()` and the three other selector members | `spfReferencedCatalogKeys` injected into `createDkimCheck()` at Task 4.8 |
+| The RFC 7505 null-MX boolean, via `core/mx/`'s `isNullMx` | `detectEmailProvider()` | `isNullMx` injected into `createDetectors()` at Task 4.9 |
 
-The observed legacy engine-member signatures stay unchanged while that happens:
-`detectEmailProvider(mx, domain, addressRecords)` and `checkDKIM(…, spfRecord,
-…)` keep their shapes behind thin compatibility wrappers in the legacy assembly
-if the new fact-taking APIs would otherwise change them. The wrappers are
-adapters, not architecture, and Phase 6 removes them with `js/dns.js`.
+Neither owner can derive its own fact without an edge §12 forbids —
+`core/dkim` → `core/spf`, `providers` → `core/mx`. Audit has both edges,
+derives each fact once, and passes the fact. The null-MX boolean is derived
+once and read twice: by provider detection and by the deep-check gate.
+
+**The observed legacy engine-member signatures are unchanged.**
+`detectEmailProvider(mx, domain, addressRecords)` and
+`checkDKIM(…, spfRecord, …)` still exist in exactly those shapes, as thin
+compatibility wrappers in `js/dns.js` that perform the old derivation and
+delegate to the fact-taking APIs. `tools/scoring.test.mjs` asserts them
+directly and its count did not move. The wrappers are adapters, not
+architecture, and Phase 6 removes them with `js/dns.js`.
+
+The third Phase-5 obligation, the NS `servfail` DNSSEC preflight, moved here
+with the coordinator; `transport-edges.test.mjs` now locates it in
+`audit-domain.js` and asserts `js/dns.js` holds no raw-kind reader at all.

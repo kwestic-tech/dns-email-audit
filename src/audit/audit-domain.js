@@ -49,7 +49,7 @@ import { isNullMx } from '../core/mx/mx.js';
 import { validateBimiRecord } from '../core/bimi/bimi.js';
 import { validateMtaStsRecord } from '../core/transport/mta-sts.js';
 import { validateTlsRptRecord } from '../core/transport/tls-rpt.js';
-import { analyzeSpf, classifySpfSubnets } from '../core/spf/spf.js';
+import { analyzeSpf, classifySpfSubnets, spfReferencedCatalogKeys } from '../core/spf/spf.js';
 import { analyzeDmarc, emptyDmarcStatus } from '../core/dmarc/record.js';
 import { applyInheritance } from '../core/dmarc/tree-walk.js';
 import { planReportDestinations } from '../core/dmarc/report-auth.js';
@@ -262,7 +262,15 @@ export function createAuditDomain(capabilities) {
 
     let dkimStatus = { found: false, selectors: [], testedSelectors: [], confidence: 'not-checked', note: '' };
     if (ctx.options.dkim && emailProvider !== '@none' && emailProvider !== '@null-mx') {
-      dkimStatus = await checkDKIM(d, { dkim: wildcardDkim, records: wildcardDkimRecords }, ctx.options.selectors, emailProvider, ctx.options.dkimComprehensive, spfRecord, queryOpts);
+      // The DERIVED fact, not the record. An `include:` is the domain saying a
+      // vendor sends mail for it, which is as good a reason to probe that
+      // vendor's selectors as MX is for the inbound provider — but reading it
+      // needs SPF's term grammar, and §12 gives `core/dkim/` no edge to
+      // `core/spf/`. Task 4.8 injected SPF's helper into DKIM as a stated debt;
+      // this is where it is paid. Audit is the layer that composes protocols,
+      // so it parses the references once, here, and passes the catalog KEYS.
+      const spfCatalogKeys = spfReferencedCatalogKeys(spfRecord);
+      dkimStatus = await checkDKIM(d, { dkim: wildcardDkim, records: wildcardDkimRecords }, ctx.options.selectors, emailProvider, ctx.options.dkimComprehensive, spfCatalogKeys, queryOpts);
     }
 
     let hosting = '@dash';

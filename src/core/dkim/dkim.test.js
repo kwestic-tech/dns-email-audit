@@ -109,6 +109,9 @@ section('4. createDkimCheck');
  * provider NAME to the catalog key — the two are not the same string, and a
  * fixture keyed by the provider name finds nothing.
  */
+/** No vendors named. The shape the four selector members now take. */
+const NO_KEYS = new Set();
+
 const CATALOG = {
   providers: { 'Twilio SendGrid': ['acme1', 'acme2'] },
   generic: ['generic1'], temporal: [], prefixes: [], excluded: [],
@@ -116,7 +119,7 @@ const CATALOG = {
 // `subtle` rather than `crypto` throughout: an ambient name in this file reads
 // to `platform.test.mjs`'s lexical scan as a bare reach, and the scan's limits
 // are asserted rather than worked around.
-function build({ table = {}, catalog = CATALOG, subtle = undefined, spfKeys = () => new Set() } = {}) {
+function build({ table = {}, catalog = CATALOG, subtle = undefined } = {}) {
   const asked = [];
   const dohFetch = async (name, type) => {
     asked.push(`${name}/${type}`);
@@ -128,7 +131,7 @@ function build({ table = {}, catalog = CATALOG, subtle = undefined, spfKeys = ()
     asked,
     ...createDkimCheck({
       dohFetch, requireUsable, cleanAnswerData, crypto: subtle,
-      dkimSelectorCatalog: catalog, spfReferencedCatalogKeys: spfKeys,
+      dkimSelectorCatalog: catalog,
     }),
   };
 }
@@ -141,14 +144,18 @@ eq('the factory returns ten members',
     'dkimRecordSet', 'inspectDkimSelector', 'isRecognizedDkimSelector',
     'spfSelectorSources', 'summarizeDkimKeys', 'validateDkimKeyStructure']);
 eq('the base list is always tried',
-  DKIM_SELECTORS.every(s => api.buildDkimSelectorList([], '@none', false, '').includes(s)), true);
+  DKIM_SELECTORS.every(s => api.buildDkimSelectorList([], '@none', false, NO_KEYS).includes(s)), true);
 eq('a provider adds its catalog selectors',
-  api.catalogSelectors('SendGrid', false, '').includes('acme1'), true);
+  api.catalogSelectors('SendGrid', false, NO_KEYS).includes('acme1'), true);
 // The indirection is real: the provider name is not the catalog key.
 eq('and an unmapped provider name finds nothing',
-  api.catalogSelectors('Twilio SendGrid', false, ''), []);
+  api.catalogSelectors('Twilio SendGrid', false, NO_KEYS), []);
 eq('comprehensive mode adds the generic list',
-  api.catalogSelectors('@none', true, '').includes('generic1'), true);
+  api.catalogSelectors('@none', true, NO_KEYS).includes('generic1'), true);
+// Absent is the same as empty, which is what the retired collaborator returned
+// for a missing record and what the legacy wrapper still produces.
+eq('and a missing key set is the same as an empty one',
+  api.catalogSelectors('SendGrid', false, undefined), api.catalogSelectors('SendGrid', false, NO_KEYS));
 eq('a catalog selector is recognized', api.isRecognizedDkimSelector('acme1'), true);
 eq('an arbitrary one is not', api.isRecognizedDkimSelector('zzz'), false);
 
@@ -156,36 +163,50 @@ eq('an arbitrary one is not', api.isRecognizedDkimSelector('zzz'), false);
 // is what the fixture-identity probes depend on.
 const other = build({ catalog: { providers: { 'Twilio SendGrid': ['different'] }, generic: [], temporal: [], prefixes: [], excluded: [] } });
 eq('two factories over two catalogs disagree',
-  [api.catalogSelectors('SendGrid', false, '')[0], other.catalogSelectors('SendGrid', false, '')[0]],
+  [api.catalogSelectors('SendGrid', false, NO_KEYS)[0], other.catalogSelectors('SendGrid', false, NO_KEYS)[0]],
   ['acme1', 'different']);
 
 /**
- * The TRANSITIONAL SPF collaborator. `checkDKIM()` still receives the SPF
- * record as a STRING and the derivation is passed in — Task 4.0's ruling
- * forbids importing `core/spf/` or copying its grammar, and Task 4.8/Phase 5
- * moves this to the audit layer.
+ * The SPF collaborator, RETIRED at Task 5.2.
+ *
+ * This module no longer takes SPF's derivation as a capability and no longer
+ * sees an SPF record at all: `src/audit/` parses the references with the
+ * SPF-owned helper and passes the derived catalog KEYS. Task 4.0's ruling is
+ * still what forbids the alternative — importing `core/spf/` or copying its
+ * grammar — and this is the arrangement that satisfies it without a debt.
+ *
+ * The keys are supplied here as a plain Set, which is the whole point: no SPF
+ * text reaches this file, so nothing here can grow an opinion about it.
  */
-const viaSpf = build({
-  spfKeys: spf => new Set(String(spf || '').includes('acme') ? ['Twilio SendGrid'] : []),
-});
+const ACME_KEYS = new Set(['Twilio SendGrid']);
 eq('SPF-named vendors widen the scan',
-  viaSpf.catalogSelectors('@none', false, 'v=spf1 include:acme.test -all').includes('acme1'), true);
+  api.catalogSelectors('@none', false, ACME_KEYS).includes('acme1'), true);
 eq('and a record naming nobody does not',
-  viaSpf.catalogSelectors('@none', false, 'v=spf1 -all'), []);
+  api.catalogSelectors('@none', false, NO_KEYS), []);
+// The retirement itself: the factory no longer accepts the collaborator, and a
+// module built with one supplied would ignore it. Asserted so the parameter
+// cannot quietly come back.
+const withStrayCapability = createDkimCheck({
+  dohFetch: async () => ({ kind: 'nodata', answers: [] }),
+  requireUsable, cleanAnswerData, crypto: undefined, dkimSelectorCatalog: CATALOG,
+  spfReferencedCatalogKeys: () => new Set(['Twilio SendGrid']),
+});
+eq('a supplied SPF derivation is ignored — the capability is gone',
+  withStrayCapability.catalogSelectors('@none', false, NO_KEYS), []);
 /**
  * Attribution is a Map from selector to the catalog key that explains it, and
  * a selector the baseline would have supplied ANYWAY is deliberately absent:
  * it needed no explaining. `acme1` is passed in explicitly here, so it is
  * baseline and drops out; `acme2` is the one SPF actually adds.
  */
-const sources = viaSpf.spfSelectorSources(['acme1'], '@none', false, 'v=spf1 include:acme.test -all');
+const sources = api.spfSelectorSources(['acme1'], '@none', false, ACME_KEYS);
 eq('the SPF-explained selector is attributed to its vendor',
   [...sources], [['acme2', 'Twilio SendGrid']]);
 eq('and a selector the baseline already supplies is not', sources.has('acme1'), false);
 eq('nor is one from the base list', sources.has('google'), false);
 // Comprehensive mode already covers every vendor, so nothing needs explaining.
 eq('comprehensive mode attributes nothing',
-  [...viaSpf.spfSelectorSources([], '@none', true, 'v=spf1 include:acme.test -all')], []);
+  [...api.spfSelectorSources([], '@none', true, ACME_KEYS)], []);
 
 /* ── 5. Optional Web Crypto validation ────────────────────────────────── */
 section('5. cryptoValidated is three answers');
@@ -229,11 +250,11 @@ const txt = value => [{ type: 16, data: `"${value}"` }];
 const found = build({
   table: { 'google._domainkey.example.test': txt(`v=DKIM1; k=rsa; p=${rsaKey()}`) },
 });
-const result = await found.checkDKIM('example.test', false, [], '@none', false, '', {});
+const result = await found.checkDKIM('example.test', false, [], '@none', false, NO_KEYS, {});
 eq('a published selector is found', result.found, true);
 eq('and it is named', result.selectors.some(s => s.sel === 'google'), true);
 eq('a domain publishing nothing is not found',
-  (await build().checkDKIM('example.test', false, [], '@none', false, '', {})).found, false);
+  (await build().checkDKIM('example.test', false, [], '@none', false, NO_KEYS, {})).found, false);
 
 /**
  * The batch bounds CONCURRENCY, not the query count. `checkDKIM()` slices the
@@ -246,7 +267,7 @@ eq('a domain publishing nothing is not found',
 // A list deliberately longer than one batch, so the loop runs more than once.
 const extra = Array.from({ length: 40 }, (_, i) => `x${i}`);
 const wide = build();
-await wide.checkDKIM('example.test', false, extra, '@none', false, '', {});
+await wide.checkDKIM('example.test', false, extra, '@none', false, NO_KEYS, {});
 const distinct = new Set(wide.asked.map(q => q.split('/')[0]));
 eq('every selector in the list is queried, across as many batches as it takes',
   extra.every(sel => distinct.has(`${sel}._domainkey.example.test`)), true);

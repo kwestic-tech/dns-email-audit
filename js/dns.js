@@ -172,8 +172,30 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
     validateDkimKeyStructure, dkimKeyRecords, dkimRecordSet,
   } = createDkimCheck({
     dohFetch, requireUsable, cleanAnswerData, crypto, dkimSelectorCatalog,
-    spfReferencedCatalogKeys,
   });
+
+  /**
+   * The legacy engine surface for the four SPF-aware DKIM members.
+   *
+   * Thin compatibility wrappers, and exactly what the Phase-5 ruling
+   * authorizes. The TARGET path — `src/audit/` — derives the catalog keys with
+   * SPF's own helper and passes the KEYS, which is what retires the
+   * `core/dkim` → `core/spf` composition from the real audit. The observed
+   * legacy signatures still take an SPF record STRING, and
+   * `tools/scoring.test.mjs` asserts them directly, so each wrapper performs
+   * the old derivation and delegates to the fact-taking API.
+   *
+   * Adapters, not architecture. Phase 6 removes them with this file.
+   */
+  const legacyCatalogSelectors = (emailProvider, comprehensive, spfRecord) =>
+    catalogSelectors(emailProvider, comprehensive, spfReferencedCatalogKeys(spfRecord));
+  const legacySpfSelectorSources = (selectors, emailProvider, comprehensive, spfRecord) =>
+    spfSelectorSources(selectors, emailProvider, comprehensive, spfReferencedCatalogKeys(spfRecord));
+  const legacyBuildDkimSelectorList = (selectors, emailProvider, comprehensive, spfRecord) =>
+    buildDkimSelectorList(selectors, emailProvider, comprehensive, spfReferencedCatalogKeys(spfRecord));
+  const legacyCheckDKIM = (domain, wildcard, selectors, emailProvider, comprehensive, spfRecord, queryOpts) =>
+    checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive,
+      spfReferencedCatalogKeys(spfRecord), queryOpts);
 
   // DMARC, Task 4.6. The PSL is generated data and is PASSED to its own
   // factory; the walk and the report-authorization checks each name the
@@ -1103,12 +1125,15 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
     // disappearing would be a surface change riding along with one.
     DOH: DOH_ENDPOINT,
     DKIM_SELECTORS,
-    buildDkimSelectorList,
-    catalogSelectors,
-    spfSelectorSources,
+    // The four SPF-aware members keep their observed string-taking form
+    // through the compatibility wrappers above; the audit path uses the
+    // fact-taking API directly.
+    buildDkimSelectorList: legacyBuildDkimSelectorList,
+    catalogSelectors: legacyCatalogSelectors,
+    spfSelectorSources: legacySpfSelectorSources,
     spfReferencedCatalogKeys,
     isRecognizedDkimSelector,
-    checkDKIM,
+    checkDKIM: legacyCheckDKIM,
     dkimKeyRecords,
     dkimRecordSet,
     analyzeDkimKey,

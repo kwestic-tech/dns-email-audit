@@ -367,7 +367,7 @@
     },
     {
       "path": "src/core/dkim/dkim.test.js",
-      "assertions": 57,
+      "assertions": 59,
       "note": "Co-located per spec §9. Phase 4, Task 4.7. Runs against a fake transport, a substitute catalog, a REAL 2048-bit RSA SPKI key, and where it matters a runtime with no subtle implementation at all.",
       "areas": [
         "DKIM_SCAN_BATCH_SIZE is 24 and bounds CONCURRENCY, not the query count — a list longer than one batch is shown to be queried in full",
