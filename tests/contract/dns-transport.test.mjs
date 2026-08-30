@@ -107,7 +107,7 @@ eq('with the declared default when the error carries no kind',
  * sites had been deleted. Located as well as counted, for exactly that reason.
  */
 const KIND_COPY = /\(\s*(error|e|err)\s*&&\s*\1\.kind\s*\)|(?:^|[^\w$])(e)\s*&&\s*\2\.kind/gm;
-const kindCopySources = ['js/dns.js', ...(function walk(dir, base) {
+const kindCopySources = [...(function walk(dir, base) {
   return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) return walk(full, base);
@@ -135,9 +135,11 @@ const coordinator = readFileSync(join(REPO, 'src/audit/audit-domain.js'), 'utf8'
 // into this count.
 eq('three of them are optionalCheck fallback factories, one is an internal catch',
   coordinator.split('\n').filter(l => /error\s*=>\s*\(\{/.test(l) && /\.kind/.test(l)).length, 3);
-// And the legacy file no longer holds one, which is the half a per-file count
-// exists to distinguish from a deletion.
-eq('js/dns.js copies no kind at all now', kindCopiesBySource.get('js/dns.js'), undefined);
+// Every site is under `src/`. `js/` is gone as of Task 6.1, so the per-file
+// count no longer has a legacy file to distinguish a move from a deletion in —
+// it distinguishes them among owners instead.
+eq('every kind-copying site is under src/',
+  [...kindCopiesBySource.keys()].filter(f => !f.startsWith('src/')), []);
 
 /* ── 3b. Parsing ownership: Gate 5's condition on the coordinator ─────── */
 section('3b. The coordinator holds no parsing rule');

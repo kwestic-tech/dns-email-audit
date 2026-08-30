@@ -19,12 +19,12 @@
 DNSSEC carries 15 of the 100 available points on an active mail domain and 25
 of 100 on a parked one, and it gates the entire A tier. A domain cannot reach
 `A`, `A+` or `A++` without it, per `requiresDnssec` in `GRADE_THRESHOLDS` at
-[`js/dns.js:4491`](../../../js/dns.js). That is a defensible weighting, because an
+`js/dns.js:4491`. That is a defensible weighting, because an
 unsigned zone means every record the tool just examined can be forged in
 transit.
 
 The evidence behind that decision is one bit. `checkDNSSEC()` at
-[`js/dns.js:3981`](../../../js/dns.js) issues an NS query with `do=1`, reads the AD
+`js/dns.js:3981` issues an NS query with `do=1`, reads the AD
 flag from the resolver's response, and returns `secure` or `insecure`. On
 SERVFAIL it re-queries with `cd=1`, and a success there means the chain is bogus
 rather than merely unsigned. That is a clever and correct use of the resolver,
@@ -111,7 +111,7 @@ and `a.type === 48`, exactly as `checkTlsa()` filters `52` to survive the shared
 `_dane` CNAME.
 
 *`checkDNSSEC()` must stay unable to throw.* It is the only entry in the
-`Promise.all` at [`js/dns.js:5493`](../../../js/dns.js) with no `optionalCheck()`
+`Promise.all` at `js/dns.js:5493` with no `optionalCheck()`
 wrapper, and that is safe today only because it reads `dohFetch()`'s `.kind`
 and never calls `requireUsable()`. The new queries follow the same discipline:
 read `.kind`, never `requireUsable()`. If that ever becomes inconvenient, add
@@ -208,7 +208,7 @@ MTA-STS and DKIM in three separate rounds. Before the split, `257 3 15 AA==` —
 a one-octet Ed25519 key — parsed as `valid: true` and computed a key tag.
 
 **`parseDs()` may reuse `parseTlsaRecord()`'s normalization. `parseDnskey()` may
-not.** The idiom at [`js/dns.js:2643`](../../../js/dns.js) is
+not.** The idiom at `js/dns.js:2643` is
 `body.replace(/\s+/g, '').toLowerCase()`, which is right for a hex digest and
 fatal for base64: the DNSKEY key field is case-sensitive and contains `+`, `/`
 and `=`. Lowercasing it destroys the key, every digest then fails to match, and
@@ -494,10 +494,10 @@ diagnosis it cannot support.
 `signed = (state === 'secure')`, and `secure` holds exactly when AD is true. So
 `signed` is byte-identical to 0.4.0 for every domain, by construction rather
 than by measurement, and `state === 'indeterminate'` marks the same set of
-pillars unproven at [`js/dns.js:5252`](../../../js/dns.js). `calcScore()` at
-[`js/dns.js:5268`](../../../js/dns.js), `gradeFor()` at
-[`js/dns.js:4572`](../../../js/dns.js) and `unprovenPillars()` at
-[`js/dns.js:5252`](../../../js/dns.js) need no change. Acceptance criterion 6 is a
+pillars unproven at `js/dns.js:5252`. `calcScore()` at
+`js/dns.js:5268`, `gradeFor()` at
+`js/dns.js:4572` and `unprovenPillars()` at
+`js/dns.js:5252` need no change. Acceptance criterion 6 is a
 theorem about this table, and the backtest confirms it rather than establishing
 it.
 
@@ -560,7 +560,7 @@ from a lookup that established nothing. Cloudflare returns `AD: false` on
 there in the Authority section, because the answer describes an insecure
 delegation. The flag is therefore false in both cases and separates nothing.
 The evidence that would separate them lives in the Authority section, which
-`fetchDohOnce()` at [`js/dns.js:170`](../../../js/dns.js) does not return.
+`fetchDohOnce()` at `js/dns.js:170` does not return.
 Surfacing it is a transport change with one consumer, and it is not made here.
 
 The `chain` array is the honesty mechanism. It reads, in the interface, as a

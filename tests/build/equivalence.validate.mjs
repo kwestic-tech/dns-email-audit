@@ -63,14 +63,23 @@ const SURFACES = ['result', 'trace', 'csv', 'report', 'dom'];
  * A subject root holding what a subject is, BUILT.
  *
  * The build is not a convenience. Since the delivery boundary moved, the runner
- * loads `dist/app.min.js`, so a mutation applied to `js/` reaches nothing
- * unless the root is rebuilt — and every mutation below would report "moves
- * nothing" while looking like a clean validation. Rebuilding is what keeps this
- * file's claims about the instrument true.
+ * loads `dist/app.min.js`, so a mutation applied to a source file reaches
+ * nothing unless the root is rebuilt — and every mutation below would report
+ * "moves nothing" while looking like a clean validation. Rebuilding is what
+ * keeps this file's claims about the instrument true.
+ *
+ * `js/` left this list at Task 6.1 with the directory itself. The copy is
+ * asserted rather than filtered: a path that silently stopped being copied is
+ * a subject quietly missing a source, which is the same class of failure as a
+ * scan that stops reading its file.
  */
+const SUBJECT_PATHS = ['index.html', 'src', 'css', 'locales', 'package.json'];
+for (const path of SUBJECT_PATHS) {
+  eq(`the subject includes ${path}`, existsSync(join(REPO, path)), true);
+}
 async function makeRoot(label) {
   const root = mkdtempSync(join(tmpdir(), `equivalence-${label}-`));
-  for (const path of ['index.html', 'js', 'src', 'css', 'locales', 'package.json']) {
+  for (const path of SUBJECT_PATHS) {
     cpSync(join(REPO, path), join(root, path), { recursive: true });
   }
   await build({ root });

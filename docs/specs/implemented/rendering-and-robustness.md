@@ -322,18 +322,18 @@ report and behind the disclosure control.
 | **Bidirectional overrides** (U+202A–202E, U+2066–2069, U+200E, U+200F) | Passed through to the DOM | Sentinel substitution per the rule above, plus `unicode-bidi: isolate` on the container, plus a record-hygiene note. This is the malformation that is a genuine output-integrity attack: an override inside an SPF `include:` host visually reverses the name, so a reader checks the wrong domain while the escaping was entirely correct. |
 | **C0 and C1 control characters** | May pass through `cleanAnswerData()` | Sentinel substitution naming the code point, and a record-hygiene note. |
 | **Zero-width characters** (U+200B–200D, U+FEFF) | Passed through | Sentinel substitution. Two hostnames differing only by a zero-width joiner render identically today. |
-| **Lone surrogates and invalid UTF-8** | `JSON.parse` may produce them; `cleanAnswerData()` falls back to the raw chunk on a parse failure | Normalize to U+FFFD. Confirm the fallback path at [`js/dns.js:201`](../../../js/dns.js) does not silently produce a differently-decoded string from the success path. |
+| **Lone surrogates and invalid UTF-8** | `JSON.parse` may produce them; `cleanAnswerData()` falls back to the raw chunk on a parse failure | Normalize to U+FFFD. Confirm the fallback path at `js/dns.js:201` does not silently produce a differently-decoded string from the success path. |
 | **Punycode names in responses** (`xn--` MX or CNAME targets) | Displayed verbatim | Keep displaying verbatim. Decoding to Unicode would reintroduce homoglyph confusion. Note the `xn--` prefix in the interface rather than hiding it. |
 | **Very long single label** in a CNAME or MX target | Unbounded | Truncate for display at 253 characters with the same disclosure control. |
-| **Unbounded DoH cache** at [`js/dns.js:65`](../../../js/dns.js) | `Map` grows for the page's lifetime | Cap at a fixed entry count with least-recently-used eviction. A long session auditing several batches currently retains every answer. |
+| **Unbounded DoH cache** at `js/dns.js:65` | `Map` grows for the page's lifetime | Cap at a fixed entry count with least-recently-used eviction. A long session auditing several batches currently retains every answer. |
 | **Records that look like templates** (a value containing `{0}`) | Sequential interpolation substitutes it | Fixed by section 2. |
 | **Empty and whitespace-only values** | Rendered as an empty cell | Render the existing `labels.none` token so an empty record is distinguishable from a lookup that returned nothing. |
 
 Three pathologies are already handled correctly and are listed so a reviewer can
 confirm rather than rediscover: CNAME loops are bounded by a visited set and a
-depth of 12 at [`js/dns.js:923`](../../../js/dns.js); SPF include cycles are bounded
-at depth 20 at [`js/dns.js:973`](../../../js/dns.js); duplicate versioned records
-fail closed at [`js/dns.js:1949`](../../../js/dns.js).
+depth of 12 at `js/dns.js:923`; SPF include cycles are bounded
+at depth 20 at `js/dns.js:973`; duplicate versioned records
+fail closed at `js/dns.js:1949`.
 
 ### 5. Dependency-free test harness
 

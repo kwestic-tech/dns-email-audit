@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 89,
+      "assertions": 90,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -507,7 +507,7 @@
     },
     {
       "path": "tests/contract/legacy-shapes.test.mjs",
-      "assertions": 135,
+      "assertions": 136,
       "areas": [
         "fixture identity: divergent PSL and DKIM-catalog fingerprints, with their negative cases",
         "generated data is injected, not imported: each of the three bindings has an independent probe, proven in both directions",
@@ -556,7 +556,7 @@
     },
     {
       "path": "tests/contract/namespace.test.mjs",
-      "assertions": 18,
+      "assertions": 17,
       "areas": [
         "the 24-name global inventory is closed",
         "no module under src/ reads or writes one of them outside a marked adapter",
@@ -624,7 +624,7 @@
     },
     {
       "path": "tests/build/equivalence.validate.mjs",
-      "assertions": 72,
+      "assertions": 77,
       "areas": [
         "the runner is deterministic across two runs of one root",
         "each of the five surfaces distinguishes cases",

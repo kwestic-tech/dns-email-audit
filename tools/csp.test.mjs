@@ -148,7 +148,12 @@ SINK_CASES.forEach(([code, shouldMatch]) => {
 // calls in it stops being reliable. The exclusion is therefore a MECHANICAL
 // FILENAME SUFFIX, never a list of specific files. A suffix rule has no
 // judgment in it, and the named-file allowlist above stays empty.
-const SOURCE_TREES = ['js', 'src'].filter(dir => existsSync(join(REPO, dir)));
+// `js/` is gone as of Task 6.1 and the filter would have hidden that silently
+// — a scan that quietly covers one tree fewer is the failure this file exists
+// to prevent. Named, and asserted to exist.
+const SOURCE_TREES = ['src'];
+eq('every source tree the scan names exists',
+  SOURCE_TREES.filter(dir => !existsSync(join(REPO, dir))), []);
 const scanned = SOURCE_TREES
   .flatMap(dir => jsFiles(join(REPO, dir)))
   .filter(file => !file.endsWith('.test.js'))
@@ -159,7 +164,12 @@ const scanned = SOURCE_TREES
 eq('the scan covers the audit coordinator', scanned.some(f => f.endsWith('main.js')), true);
 eq('the scan covers the renderer', scanned.some(f => f.endsWith('render.js')), true);
 eq('the scan covers the i18n layer', scanned.some(f => f.endsWith('index.js') && f.includes(`${sep}i18n${sep}`)), true);
-eq('the scan covers the protocol engine', scanned.some(f => f.endsWith('dns.js')), true);
+// The protocol engine is `src/core/` now — nine owning directories, not one
+// file. Named by responsibility, like its neighbours.
+eq('the scan covers the protocol owners',
+  scanned.some(f => f.includes(`${sep}core${sep}spf${sep}`)) &&
+  scanned.some(f => f.includes(`${sep}core${sep}dmarc${sep}`)), true);
+eq('and the audit layer', scanned.some(f => f.includes(`${sep}audit${sep}`)), true);
 eq('the scan covers the src/ tree', scanned.some(f => f.includes(`${sep}src${sep}`)), true);
 eq('and excludes co-located tests by suffix alone',
   scanned.some(f => f.endsWith('.test.js')), false);

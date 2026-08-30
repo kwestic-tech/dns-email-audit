@@ -116,7 +116,7 @@ Failing any one of these is disqualifying, not a trade-off to be weighed.
 Stating these plainly so the deferral is honest about its costs.
 
 - MTA-STS scores half credit forever for domains whose owners do not supply the
-  policy, per `calcScore()` at [`js/dns.js:1795`](../../js/dns.js).
+  policy, per `calcScore()` at `js/dns.js:1795`.
 - BIMI conformance is unknown unless the user supplies the SVG.
 - CAA is checked for what it says, never for whether certificate authorities
   honored it.

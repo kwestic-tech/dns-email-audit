@@ -38,8 +38,8 @@ The whole `analyzeDomain()` return value, not the grade. The Non-goals promise
 | --- | --- |
 | **Recursively sort object keys.** The only sort applied to the result. | Key order is not observable behaviour. |
 | **Preserve array order.** Never sorted, never deduplicated. | Several arrays are semantically ordered: the DMARC walk `steps`, the DNSSEC `chain` claims, the scoring `pillars`, `issues`, `suggestions`. Sorting them erases the behaviour under test. |
-| **An absent property and a property present with `undefined` are different.** Absent keys stay absent; `undefined` encodes to `{"$undefined":true}`. | `checkDNSSEC()` sets `error` to `undefined` on a determinate result ([`js/dns.js:4128`](../../../js/dns.js)) while the not-checked DKIM shape omits six properties outright ([`js/dns.js:5470`](../../../js/dns.js)). A refactor turning one into the other is a real change. |
-| **Tag non-JSON primitives, never coerce.** `BigInt` → `{"$bigint":"…"}`; `NaN` / `±Infinity` / `-0` → `{"$number":"…"}`. | The SPF subnet arithmetic is `BigInt` throughout ([`js/dns.js:4213`](../../../js/dns.js)). `JSON.stringify` throws on one and silently turns `NaN` into `null` and `-0` into `0`. |
+| **An absent property and a property present with `undefined` are different.** Absent keys stay absent; `undefined` encodes to `{"$undefined":true}`. | `checkDNSSEC()` sets `error` to `undefined` on a determinate result (`js/dns.js:4128`) while the not-checked DKIM shape omits six properties outright (`js/dns.js:5470`). A refactor turning one into the other is a real change. |
+| **Tag non-JSON primitives, never coerce.** `BigInt` → `{"$bigint":"…"}`; `NaN` / `±Infinity` / `-0` → `{"$number":"…"}`. | The SPF subnet arithmetic is `BigInt` throughout (`js/dns.js:4213`). `JSON.stringify` throws on one and silently turns `NaN` into `null` and `-0` into `0`. |
 | **Tag `Map`, `Set`, `Date`, `Error` and typed arrays** rather than serializing them to `{}`. | Nothing in the v0.5.0 result carries one. Tagging makes that a fact the runner reports rather than an assumption it rests on. |
 | **Refuse a function, a symbol or a cycle.** Throws, naming the path. | Any of the three reaching the result surface is a defect, not a formatting problem. |
 | **No blanket removal of empty values.** `[]`, `''`, `0`, `false` and `null` are all preserved and all distinct. | `caa.issuers === []` means "this policy authorizes nobody" — RFC 8659 §4.2. Dropping it inverts the finding. |
@@ -69,10 +69,10 @@ multiset, the counts and the concurrency ceiling are all still compared.
 sequence is the behaviour:**
 
 - the **DMARC tree walk** — RFC 9989 §4.10 fixes the order of subject names,
-  and `dmarcWalkTargets()` ([`js/dns.js:1900`](../../../js/dns.js)) is the part
+  and `dmarcWalkTargets()` (`js/dns.js:1900`) is the part
   of the release most likely to be subtly wrong;
 - **SPF recursive evaluation** — `countSpfLookups()`
-  ([`js/dns.js:4147`](../../../js/dns.js)) walks `include:`/`redirect=` depth
+  (`js/dns.js:4147`) walks `include:`/`redirect=` depth
   first, and the cycle and void-lookup counts depend on that order.
 
 This surface exists because a lost cache hit is **invisible in the result** and

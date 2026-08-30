@@ -307,10 +307,10 @@ become the equivalence oracle.
 ## Phase 3 — DNS transport
 
 **Task 3.1** — `src/core/dns/doh.js`: request, `AbortController`, timeout,
-retry — around [`js/dns.js:177-220`](js/dns.js).
+retry — around `js/dns.js:177-220`.
 
 **Task 3.2** — `src/core/dns/cache.js`: the LRU from
-[`js/dns.js:70-88`](js/dns.js), **behavior unchanged**. Same key format, same
+`js/dns.js:70-88`, **behavior unchanged**. Same key format, same
 eviction, same rule that only `success`/`nodata`/`nxdomain` are cached and a
 transport failure never is. Export a factory. `createAuditRuntime()` invokes it
 once per runtime; `src/main.js` creates one runtime for the page.

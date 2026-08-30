@@ -81,7 +81,12 @@ section('2. No raw-kind reader outside the named owners');
  * one in a file the scan does not cover. Defense in depth against regression,
  * which is a real and useful thing and a different thing from a proof.
  */
-const SCANNED = ['js/dns.js', ...LAYER_IMPLEMENTATIONS,
+// `js/dns.js` left this set at Task 6.1: the file is gone, and a scan of a
+// deleted path reads NOTHING while still passing. The engine surface it held
+// now lives in `tools/lib/legacy-engine.mjs`, which is a test harness and not
+// application code — this inventory is about what SHIPS, so the harness is not
+// scanned and the assertion below says `src/` holds every reader.
+const SCANNED = [...LAYER_IMPLEMENTATIONS,
   'src/core/dns/existence.js', 'src/core/dns/cache.js', 'src/core/dns/errors.js',
   'src/core/dns/optional.js', 'src/main.js', 'src/runtime.js',
   // Protocol owners extracted in Phase 4. `core/dnssec/chain.js` is the one
@@ -219,9 +224,11 @@ eq('the DMARC readers moved to their owner at Task 4.6',
 // one the file has to keep true until Phase 6 deletes it.
 eq('the audit preflight moved to its owner at Task 5.2',
   locatedIn.get('analyzeDomain'), 'src/audit/audit-domain.js');
-eq('and no raw-kind reader is left in js/dns.js at all',
-  [...locatedIn].filter(([, file]) => file === 'js/dns.js').map(([fn]) => fn),
-  []);
+// `js/` is gone as of Task 6.1, so the question is no longer "what is left
+// there" but "is every reader in an owning directory". Both halves asserted:
+// nothing outside `src/`, and the audit preflight in its owner.
+eq('every located reader lives under src/',
+  [...locatedIn].filter(([, file]) => !file.startsWith('src/')).map(([fn]) => fn), []);
 
 // And the scan can fail. Without this it would pass on a pattern that matches
 // nothing, which is how a regression check quietly stops being one.

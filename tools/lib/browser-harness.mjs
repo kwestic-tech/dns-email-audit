@@ -48,7 +48,7 @@ import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
 import { LOCALE_EN } from '../../src/data/locales-en.js';
 import { createI18n } from '../../src/i18n/index.js';
 import { createRenderer } from '../../src/ui/render.js';
-import { createDnsEngine } from '../../js/dns.js';
+import { createDnsEngine } from './legacy-engine.mjs';
 import { createBrowserPlatform } from '../../src/platform/browser.js';
 
 /** Set once the entry point has been imported. See "One application per process". */

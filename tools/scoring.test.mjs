@@ -22,7 +22,7 @@ import { dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa, ds, dnskey, rrsig, 
 // 0.6.0, and injection is what lets the four-rule fixture PSL below stay the
 // one in force -- see the sandbox line and tests/lib/fixture-identity.mjs.
 import { DKIM_SELECTOR_CATALOG } from '../src/data/dkim-selectors.js';
-import { createDnsEngine } from '../js/dns.js';
+import { createDnsEngine } from './lib/legacy-engine.mjs';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
 /**

@@ -17,7 +17,7 @@
  * other assertion.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -31,7 +31,7 @@ import { PLATFORM_PROFILES } from '../lib/platform.mjs';
 import { loadApp } from '../../tools/lib/browser-harness.mjs';
 import { probeEnglishBundle, FIXTURE_ENGLISH_TITLE } from '../lib/fixture-identity.mjs';
 import { PUBLIC_SUFFIX_RULES } from '../../src/data/public-suffixes.js';
-import { createDnsEngine } from '../../js/dns.js';
+import { createDnsEngine } from '../../tools/lib/legacy-engine.mjs';
 import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -310,24 +310,30 @@ section('4. Computed values (spec §12.1)');
 
 // The two DNSSEC chain claims built as 'ds-' + record.match. Nine claims, not
 // seven, and these two exist nowhere in the source as literals.
-const chainSource = readFileSync(join(REPO, 'js/dns.js'), 'utf8');
 /**
- * THREE sources now, and each assertion names the one it means.
+ * THREE sources, and each assertion names the one it means.
  *
- * The chain claims moved to their owner at Task 4.5 and the issue builder to
- * `src/audit/issues.js` at Task 5.4. Until Task 5.4a the §6 scan below still
- * read `js/dns.js` — which by then contained no issue builder at all, so the
- * scan matched NOTHING and its assertions passed vacuously. A negative control
- * that has stopped reading its subject is the exact failure it exists to
- * detect, arriving in the instrument instead of the code.
- *
- * `chainSource` is kept: §4's assertions are about what `js/dns.js` does NOT
- * carry, and those are still meaningful while the file exists.
+ * `js/dns.js` is gone as of Task 6.1, and with it the `chainSource` these
+ * assertions used to read. A scan of a deleted path reads NOTHING and passes,
+ * which is the failure this section exists to catch — so the subject is now
+ * the whole of `src/`, which is a stronger question than the one the legacy
+ * file answered: not "is it absent from that file" but "is it written anywhere
+ * that ships".
  */
 const ISSUES_SOURCE = 'src/audit/issues.js';
 const issuesSource = readFileSync(join(REPO, ISSUES_SOURCE), 'utf8');
 const DNSSEC_CHAIN = 'src/core/dnssec/chain.js';
 const dnssecChainSource = readFileSync(join(REPO, DNSSEC_CHAIN), 'utf8');
+const srcSources = (function walk(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) return walk(full);
+    return entry.name.endsWith('.js') && !entry.name.endsWith('.test.js') ? [full] : [];
+  });
+}(join(REPO, 'src')));
+const allSrc = srcSources.map(f => readFileSync(f, 'utf8')).join('\n');
+eq('the scan has a subject — src/ is not empty', srcSources.length > 30, true);
+
 /**
  * These two claims are still COMPUTED, and the evidence has changed shape.
  *
@@ -337,16 +343,26 @@ const dnssecChainSource = readFileSync(join(REPO, DNSSEC_CHAIN), 'utf8');
  * improvement, and it costs the old assertion its exact form.
  *
  * The property that actually mattered is preserved and asserted more precisely:
- * neither claim is written at its CONSTRUCTION SITE. The only literal is the
- * published constant, and `claim:` is never given either string directly.
+ * neither claim is written at its CONSTRUCTION SITE anywhere under `src/`, and
+ * the only literal is the published constant.
  */
 for (const claim of ['ds-no-matching-key', 'ds-digest-mismatch']) {
   eq(`'${claim}' is never written at a claim: construction site`,
-    chainSource.includes(`claim: '${claim}'`) || dnssecChainSource.includes(`claim: '${claim}'`),
-    false);
-  eq(`and its only literal is the published vocabulary`,
+    allSrc.includes(`claim: '${claim}'`), false);
+  eq(`and its only DECLARATION is the published vocabulary in ${DNSSEC_CHAIN}`,
     (dnssecChainSource.match(new RegExp(`'${claim}'`, 'g')) || []).length, 1);
-  eq(`which js/dns.js does not carry at all`, chainSource.includes(`'${claim}'`), false);
+  /**
+   * The other literal under `src/` is `ui/events.js` COMPARING against it —
+   * `entry.claim === 'ds-no-matching-key'` — which is a reader deciding how to
+   * render a verdict, not a producer inventing one. Probed before asserting:
+   * the obvious form of this check, "exactly one literal anywhere in `src/`",
+   * is wrong and fails on a legitimate read.
+   */
+  const others = srcSources
+    .filter(f => !f.endsWith(join('dnssec', 'chain.js')))
+    .flatMap(f => readFileSync(f, 'utf8').split('\n').filter(l => l.includes(`'${claim}'`)));
+  eq(`every other mention of '${claim}' is a comparison`,
+    others.filter(l => !new RegExp(`===\\s*'${claim}'`).test(l)), []);
 }
 eq(`the claim is concatenated from the match verdict, in ${DNSSEC_CHAIN}`,
   dnssecChainSource.includes("claim: 'ds-' + record.match"), true);
@@ -635,8 +651,16 @@ const issuesCut = issuesSource.indexOf('export function buildSuggestions(');
 eq('the issue builder is separable from the suggestion builder', issuesCut > 0, true);
 const literalKeys = new Set([...issuesSource.slice(0, issuesCut).matchAll(/key:\s*'([^']+)'/g)].map(m => m[1]));
 eq(`the scan reads ${ISSUES_SOURCE} and finds keys there`, literalKeys.size > 90, true);
-eq('and js/dns.js no longer carries an issue key at all',
-  [...chainSource.matchAll(/key:\s*'([^']+)'/g)].length, 0);
+// `js/` is gone as of Task 6.1, so the old companion assertion — that the
+// legacy file carried no issue key — has no subject. The question that
+// survives is stronger: the builder is the only place under `src/` that writes
+// one, so there is nowhere else for a finding to come from.
+const otherSrcKeys = srcSources
+  .filter(f => !f.endsWith(join('audit', 'issues.js')))
+  .map(f => readFileSync(f, 'utf8')).join('\n');
+eq('no module outside the issue builder writes an issue key',
+  [...otherSrcKeys.matchAll(/key:\s*'([^']+)'/g)].map(m => m[1])
+    .filter(k => issueAlgebra.members.includes(k)), []);
 // Fourteen tokens are emitted without ever being written as a literal, by four
 // mechanisms. `src/audit/issues.test.js` §3b holds the full inventory and
 // exercises each emission path; this is the registry-side control.

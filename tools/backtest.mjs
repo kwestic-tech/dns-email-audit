@@ -29,7 +29,7 @@ import { dirname, join } from 'node:path';
 import vm from 'node:vm';
 import { PUBLIC_SUFFIX_RULES } from '../src/data/public-suffixes.js';
 import { DKIM_SELECTOR_CATALOG } from '../src/data/dkim-selectors.js';
-import { createDnsEngine } from '../js/dns.js';
+import { createDnsEngine } from './lib/legacy-engine.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);

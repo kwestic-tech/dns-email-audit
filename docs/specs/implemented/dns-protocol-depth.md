@@ -22,7 +22,7 @@ TXT string. Nobody is told whether the key is RSA-1024, RSA-2048, Ed25519, or
 revoked. That is the single most actionable fact about a DKIM key and it is
 sitting decoded-but-unread in `s.value`.
 
-CAA is reduced to a boolean. `checkCAA()` at [`js/dns.js:1555`](../../../js/dns.js)
+CAA is reduced to a boolean. `checkCAA()` at `js/dns.js:1555`
 walks up the tree, returns `found`, the raw record strings, and the name they
 were found at, and nothing parses them. A domain with
 `0 issue ";"` has locked out every certificate authority, and a domain with
@@ -30,14 +30,14 @@ were found at, and nothing parses them. A domain with
 green dot.
 
 MX records are read for provider detection at
-[`js/dns.js:336`](../../../js/dns.js) and never validated. An MX pointing at a
+`js/dns.js:336` and never validated. An MX pointing at a
 hostname that does not resolve is a total mail outage and reads today as a
 normal configured mail domain. Single-MX setups, MX targets that are CNAMEs,
 and MX hosts that all sit in one address block are equally invisible.
 
 TLSA is not queried at all, so DANE for SMTP is entirely unrepresented. That
 also means the transport layer cannot currently ask for it:
-`dnsTypeNum()` at [`js/dns.js:94`](../../../js/dns.js) knows seven record types and
+`dnsTypeNum()` at `js/dns.js:94` knows seven record types and
 silently returns 16, the TXT type number, for anything else. A caller asking for
 `DS` today would issue a TXT query, filter the answers for type 16, and receive a
 plausible-looking empty array.
@@ -67,7 +67,7 @@ plausible-looking empty array.
   must not imply it can. A selector name containing a year, such as `s2024`, is
   a naming convention and not evidence of anything.
 - **No scoring changes.** Weights in `WEIGHTS` at
-  [`js/dns.js:1987`](../../../js/dns.js) are untouched. See `OQ-DEPTH-06`.
+  `js/dns.js:1987` are untouched. See `OQ-DEPTH-06`.
 
 ## Design
 
@@ -111,7 +111,7 @@ A `TLSA` query may also return a `CNAME` in the same answer set — pointing
 the TLSA path filters on `a.type === 52`. `dohQuery()` already does; `dohAll()`
 does not and must not be used here.
 
-`cleanAnswerData()` at [`js/dns.js:220`](../../../js/dns.js) needs **no change**.
+`cleanAnswerData()` at `js/dns.js:220` needs **no change**.
 Its non-TXT branch strips surrounding quotes and trims, and does not lowercase,
 so the case-sensitive `DNSKEY` base64 survives intact and the quote-stripping is
 a no-op for all three types. No CAA-style bypass is required.
@@ -186,7 +186,7 @@ regardless; it never reports a key as bad because the browser could not check it
 Because the DER walk is synchronous, `analyzeDkimKey()` stays synchronous and
 returns the sizes directly. Only the optional Web Crypto validation is async, and
 it is attached separately inside `inspectDkimSelector()` at
-[`js/dns.js:500`](../../../js/dns.js) where each selector's records are already in
+`js/dns.js:500` where each selector's records are already in
 hand.
 
 Ed25519 keys are not SPKI. RFC 8463 defines the `p=` value for `k=ed25519` as
@@ -194,7 +194,7 @@ the raw 32-byte public key, base64-encoded. Detection is therefore
 `keyType === 'ed25519' && keyBytes === 32`, and a length other than 32 is
 `errors: ['bad-ed25519-length']`.
 
-`dkimKeyRecords()` at [`js/dns.js:412`](../../../js/dns.js) currently filters out
+`dkimKeyRecords()` at `js/dns.js:412` currently filters out
 records whose `p=` is empty, which discards exactly the revoked keys this release
 wants to report. Split it: keep the strict filter for the "is there a usable key
 here" question, and return the discarded records separately so a revoked key is
@@ -286,7 +286,7 @@ async function auditMxHosts(mx, domain, queryOpts) → {
 }
 ```
 
-`isNullMx()` at [`js/dns.js:330`](../../../js/dns.js) already detects the RFC 7505
+`isNullMx()` at `js/dns.js:330` already detects the RFC 7505
 null MX and that path short-circuits before this function runs.
 
 An MX target that is a CNAME violates RFC 2181 §10.3 and RFC 5321 §5.1. It
@@ -295,11 +295,11 @@ specific and hard-to-diagnose ways. It is reported as a warning, not an error.
 
 `sharedPrefixes` uses the CIDR helpers already present for the SPF subnet audit:
 `parseIpCidr()`, `cidrContains()` and `ipv4ToBigInt()` / `ipv6ToBigInt()` at
-[`js/dns.js:1782`](../../../js/dns.js) onward. No new IP arithmetic is needed.
+`js/dns.js:1782` onward. No new IP arithmetic is needed.
 
 The whole function is wrapped in `optionalCheck()` so a resolver failure on one
 MX target degrades that host to `resolves: 'unknown'` rather than discarding the
-audit, following the pattern documented at [`js/dns.js:206`](../../../js/dns.js).
+audit, following the pattern documented at `js/dns.js:206`.
 
 Query cost: one A and one AAAA per MX host, plus one CNAME probe per host. A
 five-MX domain adds fifteen queries. See `OQ-DEPTH-03`.

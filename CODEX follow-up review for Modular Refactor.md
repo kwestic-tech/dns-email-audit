@@ -944,7 +944,7 @@ implementation plan Task 0.6.
 
 The seed already demonstrates the extractor problem. It claims seven DNSSEC
 chain claims, but the current code has nine. Two are computed at
-[`js/dns.js:4077`](js/dns.js):
+`js/dns.js:4077`:
 
 ```js
 'ds-' + record.match

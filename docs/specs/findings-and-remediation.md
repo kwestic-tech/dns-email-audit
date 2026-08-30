@@ -12,9 +12,9 @@
 
 ## Problem
 
-`buildIssues()` at [`js/dns.js:1426`](../../js/dns.js) returns a flat array of
+`buildIssues()` at `js/dns.js:1426` returns a flat array of
 `{ key, sev, args }` objects in the order the function happens to test
-conditions. `buildSuggestions()` at [`js/dns.js:1673`](../../js/dns.js) returns a
+conditions. `buildSuggestions()` at `js/dns.js:1673` returns a
 second flat array of `{ key, guide }`. Severity has three values, `crit`, `warn`
 and `info`, and nothing else about a finding is modelled.
 
@@ -34,7 +34,7 @@ between two protocols, and the current model has no way to say "this finding is
 blocked by that one".
 
 **Confidence.** `dkimStatus.confidence` already carries `observed`, `sampled` and
-`not-checked`, and `unprovenPillars()` at [`js/dns.js:1725`](../../js/dns.js)
+`not-checked`, and `unprovenPillars()` at `js/dns.js:1725`
 already tracks which pillars scored zero because a lookup failed rather than
 because the control is absent. That distinction is captured in scoring and
 discarded in findings. A finding derived from a failed lookup and a finding
@@ -100,7 +100,7 @@ and "your DKIM key is 1024 bits" into the same bucket.
 `confidence` is derived from the same signals `unprovenPillars()` already reads.
 A finding from a `sampled` DKIM result is `unverified`. A finding from a
 confirmed NXDOMAIN is `confirmed`. A finding from a heuristic, such as provider
-detection at [`js/dns.js:303`](../../js/dns.js), is `probable`.
+detection at `js/dns.js:303`, is `probable`.
 
 `evidence` is the raw DNS material that justified the finding, so the interface
 can show the record beside the claim and so the 0.8.0 report export carries
@@ -179,7 +179,7 @@ it as `dane.without-dnssec` or escalate it from an unrelated zone's state.
 
 `defensive.contradictory` deserves a note. A domain with a null MX is declaring it
 receives no mail, which `calcScore()` already treats as a separate rubric at
-[`js/dns.js:1750`](../../js/dns.js). If that same domain publishes
+`js/dns.js:1750`. If that same domain publishes
 `v=spf1 mx -all`, the SPF record authorizes an empty set through a mechanism
 that costs a lookup and communicates confusion rather than intent. It is not a
 vulnerability; it is a sign that nobody owns the configuration, which is worth

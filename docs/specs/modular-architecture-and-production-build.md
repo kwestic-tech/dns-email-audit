@@ -212,7 +212,7 @@ the UI decides presentation — is already true and is preserved by the module
 boundary in [Design §4](#4-protocol-modules).
 
 **3. A shared DNS cache already exists.** §9 asks for one. `dohCache` is a
-`Map` with LRU eviction at [`js/dns.js:70`](../../js/dns.js), keyed on
+`Map` with LRU eviction at `js/dns.js:70`, keyed on
 `name + type`, with a `noCache` opt-out and — importantly — a deliberate rule
 that only `success`, `nodata` and `nxdomain` results are cached, so a transport
 failure is never remembered as an answer. §9's last line asks for the cache to be "scoped to the active audit". **That
@@ -393,9 +393,9 @@ for the API table and the allowed-edge matrix.
 | # | Boundary | Implementation | Returns / raises |
 | --- | --- | --- | --- |
 | 1 | Raw transport | `dohFetch()` | One of ten kinds (below) |
-| 2 | Usability gate | `requireUsable()` [`js/dns.js:256`](../../js/dns.js) | Passes `success`/`nodata`/`nxdomain`; **throws** `dnsError(kind, …)` for the other seven |
-| 3 | Normalized records | `dohQuery()`, `dohAll()` [`js/dns.js:281`](../../js/dns.js) | Arrays of cleaned strings — **no kind** |
-| 4 | Error and cancellation policy | `optionalCheck()` [`js/dns.js:247`](../../js/dns.js) | Caller's declared unknown; **re-throws** `AbortError` and `DnsTypeError` |
+| 2 | Usability gate | `requireUsable()` `js/dns.js:256` | Passes `success`/`nodata`/`nxdomain`; **throws** `dnsError(kind, …)` for the other seven |
+| 3 | Normalized records | `dohQuery()`, `dohAll()` `js/dns.js:281` | Arrays of cleaned strings — **no kind** |
+| 4 | Error and cancellation policy | `optionalCheck()` `js/dns.js:247` | Caller's declared unknown; **re-throws** `AbortError` and `DnsTypeError` |
 | — | **Exception edges** | See the two inventories below | Read `.kind` directly, deliberately bypassing layer 3 |
 
 > **Amended in 1.6: this row named three sites and conflated two different
@@ -502,26 +502,26 @@ byte-compatible with `v0.5.0`; no member is renamed, merged or added.
 | `servfail` | `responseKind()`, status 2 |
 | `refused` | `responseKind()`, status 5 |
 | `dns-error` | `responseKind()`, any other status |
-| `http-error` | [`js/dns.js:189`](../../js/dns.js) |
-| `cancelled` | [`js/dns.js:195`](../../js/dns.js) |
-| `timeout` | [`js/dns.js:196`](../../js/dns.js) |
-| `network-error` | [`js/dns.js:196`](../../js/dns.js) |
+| `http-error` | `js/dns.js:189` |
+| `cancelled` | `js/dns.js:195` |
+| `timeout` | `js/dns.js:196` |
+| `network-error` | `js/dns.js:196` |
 
-`DnsTypeError` is **thrown** at [`js/dns.js:121`](../../js/dns.js), never
+`DnsTypeError` is **thrown** at `js/dns.js:121`, never
 returned. It is not a kind and must not become one.
 
 Three cross-cutting rules the contract tests pin, because each is a distinction
 a coarser model would flatten:
 
 - **Cacheable ⊂ retry-terminal.** Retry stops on
-  `success`/`nodata`/`nxdomain`/**`cancelled`** ([`js/dns.js:216`](../../js/dns.js));
-  the cache admits only the first three ([`js/dns.js:219`](../../js/dns.js)).
+  `success`/`nodata`/`nxdomain`/**`cancelled`** (`js/dns.js:216`);
+  the cache admits only the first three (`js/dns.js:219`).
   `cancelled` is terminal but never cached.
 - **`servfail` is a security signal**, not merely a failure: it drives the
-  `resolver-bogus` DNSSEC claim at [`js/dns.js:4022`](../../js/dns.js).
+  `resolver-bogus` DNSSEC claim at `js/dns.js:4022`.
 - **`nxdomain` ≠ `nodata`** at the exception edge: `domainExists()` maps
   `nxdomain` → `'no'`, `success`/`nodata` → `'yes'`, everything else
-  → `'unknown'` ([`js/dns.js:2202-2205`](../../js/dns.js)).
+  → `'unknown'` (`js/dns.js:2202-2205`).
 
 #### The protocol/audit algebras are separate
 
@@ -628,7 +628,7 @@ Version 0.2 asserted that `globalName: 'DnsAudit'` would expose *"exactly the
 surface the existing harness already reaches"*. It does not: esbuild assigns
 **the entry point's exports** to that name, and `src/entry-legacy.js` has none.
 In a classic script the generated top-level `var DnsAudit` would have
-**overwritten** the real object from [`js/dns.js:5601`](../../js/dns.js) —
+**overwritten** the real object from `js/dns.js:5601` —
 breaking the application on Task 1.6, the commit that moves the delivery
 boundary.
 

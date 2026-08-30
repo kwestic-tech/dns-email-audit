@@ -156,26 +156,19 @@ eq('and the entry point does write them that way',
 section('4. The legacy consumers, counted');
 
 /**
- * `js/` is not under the contract — it is what the contract exists to retire.
- * Counting what is left there makes the remaining work visible, and a number
- * that goes UP is a phase that added a dependency instead of removing one.
+ * `js/` was not under the contract — it was what the contract existed to
+ * retire, and Task 6.1 retired it. Counting what was left there made the
+ * remaining work visible; the count reached zero when the directory did.
+ *
+ * The assertion is now that the directory is GONE, which is the end state that
+ * counting was measuring toward. Counting files in a directory that does not
+ * exist would report zero for the wrong reason.
  */
 const jsDir = join(REPO, 'js');
-const legacy = modules(jsDir, jsDir).sort();
-const legacyTouches = legacy.map(relativePath => {
-  const touches = globalTouches(readFileSync(join(jsDir, relativePath), 'utf8'));
-  return { file: relativePath, touches };
-}).filter(entry => entry.touches.length);
-
-eq('js/ holds only what Phase 2 has not converted yet', legacy, ['dns.js']);
-eq('and js/dns.js no longer touches a global at all',
-  legacyTouches.filter(e => e.file === 'dns.js'), []);
-// Which means nothing under js/ reaches for a global any more. Task 2.6 moved
-// the last consumer — js/app.js — into src/main.js, where the contract above
-// governs it and the adapter sentinel says so out loud.
-eq('nothing left under js/ reaches for a global', legacyTouches, []);
-for (const entry of legacyTouches) {
-  console.log(`  ${entry.file} still reaches for: ${entry.touches.join(', ')}`);
-}
-
+eq('js/ no longer exists — Task 6.1 deleted it', existsSync(jsDir), false);
+// The engine surface those 5,704 lines held is `tools/lib/legacy-engine.mjs`
+// now: a test harness, not application code, and not in the bundle.
+// `artifact.test.mjs` asserts no `js/` path is a bundle input.
+eq('and the harness that replaced it is under tools/',
+  existsSync(join(REPO, 'tools', 'lib', 'legacy-engine.mjs')), true);
 report();

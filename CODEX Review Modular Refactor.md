@@ -86,12 +86,12 @@ already exists. It does not.
 
 - [`index.html:187-193`](index.html) loads **seven classic `<script src>` tags**
   in hand-maintained dependency order. No `type="module"` anywhere.
-- [`js/dns.js:15`](js/dns.js) opens `(function (global) {` and
-  [ends](js/dns.js) `})(window);` — an IIFE assigning an export object to
+- `js/dns.js:15` opens `(function (global) {` and
+  ends `})(window);` — an IIFE assigning an export object to
   `window`. `js/app.js`, `js/render.js` and `js/i18n.js` follow the same
   pattern.
 - `js/public-suffixes.js` and `js/dkim-selectors.js` assign globals;
-  [`js/dns.js:20`](js/dns.js) reads
+  `js/dns.js:20` reads
   `global.__DKIM_SELECTOR_CATALOG__ || { providers: {}, … }`.
 - [`tools/lib/browser-harness.mjs`](tools/lib/browser-harness.mjs) states the
   design in its own header: *"the files are plain IIFEs that attach to
@@ -119,7 +119,7 @@ until it is done.
 §31 proposes introducing them, with examples of the form `SPF_LOOKUP_LIMIT`,
 `DKIM_RSA_KEY_TOO_SHORT`, `DMARC_POLICY_NONE`.
 
-This is already the binding project rule. [`js/dns.js:1-13`](js/dns.js) states
+This is already the binding project rule. `js/dns.js:1-13` states
 it in the file header:
 
 > *"This file is deliberately free of user-facing English. Anything a person
@@ -148,11 +148,11 @@ is already true and is preserved by the module boundary.
 
 ### C3 — A shared DNS cache already exists
 
-§9 asks for one. [`js/dns.js:70-88`](js/dns.js) is a `Map` with LRU eviction
+§9 asks for one. `js/dns.js:70-88` is a `Map` with LRU eviction
 bounded by `MAX_DOH_CACHE_ENTRIES`, keyed on `name + type`, with a `noCache`
-opt-out at [`js/dns.js:208`](js/dns.js).
+opt-out at `js/dns.js:208`.
 
-It is also **more careful than §9 asks for**: [`js/dns.js:219`](js/dns.js)
+It is also **more careful than §9 asks for**: `js/dns.js:219`
 caches only `success`, `nodata` and `nxdomain` results, so a transport failure
 is never remembered as an answer. §9 does not mention this rule, and an
 implementation that reads §9 literally would lose it.
@@ -688,7 +688,7 @@ global surface is **five separate namespaces**, not one:
 
 | Global | Assigned at |
 | --- | --- |
-| `DnsAudit` | [`js/dns.js:5601`](js/dns.js) |
+| `DnsAudit` | `js/dns.js:5601` |
 | `startAudit`, `cancelAudit`, `exportCSV`, … | [`js/app.js:1768`](src/main.js) |
 | `__APP_TEST__` | [`js/app.js:1785`](src/main.js) — read by `render.test.mjs:21`, `export.test.mjs:17` |
 | `R` | [`js/render.js:551`](src/ui/render.js) |
@@ -729,23 +729,23 @@ construction sites:
 | --- | --- |
 | `success`, `nodata` | `responseKind()`, status 0, by answer count |
 | `nxdomain`, `servfail`, `refused`, `dns-error` | `responseKind()`, statuses 3 / 2 / 5 / other |
-| `http-error` | [`js/dns.js:189`](js/dns.js) |
-| `cancelled` | [`js/dns.js:195`](js/dns.js) |
-| `timeout`, `network-error` | [`js/dns.js:196`](js/dns.js) |
+| `http-error` | `js/dns.js:189` |
+| `cancelled` | `js/dns.js:195` |
+| `timeout`, `network-error` | `js/dns.js:196` |
 
-`DnsTypeError` is **thrown** at [`js/dns.js:121`](js/dns.js), never returned.
+`DnsTypeError` is **thrown** at `js/dns.js:121`, never returned.
 
 Round 2 is right that collapsing these would erase live distinctions. Three
 that a five-label scheme could not have expressed:
 
 - `servfail` drives the `resolver-bogus` DNSSEC claim at
-  [`js/dns.js:4022`](js/dns.js); folding it into "transport failure" deletes a
+  `js/dns.js:4022`; folding it into "transport failure" deletes a
   security conclusion.
 - `domainExists()` maps `nxdomain` → `'no'` and `success`/`nodata` → `'yes'`
-  at [`js/dns.js:2203`](js/dns.js); everything else is `'unknown'`.
+  at `js/dns.js:2203`; everything else is `'unknown'`.
 - Retry breaks on `success`/`nodata`/`nxdomain`/**`cancelled`**
-  ([`js/dns.js:216`](js/dns.js)) while the cache admits only the first three
-  ([`js/dns.js:219`](js/dns.js)). `cancelled` is retry-terminal and
+  (`js/dns.js:216`) while the cache admits only the first three
+  (`js/dns.js:219`). `cancelled` is retry-terminal and
   non-cacheable — a four-way distinction inside what `0.2` called one label.
 
 ### Refinement: the four layers already exist — document them, do not build them
@@ -758,9 +758,9 @@ because the layering is already in the code:
 | Layer | Implementation | Shape |
 | --- | --- | --- |
 | 1. Raw transport | `dohFetch()` | The ten kinds above |
-| 2. Usability gate | `requireUsable()` ([`js/dns.js:256`](js/dns.js)) | `success`/`nodata`/`nxdomain` pass through; the other seven become `dnsError(kind, …)` throws |
-| 3. Normalized records | `dohQuery()`, `dohAll()` ([`js/dns.js:281`](js/dns.js)) | Arrays of cleaned strings — **no kind at all** |
-| 4. Error and cancellation policy | `optionalCheck()` ([`js/dns.js:247`](js/dns.js)) | Catches to a declared unknown; **re-throws** `AbortError` and `DnsTypeError` |
+| 2. Usability gate | `requireUsable()` (`js/dns.js:256`) | `success`/`nodata`/`nxdomain` pass through; the other seven become `dnsError(kind, …)` throws |
+| 3. Normalized records | `dohQuery()`, `dohAll()` (`js/dns.js:281`) | Arrays of cleaned strings — **no kind at all** |
+| 4. Error and cancellation policy | `optionalCheck()` (`js/dns.js:247`) | Catches to a declared unknown; **re-throws** `AbortError` and `DnsTypeError` |
 | — | Direct-kind consumers | `domainExists()`, `checkConnectivity()`, and the DNSSEC `servfail` path read `.kind` deliberately |
 
 So 0.4 will **document these five, exactly as they are**, with contract tests
@@ -1009,7 +1009,7 @@ binding get its own independent fingerprint is right: one PSL probe says nothing
 about the DKIM catalog or the English bundle.
 
 **R3-F3 — nine DNSSEC claims, not seven.** Confirmed at
-[`js/dns.js:4077`](js/dns.js):
+`js/dns.js:4077`:
 
 ```js
 chain.push({ claim: 'ds-' + record.match, source: 'local', … });

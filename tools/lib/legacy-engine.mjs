@@ -1,99 +1,94 @@
 /* ──────────────────────────────────────────────────────────────────────────
-   DNS querying and analysis.
+   The `v0.5.0` engine surface, reconstructed for the tests that assert it.
 
-   This file is deliberately free of user-facing English. Anything a person
-   reads is represented here as a stable identifier — '@none', 'spf-missing',
-   'noteWildcard' — and turned into words by js/app.js via the i18n layer.
-   That keeps the audit logic and the translations independent: a translator
-   never has to touch this file, and a bug fix here never breaks a locale.
+   **This is a test harness, not application code.** Nothing under `src/`
+   imports it and it is not in the bundle: `src/runtime.js` builds the DNS
+   layer and `src/audit/create-audit.js` builds the protocol checks, and the
+   supported browser API is the two-member facade `src/main.js` exports.
 
-   Tokens that stand in for translatable text are prefixed with '@'.
-   Provider names that are proper nouns ('Cloudflare', 'Google Workspace')
-   are passed through untranslated by design.
+   ── What it is for ──────────────────────────────────────────────────────
+
+   `tools/scoring.test.mjs` is 1,535 assertions that reach 95 engine members by
+   name, and `tools/backtest.mjs` runs the same surface against live DNS. Both
+   predate the refactor and both are the reason the refactor could be trusted:
+   an assertion count that never moved across six phases is the strongest
+   evidence that no behaviour did. Rewriting them to import forty modules
+   directly would have retired the instrument that was measuring the work.
+
+   So the surface moved here, where its nature is visible. It was `js/dns.js`
+   until Task 6.1; the file is the same composition, with `../src/` become
+   `../../src/` and nothing else changed.
+
+   ── The five compatibility wrappers ─────────────────────────────────────
+
+   `checkDKIM`, `buildDkimSelectorList`, `catalogSelectors`,
+   `spfSelectorSources` and `detectEmailProvider` keep their observed `v0.5.0`
+   signatures here — the string-taking and three-argument forms. The
+   application uses the fact-taking APIs directly; these exist so that the
+   assertions written against the old shapes still mean what they meant.
    ────────────────────────────────────────────────────────────────────────── */
 
-/**
- * Build the DNS engine over its supplied inputs.
- *
- * A WRAPPER conversion, and deliberately nothing more. The IIFE opener became
- * this function, the closing `global.DnsAudit = {…}` became a `return`, and the
- * three `global.…` reads became the three parameters. **No function below moved,
- * was renamed, or changed behaviour, and the body is not reindented** — 5,704
- * lines changing their wrapper is reviewable; 5,704 lines changing wrapper and
- * indentation is not, and a moved function in that diff would mean it was done
- * wrong. Phases 3 and 4 are where this file is decomposed.
- *
- * Everything it needs is PASSED. The two generated tables were `global.…` reads
- * and are arguments now; the ambient primitives it used to find on `window` are
- * destructured from `platform` below. That is what lets a test hand this engine
- * a four-rule public suffix list and a fixture `fetch` — the module cannot
- * reach past its arguments for the real ones, so a fixture cannot be silently
- * replaced by production data.
- *
- * `platform` is the temporary object literal Task 2.2 introduced; Task 2.4
- * replaces it with `src/platform/browser.js` and the complete §11 primitive set.
- */
-import { createDohTransport, DOH_ENDPOINT } from '../src/core/dns/doh.js';
-import { createDohCache } from '../src/core/dns/cache.js';
-import { dnsTypeNum, dnsError, DNS_TYPES } from '../src/core/dns/errors.js';
-import { createResolver } from '../src/core/dns/resolver.js';
-import { optionalCheck } from '../src/core/dns/optional.js';
-import { createExistence, existenceFromResponse } from '../src/core/dns/existence.js';
+import { createDohTransport, DOH_ENDPOINT } from '../../src/core/dns/doh.js';
+import { createDohCache } from '../../src/core/dns/cache.js';
+import { dnsTypeNum, dnsError, DNS_TYPES } from '../../src/core/dns/errors.js';
+import { createResolver } from '../../src/core/dns/resolver.js';
+import { optionalCheck } from '../../src/core/dns/optional.js';
+import { createExistence, existenceFromResponse } from '../../src/core/dns/existence.js';
 // core/shared/ is down to one import here. uri.js and record-fields.js went
 // with their call sites at Task 4.4; base64.js followed at 4.5 and 4.7 and the
 // import outlived its last reader until Task 5.2 noticed. Only the three IP
 // helpers are still read from this file, and only as engine members.
-import { ipv4ToBigInt, ipv6ToBigInt, parseIpCidr } from '../src/core/shared/ip.js';
-import { parseCaaRecord, summarizeCaa } from '../src/core/caa/caa.js';
-import { isNullMx, parseMxRecord } from '../src/core/mx/mx.js';
-import { validateBimiRecord } from '../src/core/bimi/bimi.js';
-import { validateMtaStsRecord } from '../src/core/transport/mta-sts.js';
-import { validateTlsRptRecord } from '../src/core/transport/tls-rpt.js';
-import { parseTlsaRecord } from '../src/core/transport/tlsa.js';
+import { ipv4ToBigInt, ipv6ToBigInt, parseIpCidr } from '../../src/core/shared/ip.js';
+import { parseCaaRecord, summarizeCaa } from '../../src/core/caa/caa.js';
+import { isNullMx, parseMxRecord } from '../../src/core/mx/mx.js';
+import { validateBimiRecord } from '../../src/core/bimi/bimi.js';
+import { validateMtaStsRecord } from '../../src/core/transport/mta-sts.js';
+import { validateTlsRptRecord } from '../../src/core/transport/tls-rpt.js';
+import { parseTlsaRecord } from '../../src/core/transport/tlsa.js';
 import {
   parseDnskey, parseDs, dnskeyRdata, dnskeyKeyTag, dnsWireName, dnskeyStructure,
   dnssecAlgorithmEligibility, dnssecDigestEligibility, dnssecDigestName,
   DNSSEC_ALGORITHMS, DNSSEC_ZONE_SIGNING, DNSSEC_DIGESTS,
-} from '../src/core/dnssec/records.js';
+} from '../../src/core/dnssec/records.js';
 import {
   anchorFactsUsable, dnskeyCanAnchor, matchConfirmsAnchor,
   DNSSEC_DIGEST_WEBCRYPTO,
-} from '../src/core/dnssec/matching.js';
+} from '../../src/core/dnssec/matching.js';
 import {
   analyzeDmarc, parseDmarcTag, parseDmarcUriList,
   validateDmarcVersion, POLICY_RANK, DMARC_TAGS_RFC9989, DMARC_TAGS_REMOVED,
-} from '../src/core/dmarc/record.js';
+} from '../../src/core/dmarc/record.js';
 import {
   dmarcWalkTargets, isDmarcPolicyRecord, diagnoseDmarcRecord,
   selectOrganizationalDomain, selectAppliedRecord, applyInheritance,
-} from '../src/core/dmarc/tree-walk.js';
+} from '../../src/core/dmarc/tree-walk.js';
 import {
   findExternalReportDestinations, reportDestinationHosts,
   planReportDestinations, parseReportAuthRecord,
-} from '../src/core/dmarc/report-auth.js';
+} from '../../src/core/dmarc/report-auth.js';
 import {
   analyzeDkimKey, DKIM_SELECTORS,
-} from '../src/core/dkim/dkim.js';
+} from '../../src/core/dkim/dkim.js';
 import {
   analyzeSpf, parseSpfTerms, cidrContains, classifySpfSubnet,
   classifySpfSubnets, spfReferencedCatalogKeys,
-} from '../src/core/spf/spf.js';
-import { detectDNSProvider, detectEmailProvider, detectHosting } from '../src/providers/detectors.js';
-import { createAudit } from '../src/audit/create-audit.js';
+} from '../../src/core/spf/spf.js';
+import { detectDNSProvider, detectEmailProvider, detectHosting } from '../../src/providers/detectors.js';
+import { createAudit } from '../../src/audit/create-audit.js';
 // The scoring model, Task 5.3. Byte-identical to v0.5.0 and verified as such
 // against the tag; these are legacy engine members and the coordinator imports
 // them itself.
 import {
   calcScore, calcDmarcScore, calcSpfScore, gradeFor,
   WEIGHTS, PARKED_WEIGHTS, GRADE_THRESHOLDS,
-} from '../src/audit/scoring.js';
+} from '../../src/audit/scoring.js';
 // Findings and remediation tips, Task 5.4 — the last substantive behaviour to
 // leave this file. Both are legacy engine members.
-import { buildIssues, buildSuggestions } from '../src/audit/issues.js';
+import { buildIssues, buildSuggestions } from '../../src/audit/issues.js';
 // A legacy engine member. It lives in core/shared/ since Task 5.2a — Gate 5
 // forbids the coordinator holding a parsing rule, so record selection went to
 // the protocol owners and this went to the module they share.
-import { startsWithCI } from '../src/core/shared/record-selection.js';
+import { startsWithCI } from '../../src/core/shared/record-selection.js';
 
 export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
   // Named, not reached for. `fetch` is the load-bearing one: the DoH fixture

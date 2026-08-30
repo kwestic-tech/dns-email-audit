@@ -106,7 +106,7 @@ PSL fixture-identity fingerprint across the facade contraction.
 **Status:** open. **Deliberately not changed in 0.6.0.**
 
 `getOrganizationalDomain()` is the only reader of the public suffix sets
-([`js/dns.js:335-355`](../js/dns.js)), and no application code calls it.
+(`js/dns.js:335-355`), and no application code calls it.
 Measured at two commits, not inferred:
 
 ```console
