@@ -197,21 +197,55 @@ function batchProbe(expected) {
  */
 const TICK_BUDGET = 2000;
 function ticks(n = TICK_BUDGET) {
-  return new Promise(resolve => {
+  let live = true;
+  const promise = new Promise(resolve => {
     let left = n;
-    const step = () => (left-- <= 0 ? resolve('deadline') : setImmediate(step));
+    const step = () => {
+      // Stop as soon as the race is decided. Without this, every passing run
+      // would leave its losing deadline scheduling turns to the end of its
+      // budget — work nothing is waiting for, in a suite that runs dozens of
+      // these.
+      if (!live) return;
+      if (left-- <= 0) return resolve('deadline');
+      setImmediate(step);
+    };
     setImmediate(step);
   });
+  return { promise, cancel() { live = false; } };
 }
-/** Run an audit against the deadline. Returns 'completed' or 'deadline'. */
-const within = run => Promise.race([run.then(() => 'completed', () => 'completed'), ticks()]);
 
-// The deadline proven to fire. Without this, `within()` returning 'completed'
-// everywhere would be indistinguishable from a race that never times out —
-// and the assertions below would be measuring nothing.
+/**
+ * Run an audit against the deadline. Resolves 'completed' or 'deadline'.
+ *
+ * A REJECTED audit is neither: it rejects, and the caller sees the error.
+ * Turning a rejection into 'completed' would let a fixture that throws after
+ * issuing its batch satisfy the completion assertion, which is the opposite of
+ * what these runs are for — the point is that the calls went out AND the audit
+ * finished normally.
+ */
+async function within(run) {
+  const deadline = ticks();
+  try {
+    return await Promise.race([run.then(() => 'completed'), deadline.promise]);
+  } finally {
+    deadline.cancel();
+  }
+}
+
+// The deadline proven to fire, and proven not to fire spuriously. Without the
+// first, `within()` returning 'completed' everywhere would be
+// indistinguishable from a race that never times out, and every concurrency
+// assertion below would be measuring nothing.
+const neverFinishes = ticks(10);
 eq('the deadline fires on work that never finishes',
-  await Promise.race([new Promise(() => {}), ticks(10)]), 'deadline');
+  await Promise.race([new Promise(() => {}), neverFinishes.promise]), 'deadline');
+neverFinishes.cancel();
 eq('and does not fire on work that does', await within(Promise.resolve()), 'completed');
+// A rejection is NOT a completion. A fixture that issued its whole batch and
+// then threw would otherwise pass the assertions these runs exist to make.
+await rejects('a rejected audit rejects rather than reporting completion',
+  () => within(Promise.reject(new Error('boom'))),
+  error => error.message === 'boom');
 
 const core = batchProbe(4);
 const concurrent = build({

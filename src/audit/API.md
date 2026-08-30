@@ -92,7 +92,17 @@ sequence of awaits cannot complete. Because that failure mode is a HANG, every
 such run is raced against a bounded deadline measured in **event-loop turns**
 — the right unit for a question about the event loop, and not flaky the way a
 wall-clock threshold would be — so a regression reports in milliseconds instead
-of running to the CI timeout. The deadline itself is proven to fire.
+of running to the CI timeout.
+
+Three properties of that deadline are asserted rather than assumed:
+
+- **it fires** on work that never finishes, and does not fire on work that does;
+- **a rejection is not a completion.** The race resolves `completed` or
+  `deadline` and lets a rejected audit reject. Mapping a rejection to
+  `completed` would let a fixture that issued its whole batch and then threw
+  satisfy the very assertion these runs exist to make;
+- **the losing deadline is cancelled** when the audit wins, so a passing run
+  does not leave a budget of scheduled turns burning behind it.
 
 Three batches are covered, and they are **this file's**: the four core lookups,
 all eight advanced checks, and the wildcard pair. DKIM's selector scan is

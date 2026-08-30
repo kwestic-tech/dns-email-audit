@@ -435,7 +435,7 @@
     },
     {
       "path": "src/audit/audit-domain.test.js",
-      "assertions": 54,
+      "assertions": 55,
       "areas": [
         "the unregistered short-circuit, and that nothing downstream runs after it",
         "the NS servfail DNSSEC preflight: the unchecked retry, its gate, and the verdict it does not re-derive",
