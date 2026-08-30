@@ -115,25 +115,16 @@ precedent, and one spec was superseded outright during implementation.
 | [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) | 0.3.0 | [#20](https://github.com/kwestic-tech/dns-email-audit/pull/20) | `8c3a36f` | 1.2 (Implemented) |
 | [dns-protocol-depth](implemented/dns-protocol-depth.md) | 0.4.0 | [#22](https://github.com/kwestic-tech/dns-email-audit/pull/22) | `9bda3ad` | 1.2 (Implemented) |
 | [dnssec-evidence](implemented/dnssec-evidence.md) | 0.5.0 | [#25](https://github.com/kwestic-tech/dns-email-audit/pull/25) | `v0.5.0` | 1.5 (Implemented) |
+| [modular-architecture-and-production-build](implemented/modular-architecture-and-production-build.md) | 0.6.0 | — | `v0.6.0` | 1.8 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in
 [`CHANGELOG.md`](../../CHANGELOG.md) only.
 
-### Implementation complete, release pending
-
-A spec that has been built and moved to `implemented/` but **not yet released**.
-It sits here rather than in the table above because that table is a record of
-shipped releases: there is no `v0.6.0` tag, no PR and no merge commit to record
-yet, and putting a row there with those columns empty would read as a release
-that happened.
-
-| Spec | Target release | Status | Spec version |
-| --- | --- | --- | --- |
-| [modular-architecture-and-production-build](implemented/modular-architecture-and-production-build.md) | 0.6.0 | Gates 0–5 met; Gate 6 is the release itself | 1.7 (Implemented) |
-
-Its release commit moves this row into the table above with the PR and tag
-filled in, and flips the spec's own status field.
+The `modular-architecture-and-production-build` row carries **no PR**, and that
+is accurate rather than an omission: its release commit is the last commit on
+its own branch, cut before the pull request opens, so at release time the PR
+does not exist. It is recorded by release tag alone.
 
 Every spec above was written from an original working specification except
 [resilient-optional-checks](implemented/resilient-optional-checks.md), which had

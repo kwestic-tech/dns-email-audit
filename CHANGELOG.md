@@ -14,6 +14,10 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.6.0] — 2026-08-30
+
 ### Changed
 
 - **The application is ES modules under `src/`, bundled to one artifact.** The
@@ -27,7 +31,10 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   There are now **thirteen owning directories** under `src/` — `audit/`, eight
   protocol owners, `core/dns/`, `core/shared/`, `providers/` and `ui/` — each
-  with a checked-in `API.md` and tests beside the code they test. Imports are
+  with a checked-in `API.md`, and **30 co-located test modules** sitting beside
+  the code they test. `src/ui/` is the one owning directory with no co-located
+  test: it keeps its established coverage in `tools/render.test.mjs` and
+  `tools/export.test.mjs`. Imports are
   explicit, so load order is derived rather than declared, and the only
   application-created browser global is `DnsAudit`, with the two facade
   members described below.
@@ -1186,7 +1193,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.3...v0.3.0

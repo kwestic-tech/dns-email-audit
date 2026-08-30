@@ -60,6 +60,7 @@ and an unverifiable result is marked rather than hidden.
 | 0.2.1 | XLIFF-based locale pipeline, thirteen locales complete, five new languages | [locale-translation-pipeline](docs/specs/implemented/locale-translation-pipeline.md) |
 | 0.2.2 | DKIM selectors for vendors named in the domain's own SPF record | [spf-referenced-dkim-selectors](docs/specs/implemented/spf-referenced-dkim-selectors.md) |
 | 0.5.0 | DNSSEC chain evidence: six states, local DS-to-DNSKEY matching, attributed claims | [dnssec-evidence](docs/specs/implemented/dnssec-evidence.md) |
+| 0.6.0 | ES modules under `src/` bundled to one artifact; a two-member browser API; no behaviour change | [modular-architecture-and-production-build](docs/specs/implemented/modular-architecture-and-production-build.md) |
 
 `0.1.0` and the work merged as PRs #1 through #7 predate the spec process and are
 documented in [`CHANGELOG.md`](CHANGELOG.md) only.
@@ -76,7 +77,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 6 | Local MTA-STS and BIMI validation | Not started. Both are validated at the TXT record level only. | [0.8.0](docs/specs/local-artifact-validation.md) |
 | 7 | Local report comparison | Not started. Exports are CSV and static HTML; nothing can be read back. | [0.9.0](docs/specs/report-comparison.md) |
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
-| 9 | Modular architecture and production build | **Implementation complete; release pending** — Gates 0–5 met, Gate 6 is the release itself. Spec `1.7`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with thirteen owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md) |
+| 9 | Modular architecture and production build | **Done.** Released as 0.6.0; all six gates met. Spec `1.8`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with thirteen owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md), released |
 
 ## Release sequence
 
@@ -156,29 +157,37 @@ was reviewed and **retired** rather than completed: a TLSA record lives in the
 MX host's zone, which the audited domain's chain evidence says nothing about.
 Zero grade, score and `dnssec.signed` movement against `v0.4.0`.
 
-### 0.6.0: Modular architecture and production build
+### 0.6.0: Modular architecture and production build — **released**
 
 Spec: [`docs/specs/implemented/modular-architecture-and-production-build.md`](docs/specs/implemented/modular-architecture-and-production-build.md)
 
-Converts the browser code from `window`-attached IIFEs to ES modules under
-`src/`, splits `js/dns.js` and `js/app.js` along four boundaries — DNS
-transport, protocol evaluation, audit coordination, UI — and introduces esbuild
+Converted the browser code from `window`-attached IIFEs to ES modules under
+`src/`, split `js/dns.js` and `js/app.js` along four boundaries — DNS
+transport, protocol evaluation, audit coordination, UI — and introduced esbuild
 as the project's first development dependency, producing a single
 `dist/app.min.js` that GitHub Pages serves in place of seven source files.
 
 This is the one release in the sequence that ships **no audit or UI behavior
-change**, by design. It deliberately retires undocumented legacy JavaScript
-globals and replaces them with the two-member supported facade recorded in the
-spec. It is scheduled here rather than later because the three
-feature releases that follow all read or extend the output shapes inside
-`js/dns.js`, and establishing the boundaries costs less now than after three
-more releases have been layered onto a 5,704-line file.
+change**, by design. It deliberately retired undocumented legacy JavaScript
+globals and replaced them with the two-member supported facade recorded in the
+spec. It was scheduled here rather than later because the three
+feature releases that follow all read or extend the output shapes that lived in
+`js/dns.js`, and establishing the boundaries cost less then than after three
+more releases had been layered onto a 5,704-line file.
 
-Exit condition: five-surface equivalence against a deterministic fixture corpus
-captured at `v0.5.0` — full result, query trace, CSV, HTML report and DOM,
-three-way through baseline/source/bundle — with the contract and state
-inventories intact, the assertion total reported, `npm run locale:gate` at
-13/13, zero runtime dependencies, and `PRIVACY.md` needing no edit.
+Exit condition, met: five-surface equivalence against a deterministic fixture
+corpus captured at `v0.5.0` — full result, query trace, CSV, HTML report and
+DOM, three-way through baseline/source/bundle — reports **zero differences**
+across 32 cases, with the contract and state inventories intact, 4,451
+assertions reported, `npm run locale:gate` at 13/13, and zero runtime
+dependencies. **One clause of it was wrong and is recorded rather than
+quietly dropped:** `PRIVACY.md` did need an edit. Driving the app through its
+real controls booted the page, which showed a second fixed `example.com` probe
+the document had never disclosed: one when the page finishes loading, and one
+immediately before each audit run — so a session that runs a single audit sends
+two, and a session that never runs one still sends the page-load probe.
+Pre-existing behaviour newly measured, not a 0.6.0 change. Spec `1.5` carries
+the correction.
 
 ### 0.7.0: Anomaly and remediation roadmap
 

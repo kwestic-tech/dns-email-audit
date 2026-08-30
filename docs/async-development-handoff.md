@@ -130,7 +130,7 @@ explicit reconciliation rather than being left to default behavior:
 | 3 | `dns-protocol-depth` (0.4.0) | 9/10 | B (link 2/3) | Second link; adds `DS`/`DNSKEY`/`TLSA` transport 0.5.0 needs, and the per-host `authenticated` evidence 0.5.0 keeps as the honest ceiling for DANE. |
 | 3′ | `local-artifact-validation` (0.8.0) | 5/10 | D (parallel) | Can start as soon as 0.2.3 lands, run alongside the whole B chain. Only sync point is 0.7.0's `Finding` shape (stub it, reconcile later). |
 | 4 | `dnssec-evidence` (0.5.0) | 6/10 | B (link 3/3) | Closes the B chain; needs 0.4.0's transport and TLSA shape. |
-| 4′ | `modular-architecture-and-production-build` (0.6.0) | n/a | G | **Implementation complete; release pending** — spec `1.7`, Gates 0–5 met. No audit/UI behavior change, and none happened: both equivalence subjects report zero differences. Undocumented legacy globals are replaced by a two-member supported facade. Sat between B and C because every spec below it reads or extends the output shapes the audit produces. |
+| 4′ | `modular-architecture-and-production-build` (0.6.0) | n/a | G | **RELEASED as `v0.6.0`, 2026-08-30** — spec `1.8`, all six gates met. No audit/UI behavior change, and none happened: both equivalence subjects report zero differences. Undocumented legacy globals are replaced by a two-member supported facade. Sat between B and C because every spec below it reads or extends the output shapes the audit produces. |
 | 5 | `findings-and-remediation` (0.7.0) | 10/10 | C | Highest end-user value in the roadmap, but structurally the most downstream — it reads the output shapes of 0.3.0, 0.4.0, and 0.5.0. Cannot start for real until B is done. |
 | 6 | `report-comparison` (0.9.0) | 4/10 | E | Hard-bound to 0.7.0's finding-id namespace. Last in the signal chain. |
 | — | `external-intelligence` | 1/10 | F | No code. Finalize as a **decision document** (mark `1.0 (Final)` as a deliberate refusal per its own `OQ-EXT-04`) whenever convenient — no dependency either direction. |
@@ -514,10 +514,11 @@ and confirm none appear. Move to `docs/specs/implemented/`.
 
 ---
 
-## 4½. Phase 3½ — `modular-architecture-and-production-build` (0.6.0)
+## 4½. Phase 3½ — `modular-architecture-and-production-build` (0.6.0) — **RELEASED**
 
-**Added 2026-08-27. Implementation complete; release pending — spec `1.7`,
-Gates 0–5 met, Gate 6 is the release itself.** Not part of the original
+> **Status, 2026-08-30: released as `v0.6.0`.** Spec `1.8`, all six gates met.
+
+**Added 2026-08-27.** Not part of the original
 eight-workstream evaluation, and it scores no usefulness points — by design it
 ships no audit or UI behavior change, and none happened: both equivalence
 subjects report zero differences across 32 cases and five surfaces. It does

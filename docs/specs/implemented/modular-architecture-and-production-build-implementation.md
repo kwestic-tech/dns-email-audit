@@ -1,8 +1,8 @@
 # Modular Architecture and Production Build Refactor — Implementation
 
 **Spec:** [`modular-architecture-and-production-build.md`](modular-architecture-and-production-build.md)
-**Status:** Implementation complete; release pending. Gates 0–5 are met and
-Gate 6 — Task 6.9's release commit — is not. Moved here from the repository root
+**Status:** Released as `v0.6.0` on 2026-08-30. All six gates are met; Gate 6
+was cut by Task 6.9's release commit. Moved here from the repository root
 at Task 6.7a, beside the spec it implements. The task list below is the record
 of how the work was sequenced; what was built differently from the spec is in
 that spec's **As implemented** section, not here.
@@ -508,15 +508,20 @@ finished branch and uses it to open the PR; it is never committed.
 **Task 6.8** — `CHANGELOG.md`, in the voice of the finished thing.
 
 **Task 6.9** — **Cut the release as its own commit, over its own file set.**
-Last commit on the branch; touches **no code**:
+Last commit on the branch; touches **no code**. The nine files below are what
+the release commit actually changed — the table as first written listed seven
+and omitted the last two, which is recorded here rather than corrected
+silently:
 
 | File | Change |
 | --- | --- |
 | `package.json` | version → `0.6.0` |
-| `CHANGELOG.md` | `## [Unreleased]` promoted, compare links added |
-| `README.md` | assertion count, build commands, behaviour statements |
-| `docs/specs/implemented/modular-architecture-and-production-build.md` | status → released |
-| `docs/specs/README.md` | row moves to the Implemented table |
+| `package-lock.json` | both `version` fields → `0.6.0` — the root and the `packages[""]` entry |
+| `CHANGELOG.md` | `## [Unreleased]` promoted to `## [0.6.0] — 2026-08-30`, an empty `## [Unreleased]` kept, compare links added |
+| `README.md` | assertion count, build commands, behaviour statements — plus the last `js/` markup-sink path and the DNS query figure aligned with `PRIVACY.md` |
+| `docs/specs/implemented/modular-architecture-and-production-build.md` | status → released, spec version → `1.8`, new revision row |
+| `docs/specs/implemented/modular-architecture-and-production-build-implementation.md` | **this document** — status → released, and this table corrected to the real file set |
+| `docs/specs/README.md` | row moves to the Implemented table under tag `v0.6.0`, PR column `—` |
 | `ROADMAP.md` | 0.6.0 marked released |
 | `docs/async-development-handoff.md` | Phase 3½ marker → RELEASED |
 

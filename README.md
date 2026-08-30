@@ -386,14 +386,14 @@ UI strings, keeping audit logic independent from translation work.
   user or browser clears site data. See [PRIVACY.md](PRIVACY.md) for the
   full policy and [SECURITY.md](SECURITY.md) for vulnerability reporting.
 - One audit is many DNS queries, not one: a typical domain fans out to
-  roughly 30, and following the SPF `include:` chain means Cloudflare also
-  sees the audited domain's email vendor hostnames. See
+  roughly 41 with the default options, and following the SPF `include:` chain
+  means Cloudflare also sees the audited domain's email vendor hostnames. See
   [PRIVACY.md](PRIVACY.md#what-cloudflare-can-see) for detail.
 - A restrictive Content Security Policy allows same-origin runtime assets,
   limits external connections to Cloudflare DNS-over-HTTPS, and restricts
   scripts, frames, objects, forms, and referrer data.
 - DNS-derived output is inserted as text nodes and never parsed as markup. No
-  file under `js/` assigns to `innerHTML` or `outerHTML`; the allowlist for
+  file under `src/` assigns to `innerHTML` or `outerHTML`; the allowlist for
   that rule is empty and enforced by both a runtime setter trap in the test
   DOM and a static scan in `npm test`. Translated rich text is tokenized
   against a twelve-tag allowlist, and anything outside it is rendered as
