@@ -149,6 +149,39 @@ eq('the scan matched a real registration',
   countIn(join(REPO, 'src/ui/events.js'), BOOT), 1);
 eq('and the entry point registers none', countIn(join(REPO, 'src/main.js'), BOOT), 0);
 
+/**
+ * ONE mount, not two functions that behave alike.
+ *
+ * `runtime.js` passes `mount` to `createUi()` and returns it. If those were
+ * two separate `() => i18n.init()` arrows they would behave identically and
+ * every test here would pass — while the UI called a function that was not the
+ * documented member, and replacing the returned one would not change how the
+ * page boots. That is a construction defect a behavioural test cannot see, so
+ * it is asserted structurally.
+ *
+ * A lexical count of `i18n.init()` call sites, and named as one: it would not
+ * catch a second wrapper built through a computed name.
+ */
+const runtimeSource = readFileSync(join(REPO, 'src/runtime.js'), 'utf8');
+// Comments discuss `i18n.init()` by name — this counts CODE, so they are
+// stripped first. Counting them was this check's own first defect.
+const runtimeCode = runtimeSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+eq('runtime.js calls i18n.init() from exactly one place',
+  (runtimeCode.match(/i18n\.init\(\)/g) || []).length, 1);
+eq('and that place is a single named declaration',
+  /const mount = \(\) => i18n\.init\(\);/.test(runtimeCode), true);
+// Two uses, both the bare identifier: passed to createUi, returned to the
+// caller. Bare means they cannot drift apart.
+eq('the identifier is used exactly twice',
+  (runtimeCode.match(/^\s*mount,$/gm) || []).length, 2);
+eq('once as what the UI is given',
+  /\n\s*mount,\n\s*englishBundle,/.test(runtimeCode), true);
+// The scan can fail: a second wrapper is exactly what it is looking for.
+eq('a second wrapper would be a second call site',
+  ((runtimeCode + '\n  const other = () => i18n.init();').match(/i18n\.init\(\)/g) || []).length, 2);
+eq('the runtime still exposes mount as a function', typeof runtime.mount, 'function');
+
 /* ── 3. One runtime, one cache, page lifetime ─────────────────────────── */
 section('3. The DoH cache belongs to the runtime');
 

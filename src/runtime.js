@@ -22,9 +22,9 @@
  * | Call         | per-query retry and timeout state              | per resolver call |
  *
  * **The DoH cache belongs to the runtime, not to an audit.** It is closure
- * state inside the engine, so one runtime is one cache, and
- * `src/legacy-bridge.js` builds exactly ONE runtime for the page — which
- * reproduces v0.5.0's page lifetime exactly. `tools/scoring.test.mjs:1888-1891`
+ * state inside the engine, so one runtime is one cache, and `src/main.js`
+ * builds exactly ONE runtime for the page — which reproduces v0.5.0's page
+ * lifetime exactly. `tools/scoring.test.mjs:1888-1891`
  * asserts a first DMARC walk issues 3 queries and a sibling issues 1, and
  * `PRIVACY.md:30-33` publishes the consequence as "roughly 41 queries for a
  * typical domain". Narrowing that scope raises a published figure, so it is a
@@ -66,7 +66,23 @@ export function createAuditRuntime({
   const engine = createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform });
 
   /**
-   * The page. Task 5.6, and the moment the docstring on `mount()` below
+   * Wire this runtime to its page: pick a locale, load it, paint the DOM.
+   *
+   * Declared ONCE and used twice — passed to `createUi()` below and returned
+   * as the runtime member — because those must be the SAME function. Two
+   * arrow functions that both call `i18n.init()` behave identically and are a
+   * lie about ownership: the UI would not be calling the member documented as
+   * owning the mount, and replacing the returned one would not change how the
+   * page boots. `runtime.test.mjs` §2b asserts there is one call site.
+   *
+   * Nothing else calls it. A second caller would boot i18n twice and put a
+   * second connectivity probe on every page load — a figure `PRIVACY.md`
+   * publishes and one of the five equivalence surfaces measures.
+   */
+  const mount = () => i18n.init();
+
+  /**
+   * The page. Task 5.6, and the moment the docstring on `mount` above
    * described from Task 2.5 onward.
    *
    * §12 gives THIS module the edge to `ui/` and gives `src/main.js` only
@@ -87,7 +103,7 @@ export function createAuditRuntime({
     renderer,
     analyzeDomain: (domain, options) => engine.analyzeDomain(domain, options),
     checkConnectivity: () => engine.checkConnectivity(),
-    mount: () => i18n.init(),
+    mount,
     englishBundle,
   });
 
@@ -103,19 +119,11 @@ export function createAuditRuntime({
     checkConnectivity: () => engine.checkConnectivity(),
 
     /**
-     * Wire this runtime to its page.
-     *
-     * The language boot: pick a locale, load it, paint the DOM. **Called by
-     * the UI's single `DOMContentLoaded` listener**, which this module now
-     * registers — so this runtime owns the whole mount, which is what this
-     * docstring promised from Task 2.5 and what Task 5.6 delivered.
-     *
-     * Nothing else calls it. A second caller would boot i18n twice and, more
-     * to the point, would put a second connectivity probe on every page load —
-     * a figure `PRIVACY.md` publishes and one of the five equivalence surfaces
-     * measures.
+     * The mount, and **the same function object the UI was given** — declared
+     * above, passed there, returned here. Called by the UI's single
+     * `DOMContentLoaded` listener, so this runtime owns the whole mount.
      */
-    mount: () => i18n.init(),
+    mount,
 
     /**
      * The parts, for the Phase 2 adapter that still has to publish them as

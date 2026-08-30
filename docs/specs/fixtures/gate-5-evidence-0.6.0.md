@@ -164,17 +164,87 @@ edit that file. A key silently dropped while relocating the builder would leave
 all 106 tokens in place and simply stop being emitted.
 
 So a second comparison, over the `key: '…'` literals the builders actually
-emit, before the move (`git show HEAD:js/dns.js`) and after:
+emit. **The pre-move side is read from an immutable commit** — `2df5dfc`, the
+parent of the Task 5.4 extraction `92aa12a`, and the last commit at which
+`js/dns.js` still held both builders. `HEAD` is post-move and cannot reproduce
+it.
+
+Save as `emitter-diff.mjs` in the repository root and run `node emitter-diff.mjs`:
+
+```js
+/**
+ * Gate 5, condition 2b: moving the issue builders emitted the same keys.
+ *
+ * The locale diff watches `locales/en.json`, which a code move does not edit —
+ * so a key silently dropped while relocating the builder would leave all 106
+ * tokens in place and simply stop being emitted. This watches the EMITTER.
+ *
+ * The pre-move side is read from an immutable commit: `2df5dfc` is the parent
+ * of `92aa12a`, the Task 5.4 extraction, and is the last commit at which
+ * `js/dns.js` still contained both builders. `HEAD` would not reproduce it.
+ *
+ *   node emitter-diff.mjs
+ */
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
+const PRE_MOVE = '2df5dfc';                 // 92aa12a^ — before Task 5.4
+const KEY = /key: '([a-z0-9-]+)'/g;
+const keys = source => [...source.matchAll(KEY)].map(m => m[1]);
+
+const before = keys(execFileSync('git', ['show', `${PRE_MOVE}:js/dns.js`], { encoding: 'utf8', maxBuffer: 1 << 28 }));
+const after = [
+  ...keys(readFileSync('src/audit/issues.js', 'utf8')),
+  ...keys(readFileSync('js/dns.js', 'utf8')),
+];
+
+const sorted = a => [...a].sort();
+const lost = before.filter(k => !after.includes(k));
+const gained = after.filter(k => !before.includes(k));
+
+// The issue builder alone, split from the suggestion builder: they resolve
+// into different locale namespaces and only the first is the issue vocabulary.
+const issuesSource = readFileSync('src/audit/issues.js', 'utf8');
+const cut = issuesSource.indexOf('export function buildSuggestions(');
+const issueLiterals = [...new Set(keys(issuesSource.slice(0, cut)))];
+const registry = JSON.parse(readFileSync('tests/state-algebras.json', 'utf8'))
+  .algebras.find(a => a.id === 'audit.issue.key').members;
+
+console.log(`pre-move source: ${PRE_MOVE}:js/dns.js  (92aa12a^, before Task 5.4)`);
+console.log(`key: literal occurrences, both builders, before: ${before.length}`);
+console.log(`key: literal occurrences, both builders, after:  ${after.length}`);
+console.log(`identical multiset: ${JSON.stringify(sorted(before)) === JSON.stringify(sorted(after))}`);
+console.log(`lost:   ${lost.length ? lost.join(', ') : '(none)'}`);
+console.log(`gained: ${gained.length ? gained.join(', ') : '(none)'}`);
+console.log(`key: literals left in js/dns.js: ${keys(readFileSync('js/dns.js', 'utf8')).length}`);
+console.log('');
+console.log(`distinct DIRECT issue-key literals in buildIssues: ${issueLiterals.length}`);
+console.log(`reviewed audit.issue.key vocabulary:               ${registry.length}`);
+console.log(`emitted only through non-literal mechanisms:       ${registry.filter(k => !issueLiterals.includes(k)).length}`);
+```
 
 ```
-key literals emitted before the move: 98
-key literals emitted after  the move: 98
+$ node emitter-diff.mjs
+pre-move source: 2df5dfc:js/dns.js  (92aa12a^, before Task 5.4)
+key: literal occurrences, both builders, before: 98
+key: literal occurrences, both builders, after:  98
 identical multiset: true
-distinct tokens: 97 -> 97
 lost:   (none)
 gained: (none)
-any key literal left in js/dns.js: 0
+key: literals left in js/dns.js: 0
+
+distinct DIRECT issue-key literals in buildIssues: 92
+reviewed audit.issue.key vocabulary:               106
+emitted only through non-literal mechanisms:       14
 ```
+
+Three numbers, and they are three different things:
+
+| Number | What it counts |
+| --- | --- |
+| **98** | `key: '…'` literal OCCURRENCES across both builders — the multiset that must survive a move unchanged |
+| **92** | DISTINCT direct issue-key literals in `buildIssues` (the rest of the 98 are repeats and the seven `buildSuggestions` tip keys, which resolve through `suggestion.*`) |
+| **14** | issue keys emitted only through the four non-literal mechanisms |
 
 **A literal scan sees only 92 of the 106 issue keys.** Fourteen are emitted
 without ever being written as a literal, by four mechanisms — the DKIM

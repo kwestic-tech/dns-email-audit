@@ -582,7 +582,7 @@
     },
     {
       "path": "tests/contract/runtime.test.mjs",
-      "assertions": 35,
+      "assertions": 41,
       "areas": [
         "importing src/runtime.js performs no DOM, network or global work, asserted in a process with no browser",
         "it constructs nothing at module scope and reads no ambient global",
@@ -591,7 +591,8 @@
         "ONE runtime holds ONE DoH cache with page lifetime: a sibling audit reuses the walk",
         "two runtimes share nothing, and isolation comes from constructing rather than from cache-busting an import",
         "the facade delegates to the engine, including a core transport failure",
-        "exactly one DOMContentLoaded boot path across src/, registered by ui/events.js and none by the entry point"
+        "exactly one DOMContentLoaded boot path across src/, registered by ui/events.js and none by the entry point",
+        "one canonical mount: a single i18n.init() call site, passed to createUi and returned by the runtime"
       ]
     },
     {

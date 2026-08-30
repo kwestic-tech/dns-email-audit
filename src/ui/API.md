@@ -18,8 +18,10 @@ severity, no score and no protocol verdict originates here.
 | `ui/` siblings, `i18n/` | `audit/`, any `core/`, `providers/`, `src/data/`, the platform |
 
 Audit reaches this directory as **callbacks passed in**, never as an import:
-`mount()` receives `analyzeDomain` and `checkConnectivity` from the runtime.
-`dns-transport.test.mjs` §5 asserts the direction.
+`createUi()` receives `analyzeDomain` and `checkConnectivity` from the runtime,
+along with `mount` — the runtime's single mount function, which the UI's
+`DOMContentLoaded` listener calls. `dns-transport.test.mjs` §5 asserts the
+direction.
 
 **`runtime.js` is what reaches this directory**, which is §12's matrix exactly:
 the entry point's row is `runtime.js`, `platform/`, `data/` and does not include
@@ -79,9 +81,10 @@ owners.
 | `styleElement(D, css)` | pure | A `<style>` whose every `<` is the CSS escape `\3c `. |
 
 `serializeDocument` and `styleElement` are exported because
-`buildLearnMorePage()` — still in `src/main.js` — emits a standalone document
-too. `<style>` is a raw-text element, so a `</style>` inside the CSS would end
-it early and everything after would parse as markup. That rule exists **once**.
+`buildLearnMorePage()` — in the sibling `events.js` — emits a standalone
+document too. `<style>` is a raw-text element, so a `</style>` inside the CSS
+would end it early and everything after would parse as markup. That rule exists
+**once**.
 
 ## What the export formats, and what it must not do
 
@@ -106,8 +109,8 @@ Every one is a real dependency of the exported bytes, and every one is passed:
 | **renderer** (`R`) | The report is built as a detached tree with the same element builder the page uses, and `R.hygieneOf()` produces the `record_hygiene` column. |
 | **document** | `implementation.createHTMLDocument()` for the report, `createElement('a')` for the download. Passed, never reached for — `platform.test.mjs`'s ambient scan would report a bare `document` as a reach. |
 | **platform** | `Blob`, `URL`, `setTimeout`, `fetch` and `formatDateTime`. Spec §11: the composition root owns the window. |
-| Row formatters — `label`, `issueMessage`, `spfRecordCell`, `dkimKeyBitsCell`, `rowHygieneValues` | A CSV cell must be spelled exactly as the table spells it. These belong to the table renderer, which is still in `src/main.js`; they are passed until it has its own home. |
-| `getResults` | An **accessor**, not the array. `src/main.js` REPLACES `results` on each run, so a captured reference would export the previous run's data. |
+| Row formatters — `label`, `issueMessage`, `spfRecordCell`, `dkimKeyBitsCell`, `rowHygieneValues` | A CSV cell must be spelled exactly as the table spells it. These belong to the table renderer in the sibling `events.js`; they are passed rather than imported so the two modules stay acyclic. |
+| `getResults` | An **accessor**, not the array. `events.js` REPLACES `results` on each run, so a captured reference would export the previous run's data. |
 | `showToast`, `$` | The page feedback and element lookup the two entry points use. |
 
 ## The exported report's own policy
