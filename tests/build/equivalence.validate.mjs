@@ -171,7 +171,11 @@ const MUTATIONS = [
   },
   {
     label: 'drop one DNS query (the AAAA lookup at the apex)',
-    file: 'js/dns.js',
+    // Followed the coordinator to its owner at Task 5.2, for the same reason
+    // the DMARC walk probe was followed at 4.6: a probe naming a file the code
+    // has left fails as "the mutation moved nothing", which reads as the
+    // instrument being insensitive rather than as a stale path.
+    file: 'src/audit/audit-domain.js',
     from: "      dohQuery(d, 'AAAA', queryOpts),",
     to: "      Promise.resolve([]),",
     mustMove: ['result', 'trace'],

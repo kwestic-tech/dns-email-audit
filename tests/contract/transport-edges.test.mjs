@@ -42,6 +42,9 @@ const ALLOWED_READERS = [
   { owner: 'core/dmarc', reader: 'checkExternalReportAuth', preserves: 'the exact response kind, and failed kinds converted at the protocol boundary' },
   { owner: 'core/dmarc', reader: 'discoverDmarc', preserves: 'each walk step, and a failed walk distinguished from absence' },
   { owner: 'core/dnssec', reader: 'dnssecLookupStatus / checkDNSSEC', preserves: 'lookup completeness and the validated-servfail security signal' },
+  // Task 5.2 moved this out of `js/dns.js` with the coordinator. Still the
+  // same owner and the same reader; the FILE it is located in is asserted
+  // below, which is the part a move has to keep current.
   { owner: 'audit', reader: 'the NS servfail DNSSEC preflight in analyzeDomain', preserves: 'the deliberate unchecked retry before orchestration continues' },
 ];
 
@@ -96,7 +99,11 @@ const SCANNED = ['js/dns.js', ...LAYER_IMPLEMENTATIONS,
   'src/core/dnssec/records.js', 'src/core/dnssec/matching.js',
   'src/core/dnssec/chain.js',
   'src/core/shared/uri.js', 'src/core/shared/record-fields.js',
-  'src/core/shared/ip.js', 'src/core/shared/base64.js'];
+  'src/core/shared/ip.js', 'src/core/shared/base64.js',
+  // The audit owner, created in Phase 5. `audit-domain.js` holds the preflight
+  // as of Task 5.2; `context.js` is scanned because a reader added to the
+  // audit boundary must be caught wherever in the directory it lands.
+  'src/audit/audit-domain.js', 'src/audit/context.js'];
 
 /** Function names the allowlist covers, plus the layer implementations' own. */
 const ALLOWED_FUNCTIONS = new Set([
@@ -206,9 +213,15 @@ eq('the DMARC readers moved to their owner at Task 4.6',
  * FILE: a reader can keep its name while moving anywhere, and the file is the
  * part a stale scanned set gets wrong.
  */
-eq('and nothing raw-kind is left in js/dns.js but the audit preflight',
+// Task 5.2 moved the coordinator, and with it the last raw-kind reader that
+// was still outside an owning directory. `js/dns.js` now holds NONE — which is
+// a stronger statement than the one this assertion made before, and it is the
+// one the file has to keep true until Phase 6 deletes it.
+eq('the audit preflight moved to its owner at Task 5.2',
+  locatedIn.get('analyzeDomain'), 'src/audit/audit-domain.js');
+eq('and no raw-kind reader is left in js/dns.js at all',
   [...locatedIn].filter(([, file]) => file === 'js/dns.js').map(([fn]) => fn),
-  ['analyzeDomain']);
+  []);
 
 // And the scan can fail. Without this it would pass on a pattern that matches
 // nothing, which is how a regression check quietly stops being one.

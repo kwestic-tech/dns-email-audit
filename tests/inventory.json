@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 80,
+      "assertions": 81,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -419,8 +419,21 @@
       ]
     },
     {
+      "path": "src/audit/audit-domain.test.js",
+      "assertions": 46,
+      "areas": [
+        "the unregistered short-circuit, and that nothing downstream runs after it",
+        "the NS servfail DNSSEC preflight: the unchecked retry, its gate, and the verdict it does not re-derive",
+        "the Promise.all structure — the four core lookups, the advanced batch and the wildcard pair, each proven in flight together",
+        "which checks the options run and which they skip",
+        "the deep-check gate, including the RFC 7505 null-MX skip",
+        "error isolation: a degraded check, the two different kind-copy policies, and cancellation escaping both",
+        "that the coordinator carries each protocol owner's answer rather than re-deriving it"
+      ]
+    },
+    {
       "path": "tests/contract/transport-edges.test.mjs",
-      "assertions": 43,
+      "assertions": 44,
       "note": "Spec §3's two inventories as amended in 1.6. Phase 3, Task 3.6.",
       "areas": [
         "the raw-kind reader allowlist: six reader entries across four owners, by function or family, with the layer implementations excluded",
@@ -435,7 +448,7 @@
     },
     {
       "path": "tests/contract/dns-transport.test.mjs",
-      "assertions": 39,
+      "assertions": 40,
       "note": "The transport layer's cross-cutting contracts. Phase 3, Task 3.7.",
       "areas": [
         "the code's kind sets and the reviewed registry's algebras are compared rather than restated",

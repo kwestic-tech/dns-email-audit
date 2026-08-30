@@ -8,10 +8,10 @@ concurrently, how a failure is isolated, and how the answers become one result.
 This directory decides nothing about a record's meaning — every protocol rule
 belongs to a `core/<protocol>/` owner.
 
-**Task 5.1 created the directory with one module.** `context.js` is the state
-boundary; the coordinator itself, the scoring model and issue construction
-arrive at Tasks 5.2, 5.3 and 5.4. Until then `analyzeDomain()` still lives in
-`js/dns.js` and builds a context there.
+**Task 5.1 created the directory; Task 5.2 added the coordinator.**
+`context.js` is the state boundary and `audit-domain.js` is `analyzeDomain()`.
+The scoring model and issue construction arrive at Tasks 5.3 and 5.4; until
+then they live in `js/dns.js` and are passed in.
 
 ## Allowed edges
 
@@ -19,16 +19,28 @@ arrive at Tasks 5.2, 5.3 and 5.4. Until then `analyzeDomain()` still lives in
 | --- | --- |
 | `core/<protocol>/`, `providers/`, `audit/` siblings | `core/dns/` — the resolver handle is **passed**; `core/shared/`, which §12 does not give this directory; `ui/`, `src/data/`, the platform |
 
-`context.js` imports nothing at all. The `audit` row in
-[`dns-transport.test.mjs`](../../tests/contract/dns-transport.test.mjs) is
-written from the matrix rather than from today's imports, the way the
-`runtime.js` row already was.
+`context.js` imports nothing at all. `audit-domain.js` exercises the row: it
+imports the PURE functions of `core/spf/`, `core/dmarc/`, `core/bimi/`,
+`core/transport/` and `core/mx/`, and its sibling `context.js`.
+
+**The split between what is imported and what is passed is the edge rule, not a
+style choice.** §12 gives this directory no edge to `core/dns/`, so every
+resolver capability arrives as an argument — including `existenceFromResponse`,
+which is `core/dns/`'s. Conversely a pure protocol function is imported, because
+injecting one would be a capability that is not a capability. Each list is the
+other's answer:
+
+| Reached by import | Passed as a capability |
+| --- | --- |
+| `analyzeSpf`, `classifySpfSubnets`, `analyzeDmarc`, `emptyDmarcStatus`, `applyInheritance`, `planReportDestinations`, `validateBimiRecord`, `validateMtaStsRecord`, `validateTlsRptRecord`, `isNullMx`, `createAuditContext` | `dohFetch`, `dohQuery`, `requireUsable`, `optionalCheck`, `existenceFromResponse`, and every protocol check built over the resolver |
 
 ## Public exports
 
 | Export | Kind | Contract |
 | --- | --- | --- |
 | `createAuditContext({ domain, options })` | factory | The state belonging to one audit of one domain. Takes no capability: no resolver, no cache, no clock. |
+| `createAuditDomain(capabilities)` | factory | Returns `{ analyzeDomain }`. Takes the resolver handle, every protocol check built over it, provider detection, and — temporarily — the four audit siblings Tasks 5.3 and 5.4 have yet to move. |
+| `startsWithCI(value, prefix)` | function | Case-insensitive record selection. Pure, and a legacy engine member. |
 
 ### Factory product
 
@@ -40,6 +52,33 @@ written from the matrix rather than from today's imports, the way the
 | `disableDnssecChecking()` | Re-issues subsequent queries with `checkingDisabled: true`, returning the new object. |
 | `record(fields)` | Accumulates fields into the result being built. `domain` is **not** recordable — see below. |
 | `result()` | The accumulated result, `domain` first. A fresh **outer** object per call; nested values are shared by identity. |
+
+## `audit-domain.js` — what the coordinator owns
+
+Which checks run, in what order, which may run concurrently, how a failure is
+isolated, and how the answers become one result. It reads no record: every rule
+about what a record MEANS is a `core/<protocol>/` owner's, and this file reads
+their answers.
+
+**The `Promise.all` structure is byte-identical to `v0.5.0`.** Spec §35 and the
+implementation plan both forbid changing concurrency and moving code in the same
+phase, and this release changes it nowhere. `audit-domain.test.js` asserts it
+with an instrument rather than a claim: each stub records the moment it is
+CALLED and does not resolve until the whole batch has arrived, so a batch
+rewritten as a sequence of awaits fails there instead of passing with an
+identical result. Three batches are covered — the four core lookups, the
+advanced checks and the wildcard pair.
+
+**The one raw-kind read.** The NS `servfail` DNSSEC preflight reads
+`nsResult.kind` directly, which is spec §3's audit-owned exception edge. It was
+the last raw-kind reader outside an owning directory;
+[`transport-edges.test.mjs`](../../tests/contract/transport-edges.test.mjs) now
+locates it in this file and asserts that `js/dns.js` holds none at all.
+
+**The three `optionalCheck()` fallback factories that copy `DnsError.kind`**
+moved here with their call sites — CAA and SPF let the kind escape, the website
+fallback collapses it to `@dns-error`. `dns-transport.test.mjs` counts them per
+file, so the move reads as a move rather than as three deletions.
 
 ## Three pieces of state, and the boundary around them
 
@@ -126,10 +165,18 @@ underneath it. Asserted directly.
 
 ## Moved, not redesigned
 
-`analyzeDomain()`'s first three lines and its two return statements. No check,
-no fallback, no ordering and no `Promise.all` moved; `queryOpts` keeps its name
-in `js/dns.js`, so not one query call site changed. Both five-surface
-equivalence subjects report zero differences.
+**Task 5.1:** `analyzeDomain()`'s first three lines and its two return
+statements. `queryOpts` kept its name in `js/dns.js`, so not one query call site
+changed.
+
+**Task 5.2:** `analyzeDomain()` itself, its three audit-local helpers
+(`startsWithCI`, `versionCandidates`, `leadingVersionMatches`) and
+`resolveWebsite()`, at the same indentation and in the same order. No check, no
+fallback, no ordering and no batch changed. `js/dns.js` remains the transitional
+composition root and still exposes `analyzeDomain` and `startsWithCI` as engine
+members.
+
+Both five-surface equivalence subjects report zero differences at each commit.
 
 ## What Phase 5 still owes this directory
 

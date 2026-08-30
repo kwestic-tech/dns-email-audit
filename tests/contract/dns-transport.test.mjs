@@ -99,11 +99,12 @@ eq('with the declared default when the error carries no kind',
  * §3 distinguishes them and this counts them, so a fifth appearing is a
  * decision rather than a drift.
  *
- * Counted across `js/dns.js` AND every extracted owner, because Phase 4 moves
- * them: Task 4.6 took `checkExternalReportAuth()`'s internal catch to
- * `core/dmarc/report-auth.js`, and a scan of the legacy file alone would have
- * reported the count falling from four to three as though a site had been
- * deleted. Located as well as counted, for the same reason.
+ * Counted across `js/dns.js` AND every extracted owner, because Phases 4 and 5
+ * move them: Task 4.6 took `checkExternalReportAuth()`'s internal catch to
+ * `core/dmarc/report-auth.js`, and Task 5.2 took all three fallback factories
+ * to `src/audit/audit-domain.js` with the coordinator. A scan of the legacy
+ * file alone would have reported the count falling to one as though three
+ * sites had been deleted. Located as well as counted, for exactly that reason.
  */
 const KIND_COPY = /\(\s*(error|e|err)\s*&&\s*\1\.kind\s*\)|(?:^|[^\w$])(e)\s*&&\s*\2\.kind/gm;
 const kindCopySources = ['js/dns.js', ...(function walk(dir, base) {
@@ -125,13 +126,18 @@ eq('four sites copy a caught error\'s kind, wherever they now live',
   [...kindCopiesBySource.values()].reduce((a, b) => a + b, 0), 4);
 eq('and they are in these files',
   [...kindCopiesBySource].sort().map(([f, n]) => `${f}:${n}`),
-  ['js/dns.js:3', 'src/core/dmarc/report-auth.js:1']);
+  ['src/audit/audit-domain.js:3', 'src/core/dmarc/report-auth.js:1']);
 
-const engine = readFileSync(join(REPO, 'js/dns.js'), 'utf8');
-// The three fallback factories are all still at their call sites in the audit
-// layer, which has not moved. The fourth is DMARC's internal catch, above.
+const coordinator = readFileSync(join(REPO, 'src/audit/audit-domain.js'), 'utf8');
+// The three fallback factories are all at their call sites in the coordinator,
+// which is where they moved at Task 5.2. The fourth is DMARC's internal catch,
+// above — a different mechanism, in a different file, deliberately not merged
+// into this count.
 eq('three of them are optionalCheck fallback factories, one is an internal catch',
-  engine.split('\n').filter(l => /error\s*=>\s*\(\{/.test(l) && /\.kind/.test(l)).length, 3);
+  coordinator.split('\n').filter(l => /error\s*=>\s*\(\{/.test(l) && /\.kind/.test(l)).length, 3);
+// And the legacy file no longer holds one, which is the half a per-file count
+// exists to distinguish from a deletion.
+eq('js/dns.js copies no kind at all now', kindCopiesBySource.get('js/dns.js'), undefined);
 
 /* ── 4. No transport result carries a finding, severity, score or locale ─ */
 section('4. The transport emits no protocol vocabulary');
