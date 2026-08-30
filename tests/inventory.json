@@ -407,13 +407,14 @@
     },
     {
       "path": "src/audit/context.test.js",
-      "assertions": 39,
+      "assertions": 49,
       "areas": [
         "the audited name, normalized the way analyzeDomain() has always normalized it",
         "the options in force, carried without defaulting or coercion",
         "the query options: the abort signal, and exactly nothing else",
         "the cd=1 re-issue, which never mutates options a query already holds",
-        "the accumulated result, its key order and its isolation from the audit",
+        "the accumulated result, its key order, and the normalized name no accumulated field can replace",
+        "result() isolation: a fresh outer object, with nested values shared by identity rather than cloned",
         "the boundary: no cache, no resolver, no parsing, no scoring"
       ]
     },

@@ -38,8 +38,8 @@ written from the matrix rather than from today's imports, the way the
 | `options` | The options in force, **as supplied**. |
 | `queryOptions` | The options every query is issued under. Exactly `{ signal }`. |
 | `disableDnssecChecking()` | Re-issues subsequent queries with `checkingDisabled: true`, returning the new object. |
-| `record(fields)` | Accumulates fields into the result being built. |
-| `result()` | The accumulated result, `domain` first, a fresh object per call. |
+| `record(fields)` | Accumulates fields into the result being built. `domain` is **not** recordable — see below. |
+| `result()` | The accumulated result, `domain` first. A fresh **outer** object per call; nested values are shared by identity. |
 
 ## Three pieces of state, and the boundary around them
 
@@ -51,6 +51,29 @@ written from the matrix rather than from today's imports, the way the
 | — | The DoH cache — [`core/dns/cache.js`](../core/dns/cache.js), at runtime/page lifetime |
 | — | Every parsing rule — `core/<protocol>/` |
 | — | Concurrency — the coordinator's `Promise.all`, unchanged in this release |
+
+### `result()` is isolated at the top level, and only there
+
+Replacing a property of a returned result cannot reach the accumulator: the
+outer object is fresh on every call. That is the whole of the isolation.
+`result().score` **is** the object the audit recorded, and mutating through it
+changes what a later `result()` returns.
+
+Deliberate, and it must stay that way. Deep-cloning would change legacy
+identities and value types — the result carries `BigInt`s from the SPF subnet
+helpers among other things — so a structural copy would be a behaviour change
+rather than a stronger boundary. `context.test.js` asserts **both** halves: the
+top-level isolation, and the shared nested identity. Hardening this into
+serialization means deleting a passing assertion.
+
+### The normalized name is not a recordable field
+
+`record()` drops a `domain` key and keeps everything else in the same call. The
+audited name is normalized once, at construction, and belongs to the context: a
+result whose `domain` disagreed with `ctx.domain` would name a domain the audit
+did not run against. Key order is unaffected — the name still leads, as it does
+in both of `analyzeDomain()`'s returns. Asserted, with the contradiction an
+unguarded accumulator would produce asserted beside it.
 
 **The cache is the one worth stating twice.** Spec Design §5 declines the source
 proposal's request to scope it to the active audit, and Risk R10 is why: sibling

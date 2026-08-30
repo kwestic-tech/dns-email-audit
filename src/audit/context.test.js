@@ -6,9 +6,16 @@
  * query options those produce, and the result it is accumulating — and the
  * assertions worth holding are the ones that pin the boundary rather than the
  * plumbing: that the query options carry the signal and nothing else, that the
- * `cd=1` re-issue does not mutate options already handed to a query, that a
- * returned result cannot reach back into the audit, and that the context holds
- * no cache, no resolver and no parsing.
+ * `cd=1` re-issue does not mutate options already handed to a query, that the
+ * normalized name cannot be overwritten by an accumulated field, that a
+ * result is isolated at the TOP LEVEL and shares its nested values by
+ * identity, and that the context holds no cache, no resolver and no parsing.
+ *
+ * The isolation pair is asserted in both directions on purpose. `result()`
+ * returns a fresh outer object and shares what it holds; deep-cloning would
+ * change legacy identities and value types, so the sharing is asserted rather
+ * than merely tolerated — a later attempt to "harden" this into serialization
+ * has to delete a passing assertion to do it.
  *
  * Every check here is written so it can fail. The member list is asserted
  * against a fabricated context carrying a cache, which is the shape this
@@ -111,17 +118,57 @@ eq('a later record replaces an earlier field',
   building.result().mx, ['10 mail.build.test']);
 eq('and does not disturb the fields around it', Object.keys(building.result()), ['domain', 'ns', 'mx', 'score']);
 
+// Isolation, and its exact extent. Replacing a TOP-LEVEL property of a result
+// cannot reach the accumulator...
 const emitted = building.result();
 emitted.score = 'tampered';
-eq('a returned result is a fresh object — mutating it does not reach the audit',
+eq('replacing a top-level property of a result does not mutate the accumulator',
   building.result().score, { pts: 40 });
-eq('and two results are not the same object', building.result() === emitted, false);
+eq('and two results are not the same outer object', building.result() === emitted, false);
+
+// ...and that is the whole of it. The properties are the SAME values the audit
+// recorded, not copies of them. Deep-cloning would change legacy identities and
+// value types — the result carries BigInts from the SPF subnet helpers among
+// other things — so this is asserted as the contract, not left as an accident.
+const scoreObject = { pts: 40, grade: 'B' };
+const shared = createAuditContext({ domain: 'shared.test', options: OPTS });
+shared.record({ score: scoreObject });
+eq('a nested value is shared by identity — a result is not a deep copy',
+  shared.result().score === scoreObject, true);
+eq('and two results share it with each other', shared.result().score === shared.result().score, true);
+shared.result().score.pts = 99;
+eq('so mutating THROUGH a result does reach the accumulator, by design',
+  shared.result().score.pts, 99);
+eq('which is visible on the recorded object itself', scoreObject.pts, 99);
 
 // The early-return shape, which is the other thing `analyzeDomain()` builds.
 const unregistered = createAuditContext({ domain: 'gone.test', options: OPTS });
 unregistered.record({ unregistered: true, error: false });
 eq('an unregistered domain is the same accumulator, used once',
   unregistered.result(), { domain: 'gone.test', unregistered: true, error: false });
+
+/* ── 5b. The normalized name is not a recordable field ────────────────── */
+section('5b. The audited name cannot be overwritten');
+
+// The factory's contract is that `result().domain` is the NORMALIZED name. An
+// accumulated field must not be able to contradict it — a result whose
+// `domain` disagreed with `ctx.domain` is a result naming a domain the audit
+// did not run against.
+const named = createAuditContext({ domain: '  Real.Test  ', options: OPTS });
+named.record({ domain: 'wrong.test' });
+eq('recording a domain does not replace the normalized name', named.result().domain, 'real.test');
+eq('and the result still agrees with the context', named.result().domain, named.domain);
+// The guard drops the one field, not the call it arrived in.
+named.record({ domain: 'wrong.test', ns: ['ns1.real.test'] });
+eq('the other fields in the same record still land', named.result().ns, ['ns1.real.test']);
+eq('the name is still the normalized one', named.result().domain, 'real.test');
+// Key order survives the guard: the name leads, as it does in both of
+// `analyzeDomain()`'s returns.
+eq('and the domain still leads', Object.keys(named.result()), ['domain', 'ns']);
+// The check proven to fail: an accumulator that DID take the field produces
+// the contradiction this guard exists to prevent.
+eq('an unguarded accumulator would have contradicted the context',
+  Object.assign({ domain: named.domain }, { domain: 'wrong.test' }).domain, 'wrong.test');
 
 /* ── 6. The boundary itself ───────────────────────────────────────────── */
 section('6. What the context does not own');

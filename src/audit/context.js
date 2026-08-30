@@ -36,6 +36,19 @@
  * boundary's clothes. `context.test.js` pins the query options to the one key
  * they actually carry.
  *
+ * ── The result is isolated at the TOP LEVEL, and only there ─────────────
+ *
+ * `result()` returns a fresh outer object, so replacing one of its properties
+ * cannot reach the accumulator. It does **not** copy what those properties
+ * hold: `result().score` is the same object the audit recorded, and mutating
+ * THROUGH a result changes what a later `result()` returns.
+ *
+ * That is deliberate and must stay. Deep-cloning here would change legacy
+ * identities and value types — the result carries `BigInt`s from the SPF
+ * subnet helpers among other things — and a structural copy is a behaviour
+ * change, not a stronger boundary. Both halves are asserted in
+ * `context.test.js` so nobody later "hardens" this into serialization.
+ *
  * ── Moved, not redesigned ────────────────────────────────────────────────
  *
  * `analyzeDomain()`'s first three lines and its two return statements, and
@@ -86,16 +99,26 @@ export function createAuditContext({ domain, options }) {
       return queryOptions;
     },
 
-    /** Accumulate fields into the result this audit is building. */
+    /**
+     * Accumulate fields into the result this audit is building.
+     *
+     * `domain` is not a recordable field. The audited name is normalized once,
+     * at construction, and it is the context's — an accumulated field must not
+     * be able to replace it and make `result().domain` disagree with
+     * `ctx.domain`. Every other field in the same call still lands.
+     */
     record(fields) {
-      Object.assign(accumulated, fields);
+      for (const key of Object.keys(fields)) {
+        if (key === 'domain') continue;
+        accumulated[key] = fields[key];
+      }
     },
 
     /**
      * The accumulated result, with the audited name in front.
      *
-     * A fresh object per call, so a caller holding a result cannot reach back
-     * into the audit that produced it.
+     * A fresh OUTER object per call, and only that: what the properties hold is
+     * shared by identity with the audit, deliberately. See the note above.
      */
     result() {
       return Object.assign({ domain: name }, accumulated);
