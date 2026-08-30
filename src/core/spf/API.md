@@ -91,16 +91,15 @@ Counts: `warning` is the 8–10 band, `error` is past 10 **or** more than two
 void lookups. They are mutually exclusive at the top of the range, and the test
 pins both.
 
-## `spfReferencedCatalogKeys()` — SPF-owned, injected across the root
+## `spfReferencedCatalogKeys()` — SPF-owned, called by audit
 
 `core/dkim/` widens its selector scan using the vendors a domain's SPF record
 names. That needs SPF's term grammar, and §12 gives a protocol directory no
 edge to a sibling protocol.
 
 **Ruled at Task 4.0, and this is where it lands.** The helper lives here, with
-the grammar it reads. The composition root imports it and injects it into
-`createDkimCheck()`. `checkDKIM()`'s signature is unchanged — still an SPF
-record string.
+the grammar it reads. [`src/audit/`](../../audit/API.md) — the layer whose job
+composition is — calls it and passes the derived catalog KEYS into DKIM.
 
 What must **not** happen:
 
@@ -108,12 +107,17 @@ What must **not** happen:
 - a second SPF grammar anywhere;
 - a copy of `parseSpfTerms()`.
 
-**The injection is transitional.** Cross-protocol composition belongs to the
-audit layer. **Phase 5** replaces the string-taking collaborator with
-audit-derived input — audit parses the references once and passes the derived
-catalog keys — after which this export stops being reached across the
-composition root. Nothing should be built to depend on the arrangement
-lasting.
+### The injection is retired
+
+Task 4.8 could not put the call in audit, because there was no `src/audit/`
+yet. It injected this function into `createDkimCheck()` through the composition
+root instead and recorded the arrangement as a **debt, not a design**.
+
+**Task 5.2 paid it.** `core/dkim/` no longer receives this function and no
+longer sees an SPF record: its four selector members take `spfCatalogKeys`. The
+legacy engine surface still offers the string-taking form through thin
+compatibility wrappers in `js/dns.js`, which perform this derivation and
+delegate; Phase 6 removes them with that file.
 
 Only the domain's **own** `include:`/`redirect=` hostnames count. Following an
 include into its own includes would attribute the vendor's upstream to the
@@ -122,13 +126,20 @@ about who signs the domain's mail — and would cost DNS lookups this function
 deliberately does not make. A macro cannot be reduced to a literal hostname, so
 it matches nothing, the same treatment `countSpfLookups()` gives it.
 
-## Its own `startsWithCI`
+## `startsWithCI` — the duplicate, and why it is gone
 
-Three lines, duplicated deliberately. The other reader is `analyzeDomain()` in
-the audit layer, and §12 gives `src/audit/` no edge to `core/shared/` — Task
-4.0's finding 5, ruled: a genuinely audit-local helper stays local, duplicated
-if need be, and the matrix is amended only for a real architectural need. One
-protocol owner and one audit reader is not that.
+This file kept its own three-line copy from Task 4.8. The ruling was Task 4.0's
+finding 5: the other reader was `analyzeDomain()`, §12 gives `src/audit/` no
+edge to `core/shared/`, and a genuinely audit-local helper stays local —
+duplicated if need be — rather than the matrix being amended for one caller.
+
+That was correct while it held. **Task 5.2a removed the premise:** the
+coordinator holds no parsing rule, so the record selection moved to the owners,
+`audit` stopped being a reader, and the second reader is `providers/`'s
+`selectVerifications()`. Two protocol owners is the `core/shared/` admission
+test met on its own terms, so the helper now lives in
+[`core/shared/record-selection.js`](../shared/record-selection.js) and this
+file imports it. The matrix was **not** amended.
 
 ## Moved, not redesigned
 

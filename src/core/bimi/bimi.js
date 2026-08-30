@@ -15,17 +15,17 @@
  * later revision should be a deliberate change here AND in the fixtures — not
  * something that drifts in because a reader assumed the newest text.
  *
- * ── No resolver ─────────────────────────────────────────────────────────
+ * ── No resolver, and therefore no factory ───────────────────────────────
  *
- * This module is pure. The `default._bimi` TXT lookup, the candidate/effective
- * record selection and the `present` / `declined` / `advertised` / `multiple`
- * shaping all live in the audit layer, which is where they were and where
- * Phase 5 will find them. `core/bimi/` answers one question: is this string a
- * conformant BIMI record, and what does it say?
+ * This module is pure. The `default._bimi` TXT lookup is the audit
+ * coordinator's — it is a lookup, and this owner does none — but everything
+ * done WITH those records is here: `summarizeBimi()` owns the
+ * candidate-versus-effective selection and the
+ * `present` / `declined` / `advertised` / `multiple` shaping, moved from the
+ * coordinator at Task 5.2a because Gate 5 requires it to hold no parsing rule.
  *
- * That is why there is no factory here and there is one in `core/caa/` and
- * `core/mx/`. A protocol owner takes a resolver when it does lookups of its
- * own; this one does not, and inventing a factory to match its neighbours
+ * `core/caa/` and `core/mx/` have factories because they do lookups of their
+ * own. This one does not, and inventing a factory to match its neighbours
  * would be symmetry standing in for structure.
  *
  * ── Moved, not redesigned ────────────────────────────────────────────────

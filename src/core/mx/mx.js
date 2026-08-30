@@ -20,14 +20,18 @@
  * an outage report, and must never let a host we could not check be counted as
  * dangling. That is why `resolves` has three values and not two.
  *
- * ── isNullMx lives here, and providers will not import it ───────────────
+ * ── isNullMx lives here, and providers does not import it ───────────────
  *
- * `isNullMx()` is MX semantics, so `core/mx/` owns it. Its callers today are
- * `detectEmailProvider()` and `analyzeDomain()` — neither a protocol owner,
- * and `providers/` may import `core/shared/` only. The ruling at Task 4.0 is
- * that `providers/` receives the DERIVED null-MX fact from audit rather than
- * reaching for the predicate; Task 4.9 does that. `js/dns.js` importing it
- * here is the legacy file wiring, not the target graph.
+ * `isNullMx()` is MX semantics, so `core/mx/` owns it, and `providers/` may
+ * import `core/shared/` only. Task 4.0's ruling was that `providers/` receives
+ * the DERIVED null-MX fact rather than reaching for the predicate.
+ *
+ * **`src/audit/` is the only caller now.** Task 4.9 injected the predicate
+ * into `createDetectors()` as a stated debt, because there was no `src/audit/`
+ * to derive the fact in; Task 5.2 paid it. Audit calls this once and reads the
+ * boolean twice — provider detection and its own deep-check gate.
+ * `js/dns.js` importing it is the legacy file's wiring for its compatibility
+ * wrapper, not the target graph, and goes with that file in Phase 6.
  *
  * ── Moved, not redesigned ────────────────────────────────────────────────
  *

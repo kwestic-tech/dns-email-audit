@@ -546,10 +546,13 @@ export function analyzeDkimKey(txtValue) {
  * Selector discovery and key validation, over the passed capabilities.
  *
  * Everything above this line is pure and needs nothing. Everything below needs
- * the resolver, the platform's crypto, the generated catalog, or the
- * transitional SPF collaborator — which is why the split is a factory boundary
- * and not a file one: the catalog constants close over `dkimSelectorCatalog`,
- * so they cannot sit at module scope without importing generated data.
+ * the resolver, the platform's crypto, or the generated catalog — which is why
+ * the split is a factory boundary and not a file one: the catalog constants
+ * close over `dkimSelectorCatalog`, so they cannot sit at module scope without
+ * importing generated data.
+ *
+ * There is no longer a fourth capability. Task 4.8's injected SPF collaborator
+ * was retired at Task 5.2; the selector members take derived catalog keys.
  */
 /** Absent SPF catalog keys are the same as none, and shared rather than rebuilt. */
 const EMPTY_CATALOG_KEYS = Object.freeze(new Set());

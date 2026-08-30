@@ -166,13 +166,11 @@ export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platfo
   });
 
   // DKIM, Task 4.7. The catalog is generated data and the crypto is the
-  // platform's, so both are passed. `spfReferencedCatalogKeys` is a
-  // TRANSITIONAL collaborator, and since Task 4.8 it is SPF-OWNED: this
-  // composition root imports it from core/spf/ and injects it, because §12
-  // forbids a core/dkim -> core/spf edge and Task 4.0's ruling forbids copying
-  // the grammar. checkDKIM()'s signature is unchanged. Phase 5 replaces this
-  // with audit-derived input, which is where cross-protocol composition
-  // belongs.
+  // platform's, so both are passed — and that is now the whole list. Task
+  // 4.8's injected `spfReferencedCatalogKeys` was retired at Task 5.2: audit
+  // derives the catalog keys with SPF's own helper and passes them, so there
+  // is still no core/dkim -> core/spf edge and still one SPF grammar. The
+  // string-taking legacy members are the wrappers below.
   const {
     checkDKIM, catalogSelectors, spfSelectorSources, buildDkimSelectorList,
     isRecognizedDkimSelector, inspectDkimSelector, summarizeDkimKeys,

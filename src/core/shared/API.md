@@ -203,16 +203,15 @@ future phase inherits a decision rather than an open question.
    **Ruled.** DKIM neither imports `core/spf/` nor grows a second SPF parser.
    Cross-protocol composition is audit's job.
 
-   **Where it stands after Task 4.8.** `spfReferencedCatalogKeys()` is
-   SPF-owned, living beside the grammar it reads, and the COMPOSITION ROOT
-   imports it and injects it into `createDkimCheck()`. There is no
-   `core/dkim → core/spf` edge and no second parser. `checkDKIM()` still
-   receives the SPF record as a string.
-
-   That injection is transitional. **Phase 5** replaces the string-taking
-   collaborator with audit-derived input — audit parses the references once and
-   passes the derived catalog keys — after which the helper stops being reached
-   across the composition root.
+   **Settled at Task 4.8, closed at Task 5.2.** `spfReferencedCatalogKeys()` is
+   SPF-owned, living beside the grammar it reads. Task 4.8 had the composition
+   root inject it into `createDkimCheck()` and recorded that as a debt, because
+   there was no `src/audit/` to compose in yet. **Task 5.2 paid the debt:**
+   `src/audit/` calls the helper and passes the derived catalog KEYS, and
+   `core/dkim/` neither receives the function nor sees an SPF record. There is
+   no `core/dkim → core/spf` edge and no second parser, which was the point
+   throughout. The legacy string-taking form survives only as a compatibility
+   wrapper in `js/dns.js`, removed with that file in Phase 6.
 
 2. **`core/dmarc/`'s `parseDmarcUriList()` parses `mailto:` by hand** rather
    than through `isMailtoUri()`, with a looser rule — `/^[^\s@]+\.[^\s@.]+$/`
@@ -237,8 +236,13 @@ future phase inherits a decision rather than an open question.
 
 5. **`src/audit/` has no edge to `core/shared/`.**
 
-   **Ruled.** Do not add one for convenience. A helper doing protocol
-   interpretation moves to its protocol owner; a genuinely audit-local helper
-   stays local, duplicated if need be. §12's matrix is amended only if a real
-   architectural need survives Phase 5 — and that is an amendment, argued on
-   its own, not a side effect of an extraction.
+   **Ruled, and it survived Phase 5 unamended.** Do not add one for
+   convenience. A helper doing protocol interpretation moves to its protocol
+   owner; a genuinely audit-local helper stays local, duplicated if need be.
+
+   Task 5.2a is the test case that shows which half applies. Three helpers the
+   coordinator held were doing protocol interpretation — record selection — so
+   they moved to their owners and then, having two protocol readers each, into
+   this directory. The matrix was not amended and audit still has no edge here.
+   The rule did the work; the duplication was retired because its premise went
+   away, not because the rule bent.

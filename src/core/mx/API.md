@@ -89,14 +89,19 @@ sender reaches first and so the one that describes the target.
 
 ## `isNullMx` and the providers ruling
 
-`isNullMx()` is MX semantics, so this directory owns it. Its callers today are
-`detectEmailProvider()` and `analyzeDomain()` — neither a protocol owner, and
-§12 lets `providers/` import `core/shared/` only.
+`isNullMx()` is MX semantics, so this directory owns it, and §12 lets
+`providers/` import `core/shared/` only.
 
-**Ruled at Task 4.0:** `providers/` receives the DERIVED null-MX fact from
-audit rather than reaching for the predicate, and does not import `core/mx/`.
-Task 4.9 implements that. `js/dns.js` importing `isNullMx` today is the legacy
-file's wiring, not the target graph.
+**Ruled at Task 4.0, and complete since Task 5.2:** `providers/` receives the
+DERIVED null-MX fact and does not import `core/mx/`. Task 4.9 injected the
+PREDICATE into `createDetectors()` as an interim step — the ruling's end state
+needed an `src/audit/` that did not exist yet — and Task 5.2 replaced it with
+the fact.
+
+[`src/audit/`](../../audit/API.md) is the only caller now. It derives the
+boolean once and reads it twice: `detectEmailProvider()` and its own
+deep-check gate. `js/dns.js` importing `isNullMx` is that file's wiring for the
+three-argument compatibility wrapper, not the target graph.
 
 ## Moved, not redesigned
 

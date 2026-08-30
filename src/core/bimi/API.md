@@ -28,13 +28,18 @@ is the substance of this task rather than an accident of it.
 ## No resolver, and therefore no factory
 
 `core/caa/` and `core/mx/` take a resolver because they do lookups of their
-own. This one does not. The `default._bimi` TXT lookup, the
-candidate-versus-effective record selection, and the
-`present` / `declined` / `advertised` / `multiple` shaping all live in the
-audit layer, which is where they were and where Phase 5 will find them.
+own. This one does not: the `default._bimi` TXT lookup belongs to the audit
+coordinator, which is the only thing here that audit still does with BIMI.
 
-Inventing a factory so this owner matches its neighbours would be symmetry
-standing in for structure.
+**Everything done with those records is this directory's**, as of Task 5.2a.
+`summarizeBimi()` owns the candidate-versus-effective selection and the
+`present` / `declined` / `advertised` / `multiple` shaping. They were in
+`analyzeDomain()` through Task 5.2, which broke Gate 5's condition that the
+coordinator hold no parsing rule; the review that caught it is recorded in the
+implementation log.
+
+Inventing a factory so this owner matches its neighbours would still be
+symmetry standing in for structure.
 
 ## Public exports
 

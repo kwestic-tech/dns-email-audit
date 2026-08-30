@@ -11,18 +11,18 @@
  * second parser.
  *
  * So `spfReferencedCatalogKeys()` lives HERE, with the grammar it reads, and
- * the composition root imports it and injects it into `createDkimCheck()`.
- * `checkDKIM()`'s signature is unchanged — still an SPF record string.
+ * `src/audit/` calls it — the layer that composes protocols — and passes the
+ * derived catalog KEYS into DKIM. Task 4.8 could not do that, because there
+ * was no `src/audit/` yet, so it injected this function into
+ * `createDkimCheck()` through the composition root and recorded the injection
+ * as a debt. **Task 5.2 paid it.** `core/dkim/` no longer receives this
+ * function and no longer sees an SPF record.
  *
- * **That injection is transitional, and the direction of the eventual fix is
- * recorded rather than left to be rediscovered.** Cross-protocol composition
- * belongs to the audit layer: Phase 5 derives the catalog keys there and
- * passes the derived input, and this export stops being reached across the
- * composition root. What must NOT happen in the meantime is a
- * `core/dkim → core/spf` import, which is why the helper is exported for a
- * caller that already exists rather than for a sibling that must not have it.
+ * The legacy engine surface still offers the string-taking form through thin
+ * wrappers in `js/dns.js`, which Phase 6 removes with that file. What must
+ * never happen is a `core/dkim → core/spf` import or a second SPF grammar.
  *
- * ── Selection lives here now ────────────────────────────────────────────
+ * ── Selection lives here ────────────────────────────────────────────────
  *
  * `selectSpfRecords()` is Task 5.2a. Gate 5 requires the audit coordinator to
  * hold no parsing rule, and choosing which TXT records are SPF records — and
