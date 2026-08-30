@@ -39,6 +39,7 @@
 
 import { createI18n } from './i18n/index.js';
 import { createRenderer } from './ui/render.js';
+import { createUi } from './ui/events.js';
 import { createDnsEngine } from '../js/dns.js';
 
 /**
@@ -64,6 +65,32 @@ export function createAuditRuntime({
   const renderer = createRenderer(() => platform.document, i18n);
   const engine = createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform });
 
+  /**
+   * The page. Task 5.6, and the moment the docstring on `mount()` below
+   * described from Task 2.5 onward.
+   *
+   * §12 gives THIS module the edge to `ui/` and gives `src/main.js` only
+   * `runtime.js`, `platform/` and `data/`. So the UI is wired here, from the
+   * layer whose job wiring is, and the entry point composes a runtime and
+   * nothing else. `mount()` owns the whole mount, exactly as promised.
+   *
+   * The two supported facade members reach the UI as CALLBACKS — §12: no UI
+   * module imports `audit/`, and these two are all it needs from the audit.
+   * Constructing the UI registers ONE `DOMContentLoaded` listener; that
+   * listener wires every control, calls `mount()` and probes connectivity
+   * once. There is no second boot path, which is a privacy figure and not
+   * merely a tidiness one.
+   */
+  const ui = createUi({
+    platform,
+    i18n,
+    renderer,
+    analyzeDomain: (domain, options) => engine.analyzeDomain(domain, options),
+    checkConnectivity: () => engine.checkConnectivity(),
+    mount: () => i18n.init(),
+    englishBundle,
+  });
+
   return {
     /**
      * The supported facade. Two members, from a 95-member surface — the only
@@ -78,13 +105,15 @@ export function createAuditRuntime({
     /**
      * Wire this runtime to its page.
      *
-     * Today that is the language boot: pick a locale, load it, paint the DOM.
-     * Task 2.6 moves the `DOMContentLoaded` control wiring out of `js/app.js`
-     * and into here, at which point this owns the whole mount.
+     * The language boot: pick a locale, load it, paint the DOM. **Called by
+     * the UI's single `DOMContentLoaded` listener**, which this module now
+     * registers — so this runtime owns the whole mount, which is what this
+     * docstring promised from Task 2.5 and what Task 5.6 delivered.
      *
-     * `src/legacy-bridge.js` deliberately does NOT call it yet — `js/app.js`
-     * still boots i18n itself from its own listener, and calling it here as
-     * well would run the boot twice.
+     * Nothing else calls it. A second caller would boot i18n twice and, more
+     * to the point, would put a second connectivity probe on every page load —
+     * a figure `PRIVACY.md` publishes and one of the five equivalence surfaces
+     * measures.
      */
     mount: () => i18n.init(),
 
@@ -97,5 +126,6 @@ export function createAuditRuntime({
     i18n,
     renderer,
     engine,
+    ui,
   };
 }

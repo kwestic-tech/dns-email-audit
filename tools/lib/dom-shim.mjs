@@ -3,7 +3,7 @@
 
    What this proves
    ----------------
-   That `src/ui/render.js` and `src/main.js` put every DNS-derived value into a text
+   That `src/ui/render.js` and `src/ui/events.js` put every DNS-derived value into a text
    node or an allowlisted attribute, and never into a markup sink. That is a
    question about which DOM methods the renderer calls, so a shim answers it
    exactly: after the 0.2.3 rewrite the render path never parses a string into
@@ -172,7 +172,7 @@ class ShimNode {
    * DRIVER rather than a workaround: a user clicks a button, and the path from
    * the click to the audit is now part of what the five surfaces cover.
    *
-   * Bubbling is real because the application depends on it: `src/main.js` wires
+   * Bubbling is real because the application depends on it: `src/ui/events.js` wires
    * ONE click listener on `#tableBody` and dispatches inside it with
    * `event.target.closest(...)`, so a shim that only ran listeners on the exact
    * target would model the direct handlers and silently skip every delegated
@@ -214,7 +214,7 @@ class ShimNode {
   /**
    * A real click, and a detached node still absorbs it.
    *
-   * `src/main.js:1600` synthesises a click on a DETACHED anchor to start a
+   * `src/ui/report.js`'s `dl()` synthesises a click on a DETACHED anchor to start a
    * download. The download is the browser's, not the document's, and the
    * equivalence runner captures the content at the `Blob` instead — so that
    * anchor has no listeners and no parent, and dispatching to it does exactly
@@ -517,10 +517,10 @@ class ShimDocument {
   /**
    * The document has no parent, so nothing bubbles past it.
    *
-   * This is how `DOMContentLoaded` reaches the application: `src/main.js` wires
-   * every control from inside that listener, so a subject whose document never
-   * fires it has an inert page with no handlers on any button. The equivalence
-   * runner fires it before it clicks anything.
+   * This is how `DOMContentLoaded` reaches the application: `src/ui/events.js`
+   * wires every control from inside that listener, so a subject whose document
+   * never fires it has an inert page with no handlers on any button. The
+   * equivalence runner fires it before it clicks anything.
    */
   dispatchEvent(event) {
     const handlers = this._listeners && this._listeners[event.type];
@@ -552,7 +552,8 @@ class ShimDocument {
 /**
  * A detached document with html/head/body, matching
  * `document.implementation.createHTMLDocument()` closely enough for the two
- * document builders in `src/main.js` (spec §1a).
+ * document builders in `src/ui/report.js` and `src/main.js`'s learn-more page
+ * (spec §1a).
  */
 export function createHTMLDocument(title) {
   const doc = new ShimDocument();

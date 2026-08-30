@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 87,
+      "assertions": 88,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -491,7 +491,7 @@
     },
     {
       "path": "tests/contract/dns-transport.test.mjs",
-      "assertions": 46,
+      "assertions": 47,
       "note": "The transport layer's cross-cutting contracts. Phase 3, Task 3.7.",
       "areas": [
         "the code's kind sets and the reviewed registry's algebras are compared rather than restated",
@@ -581,7 +581,7 @@
     },
     {
       "path": "tests/contract/runtime.test.mjs",
-      "assertions": 30,
+      "assertions": 35,
       "areas": [
         "importing src/runtime.js performs no DOM, network or global work, asserted in a process with no browser",
         "it constructs nothing at module scope and reads no ambient global",
@@ -589,7 +589,8 @@
         "generated data reaches the engine and the fixture table is the one in force",
         "ONE runtime holds ONE DoH cache with page lifetime: a sibling audit reuses the walk",
         "two runtimes share nothing, and isolation comes from constructing rather than from cache-busting an import",
-        "the facade delegates to the engine, including a core transport failure"
+        "the facade delegates to the engine, including a core transport failure",
+        "exactly one DOMContentLoaded boot path across src/, registered by ui/events.js and none by the entry point"
       ]
     },
     {

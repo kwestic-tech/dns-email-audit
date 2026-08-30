@@ -8,8 +8,8 @@ into a CSV, into a standalone HTML report, and into the events that drive a
 run. **It decides nothing about a domain's security posture** — no finding, no
 severity, no score and no protocol verdict originates here.
 
-**Created at Task 5.5**, when `ui/report.js` joined the converted `ui/render.js`.
-`ui/events.js` arrives at Task 5.6.
+**Complete since Task 5.6:** `render.js` (converted in Phase 2), `report.js`
+(5.5) and `events.js` (5.6).
 
 ## Allowed edges
 
@@ -21,18 +21,54 @@ Audit reaches this directory as **callbacks passed in**, never as an import:
 `mount()` receives `analyzeDomain` and `checkConnectivity` from the runtime.
 `dns-transport.test.mjs` §5 asserts the direction.
 
-> **One transitional edge, and it expires at Task 5.6.** `src/main.js` still
-> holds the UI body, so it imports `ui/report.js` — an edge §12's `main.js` row
-> does not grant, because that row describes `src/main.js` after the body
-> moves. It is admitted in `ALLOWED_EDGES` as transitional and made
-> **self-removing**: an assertion beside it fails the moment `main.js` stops
-> importing `ui/`, so the exemption cannot outlive what it excuses.
+**`runtime.js` is what reaches this directory**, which is §12's matrix exactly:
+the entry point's row is `runtime.js`, `platform/`, `data/` and does not include
+`ui/`.
+
+> **The transitional edge, and how it ended.** Task 5.5 moved the exported CSV
+> and report here while `src/main.js` still held the UI body and was their only
+> caller — a `main.js -> ui` edge the matrix does not grant. It was admitted in
+> `ALLOWED_EDGES` as transitional rather than pretended away, and written
+> **self-removing**: an assertion that the exemption was still NEEDED. At Task
+> 5.6 that assertion failed, and the entry came out with it. The matrix was
+> never amended.
 
 ## Public exports
 
 ### `render.js`
 
 The element builder and row renderer. Covered by `tools/render.test.mjs`.
+
+### `events.js`
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `createUi(capabilities)` | factory | Wires the page and returns the members `__APP_TEST__` publishes. Constructing it registers the one `DOMContentLoaded` listener. |
+
+**It receives the audit, it does not import it.** `analyzeDomain` and
+`checkConnectivity` — the two supported facade members — arrive as callbacks,
+and `mount` is the runtime's. This module imports no `audit/`, no `core/`, no
+`providers/` and no `src/data/`; its single import is its sibling `report.js`.
+
+#### One boot, one connectivity probe
+
+There is exactly **one** `DOMContentLoaded` listener in `src/`, registered
+here. It wires every control, calls `mount()`, and probes connectivity once to
+raise the sandbox banner.
+
+A second boot path would run the language init twice and put a second probe on
+every page load — a figure `PRIVACY.md` publishes and one of the five
+equivalence surfaces measures. `runtime.test.mjs` §2b asserts the count
+structurally, and that the entry point registers none. It is a lexical scan and
+says so: it counts registration sites, not runtime behaviour.
+
+#### The compatibility surfaces did not move
+
+`__APP_TEST__` and the five i18n/renderer global names stay in `src/main.js`,
+which is the marked adapter. This module returns the members and lets the
+composition root do the assigning, so the global surface is still written in
+exactly one place a sentinel scan can find. Phase 6 retires them with their
+owners.
 
 ### `report.js`
 

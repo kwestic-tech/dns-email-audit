@@ -14,9 +14,9 @@
  *      raises it. That makes it a privacy-facing change, not a refactor.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 
 import { createSuite } from '../lib/assert.mjs';
 import { createDocument } from '../../tools/lib/dom-shim.mjs';
@@ -97,7 +97,13 @@ function makeRuntime(fetchImpl) {
 const runtime = makeRuntime(dohFixture({}));
 eq('the facade is the two supported members plus the Phase 2 parts',
   Object.keys(runtime).sort(),
-  ['analyzeDomain', 'checkConnectivity', 'engine', 'i18n', 'mount', 'renderer']);
+  ['analyzeDomain', 'checkConnectivity', 'engine', 'i18n', 'mount', 'renderer', 'ui']);
+// `ui` joined at Task 5.6, when §12's matrix put the `ui/` edge on this module
+// rather than on the entry point. It is a Phase 2 part like `i18n`, `renderer`
+// and `engine` — NOT a facade member: `src/facade.expected.json` is still the
+// two supported names, asserted separately and in both directions.
+eq('and `ui` is not on the supported facade',
+  ['analyzeDomain', 'checkConnectivity'].includes('ui'), false);
 eq('analyzeDomain is a function', typeof runtime.analyzeDomain, 'function');
 eq('checkConnectivity is a function', typeof runtime.checkConnectivity, 'function');
 eq('mount is a function', typeof runtime.mount, 'function');
@@ -107,6 +113,41 @@ assertFixtureIdentity([probePublicSuffixRules(runtime.engine.getOrganizationalDo
 eq('the fixture public suffix list is the one in force',
   runtime.engine.getOrganizationalDomain('foo.blogspot.com'), 'blogspot.com');
 eq('and the English bundle reached i18n', runtime.i18n.t('doc.title'), 'T');
+
+/* ── 2b. One boot, one connectivity probe ─────────────────────────────── */
+section('2b. There is exactly one mount path');
+
+/**
+ * A second boot path would run the language init twice and, more to the point,
+ * put a SECOND connectivity probe on every page load — a figure `PRIVACY.md`
+ * publishes and one of the five equivalence surfaces measures. The query trace
+ * would catch it, but by then it would already be a privacy change.
+ *
+ * A lexical scan over `src/`, and named as one: it counts registration and
+ * call SITES, not what happens at runtime, and would not see a listener added
+ * through a computed name. It is defence against the specific regression a
+ * move like Task 5.6 can leave behind — two boot paths, both working.
+ */
+const srcTree = (function walk(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) return walk(full);
+    return entry.name.endsWith('.js') && !entry.name.endsWith('.test.js') ? [full] : [];
+  });
+}(join(REPO, 'src')));
+const BOOT = /addEventListener\(\s*'DOMContentLoaded'/g;
+const countIn = (file, re) => (readFileSync(file, 'utf8').match(re) || []).length;
+
+eq('exactly one module registers a DOMContentLoaded listener',
+  srcTree.filter(f => countIn(f, BOOT)).map(f => relative(join(REPO, 'src'), f).split(sep).join('/')),
+  ['ui/events.js']);
+eq('and it registers exactly one',
+  srcTree.reduce((n, f) => n + countIn(f, BOOT), 0), 1);
+// The scan can fail: it really matches the registration it claims to find, and
+// finds none in the entry point, which is composition only since Task 5.6.
+eq('the scan matched a real registration',
+  countIn(join(REPO, 'src/ui/events.js'), BOOT), 1);
+eq('and the entry point registers none', countIn(join(REPO, 'src/main.js'), BOOT), 0);
 
 /* ── 3. One runtime, one cache, page lifetime ─────────────────────────── */
 section('3. The DoH cache belongs to the runtime');

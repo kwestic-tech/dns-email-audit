@@ -133,7 +133,7 @@ const TYPE_NAMES = {
  * `window.DnsAudit.analyzeDomain`, which worked because the global and the
  * engine the UI called were the same object. `globalName: 'DnsAudit'` ends
  * that: the global becomes esbuild's export namespace — non-configurable
- * accessors, and not the object `src/main.js` calls. That is the namespace
+ * accessors, and not the object `src/main.js` composes. That is the namespace
  * boundary working, and it means the result has to come from the supported
  * facade rather than from inside the UI's run.
  *
@@ -335,8 +335,9 @@ async function runUiExecution(root, testCase, entry) {
   /**
    * Boot the page, exactly as a browser does.
    *
-   * `src/main.js` wires every control from inside its `DOMContentLoaded`
-   * listener, so until this fires the page has no handlers on any button. The
+   * `src/ui/events.js` wires every control from inside its `DOMContentLoaded`
+   * listener — one listener, registered by `runtime.js` when it builds the UI
+   * — so until this fires the page has no handlers on any button. The
    * runner used to skip it entirely and call `window.startAudit()`, which meant
    * it measured a page that had never booted — including the boot's own
    * `checkConnectivity()` query, which a real visitor always pays and the trace
@@ -413,7 +414,7 @@ async function runUiExecution(root, testCase, entry) {
       domains: rows.map(row => row.dataset.domain),
       options: Object.fromEntries([
         ...CONTROL_OPTIONS.map(([id, key]) => [key, !!control(id).checked]),
-        // `src/main.js` passes this unconditionally; it is not a control.
+        // `src/ui/events.js` passes this unconditionally; it is not a control.
         ['advanced', true],
         ['selectors', String(control('dkimSelectors').value || '').split(/[\s,]+/)
           .map(value => value.trim().toLowerCase())
@@ -437,7 +438,7 @@ async function runResultExecution(root, testCase, entry, replay) {
   const subject = openSubject(root, testCase, entry, fetchImpl);
   const { win } = subject;
 
-  // The same options the UI computed, plus the signal `src/main.js` attaches.
+  // The same options the UI computed, plus the signal `src/ui/events.js` attaches.
   const options = { ...replay.options, signal: new win.AbortController().signal };
 
   const audits = [];
@@ -495,7 +496,7 @@ async function runResultExecution(root, testCase, entry, replay) {
  * different cases joined under one id cannot fail to.
  *
  * **The issue TOKEN set is deliberately not among them, and that is a
- * limitation rather than a choice.** `src/main.js:1240` renders each issue as
+ * limitation rather than a choice.** `src/ui/events.js` renders each issue as
  * translated prose through `issueMessage()` and attaches no token attribute, so
  * the tokens are not observable on the UI side. Cardinality is what is, and it
  * sits beside the grade and the score, which move for any change to the issue

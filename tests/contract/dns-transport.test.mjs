@@ -266,7 +266,7 @@ const ALLOWED_EDGES = {
   // It is admitted as TRANSITIONAL rather than pretended away — and it is
   // made self-removing: the assertion below fails the moment `main.js` stops
   // importing `ui/`, so the exemption cannot outlive the thing it excuses.
-  'main.js': ['runtime.js', 'platform', 'data', 'ui'],
+  'main.js': ['runtime.js', 'platform', 'data'],
   'providers': ['core/shared'],
 };
 
@@ -303,15 +303,17 @@ for (const path of modules) {
 }
 eq('every import follows an allowed edge', violations, []);
 
-/**
- * The transitional `main.js -> ui` exemption, forced to expire.
- *
- * An exemption nothing obliges you to remove is a permanent hole. This asserts
- * the exemption is still NEEDED: once Task 5.6 moves the UI body out of
- * `src/main.js`, this fails and the `'ui'` entry above has to come out with it.
- */
-eq('the transitional main.js -> ui edge is still in use — remove it at Task 5.6',
-  (graph.get('main.js') || []).some(t => t.startsWith('ui/')), true);
+// §12: only `runtime.js` reaches `ui/`. The entry point composes a runtime and
+// does not know the page exists.
+//
+// Task 5.5 had to admit a transitional `ui` entry in `main.js`'s row while the
+// UI body was still there and `ui/report.js` had no other caller. It was
+// written SELF-REMOVING — an assertion that the exemption was still needed —
+// and at Task 5.6 that assertion failed and took the entry out with it. This
+// pair is what replaced it.
+eq('main.js imports no ui module', (graph.get('main.js') || []).filter(t => t.startsWith('ui/')), []);
+eq('and the runtime is what wires the page',
+  (graph.get('runtime.js') || []).includes('ui/events.js'), true);
 eq('and the graph is not empty — the check has something to walk', graph.size > 5, true);
 
 // Spec §12's floors.
