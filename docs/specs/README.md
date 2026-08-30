@@ -54,7 +54,7 @@ make room for the architectural refactor at 0.6.0. Per the naming rule above
 this is expected and costs nothing: the specs are named for their capability,
 and their filenames, open-question identifiers and content are unchanged. The
 refactor takes the slot because all three of them read or extend the output
-shapes inside `js/dns.js`, and the boundaries are cheaper to establish before
+shapes the audit produces, and the boundaries are cheaper to establish before
 three more releases are layered onto a 5,704-line file than after.
 
 ## Captured evidence
@@ -115,11 +115,25 @@ precedent, and one spec was superseded outright during implementation.
 | [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) | 0.3.0 | [#20](https://github.com/kwestic-tech/dns-email-audit/pull/20) | `8c3a36f` | 1.2 (Implemented) |
 | [dns-protocol-depth](implemented/dns-protocol-depth.md) | 0.4.0 | [#22](https://github.com/kwestic-tech/dns-email-audit/pull/22) | `9bda3ad` | 1.2 (Implemented) |
 | [dnssec-evidence](implemented/dnssec-evidence.md) | 0.5.0 | [#25](https://github.com/kwestic-tech/dns-email-audit/pull/25) | `v0.5.0` | 1.5 (Implemented) |
-| [modular-architecture-and-production-build](implemented/modular-architecture-and-production-build.md) | 0.6.0 | — | `v0.6.0` | 1.7 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in
 [`CHANGELOG.md`](../../CHANGELOG.md) only.
+
+### Implementation complete, release pending
+
+A spec that has been built and moved to `implemented/` but **not yet released**.
+It sits here rather than in the table above because that table is a record of
+shipped releases: there is no `v0.6.0` tag, no PR and no merge commit to record
+yet, and putting a row there with those columns empty would read as a release
+that happened.
+
+| Spec | Target release | Status | Spec version |
+| --- | --- | --- | --- |
+| [modular-architecture-and-production-build](implemented/modular-architecture-and-production-build.md) | 0.6.0 | Gates 0–5 met; Gate 6 is the release itself | 1.7 (Implemented) |
+
+Its release commit moves this row into the table above with the PR and tag
+filled in, and flips the spec's own status field.
 
 Every spec above was written from an original working specification except
 [resilient-optional-checks](implemented/resilient-optional-checks.md), which had
@@ -230,8 +244,9 @@ These are not restated in each document. They are binding on all of them.
 - **Localization is part of the change.** A change to `locales/en.json`
   translates all thirteen other locales in the same change, runs
   `npm run build:fallback`, and passes `npm run locale:gate`.
-- **`js/dns.js` returns tokens, not English.** Audit logic emits stable
-  identifiers and structured data. `js/app.js` turns them into words.
+- **The protocol and audit layers return tokens, not English.** Everything
+    under `src/core/` and `src/audit/` emits stable identifiers and structured
+    data; `src/i18n/` and `src/ui/` turn them into words.
 - **Advisory before scoring.** A new check reports its finding for at least one
   release before it affects the grade, and a scoring change is backtested with
   `node tools/backtest.mjs` before it merges.
@@ -244,7 +259,7 @@ binding on every release that renders a DNS record, an imported report, or a
 user-supplied file. A spec that adds a new rendered value inherits these without
 restating them.
 
-- **No markup sinks.** Nothing under `js/` assigns to `innerHTML` or
+- **No markup sinks.** Nothing under `src/` assigns to `innerHTML` or
   `outerHTML`. Values become text nodes or allowlisted attributes. Reading
   `outerHTML` to serialize a tree is permitted; writing it is not. The allowlist
   is empty and stays empty.

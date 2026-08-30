@@ -1,10 +1,11 @@
 # Modular Architecture and Production Build Refactor — Implementation
 
 **Spec:** [`modular-architecture-and-production-build.md`](modular-architecture-and-production-build.md)
-**Status:** Implemented and delivered as 0.6.0. Moved here from the repository
-root at Task 6.7a, beside the spec it implements. The task list below is the
-record of how the work was sequenced; what was built differently from the spec
-is in that spec's **As implemented** section, not here.
+**Status:** Implementation complete; release pending. Gates 0–5 are met and
+Gate 6 — Task 6.9's release commit — is not. Moved here from the repository root
+at Task 6.7a, beside the spec it implements. The task list below is the record
+of how the work was sequenced; what was built differently from the spec is in
+that spec's **As implemented** section, not here.
 **Target release:** 0.6.0
 **Baseline:** `v0.5.0` — 2,121 assertions, 13/13 locales, 719,199 bytes raw / 213,467 gzip
 **Written:** 2026-08-27

@@ -370,10 +370,9 @@ module so the page still opens from `file://`. Edit `src/`, run
 directory ownership table and the allowed-import matrix, which a contract test
 enforces.
 
-All user-facing application text lives in the locale bundles. The protocol
-and audit layers
-returns stable identifiers and structured data rather than English UI strings,
-keeping audit logic independent from translation work.
+All user-facing application text lives in the locale bundles. The protocol and
+audit layers return stable identifiers and structured data rather than English
+UI strings, keeping audit logic independent from translation work.
 
 ## Privacy and browser security
 

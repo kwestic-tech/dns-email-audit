@@ -34,8 +34,9 @@ from four separate files each time.
 2. **Never renumber open question IDs, never rename spec files for the
    release number.** Specs are named for capability. `OQ-DMARC-01` stays
    `OQ-DMARC-01` even after the document is edited ten times.
-3. **`js/dns.js` returns tokens, not English.** Only `js/app.js` turns them
-   into words. This is binding on every phase that touches `js/dns.js`.
+3. **The protocol and audit layers return tokens, not English.** Everything
+   under `src/core/` and `src/audit/` emits stable identifiers; `src/i18n/` and
+   `src/ui/` turn them into words. This is binding on every phase.
 4. **A change to `locales/en.json` translates all thirteen other locales in
    the same change** — not a follow-up. Run `npm run build:fallback` after
    the edit, then the translation loop in `AGENTS.md` (`locale:sync`,
@@ -97,7 +98,7 @@ explicit reconciliation rather than being left to default behavior:
 - **`requesting-code-review`'s reviewer template is generic** and doesn't
   know this repo's hard rules on its own. Every time it's dispatched, put
   this repo's non-negotiables — zero runtime dependencies, no markup sinks
-  (`innerHTML`/`outerHTML` assignment anywhere in `js/`), `js/dns.js` returns
+  (`innerHTML`/`outerHTML` assignment anywhere in `src/`), the audit layers return
   tokens not English, `connect-src` stays exactly `'self'
   https://cloudflare-dns.com`, no persistence beyond the one `localStorage`
   language key, 13/13 locale completeness — into the `PLAN_OR_REQUIREMENTS`
@@ -129,7 +130,7 @@ explicit reconciliation rather than being left to default behavior:
 | 3 | `dns-protocol-depth` (0.4.0) | 9/10 | B (link 2/3) | Second link; adds `DS`/`DNSKEY`/`TLSA` transport 0.5.0 needs, and the per-host `authenticated` evidence 0.5.0 keeps as the honest ceiling for DANE. |
 | 3′ | `local-artifact-validation` (0.8.0) | 5/10 | D (parallel) | Can start as soon as 0.2.3 lands, run alongside the whole B chain. Only sync point is 0.7.0's `Finding` shape (stub it, reconcile later). |
 | 4 | `dnssec-evidence` (0.5.0) | 6/10 | B (link 3/3) | Closes the B chain; needs 0.4.0's transport and TLSA shape. |
-| 4′ | `modular-architecture-and-production-build` (0.6.0) | n/a | G | **Spec 1.0 Final.** No audit/UI behavior change by design; undocumented legacy globals are replaced by a two-member supported facade. Sits between B and C because every spec below it reads or extends output shapes inside `js/dns.js`. |
+| 4′ | `modular-architecture-and-production-build` (0.6.0) | n/a | G | **Implementation complete; release pending** — spec `1.7`, Gates 0–5 met. No audit/UI behavior change, and none happened: both equivalence subjects report zero differences. Undocumented legacy globals are replaced by a two-member supported facade. Sat between B and C because every spec below it reads or extends the output shapes the audit produces. |
 | 5 | `findings-and-remediation` (0.7.0) | 10/10 | C | Highest end-user value in the roadmap, but structurally the most downstream — it reads the output shapes of 0.3.0, 0.4.0, and 0.5.0. Cannot start for real until B is done. |
 | 6 | `report-comparison` (0.9.0) | 4/10 | E | Hard-bound to 0.7.0's finding-id namespace. Last in the signal chain. |
 | — | `external-intelligence` | 1/10 | F | No code. Finalize as a **decision document** (mark `1.0 (Final)` as a deliberate refusal per its own `OQ-EXT-04`) whenever convenient — no dependency either direction. |
@@ -197,11 +198,11 @@ these directly rather than re-deriving or re-asking:
   warns a human reader who opens it in a spreadsheet. Consistent with the
   spec's own "display caps never reach the data" principle: the interface is
   annotated/capped, the export stays faithful. Append `record_hygiene`, never
-  insert, per the positional-header backfill rule at `js/app.js:744`.
+  insert, per the positional-header backfill rule in `src/ui/report.js`.
 - **`OQ-SEC-12` (do record-hygiene observations become findings, or stay
   display annotations) → resolved as: stay annotations in 0.2.3, explicitly
   deferred to `findings-and-remediation` (0.7.0).** Reasoning: this release's
-  own non-goals rule out a scoring change and any edit to `js/dns.js` for
+  own non-goals rule out a scoring change and any edit to the audit layer for
   grading purposes; turning a hygiene observation into a finding mid-release
   would smuggle a scope change into a release whose entire point is rendering
   correctness. 0.7.0 is where severity gets modeled properly.
@@ -515,10 +516,18 @@ and confirm none appear. Move to `docs/specs/implemented/`.
 
 ## 4½. Phase 3½ — `modular-architecture-and-production-build` (0.6.0)
 
-**Added 2026-08-27; spec 1.0 Final.** Not part of the original eight-workstream
-evaluation, and it scores no usefulness points — by design it ships no audit or
-UI behavior change. It does intentionally replace undocumented legacy globals
-with the supported `DnsAudit.{analyzeDomain,checkConnectivity}` facade.
+**Added 2026-08-27. Implementation complete; release pending — spec `1.7`,
+Gates 0–5 met, Gate 6 is the release itself.** Not part of the original
+eight-workstream evaluation, and it scores no usefulness points — by design it
+ships no audit or UI behavior change, and none happened: both equivalence
+subjects report zero differences across 32 cases and five surfaces. It does
+intentionally replace undocumented legacy globals with the supported
+`DnsAudit.{analyzeDomain,checkConnectivity}` facade.
+
+The ordered task list it was built from is
+[`docs/specs/implemented/modular-architecture-and-production-build-implementation.md`](specs/implemented/modular-architecture-and-production-build-implementation.md),
+moved there from the repository root at Task 6.7a; what was built differently
+from the spec is in that spec's **As implemented** section.
 
 **Start condition:** Phase 2 fully merged and released (0.3.0, 0.4.0, 0.5.0),
 which it is. The spec makes released 0.5.0 the behavioral baseline explicitly,
@@ -527,14 +536,14 @@ honest one.
 
 **Finish condition, and this is the scheduling constraint that matters:**
 finish it before Phase 4 starts, and before the parallel Phase 3 track merges.
-It renames every source file in the repository. Two branches that both touch
-`js/dns.js` cannot both be right afterwards.
+It renamed every source file in the repository — `js/` is gone. Two branches
+that both touched the old tree could not both be right afterwards.
 
 **Detailed plan:**
-`Modular Architecture, Production Build Refactor Implementation.md`
-— six phases, per-phase gates, and the standing verification commands. Read it
-rather than re-deriving the sequence; the ordering constraints in it are not
-arbitrary.
+[`modular-architecture-and-production-build-implementation.md`](specs/implemented/modular-architecture-and-production-build-implementation.md)
+— six phases, per-phase gates, and the standing verification commands. It moved
+from the repository root to `docs/specs/implemented/` at Task 6.7a, beside the
+spec it implements.
 
 **Blocking open questions:** none. All nine `OQ-ARCH-*` decisions are resolved
 in spec 1.0. Linux `npm ci` and the postinstall policy remain Gate 1 evidence;

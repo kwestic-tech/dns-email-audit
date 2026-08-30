@@ -7,9 +7,14 @@ otherwise. `CLAUDE.md` points here so both toolchains read the same rules.
 
 The application is ES modules under `src/`, bundled to one artifact by esbuild.
 **A task should be boundable to one directory**, and this table is what makes
-that checkable rather than aspirational: it is generated from the real import
-graph, and `tests/contract/dns-transport.test.mjs` §5 fails on any edge absent
-from it.
+that checkable rather than aspirational.
+
+It is the **enforced allowed-edge matrix**, checked against the real import
+graph — not a listing of it. Some rows permit an edge nothing currently uses:
+`runtime.js` may import `core/shared/` and does not. That is deliberate, and it
+is the direction that matters — `tests/contract/dns-transport.test.mjs` §5
+fails on any edge **absent** from the matrix, so an unused permission costs
+nothing and a missing one is a test failure.
 
 | Directory | Owns | May import |
 | --- | --- | --- |
