@@ -33,7 +33,9 @@ when the comprehensive DKIM scan is enabled. For example, auditing
 `cloudflare.com` with the defaults issues 61 queries.
 
 These are measured numbers, not estimates: `node tools/backtest.mjs` reports
-the fan-out of every run it makes, and the figures above were taken from a
+the fan-out of every run it makes — it drives the audit directly and loads no
+page, so the two fixed probes below are not in these figures — and the figures
+above were taken from a
 40-domain sample at release 0.5.0. 0.5.0 added exactly **two** queries per
 domain — a `DNSKEY` and a `DS` lookup for the audited name — and that figure is
 per-domain and deterministic: `cloudflare.com` measured 43 at 0.4.0 and 45 at
@@ -124,6 +126,14 @@ The page-load probe is why `example.com` is queried even in a session where you
 never run an audit. It has always been sent; it was measured for the first time
 in 0.6.0, when the equivalence runner began driving the page through its real
 `DOMContentLoaded` boot instead of skipping straight to the audit.
+
+> **Verified against the query trace, not asserted.** The equivalence suite
+> records every DNS query each of its 32 cases makes, and at the 0.6.0 release
+> every case shows `example.com A` exactly **twice** — including the case that
+> audits an unregistered domain and stops after three queries, and the case
+> that audits two domains in one page, which still shows two. That is the
+> page-load probe plus the per-run probe, and it is what makes "once per run,
+> however many domains that run covers" a measurement rather than a claim.
 
 All of these query names are visible to Cloudflare and are governed by
 Cloudflare's own privacy policy, not this project's. If that is not an
