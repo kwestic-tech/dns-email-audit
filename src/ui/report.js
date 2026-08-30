@@ -153,7 +153,7 @@ export function createReport(capabilities) {
         // Appended, never inserted, per the positional-header rule above.
         R.hygieneOf(rowHygieneValues(r)).join(' '),
         // Tree Walk provenance (spec §7). Tokens, not prose: `terminated` is
-        // the same vocabulary js/dns.js reports, so a script consuming this
+        // the same vocabulary the DMARC walk reports, so a script consuming this
         // column does not have to parse a translated sentence.
         r.dmarcDiscovery && r.dmarcDiscovery.applied ? r.dmarcDiscovery.applied.foundAt : '',
         r.dmarcDiscovery && r.dmarcDiscovery.applied ? r.dmarcDiscovery.applied.labelsUp : '',

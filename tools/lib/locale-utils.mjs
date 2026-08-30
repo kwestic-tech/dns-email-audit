@@ -42,7 +42,7 @@ export const SUB_STALE = 'kwestic:stale';
 /**
  * CLDR plural categories.  English only ever needs `one` and `other`, but
  * Polish selects `few`/`many`, Arabic additionally `zero`/`two`, and
- * js/i18n.js already resolves them correctly via Intl.PluralRules.  A locale
+ * src/i18n/index.js already resolves them correctly via Intl.PluralRules.  A locale
  * may therefore legitimately carry plural forms en.json does not have, and
  * the tooling must not treat those as stale keys and delete them.
  */
@@ -98,12 +98,12 @@ export const tags = (s) => (s.match(/<\/?[a-z][a-z0-9]*>/gi) || []).sort().join(
 const VOID_TAGS = new Set(['br', 'hr', 'img', 'input', 'wbr']);
 
 /**
- * The tags js/i18n.js `sanitizeFragment` builds nodes for.  Anything else in a
+ * The tags src/i18n/index.js `sanitizeFragment` builds nodes for.  Anything else in a
  * locale string is emitted as literal text at runtime — safe, but almost
  * certainly not what the translator meant, so it is caught here at author time
  * rather than shipping as visible angle brackets.
  *
- * Keep in step with RICH_TAGS in js/i18n.js.
+ * Keep in step with RICH_TAGS in src/i18n/index.js.
  */
 export const RICH_TAG_ALLOWLIST = new Set([
   'a', 'br', 'strong', 'code', 'em', 'b', 'i', 'small', 'ul', 'ol', 'li', 'p',

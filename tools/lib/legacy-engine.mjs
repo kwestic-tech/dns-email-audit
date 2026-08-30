@@ -15,9 +15,23 @@
    evidence that no behaviour did. Rewriting them to import forty modules
    directly would have retired the instrument that was measuring the work.
 
-   So the surface moved here, where its nature is visible. It was `js/dns.js`
-   until Task 6.1; the file is the same composition, with `../src/` become
-   `../../src/` and nothing else changed.
+   ── What this file actually is ──────────────────────────────────────────
+
+   It **reconstructs the 95-member legacy surface over production modules**. It
+   is not the old composition with its import paths adjusted, and describing it
+   that way would overstate how much of `v0.5.0` is still here:
+
+   | Part | Where it lives |
+   | --- | --- |
+   | DNS construction — the cache, the transport, the resolver | LOCAL to this harness, so it holds its own cache and two harnesses share nothing |
+   | Protocol construction — every `core/<protocol>/` check | DELEGATED to `src/audit/create-audit.js`, the production boundary |
+   | The five observed-signature compatibility wrappers | local, below — they exist for the assertions written against the old shapes |
+   | Everything else — parsing, scoring, issues, the coordinator | imported from `src/`, unchanged |
+
+   So what it reconstructs is the SHAPE of the surface, over the real modules.
+   That is still a strong regression instrument — 1,535 assertions reach real
+   production code through it — and it is a weaker claim than byte-identical
+   composition, which is why it is written down rather than implied.
 
    ── The five compatibility wrappers ─────────────────────────────────────
 

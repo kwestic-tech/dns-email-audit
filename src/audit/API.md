@@ -8,12 +8,12 @@ concurrently, how a failure is isolated, and how the answers become one result.
 This directory decides nothing about a record's meaning — every protocol rule
 belongs to a `core/<protocol>/` owner.
 
-**Phase 5 built this directory in four tasks and it is now complete.**
-`context.js` is the state boundary (5.1), `audit-domain.js` is
-`analyzeDomain()` (5.2), `scoring.js` is the rubric (5.3), and `issues.js` is
-findings and tips (5.4). Nothing audit-owned is left in `js/dns.js`, and
-`createAuditDomain()` receives no temporary capability — what is passed to it
-is exactly what §12 says must be passed.
+**Five modules.** Phase 5 built four — `context.js` is the state boundary
+(5.1), `audit-domain.js` is `analyzeDomain()` (5.2), `scoring.js` is the rubric
+(5.3), `issues.js` is findings and tips (5.4) — and Task 6.1 added
+`create-audit.js`, the composition boundary, when `js/` was deleted.
+`createAuditDomain()` receives no temporary capability: what is passed to it is
+exactly what §12 says must be passed.
 
 ## Allowed edges
 
@@ -45,6 +45,7 @@ so the coordinator now imports the summarizer and never sees the validator.
 
 | Export | Kind | Contract |
 | --- | --- | --- |
+| `createAudit(capabilities)` | factory | **The composition boundary.** Builds every protocol check over one resolver handle and returns the coordinator plus the constructed parts. |
 | `createAuditContext({ domain, options })` | factory | The state belonging to one audit of one domain. Takes no capability: no resolver, no cache, no clock. |
 | `createAuditDomain(capabilities)` | factory | Returns `{ analyzeDomain }`. Takes the resolver handle and every protocol check built over it — and nothing else. No temporary capability remains. |
 | `calcScore`, `calcDmarcScore`, `calcSpfScore`, `gradeFor`, `calcAdvScore` | pure | The scoring model. `calcAdvScore` is internal to the audit; the other four are legacy engine members. |
@@ -123,13 +124,45 @@ nothing about it. Nothing here claims otherwise.
 **The one raw-kind read.** The NS `servfail` DNSSEC preflight reads
 `nsResult.kind` directly, which is spec §3's audit-owned exception edge. It was
 the last raw-kind reader outside an owning directory;
-[`transport-edges.test.mjs`](../../tests/contract/transport-edges.test.mjs) now
-locates it in this file and asserts that `js/dns.js` holds none at all.
+[`transport-edges.test.mjs`](../../tests/contract/transport-edges.test.mjs)
+locates it in this file and — since Task 6.1 deleted `js/` — asserts that every
+production reader lives under `src/`, which is the stronger form of the
+question the old "`js/dns.js` holds none" assertion was asking.
 
 **The three `optionalCheck()` fallback factories that copy `DnsError.kind`**
 moved here with their call sites — CAA and SPF let the kind escape, the website
 fallback collapses it to `@dns-error`. `dns-transport.test.mjs` counts them per
 file, so the move reads as a move rather than as three deletions.
+
+## `create-audit.js` — the composition boundary
+
+Task 6.1, and the module that let `js/` be deleted. It **imports** the protocol
+and provider factories and **receives** the DNS resolver capabilities, which is
+§12's matrix expressed as code:
+
+| Built by | Imports | Receives |
+| --- | --- | --- |
+| `src/runtime.js` | `core/dns/` — the cache, the transport, the resolver | — |
+| `src/audit/create-audit.js` | every `core/<protocol>/` factory, `providers/` | the resolver handle, the two generated tables, the platform's crypto |
+
+Neither can do the other's job without an edge the matrix forbids: this
+directory has no edge to `core/dns/`, and `runtime.js` has none to
+`core/<protocol>/`. That is what makes the split structural rather than a
+matter of taste.
+
+**`audit-domain.js` did not acquire these responsibilities.** It remains the
+coordinator — which checks run, in what order, what may run concurrently, how a
+failure is isolated — and it is handed the constructed checks exactly as it was
+when `js/dns.js` constructed them. Composition and coordination are two jobs and
+this directory keeps them in two files.
+
+**It holds no compatibility wrapper.** The five observed-signature wrappers —
+four string-taking DKIM members and the three-argument `detectEmailProvider` —
+live with the test harness that needs them, `tools/lib/legacy-engine.mjs`. Task
+6.1 shipped copies of four of them here by accident; they called a function
+this module does not import and were green only because nothing ran them.
+`state-matrix.test.mjs` §3b now fails on any binding under `src/` that nothing
+reads.
 
 ## `scoring.js` — what scoring is allowed to read
 
@@ -300,8 +333,8 @@ changed.
 
 **Task 5.2:** `analyzeDomain()` and `resolveWebsite()`, at the same
 indentation and in the same order. No check, no fallback, no ordering and no
-batch changed. `js/dns.js` remains the transitional composition root and still
-exposes `analyzeDomain` as an engine member.
+batch changed. `js/dns.js` was still the transitional composition root then;
+Task 6.1 took that job with `create-audit.js` and deleted the file.
 
 **Task 5.2a:** the seven parsing rules above went on to their owners, and
 `startsWithCI` — still a legacy engine member — is imported into `js/dns.js`

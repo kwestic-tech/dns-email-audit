@@ -394,6 +394,71 @@ eq('and the numeric-keyed tables it excused are exactly these, all reviewed',
     'core/dnssec/records.js:DNSSEC_DIGESTS',
     'core/dnssec/records.js:DNSSEC_ZONE_SIGNING']);
 
+/* ── 3b. No declaration under src/ is stranded ────────────────────────── */
+section('3b. Every declared binding has a reader');
+
+/**
+ * A binding nobody reads is a claim that something needs it — and it is green
+ * for the worst reason: nothing runs it.
+ *
+ * Task 6.1 shipped four of them. Moving the audit composition out of
+ * `js/dns.js` carried four compatibility wrappers along, into a module that
+ * does not import the `spfReferencedCatalogKeys` they call. They would have
+ * thrown a `ReferenceError` on the first call. Nothing called them, so the
+ * whole suite, both equivalence subjects and the real-browser run were all
+ * green over code that could not execute.
+ *
+ * The stranded-IMPORT sweep this project runs by hand after every move would
+ * not have caught it either: the imports were fine, and it was a local
+ * declaration that had no reader.
+ *
+ * ── What this establishes, and what it does not ─────────────────────────
+ *
+ * A lexical scan: it counts identifier occurrences in comment-stripped source
+ * and flags any `const`/`let`/`function` whose name appears exactly once — at
+ * its own declaration. It cannot see a name reached through computed access,
+ * and it does not prove a binding with two occurrences is genuinely used. It
+ * catches the specific shape that shipped, which is the one worth catching.
+ */
+const isStranded = source => {
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const found = [];
+  for (const re of [/^\s*(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=/gm,
+    /^\s*function\s+([A-Za-z_$][\w$]*)\s*\(/gm]) {
+    for (const m of code.matchAll(re)) {
+      const uses = (code.match(new RegExp(`\\b${m[1]}\\b`, 'g')) || []).length;
+      if (uses === 1) found.push(m[1]);
+    }
+  }
+  return found;
+};
+
+const stranded = [];
+for (const relative of srcModules) {
+  for (const name of isStranded(readFileSync(join(srcDir, relative), 'utf8'))) {
+    stranded.push(`${relative}: ${name}`);
+  }
+}
+eq('no module under src/ declares a binding nothing reads', stranded, []);
+
+// Proven in both directions, and the positive case is the exact shape that
+// shipped at Task 6.1 — an arrow-function wrapper, declared and never called.
+eq('the scan catches the wrapper that shipped stranded',
+  isStranded([
+    'export function createAudit() {',
+    '  const catalogSelectors = real();',
+    '  const legacyCatalogSelectors = (a, b, c) =>',
+    '    catalogSelectors(a, b, derive(c));',
+    '  return { catalogSelectors };',
+    '}',
+  ].join('\n')), ['legacyCatalogSelectors']);
+eq('and a function declaration nobody calls',
+  isStranded('function used() {}\nfunction orphan() {}\nused();'), ['orphan']);
+eq('while a binding with a reader is not flagged',
+  isStranded('const x = 1;\nexport const y = x + 1;'), []);
+// The scan is only meaningful if it read something.
+eq('the scan had modules to walk', srcModules.length > 30, true);
+
 /* ── 4. The targeted legacy contracts are wired ───────────────────────── */
 section('4. Legacy contract delegation');
 

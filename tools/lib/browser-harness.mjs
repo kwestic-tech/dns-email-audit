@@ -3,7 +3,7 @@
 
    There is no `node:vm` here any more, and no script evaluation. Every layer
    the browser runs is an ES module as of Task 2.6 — `src/main.js` is the entry
-   point and `js/dns.js` is the last file still living under `js/` — so this
+   point and, since Task 6.1, `js/` is gone entirely — so this
    module IMPORTS the application rather than reading it off disk and running
    it in a sandbox. That is the second half of Task 2.9: a sandbox cannot
    evaluate a module, and pretending otherwise is what forced the migration.

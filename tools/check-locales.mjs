@@ -9,7 +9,7 @@
  *   • unknown keys (typos or leftovers from a renamed key — warning)
  *   • {0}, {1}, … placeholder mismatches (these break the UI — error)
  *   • unbalanced inline markup, e.g. a <code> with no </code> (error)
- *   • inline tags outside the rich-text allowlist (error) — js/i18n.js
+ *   • inline tags outside the rich-text allowlist (error) — src/i18n/index.js
  *     renders anything else as literal text, so this closes the same gap
  *     at author time, with no parser and no dependency
  *   • per-key translation state, from locales/translation-status.json
@@ -93,7 +93,7 @@ for (const code of onDisk.filter(c => c !== 'en').sort()) {
 
   const missing = enKeys.filter(k => !(k in flat));
   // Extra CLDR plural forms (pl needs few/many, ar zero/two) are expected,
-  // not stale — js/i18n.js resolves them through Intl.PluralRules.
+  // not stale — src/i18n/index.js resolves them through Intl.PluralRules.
   const unknown = keys.filter(k => !(k in enFlat) && !isExtraPluralForm(k, enFlat));
   const mismatched = keys.filter(k => k in enFlat && placeholders(flat[k]) !== placeholders(enFlat[k]));
   // Tag *counts* may legitimately differ between languages; unclosed tags may not.

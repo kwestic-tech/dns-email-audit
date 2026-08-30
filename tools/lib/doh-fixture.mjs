@@ -2,7 +2,7 @@
  * A programmable `fetch` for the test sandbox, standing in for Cloudflare's
  * DNS-over-HTTPS JSON endpoint.
  *
- * `js/dns.js` gets no test seam. There is no `__setResolver`, no injected
+ * The engine gets no test seam. There is no `__setResolver`, no injected
  * transport and no production branch that exists only for tests — this repo
  * has consistently refused those, and a resolver stub that bypasses the real
  * request-building code would stop testing the part most likely to be wrong.

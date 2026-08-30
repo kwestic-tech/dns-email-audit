@@ -30,13 +30,15 @@
  *
  * The legacy three-argument `detectEmailProvider(mx, domain, addressRecords)`
  * is asserted directly by `tools/scoring.test.mjs` and survives unchanged as a
- * thin compatibility wrapper in `js/dns.js`, which derives the boolean and
- * delegates. An adapter, not architecture; Phase 6 removes it with that file.
+ * thin compatibility wrapper in `tools/lib/legacy-engine.mjs`, which derives
+ * the boolean and delegates. It moved there at Task 6.1 with the deletion of
+ * `js/`; that harness is test-only code, and it is where the assertions
+ * written against the old shape live.
  *
  * ── Moved, not redesigned ────────────────────────────────────────────────
  *
- * `js/dns.js`'s provider-detection block, unchanged apart from the dedent and
- * the `export` keywords. Every pattern, every token and every fallback order
+ * The provider-detection block from the pre-refactor engine, unchanged apart
+ * from the dedent and the `export` keywords. Every pattern, every token and every fallback order
  * is byte-identical. `cap()` stays private; it has one reader and was never an
  * engine member.
  */

@@ -67,11 +67,13 @@ export function createAudit(capabilities) {
   });
 
   // DKIM, Task 4.7. The catalog is generated data and the crypto is the
-  // platform's, so both are passed — and that is now the whole list. Task
-  // 4.8's injected `spfReferencedCatalogKeys` was retired at Task 5.2: audit
-  // derives the catalog keys with SPF's own helper and passes them, so there
-  // is still no core/dkim -> core/spf edge and still one SPF grammar. The
-  // string-taking legacy members are the wrappers below.
+  // platform's, so both are passed — and that is the whole list. Task 4.8's
+  // injected `spfReferencedCatalogKeys` was retired at Task 5.2: audit derives
+  // the catalog keys with SPF's own helper and passes them, so there is no
+  // core/dkim -> core/spf edge and one SPF grammar. The string-taking legacy
+  // members are not here: they are compatibility wrappers over these
+  // fact-taking ones, and they live with the test harness that needs them,
+  // `tools/lib/legacy-engine.mjs`.
   const {
     checkDKIM, catalogSelectors, spfSelectorSources, buildDkimSelectorList,
     isRecognizedDkimSelector, inspectDkimSelector, summarizeDkimKeys,
@@ -79,29 +81,6 @@ export function createAudit(capabilities) {
   } = createDkimCheck({
     dohFetch, requireUsable, cleanAnswerData, crypto, dkimSelectorCatalog,
   });
-
-  /**
-   * The legacy engine surface for the four SPF-aware DKIM members.
-   *
-   * Thin compatibility wrappers, and exactly what the Phase-5 ruling
-   * authorizes. The TARGET path — `src/audit/` — derives the catalog keys with
-   * SPF's own helper and passes the KEYS, which is what retires the
-   * `core/dkim` → `core/spf` composition from the real audit. The observed
-   * legacy signatures still take an SPF record STRING, and
-   * `tools/scoring.test.mjs` asserts them directly, so each wrapper performs
-   * the old derivation and delegates to the fact-taking API.
-   *
-   * Adapters, not architecture. Phase 6 removes them with this file.
-   */
-  const legacyCatalogSelectors = (emailProvider, comprehensive, spfRecord) =>
-    catalogSelectors(emailProvider, comprehensive, spfReferencedCatalogKeys(spfRecord));
-  const legacySpfSelectorSources = (selectors, emailProvider, comprehensive, spfRecord) =>
-    spfSelectorSources(selectors, emailProvider, comprehensive, spfReferencedCatalogKeys(spfRecord));
-  const legacyBuildDkimSelectorList = (selectors, emailProvider, comprehensive, spfRecord) =>
-    buildDkimSelectorList(selectors, emailProvider, comprehensive, spfReferencedCatalogKeys(spfRecord));
-  const legacyCheckDKIM = (domain, wildcard, selectors, emailProvider, comprehensive, spfRecord, queryOpts) =>
-    checkDKIM(domain, wildcard, selectors, emailProvider, comprehensive,
-      spfReferencedCatalogKeys(spfRecord), queryOpts);
 
   // DMARC, Task 4.6. The PSL is generated data and is PASSED to its own
   // factory; the walk and the report-authorization checks each name the

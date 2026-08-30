@@ -2,7 +2,9 @@
 /**
  * Grade-distribution back-test.
  *
- * Loads the real scoring code from js/dns.js and runs it against live domains
+ * Loads the real scoring code through `tools/lib/legacy-engine.mjs` — the
+ * harness that reconstructs the v0.5.0 engine surface over the production
+ * modules — and runs it against live domains
  * over Cloudflare DNS-over-HTTPS, then prints the resulting letter-grade
  * histogram and score percentiles. Use it to sanity-check GRADE_THRESHOLDS
  * before shipping a scoring change — a rubric that lands 80% of the internet

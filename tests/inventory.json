@@ -486,7 +486,7 @@
         "every value on a declared path is a transport kind or its own owner's, and eight paths are transport-only",
         "the dmarc-unverified issue copy tested against its own key, with the negative control that an unrelated issue argument cannot earn transport coverage",
         "the allowlist's owners are LOCATED in the files the scan reads, so a protocol extraction that leaves the scanned set stale fails instead of quietly covering less",
-        "the DMARC readers are located in core/dmarc, and js/dns.js is shown to hold nothing raw-kind but the audit preflight"
+        "the DMARC readers are located in core/dmarc, and every production reader is shown to live under src/"
       ]
     },
     {
@@ -497,7 +497,7 @@
         "the code's kind sets and the reviewed registry's algebras are compared rather than restated",
         "cacheable is a strict subset of retry-terminal, and the usable set equals the cacheable set",
         "seven usability throws, counted rather than listed",
-        "optionalCheck is policy-neutral: a static fallback acquires no kind, and the four kind-copying sites are counted AND located across js/dns.js and every extracted owner, so a move does not read as a deletion",
+        "optionalCheck is policy-neutral: a static fallback acquires no kind, and the four kind-copying sites are counted AND located across every owning directory, so a move does not read as a deletion",
         "no transport result or error shape carries a finding, severity, score or locale reference",
         "the §12 allowed-edge matrix and the cycle rule over the real import graph, with core/shared's zero-outgoing-edge floor asserted directly because an empty matrix row cannot catch a sibling import",
         "§12's floor for a protocol owner, asserted over every protocol directory that exists: core/shared and own siblings only, so an import of core/dns/ — the convenient one — fails",
@@ -539,7 +539,7 @@
     },
     {
       "path": "tests/contract/state-matrix.test.mjs",
-      "assertions": 48,
+      "assertions": 53,
       "areas": [
         "every registry member has exactly one coverage row",
         "every row names a suite or corpus case that exists",
@@ -551,7 +551,8 @@
         "every adapter carries the LEGACY_ADAPTER sentinel, and the remaining count is reported",
         "the import-graph FLOOR is defined mechanically: src/data/ and src/platform/ import nothing, and a file that grows an import rejoins the state comparison",
         "numeric-keyed reference tables are excused from the state-constant comparison by TWO controls — a shape test that finds candidates, proven in both directions AND proven unable to tell a numeric-keyed state map apart, and a closed four-entry inventory that is the semantic allowlist",
-        "reference VOCABULARIES exported as arrays are excused by a closed named inventory alone — there is no shape test, because a reference list and a state list are both arrays of strings"
+        "reference VOCABULARIES exported as arrays are excused by a closed named inventory alone — there is no shape test, because a reference list and a state list are both arrays of strings",
+        "no module under src/ declares a binding nothing reads, with the stranded wrapper that shipped at Task 6.1 as the positive control"
       ]
     },
     {

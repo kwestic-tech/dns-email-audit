@@ -3,12 +3,12 @@
  * Unit tests for the DMARC parser and the weighted scoring model.
  *
  * Imports the DNS engine directly and builds it with a fixture public suffix
- * list and a swappable `fetch`. Until 0.6.0 this loaded js/dns.js into a
+ * list and a swappable `fetch`. Until 0.6.0 this loaded the engine into a
  * node:vm sandbox, because the file was a plain IIFE that attached to `window`;
  * a sandbox cannot evaluate an ES module, so the conversion in Task 2.3 brought
  * this suite's loading mechanism with it.
  *
- * No network is involved and js/dns.js still gets no test seam: what is
+ * No network is involved and the engine still gets no test seam: what is
  * substituted is the lowest primitive, exactly as tools/lib/doh-fixture.mjs
  * describes. What changed is that the primitives are now arguments rather than
  * things the module finds on `window`.
@@ -34,7 +34,7 @@ const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '.
  * `sandbox` survives the move to ESM as the holder for the swappable `fetch`.
  * Sixty-nine assertions below reassign `sandbox.fetch` to a new DoH fixture,
  * and `platform.fetch` reads it at call time, so every one of them keeps
- * working unchanged. `js/dns.js` still gets no test seam: what is substituted
+ * working unchanged. The engine still gets no test seam: what is substituted
  * is the lowest primitive, exactly as `tools/lib/doh-fixture.mjs` describes.
  *
  * `crypto` is here for the OPTIONAL half of the DKIM key analysis — the Web
@@ -3950,7 +3950,7 @@ eq('BIMI refuses a DNS-impossible 64-octet FQDN label',
 
 /* ── 44. The fixture harness and the transport agree on record types ──
    Groundwork for dnssec-evidence (0.5.0). Two type maps now describe the same
-   thing — DNS_TYPES in js/dns.js, which decides what can be queried, and
+   thing — DNS_TYPES in `src/core/dns/errors.js`, which decides what can be queried, and
    TYPE_NUM in tools/lib/doh-fixture.mjs, which decides what a fixture key
    resolves to. Nothing forced them to agree, and a divergence is silent in
    both directions: a fixture written for a type the transport cannot query is

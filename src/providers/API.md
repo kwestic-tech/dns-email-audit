@@ -77,14 +77,17 @@ which is why the legacy shape is wrapped rather than left to degrade.
 
 `detectEmailProvider(mx, domain, addressRecords)` is a legacy engine member
 whose three-argument form is asserted directly by `tools/scoring.test.mjs`. It
-survives unchanged as a thin compatibility wrapper in `js/dns.js` that derives
-the boolean and delegates here. An adapter, not architecture; Phase 6 removes
-it with that file. `scoring.test.mjs`'s count did not move.
+survives as a thin compatibility wrapper in
+[`tools/lib/legacy-engine.mjs`](../../tools/lib/legacy-engine.mjs), which
+derives the boolean and delegates here. It moved there with Task 6.1, when
+`js/` was deleted — the harness is where the assertions written against the old
+shape live, and it is a test harness rather than application code.
+`scoring.test.mjs`'s count did not move.
 
 ## Moved, not redesigned
 
-`js/dns.js`'s provider-detection block, unchanged apart from the dedent and the
-`export` keywords. Every pattern, every token and every fallback order is
+The provider-detection block from the pre-refactor engine, unchanged apart
+from the dedent and the `export` keywords. Every pattern, every token and every fallback order is
 byte-identical — including the order that matters most, in which the null-MX
 test comes FIRST so a `0 .` domain that also publishes addresses is not read as
 implicit MX. Both five-surface equivalence subjects report zero differences.

@@ -581,9 +581,11 @@ export function createDocument() {
 }
 
 /**
- * Build a `window`-like global for loading `js/render.js`, `js/i18n.js` and
- * `js/app.js` into a `node:vm` sandbox, the way `tools/backtest.mjs` already
- * loads `js/dns.js`.
+ * Build a `window`-like global for the harness that loads the application.
+ *
+ * Written when `js/render.js`, `js/i18n.js` and `js/app.js` were separate
+ * files evaluated into a `node:vm` sandbox. They are `src/` modules now and
+ * `js/` is gone; what this still provides is the same `window` shape.
  */
 export function createWindow(extra = {}) {
   const document = createDocument();

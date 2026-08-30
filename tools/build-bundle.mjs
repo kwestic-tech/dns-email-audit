@@ -70,7 +70,7 @@ function banner(version) {
  *    repeat-visit data rather than an assumption.
  *
  * `format: 'iife'` keeps `file://` working and keeps the CSP shape. That is not
- * a preference: `js/locales-en.js` states in its own generated header that
+ * a preference: the generated English module states in its own header that
  * English is inlined "so the app works when index.html is opened directly from
  * disk", and that file is 125,172 bytes — about 18% of the payload — bought and
  * paid for that purpose. A `type="module"` script would spend it.
@@ -100,7 +100,7 @@ export function buildOptions(version, root = REPO) {
  * Compared against what the bundle actually contains. The load order IS the
  * dependency graph until Phase 2 replaces it with real imports, and a silent
  * reordering would be a behaviour change wearing a build-config costume:
- * `js/dns.js` builds its public-suffix sets from `__PUBLIC_SUFFIX_RULES__`
+ * The engine built its public-suffix sets from `__PUBLIC_SUFFIX_RULES__`
  * while its IIFE runs, so moving the generated data later leaves them empty.
  */
 export function scriptOrderFromMarkup(indexHtml) {
