@@ -1,6 +1,10 @@
 # Modular Architecture and Production Build Refactor — Implementation
 
-**Spec:** [`docs/specs/modular-architecture-and-production-build.md`](docs/specs/modular-architecture-and-production-build.md)
+**Spec:** [`modular-architecture-and-production-build.md`](modular-architecture-and-production-build.md)
+**Status:** Implemented and delivered as 0.6.0. Moved here from the repository
+root at Task 6.7a, beside the spec it implements. The task list below is the
+record of how the work was sequenced; what was built differently from the spec
+is in that spec's **As implemented** section, not here.
 **Target release:** 0.6.0
 **Baseline:** `v0.5.0` — 2,121 assertions, 13/13 locales, 719,199 bytes raw / 213,467 gzip
 **Written:** 2026-08-27
@@ -21,7 +25,7 @@ Gate 1:
 
 | Item | Blocks | State |
 | --- | --- | --- |
-| `OQ-ARCH-01` spike | Phase 1 | **Done** — [capture](docs/specs/fixtures/esbuild-legacy-bundle-spike-0.6.0.md). Legacy IIFEs bundle to an identical 24-global surface; −40.1% raw. |
+| `OQ-ARCH-01` spike | Phase 1 | **Done** — [capture](fixtures/esbuild-legacy-bundle-spike-0.6.0.md). Legacy IIFEs bundle to an identical 24-global surface; −40.1% raw. |
 | Linux `npm ci` | Gate 1 | **Outstanding.** The spike covered darwin-arm64 only and the footprint is platform-specific. |
 | Round 3 verdict | `1.0 (Final)` | **Done** — findings resolved directly in the final spec and this plan. |
 
@@ -43,12 +47,12 @@ Fold the numbers into spec Risks R3 and `OQ-ARCH-01`. **Do not restate the
 dependency graph from memory** — that is the error round 1 caught (F5).
 
 **Task 0.3 — complete.** Spec `1.0 (Final)`, revision history and
-[`docs/specs/README.md`](docs/specs/README.md) are synchronized.
+`docs/specs/README.md` are synchronized.
 
 **Task 0.4** — Build the equivalence corpus. The single most valuable artifact
 here; everything after is measured against it. It must be **deterministic**,
 which rules out `tools/backtest.mjs` (live DNS). The oracle is
-[`tools/lib/doh-fixture.mjs`](tools/lib/doh-fixture.mjs).
+[`tools/lib/doh-fixture.mjs`](../../../tools/lib/doh-fixture.mjs).
 
 - **0.4.a** — `tests/fixtures/equivalence/`: broad enough to reach every
   protocol module. Signed and unsigned domains; all six DNSSEC states; parked
@@ -149,7 +153,7 @@ imports the seven current files for side effects, in their existing
 **Task 1.1** — `npm install --save-exact --save-dev esbuild`. Exact pin. First
 dependency in the project's history.
 
-**Task 1.2** — Remove `package-lock.json` from [`.gitignore:3`](.gitignore) and
+**Task 1.2** — Remove `package-lock.json` from [`.gitignore:3`](../../../.gitignore) and
 commit the lockfile.
 
 **Task 1.3** — `src/entry-legacy.js`: seven side-effect imports in load order.
@@ -171,10 +175,10 @@ bundle-then-assemble. Confirm `dependencies` is absent or empty.
 delivery boundary moves**, and the five-surface equivalence must be clean
 through it before anything else proceeds.
 
-**Task 1.7** — [`tools/build-site.mjs`](tools/build-site.mjs): allowlist `js` →
+**Task 1.7** — [`tools/build-site.mjs`](../../../tools/build-site.mjs): allowlist `js` →
 `dist`, plus source maps.
 
-**Task 1.8** — Amend [`tools/csp.test.mjs`](tools/csp.test.mjs) §3: exactly one
+**Task 1.8** — Amend [`tools/csp.test.mjs`](../../../tools/csp.test.mjs) §3: exactly one
 `<script src>`, it is `dist/app.min.js`, same-origin. **Preserve every §1 policy
 assertion byte-for-byte.** Retarget the markup-sink scan to cover the source
 tree *and* `dist/app.min.js`.
@@ -228,10 +232,10 @@ One source of truth per responsibility — this is not a parallel tree
 **Task 2.1** — Generated data → `src/data/*.js` as ESM. Update
 `tools/update-psl.mjs`, `tools/update-dkim-selectors.mjs` and
 `tools/build-fallback.mjs` to emit modules; update
-[`tools/check-locales.mjs`](tools/check-locales.mjs) **in the same commit** as
+[`tools/check-locales.mjs`](../../../tools/check-locales.mjs) **in the same commit** as
 the fallback generator.
 
-> **The PSL injection hazard.** [`tools/scoring.test.mjs:21`](tools/scoring.test.mjs)
+> **The PSL injection hazard.** [`tools/scoring.test.mjs:21`](../../../tools/scoring.test.mjs)
 > injects a four-rule `__PUBLIC_SUFFIX_RULES__` table. A static import would
 > silently substitute the real 165 KB list and **the suite would still report
 > 1,535 passing assertions while testing something else** (round 1, F3).
@@ -315,9 +319,9 @@ eviction, same rule that only `success`/`nodata`/`nxdomain` are cached and a
 transport failure never is. Export a factory. `createAuditRuntime()` invokes it
 once per runtime; `src/main.js` creates one runtime for the page.
 
-> **Do not scope this per audit.** [`tools/scoring.test.mjs:1888-1891`](tools/scoring.test.mjs)
+> **Do not scope this per audit.** [`tools/scoring.test.mjs:1888-1891`](../../../tools/scoring.test.mjs)
 > asserts a first DMARC walk issues 3 queries and a sibling issues 1, and
-> [`PRIVACY.md:30-33`](PRIVACY.md) publishes the resulting fan-out — "roughly 41
+> [`PRIVACY.md:30-33`](../../../PRIVACY.md) publishes the resulting fan-out — "roughly 41
 > queries for a typical domain", 61 for `cloudflare.com`. Narrowing the cache
 > changes a published privacy figure (round 1, F4). The runtime lifetime
 > preserves reuse without using Node's ESM cache as dependency injection.
@@ -426,8 +430,8 @@ structure exactly. **No concurrency change in this release.**
 **Task 5.4** — `src/audit/issues.js`: `buildIssues`, `buildSuggestions`.
 
 **Task 5.5** — `src/ui/report.js`: `exportCSV`
-([`js/app.js:1560`](src/main.js)), `exportHTML`
-([`js/app.js:1634`](src/main.js)). The report's own
+([`js/app.js:1560`](../../../src/main.js)), `exportHTML`
+([`js/app.js:1634`](../../../src/main.js)). The report's own
 `default-src 'none'; style-src 'unsafe-inline'; img-src data:` policy is
 asserted by `csp.test.mjs` §5 and must survive.
 
@@ -577,7 +581,7 @@ because the refactor makes them possible."*
 - **No finding-schema redesign.** Explicitly declined in the spec.
 - **No bundle splitting.** `OQ-ARCH-05` carries the measurement for later.
 - **No resolver comparison.** That is
-  [external-intelligence](docs/specs/external-intelligence.md).
+  [external-intelligence](../external-intelligence.md).
 - **No protocol fixes found in passing** — filed separately, noted in the
   phase's commit message.
 
@@ -606,7 +610,7 @@ Spec risks, mapped to where they are actually mitigated.
 ## Round 1 changes to this plan
 
 Recorded so the reversal is not re-litigated. All from
-[`CODEX follow-up review for Modular Refactor.md`](CODEX%20follow-up%20review%20for%20Modular%20Refactor.md),
+`CODEX follow-up review for Modular Refactor.md`,
 verified against the code before folding in.
 
 | Was | Now | Why |

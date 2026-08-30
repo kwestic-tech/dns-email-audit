@@ -76,7 +76,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 6 | Local MTA-STS and BIMI validation | Not started. Both are validated at the TXT record level only. | [0.8.0](docs/specs/local-artifact-validation.md) |
 | 7 | Local report comparison | Not started. Exports are CSV and static HTML; nothing can be read back. | [0.9.0](docs/specs/report-comparison.md) |
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
-| 9 | Modular architecture and production build | Spec 1.0 Final; implementation not started. Added 2026-08-27. The application is seven classic scripts loading IIFEs onto `window`; `js/dns.js` alone is 5,704 lines owning transport, every protocol, scoring and issue construction. | [0.6.0](docs/specs/modular-architecture-and-production-build.md) |
+| 9 | Modular architecture and production build | **Implemented**, spec `1.7`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with eleven owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md) |
 
 ## Release sequence
 
@@ -158,7 +158,7 @@ Zero grade, score and `dnssec.signed` movement against `v0.4.0`.
 
 ### 0.6.0: Modular architecture and production build
 
-Spec: [`docs/specs/modular-architecture-and-production-build.md`](docs/specs/modular-architecture-and-production-build.md)
+Spec: [`docs/specs/implemented/modular-architecture-and-production-build.md`](docs/specs/implemented/modular-architecture-and-production-build.md)
 
 Converts the browser code from `window`-attached IIFEs to ES modules under
 `src/`, splits `js/dns.js` and `js/app.js` along four boundaries — DNS

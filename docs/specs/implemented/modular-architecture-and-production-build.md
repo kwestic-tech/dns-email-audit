@@ -2,25 +2,25 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.6 (Final) |
+| Spec version | 1.7 (Implemented) |
 | Target release | 0.6.0 |
-| Status | **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, to `1.2` to correct an overstated evidence claim about how that enumeration is guarded, to `1.3` to add the last ambient primitive the conversion sweep found, and to `1.4` — during Task 2.7 — to state the oracle's provenance once the supported facade replaces the legacy engine global and reclassify the PSL fixture-identity fingerprint as binding-level, to `1.5` at the Gate 2 audit to correct two claims `1.4` overstated, and to `1.6` at Task 3.6 to replace §3's three-name exception-edge row with two separate inventories. See [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
-| Depends on | [dnssec-evidence](implemented/dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
-| Blocks | [findings-and-remediation](findings-and-remediation.md), [local-artifact-validation](local-artifact-validation.md), [report-comparison](report-comparison.md) — all three are scheduled after it |
+| Status | **Implemented**, and released as 0.6.0. Originally **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, to `1.2` to correct an overstated evidence claim about how that enumeration is guarded, to `1.3` to add the last ambient primitive the conversion sweep found, and to `1.4` — during Task 2.7 — to state the oracle's provenance once the supported facade replaces the legacy engine global and reclassify the PSL fixture-identity fingerprint as binding-level, to `1.5` at the Gate 2 audit to correct two claims `1.4` overstated, and to `1.6` at Task 3.6 to replace §3's three-name exception-edge row with two separate inventories. See [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
+| Depends on | [dnssec-evidence](dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
+| Blocks | [findings-and-remediation](../findings-and-remediation.md), [local-artifact-validation](../local-artifact-validation.md), [report-comparison](../report-comparison.md) — all three are scheduled after it |
 | Slug for open questions | `ARCH` |
-| Last updated | 2026-08-27 |
+| Last updated | 2026-08-30 |
 | Evidence | [esbuild-legacy-bundle-spike-0.6.0](fixtures/esbuild-legacy-bundle-spike-0.6.0.md) — settles `OQ-ARCH-01`, confirms Phase 1 viability, and demonstrates the fixture-substitution hazard; [gate-0-evidence-0.6.0](fixtures/gate-0-evidence-0.6.0.md) — the Gate 0 conditions, met 2026-08-27; [gate-1-evidence-0.6.0](fixtures/gate-1-evidence-0.6.0.md) — the Gate 1 conditions, including native-Linux `npm ci` and `file://` in a real browser; [gate-2-evidence-0.6.0](fixtures/gate-2-evidence-0.6.0.md) — the Gate 2 conditions, met 2026-08-28, with both compatibility deltas performed and the oracle's two-execution rebuild |
-| Reviews | Rounds 1–3 (Codex, 2026-08-27) recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md); the author's requests and responses are in [`CODEX Review Modular Refactor.md`](../../CODEX%20Review%20Modular%20Refactor.md). The Task-2.7 round, which produced `1.4`, is in [`CODEX Review Facade Contraction and Fixture Identity.md`](../../CODEX%20Review%20Facade%20Contraction%20and%20Fixture%20Identity.md) and [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md); §5 of that follow-up is the Gate 2 audit that produced `1.5`. The Task-3.6 round, which produced `1.6`, is in [`CODEX Review Transport Exception Edges.md`](../../CODEX%20Review%20Transport%20Exception%20Edges.md) and [`CODEX follow-up review for Transport Exception Edges.md`](../../CODEX%20follow-up%20review%20for%20Transport%20Exception%20Edges.md) |
+| Reviews | Rounds 1–3 (Codex, 2026-08-27) recorded in `CODEX follow-up review for Modular Refactor.md`; the author's requests and responses are in `CODEX Review Modular Refactor.md`. The Task-2.7 round, which produced `1.4`, is in `CODEX Review Facade Contraction and Fixture Identity.md` and `CODEX follow-up review for Facade Contraction and Fixture Identity.md`; §5 of that follow-up is the Gate 2 audit that produced `1.5`. The Task-3.6 round, which produced `1.6`, is in `CODEX Review Transport Exception Edges.md` and `CODEX follow-up review for Transport Exception Edges.md` |
 | Source | Written from an external proposal, *DNS Email Audit Modular Architecture and Production Build Refactor Specification* (Codex, 2026-08). Section numbers of the form §N below refer to that document. Where this spec diverges from it, the divergence is recorded in [§ Corrections to the source proposal](#corrections-to-the-source-proposal). |
 
 ## Problem
 
 The application is seven classic `<script src>` tags loading IIFEs that attach
-to `window` in dependency order ([`index.html:187`](../../index.html)). There is
+to `window` in dependency order ([`index.html:187`](../../../index.html)). There is
 no module system, no build step for JavaScript, and no way for one file to
 declare what it needs from another. The load order in `index.html` *is* the
 dependency graph, and it is enforced by three assertions in
-[`tools/csp.test.mjs`](../../tools/csp.test.mjs) rather than by the language.
+[`tools/csp.test.mjs`](../../../tools/csp.test.mjs) rather than by the language.
 
 Two of those files carry almost all of the hand-written code:
 
@@ -50,7 +50,7 @@ to the same 288 KB file. Neither a human reviewer nor a coding agent can bound
 the effect of one by reading only the part it touched.
 
 **Protocol logic cannot be tested without the whole file.**
-[`tools/scoring.test.mjs`](../../tools/scoring.test.mjs) constructs a `node:vm`
+[`tools/scoring.test.mjs`](../../../tools/scoring.test.mjs) constructs a `node:vm`
 context, evaluates `js/dkim-selectors.js` and all 288 KB of `js/dns.js` into it,
 and reaches the functions under test through the object the IIFE assigns to
 `window`. There is no way to import `classifySpfSubnet` without also
@@ -65,15 +65,15 @@ cache lifetime as the code that changes every release.
 
 **There is no distinction between source and artifact.** What the repository
 contains is byte-for-byte what GitHub Pages serves.
-[`tools/build-site.mjs`](../../tools/build-site.mjs) copies seven paths into
+[`tools/build-site.mjs`](../../../tools/build-site.mjs) copies seven paths into
 `_site/`; it is a file-selection step, not a build. That has been an asset —
 the shipped behavior is trivially auditable — and this spec must not spend it
 carelessly.
 
 The project is about to add three more releases of protocol surface
-([findings-and-remediation](findings-and-remediation.md),
-[local-artifact-validation](local-artifact-validation.md),
-[report-comparison](report-comparison.md)), each of which reads or extends the
+([findings-and-remediation](../findings-and-remediation.md),
+[local-artifact-validation](../local-artifact-validation.md),
+[report-comparison](../report-comparison.md)), each of which reads or extends the
 output shapes inside `js/dns.js`. The architectural boundaries are cheaper to
 establish now, against a released and backtested 0.5.0 baseline, than after
 three more releases have been layered onto the monolith.
@@ -95,7 +95,7 @@ Captured on `main` at 0.5.0, 2026-08-27:
 | Browser payload | 7 files, 719,199 bytes raw, 213,467 bytes gzip |
 | Runtime npm dependencies | 0 |
 | Development npm dependencies | 0 |
-| `package-lock.json` | Does not exist; git-ignored at [`.gitignore:3`](../../.gitignore) |
+| `package-lock.json` | Does not exist; git-ignored at [`.gitignore:3`](../../../.gitignore) |
 
 > The per-suite split above is read from `npm test` output. The authoritative
 > total is the sum, 2,121. Any implementation phase that changes this number
@@ -144,7 +144,7 @@ they are binding:
 - **No frontend framework**, and no runtime npm dependency. esbuild is a
   development dependency and never reaches the browser.
 - **No backend, no server-side processing, no persistence change.** The privacy
-  boundary in [`PRIVACY.md`](../../PRIVACY.md) is untouched: browser →
+  boundary in [`PRIVACY.md`](../../../PRIVACY.md) is untouched: browser →
   `https://cloudflare-dns.com`, `localStorage` holds one key.
 - **No new network destination.** `connect-src` stays
   `'self' https://cloudflare-dns.com`.
@@ -176,8 +176,8 @@ here rather than silently diverged from.
 It does not. `js/dns.js` ends `})(window)`; `js/app.js`, `js/render.js` and
 `js/i18n.js` follow the same pattern; `js/public-suffixes.js` and
 `js/dkim-selectors.js` assign a global. Every consumer — `index.html`,
-[`tools/lib/browser-harness.mjs`](../../tools/lib/browser-harness.mjs),
-[`tools/backtest.mjs`](../../tools/backtest.mjs) and
+[`tools/lib/browser-harness.mjs`](../../../tools/lib/browser-harness.mjs),
+[`tools/backtest.mjs`](../../../tools/backtest.mjs) and
 `tools/scoring.test.mjs` — reaches the code through `window`, and the harness
 comment states the design explicitly: *"the files are plain IIFEs that attach to
 `window`, so there is nothing to mock and no bundler involved."*
@@ -197,7 +197,7 @@ strategy of four separate tools.
 **2. Findings already have stable machine-readable identifiers.** §31 proposes
 introducing them, with examples in the form `SPF_LOOKUP_LIMIT`. This is already
 the binding project rule, stated in the header of `js/dns.js` and in
-[`docs/specs/README.md`](README.md#constraints-every-spec-inherits): *"`js/dns.js`
+`docs/specs/README.md`: *"`js/dns.js`
 returns tokens, not English."* The existing tokens are lowercase-hyphenated —
 `'spf-missing'`, `'@none'`, `'noteWildcard'` — and are consumed by
 `js/app.js` through the i18n layer and by `locales/en.json` keys of the form
@@ -219,14 +219,14 @@ failure is never remembered as an answer. §9's last line asks for the cache to 
 part is declined.** Page-lifetime reuse is deliberate, tested, and part of a
 published privacy figure:
 
-- [`tools/scoring.test.mjs:1888-1891`](../../tools/scoring.test.mjs) asserts
+- [`tools/scoring.test.mjs:1888-1891`](../../../tools/scoring.test.mjs) asserts
   exact query counts across two *different* domains — a first DMARC walk issues
   3 queries and a sibling subdomain issues 1, reusing the cached upper steps.
   Per-audit scoping fails that assertion.
-- [`js/app.js:1397`](../../src/main.js) calls `analyzeDomain(domain, opts)` once
+- [`js/app.js:1397`](../../../src/main.js) calls `analyzeDomain(domain, opts)` once
   per queued domain from a shared worker pool, with no audit context passed.
   The reuse exists *because* the cache outlives a single domain.
-- [`PRIVACY.md:30-33`](../../PRIVACY.md) publishes the consequence: "roughly 41
+- [`PRIVACY.md:30-33`](../../../PRIVACY.md) publishes the consequence: "roughly 41
   queries for a typical domain", and 61 for `cloudflare.com`. Narrowing the
   cache raises those numbers, which makes it a privacy-facing change, not a
   refactor.
@@ -251,7 +251,7 @@ assertion described in [Testing](#testing).
 **5. `package-lock.json` does not exist and is git-ignored.** §18 reasons from
 *"commit X, package-lock.json, documented Node version"*, and §28 requires that
 *"npm development dependencies must be pinned through the lockfile."* Neither is
-possible today: [`.gitignore:3`](../../.gitignore) ignores the lockfile, because
+possible today: [`.gitignore:3`](../../../.gitignore) ignores the lockfile, because
 until now the project has had zero dependencies of any kind and the file would
 always have been empty.
 
@@ -665,7 +665,7 @@ no `node_modules/`, no `*.test.*` from either tree, and no `assets/`. The
 allowlist is asserted exactly — presence *and* absence — not assumed. Source
 maps ship under `dist/` per `OQ-ARCH-04`.
 
-`dist/` is already git-ignored ([`.gitignore:7`](../../.gitignore)), which
+`dist/` is already git-ignored ([`.gitignore:7`](../../../.gitignore)), which
 matches §17: the artifact is generated by CI from the commit being deployed and
 never committed.
 
@@ -744,7 +744,7 @@ can review.
 
 Fixtures, never live DNS. `tools/backtest.mjs` queries Cloudflare and is a local
 grade-*distribution* check only, never a gate. The oracle is
-[`tools/lib/doh-fixture.mjs`](../../tools/lib/doh-fixture.mjs).
+[`tools/lib/doh-fixture.mjs`](../../../tools/lib/doh-fixture.mjs).
 
 > **Amended in 1.4: the five surfaces are bound to one deterministic CASE, not
 > to one runtime.** Through `v0.5.0` and up to Task 2.6 they were both, and the
@@ -833,7 +833,7 @@ grade-*distribution* check only, never a gate. The oracle is
 > no longer captured from the same process image. What replaces the lost
 > guarantee is the binding assertion, which is checked rather than assumed.
 > Alternatives were rejected for the reasons recorded in
-> [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md)
+> `CODEX follow-up review for Facade Contraction and Fixture Identity.md`
 > §1: calling `analyzeDomain` directly instead of `startAudit()` leaves the
 > application's `results` array empty and blanks three surfaces; auditing twice
 > in one runtime doubles the DNS fan-out, which **is** the trace surface; and a
@@ -1212,7 +1212,7 @@ any one binding while leaving the other two correct must fail its own probe.
 > reaches nothing, which is a real finding and a real question — and it is a
 > behaviour-and-size decision, not a refactor. Removing it here would be scope
 > creep of exactly the kind Risk R8 exists to refuse. Recorded in
-> [`docs/maintenance-backlog.md`](../maintenance-backlog.md) with the measured
+> [`docs/maintenance-backlog.md`](../../maintenance-backlog.md) with the measured
 > size, and the bundle is not changed in 0.6.0.
 
 ### 12. Module APIs and the allowed-edge matrix
@@ -1574,16 +1574,108 @@ generated header that English is inlined *"so the app works when index.html is
 opened directly from disk"*, and that file is 125,172 bytes — about 18% of the
 current payload. `file://` support was bought and paid for.
 
+## As implemented
+
+Written at Task 6.7, from the finished branch. **The spec's text above is
+preserved exactly as it was approved**; everything built differently from it is
+recorded here, and the review logs that produced these decisions are folded in
+below rather than left as separate root documents.
+
+### What was built as specified
+
+Six phases, six gates, all met. Eleven owning directories under `src/`, each
+with its own `API.md` and co-located tests; one delivery boundary
+(`dist/app.min.js`); the two-member facade as the only supported browser API;
+the five-surface equivalence oracle reporting **zero differences** on every
+gate against the `v0.5.0` baseline; the empty exclusion manifest never touched.
+
+### Where the implementation differs from the spec
+
+| # | Spec said | Built | Why |
+| --- | --- | --- | --- |
+| 1 | §2's tree names `core/shared/` with four modules | **Five** — `record-selection.js` was added at Task 5.2a | Gate 5 requires the coordinator to hold no parsing rule. Moving record selection to the protocol owners gave `startsWithCI`, `versionCandidates` and `leadingVersionMatches` two protocol readers each, which is §12's admission test met on its own terms. Task 4.0 had rejected all three **correctly**: their second reader was then `audit`, which has no edge to `core/shared/`. The premise changed, not the rule, and **the matrix was not amended**. |
+| 2 | §2's tree names `audit/audit-domain.js` as the audit's composition | **`audit/create-audit.js` is a separate composition boundary** | Deleting `js/dns.js` at Task 6.1 needed a home for the protocol construction. §12 gives `runtime.js` the `core/dns/` edge and `audit/` the `core/<protocol>/` edge, and neither can do the other's job — so the split is structural: the runtime builds the resolver, `create-audit.js` builds every check over it, and `audit-domain.js` remains the coordinator. |
+| 3 | §10 authorizes **two** compatibility deltas | **Three.** Task 6.2 removed the last nine globals | The spec's two — the facade contraction and the fourteen function globals — were the ones known at approval. The remaining nine were classed as marked adapters retiring "on their owners' schedule"; §12's Phase 6 requires zero adapters, so their removal is that requirement discharged. Recorded in `tests/fixtures/equivalence/compatibility-deltas.json` with, per group, what each name's consumer actually was. |
+| 4 | Task 6.1 deletes `js/` | Done — and **the 95-member engine surface survives as `tools/lib/legacy-engine.mjs`** | `tools/scoring.test.mjs` reaches 95 members by name across 687 call sites, and its **1,535 assertions did not move in six phases** — the strongest single piece of evidence that no behaviour did. Rewriting it during the refactor would have retired the instrument measuring the refactor. The file is a test harness: nothing under `src/` imports it and it is not in the bundle. |
+| 5 | §8's second fixture-identity probe form reads the generated-data globals | **Reads the artifact text** | Those globals went with the last adapter at Task 6.2. Same discriminators — the private `blogspot.com` rule, the fixture DKIM selector, the fixture English title — observed where they are now observable. The form is recorded in each subject's manifest, so a run still cannot read as stronger evidence than it was. |
+
+### Rulings made during implementation that the spec did not anticipate
+
+- **The derived-fact boundary.** Phase 4 injected two cross-protocol
+  collaborators into the wrong owners — SPF's `spfReferencedCatalogKeys` into
+  `core/dkim/`, MX's `isNullMx` into `providers/` — because the layer that
+  should compose them did not exist yet. Task 5.2 retired both: `src/audit/`
+  derives each fact and passes it. The observed legacy signatures survive as
+  thin compatibility wrappers, and `tools/scoring.test.mjs`'s count did not
+  move.
+- **What `audit/` may read.** `audit/scoring.js` and `audit/issues.js` consume
+  protocol FACTS — including `spfStatus.warnings` — and never record contents.
+  `spfRecords` is the instructive case: its CARDINALITY is evidence for
+  `spf-multiple-records`, and its contents are never consulted. Asserted in
+  each module's contract, deliberately **not** in the parsing-owner inventory:
+  a weight table is not a parsing rule, and widening that inventory to mean
+  "anything that reads a protocol value" would leave it protecting nothing.
+- **Fourteen issue keys are invisible to a literal scan.** 92 of the 106 are
+  written as `key: '…'`; the rest arrive through the DKIM confidence ternary,
+  the `DIAGNOSIS_KEYS` table, `pushKeyFinding()`, and forwarding from the
+  closed `spf.warnings` algebra. That forwarding is a **compositional
+  precondition, not a property of `buildIssues()`** — it does not filter, and
+  an arbitrary fabricated token would be forwarded verbatim. Both halves are
+  asserted.
+- **`result()` isolates at the top level only.** Nested values are shared by
+  identity with the audit, deliberately: deep-cloning would change legacy
+  identities and value types. Both halves are asserted so nobody later
+  "hardens" it into serialization.
+
+### Findings recorded and deliberately not fixed
+
+Neither is a 0.6.0 regression; both predate the branch.
+
+- **`retries` never reaches the transport from `analyzeDomain()`.** Roughly
+  twenty `tools/scoring.test.mjs` calls pass it; the per-query options have
+  always been `{ signal }` alone, so the factory default applies. Behaviour,
+  not plumbing — changing it would alter retry behaviour and the published DNS
+  fan-out.
+- **`checks-unverified` carries an untranslated noun.** Its argument joins
+  `'BIMI'`, `'SPF'`, `'MX'`, `'TLSA'` and `'Website'`. The first four are
+  protocol names that must never be translated; "Website" is an ordinary
+  English noun that should be. The fix adds an `en.json` key, which under
+  `AGENTS.md` means thirteen translations in the same change — a localization
+  change, not a refactor.
+
+### What the review rounds established
+
+Five review rounds ran against this branch; their decision logs are folded here
+and the root documents removed. What survives from each:
+
+| Round | What it changed |
+| --- | --- |
+| Rounds 1–3 (spec) | Recorded in the `0.2`, `0.4` and `1.0` revision rows above — the bundler evidence, the four-boundary transport model, the allowed-edge matrix, the two-member facade, the state matrix. |
+| Facade contraction and fixture identity | Produced `1.4` and `1.5`: the oracle's two-execution provenance, the PSL fingerprint reclassified as binding-level, and the **second `example.com` probe** that `PRIVACY.md` had never disclosed. |
+| Transport exception edges | Produced `1.6`: two inventories rather than one three-name row — raw-kind readers and typed propagation paths are different questions and one list could not serve both. |
+| Phase 5 and 6 implementation reviews | No spec amendment. They caught, in order: a coordinator that broke Gate 5 by holding seven parsing rules; a concurrency instrument that could hang instead of failing; four dead compatibility wrappers calling a function their module did not import; a harness mode that documented a global it could not produce; and repeated current-state claims that outlived the code they described. |
+
+**The pattern across all five rounds is one shape**, and it is the most
+transferable thing this branch produced: **a check that is green because
+nothing reaches it.** A wrapper nobody calls, a scan over a deleted path, a
+race with no deadline, a mode with no caller, a claim nothing asserts. None was
+visible to 4,451 assertions, five equivalence surfaces or a real browser,
+because a green suite is exactly what they produce. The controls that caught
+them are the negative case (`§1`'s third rule), the caller count, and the
+comment strip — a scan asking "does this file do X" must strip comments,
+because the file most likely to discuss X is the one that just stopped doing it.
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
-| 1.6 | 2026-08-28 | **Amended during Phase 3, Task 3.6 — §3's exception-edge row named three sites and conflated two contracts.** Found by the task whose job is to name and test those edges, which is how `1.1`, `1.3` and `1.5` were found too. **(a) Two inventories, not one.** A **raw-kind reader** inspects a raw resolver response instead of a normalized array; a **propagation path** is a result field that retains a closed transport kind. One list could not serve both: `domainExists()` and `checkConnectivity()` are legitimate readers and propagate nothing, while a layer-4 fallback can propagate a caught `DnsError.kind` without reading a raw response at all. The reader inventory is now six entries organized by owning function or family — `core/dns` twice, `core/dmarc` twice, `core/dnssec`, `audit` — and `doh.js` and `requireUsable()` are expressly excluded, because they ARE layers 1 and 2 and an allowlist that includes them stops meaning anything. **(b) Eleven typed propagation paths, derived from result construction and then checked against the baseline, not the reverse.** The Task-3.6 request proposed the eleven the corpus had been observed to produce; that set was a lower bound and one of its members was not a typed field. `advanced.spfLookups.queryError` is source-reachable through the `countSpfLookups()` fallback and the corpus did not reach it when the defect was found — a corpus finding, not permission to omit the path. Task 3.6 closed that gap with the `spf-lookup-query-error` case; the path was listed on source-reachability alone, before any corpus observation existed for it. The DMARC walk's kind copied into the `dmarc-unverified` issue's arguments is a **derived presentation copy**, tested against its own issue key and deliberately kept out of `resultPaths`: a bare `issues[].args[]` pattern would let an unrelated argument equal to `timeout` earn transport coverage, which is the vacuous credit the measured matrix exists to remove. The thrown audit `error.kind` stays a thrown path under §12.1 and is not mixed into `resultPaths`. **(c) Layer 4's rule stated precisely.** `optionalCheck()` is policy-neutral: it re-throws `AbortError` and `DnsTypeError` and otherwise returns what the caller declared, and many callers declare `null` or `[]`. A caller-supplied fallback alone owns the unknown's shape and MAY copy `DnsError.kind` deliberately. Exactly three fallback factories do — website resolution, which collapses to the `@dns-error` hosting sentinel and escapes nothing; `checkCAA()`; and `countSpfLookups()`. `checkExternalReportAuth()` is an internal `catch` under a static `[]` fallback, and `discoverDmarc()` records raw kinds directly: three distinct mechanisms, tested as such. **(d) Registry corrections.** `dns.transport.kind.resultPaths` was empty, which asserted the algebra is not observable in a result; it now names the eleven typed paths. A three-member algebra for `advanced.reportAuth[].exactKind` — `success`, `nodata`, `nxdomain` — is added under `core/dmarc`, a field that previously had no owner. Both change the Gate-0 inventory totals, recorded as an explicit post-Gate-0 addendum rather than by rewriting the historical claim. No runtime behaviour, phase ordering or acceptance threshold changed. Recorded in [`CODEX follow-up review for Transport Exception Edges.md`](../../CODEX%20follow-up%20review%20for%20Transport%20Exception%20Edges.md). |
-| 1.5 | 2026-08-28 | **Corrects two claims `1.4` overstated. Found by the Gate 2 audit, not by the implementation — which was right both times.** **(a) The cross-execution binding does not include issue tokens, §8.** `1.4` named them among the bound fields. The UI renders each issue as translated prose through `issueMessage()` and attaches no token attribute, so they are not observable on that side at all, and manufacturing one for the oracle would be the production test seam §11 forbids. The fields actually bound — domain set, grade, score, issue count, suggestion count — are now named, with the DOM node each is read from. **The tokens lose no coverage**: they are carried in full by the result surface, compared byte for byte against the baseline, which is where a changed token has always been caught. What was overclaimed is narrower than it reads — not that the tokens are checked, but that they serve as a cross-execution join key, which they cannot, because only one execution can see them. The rule that decides what may be bound is recorded with it: only fields that cannot differ because the code under test changed, learned by breaking it. **(b) `PRIVACY.md` did need an edit, §8 and the acceptance criteria.** `1.4`'s driver change fires `DOMContentLoaded`, which runs the boot's `checkConnectivity()`; because that call passes `noCache: true` it is a genuine second query. The trace proves **two** fixed `example.com A` probes per run — one at page initialization, one before each audit run — and the count is exactly two across all thirty corpus cases whether one domain is audited or nine. `1.4` concluded the document needed no edit; it described only the second probe, so a browser session sent one more query than it disclosed. **Pre-existing behaviour newly measured, not a 0.6.0 behaviour change**: the old runner drove a page that had never booted. The per-domain figures — 41 typical, 61 for `cloudflare.com` — come from `tools/backtest.mjs`, which loads no page, and are unchanged. `PRIVACY.md`, plan Task 6.6 and the Gate 2 capture are corrected to distinguish both probes. No runtime code, baseline, surface, exclusion or acceptance threshold changed; the empty exclusion manifest and the strict canonicalization line are untouched. The `1.4` row above is preserved exactly as written. Recorded in [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md) §5. |
-| 1.4 | 2026-08-27 | **Amended during Phase 2, Task 2.7 — two corrections, both about what the instrument proves.** **(a) Oracle provenance, §8.** Stage 3 of §10 makes `window.DnsAudit` esbuild's export namespace: non-configurable accessors, and **not** the engine object `src/main.js` calls. Measured against the artifact — the assignment throws, and `window.DnsAudit` occurs zero times in shipped code. The runner captured the result surface by wrapping that global, so the five surfaces can no longer all come from one runtime. They are now bound to one deterministic **case** captured by two isolated executions: the facade's `analyzeDomain` for the result, the real UI controls for trace, CSV, report and DOM, with the same data profile, options, instant, locale and platform, neither warming the other. The result execution's trace is a different instrument execution, **not an exclusion** — no exclusion is added and the manifest stays empty. Cross-surface binding on domain, score, grade and issue tokens is asserted so two different cases cannot be joined under one id. The rejected alternatives, and why, are recorded. **(b) The PSL fingerprint is binding-level, §11.** `getOrganizationalDomain()` is the only reader of the public suffix sets and **no application code calls it** — zero call sites at `v0.5.0` and at `f1a2842`; `result.organizationalDomain` comes from the RFC 9989 walk. So `1.0`'s claim of a behavioural fingerprint per binding was true for the DKIM catalog and the English bundle and not for the PSL, the same shape of overstatement `1.2` corrected. The probe is unchanged and stays in the suites that supply the binding through `createAuditRuntime()`, reclassified as an engine/runtime fingerprint; an artifact-driven suite is not required to claim one through the two-member facade. The unused 160.6 KB PSL payload **stays in 0.6.0** — removing shipped data is a behaviour-and-size decision, Risk R8 — and is filed in `docs/maintenance-backlog.md` with its measured size. No architecture, phase ordering or acceptance threshold is reopened; the five surfaces, the strict canonicalization line and the empty exclusion manifest are unchanged. Recorded in [`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md) §1–§2. |
-| 1.3 | 2026-08-27 | **Added `open` to §11's primitive set.** `openLearnMore()` opens the generated Learn-more page with `open(url, '_blank', 'noopener')` (`js/app.js:385`), and the list did not name it. Found by the **completed conversion sweep over `js/app.js`**, the last unconverted file, which enumerated its full ambient set — eight already listed, this one missing. It is the last such finding because there is no further legacy source to sweep, and it is expressly **not** evidence that the lexical contract is exhaustive: that contract could not have found it either, per `1.2`. Implemented as `win.open.bind(win)`, with a receiver-sensitive contract asserting the exact `url`, `_blank` and `noopener` arguments; the 60-second `revokeObjectURL` timeout and every other behaviour are unchanged. Recorded as the first **navigation side-effect** capability on the list; its final UI-facing abstraction is a **Phase 5** question and is not redesigned now. Added to §11, §12's platform API row, the acceptance criteria, `PLATFORM_PRIMITIVES`, `SPEC_11` and the known-ambient catalog. No architecture or implementation decision reopened. Recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §18. |
-| 1.2 | 2026-08-27 | **Evidence correction, no design change.** `1.1` said §11's primitive set was "exhaustive by contract, not by inspection". It is not, and the phrasing claimed more than the check delivers — the same shape of overstatement this project has corrected twice before, in a paragraph written to correct an overstatement. `tests/contract/platform.test.mjs` establishes three things: the spec list and `PLATFORM_PRIMITIVES` agree bidirectionally, every declared primitive is provided, and a lexical scan over a **named catalog** of ambient identifiers rejects a bare read outside the platform module and the marked adapters. It cannot discover an ambient identifier absent from that catalog — the `navigator` omission `1.1` fixed would not have been caught by it — and a regex is not scope analysis. Replaced with "reviewed during conversion, synchronized bidirectionally, and guarded against the known ambient catalog", stated the scan as defense in depth against regression, and adjusted the acceptance criterion to match. No parser and no dependency added; no architecture or implementation decision reopened. Recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §17. |
-| 1.1 | 2026-08-27 | **Amended during Phase 2, Task 2.4.** §11's exact platform list omitted `navigator` while claiming to name *every* ambient primitive the moved code uses — false, because `detectLang()` reads `navigator.languages` and `navigator.language`. Found by converting `js/i18n.js`, where the module stopped being able to reach `window` and every dependency had to be named; four of its five ambient primitives were on the list. Added to §11, to §12's `platform/` API row, and to the acceptance criteria, with the completeness now asserted against the platform module's own published set rather than by inspection. Framework §6 trigger 5: a Final spec found wrong is amended and re-versioned, never quietly diverged from. The finding and Ian's decision are recorded in [`CODEX follow-up review for Modular Refactor.md`](../../CODEX%20follow-up%20review%20for%20Modular%20Refactor.md) §16. **Narrow by design:** an omission from one enumeration. No design decision, phase ordering, acceptance threshold or behaviour changed, and nothing else in `1.0` is reopened. |
+| 1.7 | 2026-08-30 | **Implemented.** Moved to `docs/specs/implemented/` with its fixtures, and the **As implemented** section added above: five documented divergences, four rulings the spec did not anticipate, two findings recorded and deliberately not fixed, and what each review round established. The spec's approved text is unchanged. The five review logs are folded into that section and removed from the repository root; references to them in the rows below are kept as plain text, because the documents they named no longer exist. All six gates met, all nine open questions resolved, both equivalence subjects reporting zero differences across 32 cases and five surfaces. |
+| 1.6 | 2026-08-28 | **Amended during Phase 3, Task 3.6 — §3's exception-edge row named three sites and conflated two contracts.** Found by the task whose job is to name and test those edges, which is how `1.1`, `1.3` and `1.5` were found too. **(a) Two inventories, not one.** A **raw-kind reader** inspects a raw resolver response instead of a normalized array; a **propagation path** is a result field that retains a closed transport kind. One list could not serve both: `domainExists()` and `checkConnectivity()` are legitimate readers and propagate nothing, while a layer-4 fallback can propagate a caught `DnsError.kind` without reading a raw response at all. The reader inventory is now six entries organized by owning function or family — `core/dns` twice, `core/dmarc` twice, `core/dnssec`, `audit` — and `doh.js` and `requireUsable()` are expressly excluded, because they ARE layers 1 and 2 and an allowlist that includes them stops meaning anything. **(b) Eleven typed propagation paths, derived from result construction and then checked against the baseline, not the reverse.** The Task-3.6 request proposed the eleven the corpus had been observed to produce; that set was a lower bound and one of its members was not a typed field. `advanced.spfLookups.queryError` is source-reachable through the `countSpfLookups()` fallback and the corpus did not reach it when the defect was found — a corpus finding, not permission to omit the path. Task 3.6 closed that gap with the `spf-lookup-query-error` case; the path was listed on source-reachability alone, before any corpus observation existed for it. The DMARC walk's kind copied into the `dmarc-unverified` issue's arguments is a **derived presentation copy**, tested against its own issue key and deliberately kept out of `resultPaths`: a bare `issues[].args[]` pattern would let an unrelated argument equal to `timeout` earn transport coverage, which is the vacuous credit the measured matrix exists to remove. The thrown audit `error.kind` stays a thrown path under §12.1 and is not mixed into `resultPaths`. **(c) Layer 4's rule stated precisely.** `optionalCheck()` is policy-neutral: it re-throws `AbortError` and `DnsTypeError` and otherwise returns what the caller declared, and many callers declare `null` or `[]`. A caller-supplied fallback alone owns the unknown's shape and MAY copy `DnsError.kind` deliberately. Exactly three fallback factories do — website resolution, which collapses to the `@dns-error` hosting sentinel and escapes nothing; `checkCAA()`; and `countSpfLookups()`. `checkExternalReportAuth()` is an internal `catch` under a static `[]` fallback, and `discoverDmarc()` records raw kinds directly: three distinct mechanisms, tested as such. **(d) Registry corrections.** `dns.transport.kind.resultPaths` was empty, which asserted the algebra is not observable in a result; it now names the eleven typed paths. A three-member algebra for `advanced.reportAuth[].exactKind` — `success`, `nodata`, `nxdomain` — is added under `core/dmarc`, a field that previously had no owner. Both change the Gate-0 inventory totals, recorded as an explicit post-Gate-0 addendum rather than by rewriting the historical claim. No runtime behaviour, phase ordering or acceptance threshold changed. Recorded in `CODEX follow-up review for Transport Exception Edges.md`. |
+| 1.5 | 2026-08-28 | **Corrects two claims `1.4` overstated. Found by the Gate 2 audit, not by the implementation — which was right both times.** **(a) The cross-execution binding does not include issue tokens, §8.** `1.4` named them among the bound fields. The UI renders each issue as translated prose through `issueMessage()` and attaches no token attribute, so they are not observable on that side at all, and manufacturing one for the oracle would be the production test seam §11 forbids. The fields actually bound — domain set, grade, score, issue count, suggestion count — are now named, with the DOM node each is read from. **The tokens lose no coverage**: they are carried in full by the result surface, compared byte for byte against the baseline, which is where a changed token has always been caught. What was overclaimed is narrower than it reads — not that the tokens are checked, but that they serve as a cross-execution join key, which they cannot, because only one execution can see them. The rule that decides what may be bound is recorded with it: only fields that cannot differ because the code under test changed, learned by breaking it. **(b) `PRIVACY.md` did need an edit, §8 and the acceptance criteria.** `1.4`'s driver change fires `DOMContentLoaded`, which runs the boot's `checkConnectivity()`; because that call passes `noCache: true` it is a genuine second query. The trace proves **two** fixed `example.com A` probes per run — one at page initialization, one before each audit run — and the count is exactly two across all thirty corpus cases whether one domain is audited or nine. `1.4` concluded the document needed no edit; it described only the second probe, so a browser session sent one more query than it disclosed. **Pre-existing behaviour newly measured, not a 0.6.0 behaviour change**: the old runner drove a page that had never booted. The per-domain figures — 41 typical, 61 for `cloudflare.com` — come from `tools/backtest.mjs`, which loads no page, and are unchanged. `PRIVACY.md`, plan Task 6.6 and the Gate 2 capture are corrected to distinguish both probes. No runtime code, baseline, surface, exclusion or acceptance threshold changed; the empty exclusion manifest and the strict canonicalization line are untouched. The `1.4` row above is preserved exactly as written. Recorded in `CODEX follow-up review for Facade Contraction and Fixture Identity.md` §5. |
+| 1.4 | 2026-08-27 | **Amended during Phase 2, Task 2.7 — two corrections, both about what the instrument proves.** **(a) Oracle provenance, §8.** Stage 3 of §10 makes `window.DnsAudit` esbuild's export namespace: non-configurable accessors, and **not** the engine object `src/main.js` calls. Measured against the artifact — the assignment throws, and `window.DnsAudit` occurs zero times in shipped code. The runner captured the result surface by wrapping that global, so the five surfaces can no longer all come from one runtime. They are now bound to one deterministic **case** captured by two isolated executions: the facade's `analyzeDomain` for the result, the real UI controls for trace, CSV, report and DOM, with the same data profile, options, instant, locale and platform, neither warming the other. The result execution's trace is a different instrument execution, **not an exclusion** — no exclusion is added and the manifest stays empty. Cross-surface binding on domain, score, grade and issue tokens is asserted so two different cases cannot be joined under one id. The rejected alternatives, and why, are recorded. **(b) The PSL fingerprint is binding-level, §11.** `getOrganizationalDomain()` is the only reader of the public suffix sets and **no application code calls it** — zero call sites at `v0.5.0` and at `f1a2842`; `result.organizationalDomain` comes from the RFC 9989 walk. So `1.0`'s claim of a behavioural fingerprint per binding was true for the DKIM catalog and the English bundle and not for the PSL, the same shape of overstatement `1.2` corrected. The probe is unchanged and stays in the suites that supply the binding through `createAuditRuntime()`, reclassified as an engine/runtime fingerprint; an artifact-driven suite is not required to claim one through the two-member facade. The unused 160.6 KB PSL payload **stays in 0.6.0** — removing shipped data is a behaviour-and-size decision, Risk R8 — and is filed in `docs/maintenance-backlog.md` with its measured size. No architecture, phase ordering or acceptance threshold is reopened; the five surfaces, the strict canonicalization line and the empty exclusion manifest are unchanged. Recorded in `CODEX follow-up review for Facade Contraction and Fixture Identity.md` §1–§2. |
+| 1.3 | 2026-08-27 | **Added `open` to §11's primitive set.** `openLearnMore()` opens the generated Learn-more page with `open(url, '_blank', 'noopener')` (`js/app.js:385`), and the list did not name it. Found by the **completed conversion sweep over `js/app.js`**, the last unconverted file, which enumerated its full ambient set — eight already listed, this one missing. It is the last such finding because there is no further legacy source to sweep, and it is expressly **not** evidence that the lexical contract is exhaustive: that contract could not have found it either, per `1.2`. Implemented as `win.open.bind(win)`, with a receiver-sensitive contract asserting the exact `url`, `_blank` and `noopener` arguments; the 60-second `revokeObjectURL` timeout and every other behaviour are unchanged. Recorded as the first **navigation side-effect** capability on the list; its final UI-facing abstraction is a **Phase 5** question and is not redesigned now. Added to §11, §12's platform API row, the acceptance criteria, `PLATFORM_PRIMITIVES`, `SPEC_11` and the known-ambient catalog. No architecture or implementation decision reopened. Recorded in `CODEX follow-up review for Modular Refactor.md` §18. |
+| 1.2 | 2026-08-27 | **Evidence correction, no design change.** `1.1` said §11's primitive set was "exhaustive by contract, not by inspection". It is not, and the phrasing claimed more than the check delivers — the same shape of overstatement this project has corrected twice before, in a paragraph written to correct an overstatement. `tests/contract/platform.test.mjs` establishes three things: the spec list and `PLATFORM_PRIMITIVES` agree bidirectionally, every declared primitive is provided, and a lexical scan over a **named catalog** of ambient identifiers rejects a bare read outside the platform module and the marked adapters. It cannot discover an ambient identifier absent from that catalog — the `navigator` omission `1.1` fixed would not have been caught by it — and a regex is not scope analysis. Replaced with "reviewed during conversion, synchronized bidirectionally, and guarded against the known ambient catalog", stated the scan as defense in depth against regression, and adjusted the acceptance criterion to match. No parser and no dependency added; no architecture or implementation decision reopened. Recorded in `CODEX follow-up review for Modular Refactor.md` §17. |
+| 1.1 | 2026-08-27 | **Amended during Phase 2, Task 2.4.** §11's exact platform list omitted `navigator` while claiming to name *every* ambient primitive the moved code uses — false, because `detectLang()` reads `navigator.languages` and `navigator.language`. Found by converting `js/i18n.js`, where the module stopped being able to reach `window` and every dependency had to be named; four of its five ambient primitives were on the list. Added to §11, to §12's `platform/` API row, and to the acceptance criteria, with the completeness now asserted against the platform module's own published set rather than by inspection. Framework §6 trigger 5: a Final spec found wrong is amended and re-versioned, never quietly diverged from. The finding and Ian's decision are recorded in `CODEX follow-up review for Modular Refactor.md` §16. **Narrow by design:** an omission from one enumeration. No design decision, phase ordering, acceptance threshold or behaviour changed, and nothing else in `1.0` is reopened. |
 | 1.0 | 2026-08-27 | **Final after Codex review round 3.** Replaced the ineffective `a.b.ck` fixture check with independently divergent PSL, DKIM-catalog and English-bundle fingerprints. Made cache ownership consistently per runtime, with one production runtime per page and cross-runtime isolation. Added a side-effect-free `runtime.js`, browser-platform adapter, complete allowed-edge rows and per-owner API contracts. Replaced the unsound static-extractor promise with a complete pre-refactor inventory covering computed DNSSEC claims, thrown paths, booleans, nullability and absence; the state matrix is complete before Gate 0. Bound equivalence subjects to complete roots with input hashes and fixed time/locale inputs. Declared the two-member facade the only supported 0.6.0 browser API and recorded removal of legacy globals as an intentional compatibility delta. Synchronized the implementation plan with the no-`globalName` legacy phase and the real four-boundary resolver model. Linux `npm ci` remains a Gate 1 measurement. |
 | 0.4 | 2026-08-27 | Revised after review round 2 and against measured evidence. **The `OQ-ARCH-01` spike ran** ([capture](fixtures/esbuild-legacy-bundle-spike-0.6.0.md)): the seven unmodified IIFEs bundle to an identical 24-global surface, `DnsAudit` intact at 95 members, −40.1% raw / −39.0% gzip, 22 ms — Phase 1 is confirmed viable, and esbuild's real footprint (2 packages, 1 `postinstall`) replaces the false "zero dependencies" claim. **`globalName` corrected**: it exports the entry's exports, so 0.2's claim was wrong and would have clobbered `window.DnsAudit` on the delivery-boundary commit; the facade is now staged in three steps (§10). **The global inventory was 24, not five** — `js/app.js` alone assigns 14, all of them **dead** (no consumer; `index.html` has no inline handlers). **The supported facade is two members**, `analyzeDomain` and `checkConnectivity`, the only ones `js/app.js` calls out of 95; the other 93 plus `__APP_TEST__` become direct ESM imports. **The transport model is four layers plus exception edges**, not a five-member union — the ten real kinds are enumerated with the cacheable ⊂ retry-terminal rule. **Composition root specified** (§11), justified by the spike demonstrating a bundled PSL silently replacing a fixture while 1,535 assertions still passed. **Allowed-edge matrix, SCC rejection and API tables added** (§12). **HTML report parity restored** to the gate — it had fallen out — making five surfaces, with executable canonicalization rules. **State matrix added**, self-policing via a test that fails on any discriminant lacking a row. **Co-location proof bound to `metafile.inputs`** rather than a sentinel. All nine open questions now resolved. |
 | 0.3 | 2026-08-27 | `OQ-ARCH-09` decided by Ian: unit tests co-locate as `src/**/*.test.js`, with `tests/` retained for build, contract, integration and fixture suites. The layout is settled; the markup-sink exclusion that pays for it remains a round-2 review item because it touches a security control rather than a convention. `OQ-ARCH-06` is now the only open question. |

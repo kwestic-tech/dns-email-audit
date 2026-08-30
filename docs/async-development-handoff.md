@@ -531,7 +531,7 @@ It renames every source file in the repository. Two branches that both touch
 `js/dns.js` cannot both be right afterwards.
 
 **Detailed plan:**
-[`Modular Architecture, Production Build Refactor Implementation.md`](../Modular%20Architecture,%20Production%20Build%20Refactor%20Implementation.md)
+`Modular Architecture, Production Build Refactor Implementation.md`
 — six phases, per-phase gates, and the standing verification commands. Read it
 rather than re-deriving the sequence; the ordering constraints in it are not
 arbitrary.

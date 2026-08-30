@@ -82,6 +82,32 @@ phrased as rules rather than advice:
 change, a scoring change, a concurrency change, a cache-scope change, or a UI
 behaviour change.
 
+### When to stop and ask for a review
+
+Some findings are not yours to work around. **Stop, write down what you found,
+and say so** — do not push through:
+
+1. **An equivalence diff you cannot explain in one sitting.** Not "investigate
+   and continue" — stop. A query-trace diff with an identical result is still a
+   stop: it means cache or concurrency behaviour moved, and that is a published
+   privacy figure.
+2. **A canonicalization tolerance whose admitted difference class cannot be
+   bounded.** Widening the rule quietly is the failure mode.
+3. **A state in the reviewed registry the fixture corpus cannot reach.**
+   Inventing a response shape is worse than saying it cannot be reached.
+4. **Anything implying a `PRIVACY.md` edit.** That means DNS fan-out moved.
+5. **A spec defect.** `docs/specs/README.md`: a Final spec found wrong is
+   amended and re-versioned, never quietly diverged from.
+6. **A cross-module change with no architectural explanation.**
+7. **Any proposal to weaken a security control** — the markup-sink allowlist, a
+   CSP directive, the namespace contract, the deployment allowlist.
+
+**A reviewer's finding is a claim, not a fact.** Reproduce every one against
+the real code before folding it in, including findings that contradict this
+project's own earlier conclusions. Reviewers here have cited functions and
+paths that do not exist. Record every finding, accepted or declined, with its
+reasoning.
+
 ## Localization is part of the change, not a follow-up
 
 `locales/en.json` is the source of truth. Thirteen other locales track it:

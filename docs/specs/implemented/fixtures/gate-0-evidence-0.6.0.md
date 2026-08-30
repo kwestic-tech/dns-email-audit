@@ -274,7 +274,7 @@ existed at the gate and was found later — not that the gate measured something
 it did not.
 
 **Found:** Phase 3, Task 3.6, and recorded in
-[`CODEX follow-up review for Transport Exception Edges.md`](../../../CODEX%20follow-up%20review%20for%20Transport%20Exception%20Edges.md)
+`CODEX follow-up review for Transport Exception Edges.md`
 §4. Carried into the spec as [`1.6`](../modular-architecture-and-production-build.md#revision-history).
 
 ### What changed

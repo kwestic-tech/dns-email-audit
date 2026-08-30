@@ -13,7 +13,7 @@
 ## Status
 
 **Met**, after the Gate 2 audit
-([`CODEX follow-up review for Facade Contraction and Fixture Identity.md`](../../../CODEX%20follow-up%20review%20for%20Facade%20Contraction%20and%20Fixture%20Identity.md)
+(`CODEX follow-up review for Facade Contraction and Fixture Identity.md`
 §5) and the two documentation corrections it required, both carried by spec
 `1.5`. The audit changed no runtime code, no baseline and no surface: it found
 one spec claim that overstated what the implemented binding does, and one
@@ -45,7 +45,7 @@ below, with what they originally said preserved in the `1.5` revision row.
 
 The two authorized compatibility deltas both landed in this phase, each as its
 own commit and each named in
-[`compatibility-deltas.json`](../../../tests/fixtures/equivalence/compatibility-deltas.json)
+[`compatibility-deltas.json`](../../../../tests/fixtures/equivalence/compatibility-deltas.json)
 before it was performed.
 
 | | Globals | `DnsAudit` members | Adapters |
@@ -71,7 +71,7 @@ unlisted: a browser is the last place a removed name could still be hiding.
 
 ## 2. The facade, proven on three surfaces from one checked-in file
 
-[`src/facade.expected.json`](../../../src/facade.expected.json) is checked in
+[`src/facade.expected.json`](../../../../src/facade.expected.json) is checked in
 rather than derived. A test that read the expected list out of the bundle would
 agree with the bundle by construction.
 
@@ -227,7 +227,7 @@ It **stays in 0.6.0**. Removing shipped data is a behaviour-and-size decision,
 which is what Risk R8 exists to refuse in passing, and there is a protocol
 question underneath it that should be answered first: whether the missing call
 site is a latent defect rather than dead code. Filed in
-[`docs/maintenance-backlog.md`](../../maintenance-backlog.md).
+[`docs/maintenance-backlog.md`](../../../maintenance-backlog.md).
 
 One claim was corrected because of it. `parity.test.mjs` §6 was going to be
 titled "the bundled PSL, observed through the facade". It would have been false.

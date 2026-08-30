@@ -1,6 +1,6 @@
 # `src/core/caa/` — API contract
 
-Required by spec [§12](../../../docs/specs/modular-architecture-and-production-build.md#12-module-apis-and-the-allowed-edge-matrix):
+Required by spec [§12](../../../docs/specs/implemented/modular-architecture-and-production-build.md#12-module-apis-and-the-allowed-edge-matrix):
 each owning directory checks in `API.md` in the same commit that creates it.
 
 **Responsibility.** CAA policy (RFC 8659, RFC 9495): reading a CAA record set

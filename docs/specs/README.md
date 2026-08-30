@@ -44,7 +44,6 @@ rationale, the dependency map, and the group-by-group execution plan.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [modular-architecture-and-production-build](modular-architecture-and-production-build.md) | 0.6.0 | 1.6 | Final, in implementation — amended during Phase 2 to complete §11's platform primitive set, to state precisely how it is guarded, to add the last ambient the conversion sweep found, at Task 2.7 to state the oracle's provenance behind the supported facade and reclassify the PSL fixture-identity fingerprint as binding-level, at the Gate 2 audit to correct the binding's claimed fields and the privacy conclusion, and at Task 3.6 to split §3's exception-edge row into a raw-kind reader inventory and a kind-propagation inventory |
 | [findings-and-remediation](findings-and-remediation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
 | [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 0.1 | Draft, awaiting review |
 | [report-comparison](report-comparison.md) | 0.9.0 | 0.1 | Draft, awaiting review |
@@ -67,12 +66,12 @@ that produced it:
 
 | Directory | Holds |
 | --- | --- |
-| [`fixtures/`](fixtures/) | Captures for specs still under review |
-| [`implemented/fixtures/`](implemented/fixtures/) | Captures for the specs they belong to, moved with the spec |
+| `fixtures/` | Captures for specs still under review |
+| `implemented/fixtures/` | Captures for the specs they belong to, moved with the spec |
 
 A `fixtures/` directory alongside a spec still under review holds the same
 thing before the move. One exists:
-[esbuild-legacy-bundle-spike-0.6.0](fixtures/esbuild-legacy-bundle-spike-0.6.0.md),
+[esbuild-legacy-bundle-spike-0.6.0](implemented/fixtures/esbuild-legacy-bundle-spike-0.6.0.md),
 which settles `OQ-ARCH-01` and demonstrates — rather than predicts — that a
 bundled public-suffix list silently replaces a test fixture while the suite
 still reports 1,535 passing assertions.
@@ -116,6 +115,7 @@ precedent, and one spec was superseded outright during implementation.
 | [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) | 0.3.0 | [#20](https://github.com/kwestic-tech/dns-email-audit/pull/20) | `8c3a36f` | 1.2 (Implemented) |
 | [dns-protocol-depth](implemented/dns-protocol-depth.md) | 0.4.0 | [#22](https://github.com/kwestic-tech/dns-email-audit/pull/22) | `9bda3ad` | 1.2 (Implemented) |
 | [dnssec-evidence](implemented/dnssec-evidence.md) | 0.5.0 | [#25](https://github.com/kwestic-tech/dns-email-audit/pull/25) | `v0.5.0` | 1.5 (Implemented) |
+| [modular-architecture-and-production-build](implemented/modular-architecture-and-production-build.md) | 0.6.0 | — | `v0.6.0` | 1.7 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in
