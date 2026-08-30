@@ -30,7 +30,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **`index.html` loads one script instead of seven.** `dist/app.min.js`, built
   by esbuild, is the single delivery boundary: 437 KB raw and 131 KB gzipped,
-  down from 719 KB and 212 KB across the seven files it replaces.
+  down from 719 KB raw and 213 KB gzipped across the seven separately-fetched
+  files it replaces.
 
 - **`window.DnsAudit` is the supported browser API, and it has two members** —
   `analyzeDomain` and `checkConnectivity`. That is the whole global surface:
