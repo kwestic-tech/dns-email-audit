@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 82,
+      "assertions": 83,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -434,8 +434,21 @@
       ]
     },
     {
+      "path": "src/audit/scoring.test.js",
+      "assertions": 49,
+      "areas": [
+        "the weights, parked weights and grade tiers, byte-identical to v0.5.0",
+        "DNSSEC gating the A tier and DMARC as the largest pillar",
+        "calcDmarcScore: the effective posture, the weakest of sp and np, and what test mode collapses",
+        "calcSpfScore: the -all / ~all / present bands, and the two warnings that make an ok record worthless",
+        "the input boundary — scoring reads protocol facts, and a record attached to the same facts changes nothing",
+        "the parked rubric and its four pillars",
+        "calcAdvScore: an unverifiable check leaves the denominator"
+      ]
+    },
+    {
       "path": "src/audit/audit-domain.test.js",
-      "assertions": 55,
+      "assertions": 57,
       "areas": [
         "the unregistered short-circuit, and that nothing downstream runs after it",
         "the NS servfail DNSSEC preflight: the unchecked retry, its gate, and the verdict it does not re-derive",

@@ -73,8 +73,6 @@ function build(overrides = {}) {
     auditSpfSubnets: async () => { log('auditSpfSubnets'); return sentinel('subnets'); },
     buildIssues: () => [sentinel('issues')],
     buildSuggestions: () => [sentinel('suggestions')],
-    calcScore: () => sentinel('score'),
-    calcAdvScore: () => sentinel('advScore'),
     ...overrides,
   };
   const { analyzeDomain } = createAuditDomain(capabilities);
@@ -97,7 +95,10 @@ eq('and no other check runs at all',
 const live = build();
 const liveResult = await live.analyzeDomain('example.test', NONE);
 eq('a registered domain does continue', liveResult.unregistered, undefined);
-eq('and reaches the scorer', liveResult.score, { sentinel: 'score' });
+// The scorer is `audit/scoring.js` since Task 5.3 — a sibling the coordinator
+// imports, not a capability it is handed — so this is the real one.
+eq('and reaches the scorer', liveResult.score.max, 100);
+eq('which grades what it found', liveResult.score.grade, 'F');
 
 /* ── 2. The NS servfail DNSSEC preflight ──────────────────────────────── */
 section('2. The preflight, spec §3\'s audit-owned exception edge');
@@ -355,7 +356,10 @@ eq('a CAA failure states its unknown rather than discarding the audit',
   [degraded.advanced.caa.unknown, degraded.advanced.caa.error], [true, 'servfail']);
 eq('and every other advanced check still produced its answer',
   degraded.advanced.dnssec !== null, true);
-eq('the audit still scores', degraded.score, { sentinel: 'score' });
+eq('the audit still scores', degraded.score.max, 100);
+// The degraded check is UNPROVEN rather than failed: a pillar that scored zero
+// because the lookup failed is not the same as one the domain does not have.
+eq('and names the pillar it could not verify', degraded.score.unproven.includes('caa'), true);
 
 // The website fallback COLLAPSES the kind to one token, where CAA lets it
 // escape. Two deliberately different policies, asserted together so neither

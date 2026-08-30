@@ -105,7 +105,7 @@ eq('no node_modules path is an input', inputs.filter(p => p.includes('node_modul
 // which absorbed `src/entry-legacy.js` and `src/legacy-bridge.js`.
 eq('the inputs are exactly the modules the entry point reaches', inputs.sort(),
   ['js/dns.js',
-    'src/audit/audit-domain.js', 'src/audit/context.js',
+    'src/audit/audit-domain.js', 'src/audit/context.js', 'src/audit/scoring.js',
     'src/core/bimi/bimi.js', 'src/core/caa/caa.js', 'src/core/dkim/dkim.js',
     'src/core/dmarc/org-domain.js', 'src/core/dmarc/record.js',
     'src/core/dmarc/report-auth.js', 'src/core/dmarc/tree-walk.js',
@@ -143,7 +143,7 @@ eq('no path under tests/ appears in the source map',
 // code-bearing as of Task 2.6, which retired the two import-only adapters.
 eq('every mapped source is one of the bundle inputs',
   sourceMap.sources.map(p => p.replace(/^(\.\.\/)+/, '')).filter(p => !inputs.includes(p)), []);
-eq('every code-bearing input is mapped', sourceMap.sources.length, 40);
+eq('every code-bearing input is mapped', sourceMap.sources.length, 41);
 
 // Defence in depth, carrying no acceptance criterion of its own: a string that
 // appears in every cross-cutting suite must appear nowhere in the artifact.

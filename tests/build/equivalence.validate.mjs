@@ -130,7 +130,8 @@ section('2. Mutations are caught on the right surface');
 const MUTATIONS = [
   {
     label: 'flip one WEIGHTS value (spf 15 -> 14)',
-    file: 'js/dns.js',
+    // Followed the scoring model to its owner at Task 5.3.
+    file: 'src/audit/scoring.js',
     from: 'dmarc: 30, spf: 15, dkim: 15, dnssec: 15,',
     to: 'dmarc: 30, spf: 14, dkim: 15, dnssec: 15,',
     mustMove: ['csv', 'dom', 'report', 'result'],
@@ -140,14 +141,16 @@ const MUTATIONS = [
     // The same edit to a DIFFERENT weight, and it reaches less far. Measured,
     // not assumed — this expectation was written as "csv moves too" and the
     // validator refused it. `calcDmarcScore()` builds `pts` from fixed
-    // components (js/dns.js:4515) and `WEIGHTS.dmarc` is only the pillar's
-    // `max` (js/dns.js:5322), so the total, the grade and therefore every CSV
-    // column stay identical while the breakdown the UI renders changes.
+    // components and `WEIGHTS.dmarc` is only the pillar's `max`, so the total,
+    // the grade and therefore every CSV column stay identical while the
+    // breakdown the UI renders changes. (The two `js/dns.js` line numbers this
+    // note used to cite went stale long before Task 5.3 moved the code; both
+    // functions are in `src/audit/scoring.js` now.)
     //
     // Kept as a case because it is the clearest evidence in this file that the
     // five surfaces have genuinely different reach.
     label: 'flip a WEIGHTS value that is a ceiling only (dmarc 30 -> 29)',
-    file: 'js/dns.js',
+    file: 'src/audit/scoring.js',
     from: 'dmarc: 30, spf: 15, dkim: 15, dnssec: 15,',
     to: 'dmarc: 29, spf: 15, dkim: 15, dnssec: 15,',
     mustMove: ['dom', 'report', 'result'],
@@ -155,9 +158,12 @@ const MUTATIONS = [
   },
   {
     label: 'reorder one array (the scoring pillars)',
-    file: 'js/dns.js',
-    from: "      { key: 'dmarc', pts: dmarc.pts, max: WEIGHTS.dmarc },\n      { key: 'spf', pts: calcSpfScore(spfStatus, advanced), max: WEIGHTS.spf },",
-    to: "      { key: 'spf', pts: calcSpfScore(spfStatus, advanced), max: WEIGHTS.spf },\n      { key: 'dmarc', pts: dmarc.pts, max: WEIGHTS.dmarc },",
+    file: 'src/audit/scoring.js',
+    // The indentation is part of the pattern, and the move dedented these two
+    // lines by two spaces. `applies exactly once` is what turns that into a
+    // visible failure instead of "the mutation moved nothing".
+    from: "    { key: 'dmarc', pts: dmarc.pts, max: WEIGHTS.dmarc },\n    { key: 'spf', pts: calcSpfScore(spfStatus, advanced), max: WEIGHTS.spf },",
+    to: "    { key: 'spf', pts: calcSpfScore(spfStatus, advanced), max: WEIGHTS.spf },\n    { key: 'dmarc', pts: dmarc.pts, max: WEIGHTS.dmarc },",
     mustMove: ['dom', 'report', 'result'],
     mustHold: ['trace'],
   },
@@ -253,7 +259,11 @@ section('2b. Negative control: a mutation that is not rebuilt moves nothing');
  * 2's rebuilds are no longer what makes it work.
  */
 const staleRoot = await makeRoot('stale');
-const stalePath = join(staleRoot, 'js', 'dns.js');
+// Follows the weights, like the probes above. Task 5.3 moved the scoring model
+// out of `js/dns.js`, and a control that edited a file no longer holding the
+// weights would have gone green for the wrong reason — which is the exact
+// failure this control exists to detect in section 2.
+const stalePath = join(staleRoot, 'src', 'audit', 'scoring.js');
 const staleSource = readFileSync(stalePath, 'utf8');
 eq('the control mutation applies', staleSource.includes('dmarc: 30, spf: 15'), true);
 writeFileSync(stalePath, staleSource.replace('dmarc: 30, spf: 15', 'dmarc: 30, spf: 1'));

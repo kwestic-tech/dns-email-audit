@@ -8,10 +8,11 @@ concurrently, how a failure is isolated, and how the answers become one result.
 This directory decides nothing about a record's meaning — every protocol rule
 belongs to a `core/<protocol>/` owner.
 
-**Task 5.1 created the directory; Task 5.2 added the coordinator.**
-`context.js` is the state boundary and `audit-domain.js` is `analyzeDomain()`.
-The scoring model and issue construction arrive at Tasks 5.3 and 5.4; until
-then they live in `js/dns.js` and are passed in.
+**Task 5.1 created the directory, Task 5.2 added the coordinator, Task 5.3 the
+scoring model.** `context.js` is the state boundary, `audit-domain.js` is
+`analyzeDomain()`, `scoring.js` is the rubric. Issue and suggestion
+construction arrives at Task 5.4; until then `buildIssues` and
+`buildSuggestions` live in `js/dns.js` and are passed in.
 
 ## Allowed edges
 
@@ -39,7 +40,9 @@ other's answer:
 | Export | Kind | Contract |
 | --- | --- | --- |
 | `createAuditContext({ domain, options })` | factory | The state belonging to one audit of one domain. Takes no capability: no resolver, no cache, no clock. |
-| `createAuditDomain(capabilities)` | factory | Returns `{ analyzeDomain }`. Takes the resolver handle, every protocol check built over it, and — temporarily — the four audit siblings Tasks 5.3 and 5.4 have yet to move. |
+| `createAuditDomain(capabilities)` | factory | Returns `{ analyzeDomain }`. Takes the resolver handle, every protocol check built over it, and — temporarily — the two audit siblings Task 5.4 has yet to move. |
+| `calcScore`, `calcDmarcScore`, `calcSpfScore`, `gradeFor`, `calcAdvScore` | pure | The scoring model. `calcAdvScore` is internal to the audit; the other four are legacy engine members. |
+| `WEIGHTS`, `PARKED_WEIGHTS`, `GRADE_THRESHOLDS` | frozen data | The rubric. Byte-identical to `v0.5.0` — see below. |
 
 ### Factory product
 
@@ -120,6 +123,48 @@ locates it in this file and asserts that `js/dns.js` holds none at all.
 moved here with their call sites — CAA and SPF let the kind escape, the website
 fallback collapses it to `@dns-error`. `dns-transport.test.mjs` counts them per
 file, so the move reads as a move rather than as three deletions.
+
+## `scoring.js` — what scoring is allowed to read
+
+**Byte-identical to `v0.5.0`**, which is Gate 5's first condition. Verified by
+an explicit diff against the tag — `JSON.stringify` of each constant on both
+sides, compared byte for byte, and proven to fail on a single changed weight
+before it was believed. `scoring.test.js` §1 pins the values the diff
+confirmed. `POLICY_RANK` is included in that diff but is **not** this
+directory's: it moved to `core/dmarc/record.js` at Task 4.6, and the
+implementation plan lists it under Task 5.3 only because it was still in
+`js/dns.js` when the plan was written.
+
+### The input boundary
+
+Scoring's inputs are **protocol FACTS produced by an owner**, never records.
+
+| Reads | Produced by |
+| --- | --- |
+| `spfStatus.status`, `spfStatus.warnings` | `core/spf/`'s `analyzeSpf()` |
+| the parsed DMARC status and `POLICY_RANK` | `core/dmarc/` |
+| `advanced.caa.found`, `advanced.mtaSts.present`, `advanced.dnssec.signed`, … | each protocol owner |
+
+**This is not a parsing rule, and the distinction is the whole point.** The
+owner decides what a record MEANS; scoring decides what a meaning is WORTH.
+`calcSpfScore()` reading `spfStatus.warnings` is the second of those — the
+tokens are SPF's, and this module neither produces them nor looks at the record
+they came from.
+
+The line scoring may not cross is **re-deriving a fact from a record**. If a
+number here ever needs something no owner reports, the owner grows the fact.
+`scoring.test.js` §5 asserts that directly rather than describing it: the facts
+it scores are fabricated with no parser behind them, and attaching the record
+that produced them changes nothing — including a record that flatly
+contradicts them, which is the assertion that would fail if this module ever
+read one.
+
+**Ruled at Task 5.3: no scoring name goes in
+[`dns-transport.test.mjs`](../../tests/contract/dns-transport.test.mjs) §3b.**
+That inventory protects one specific regression — parsing and selection leaking
+back into the coordinator — and a weight table is not a parsing rule. Widening
+it to mean "anything that reads a protocol value" would leave it protecting
+nothing in particular.
 
 ## Three pieces of state, and the boundary around them
 
@@ -219,6 +264,13 @@ exposes `analyzeDomain` as an engine member.
 `startsWithCI` — still a legacy engine member — is imported into `js/dns.js`
 from `core/shared/record-selection.js` rather than from here. No behaviour
 moved with any of it.
+
+**Task 5.3:** `js/dns.js`'s two scoring blocks, unchanged apart from the
+two-space dedent and the `export` keywords. No weight, no threshold, no
+rounding and no branch moved with them, and the explicit `v0.5.0` diff is what
+says so. `calcScore` and `calcAdvScore` came OFF `createAuditDomain()`'s
+capability list in the same commit: `scoring.js` is a sibling, so the
+coordinator imports it rather than being handed it.
 
 Both five-surface equivalence subjects report zero differences at each commit.
 

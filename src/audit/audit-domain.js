@@ -46,11 +46,11 @@
  *
  * ── The four audit members this file does not own yet ───────────────────
  *
- * `buildIssues`, `buildSuggestions`, `calcScore` and `calcAdvScore` are
- * `audit/` siblings that have not been extracted. They arrive as arguments
- * until Tasks 5.3 and 5.4 move them here, and then become imports. They are
- * listed apart in the destructuring below so the temporary set is visible
- * rather than mixed in with the resolver's.
+ * `buildIssues` and `buildSuggestions` are `audit/` siblings that have not
+ * been extracted. They arrive as arguments until Task 5.4 moves them here, and
+ * then become imports — which is exactly what happened to `calcScore` and
+ * `calcAdvScore` at Task 5.3. They are listed apart in the destructuring below
+ * so the temporary set is visible rather than mixed in with the resolver's.
  *
  * ── The one raw-kind read ───────────────────────────────────────────────
  *
@@ -70,6 +70,7 @@ import {
 import { analyzeDmarc, emptyDmarcStatus } from '../core/dmarc/record.js';
 import { applyInheritance } from '../core/dmarc/tree-walk.js';
 import { planReportDestinations } from '../core/dmarc/report-auth.js';
+import { calcScore, calcAdvScore } from './scoring.js';
 import {
   detectDNSProvider, detectEmailProvider, detectHosting, selectVerifications,
 } from '../providers/detectors.js';
@@ -89,8 +90,10 @@ export function createAuditDomain(capabilities) {
     checkDNSSEC, checkCAA, checkTlsa, auditMxHosts, checkDKIM,
     discoverDmarc, resolveDestinationOrgDomains, checkExternalReportAuth,
     countSpfLookups, auditSpfSubnets,
-    // TEMPORARY — audit siblings awaiting Tasks 5.3 and 5.4, then imports.
-    buildIssues, buildSuggestions, calcScore, calcAdvScore,
+    // TEMPORARY — audit siblings awaiting Task 5.4, then imports. Task 5.3
+    // took `calcScore` and `calcAdvScore` off this list: `audit/scoring.js` is
+    // a sibling, so it is imported like one.
+    buildIssues, buildSuggestions,
   } = capabilities;
 
   async function resolveWebsite(domain, queryOpts) {
