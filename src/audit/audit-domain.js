@@ -11,10 +11,15 @@
  *
  * `js/dns.js`'s `analyzeDomain()` and `resolveWebsite()`, at the same
  * indentation and in the same order. **The `Promise.all` structure is
- * byte-identical** — the four core lookups, the two wildcard probes, the eight
- * advanced checks and the DKIM scan batch are exactly the concurrency `v0.5.0`
- * had. Spec §35 and the implementation plan both forbid changing concurrency
- * and moving code in the same phase, and this release changes it nowhere.
+ * byte-identical** — the four core lookups, the eight advanced checks and the
+ * two wildcard probes are exactly the concurrency `v0.5.0` had. Spec §35 and
+ * the implementation plan both forbid changing concurrency and moving code in
+ * the same phase, and this release changes it nowhere.
+ *
+ * Those three batches are **this file's**, and the claim is bounded to them.
+ * DKIM's selector scan is batched at `DKIM_SCAN_BATCH_SIZE = 24` inside
+ * `core/dkim/`, which is where that batch is owned, contracted and tested; the
+ * coordinator awaits one call and knows nothing about it.
  *
  * ── What this file does NOT parse ───────────────────────────────────────
  *

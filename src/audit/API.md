@@ -95,7 +95,10 @@ wall-clock threshold would be — so a regression reports in milliseconds instea
 of running to the CI timeout. The deadline itself is proven to fire.
 
 Three batches are covered, and they are **this file's**: the four core lookups,
-all eight advanced checks, and the wildcard pair.
+all eight advanced checks, and the wildcard pair. DKIM's selector scan is
+batched at `DKIM_SCAN_BATCH_SIZE = 24` inside `core/dkim/`, which is where that
+batch is owned, contracted and tested; the coordinator awaits one call and knows
+nothing about it. Nothing here claims otherwise.
 
 **The one raw-kind read.** The NS `servfail` DNSSEC preflight reads
 `nsResult.kind` directly, which is spec §3's audit-owned exception edge. It was
