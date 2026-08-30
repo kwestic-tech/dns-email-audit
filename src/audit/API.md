@@ -34,14 +34,19 @@ other's answer:
 
 | Reached by import | Passed as a capability |
 | --- | --- |
-| `analyzeSpf`, `classifySpfSubnets`, `analyzeDmarc`, `emptyDmarcStatus`, `applyInheritance`, `planReportDestinations`, `validateBimiRecord`, `validateMtaStsRecord`, `validateTlsRptRecord`, `isNullMx`, `createAuditContext` | `dohFetch`, `dohQuery`, `requireUsable`, `optionalCheck`, `existenceFromResponse`, and every protocol check built over the resolver |
+| **Selectors and summarizers:** `selectSpfRecords`, `summarizeBimi`, `summarizeMtaSts`, `summarizeTlsRpt`, `selectVerifications`. **Pure protocol functions:** `analyzeSpf`, `classifySpfSubnets`, `spfReferencedCatalogKeys`, `analyzeDmarc`, `emptyDmarcStatus`, `applyInheritance`, `planReportDestinations`, `isNullMx`, and `providers/`'s three detectors. **Audit siblings:** `createAuditContext`, `calcScore`, `calcAdvScore`, `buildIssues`, `buildSuggestions`. | `dohFetch`, `dohQuery`, `requireUsable`, `optionalCheck`, `existenceFromResponse`, and every protocol check built over the resolver |
+
+The three record validators — `validateBimiRecord`, `validateMtaStsRecord`,
+`validateTlsRptRecord` — are **no longer** imported by the coordinator. Task
+5.2a moved the selection and status shaping that called them into their owners,
+so the coordinator now imports the summarizer and never sees the validator.
 
 ## Public exports
 
 | Export | Kind | Contract |
 | --- | --- | --- |
 | `createAuditContext({ domain, options })` | factory | The state belonging to one audit of one domain. Takes no capability: no resolver, no cache, no clock. |
-| `createAuditDomain(capabilities)` | factory | Returns `{ analyzeDomain }`. Takes the resolver handle, every protocol check built over it, and — temporarily — the two audit siblings Task 5.4 has yet to move. |
+| `createAuditDomain(capabilities)` | factory | Returns `{ analyzeDomain }`. Takes the resolver handle and every protocol check built over it — and nothing else. No temporary capability remains. |
 | `calcScore`, `calcDmarcScore`, `calcSpfScore`, `gradeFor`, `calcAdvScore` | pure | The scoring model. `calcAdvScore` is internal to the audit; the other four are legacy engine members. |
 | `buildIssues(facts)`, `buildSuggestions(facts)` | pure | Findings and remediation tips, as stable keys the i18n layer resolves. Both are legacy engine members. |
 | `WEIGHTS`, `PARKED_WEIGHTS`, `GRADE_THRESHOLDS` | exported rubric data | The scoring rubric. Their **serialized values and ordering match `v0.5.0`** — see below. Plain objects and an array: `const` prevents rebinding, not mutation, and they are deliberately **not** frozen. |

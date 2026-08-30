@@ -5,8 +5,19 @@
  * findings; `buildSuggestions()` turns the same facts into the handful of
  * "what to do next" tips shown beside them. Each issue carries a KEY — a
  * stable identifier the i18n layer resolves — plus a severity and optional
- * `args` that fill `{0}` placeholders in the translated message. No English
- * appears here, by the same rule that has always governed this code.
+ * `args` that fill `{0}` placeholders in the translated message.
+ *
+ * **No complete user-facing message prose appears here.** That is the accurate
+ * form of the rule, and it is narrower than "no English": some `args` are
+ * literals that reach the screen inside a translated sentence. `checks-unverified`
+ * is the one that is genuinely a defect rather than a protocol token —
+ * `'Website'` sits beside `'BIMI'`, `'SPF'`, `'MX'` and `'TLSA'`, which are
+ * protocol names that are correctly never translated, while "Website" is an
+ * ordinary English noun that should be. **Pre-existing, recorded as a
+ * localization finding, and deliberately NOT changed here:** fixing it adds a
+ * `locales/en.json` key, which under `AGENTS.md` means translating it into
+ * thirteen locales — a localization change, not a refactor, and out of scope
+ * for a move that is required to alter no behaviour.
  *
  * ── The input boundary, same ruling as scoring ──────────────────────────
  *
@@ -50,8 +61,6 @@ import { POLICY_RANK } from '../core/dmarc/record.js';
 import { findExternalReportDestinations } from '../core/dmarc/report-auth.js';
 import { DNSSEC_ALGORITHMS, DNSSEC_DIGESTS } from '../core/dnssec/records.js';
 
-// Each issue carries a key (→ locale lookup) and optional `args` used to
-// fill {0} placeholders in the translated message.
 // Each issue carries a key (→ locale lookup) and optional `args` used to
 // fill {0} placeholders in the translated message.
 export function buildIssues({ emailProvider, spfStatus, spfRecords, dkimStatus, dmarcStatus, dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan, wildcardApex, wildcardDkim, hosting, advanced, domain }) {

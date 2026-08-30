@@ -448,14 +448,16 @@
     },
     {
       "path": "src/audit/issues.test.js",
-      "assertions": 35,
+      "assertions": 72,
       "areas": [
-        "the shape of a finding: a key, a severity, no English",
+        "the shape of a finding: a key, a severity, no complete message prose",
         "the closed three-member severity vocabulary",
-        "every finding key defined under issue.*, every tip key under suggestion.*, every guide under learnMore",
+        "four vocabularies kept apart: direct literal issue keys, the fourteen computed or forwarded ones, suggestion keys and learn-more guides",
+        "the fourteen non-literal keys pinned against audit.issue.key and en.json, with each of their four emission paths exercised",
+        "the compositional precondition: forwarded SPF warnings are trusted from the closed owner algebra, not filtered here",
         "suggestions as tips rather than findings",
         "a configured domain is not told to configure itself",
-        "the input boundary — facts are interpreted into findings, and a record attached to the same facts changes nothing"
+        "the input boundary — record contents are never parsed, while owner facts and evidence including record count are consumed"
       ]
     },
     {

@@ -311,9 +311,21 @@ section('4. Computed values (spec §12.1)');
 // The two DNSSEC chain claims built as 'ds-' + record.match. Nine claims, not
 // seven, and these two exist nowhere in the source as literals.
 const chainSource = readFileSync(join(REPO, 'js/dns.js'), 'utf8');
-// The chain claims moved to their owner at Task 4.5; the issue-key scan below
-// still reads js/dns.js, because buildIssues() has not moved. Two sources, and
-// each assertion names the one it means.
+/**
+ * THREE sources now, and each assertion names the one it means.
+ *
+ * The chain claims moved to their owner at Task 4.5 and the issue builder to
+ * `src/audit/issues.js` at Task 5.4. Until Task 5.4a the §6 scan below still
+ * read `js/dns.js` — which by then contained no issue builder at all, so the
+ * scan matched NOTHING and its assertions passed vacuously. A negative control
+ * that has stopped reading its subject is the exact failure it exists to
+ * detect, arriving in the instrument instead of the code.
+ *
+ * `chainSource` is kept: §4's assertions are about what `js/dns.js` does NOT
+ * carry, and those are still meaningful while the file exists.
+ */
+const ISSUES_SOURCE = 'src/audit/issues.js';
+const issuesSource = readFileSync(join(REPO, ISSUES_SOURCE), 'utf8');
 const DNSSEC_CHAIN = 'src/core/dnssec/chain.js';
 const dnssecChainSource = readFileSync(join(REPO, DNSSEC_CHAIN), 'utf8');
 /**
@@ -606,14 +618,49 @@ eq('the registry records 106 issue tokens', issueAlgebra.members.length, 106);
 eq('and they are exactly the locale issue keys',
   [...issueAlgebra.members].sort(), localeIssueKeys);
 
-// The negative case: prove a literal scan under-reports, which is why the
-// registry is reviewed rather than extracted. Three tokens are emitted only
-// through the computed pushKeyFinding(key, ...) helper.
-const literalKeys = new Set([...chainSource.matchAll(/key:\s*'([^']+)'/g)].map(m => m[1]));
-for (const computed of ['dnssec-key-algorithm-ineligible', 'dnssec-key-not-zone-key', 'dnssec-key-malformed']) {
-  eq(`${computed} is invisible to a literal key: scan`, literalKeys.has(computed), false);
-  eq(`${computed} is in the reviewed registry`, issueAlgebra.members.includes(computed), true);
-  eq(`${computed} has a locale entry`, Object.prototype.hasOwnProperty.call(en.issue, computed), true);
-}
+/**
+ * The negative case: prove a literal scan under-reports, which is why the
+ * registry is REVIEWED rather than extracted.
+ *
+ * Read from the issue builder's real home. The scan must first be shown to
+ * see something — an empty scan makes every "invisible" assertion below pass
+ * for the wrong reason, which is precisely what happened between Tasks 5.4 and
+ * 5.4a while this read `js/dns.js`.
+ */
+// Cut at the builder boundary: `buildSuggestions()` writes seven more
+// `key: '…'` literals that resolve through `en.suggestion`, not `en.issue`.
+// Counting them here inflates the scan to 99 and makes the arithmetic below
+// close on the wrong number — which is how this assertion caught itself.
+const issuesCut = issuesSource.indexOf('export function buildSuggestions(');
+eq('the issue builder is separable from the suggestion builder', issuesCut > 0, true);
+const literalKeys = new Set([...issuesSource.slice(0, issuesCut).matchAll(/key:\s*'([^']+)'/g)].map(m => m[1]));
+eq(`the scan reads ${ISSUES_SOURCE} and finds keys there`, literalKeys.size > 90, true);
+eq('and js/dns.js no longer carries an issue key at all',
+  [...chainSource.matchAll(/key:\s*'([^']+)'/g)].length, 0);
+// Fourteen tokens are emitted without ever being written as a literal, by four
+// mechanisms. `src/audit/issues.test.js` §3b holds the full inventory and
+// exercises each emission path; this is the registry-side control.
+const COMPUTED_ISSUE_KEYS = [
+  // The DKIM confidence ternary.
+  'dkim-missing', 'dkim-unverified',
+  // The DIAGNOSIS_KEYS table, keyed by the walk's `why`.
+  'dmarc-version-not-first', 'dmarc-version-bad-value', 'dmarc-version-missing',
+  // pushKeyFinding(key, predicate, severity).
+  'dnssec-key-algorithm-ineligible', 'dnssec-key-not-zone-key', 'dnssec-key-malformed',
+  // Forwarded verbatim from the closed spf.warnings owner algebra.
+  'spf-all-permit', 'spf-neutral', 'spf-softfail',
+  'spf-missing-google', 'spf-missing-icloud', 'spf-missing-microsoft',
+];
+eq('fourteen issue tokens are invisible to a literal scan', COMPUTED_ISSUE_KEYS.length, 14);
+eq('and the literal scan really cannot see any of them',
+  COMPUTED_ISSUE_KEYS.filter(k => literalKeys.has(k)), []);
+eq('every one is in the reviewed registry',
+  COMPUTED_ISSUE_KEYS.filter(k => !issueAlgebra.members.includes(k)), []);
+eq('and every one has a locale entry',
+  COMPUTED_ISSUE_KEYS.filter(k => !Object.prototype.hasOwnProperty.call(en.issue, k)), []);
+// The arithmetic that makes the under-reporting concrete: what a scan sees,
+// plus what it cannot, is the whole reviewed vocabulary.
+eq('a literal scan sees 92 of the 106', literalKeys.size, 92);
+eq('and 92 + 14 closes the registry', literalKeys.size + COMPUTED_ISSUE_KEYS.length, issueAlgebra.members.length);
 
 report();
