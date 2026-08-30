@@ -16,6 +16,7 @@
 
 import { parseOrderedFields, EXT_NAME } from '../shared/record-fields.js';
 import { RECORD_EXT_VALUE } from './ext-value.js';
+import { versionCandidates, leadingVersionMatches } from '../shared/record-selection.js';
 
 /**
  * Every token `validateMtaStsRecord()` can put in `errors`.
@@ -67,4 +68,48 @@ export function validateMtaStsRecord(record) {
   }
   if (!id) syntax = false;
   return { valid: syntax, id: id, errors: syntax ? [] : ['invalid-syntax'] };
+}
+
+/**
+ * The whole MTA-STS answer for one domain, from its `_mta-sts` TXT records.
+ *
+ * Task 5.2a, moved out of `analyzeDomain()`: Gate 5 requires the coordinator to
+ * hold no parsing rule, and selecting the records, choosing which one to show
+ * and deciding what `present` means are all parsing rules.
+ *
+ * RFC 8461 §3.1: filter to the versioned records, and if the result is not
+ * exactly one, the domain does not have the feature. So `present` is false when
+ * the record is DUPLICATED — the operator believes the control is active when
+ * it is not, which is worth saying out loud.
+ *
+ * An auditor does not discard the malformed candidate the way a sender does.
+ * The record exists, at an owner name dedicated to this protocol, and "nothing
+ * is published" and "what is published is not an active policy" are different
+ * facts. `record` shows the sender-compatible record when there is one and the
+ * malformed candidate otherwise, which is the evidence an operator needs.
+ *
+ * `policyVerified` is false here and always has been: this checks the DNS
+ * record only. Fetching the policy file at
+ * `https://mta-sts.<domain>/.well-known/mta-sts.txt` is an HTTPS request this
+ * tool does not make, and the field stays so the distinction is visible rather
+ * than implied.
+ *
+ * `null` in means the LOOKUP failed, which is not a domain without the record;
+ * `unknown` carries that through to scoring and the UI.
+ */
+export function summarizeMtaSts(txt) {
+  var matches = leadingVersionMatches(txt, 'STSv1');
+  var candidates = versionCandidates(txt, 'STSv1');
+  var record = matches[0] || candidates[0] || '';
+  var validation = validateMtaStsRecord(record);
+  return {
+    present: matches.length === 1 && validation.valid,
+    advertised: candidates.length > 0,
+    policyVerified: false,
+    record: record,
+    candidates: candidates,
+    validation: validation,
+    multiple: matches.length > 1,
+    unknown: txt === null,
+  };
 }

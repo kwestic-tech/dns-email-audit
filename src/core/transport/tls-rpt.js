@@ -19,6 +19,7 @@
 import { parseOrderedFields, EXT_NAME } from '../shared/record-fields.js';
 import { isHttpUri, isMailtoUri } from '../shared/uri.js';
 import { RECORD_EXT_VALUE } from './ext-value.js';
+import { versionCandidates, leadingVersionMatches } from '../shared/record-selection.js';
 
 /**
  * Every token `validateTlsRptRecord()` can put in `errors`. Registry algebra
@@ -71,4 +72,35 @@ export function validateTlsRptRecord(record) {
   }
   if (!sawRua) syntax = false;
   return { valid: syntax, destinations: destinations, errors: syntax ? [] : ['invalid-syntax'] };
+}
+
+/**
+ * The whole TLS-RPT answer for one domain, from its `_smtp._tls` TXT records.
+ *
+ * Task 5.2a, moved out of `analyzeDomain()` for the reason Gate 5 gives: the
+ * coordinator holds no parsing rule, and record selection is one.
+ *
+ * RFC 8460 §3 states the same rule MTA-STS and BIMI do — filter to the
+ * versioned records, and anything other than exactly one means the domain does
+ * not have the feature — so `present` is false when the record is duplicated.
+ * The malformed candidate is still selected and shown, because an auditor
+ * reports what is published rather than discarding it the way a sender would.
+ *
+ * `null` in means the lookup failed, not that the record is absent; `unknown`
+ * is what keeps an unverified control from being presented as an absent one.
+ */
+export function summarizeTlsRpt(txt) {
+  var matches = leadingVersionMatches(txt, 'TLSRPTv1');
+  var candidates = versionCandidates(txt, 'TLSRPTv1');
+  var record = matches[0] || candidates[0] || '';
+  var validation = validateTlsRptRecord(record);
+  return {
+    present: matches.length === 1 && validation.valid,
+    advertised: candidates.length > 0,
+    record: record,
+    candidates: candidates,
+    validation: validation,
+    multiple: matches.length > 1,
+    unknown: txt === null,
+  };
 }

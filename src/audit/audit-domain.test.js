@@ -27,7 +27,7 @@ import { optionalCheck } from '../core/dns/optional.js';
 import { requireUsable } from '../core/dns/resolver.js';
 import { existenceFromResponse } from '../core/dns/existence.js';
 import { dnsError } from '../core/dns/errors.js';
-import { createAuditDomain, startsWithCI } from './audit-domain.js';
+import { createAuditDomain } from './audit-domain.js';
 
 const { eq, rejects, section, report } = createSuite();
 
@@ -77,17 +77,8 @@ function build(overrides = {}) {
 
 const NONE = { advanced: false, dkim: false, www: false, wildcard: false, deepChecks: false };
 
-/* ── 1. The audit-local record selector ───────────────────────────────── */
-section('1. startsWithCI');
-
-// Moved with the coordinator, and still an engine member. Case-insensitive
-// recognition, so `V=SPF1` is not silently discarded as "no policy at all".
-eq('an upper-case version field is still recognized', startsWithCI('V=SPF1 -all', 'v=spf1'), true);
-eq('a non-match is rejected', startsWithCI('x=DMARC1', 'v=DMARC1'), false);
-eq('and a null record is safe', startsWithCI(null, 'v=DMARC1'), false);
-
-/* ── 2. The unregistered short-circuit ────────────────────────────────── */
-section('2. NXDOMAIN stops the audit');
+/* ── 1. The unregistered short-circuit ────────────────────────────────── */
+section('1. NXDOMAIN stops the audit');
 
 const gone = build({ dohFetch: async () => ({ kind: 'nxdomain', status: 3, answers: [] }) });
 const goneResult = await gone.analyzeDomain('Gone.Test', NONE);
@@ -102,8 +93,8 @@ const liveResult = await live.analyzeDomain('example.test', NONE);
 eq('a registered domain does continue', liveResult.unregistered, undefined);
 eq('and reaches the scorer', liveResult.score, { sentinel: 'score' });
 
-/* ── 3. The NS servfail DNSSEC preflight ──────────────────────────────── */
-section('3. The preflight, spec §3\'s audit-owned exception edge');
+/* ── 2. The NS servfail DNSSEC preflight ──────────────────────────────── */
+section('2. The preflight, spec §3\'s audit-owned exception edge');
 
 /** A resolver that answers SERVFAIL for NS until `cd=1` is asked for. */
 function servfailUntilUnchecked(dnssecState) {
@@ -159,8 +150,8 @@ await rejects('without advanced checks a SERVFAIL simply throws',
   error => error.kind === 'servfail');
 eq('and the preflight never ran', preflightCalls.length, 0);
 
-/* ── 4. Concurrency, which this release does not change ───────────────── */
-section('4. The Promise.all structure is preserved');
+/* ── 3. Concurrency, which this release does not change ───────────────── */
+section('3. The Promise.all structure is preserved');
 
 /**
  * A stub that does not resolve until every expected call has arrived. If the
@@ -224,8 +215,8 @@ async function arrive2(probe) { await probe.arrive(); return []; }
 await probes.analyzeDomain('example.test', { ...NONE, wildcard: true });
 eq('and both wildcard depths are probed together', wildcardProbe.seen, 2);
 
-/* ── 5. Option gating ─────────────────────────────────────────────────── */
-section('5. Which checks run is the options\' answer');
+/* ── 4. Option gating ─────────────────────────────────────────────────── */
+section('4. Which checks run is the options\' answer');
 
 const off = build();
 const offResult = await off.analyzeDomain('example.test', NONE);
@@ -244,8 +235,8 @@ eq('wildcard: true probes exactly the two depths',
 eq('www: true resolves the website from www.', on.named('dohFetch').some(c => c.args[0] === 'www.example.test'), true);
 eq('and advanced: true reaches CAA', on.named('checkCAA').length, 1);
 
-/* ── 6. The deep-check gate, including the null-MX skip ───────────────── */
-section('6. Deep checks scale with the domain, so they are gated separately');
+/* ── 5. The deep-check gate, including the null-MX skip ───────────────── */
+section('5. Deep checks scale with the domain, so they are gated separately');
 
 const withMx = mx => build({ dohQuery: async (name, type) => (type === 'MX' ? mx : []) });
 
@@ -271,8 +262,8 @@ const noMx = withMx([]);
 await noMx.analyzeDomain('example.test', { ...NONE, advanced: true, deepChecks: true });
 eq('and so does having no MX at all', noMx.named('auditMxHosts').length, 0);
 
-/* ── 7. Error isolation, and the three fallbacks that copy a kind ─────── */
-section('7. One failed lookup degrades one check');
+/* ── 6. Error isolation, and the three fallbacks that copy a kind ─────── */
+section('6. One failed lookup degrades one check');
 
 const failing = build({
   checkCAA: async () => { throw dnsError('servfail', 'example.test', 'CAA'); },
@@ -305,8 +296,8 @@ await rejects('an aborted check aborts the audit rather than degrading',
   () => cancelled.analyzeDomain('example.test', { ...NONE, advanced: true }),
   error => error.name === 'AbortError');
 
-/* ── 7b. The derived null-MX fact ─────────────────────────────────────── */
-section('7b. The fact audit derives, and both of its readers');
+/* ── 7. The derived null-MX fact ─────────────────────────────────────── */
+section('7. The fact audit derives, and both of its readers');
 
 /**
  * RFC 7505's `0 .` is MX semantics, and §12 gives `providers/` an edge to
@@ -331,8 +322,8 @@ eq('an ordinary MX set is not null-MX', accepted.emailProvider === '@null-mx', f
 eq('its deep checks run', acceptsMail.named('auditMxHosts').length, 1);
 eq('and its DKIM check runs', acceptsMail.named('checkDKIM').length, 1);
 
-/* ── 8. The coordinator interprets nothing ────────────────────────────── */
-section('8. No protocol rule lives here');
+/* ── 8. The coordinator carries answers ────────────────────────────── */
+section('8. Answers are carried, not re-derived');
 
 const identity = build();
 const passed = await identity.analyzeDomain('example.test', { ...NONE, advanced: true });

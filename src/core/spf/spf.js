@@ -22,13 +22,18 @@
  * `core/dkim → core/spf` import, which is why the helper is exported for a
  * caller that already exists rather than for a sibling that must not have it.
  *
- * ── Its own `startsWithCI` ──────────────────────────────────────────────
+ * ── Selection lives here now ────────────────────────────────────────────
  *
- * Three lines, duplicated deliberately. The other reader is `analyzeDomain()`
- * in the audit layer, and §12 gives `src/audit/` no edge to `core/shared/` —
- * Task 4.0's finding 5, ruled: a genuinely audit-local helper stays local,
- * duplicated if need be, and the matrix is amended only for a real
- * architectural need. One protocol owner and one audit reader is not that.
+ * `selectSpfRecords()` is Task 5.2a. Gate 5 requires the audit coordinator to
+ * hold no parsing rule, and choosing which TXT records are SPF records — and
+ * deciding that more than one of them is the RFC 7208 §4.5 multiple-record
+ * case — is a parsing rule. It was in `analyzeDomain()`; it belongs here.
+ *
+ * The private `startsWithCI` this file kept duplicated at Task 4.8 went to
+ * [`core/shared/record-selection.js`](../shared/record-selection.js) with it.
+ * That duplication was ruled correct while the second reader was `audit`,
+ * which has no edge to `core/shared/`; the second reader is `providers/` now,
+ * so the helper meets the admission test on its own terms.
  *
  * ── Moved, not redesigned ────────────────────────────────────────────────
  *
@@ -39,17 +44,25 @@
  */
 
 import { parseIpCidr, ipv4ToBigInt, ipv6ToBigInt } from '../shared/ip.js';
+import { startsWithCI } from '../shared/record-selection.js';
 
 /**
- * Record selection is case-insensitive, and this is SPF's own copy.
+ * Which of a domain's TXT records are SPF records.
  *
- * RFC 7208 tag names are case-insensitive, so `V=SPF1` is a valid record that a
- * case-sensitive `startsWith()` would silently discard — reporting a protected
- * domain as having none. False negatives are the worse error for a security
- * tool, so match liberally here and validate the contents later.
+ * EVERY match is kept, not just the first. `record` alone made
+ * `spf-multiple-records` an unevidenced accusation: the finding is critical
+ * and correct, and the panel beside it showed one perfectly valid record,
+ * because the second was discarded before anything could report it. An
+ * operator could not see which records conflicted or where to look, and the
+ * honest conclusion from that screen is that the tool is wrong.
+ *
+ * `multiple` is the count read as RFC 7208 §4.5's permerror condition, which
+ * is why it is computed here rather than by the caller: it is the same
+ * question as "which records are SPF records", asked once.
  */
-function startsWithCI(value, prefix) {
-  return String(value || '').slice(0, prefix.length).toLowerCase() === prefix.toLowerCase();
+export function selectSpfRecords(txt) {
+  var records = (txt || []).filter(function (value) { return startsWithCI(value, 'v=spf1'); });
+  return { records: records, record: records[0] || '', multiple: records.length > 1 };
 }
 
 // locale files and in the "Show me" explainer content.

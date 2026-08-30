@@ -16,7 +16,9 @@
 
 import { createSuite } from '../../tests/lib/assert.mjs';
 import { isNullMx } from '../core/mx/mx.js';
-import { detectDNSProvider, detectEmailProvider, detectHosting } from './detectors.js';
+import {
+  detectDNSProvider, detectEmailProvider, detectHosting, selectVerifications,
+} from './detectors.js';
 
 const { eq, section, report } = createSuite();
 
@@ -104,5 +106,23 @@ eq('an unrecognized address is custom', detectHosting(['192.0.2.1'], [], 'exampl
 // A CNAME pointing inside the audited domain is not a third-party host.
 eq('a same-domain CNAME is not automatically a loop',
   detectHosting([], ['host.example.test'], 'example.test'), '@custom');
+
+
+/* ── 5. Verification records ──────────────────────────────────────────── */
+section('5. selectVerifications');
+
+// Names, from records — which is why this is here rather than in src/audit/.
+// A verification record is a vendor saying the domain proved control to them;
+// it is not a finding and nothing scores it.
+eq('a Google verification record is selected',
+  selectVerifications(['google-site-verification=abc']), ['google-site-verification=abc']);
+eq('an Apple one is too', selectVerifications(['apple-domain=xyz']), ['apple-domain=xyz']);
+eq('both are kept, in the order published',
+  selectVerifications(['apple-domain=a', 'v=spf1 -all', 'google-site-verification=b']),
+  ['apple-domain=a', 'google-site-verification=b']);
+// Selection is case-insensitive, like every other record selector here.
+eq('and case does not hide one', selectVerifications(['GOOGLE-SITE-VERIFICATION=abc']).length, 1);
+eq('an unrelated TXT record is not a verification', selectVerifications(['v=spf1 -all']), []);
+eq('a null TXT set is empty rather than a throw', selectVerifications(null), []);
 
 report();

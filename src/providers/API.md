@@ -24,6 +24,7 @@ It imports nothing at all, and takes no capability either.
 
 | Export | Kind | Contract |
 | --- | --- | --- |
+| `selectVerifications(txt)` | pure | The third-party verification records a domain publishes at its apex. Names, from records — the same job as the detectors, which is why it is here and not in `src/audit/`. Moved at Task 5.2a. |
 | `detectDNSProvider(ns, domain)` | pure | A vendor name, or `@unknown` / `@custom`. |
 | `detectEmailProvider(mx, domain, addressRecords, nullMx)` | pure | A vendor name, or `@null-mx` / `@implicit-mx` / `@none` / `@custom-unknown`. `nullMx` is a derived FACT — see below. |
 | `detectHosting(aRecs, wwwCname, domain)` | pure | A host name, or `@no-web` / `@custom`. |

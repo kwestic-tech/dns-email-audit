@@ -13,7 +13,9 @@
  */
 
 import { createSuite } from '../../../tests/lib/assert.mjs';
-import { validateTlsRptRecord, TLS_RPT_ERRORS } from './tls-rpt.js';
+import {
+  validateTlsRptRecord, TLS_RPT_ERRORS, summarizeTlsRpt,
+} from './tls-rpt.js';
 
 const { eq, section, report } = createSuite();
 const MAILTO = 'mailto:tlsrpt@example.test';
@@ -109,5 +111,28 @@ eq('but whitespace around the = is not',
   validateTlsRptRecord(`v = TLSRPTv1; rua=${MAILTO}`).valid, false);
 eq('one trailing delimiter is permitted',
   validateTlsRptRecord(`v=TLSRPTv1; rua=${MAILTO};`).valid, true);
+
+
+/* ── The whole TLS-RPT answer, moved here at Task 5.2a ────────────────── */
+section('summarizeTlsRpt');
+
+const live = summarizeTlsRpt(['v=TLSRPTv1; rua=mailto:t@e.test']);
+eq('a conforming record is present', live.present, true);
+eq('and advertised', live.advertised, true);
+
+// RFC 8460 §3, the same rule its siblings state.
+const dup = summarizeTlsRpt(['v=TLSRPTv1; rua=mailto:a@e.test', 'v=TLSRPTv1; rua=mailto:b@e.test']);
+eq('a duplicated record is not present', dup.present, false);
+eq('and says so', dup.multiple, true);
+
+const trailing = summarizeTlsRpt(['rua=mailto:t@e.test; v=TLSRPTv1']);
+eq('a version field that is not first is still shown',
+  trailing.record, 'rua=mailto:t@e.test; v=TLSRPTv1');
+eq('and advertised', trailing.advertised, true);
+eq('but not present', trailing.present, false);
+
+eq('a domain with no record advertises nothing', summarizeTlsRpt([]).advertised, false);
+eq('a failed lookup is unknown', summarizeTlsRpt(null).unknown, true);
+eq('while an empty answer is not', summarizeTlsRpt([]).unknown, false);
 
 report();

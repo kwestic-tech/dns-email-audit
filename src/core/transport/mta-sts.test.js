@@ -16,7 +16,9 @@
  */
 
 import { createSuite } from '../../../tests/lib/assert.mjs';
-import { validateMtaStsRecord, MTA_STS_ERRORS } from './mta-sts.js';
+import {
+  validateMtaStsRecord, MTA_STS_ERRORS, summarizeMtaSts,
+} from './mta-sts.js';
 
 const { eq, section, report } = createSuite();
 
@@ -105,5 +107,31 @@ eq('whitespace around the delimiter is the delimiter',
 eq('but whitespace around the = is not', validateMtaStsRecord('v = STSv1; id=abc').valid, false);
 eq('and not on the id either', validateMtaStsRecord('v=STSv1; id = abc').valid, false);
 eq('one trailing delimiter is permitted', validateMtaStsRecord('v=STSv1; id=abc;').valid, true);
+
+
+/* ── The whole MTA-STS answer, moved here at Task 5.2a ────────────────── */
+section('summarizeMtaSts');
+
+const live = summarizeMtaSts(['v=STSv1; id=20260101']);
+eq('a conforming record is present', live.present, true);
+eq('and advertised', live.advertised, true);
+// This checks the DNS record only. Fetching the policy file over HTTPS is a
+// request this tool does not make, and the field keeps that visible.
+eq('the policy file is never claimed as verified', live.policyVerified, false);
+
+// RFC 8461 §3.1: not exactly one means the domain does not have the feature.
+const dup = summarizeMtaSts(['v=STSv1; id=1', 'v=STSv1; id=2']);
+eq('a duplicated record is not present', dup.present, false);
+eq('and says so', dup.multiple, true);
+
+// An auditor reports what is published; a sender discards it.
+const trailing = summarizeMtaSts(['id=1; v=STSv1']);
+eq('a version field that is not first is still shown', trailing.record, 'id=1; v=STSv1');
+eq('and advertised', trailing.advertised, true);
+eq('but not present', trailing.present, false);
+
+eq('a domain with no record advertises nothing', summarizeMtaSts([]).advertised, false);
+eq('a failed lookup is unknown', summarizeMtaSts(null).unknown, true);
+eq('while an empty answer is not', summarizeMtaSts([]).unknown, false);
 
 report();

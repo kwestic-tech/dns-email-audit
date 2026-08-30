@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 81,
+      "assertions": 82,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -191,6 +191,16 @@
       ]
     },
     {
+      "path": "src/core/shared/record-selection.test.js",
+      "assertions": 22,
+      "areas": [
+        "case-insensitive record selection by prefix",
+        "version-field candidates: recognizable before validated, including the record whose version field is not first",
+        "sender-compatible selection: the exact version literal and the whitespace a delimiter allows",
+        "the pair that carries the design — one record an auditor selects and a sender discards"
+      ]
+    },
+    {
       "path": "src/core/caa/caa.test.js",
       "assertions": 86,
       "note": "Co-located per spec §9. Phase 4, Task 4.1 — the first protocol owner, and the one that proves the pattern: the resolver is passed, so the tree walk is driven by a fake transport with core/dns/ nowhere in the graph.",
@@ -222,7 +232,7 @@
     },
     {
       "path": "src/core/bimi/bimi.test.js",
-      "assertions": 49,
+      "assertions": 65,
       "note": "Co-located per spec §9. Phase 4, Task 4.3. No resolver appears anywhere in the file, because the module takes none — the lookup and the present/declined/advertised shaping stay in the audit layer.",
       "areas": [
         "the published error vocabulary, with duplicate-tags shown to suppress invalid-syntax on a record that is both",
@@ -230,31 +240,34 @@
         "v=BIMI1 is case-sensitive and must come first",
         "l= is where BIMI turns on core/shared/uri.js's httpsOnly and requireFqdn, and adds the SVG suffix rule that a= does not carry",
         "BIMI does NOT inherit MTA-STS's exclusion of = from the extension value class — asserted, which is why EXT_NAME is shared and RECORD_EXT_VALUE is not",
-        "every emitted token is in the constant, and both are reachable"
+        "every emitted token is in the constant, and both are reachable",
+        "the whole BIMI answer: present, declined, advertised, duplicated, and the malformed candidate an auditor still reports"
       ]
     },
     {
       "path": "src/core/transport/mta-sts.test.js",
-      "assertions": 34,
+      "assertions": 45,
       "note": "Co-located per spec §9. Phase 4, Task 4.4. Pure validator, no resolver.",
       "areas": [
         "the published error vocabulary, one member, emitted and only that",
         "the version field is first and case-sensitive — the two readings that suppressed mta-sts-invalid",
         "sts-id = 1*32(ALPHA/DIGIT), with the bad id still reported so the operator can see what they published",
         "RFC 8461 §3.1 duplicate handling: a duplicated field is CONFORMANT, the FIRST wins, and the first copy still has to parse",
-        "an = in an extension value is refused here and accepted in BIMI — the executable half of why RECORD_EXT_VALUE is not shared"
+        "an = in an extension value is refused here and accepted in BIMI — the executable half of why RECORD_EXT_VALUE is not shared",
+        "the whole MTA-STS answer, including the policy file this tool never claims to have verified"
       ]
     },
     {
       "path": "src/core/transport/tls-rpt.test.js",
-      "assertions": 37,
+      "assertions": 47,
       "note": "Co-located per spec §9. Phase 4, Task 4.4. Pure validator, no resolver.",
       "areas": [
         "the published error vocabulary",
         "more than one rua field is conformant, and BOTH destinations survive — rejecting the second also threw away the first",
         "a destination is a URI, not a scheme prefix; https is required and no FQDN rule is added",
         "RFC 8460's raw comma/exclamation/semicolon exclusion, with the percent-encoded form accepted",
-        "the shared-with-MTA-STS extension value class"
+        "the shared-with-MTA-STS extension value class",
+        "the whole TLS-RPT answer, and the lookup failure that is not an absent record"
       ]
     },
     {
@@ -381,7 +394,7 @@
     },
     {
       "path": "src/core/spf/spf.test.js",
-      "assertions": 63,
+      "assertions": 73,
       "note": "Co-located per spec §9. Phase 4, Task 4.8 — the last protocol owner. Driven by a fake transport and the real requireUsable/cleanAnswerData.",
       "areas": [
         "permerror outranks the record's contents: two v=spf1 records fail all mail even where -all would have been ok",
@@ -391,18 +404,20 @@
         "the ten-lookup accounting, the exclusive 8-10 warning band, cycle detection, and a void lookup distinguished from a failure",
         "countSpfLookups THROWS on a resolver failure — this directory states no unknown, and the caller's fallback owns the shape",
         "spfReferencedCatalogKeys is SPF-owned: include: and redirect= of the domain's OWN record only, and a macro is not a hostname",
-        "two checks over two resolvers are distinguished by voidLookups — the field that actually differs — with the note that lookup count alone would not have shown it"
+        "two checks over two resolvers are distinguished by voidLookups — the field that actually differs — with the note that lookup count alone would not have shown it",
+        "selecting a domain's SPF records, and the multiple-record case that keeps both as evidence"
       ]
     },
     {
       "path": "src/providers/detectors.test.js",
-      "assertions": 22,
+      "assertions": 28,
       "note": "Co-located per spec §9. Phase 4, Task 4.9 — the last extraction of Phase 4.",
       "areas": [
         "DNS operator naming, including the ccSLD rule that steps past a second-level label",
         "the THREE ways to have no mail — @null-mx, @implicit-mx, @none — proven distinct, with the null-MX test shown to come first",
         "isNullMx is a capability and not an import: a detector over a predicate that never fires cannot produce @null-mx, and one that always fires produces it for any MX set",
-        "hosting detection and the same-domain CNAME that is not a loop"
+        "hosting detection and the same-domain CNAME that is not a loop",
+        "verification-record selection"
       ]
     },
     {
@@ -420,16 +435,16 @@
     },
     {
       "path": "src/audit/audit-domain.test.js",
-      "assertions": 52,
+      "assertions": 49,
       "areas": [
         "the unregistered short-circuit, and that nothing downstream runs after it",
         "the NS servfail DNSSEC preflight: the unchecked retry, its gate, and the verdict it does not re-derive",
-        "the Promise.all structure — the four core lookups, the advanced batch and the wildcard pair, each proven in flight together",
         "which checks the options run and which they skip",
         "the deep-check gate, including the RFC 7505 null-MX skip",
         "the derived null-MX fact and both of its readers, with the control that proves neither passes for want of an MX record",
         "error isolation: a degraded check, the two different kind-copy policies, and cancellation escaping both",
-        "that the coordinator carries each protocol owner's answer rather than re-deriving it"
+        "that the coordinator carries each protocol owner's answer rather than re-deriving it",
+        "the Promise.all structure — the four core lookups, the advanced batch and the wildcard pair, each proven in flight together"
       ]
     },
     {
@@ -449,7 +464,7 @@
     },
     {
       "path": "tests/contract/dns-transport.test.mjs",
-      "assertions": 40,
+      "assertions": 45,
       "note": "The transport layer's cross-cutting contracts. Phase 3, Task 3.7.",
       "areas": [
         "the code's kind sets and the reviewed registry's algebras are compared rather than restated",
@@ -458,7 +473,8 @@
         "optionalCheck is policy-neutral: a static fallback acquires no kind, and the four kind-copying sites are counted AND located across js/dns.js and every extracted owner, so a move does not read as a deletion",
         "no transport result or error shape carries a finding, severity, score or locale reference",
         "the §12 allowed-edge matrix and the cycle rule over the real import graph, with core/shared's zero-outgoing-edge floor asserted directly because an empty matrix row cannot catch a sibling import",
-        "§12's floor for a protocol owner, asserted over every protocol directory that exists: core/shared and own siblings only, so an import of core/dns/ — the convenient one — fails"
+        "§12's floor for a protocol owner, asserted over every protocol directory that exists: core/shared and own siblings only, so an import of core/dns/ — the convenient one — fails",
+        "parsing ownership: the coordinator declares none of the selector or parser helpers, and each owner declares its own"
       ]
     },
     {

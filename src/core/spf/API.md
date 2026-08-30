@@ -38,6 +38,7 @@ ranks.
 
 | Export | Kind | Contract |
 | --- | --- | --- |
+| `selectSpfRecords(txt)` | pure | `{ records, record, multiple }` — which of a domain's TXT records are SPF records, all of them kept as evidence, and whether RFC 7208 §4.5's multiple-record case applies. Moved out of the audit coordinator at Task 5.2a. |
 | `createSpfChecks({ dohQuery, dohFetch, requireUsable, cleanAnswerData })` | factory | Returns `{ countSpfLookups, findSpfRedundancy, auditSpfSubnets }`. |
 | `analyzeSpf(spf, emailProvider, multiple)` | pure | `{ status, cls, warnings }`. |
 | `parseSpfTerms(spf)` | pure | **The only SPF term parser in this repository.** |

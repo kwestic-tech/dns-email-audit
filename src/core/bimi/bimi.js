@@ -38,6 +38,7 @@
 
 import { parseOrderedFields, EXT_NAME } from '../shared/record-fields.js';
 import { isHttpUri } from '../shared/uri.js';
+import { versionCandidates, leadingVersionMatches } from '../shared/record-selection.js';
 
 /**
  * Every token `validateBimiRecord()` can put in `errors`.
@@ -113,5 +114,53 @@ export function validateBimiRecord(record) {
     // not a broken one. The caller decides what to show; this only reports it.
     declined: valid && sawLogo && !logo,
     errors: duplicates.length ? ['duplicate-tags'] : valid ? [] : ['invalid-syntax'],
+  };
+}
+
+/**
+ * The whole BIMI answer for one domain, from its `default._bimi` TXT records.
+ *
+ * Task 5.2a. Gate 5 requires the audit coordinator to hold no parsing rule,
+ * and every decision below is one: which records announce BIMI, which of them
+ * a sender would keep, which record to show, and what `present` means.
+ *
+ * ── The three facts this shape keeps apart ──────────────────────────────
+ *
+ * | Field | Says |
+ * | --- | --- |
+ * | `present` | An indicator is actually asserted. |
+ * | `declined` | The draft's explicit "I publish none" — a valid record with an empty `l=`. Conformant, deliberate, and NOT a configured logo. |
+ * | `advertised` | Something is published at the owner name, whether or not a sender would use it. |
+ *
+ * Counting a declination as present would report an indicator the operator
+ * said they do not have; counting it as invalid would report a correct record
+ * as broken.
+ *
+ * `present` is false when the record is DUPLICATED (draft §7.2, the same rule
+ * RFC 8461 §3.1 and RFC 8460 §3 state for their own records): the operator
+ * believes the control is active when it is not, which is worth saying out
+ * loud rather than quietly resolving to the first record.
+ *
+ * `record` shows the sender-compatible record when there is one and the
+ * malformed candidate otherwise — which is the evidence an operator needs.
+ *
+ * `null` in means the LOOKUP failed, which is not the same as a domain without
+ * the record; `unknown` carries that distinction through to scoring and the UI
+ * so an unverified control is never presented as an absent one.
+ */
+export function summarizeBimi(txt) {
+  var matches = leadingVersionMatches(txt, 'BIMI1');
+  var candidates = versionCandidates(txt, 'BIMI1');
+  var record = matches[0] || candidates[0] || '';
+  var validation = validateBimiRecord(record);
+  return {
+    present: matches.length === 1 && validation.valid && !validation.declined,
+    declined: matches.length === 1 && validation.declined,
+    advertised: candidates.length > 0,
+    record: record,
+    candidates: candidates,
+    validation: validation,
+    multiple: matches.length > 1,
+    unknown: txt === null,
   };
 }

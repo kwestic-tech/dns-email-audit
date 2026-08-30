@@ -41,7 +41,26 @@
  * engine member.
  */
 
+import { startsWithCI } from '../core/shared/record-selection.js';
+
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+
+/**
+ * Third-party verification records a domain publishes at its apex.
+ *
+ * Names, from records — the same job as the three detectors, and the reason
+ * this lives here rather than in `src/audit/`. A verification record is a
+ * vendor saying "this domain proved it controls itself to us"; it is not a
+ * finding, a severity or a policy, and nothing scores it.
+ *
+ * Moved out of `analyzeDomain()` at Task 5.2a: Gate 5 requires the coordinator
+ * to hold no parsing rule, and selecting records by their prefix is one.
+ */
+export function selectVerifications(txt) {
+  return (txt || []).filter(function (value) {
+    return startsWithCI(value, 'google-site-verification') || startsWithCI(value, 'apple-domain');
+  });
+}
 
 export function detectDNSProvider(ns, domain) {
   if (!ns.length) return '@unknown';

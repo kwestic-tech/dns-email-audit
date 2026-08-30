@@ -81,7 +81,11 @@ import {
   classifySpfSubnets, spfReferencedCatalogKeys,
 } from '../src/core/spf/spf.js';
 import { detectDNSProvider, detectEmailProvider, detectHosting } from '../src/providers/detectors.js';
-import { createAuditDomain, startsWithCI } from '../src/audit/audit-domain.js';
+import { createAuditDomain } from '../src/audit/audit-domain.js';
+// A legacy engine member. It lives in core/shared/ since Task 5.2a — Gate 5
+// forbids the coordinator holding a parsing rule, so record selection went to
+// the protocol owners and this went to the module they share.
+import { startsWithCI } from '../src/core/shared/record-selection.js';
 
 export function createDnsEngine({ publicSuffixRules, dkimSelectorCatalog, platform }) {
   // Named, not reached for. `fetch` is the load-bearing one: the DoH fixture

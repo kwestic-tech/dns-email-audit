@@ -14,7 +14,9 @@
  */
 
 import { createSuite } from '../../../tests/lib/assert.mjs';
-import { validateBimiRecord, BIMI_ERRORS } from './bimi.js';
+import {
+  validateBimiRecord, BIMI_ERRORS, summarizeBimi,
+} from './bimi.js';
 
 const { eq, section, report } = createSuite();
 const LOGO = 'https://example.test/logo.svg';
@@ -144,5 +146,46 @@ const emitted = [...new Set(records.flatMap(r => validateBimiRecord(r).errors))]
 eq('no record emits a token the constant does not name',
   emitted.filter(t => !BIMI_ERRORS.includes(t)), []);
 eq('and both tokens are reachable', emitted.sort(), ['duplicate-tags', 'invalid-syntax']);
+
+
+/* ── The whole BIMI answer, moved here at Task 5.2a ───────────────────── */
+section('summarizeBimi');
+
+const asserted = summarizeBimi(['v=BIMI1; l=https://e.test/l.svg']);
+eq('an asserted indicator is present', asserted.present, true);
+eq('and is advertised', asserted.advertised, true);
+eq('and is not a declination', asserted.declined, false);
+
+// The draft's explicit "I publish none": conformant, deliberate, and NOT a
+// configured logo. Counting it present would report an indicator the operator
+// said they do not have; counting it invalid would report a correct record as
+// broken.
+const noLogo = summarizeBimi(['v=BIMI1; l=']);
+eq('an empty l= is a declination, not an indicator', noLogo.present, false);
+eq('and it is reported as one', noLogo.declined, true);
+eq('and the record is still valid', noLogo.validation.valid, true);
+
+// Draft §7.2, the rule MTA-STS and TLS-RPT state too: anything other than
+// exactly one means the domain does not have the feature. The operator
+// believes the control is active when it is not.
+const duplicated = summarizeBimi(['v=BIMI1; l=https://e.test/a.svg', 'v=BIMI1; l=https://e.test/b.svg']);
+eq('a duplicated record is not present', duplicated.present, false);
+eq('and says so', duplicated.multiple, true);
+eq('while still being advertised', duplicated.advertised, true);
+
+// An auditor does not discard the malformed candidate the way a sender does —
+// this is the case that vanished before the strict validators could report it.
+const trailing = summarizeBimi(['l=https://e.test/l.svg; v=BIMI1']);
+eq('a version field that is not first is still shown as evidence',
+  trailing.record, 'l=https://e.test/l.svg; v=BIMI1');
+eq('and is advertised', trailing.advertised, true);
+eq('but is not present — a sender would discard it', trailing.present, false);
+
+eq('a domain with no BIMI record advertises nothing', summarizeBimi([]).advertised, false);
+eq('and its record is empty', summarizeBimi([]).record, '');
+// A failed LOOKUP is not a domain without the record, and the difference has
+// to survive into scoring and the UI.
+eq('a failed lookup is unknown', summarizeBimi(null).unknown, true);
+eq('while an empty answer is not', summarizeBimi([]).unknown, false);
 
 report();

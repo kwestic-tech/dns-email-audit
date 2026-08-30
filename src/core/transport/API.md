@@ -44,6 +44,7 @@ be symmetry standing in for structure.
 
 | Export | Kind | Contract |
 | --- | --- | --- |
+| `summarizeMtaSts(txt)` | pure | The whole MTA-STS answer for one domain from its `_mta-sts` TXT records: `present`, `advertised`, `policyVerified` (always false — this checks DNS only), `record`, `candidates`, `validation`, `multiple`, `unknown`. Moved out of the audit coordinator at Task 5.2a. |
 | `validateMtaStsRecord(record)` | pure | `{ valid, id, errors }`. The `id` is reported even when it fails the grammar, so the operator can see what they published. |
 | `MTA_STS_ERRORS` | frozen array | `invalid-syntax`. Registry algebra `transport.mtaSts.errors`. |
 
@@ -54,6 +55,7 @@ is one protocol's field grammar and belongs nowhere else.
 
 | Export | Kind | Contract |
 | --- | --- | --- |
+| `summarizeTlsRpt(txt)` | pure | The whole TLS-RPT answer for one domain from its `_smtp._tls` TXT records, the same shape as MTA-STS's without `policyVerified`. Moved out of the audit coordinator at Task 5.2a. |
 | `validateTlsRptRecord(record)` | pure | `{ valid, destinations, errors }`. Every destination is reported, valid or not. |
 | `TLS_RPT_ERRORS` | frozen array | `invalid-syntax`. Registry algebra `transport.tlsRpt.errors`. |
 

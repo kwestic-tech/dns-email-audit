@@ -39,8 +39,7 @@ other's answer:
 | Export | Kind | Contract |
 | --- | --- | --- |
 | `createAuditContext({ domain, options })` | factory | The state belonging to one audit of one domain. Takes no capability: no resolver, no cache, no clock. |
-| `createAuditDomain(capabilities)` | factory | Returns `{ analyzeDomain }`. Takes the resolver handle, every protocol check built over it, provider detection, and — temporarily — the four audit siblings Tasks 5.3 and 5.4 have yet to move. |
-| `startsWithCI(value, prefix)` | function | Case-insensitive record selection. Pure, and a legacy engine member. |
+| `createAuditDomain(capabilities)` | factory | Returns `{ analyzeDomain }`. Takes the resolver handle, every protocol check built over it, and — temporarily — the four audit siblings Tasks 5.3 and 5.4 have yet to move. |
 
 ### Factory product
 
@@ -56,9 +55,33 @@ other's answer:
 ## `audit-domain.js` — what the coordinator owns
 
 Which checks run, in what order, which may run concurrently, how a failure is
-isolated, and how the answers become one result. It reads no record: every rule
-about what a record MEANS is a `core/<protocol>/` owner's, and this file reads
-their answers.
+isolated, and how the answers become one result.
+
+### Gate 5: the coordinator holds no parsing rule
+
+Spec §5 states it in prose — `auditDomain()` "does not parse records" — and
+Gate 5 makes it a release condition. **Task 5.2 shipped a coordinator that
+broke it**, and review caught what no check was asking: record SELECTION is a
+parsing rule, and seven of them were in this file.
+
+Task 5.2a moved every one to an owner:
+
+| Rule | Owner |
+| --- | --- |
+| Which TXT records are SPF records, and whether there is more than one | `core/spf/`'s `selectSpfRecords` |
+| The whole BIMI answer — selection, which record to show, what `present` means | `core/bimi/`'s `summarizeBimi` |
+| The same for MTA-STS and TLS-RPT | `core/transport/`'s `summarizeMtaSts`, `summarizeTlsRpt` |
+| Which TXT records are third-party verifications | `providers/`'s `selectVerifications` |
+| `startsWithCI`, `versionCandidates`, `leadingVersionMatches` | `core/shared/record-selection.js`, once each had two protocol readers |
+
+[`dns-transport.test.mjs`](../../tests/contract/dns-transport.test.mjs) §3b is
+the standing contract: none of those names is declared here, and each is
+declared by its owner. It is a lexical scan over `function NAME` declarations
+and says so — it would not catch the same rule written as an arrow function or
+under another name, and it is defense against the specific regression that
+actually happened rather than a proof of absence.
+
+### Concurrency
 
 **The `Promise.all` structure is byte-identical to `v0.5.0`.** Spec §35 and the
 implementation plan both forbid changing concurrency and moving code in the same
@@ -169,12 +192,15 @@ underneath it. Asserted directly.
 statements. `queryOpts` kept its name in `js/dns.js`, so not one query call site
 changed.
 
-**Task 5.2:** `analyzeDomain()` itself, its three audit-local helpers
-(`startsWithCI`, `versionCandidates`, `leadingVersionMatches`) and
-`resolveWebsite()`, at the same indentation and in the same order. No check, no
-fallback, no ordering and no batch changed. `js/dns.js` remains the transitional
-composition root and still exposes `analyzeDomain` and `startsWithCI` as engine
-members.
+**Task 5.2:** `analyzeDomain()` and `resolveWebsite()`, at the same
+indentation and in the same order. No check, no fallback, no ordering and no
+batch changed. `js/dns.js` remains the transitional composition root and still
+exposes `analyzeDomain` as an engine member.
+
+**Task 5.2a:** the seven parsing rules above went on to their owners, and
+`startsWithCI` — still a legacy engine member — is imported into `js/dns.js`
+from `core/shared/record-selection.js` rather than from here. No behaviour
+moved with any of it.
 
 Both five-surface equivalence subjects report zero differences at each commit.
 

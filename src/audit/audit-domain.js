@@ -3,18 +3,28 @@
  *
  * `analyzeDomain()` owns WHICH checks run, in what order, which may run
  * concurrently, how a failure is isolated, and how the answers become one
- * result. It parses nothing: every rule about what a record MEANS belongs to a
- * `core/<protocol>/` owner, and this file reads their answers.
+ * result. Every rule about which records are a protocol's, and about what they
+ * mean, belongs to a `core/<protocol>/` owner; this file asks and reads the
+ * answers.
  *
  * ── Moved, not redesigned ────────────────────────────────────────────────
  *
- * `js/dns.js`'s `analyzeDomain()`, its three audit-local helpers and
- * `resolveWebsite()`, at the same indentation and in the same order. **The
- * `Promise.all` structure is byte-identical** — the four core lookups, the
- * two wildcard probes, the eight advanced checks and the DKIM scan batch are
- * exactly the concurrency `v0.5.0` had. Spec §35 and the implementation plan
- * both forbid changing concurrency and moving code in the same phase, and this
- * release changes it nowhere.
+ * `js/dns.js`'s `analyzeDomain()` and `resolveWebsite()`, at the same
+ * indentation and in the same order. **The `Promise.all` structure is
+ * byte-identical** — the four core lookups, the two wildcard probes, the eight
+ * advanced checks and the DKIM scan batch are exactly the concurrency `v0.5.0`
+ * had. Spec §35 and the implementation plan both forbid changing concurrency
+ * and moving code in the same phase, and this release changes it nowhere.
+ *
+ * ── What this file does NOT parse ───────────────────────────────────────
+ *
+ * Gate 5: *the coordinator holds no parsing rule.* Selecting a protocol's
+ * records out of a TXT set is a parsing rule, so each owner does its own —
+ * `selectSpfRecords`, `summarizeBimi`, `summarizeMtaSts`, `summarizeTlsRpt`,
+ * `selectVerifications`. Task 5.2a moved them out of here, along with
+ * `startsWithCI`, `versionCandidates` and `leadingVersionMatches`, which went
+ * to `core/shared/record-selection.js` once they had two protocol readers
+ * each. `dns-transport.test.mjs` §6 asserts none of them is declared here.
  *
  * ── What is imported, and what is passed ────────────────────────────────
  *
@@ -23,7 +33,7 @@
  *
  * | Reached by import | Passed as a capability |
  * | --- | --- |
- * | The PURE protocol functions — `analyzeSpf`, `analyzeDmarc`, `applyInheritance`, the three record validators, `isNullMx`, `spfReferencedCatalogKeys`, `classifySpfSubnets`, `planReportDestinations`, and `providers/`'s three detectors | Everything built over the resolver — `dohFetch`, `dohQuery`, `requireUsable`, `optionalCheck`, and every protocol check constructed with them |
+ * | The PURE protocol functions — `selectSpfRecords`, `analyzeSpf`, `classifySpfSubnets`, `spfReferencedCatalogKeys`, `analyzeDmarc`, `applyInheritance`, `planReportDestinations`, the three summarizers, `isNullMx`, and `providers/`'s detectors and `selectVerifications` | Everything built over the resolver — `dohFetch`, `dohQuery`, `requireUsable`, `optionalCheck`, and every protocol check constructed with them |
  * | The sibling `context.js` | `existenceFromResponse`, which is `core/dns/`'s and cannot be imported here |
  *
  * Injecting a pure function would be a false capability; importing a resolver
@@ -46,23 +56,19 @@
  */
 import { createAuditContext } from './context.js';
 import { isNullMx } from '../core/mx/mx.js';
-import { validateBimiRecord } from '../core/bimi/bimi.js';
-import { validateMtaStsRecord } from '../core/transport/mta-sts.js';
-import { validateTlsRptRecord } from '../core/transport/tls-rpt.js';
-import { analyzeSpf, classifySpfSubnets, spfReferencedCatalogKeys } from '../core/spf/spf.js';
+import { summarizeBimi } from '../core/bimi/bimi.js';
+import { summarizeMtaSts } from '../core/transport/mta-sts.js';
+import { summarizeTlsRpt } from '../core/transport/tls-rpt.js';
+import {
+  analyzeSpf, classifySpfSubnets, selectSpfRecords, spfReferencedCatalogKeys,
+} from '../core/spf/spf.js';
 import { analyzeDmarc, emptyDmarcStatus } from '../core/dmarc/record.js';
 import { applyInheritance } from '../core/dmarc/tree-walk.js';
 import { planReportDestinations } from '../core/dmarc/report-auth.js';
-import { detectDNSProvider, detectEmailProvider, detectHosting } from '../providers/detectors.js';
+import {
+  detectDNSProvider, detectEmailProvider, detectHosting, selectVerifications,
+} from '../providers/detectors.js';
 
-// Record selection must be case-insensitive. RFC 7489 and RFC 7208 tag names
-// are case-insensitive, so `V=DMARC1` and `V=SPF1` are valid records that a
-// case-sensitive startsWith() would silently discard — reporting a protected
-// domain as having no policy at all. False negatives are the worse error for
-// a security tool, so match liberally here and validate the contents later.
-export function startsWithCI(value, prefix) {
-  return String(value || '').slice(0, prefix.length).toLowerCase() === prefix.toLowerCase();
-}
 /**
  * Build the coordinator over this runtime's resolver and protocol checks.
  *
@@ -81,28 +87,6 @@ export function createAuditDomain(capabilities) {
     // TEMPORARY — audit siblings awaiting Tasks 5.3 and 5.4, then imports.
     buildIssues, buildSuggestions, calcScore, calcAdvScore,
   } = capabilities;
-
-  /**
-   * Records at a protocol's dedicated owner that MENTION its version field.
-   *
-   * Recognition is case-insensitive and order-independent on purpose, while
-   * validation stays exact. That is the point: a record has to be recognizable
-   * as a candidate before it can be diagnosed as a malformed one.
-   */
-  function versionCandidates(records, token) {
-    var pattern = new RegExp('(^|;)\\s*v\\s*=\\s*' + token + '\\s*(;|$)', 'i');
-    return (records || []).filter(function (record) { return pattern.test(String(record || '')); });
-  }
-
-  /** Records a conforming sender keeps before applying the full validator. */
-  function leadingVersionMatches(records, token) {
-    // The version literal itself is exact and case-sensitive. The delimiter,
-    // however, is `*WSP ";" *WSP` in MTA-STS/TLS-RPT (and tolerated by the
-    // BIMI parser), so valid whitespace before the semicolon must not make a
-    // sender-compatible record disappear from the effective set.
-    var pattern = new RegExp('^v=' + token + '[ \\t]*(?:;|$)');
-    return (records || []).filter(function (record) { return pattern.test(String(record || '')); });
-  }
 
   async function resolveWebsite(domain, queryOpts) {
     var current = 'www.' + domain;
@@ -176,21 +160,13 @@ export function createAuditDomain(capabilities) {
     // with at Task 4.9.
     const nullMx = isNullMx(mx);
     const emailProvider = detectEmailProvider(mx, d, aRec.concat(aaaaRec), nullMx);
-    // Count matches rather than .find() — every one of these record types
-    // fails closed when more than one exists (see the multiple-record checks
-    // in buildIssues), so the count is part of the signal, not noise.
-    const spfMatches = txt.filter(v => startsWithCI(v, 'v=spf1'));
-    const spfRecord = spfMatches[0] || '';
-    const spfMultiple = spfMatches.length > 1;
-    // Every matching record is kept, not just the first. `spfRecord` alone made
-    // `spf-multiple-records` an unevidenced accusation: the finding is critical
-    // and correct, and the panel beside it showed one perfectly valid record,
-    // because the second was discarded here and existed nowhere in the result.
-    // An operator could not see which records conflicted or where to look, and
-    // the honest conclusion from that screen is that the tool is wrong.
-    const spfRecords = spfMatches;
+    // Which TXT records are SPF records, and whether there is more than one,
+    // is SPF's question and `core/spf/` answers it. Every match is kept, not
+    // just the first: the count is part of the signal, and the records are the
+    // evidence `spf-multiple-records` points at.
+    const { records: spfRecords, record: spfRecord, multiple: spfMultiple } = selectSpfRecords(txt);
     const spfStatus = analyzeSpf(spfRecord, emailProvider, spfMultiple);
-    const verifications = txt.filter(v => startsWithCI(v, 'google-site-verification') || startsWithCI(v, 'apple-domain'));
+    const verifications = selectVerifications(txt);
 
     // RFC 9989 §4.10 Tree Walk. This replaces the two-query PSL approximation:
     // one query at _dmarc.<domain>, and on a miss one more at the name the
@@ -316,47 +292,18 @@ export function createAuditDomain(capabilities) {
         optionalCheck(() => checkExternalReportAuth(dmarcAtDomain, externalReportDestinations, queryOpts), []),
       ]);
 
-      // All three specs say the same thing: filter to the versioned records,
-      // and if the result isn't exactly one, treat the domain as not having
-      // the feature at all (RFC 8461 §3.1, RFC 8460 §3, BIMI draft §7.2).
-      // So `present` is false when duplicated — the operator believes the
-      // control is active when it is not, which is worth saying out loud.
-      // A null here is a lookup that failed, not a domain without the record.
-      // `unknown` carries that distinction through to scoring and the UI so an
-      // unverified control is never presented as an absent one.
-      const bimiMatches = leadingVersionMatches(bimiTxt, 'BIMI1');
-      const mtaMatches = leadingVersionMatches(mtaStsTxt, 'STSv1');
-      const tlsMatches = leadingVersionMatches(tlsRptTxt, 'TLSRPTv1');
-
-      // A sender discards a record that does not BEGIN with the version field,
-      // and `present` follows that rule exactly. An auditor must not: the
-      // record exists, at an owner name dedicated to this protocol, and
-      // "nothing is published" and "what is published is not an active policy"
-      // are different facts. Filtering the malformed candidate away before
-      // validation is what suppressed the very findings the strict validators
-      // were added to raise — `l=…; v=BIMI1` simply vanished.
-      const bimiCandidates = versionCandidates(bimiTxt, 'BIMI1');
-      const mtaCandidates = versionCandidates(mtaStsTxt, 'STSv1');
-      const tlsCandidates = versionCandidates(tlsRptTxt, 'TLSRPTv1');
-
-      // Show the sender-compatible record when there is one, and otherwise the
-      // malformed candidate — which is the evidence the operator needs.
-      const bimiRecord = bimiMatches[0] || bimiCandidates[0] || '';
-      const mtaRecord = mtaMatches[0] || mtaCandidates[0] || '';
-      const tlsRecord = tlsMatches[0] || tlsCandidates[0] || '';
-      const bimiValidation = validateBimiRecord(bimiRecord);
-      const mtaValidation = validateMtaStsRecord(mtaRecord);
-      const tlsValidation = validateTlsRptRecord(tlsRecord);
-
+      // Each owner takes its own TXT records and returns its own answer. The
+      // three rules that used to be written out here — select the versioned
+      // records, keep the malformed candidate an auditor must still report,
+      // and treat anything other than exactly one as not having the feature
+      // (RFC 8461 §3.1, RFC 8460 §3, BIMI draft §7.2) — are protocol rules, so
+      // they live with the protocols. `null` in means the lookup failed rather
+      // than the record being absent, and each summary carries that as
+      // `unknown`.
       advanced = {
-        // `present` means an indicator is actually asserted. A valid record with
-        // an empty `l=` is the draft's explicit declination to publish one —
-        // conformant, deliberate, and not a configured BIMI logo. Counting it
-        // as present would report an indicator the operator said they do not
-        // have; counting it as invalid would report a correct record as broken.
-        bimi: { present: bimiMatches.length === 1 && bimiValidation.valid && !bimiValidation.declined, declined: bimiMatches.length === 1 && bimiValidation.declined, advertised: bimiCandidates.length > 0, record: bimiRecord, candidates: bimiCandidates, validation: bimiValidation, multiple: bimiMatches.length > 1, unknown: bimiTxt === null },
-        mtaSts: { present: mtaMatches.length === 1 && mtaValidation.valid, advertised: mtaCandidates.length > 0, policyVerified: false, record: mtaRecord, candidates: mtaCandidates, validation: mtaValidation, multiple: mtaMatches.length > 1, unknown: mtaStsTxt === null },
-        tlsRpt: { present: tlsMatches.length === 1 && tlsValidation.valid, advertised: tlsCandidates.length > 0, record: tlsRecord, candidates: tlsCandidates, validation: tlsValidation, multiple: tlsMatches.length > 1, unknown: tlsRptTxt === null },
+        bimi: summarizeBimi(bimiTxt),
+        mtaSts: summarizeMtaSts(mtaStsTxt),
+        tlsRpt: summarizeTlsRpt(tlsRptTxt),
         caa: caaResult,
         dnssec: dnssecResult,
         spfLookups,

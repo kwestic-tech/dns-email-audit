@@ -139,6 +139,62 @@ eq('three of them are optionalCheck fallback factories, one is an internal catch
 // exists to distinguish from a deletion.
 eq('js/dns.js copies no kind at all now', kindCopiesBySource.get('js/dns.js'), undefined);
 
+/* ── 3b. Parsing ownership: Gate 5's condition on the coordinator ─────── */
+section('3b. The coordinator holds no parsing rule');
+
+/**
+ * Gate 5, stated as a condition on a module: *"Coordinator holds no parsing
+ * rule."* Spec §5 says the same thing in prose — `auditDomain()` "does not
+ * parse records". Selecting which of a domain's TXT strings are a protocol's
+ * records IS a parsing rule, and so is deciding what `present` means for one,
+ * so those live with the protocols.
+ *
+ * A relationship between modules rather than a property of one, which is why
+ * it is here and not in the co-located suite. Task 5.2 shipped these helpers
+ * inside `src/audit/audit-domain.js` and review caught it; this is the check
+ * that would have caught it instead.
+ *
+ * ── What this establishes, and what it does not ─────────────────────────
+ *
+ * A LEXICAL scan for `function NAME` declarations in a fixed set of files, in
+ * the same spirit as the raw-kind scan in `transport-edges.test.mjs` and with
+ * the same honesty about its limits.
+ *
+ * It establishes: none of these NAMES is declared in the coordinator, and each
+ * is declared in the owner named beside it. It does NOT establish that no
+ * parsing of any kind could be written there — an arrow function, a method, a
+ * regex inlined at a call site, or the same rule under another name would all
+ * pass. It is defense against the specific regression of moving one of these
+ * back, which is the one that actually happened.
+ */
+const PARSER_OWNERS = [
+  { name: 'startsWithCI', file: 'src/core/shared/record-selection.js' },
+  { name: 'versionCandidates', file: 'src/core/shared/record-selection.js' },
+  { name: 'leadingVersionMatches', file: 'src/core/shared/record-selection.js' },
+  { name: 'selectSpfRecords', file: 'src/core/spf/spf.js' },
+  { name: 'summarizeBimi', file: 'src/core/bimi/bimi.js' },
+  { name: 'summarizeMtaSts', file: 'src/core/transport/mta-sts.js' },
+  { name: 'summarizeTlsRpt', file: 'src/core/transport/tls-rpt.js' },
+  { name: 'selectVerifications', file: 'src/providers/detectors.js' },
+];
+
+const declaresFunction = (source, name) =>
+  new RegExp(`^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\b`, 'm').test(source);
+
+eq('the coordinator declares none of the selector or parser helpers',
+  PARSER_OWNERS.filter(h => declaresFunction(coordinator, h.name)).map(h => h.name), []);
+eq('and every one of them is declared by the owner named for it',
+  PARSER_OWNERS
+    .filter(h => !declaresFunction(readFileSync(join(REPO, h.file), 'utf8'), h.name))
+    .map(h => `${h.name} is not declared in ${h.file}`), []);
+// An empty result is also what a scan that matches nothing produces, so the
+// classifier is proven in both directions before either list above is trusted.
+eq('the scan finds a function the coordinator really does declare',
+  declaresFunction(coordinator, 'analyzeDomain'), true);
+eq('and does not find one it only calls',
+  declaresFunction(coordinator, 'summarizeBimi'), false);
+eq('a call is not a declaration', declaresFunction('  const x = summarizeBimi(txt);', 'summarizeBimi'), false);
+
 /* ── 4. No transport result carries a finding, severity, score or locale ─ */
 section('4. The transport emits no protocol vocabulary');
 

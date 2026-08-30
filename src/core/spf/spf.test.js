@@ -20,8 +20,7 @@
 import { createSuite } from '../../../tests/lib/assert.mjs';
 import { requireUsable, cleanAnswerData } from '../dns/resolver.js';
 import {
-  createSpfChecks, analyzeSpf, parseSpfTerms, cidrContains, classifySpfSubnet,
-  classifySpfSubnets, stripSpfQualifier, spfReferencedCatalogKeys,
+  createSpfChecks, analyzeSpf, parseSpfTerms, cidrContains, classifySpfSubnet, classifySpfSubnets, stripSpfQualifier, spfReferencedCatalogKeys, selectSpfRecords,
 } from './spf.js';
 
 const { eq, section, report } = createSuite();
@@ -238,5 +237,34 @@ eq('and the lookup count alone would NOT have shown it',
   [fromA.count, fromB.count], [1, 1]);
 eq('while each asked its own transport, once',
   [a.asked.length, b.asked.length], [1, 1]);
+
+
+/* ── Record selection, moved here at Task 5.2a ────────────────────────── */
+section('Selecting a domain\'s SPF records');
+
+eq('the SPF record is selected out of a mixed TXT set',
+  selectSpfRecords(['google-site-verification=x', 'v=spf1 -all']).record, 'v=spf1 -all');
+// Recognition is case-insensitive: `V=SPF1` is a valid record, and discarding
+// it would report a protected domain as having no policy at all.
+eq('an upper-case version field is still an SPF record',
+  selectSpfRecords(['V=SPF1 -all']).record, 'V=SPF1 -all');
+eq('a domain with none has an empty record', selectSpfRecords(['x=y']).record, '');
+eq('and no records to show for it', selectSpfRecords(['x=y']).records, []);
+eq('a null TXT set is empty rather than a throw', selectSpfRecords(null).records, []);
+
+/**
+ * EVERY match is kept, not just the first. `record` alone made
+ * `spf-multiple-records` an unevidenced accusation: the finding is critical
+ * and the panel beside it showed one perfectly valid record, because the
+ * second existed nowhere in the result.
+ */
+const two = selectSpfRecords(['v=spf1 include:a.test -all', 'v=spf1 -all']);
+eq('both conflicting records are kept as evidence', two.records.length, 2);
+eq('RFC 7208 §4.5: more than one is the multiple-record case', two.multiple, true);
+eq('while exactly one is not', selectSpfRecords(['v=spf1 -all']).multiple, false);
+eq('and neither is none', selectSpfRecords([]).multiple, false);
+// The interpretation the selection feeds: multiple outranks the contents.
+eq('and that is what makes the record set a permerror',
+  analyzeSpf(two.record, '@none', two.multiple).status, 'permerror');
 
 report();

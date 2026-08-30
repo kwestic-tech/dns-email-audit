@@ -40,6 +40,7 @@ standing in for structure.
 
 | Export | Kind | Contract |
 | --- | --- | --- |
+| `summarizeBimi(txt)` | pure | The whole BIMI answer for one domain from its `default._bimi` TXT records: `present`, `declined`, `advertised`, `record`, `candidates`, `validation`, `multiple`, `unknown`. Moved out of the audit coordinator at Task 5.2a. |
 | `validateBimiRecord(record)` | pure | `{ valid, logo, authority, declined, errors }`. Always returns a result; never throws. |
 | `BIMI_ERRORS` | frozen array | `invalid-syntax`, `duplicate-tags`. Registry algebra `bimi.errors`. |
 
