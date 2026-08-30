@@ -44,13 +44,13 @@
  * Injecting a pure function would be a false capability; importing a resolver
  * would be a forbidden edge. Each of the two lists is the other's answer.
  *
- * ── The four audit members this file does not own yet ───────────────────
+ * ── No temporary capabilities remain ────────────────────────────────────
  *
- * `buildIssues` and `buildSuggestions` are `audit/` siblings that have not
- * been extracted. They arrive as arguments until Task 5.4 moves them here, and
- * then become imports — which is exactly what happened to `calcScore` and
- * `calcAdvScore` at Task 5.3. They are listed apart in the destructuring below
- * so the temporary set is visible rather than mixed in with the resolver's.
+ * Through Task 5.2 this factory also received four `audit/` siblings that had
+ * not been extracted yet — the two scorers and the two builders — marked apart
+ * in the destructuring so the temporary set stayed visible. Task 5.3 moved the
+ * scorers and Task 5.4 the builders, and each became an import the moment it
+ * had a home. What is passed now is exactly what §12 says must be passed.
  *
  * ── The one raw-kind read ───────────────────────────────────────────────
  *
@@ -71,6 +71,7 @@ import { analyzeDmarc, emptyDmarcStatus } from '../core/dmarc/record.js';
 import { applyInheritance } from '../core/dmarc/tree-walk.js';
 import { planReportDestinations } from '../core/dmarc/report-auth.js';
 import { calcScore, calcAdvScore } from './scoring.js';
+import { buildIssues, buildSuggestions } from './issues.js';
 import {
   detectDNSProvider, detectEmailProvider, detectHosting, selectVerifications,
 } from '../providers/detectors.js';
@@ -90,10 +91,6 @@ export function createAuditDomain(capabilities) {
     checkDNSSEC, checkCAA, checkTlsa, auditMxHosts, checkDKIM,
     discoverDmarc, resolveDestinationOrgDomains, checkExternalReportAuth,
     countSpfLookups, auditSpfSubnets,
-    // TEMPORARY — audit siblings awaiting Task 5.4, then imports. Task 5.3
-    // took `calcScore` and `calcAdvScore` off this list: `audit/scoring.js` is
-    // a sibling, so it is imported like one.
-    buildIssues, buildSuggestions,
   } = capabilities;
 
   async function resolveWebsite(domain, queryOpts) {

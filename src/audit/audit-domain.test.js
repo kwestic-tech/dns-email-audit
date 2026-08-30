@@ -64,15 +64,24 @@ function build(overrides = {}) {
     checkDNSSEC: async d => { log('checkDNSSEC', d); return { state: 'insecure', signed: false }; },
     checkCAA: async d => { log('checkCAA', d); return sentinel('caa'); },
     checkTlsa: async hosts => { log('checkTlsa', hosts); return sentinel('tlsa'); },
-    auditMxHosts: async mx => { log('auditMxHosts', mx); return { hosts: [{ host: 'mail.example.test' }] }; },
+    // The COMPLETE shape `core/mx/` really returns. An incomplete stub was
+    // survivable while `buildIssues` was itself a stub; with the real one
+    // imported at Task 5.4 it threw, which is the fixture being wrong rather
+    // than the code.
+    auditMxHosts: async mx => {
+      log('auditMxHosts', mx);
+      return {
+        hosts: [{ host: 'mail.example.test', resolves: 'yes', isCname: false }],
+        danglingHosts: [], cnameHosts: [], duplicatePreferences: [],
+        singleHost: true, ipv6Coverage: 'all', sharedPrefixes: [], unknown: false,
+      };
+    },
     checkDKIM: async (...args) => { log('checkDKIM', ...args); return { found: true, selectors: [] }; },
     discoverDmarc: async d => { log('discoverDmarc', d); return { applied: null, organizationalDomain: d, observed: [], terminated: null }; },
     resolveDestinationOrgDomains: async () => { log('resolveDestinationOrgDomains'); return {}; },
     checkExternalReportAuth: async () => { log('checkExternalReportAuth'); return []; },
     countSpfLookups: async () => { log('countSpfLookups'); return sentinel('lookups'); },
     auditSpfSubnets: async () => { log('auditSpfSubnets'); return sentinel('subnets'); },
-    buildIssues: () => [sentinel('issues')],
-    buildSuggestions: () => [sentinel('suggestions')],
     ...overrides,
   };
   const { analyzeDomain } = createAuditDomain(capabilities);
@@ -429,7 +438,12 @@ const spfResult = await withSpf.analyzeDomain('example.test', { ...NONE, advance
 eq('but with one, the owner\'s answer is carried unchanged',
   spfResult.advanced.spfLookups, { sentinel: 'lookups' });
 eq('and its subnet audit with it', spfResult.advanced.spfSubnets, { sentinel: 'subnets' });
-eq('the issues are the issue builder\'s', passed.issues, [{ sentinel: 'issues' }]);
+// The issue builder is `audit/issues.js` since Task 5.4 — a sibling the
+// coordinator imports — so these are real findings over the fixture's facts.
+eq('the findings are the issue builder\'s', passed.issues.map(i => i.key),
+  ['spf-missing', 'dkim-not-checked', 'dmarc-missing']);
+eq('and every one carries a severity', passed.issues.every(i => i.sev), true);
+eq('the tips are the suggestion builder\'s', passed.suggestions.every(t => t.guide), true);
 eq('and the domain is the context\'s normalized name', passed.domain, 'example.test');
 
 report();

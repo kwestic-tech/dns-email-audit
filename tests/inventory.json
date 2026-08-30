@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 83,
+      "assertions": 84,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -447,8 +447,20 @@
       ]
     },
     {
+      "path": "src/audit/issues.test.js",
+      "assertions": 35,
+      "areas": [
+        "the shape of a finding: a key, a severity, no English",
+        "the closed three-member severity vocabulary",
+        "every finding key defined under issue.*, every tip key under suggestion.*, every guide under learnMore",
+        "suggestions as tips rather than findings",
+        "a configured domain is not told to configure itself",
+        "the input boundary — facts are interpreted into findings, and a record attached to the same facts changes nothing"
+      ]
+    },
+    {
       "path": "src/audit/audit-domain.test.js",
-      "assertions": 57,
+      "assertions": 59,
       "areas": [
         "the unregistered short-circuit, and that nothing downstream runs after it",
         "the NS servfail DNSSEC preflight: the unchecked retry, its gate, and the verdict it does not re-derive",

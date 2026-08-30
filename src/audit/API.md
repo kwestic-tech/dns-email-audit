@@ -8,11 +8,12 @@ concurrently, how a failure is isolated, and how the answers become one result.
 This directory decides nothing about a record's meaning — every protocol rule
 belongs to a `core/<protocol>/` owner.
 
-**Task 5.1 created the directory, Task 5.2 added the coordinator, Task 5.3 the
-scoring model.** `context.js` is the state boundary, `audit-domain.js` is
-`analyzeDomain()`, `scoring.js` is the rubric. Issue and suggestion
-construction arrives at Task 5.4; until then `buildIssues` and
-`buildSuggestions` live in `js/dns.js` and are passed in.
+**Phase 5 built this directory in four tasks and it is now complete.**
+`context.js` is the state boundary (5.1), `audit-domain.js` is
+`analyzeDomain()` (5.2), `scoring.js` is the rubric (5.3), and `issues.js` is
+findings and tips (5.4). Nothing audit-owned is left in `js/dns.js`, and
+`createAuditDomain()` receives no temporary capability — what is passed to it
+is exactly what §12 says must be passed.
 
 ## Allowed edges
 
@@ -42,6 +43,7 @@ other's answer:
 | `createAuditContext({ domain, options })` | factory | The state belonging to one audit of one domain. Takes no capability: no resolver, no cache, no clock. |
 | `createAuditDomain(capabilities)` | factory | Returns `{ analyzeDomain }`. Takes the resolver handle, every protocol check built over it, and — temporarily — the two audit siblings Task 5.4 has yet to move. |
 | `calcScore`, `calcDmarcScore`, `calcSpfScore`, `gradeFor`, `calcAdvScore` | pure | The scoring model. `calcAdvScore` is internal to the audit; the other four are legacy engine members. |
+| `buildIssues(facts)`, `buildSuggestions(facts)` | pure | Findings and remediation tips, as stable keys the i18n layer resolves. Both are legacy engine members. |
 | `WEIGHTS`, `PARKED_WEIGHTS`, `GRADE_THRESHOLDS` | exported rubric data | The scoring rubric. Their **serialized values and ordering match `v0.5.0`** — see below. Plain objects and an array: `const` prevents rebinding, not mutation, and they are deliberately **not** frozen. |
 
 ### Factory product
@@ -173,6 +175,35 @@ back into the coordinator — and a weight table is not a parsing rule. Widening
 it to mean "anything that reads a protocol value" would leave it protecting
 nothing in particular.
 
+## `issues.js` — findings, and the same input boundary
+
+`buildIssues()` turns a completed audit's protocol facts into findings;
+`buildSuggestions()` turns them into remediation tips. Each finding is a
+`{ key, sev }` plus optional `args` for `{0}` placeholders — a stable
+identifier, never English.
+
+**The severity vocabulary is closed at three:** `crit`, `warn`, `info`.
+Asserted over the source, so a fourth is a decision rather than a drift.
+
+**The token vocabulary is a released artifact.** Every key resolves through
+`locales/en.json` and thirteen translations. Gate 4 diffed it byte-identical
+against `v0.5.0` — 106 tokens, 0 added, 0 removed — and Task 5.4 re-ran that
+comparison after the move, plus a second one over the key literals the builders
+actually emit: 98 literals, identical multiset, none left in `js/dns.js`.
+Adding, renaming or removing a key is a localization change under `AGENTS.md`,
+not a refactor.
+
+**The input boundary is scoring's, restated.** Interpreting an owner-produced
+fact into a finding is this module's job; re-parsing a protocol record is not.
+`issues.test.js` §6 asserts it the way `scoring.test.js` §5 does — the facts
+are fabricated, and a record attached to the same facts changes nothing,
+including one that contradicts them. `spfRecords` is read as EVIDENCE, a count
+for the multiple-record finding, and its contents are never consulted: two
+records of any content raise the same finding.
+
+No name from this file belongs in `dns-transport.test.mjs` §3b either. Same
+ruling, same reason: a finding builder is not a parser.
+
 ## Three pieces of state, and the boundary around them
 
 | Owned here | Owned elsewhere |
@@ -271,6 +302,13 @@ exposes `analyzeDomain` as an engine member.
 `startsWithCI` — still a legacy engine member — is imported into `js/dns.js`
 from `core/shared/record-selection.js` rather than from here. No behaviour
 moved with any of it.
+
+**Task 5.4:** `js/dns.js`'s issue and suggestion blocks, unchanged apart from
+the two-space dedent and the `export` keywords. No key, no severity, no
+threshold and no ordering moved with them, and nothing at module scope came
+along — there was nothing at module scope only these two used. The last
+mutation probe naming `js/dns.js` followed them, and the TEMPORARY capability
+block in `createAuditDomain()` is gone.
 
 **Task 5.3:** `js/dns.js`'s two scoring blocks, unchanged apart from the
 two-space dedent and the `export` keywords. No weight, no threshold, no

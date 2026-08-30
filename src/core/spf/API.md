@@ -15,8 +15,8 @@ the owning directory:
 
 | Emitted | Shape | Who turns it into user-facing output |
 | --- | --- | --- |
-| `analyzeSpf().warnings[]` | issue-key tokens such as `spf-softfail`, `spf-multiple-records` | forwarded **verbatim** into the audit layer's issue list |
-| `classifySpfSubnets().subnets[]` | objects carrying `SPF_LARGE_SUBNET` | audit maps them into issues and scoring |
+| `analyzeSpf().warnings[]` | issue-key tokens such as `spf-softfail`, `spf-multiple-records` | forwarded **verbatim** into `audit/issues.js`'s finding list |
+| `classifySpfSubnets().subnets[]` | objects carrying `SPF_LARGE_SUBNET` | `audit/issues.js` and `audit/scoring.js` map them into findings and points |
 | `findSpfRedundancy()` | entries carrying `SPF_REDUNDANCY` | as above |
 | `classifySpfSubnet()` | `LOW` / `MEDIUM` / `HIGH` | a protocol severity, which audit weights |
 

@@ -169,7 +169,9 @@ const MUTATIONS = [
   },
   {
     label: 'change one issue token (spf-missing -> spf-absent)',
-    file: 'js/dns.js',
+    // Followed the issue builder to its owner at Task 5.4. The last probe that
+    // still named `js/dns.js`.
+    file: 'src/audit/issues.js',
     from: "issues.push({ key: 'spf-missing', sev: 'crit' });",
     to: "issues.push({ key: 'spf-absent', sev: 'crit' });",
     mustMove: ['csv', 'dom', 'report', 'result'],
