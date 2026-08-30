@@ -20,15 +20,17 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   engine was a single 5,704-line IIFE, `js/dns.js`, loaded beside six other
   scripts in an order the page could not state a reason for. Separate files
   could only reach each other through `window`, and **twenty-four top-level
-  globals** was the surface that arrangement left behind — some of it load-
-  bearing between files, some of it published alongside a purely internal
-  function. Either way, all of it was reachable by anything on the page.
+  globals** was the surface that arrangement left behind — some of it
+  load-bearing between files, some of it published alongside a purely
+  internal function. Either way, all of it was reachable by anything on the
+  page.
 
   There are now **thirteen owning directories** under `src/` — `audit/`, eight
   protocol owners, `core/dns/`, `core/shared/`, `providers/` and `ui/` — each
   with a checked-in `API.md` and tests beside the code they test. Imports are
-  explicit, so load order is derived rather than declared, and the only names
-  that reach the browser are the two the app actually offers.
+  explicit, so load order is derived rather than declared, and the only
+  application-created browser global is `DnsAudit`, with the two facade
+  members described below.
 
 - **`index.html` loads one script instead of seven.** `dist/app.min.js`, built
   by esbuild, is the single delivery boundary: 437 KB raw and 131 KB gzipped,

@@ -114,7 +114,7 @@ If you **add** a key, other locales simply fall back to English until translated
 ## 3. Changing the app
 
 The application is ES modules under `src/`, bundled to one artifact by esbuild
-— the only build dependency, exact-pinned, and the only dependency of any kind.
+— the only build dependency, exact-pinned, and the only direct dependency.
 There is still no framework and nothing at runtime. Please keep it that way;
 it's what lets the app be forked, self-hosted and read end-to-end in one
 sitting.
