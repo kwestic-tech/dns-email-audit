@@ -33,6 +33,17 @@ eq('the eight pillar weights are unchanged', WEIGHTS,
 eq('and they still total 100', Object.values(WEIGHTS).reduce((a, b) => a + b, 0), 100);
 eq('the parked weights are unchanged', PARKED_WEIGHTS, { spf: 30, dmarc: 30, dnssec: 25, caa: 15 });
 eq('and they total 100 too', Object.values(PARKED_WEIGHTS).reduce((a, b) => a + b, 0), 100);
+// Not frozen, and asserted so rather than left to be assumed from `const`.
+// These are legacy engine members published as plain objects; freezing them
+// would be a compatibility delta wearing the word "constant".
+eq('the rubric is exported as plain data, not frozen',
+  [Object.isFrozen(WEIGHTS), Object.isFrozen(PARKED_WEIGHTS), Object.isFrozen(GRADE_THRESHOLDS)],
+  [false, false, false]);
+// Ordering is part of what matches v0.5.0: the grade tiers are scanned in
+// order and the first `min` a score clears decides the grade.
+eq('the pillar keys are in their published order',
+  Object.keys(WEIGHTS), ['dmarc', 'spf', 'dkim', 'dnssec', 'caa', 'mtaSts', 'bimi', 'tlsRpt']);
+eq('and the tiers descend', GRADE_THRESHOLDS.map(t => t.min), [85, 75, 65, 50, 30, 10, 0]);
 eq('the seven grade tiers are unchanged', GRADE_THRESHOLDS, [
   { min: 85, grade: 'A++', cls: 'score-aplusplus', requiresDnssec: true },
   { min: 75, grade: 'A+', cls: 'score-aplus', requiresDnssec: true },

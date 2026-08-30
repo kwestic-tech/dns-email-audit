@@ -42,7 +42,7 @@ other's answer:
 | `createAuditContext({ domain, options })` | factory | The state belonging to one audit of one domain. Takes no capability: no resolver, no cache, no clock. |
 | `createAuditDomain(capabilities)` | factory | Returns `{ analyzeDomain }`. Takes the resolver handle, every protocol check built over it, and — temporarily — the two audit siblings Task 5.4 has yet to move. |
 | `calcScore`, `calcDmarcScore`, `calcSpfScore`, `gradeFor`, `calcAdvScore` | pure | The scoring model. `calcAdvScore` is internal to the audit; the other four are legacy engine members. |
-| `WEIGHTS`, `PARKED_WEIGHTS`, `GRADE_THRESHOLDS` | frozen data | The rubric. Byte-identical to `v0.5.0` — see below. |
+| `WEIGHTS`, `PARKED_WEIGHTS`, `GRADE_THRESHOLDS` | exported rubric data | The scoring rubric. Their **serialized values and ordering match `v0.5.0`** — see below. Plain objects and an array: `const` prevents rebinding, not mutation, and they are deliberately **not** frozen. |
 
 ### Factory product
 
@@ -126,10 +126,17 @@ file, so the move reads as a move rather than as three deletions.
 
 ## `scoring.js` — what scoring is allowed to read
 
-**Byte-identical to `v0.5.0`**, which is Gate 5's first condition. Verified by
-an explicit diff against the tag — `JSON.stringify` of each constant on both
-sides, compared byte for byte, and proven to fail on a single changed weight
-before it was believed. `scoring.test.js` §1 pins the values the diff
+**The serialized values and ordering match `v0.5.0`**, which is Gate 5's first
+condition. Verified by an explicit diff against the tag — `JSON.stringify` of
+each constant on both sides, compared byte for byte, and proven to fail on a
+single changed weight before it was believed.
+
+**They are not frozen, and must not be.** `const` prevents rebinding only;
+these are plain objects and a plain array, exactly as `v0.5.0` published them.
+`WEIGHTS`, `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` are legacy engine members,
+so freezing them would change the observable legacy surface — a compatibility
+delta smuggled in under the word "constant". The guarantee here is about what
+they CONTAIN, not about what a caller can do to them. `scoring.test.js` §1 pins the values the diff
 confirmed. `POLICY_RANK` is included in that diff but is **not** this
 directory's: it moved to `core/dmarc/record.js` at Task 4.6, and the
 implementation plan lists it under Task 5.3 only because it was still in

@@ -435,9 +435,9 @@
     },
     {
       "path": "src/audit/scoring.test.js",
-      "assertions": 49,
+      "assertions": 52,
       "areas": [
-        "the weights, parked weights and grade tiers, byte-identical to v0.5.0",
+        "the weights, parked weights and grade tiers — serialized values and ordering matching v0.5.0, and exported as plain unfrozen data",
         "DNSSEC gating the A tier and DMARC as the largest pillar",
         "calcDmarcScore: the effective posture, the weakest of sp and np, and what test mode collapses",
         "calcSpfScore: the -all / ~all / present bands, and the two warnings that make an ok record worthless",
