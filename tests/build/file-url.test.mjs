@@ -23,13 +23,14 @@
  * less than none.
  */
 
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { createSuite } from '../lib/assert.mjs';
+import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { eq, section, report } = createSuite();
@@ -160,6 +161,9 @@ const facts = await evaluate(`JSON.stringify({
   protocol: location.protocol,
   scripts: [...document.querySelectorAll('script[src]')].map(s => s.getAttribute('src')),
   moduleScripts: document.querySelectorAll('script[type=module]').length,
+  // Every name the application has EVER published, probed for presence. The
+  // nine Task 6.2 removed are in the list on purpose: a real browser is the
+  // last place they could still be hiding.
   globals: ['DnsAudit','R','i18n','t','tp','tRaw','__APP_TEST__',
             '__PUBLIC_SUFFIX_RULES__','__I18N_EN__','__DKIM_SELECTOR_CATALOG__']
            .filter(n => typeof window[n] !== 'undefined'),
@@ -171,11 +175,13 @@ const facts = await evaluate(`JSON.stringify({
            .filter(n => typeof window[n] !== 'undefined'),
   dnsAuditMembers: Object.keys(DnsAudit).sort(),
   facadeCallable: Object.keys(DnsAudit).every(n => typeof DnsAudit[n] === 'function'),
-  pslCarriesBlogspot: __PUBLIC_SUFFIX_RULES__.includes('blogspot.com'),
-  appTestMembers: Object.keys(__APP_TEST__).length,
-  pslRules: __PUBLIC_SUFFIX_RULES__.length,
-  lang: i18n.lang,
-  title: t('doc.title'),
+  // The generated tables are inside the bundle's closure since Task 6.2, so
+  // their identity is checked against the artifact TEXT outside the page. What
+  // the PAGE can still answer is whether the English bundle actually rendered:
+  // under file:// a fetch of locales/en.json is blocked, so real text can only
+  // have come from the inlined bundle.
+  lang: document.documentElement.lang,
+  title: document.title,
   documentTitle: document.title,
   auditButton: document.getElementById('auditBtn') ? document.getElementById('auditBtn').textContent.trim() : null,
   translatedNodes: document.querySelectorAll('[data-i18n]').length
@@ -189,7 +195,9 @@ eq('no script is a module — a module would be blocked by CORS here', page1?.mo
 
 section('2. The application initialised');
 
-eq('all ten surviving globals exist', page1?.globals?.length, 10);
+// **One global, in a real browser.** Task 6.2 removed the last nine; what
+// remains is the name esbuild generates from the entry point's exports.
+eq('DnsAudit is the only global the application publishes', page1?.globals, ['DnsAudit']);
 eq('and not one of the fourteen Task 2.8 removed is still on the window',
   page1?.removed, []);
 
@@ -204,14 +212,7 @@ eq('and not one of the fourteen Task 2.8 removed is still on the window',
 eq('DnsAudit exposes exactly the supported facade',
   page1?.dnsAuditMembers, ['analyzeDomain', 'checkConnectivity']);
 eq('and both members are callable', page1?.facadeCallable, true);
-eq('the whole public suffix list is present', page1?.pslRules, 10239);
-// The discriminating rule, not just the count. A binding-level check, and spec
-// §11 as of 1.4 explains why there is no behavioural one: nothing in the
-// application reads the table.
-eq('and it is the real list, carrying the private blogspot.com rule',
-  page1?.pslCarriesBlogspot, true);
-eq('the application module evaluated and published its test surface',
-  page1?.appTestMembers, 30);
+
 
 section('3. i18n resolved with no network');
 
@@ -247,34 +248,51 @@ section('4. The application computed, in the browser');
  * someone else's DNS is not a suite.
  */
 const computed = await evaluate(`JSON.stringify({
-  // The CSV formula-injection defence, on the real exporter's helper.
-  neutralized: __APP_TEST__.neutralizeCsvCell('=1+1'),
-  benign: __APP_TEST__.neutralizeCsvCell('example.com'),
-  // Token to translated prose, through the INLINED English bundle. Under
-  // file:// a fetch of locales/en.json is blocked, so real text here can only
-  // have come from __I18N_EN__.
-  issue: __APP_TEST__.issueMessage({ key: 'spf-missing', sev: 'crit' }),
-  // A constant declared in the application module's own scope: it is only
-  // readable if that module evaluated to completion.
-  deepLimit: __APP_TEST__.MAX_DEEP_CHECK_DOMAINS,
-  // The renderer, building a real detached tree in a real DOM.
-  badge: (() => { const el = __APP_TEST__.badge('Passed', 'ok');
-    return { tag: el.tagName, text: el.textContent, cls: el.className }; })(),
-  // The DKIM selector catalog, reached through the binding it is injected at.
-  dkimProviders: Object.keys(__DKIM_SELECTOR_CATALOG__.providers).length
+  // The page's own rendered text, which is the deepest thing a browser can
+  // still answer about the application from outside it. Under file:// a fetch
+  // of locales/en.json is blocked, so real prose here can only have come from
+  // the inlined English bundle.
+  auditButton: document.getElementById('auditBtn') ? document.getElementById('auditBtn').textContent.trim() : null,
+  translated: [...document.querySelectorAll('[data-i18n]')]
+    .filter(el => el.textContent.trim() && !/^[a-z]+\\.[a-z]/i.test(el.textContent.trim())).length,
+  // The supported facade, called for real. \`checkConnectivity\` would issue a
+  // request, so only its TYPE is read — a suite that depended on someone
+  // else's DNS is not a suite.
+  facadeShape: Object.keys(DnsAudit).map(n => n + ':' + typeof DnsAudit[n]).sort()
 })`);
 const page2 = typeof computed === 'string' ? JSON.parse(computed) : computed;
 
-eq('the CSV formula guard neutralized a leading =', /^[\t\u0027]/.test(page2?.neutralized || ''), true);
-eq('and left an ordinary value alone', page2?.benign, 'example.com');
-eq('an issue token became real translated prose, with no network',
-  /SPF/.test(page2?.issue || '') && page2?.issue.length > 20, true);
-eq('and it is not the key echoed back', /^issue\./.test(page2?.issue || ''), false);
-eq('the application module evaluated to completion', page2?.deepLimit, 50);
-eq('the renderer built a real element', page2?.badge?.tag, 'SPAN');
-eq('with its text in a text node', page2?.badge?.text, 'Passed');
-eq('and the class the caller asked for', page2?.badge?.cls, 'badge badge-ok');
-eq('the DKIM selector catalog survived bundling', page2?.dkimProviders, 92);
+eq('the audit button carries translated prose, not a key',
+  /Run Audit/i.test(page2?.auditButton || ''), true);
+eq('and many nodes were translated in place', page2?.translated > 20, true);
+eq('the facade is two callable members and nothing else',
+  page2?.facadeShape, ['analyzeDomain:function', 'checkConnectivity:function']);
+
+/**
+ * The generated data, checked against the ARTIFACT rather than the page.
+ *
+ * Task 6.2 removed the last globals, so `__DKIM_SELECTOR_CATALOG__` and
+ * `__APP_TEST__` are gone and the tables live inside the bundle's closure. The
+ * depth those probes carried did not go with them — it moved to where it is
+ * still observable:
+ *
+ * | Was proved here through a global | Proved now |
+ * | --- | --- |
+ * | the CSV formula guard | `tools/export.test.mjs`, 199 assertions |
+ * | the renderer building a real element | `tools/render.test.mjs`, 329 assertions |
+ * | a token becoming translated prose | the page's own rendered text, above |
+ * | the tables surviving bundling | the artifact scan below, and `parity.test.mjs` §5 |
+ *
+ * What only Chrome can answer is what stays in this file: that the artifact
+ * loads from `file://` with no server, evaluates, and renders correctly with
+ * **no network at all**.
+ */
+const artifactSource = readFileSync(join(REPO, 'dist', 'app.min.js'), 'utf8');
+eq('the artifact Chrome loaded carries the real public suffix list',
+  artifactSource.includes('blogspot.com'), true);
+eq('and the DKIM selector catalog survived bundling',
+  Object.keys(DKIM_SELECTOR_CATALOG.providers).filter(k => !artifactSource.includes(k)), []);
+eq('and it is the whole application, not a stub', artifactSource.length > 100000, true);
 
 section('5. Nothing failed silently');
 

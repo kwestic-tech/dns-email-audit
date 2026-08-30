@@ -50,6 +50,7 @@ import { createI18n } from '../../src/i18n/index.js';
 import { createRenderer } from '../../src/ui/render.js';
 import { createDnsEngine } from './legacy-engine.mjs';
 import { createBrowserPlatform } from '../../src/platform/browser.js';
+import { createAuditRuntime } from '../../src/runtime.js';
 
 /** Set once the entry point has been imported. See "One application per process". */
 let entryLoaded = false;
@@ -154,10 +155,17 @@ export async function loadApp(opts = {}) {
     await import('../../src/main.js');
   }
 
-  // The ids the application writes into. Created on demand so a test only pays
-  // for what it uses. After the entry point, because nothing in it touches the
-  // DOM until a control is used and the DOMContentLoaded listener never fires
-  // here — the shim records listeners and dispatches none.
+  attachAppElements(document);
+  return win;
+}
+
+/**
+ * The ids the application writes into. Created on demand so a test only pays
+ * for what it uses, and after the application is built, because nothing in it
+ * touches the DOM until a control is used — the shim records listeners and
+ * dispatches none, so the `DOMContentLoaded` handler never fires here.
+ */
+function attachAppElements(document) {
   for (const id of ['tableBody', 'statsGrid', 'progressLog', 'toast', 'deepChecksNotice']) {
     const el = document.createElement(id === 'tableBody' ? 'tbody' : 'div');
     el.id = id;
@@ -170,8 +178,44 @@ export async function loadApp(opts = {}) {
   deepChecks.type = 'checkbox';
   deepChecks.checked = true;
   document.body.appendChild(deepChecks);
+}
 
-  return win;
+/**
+ * The UI, over a shim window, without the entry point or a single global.
+ *
+ * Task 6.2. `tools/render.test.mjs` and `tools/export.test.mjs` used to reach
+ * the renderer's internals through `window.__APP_TEST__` — a marked adapter
+ * that existed for exactly those two suites. They import the runtime here
+ * instead, which is a direct ESM path with no published name involved, and is
+ * what let the last adapters retire.
+ *
+ * A whole runtime rather than `createUi()` alone, because the UI is built from
+ * an i18n layer, a renderer and the facade callbacks, and assembling those by
+ * hand in a test would be a second composition root that could drift from the
+ * real one. `createAuditRuntime()` is the production path; this uses it.
+ */
+export async function loadUi(opts = {}) {
+  const win = createWindow();
+  const platform = createBrowserPlatform(win);
+  const runtime = createAuditRuntime({
+    publicSuffixRules: PUBLIC_SUFFIX_RULES,
+    dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
+    englishBundle: LOCALE_EN,
+    ...(opts.data || {}),
+    platform,
+  });
+  attachAppElements(win.document);
+  return {
+    win,
+    document: win.document,
+    R: runtime.renderer,
+    i18n: runtime.i18n,
+    t: runtime.i18n.t,
+    tp: runtime.i18n.tp,
+    tRaw: runtime.i18n.tRaw,
+    ui: runtime.ui,
+    runtime,
+  };
 }
 
 export { MarkupSinkError };

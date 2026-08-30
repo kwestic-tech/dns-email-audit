@@ -169,22 +169,21 @@ const codeModules = srcModules.filter(p => !isFloor(p));
 // Every floor module must actually be one. This is what makes the exclusion
 // above a rule rather than a list: a file that grows an import stops being
 // floor and rejoins the comparison.
+// Every floor module imports nothing, with no exception. `data/legacy-globals.js`
+// was the one that did — a marked adapter whose whole job was binding the
+// tables to globals — and Task 6.2 deleted it.
 for (const relative of floorModules) {
   const source = readFileSync(join(srcDir, relative), 'utf8');
-  const importsSomething = /^\s*import\s/m.test(source);
-  // The generated-data adapter is the one floor file that imports, and it is a
-  // marked adapter whose whole job is to bind the tables to globals.
-  if (relative === 'data/legacy-globals.js') continue;
-  eq(`${relative} imports nothing — it is floor`, importsSomething, false);
+  eq(`${relative} imports nothing — it is floor`, /^\s*import\s/m.test(source), false);
 }
-eq('the floor is the generated data and the platform adapter',
+eq('the floor is the three generated tables and the platform adapter',
   floorModules.sort(),
-  ['data/dkim-selectors.js', 'data/legacy-globals.js', 'data/locales-en.js',
+  ['data/dkim-selectors.js', 'data/locales-en.js',
     'data/public-suffixes.js', 'platform/browser.js']);
 
-eq('the generated data modules are the three tables and the adapter that installs them',
+eq('the generated data modules are exactly the three tables',
   dataModules.sort(),
-  ['data/dkim-selectors.js', 'data/legacy-globals.js', 'data/locales-en.js', 'data/public-suffixes.js']);
+  ['data/dkim-selectors.js', 'data/locales-en.js', 'data/public-suffixes.js']);
 
 for (const generated of ['data/public-suffixes.js', 'data/dkim-selectors.js', 'data/locales-en.js']) {
   const source = readFileSync(join(srcDir, generated), 'utf8');
@@ -194,18 +193,22 @@ for (const generated of ['data/public-suffixes.js', 'data/dkim-selectors.js', 'd
 }
 
 /**
- * Adapters are marked so they can be counted, and Phase 6 asserts the count has
- * reached zero. The sentinel is a grep, deliberately: an adapter that forgot to
- * declare itself is one nobody will remove.
+ * Adapters were marked so they could be counted, and **Task 6.2 brought the
+ * count to zero.** The sentinel is a grep, deliberately: an adapter that forgot
+ * to declare itself is one nobody will remove.
+ *
+ * The literal is assembled rather than written, because this file scans `src/`
+ * for it and a test that spells it out would only be excluded by a rule about
+ * itself. `src/main.js` avoids it for the same reason, in prose.
  */
-const ADAPTER_SENTINEL = 'LEGACY_ADAPTER';
+const ADAPTER_SENTINEL = ['LEGACY', 'ADAPTER'].join('_');
 const adapters = srcModules.filter(p =>
   readFileSync(join(srcDir, p), 'utf8').includes(ADAPTER_SENTINEL)).sort();
-eq('every adapter carries the sentinel, and these are the ones that exist',
-  adapters, ['data/legacy-globals.js', 'main.js']);
-// The count only means something if it is going down. Recorded so a phase that
-// adds one without removing another has to say so.
-console.log(`  adapters remaining: ${adapters.length}`);
+eq('no adapter remains under src/ — the Phase 6 end state', adapters, []);
+// Proven able to see one: an empty result is also what a scan for the wrong
+// string produces.
+eq('and the scan would see one if it were there',
+  ['a', `// ${ADAPTER_SENTINEL}`, 'b'].filter(l => l.includes(ADAPTER_SENTINEL)).length, 1);
 
 const entryPoint = 'main.js';
 // Grows every Phase 2 commit, and named rather than counted so a module
@@ -353,7 +356,11 @@ for (const relative of codeModules) {
   // into a Node process with no browser globals throws before it can be
   // inspected. Its exports are read syntactically above instead — which is
   // where the entry point's facade is pinned.
-  if (source.includes(ADAPTER_SENTINEL)) continue;
+  // The entry point reads the ambient `window` to build its platform, so
+  // importing it into a Node process with no browser globals throws before it
+  // can be inspected. Its exports are read SYNTACTICALLY above, which is where
+  // the facade is pinned — a stronger check for that file than this loop.
+  if (relative === entryPoint) continue;
   const module = await import(pathToFileURL(join(srcDir, relative)).href);
   for (const [name, value] of Object.entries(module)) {
     if (isNumericKeyedTable(value)) { numericKeyedTables.push(`${relative}:${name}`); continue; }

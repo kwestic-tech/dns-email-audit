@@ -168,6 +168,40 @@ export function probeDkimCatalogTable(catalog, expectation = 'fixture') {
 }
 
 /**
+ * The same three bindings, observed in a subject's JavaScript TEXT.
+ *
+ * Task 6.2 removed the generated-data globals with the last adapter, so a
+ * built subject exposes only the two-member facade and the tables live inside
+ * its closure. The discriminators are unchanged — the private `blogspot.com`
+ * rule, the fixture selector, the fixture English title — which is what keeps
+ * these the same question asked in a different place rather than a weaker one.
+ *
+ * Stated limit: a text scan cannot tell a table from a comment that quotes it.
+ * The subject is a MINIFIED artifact with no comments, and the discriminators
+ * are values no source file mentions in prose.
+ */
+export function probePublicSuffixArtifact(source, expectation = 'fixture') {
+  return probe('PSL artifact', expectation,
+    false, true,
+    typeof source === 'string' && source.includes('blogspot.com'),
+    'only the real PSL carries the private blogspot.com rule');
+}
+
+export function probeDkimCatalogArtifact(source, expectation = 'fixture') {
+  return probe('DKIM catalog artifact', expectation,
+    true, false,
+    typeof source === 'string' && source.includes(FIXTURE_DKIM_SELECTOR),
+    'only a fixture catalog contributes ' + FIXTURE_DKIM_SELECTOR);
+}
+
+export function probeEnglishBundleArtifact(source, expectation = 'fixture') {
+  return probe('English artifact', expectation,
+    true, false,
+    typeof source === 'string' && source.includes(FIXTURE_ENGLISH_TITLE),
+    'only the fixture English bundle carries ' + FIXTURE_ENGLISH_TITLE);
+}
+
+/**
  * Run the probes a suite declares, before any other assertion.
  *
  * Throws rather than returning a verdict: a suite testing against the wrong

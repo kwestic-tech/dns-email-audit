@@ -27,6 +27,12 @@ import vm from 'node:vm';
 import { createSuite } from '../lib/assert.mjs';
 import { createDocument } from '../../tools/lib/dom-shim.mjs';
 import { scriptOrderFromMarkup } from '../../tools/build-bundle.mjs';
+// The generated tables, imported rather than read off globals. Task 6.2
+// removed the globals with the last adapter; these are the same modules the
+// entry point hands the runtime.
+import { PUBLIC_SUFFIX_RULES } from '../../src/data/public-suffixes.js';
+import { DKIM_SELECTOR_CATALOG } from '../../src/data/dkim-selectors.js';
+import { LOCALE_EN } from '../../src/data/locales-en.js';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { eq, section, report } = createSuite();
@@ -158,30 +164,31 @@ const bundleGlobals = globalsOf(bundle);
  * as a mismatch.
  */
 /**
- * Ten names, and Task 2.8 is why.
+ * ONE name, and Task 6.2 is why.
  *
- * The fourteen unsupported `js/app.js` function globals are gone — the second
- * authorized compatibility delta. What is left is the facade plus the nine
- * marked adapters that still have repository consumers or no ESM owner:
- * `__APP_TEST__` (read by render.test.mjs and export.test.mjs, moving at Phase
- * 5), the i18n/renderer wiring, and the three generated-data transition inputs.
+ * Three authorized compatibility deltas brought it here: Task 2.7 contracted
+ * `window.DnsAudit` from 95 members to two, Task 2.8 removed the fourteen
+ * unsupported function globals, and **Task 6.2 removed the last nine** —
+ * `__APP_TEST__`, the i18n/renderer wiring and the three generated-data
+ * transition inputs. Each of those nine had a repository consumer with no ESM
+ * owner; every owner exists now, so each was retired rather than dropped.
+ *
  * Named rather than counted, so a name surviving that nobody kept is caught.
  */
-const EXPECTED_GLOBALS = [
-  'DnsAudit', 'R', '__APP_TEST__', '__DKIM_SELECTOR_CATALOG__', '__I18N_EN__',
-  '__PUBLIC_SUFFIX_RULES__', 'i18n', 't', 'tRaw', 'tp',
-];
-eq('the bundle creates exactly the ten names that survive Task 2.8',
+const EXPECTED_GLOBALS = ['DnsAudit'];
+eq('the bundle creates exactly the one name that survives Task 6.2',
   bundleGlobals, EXPECTED_GLOBALS);
 eq('and none of the fourteen removed function globals is among them',
   ['startAudit', 'cancelAudit', 'clearAll', 'exportCSV', 'exportHTML', 'filterTable',
     'loadExample', 'loadFile', 'openLearnMore', 'setLang', 'showHelp', 'sortTable',
     'toggleDetail', 'toggleShowMe'].filter(n => bundleGlobals.includes(n)), []);
 
-eq('the source graph creates 9 globals — everything but DnsAudit', sourceGlobals.length, 9);
-eq('and does not create DnsAudit', sourceGlobals.includes('DnsAudit'), false);
-eq('the bundle creates 10', bundleGlobals.length, 10);
-eq('the one name the bundle adds is DnsAudit',
+// The source graph creates NONE. `window.DnsAudit` is not written by any
+// module: esbuild assigns the entry point's exports to `globalName`, which is
+// §10's generated boundary and the whole of the difference between the two.
+eq('the source graph creates no global at all', sourceGlobals, []);
+eq('the bundle creates exactly one', bundleGlobals.length, 1);
+eq('and the one name the bundle adds is DnsAudit',
   bundleGlobals.filter(n => !sourceGlobals.includes(n)), ['DnsAudit']);
 eq('and it adds nothing else',
   bundleGlobals.filter(n => !sourceGlobals.includes(n) && n !== 'DnsAudit'), []);
@@ -259,10 +266,12 @@ eq('the only non-enumerable extra is the bundler artifact the facade records',
 eq('and it really is non-enumerable',
   Object.getOwnPropertyDescriptor(bundle.DnsAudit, '__esModule').enumerable, false);
 
-// The test-only surface is untouched by this task and still matches. Task 2.8
-// removes it from the window; it is not facade and never was.
-eq('__APP_TEST__ matches',
-  Object.keys(bundle.__APP_TEST__).sort(), Object.keys(source.__APP_TEST__).sort());
+// `__APP_TEST__` is gone from both, as of Task 6.2. It was never facade; it was
+// a test surface, and `tools/render.test.mjs` and `tools/export.test.mjs`
+// import the runtime directly now. Asserted absent on both sides, because a
+// global that survives on one is exactly the drift this file exists to catch.
+eq('__APP_TEST__ is on neither the bundle nor the source graph',
+  [bundle.__APP_TEST__, source.__APP_TEST__], [undefined, undefined]);
 
 /* ── 4. Behaviour through the facade ──────────────────────────────────── */
 section('4. Behaviour, through the two members that are left');
@@ -358,27 +367,68 @@ eq('a fully-configured domain grades in the A band', signed.score.grade.startsWi
 /* ── 5. Generated data survived bundling intact ───────────────────────── */
 section('5. Generated data');
 
-eq('the public suffix list is whole',
-  bundle.__PUBLIC_SUFFIX_RULES__.length, source.__PUBLIC_SUFFIX_RULES__.length);
-eq('and it is the real one, not a fixture', bundle.__PUBLIC_SUFFIX_RULES__.length > 10000, true);
+/**
+ * Read out of the ARTIFACT and the source MODULES, not off globals.
+ *
+ * Task 6.2 removed `__PUBLIC_SUFFIX_RULES__`, `__DKIM_SELECTOR_CATALOG__` and
+ * `__I18N_EN__` from the window with the last adapter. The coverage they
+ * carried does not go with them: the question was never "is the global set", it
+ * was **"did the generated data survive bundling intact"**, and the artifact
+ * itself answers that more directly than a name the app assigned.
+ *
+ * Spec §11 as of `1.4`: this is a BINDING-level check and there is no
+ * behavioural one, because `getOrganizationalDomain()` is the only reader of
+ * the PSL sets and no application code calls it. Section 6 below records why
+ * an attempt to observe it through the facade would have been wrong.
+ */
+const artifactText = readFileSync(join(REPO, ARTIFACT), 'utf8');
+
+eq('the public suffix list is the real one, not a fixture',
+  PUBLIC_SUFFIX_RULES.length > 10000, true);
 // The discriminating rule, not just the count — a truncated list of the right
-// length would pass a length check. Same rule the fixture-identity probes use,
-// and against the artifact this is a BINDING-level check: spec §11 as of 1.4
-// states there is no behavioural one, because nothing reads the table.
-eq('the bundled list carries the private blogspot.com rule',
-  bundle.__PUBLIC_SUFFIX_RULES__.includes('blogspot.com'), true);
-eq('and so does the source it was built from',
-  source.__PUBLIC_SUFFIX_RULES__.includes('blogspot.com'), true);
-eq('the DKIM selector catalog is whole',
-  Object.keys(bundle.__DKIM_SELECTOR_CATALOG__).length,
-  Object.keys(source.__DKIM_SELECTOR_CATALOG__).length);
-// The inlined English bundle is why file:// works at all: 125,172 bytes so the
-// app needs no fetch to render text. If bundling dropped it, file:// would
-// degrade silently to untranslated keys.
-eq('the English bundle is inlined in the artifact',
-  Object.keys(bundle.__I18N_EN__).length, Object.keys(source.__I18N_EN__).length);
-eq('and the i18n layer resolves through it with no network',
-  bundle.t('doc.title'), source.t('doc.title'));
+// length would pass a length check. Same rule the fixture-identity probes use.
+eq('the source module carries the private blogspot.com rule',
+  PUBLIC_SUFFIX_RULES.includes('blogspot.com'), true);
+eq('and the built artifact carries it too',
+  artifactText.includes('blogspot.com'), true);
+// Every rule, not a sample: the bundled text must contain the whole table.
+eq('every public suffix rule survived bundling',
+  PUBLIC_SUFFIX_RULES.filter(rule => !artifactText.includes(rule)), []);
+
+eq('the DKIM selector catalog is whole in the artifact',
+  Object.keys(DKIM_SELECTOR_CATALOG).filter(k => !artifactText.includes(k)), []);
+eq('and it is the real one', Object.keys(DKIM_SELECTOR_CATALOG.providers).length > 10, true);
+
+/**
+ * The inlined English bundle is why `file://` works at all: the app needs no
+ * fetch to render text, and if bundling dropped it `file://` would degrade
+ * silently to untranslated keys.
+ *
+ * Checked over the ASCII-only strings, and the reason is measured rather than
+ * assumed: **esbuild escapes non-ASCII as `\uXXXX`**, so `doc.title` — which
+ * carries an em dash — is in the artifact and not as its own bytes. Probed
+ * before asserting; the obvious `includes(LOCALE_EN.doc.title)` is false for a
+ * bundle that contains it perfectly.
+ */
+const flatEnglish = [];
+(function walk(node) {
+  for (const value of Object.values(node)) {
+    if (typeof value === 'string') flatEnglish.push(value);
+    else if (value && typeof value === 'object') walk(value);
+  }
+}(LOCALE_EN));
+const asciiEnglish = flatEnglish.filter(v => /^[\x20-\x7e]{12,}$/.test(v));
+eq('the bundle carries a substantial English vocabulary to check',
+  asciiEnglish.length > 250, true);
+eq('and every ASCII English string is inlined in the artifact',
+  asciiEnglish.filter(v => !artifactText.includes(v)), []);
+// The escaping, asserted rather than left as a footnote — it is why the check
+// above is scoped, and a build that stopped escaping would change the artifact.
+eq('non-ASCII is escaped, which is why the check is ASCII-scoped',
+  artifactText.includes('\\u2014'), true);
+
+// The scan is only meaningful if it read the real artifact.
+eq('the artifact scanned is the whole application', artifactText.length > 100000, true);
 
 /* ── 6. The DMARC tree walk agrees ────────────────────────────────────── */
 section('6. The organizational-domain walk');

@@ -107,11 +107,14 @@ for (const relativePath of sources) {
 
 eq('no module under src/ touches a global outside a marked adapter', offenders, []);
 
-// The adapters, named. The list shrinks every phase and Phase 6 asserts it is
-// empty; naming them means an adapter appearing that nobody added is caught.
-eq('the marked adapters are the ones we expect', adapters.sort(),
-  ['data/legacy-globals.js', 'main.js']);
-console.log(`  adapters remaining: ${adapters.length}`);
+// **Task 6.2 emptied this list**, which is the Phase 6 end state: every global
+// the application published had a consumer with no ESM owner, and each owner
+// now exists. The list is asserted rather than counted so an adapter appearing
+// that nobody added is caught.
+eq('no marked adapter remains under src/', adapters.sort(), []);
+// And with no adapter to excuse one, the rule above has no exemption left:
+// nothing under `src/` touches a global at all.
+eq('so nothing under src/ touches a global', offenders.length, 0);
 
 /* ── 3. The check can fail ────────────────────────────────────────────── */
 section('3. Negative control');
@@ -135,22 +138,23 @@ eq('nor is a property access on something else',
 /**
  * The stated limit, asserted so it cannot be forgotten.
  *
- * `src/main.js` writes its fourteen function globals through an alias — the
- * IIFE's old `global` parameter, kept as `const global = window` so that the
- * 1,801-line body Task 2.6 moved could stay byte-identical. This scan does not
- * resolve aliases and never claimed to; it looks for the literal receivers.
+ * This scan does not resolve aliases and never claimed to; it looks for the
+ * literal receivers. `src/main.js` used to write its globals through one — the
+ * IIFE's old `global` parameter, kept as `const global = window` — and that
+ * was survivable only because the rule was "no module outside a MARKED ADAPTER
+ * touches a global" and it was the marked adapter.
  *
- * That costs nothing here, because the rule it enforces is "no module outside a
- * MARKED ADAPTER touches a global" and `src/main.js` is a marked adapter. It
- * would cost something if an unmarked module aliased its way past, so the hole
- * is written down and the RUNTIME surface is what actually pins the inventory:
- * `tests/build/parity.test.mjs` loads the artifact and compares the names the
- * code created, where an alias is invisible in the other direction.
+ * **There are no adapters now**, so the exemption is gone and the hole matters
+ * more, not less. It is written down, and the RUNTIME surface is what actually
+ * pins the inventory: `tests/build/parity.test.mjs` loads the artifact and
+ * compares the names the code created, where an alias is invisible in the
+ * other direction.
  */
 eq('an aliased write is NOT caught — a stated limit',
   globalTouches('const global = window; global.startAudit = startAudit;'), []);
-eq('and the entry point does write them that way',
-  /const global = window;/.test(readFileSync(join(srcDir, 'main.js'), 'utf8')), true);
+// The entry point no longer writes one, aliased or otherwise. Task 6.2.
+eq('and the entry point no longer aliases window',
+  /const global = window;/.test(readFileSync(join(srcDir, 'main.js'), 'utf8')), false);
 
 /* ── 4. What still reaches for globals, and why ───────────────────────── */
 section('4. The legacy consumers, counted');

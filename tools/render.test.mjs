@@ -12,13 +12,15 @@
  */
 
 import {
-  loadApp, MarkupSinkError, elements, attributes, locate, hasNoEventHandlers, textOf,
+  loadUi, MarkupSinkError, elements, attributes, locate, hasNoEventHandlers, textOf,
 } from './lib/browser-harness.mjs';
 import { RICH_TAG_ALLOWLIST, disallowedTags } from './lib/locale-utils.mjs';
 
-const win = await loadApp();
-const { R, document } = win;
-const APP = win.__APP_TEST__;
+// Task 6.2: a direct ESM path. This used to reach the renderer's internals
+// through `window.__APP_TEST__`, a marked adapter that existed for this suite
+// and `export.test.mjs` alone. `loadUi()` builds a real runtime and hands back
+// what it built — no published name involved, and no adapter left to retire.
+const { win, R, document, t, tp, tRaw, i18n, ui: APP } = await loadUi();
 
 let pass = 0, fail = 0;
 const eq = (label, actual, expected) => {
@@ -165,9 +167,9 @@ eq('an over-long CNAME target is capped',
 /* ── 4. Empty and whitespace-only values ─────────────────────────────── */
 section('4. An empty record is distinguishable from no lookup');
 
-eq('an empty value renders the none token', textOf(R.value('')), win.t('labels.none'));
-eq('a whitespace-only value renders the none token', textOf(R.value('   ')), win.t('labels.none'));
-eq('an empty list renders the none token', textOf(R.list([])), win.t('labels.none'));
+eq('an empty value renders the none token', textOf(R.value('')), t('labels.none'));
+eq('a whitespace-only value renders the none token', textOf(R.value('   ')), t('labels.none'));
+eq('an empty list renders the none token', textOf(R.list([])), t('labels.none'));
 eq('the none token is marked as such',
   elements(R.value('')).some(e => e.classList.contains('rv-none')), true);
 
@@ -230,7 +232,7 @@ eq('an http href is dropped',
 /* ── 8. Rich text is fail-closed ─────────────────────────────────────── */
 section('8. Rich text is tokenized, never parsed into markup');
 
-const rich = (s) => win.i18n.sanitizeFragment(s);
+const rich = (s) => i18n.sanitizeFragment(s);
 
 eq('an allowlisted tag becomes an element',
   elements(rich('a <strong>b</strong> c')).map(e => e.localName), ['strong']);
@@ -331,7 +333,7 @@ eq('the MX zero-width is sentinelled', textOf(tbody).includes('‹ZWSP›'), tru
 eq('a hygiene note is shown',
   elements(tbody).some(e => e.classList.contains('rv-hygiene')), true);
 eq('the hygiene note names the override',
-  textOf(tbody).includes(win.t('render.hygiene.bidiOverride')), true);
+  textOf(tbody).includes(t('render.hygiene.bidiOverride')), true);
 
 // Every attribute value in the row must be one the renderer chose, or a
 // DNS-derived value in an allowlisted slot (title / data-*).

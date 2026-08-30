@@ -74,14 +74,15 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 90,
+      "assertions": 89,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
         "script loading: exactly one, it is dist/app.min.js, same-origin, not a module",
         "the markup-sink scan over js/ and src/, with an EMPTY named-file allowlist and a mechanical *.test.js suffix exclusion",
         "the markup-sink scan over the built artifact, which is what pays for that exclusion",
-        "the exported report declares its own policy"
+        "the exported report declares its own policy",
+        "the markup-sink allowlist is empty and src/ is the only source tree left to scan"
       ],
       "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. 58 before Task 4.0; +4 core/shared, +1 core/caa, +1 core/mx, +1 core/bimi, +4 core/transport."
     },
@@ -539,7 +540,7 @@
     },
     {
       "path": "tests/contract/state-matrix.test.mjs",
-      "assertions": 53,
+      "assertions": 54,
       "areas": [
         "every registry member has exactly one coverage row",
         "every row names a suite or corpus case that exists",
@@ -557,7 +558,7 @@
     },
     {
       "path": "tests/contract/namespace.test.mjs",
-      "assertions": 17,
+      "assertions": 18,
       "areas": [
         "the 24-name global inventory is closed",
         "no module under src/ reads or writes one of them outside a marked adapter",
@@ -598,7 +599,7 @@
     },
     {
       "path": "tests/build/parity.test.mjs",
-      "assertions": 68,
+      "assertions": 70,
       "areas": [
         "the artifact under test is the one index.html names and _site publishes",
         "the built artifact creates the same 24 globals as the source, and introduces none of its own",
@@ -625,7 +626,7 @@
     },
     {
       "path": "tests/build/equivalence.validate.mjs",
-      "assertions": 77,
+      "assertions": 76,
       "areas": [
         "the runner is deterministic across two runs of one root",
         "each of the five surfaces distinguishes cases",

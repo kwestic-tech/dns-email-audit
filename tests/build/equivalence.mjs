@@ -36,7 +36,7 @@ import { dirname, join, resolve, relative } from 'node:path';
 import { loadSubject, FIXED_INSTANT, FIXED_LOCALE, FIXED_TIMEZONE } from '../lib/subject.mjs';
 import {
   probePublicSuffixRules, probeDkimCatalog, probeEnglishBundle,
-  probePublicSuffixTable, probeDkimCatalogTable, assertFixtureIdentity,
+  probePublicSuffixArtifact, probeDkimCatalogArtifact, probeEnglishBundleArtifact, assertFixtureIdentity,
 } from '../lib/fixture-identity.mjs';
 import {
   encode, serialize, canonicalQueryTrace, orderedSubsequence,
@@ -217,10 +217,18 @@ async function runCase(root, testCase, entry) {
  * spec §11 says so as of `1.4`: `getOrganizationalDomain()` is the only reader
  * of the public suffix sets and no application code calls it, so there is no
  * production path to observe. It is an engine/runtime fingerprint in the
- * `engine` form and a binding check in the `binding` form. The DKIM catalog and
- * the English bundle keep real consumers in both.
+ * `engine` form and a binding check in the `artifact` form.
+ *
+ * The second form was `binding` until Task 6.2, reading the three generated-data
+ * globals. That task removed them with the last adapter, so the tables now live
+ * inside the bundle's closure and the artifact TEXT is where their identity is
+ * observable. **Same discriminators, different place** — the private
+ * `blogspot.com` rule, the fixture selector, the fixture English title — which
+ * is what makes it the same question rather than a weaker one. The form is
+ * recorded in the emitted manifest either way, so a run can never read as
+ * stronger evidence than it was.
  */
-function probeSubject(win) {
+function probeSubject(win, scriptSource) {
   const engine = win.DnsAudit || {};
   const reachable = typeof engine.getOrganizationalDomain === 'function' &&
     typeof engine.isRecognizedDkimSelector === 'function';
@@ -235,11 +243,11 @@ function probeSubject(win) {
     };
   }
   return {
-    form: 'binding',
+    form: 'artifact',
     probes: [
-      probePublicSuffixTable(win.__PUBLIC_SUFFIX_RULES__, 'production'),
-      probeDkimCatalogTable(win.__DKIM_SELECTOR_CATALOG__, 'production'),
-      probeEnglishBundle(win.t, 'production'),
+      probePublicSuffixArtifact(scriptSource, 'production'),
+      probeDkimCatalogArtifact(scriptSource, 'production'),
+      probeEnglishBundleArtifact(scriptSource, 'production'),
     ],
   };
 }
@@ -260,7 +268,7 @@ function openSubject(root, testCase, entry, fetchImpl) {
   const subject = loadSubject(root, {
     entry, fetch: fetchImpl, instant: FIXED_INSTANT, platform: testCase.platform,
   });
-  const probe = probeSubject(subject.win);
+  const probe = probeSubject(subject.win, subject.scriptSource);
   assertFixtureIdentity(probe.probes);
   return { ...subject, probeForm: probe.form };
 }

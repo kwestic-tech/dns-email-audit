@@ -129,6 +129,7 @@ export function loadSubject(root, options = {}) {
   const indexHtml = indexBuffer.toString('utf8');
 
   const inputs = [{ path: 'index.html', bytes: indexBuffer.length, sha256: sha256(indexBuffer) }];
+  let scriptSource = '';
   const { scripts, stylesheets } = readEntryPoints(indexHtml);
 
   const document = createDocument();
@@ -213,7 +214,9 @@ export function loadSubject(root, options = {}) {
     if (!existsSync(scriptPath)) throw new Error(`subject: ${src} listed in index.html but missing from ${root}`);
     const buffer = readFileSync(scriptPath);
     inputs.push({ path: posix.normalize(src), bytes: buffer.length, sha256: sha256(buffer) });
-    vm.runInContext(buffer.toString('utf8'), win, { filename: src });
+    const text = buffer.toString('utf8');
+    scriptSource += text;
+    vm.runInContext(text, win, { filename: src });
   }
 
   // The stylesheet the exported report inlines. Read from THIS subject, so a
@@ -233,6 +236,16 @@ export function loadSubject(root, options = {}) {
     win,
     document,
     css,
+    /**
+     * The subject's own JavaScript, concatenated.
+     *
+     * Read for the fixture-identity probes. Since Task 6.2 a subject publishes
+     * no generated-data global — the last adapter that set them is gone — so
+     * the tables are inside the bundle's closure and the artifact TEXT is
+     * where their identity is observable. Same discriminators as the table
+     * probes; a weaker place to look would have to be recorded as one.
+     */
+    scriptSource,
     /** Every Blob the subject built, in order. See "The download boundary". */
     downloads,
     manifest: {

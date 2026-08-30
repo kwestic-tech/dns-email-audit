@@ -357,12 +357,13 @@ rmSync(htmlRoot, { recursive: true, force: true });
  * that looks authoritative — this is the spike's failure mode moved up a level,
  * where it would poison every later comparison instead of one suite.
  *
- * The wording tolerated below covers both probe forms, and deliberately: an
- * artifact that exposes the engine members is refused by the `PSL` probe and
- * one that exposes only the facade by the `PSL table` probe. Which form a
- * subject gets is recorded in its manifest (`subject.fixtureIdentity`), so a
- * regex that admitted only one would start passing for the wrong reason the day
- * the other form appeared.
+ * The wording tolerated below covers every probe form, and deliberately: an
+ * artifact that exposes the engine members is refused by the `PSL` probe, and
+ * one that exposes only the facade by the `PSL artifact` probe — which is what
+ * Task 6.2 turned the second form into when the last adapter took the
+ * generated-data globals with it. Which form a subject gets is recorded in its
+ * manifest (`subject.fixtureIdentity`), so a regex that admitted only one would
+ * start passing for the wrong reason the day another appeared.
  */
 const swappedRoot = await makeRoot('swapped');
 writeFileSync(join(swappedRoot, 'src', 'data', 'public-suffixes.js'),
@@ -372,7 +373,7 @@ let refusedData = false;
 let refusalMessage = '';
 try { await run(swappedRoot); } catch (error) {
   refusalMessage = error.message;
-  refusedData = /the PSL(?: table)? binding in force is not the production one/.test(error.message) &&
+  refusedData = /the PSL(?: table| artifact)? binding in force is not the production one/.test(error.message) &&
     /this is exactly the fixture value/.test(error.message);
 }
 eq('a subject whose generated data was substituted is refused, not measured', refusedData, true);
@@ -410,24 +411,24 @@ section('4. Module evaluation order');
  * one of the 24 globals outside a marked adapter. That catches the hazard
  * COMING BACK, which is the only way it can return.
  *
- * What stays here is the structural half, and it is the durable half: the
- * installation is an IMPORT rather than an assignment in the entry's body. That
- * distinction is the whole lesson of the original bug, it is free to keep, and
- * a future consumer that does read a global finds it already installed.
+ * **The generated-data globals are gone as of Task 6.2**, and with them the
+ * import this section watched. `src/data/legacy-globals.js` was the last
+ * adapter; every consumer of those three names now takes its data as an
+ * argument, so there is no installation left to order.
+ *
+ * What survives is the lesson, asserted where it still bites: the entry point
+ * must construct the runtime in its BODY, after every import has evaluated.
+ * That is what made the original bug a bug — textual order in an entry point
+ * says nothing about evaluation order — and it is still true of anything the
+ * body does.
  */
 const entry = readFileSync(join(pristine, 'src', 'main.js'), 'utf8');
-const installImportAt = entry.indexOf("import './data/legacy-globals.js'");
-// The entry's own body starts where its last import ends. Anything the body
-// does — including constructing the runtime — happens after every import has
-// evaluated, which is precisely what makes the import a guarantee.
 const lastImportAt = [...entry.matchAll(/^import\b.*$/gm)].pop().index;
 const runtimeAt = entry.indexOf('createAuditRuntime({');
-eq('the generated data is installed by an import, not by an assignment',
-  installImportAt >= 0, true);
-eq('and the entry constructs its runtime in its body, after every import',
+eq('the entry point constructs its runtime after every import',
   runtimeAt > lastImportAt, true);
-eq('so no assignment in the body precedes the installation',
-  entry.slice(0, installImportAt).includes('window.__PUBLIC_SUFFIX_RULES__'), false);
+eq('and it installs no generated-data global at all',
+  /__PUBLIC_SUFFIX_RULES__|__DKIM_SELECTOR_CATALOG__|__I18N_EN__/.test(entry), false);
 eq('the namespace contract exists to hold the property this used to test',
   existsSync(join(REPO, 'tests/contract/namespace.test.mjs')), true);
 
