@@ -11,10 +11,17 @@ that checkable rather than aspirational.
 
 It is the **enforced allowed-edge matrix**, checked against the real import
 graph — not a listing of it. Some rows permit an edge nothing currently uses:
-`runtime.js` may import `core/shared/` and does not. That is deliberate, and it
-is the direction that matters — `tests/contract/dns-transport.test.mjs` §5
-fails on any edge **absent** from the matrix, so an unused permission costs
-nothing and a missing one is a test failure.
+`runtime.js` may import `core/shared/` and does not. That permission is
+approved, and it is still part of the policy —
+`tests/contract/dns-transport.test.mjs` §5 fails on any edge **absent** from
+the matrix, so what the matrix grants is exactly what the architecture allows,
+used or not.
+
+**Adding a row, or widening one, is an architectural change and needs the same
+justification and review as any other.** An unused permission is not free: it
+is a direction someone may take later without further argument, which is
+precisely what the matrix exists to prevent. Do not add an edge to make an
+import compile.
 
 | Directory | Owns | May import |
 | --- | --- | --- |

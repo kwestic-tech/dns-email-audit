@@ -10,7 +10,7 @@
 | Slug for open questions | `ARCH` |
 | Last updated | 2026-08-30 |
 | Evidence | [esbuild-legacy-bundle-spike-0.6.0](fixtures/esbuild-legacy-bundle-spike-0.6.0.md) — settles `OQ-ARCH-01`, confirms Phase 1 viability, and demonstrates the fixture-substitution hazard; [gate-0-evidence-0.6.0](fixtures/gate-0-evidence-0.6.0.md) — the Gate 0 conditions, met 2026-08-27; [gate-1-evidence-0.6.0](fixtures/gate-1-evidence-0.6.0.md) — the Gate 1 conditions, including native-Linux `npm ci` and `file://` in a real browser; [gate-2-evidence-0.6.0](fixtures/gate-2-evidence-0.6.0.md) — the Gate 2 conditions, met 2026-08-28, with both compatibility deltas performed and the oracle's two-execution rebuild; [gate-4-evidence-0.6.0](fixtures/gate-4-evidence-0.6.0.md) — every protocol in an owning directory, and the issue-token vocabulary diffed byte-identical against `v0.5.0`; [gate-5-evidence-0.6.0](fixtures/gate-5-evidence-0.6.0.md) — the four Gate 5 conditions, each with the command that produced it, including the runnable `v0.5.0` scoring comparison. Gate 3 has no evidence document; its conditions are carried by the contract suites it created. |
-| Reviews | **Three formal spec-review rounds** (Codex, 2026-08-27) produced `0.2`, `0.4` and `1.0`. Two later review cycles amended the spec: the Task-2.7 round produced `1.4`, and its §5 Gate-2 audit produced `1.5`; the Task-3.6 round produced `1.6`. A further implementation-review cycle ran across Phases 5 and 6 and amended nothing. All of these were carried in six **temporary working documents** at the repository root, which are deleted — their durable decisions are folded into [As implemented](#as-implemented), and the filenames still named in the Revision history below are **provenance only**, not documents you can open. |
+| Reviews | **Three formal spec-review rounds** (Codex, 2026-08-27) produced `0.2`, `0.4` and `1.0`. Two later review cycles amended the spec: the Task-2.7 round produced `1.4`, and its §5 Gate-2 audit produced `1.5`; the Task-3.6 round produced `1.6`. Those five were carried in six **temporary working documents** at the repository root — a request and a follow-up for each — which are deleted; the filenames still named in the Revision history below are **provenance only**, not documents you can open. A further **implementation-review cycle ran across Phases 5 and 6, produced no working document, and amended nothing**. Every durable decision from both sources is folded into [As implemented](#as-implemented). |
 | Source | Written from an external proposal, *DNS Email Audit Modular Architecture and Production Build Refactor Specification* (Codex, 2026-08). Section numbers of the form §N below refer to that document. Where this spec diverges from it, the divergence is recorded in [§ Corrections to the source proposal](#corrections-to-the-source-proposal). |
 
 ## Problem
@@ -1658,9 +1658,14 @@ Neither is a 0.6.0 regression; both predate the branch.
 
 ### What the review rounds established
 
-Three formal spec-review rounds, two later amending cycles, and one
-implementation-review cycle that amended nothing. Their working documents — six
-files at the repository root — are deleted; what survives is folded here:
+Two separate sources, and they should not be conflated.
+
+**Six temporary working documents** at the repository root carried the three
+formal spec-review rounds and the two later amending cycles — a request and a
+follow-up for each. They are deleted; what survives from them is folded here.
+
+**The Phase 5–6 implementation review was separate**, produced no working
+document, and amended nothing. What it caught is recorded in the last row.
 
 | Cycle | What it changed |
 | --- | --- |
@@ -1669,7 +1674,7 @@ files at the repository root — are deleted; what survives is folded here:
 | Transport exception edges | Produced `1.6`: two inventories rather than one three-name row — raw-kind readers and typed propagation paths are different questions and one list could not serve both. |
 | Phase 5–6 implementation review | **No spec amendment.** They caught, in order: a coordinator that broke Gate 5 by holding seven parsing rules; a concurrency instrument that could hang instead of failing; four dead compatibility wrappers calling a function their module did not import; a harness mode that documented a global it could not produce; and repeated current-state claims that outlived the code they described. |
 
-**The pattern across all five rounds is one shape**, and it is the most
+**The pattern across the review cycles is one shape**, and it is the most
 transferable thing this branch produced: **a check that is green because
 nothing reaches it.** A wrapper nobody calls, a scan over a deleted path, a
 race with no deadline, a mode with no caller, a claim nothing asserts. None was
