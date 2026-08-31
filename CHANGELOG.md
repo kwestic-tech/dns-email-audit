@@ -34,10 +34,9 @@ Nothing yet.
   with a checked-in `API.md`, and **30 co-located test modules** sitting beside
   the code they test. `src/ui/` is the one owning directory with no co-located
   test: it keeps its established coverage in `tools/render.test.mjs` and
-  `tools/export.test.mjs`. Imports are
-  explicit, so load order is derived rather than declared, and the only
-  application-created browser global is `DnsAudit`, with the two facade
-  members described below.
+  `tools/export.test.mjs`. Imports are explicit, so load order is derived
+  rather than declared. The only application-created browser global is
+  `DnsAudit`, with the two facade members described below.
 
 - **`index.html` loads one script instead of seven.** `dist/app.min.js`, built
   by esbuild, is the single delivery boundary: 437 KB raw and 131 KB gzipped,
@@ -89,7 +88,8 @@ Nothing yet.
 
 ### Added
 
-- **A build, and one direct dependency to run it.** `package.json` declares
+- **A reproducible build with one direct development dependency.**
+  `package.json` declares
   exactly one: esbuild `0.28.2`, exact-pinned, as a dev dependency — no
   framework, and still nothing at runtime.
 
@@ -105,6 +105,8 @@ Nothing yet.
 
   `npm test` builds first, because several suites assert against the artifact
   and a source-only run would be testing something the browser never sees.
+  A clean checkout therefore runs `npm ci` and `npm run build` before
+  `npm start`; `dist/` remains generated and untracked.
 
 - **An allowed-import matrix that a test enforces.** `AGENTS.md` carries the
   edges the architecture permits, and
@@ -151,8 +153,8 @@ none of the five, which is why it is documented rather than diffed. `WEIGHTS`,
 `tools/scoring.test.mjs` still reaches the engine's 95-member surface by name,
 and passes the **same 1,535 assertions** it passed before the refactor, with
 **the count unmoved through all six phases**. It was not rewritten to match
-the new structure — that would have retired the
-instrument measuring the refactor. What did change in it is the loading
+the new structure — that would have retired the instrument measuring the
+refactor. What did change in it is the loading
 mechanism (a `node:vm` sandbox cannot evaluate an ES module) and three DNSSEC
 tests that used to reassign `sandbox.crypto` between calls; a platform is fixed
 for the life of a runtime now, so "a runtime without crypto" is expressed by

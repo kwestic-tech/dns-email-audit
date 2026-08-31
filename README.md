@@ -3,10 +3,11 @@
 [![CI](https://github.com/kwestic-tech/dns-email-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/kwestic-tech/dns-email-audit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kwestic-tech/dns-email-audit/blob/main/LICENSE)
 
-A free, dependency-free browser application for auditing DNS, email
-authentication, mail-transport security, and related domain controls. Audit up
-to 200 domains at once and get evidence-backed findings, a confidence-aware
-grade, plain-language explanations, and copy-ready remediation examples.
+A free browser application with no runtime dependencies for auditing DNS,
+email authentication, mail-transport security, and related domain controls.
+Audit up to 200 domains at once and get evidence-backed findings, a
+confidence-aware grade, plain-language explanations, and copy-ready
+remediation examples.
 
 **[Open the live auditor →](https://dnsaudit.kwestic.com)**
 
@@ -259,26 +260,31 @@ placeholders, inline HTML, plurals, and DNS examples.
 
 ## Run locally
 
-Requirements: [Node.js](https://nodejs.org/) 18 or newer. There are no package
-dependencies to install.
+Requirements: [Node.js](https://nodejs.org/) 18 or newer. A clean checkout
+needs the exact-pinned build dependency installed and the browser artifact
+built before it can be served:
 
 ```bash
 git clone https://github.com/kwestic-tech/dns-email-audit.git
 cd dns-email-audit
+npm ci
+npm run build
 npm start
 ```
 
 Open <http://localhost:8080>.
 
-Any static HTTP server can serve the repository. Opening `index.html` directly
-over `file://` also works in English; browsers block fetching the other locale
+Any static HTTP server can serve the repository after `npm run build` has
+created `dist/app.min.js`. Opening `index.html` directly over `file://` also
+works in English after that build; browsers block fetching the other locale
 JSON files from disk, so translated interfaces require HTTP.
 
 ## Tests and developer commands
 
 | Command | Purpose |
 | --- | --- |
-| `npm start` | Start the dependency-free development server on port 8080. |
+| `npm ci` | Install exact versions of esbuild and its platform binary; no install scripts run. |
+| `npm start` | Serve the already-built application on port 8080 with the dependency-free development server. |
 | `npm run check` | Validate locale files and the generated English fallback. |
 | `npm test` | Build the bundle, then run locale validation plus **4,451** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
@@ -306,8 +312,9 @@ maximum possible score. It requires outbound network access and is not run in CI
 
 ## Build and deployment
 
-The browser application itself does not require bundling. For deployment,
-`npm run build` copies only the public runtime files into `_site/`:
+The browser loads `dist/app.min.js`, so a source checkout must be bundled
+before it can run. `npm run build` creates that artifact and then copies only
+the public runtime files into `_site/` for deployment:
 
 ```bash
 npm test

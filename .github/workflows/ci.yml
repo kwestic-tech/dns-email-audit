@@ -4,7 +4,7 @@
 # Catches the three things that actually break translations:
 #   • malformed JSON in a locale file
 #   • {0}/{1} placeholder mismatches against en.json
-#   • js/locales-en.js not regenerated after editing locales/en.json
+#   • src/data/locales-en.js not regenerated after editing locales/en.json
 #
 # Missing keys are reported but do NOT fail the build — partial translations
 # are welcome and fall back to English at runtime.
@@ -166,7 +166,7 @@ jobs:
   # file:// in a real browser engine.
   #
   # An acceptance criterion, and structural reasoning is not evidence for it.
-  # js/locales-en.js exists so the app works from disk; OQ-ARCH-06 chose an
+  # src/data/locales-en.js exists so the app works from disk; OQ-ARCH-06 chose an
   # IIFE over a module for the same reason. The check refuses to skip when no
   # browser is present.
   # ────────────────────────────────────────────────────────────────────────
@@ -208,13 +208,13 @@ jobs:
   # than as a supply-chain or equivalence failure.
   # ────────────────────────────────────────────────────────────────────────
   supported-floor:
-    name: Node 20 (declared engines floor)
+    name: Node 18 (declared engines floor)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '20'
+          node-version: '18'
       - run: npm ci
       - run: npm test
       - run: npm run build

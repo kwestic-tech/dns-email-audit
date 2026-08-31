@@ -214,11 +214,12 @@ coverage quietly leaving, and a silent increase is work nobody recorded.
 
 ### `file://` works, and it is tested
 
-`index.html` opens straight from disk with no server. That is why the bundle is
-a classic script rather than `type="module"` — a module script is blocked by
-CORS under `file://` — and why the English locale is inlined into the artifact
-rather than fetched. `npm run test:file-url` drives a real Chrome over
-`file://` and asserts it, so the property cannot rot silently.
+After `npm run build`, `index.html` opens straight from disk with no server.
+That is why the bundle is a classic script rather than `type="module"` — a
+module script is blocked by CORS under `file://` — and why the English locale
+is inlined into the artifact rather than fetched. `npm run test:file-url`
+drives a real Chrome over `file://` and asserts it, so the property cannot rot
+silently.
 
 Other locales still need a server: browsers block fetching `locales/*.json`
 from disk, and the app falls back to English.
@@ -260,7 +261,8 @@ already-open PR is **appended, never overwritten** — is in
 Do not restate it here; that section is the authority for both humans and
 agents.
 
-Please also confirm `index.html` still opens correctly straight from disk (`file://`) in English.
+After building, please also confirm `index.html` still opens correctly straight
+from disk (`file://`) in English.
 
 ---
 
