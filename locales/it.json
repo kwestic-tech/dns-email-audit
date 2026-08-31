@@ -1181,9 +1181,9 @@
   },
   "finding": {
     "dmarc-enforcement-without-auth": {
-      "msg": "DMARC applica la policy ma SPF e DKIM non sono configurati: la vostra stessa posta può essere rifiutata.",
-      "what": "DMARC indica ai destinatari soltanto cosa fare quando un messaggio non supera SPF e DKIM. Pubblicare <code>p=reject</code> o <code>p=quarantine</code> prima che questi due superino i controlli significa che la vostra posta legittima — che al momento non ha nulla che la autentichi — è quella che viene rifiutata o messa in quarantena. L'applicazione deve seguire l'autenticazione, mai precederla.",
-      "fix": "Pubblicate prima SPF e configurate la firma DKIM, monitorate i report aggregati DMARC finché le vostre fonti legittime non superano i controlli, e solo allora portate la policy in modalità di applicazione.",
+      "msg": "DMARC applica la policy mentre l'autenticazione SPF o DKIM non è del tutto in atto: la vostra stessa posta può essere rifiutata.",
+      "what": "DMARC indica ai destinatari soltanto cosa fare quando un messaggio non supera SPF e DKIM. Pubblicare <code>p=reject</code> o <code>p=quarantine</code> prima che entrambi superino i controlli significa che qualsiasi messaggio legittimo che il metodo mancante non è in grado di autenticare è quello che viene rifiutato o messo in quarantena. L'applicazione deve seguire l'autenticazione, mai precederla.",
+      "fix": "Verificate che sia SPF sia DKIM superino i controlli per i vostri mittenti legittimi — pubblicando quello non ancora in atto — e monitorate i report aggregati DMARC finché non lo fanno, prima di affidarvi all'applicazione.",
       "fixCode": "; Passaggio 1 — autenticare (esempio per Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Passaggio 2 — applicare solo quando i report sono puliti\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
     "mx-dangling-with-enforcement": {
@@ -1272,7 +1272,8 @@
     },
     "rationale": {
       "foundation": "Correggete prima questi: tutto il resto dipende da loro",
-      "afterPrereq": "Una volta soddisfatti i prerequisiti sopra indicati"
+      "afterPrereq": "Una volta soddisfatti i prerequisiti sopra indicati",
+      "cleanup": "Nessuna dipendenza: fateli quando volete"
     }
   }
 }

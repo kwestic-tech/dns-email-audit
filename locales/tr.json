@@ -1181,9 +1181,9 @@
   },
   "finding": {
     "dmarc-enforcement-without-auth": {
-      "msg": "DMARC zorunlu kılınıyor ancak SPF ve DKIM yapılandırılmamış — kendi postanız reddedilebilir.",
-      "what": "DMARC, alıcılara yalnızca bir ileti SPF ve DKIM doğrulamasını geçemediğinde ne yapacaklarını söyler. Bu ikisi geçerli hale gelmeden <code>p=reject</code> veya <code>p=quarantine</code> yayınlamak, şu anda kendisini doğrulayacak hiçbir şeyi olmayan meşru postanızın reddedilen veya karantinaya alınan posta olması anlamına gelir. Zorunlu kılma, doğrulamayı izlemelidir, asla ondan önce gelmemelidir.",
-      "fix": "Önce SPF yayınlayın ve DKIM imzalamayı kurun, meşru kaynaklarınız doğrulamayı geçene kadar DMARC toplu raporlarını izleyin ve ancak o zaman politikayı zorunlu kılmaya geçirin.",
+      "msg": "SPF veya DKIM kimlik doğrulaması tam olarak yerinde değilken DMARC zorunlu kılınıyor — kendi postanız reddedilebilir.",
+      "what": "DMARC, alıcılara yalnızca bir ileti SPF ve DKIM doğrulamasını geçemediğinde ne yapacaklarını söyler. Her ikisi de geçerli hale gelmeden <code>p=reject</code> veya <code>p=quarantine</code> yayınlamak, eksik yöntemin doğrulayamadığı herhangi bir meşru iletinin reddedilen veya karantinaya alınan posta olması anlamına gelir. Zorunlu kılma, doğrulamayı izlemelidir, asla ondan önce gelmemelidir.",
+      "fix": "Meşru göndericileriniz için hem SPF hem de DKIM’in geçtiğini doğrulayın — henüz yerinde olmayan hangisiyse onu yayınlayarak — ve zorunlu kılmaya güvenmeden önce geçene kadar DMARC toplu raporlarını izleyin.",
       "fixCode": "; Adım 1 — doğrulayın (Google Workspace için örnek)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Adım 2 — yalnızca raporlar temiz olduğunda zorunlu kılın\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
     "mx-dangling-with-enforcement": {
@@ -1272,7 +1272,8 @@
     },
     "rationale": {
       "foundation": "Önce bunları düzeltin — diğer her şey bunlara bağlı",
-      "afterPrereq": "Yukarıdaki ön koşullar sağlandıktan sonra"
+      "afterPrereq": "Yukarıdaki ön koşullar sağlandıktan sonra",
+      "cleanup": "Bağımlılık yok — bunları istediğiniz zaman yapın"
     }
   }
 }

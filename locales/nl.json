@@ -1181,9 +1181,9 @@
   },
   "finding": {
     "dmarc-enforcement-without-auth": {
-      "msg": "DMARC handhaaft een beleid, maar SPF en DKIM ontbreken — uw eigen e-mail kan worden geweigerd.",
-      "what": "DMARC vertelt ontvangers alleen wat ze moeten doen wanneer een bericht faalt op SPF en DKIM. Als u <code>p=reject</code> of <code>p=quarantine</code> publiceert voordat die twee slagen, is uw legitieme e-mail — die op dit moment niets heeft om zich te authenticeren — juist de mail die wordt geweigerd of in quarantaine geplaatst. Handhaving moet volgen op authenticatie, er nooit aan voorafgaan.",
-      "fix": "Publiceer eerst SPF en stel DKIM-ondertekening in, houd de DMARC-aggregatierapporten in de gaten tot uw legitieme bronnen slagen, en zet het beleid pas dan op handhaving.",
+      "msg": "DMARC handhaaft een beleid terwijl de SPF- of DKIM-authenticatie niet volledig aanwezig is — uw eigen e-mail kan worden geweigerd.",
+      "what": "DMARC vertelt ontvangers alleen wat ze moeten doen wanneer een bericht faalt op SPF en DKIM. Als u <code>p=reject</code> of <code>p=quarantine</code> publiceert voordat beide slagen, is elk legitiem bericht dat de ontbrekende methode niet kan authenticeren juist de mail die wordt geweigerd of in quarantaine geplaatst. Handhaving moet volgen op authenticatie, er nooit aan voorafgaan.",
+      "fix": "Controleer of zowel SPF als DKIM slagen voor uw legitieme afzenders — publiceer wat nog niet aanwezig is — en houd de DMARC-aggregatierapporten in de gaten tot dat zo is, voordat u op handhaving vertrouwt.",
       "fixCode": "; Stap 1 — authenticeren (voorbeeld voor Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Stap 2 — pas handhaven wanneer de rapporten schoon zijn\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
     "mx-dangling-with-enforcement": {
@@ -1272,7 +1272,8 @@
     },
     "rationale": {
       "foundation": "Los deze eerst op — al het andere hangt ervan af",
-      "afterPrereq": "Zodra aan de bovenstaande voorwaarden is voldaan"
+      "afterPrereq": "Zodra aan de bovenstaande voorwaarden is voldaan",
+      "cleanup": "Geen afhankelijkheden — doe deze wanneer het uitkomt"
     }
   }
 }

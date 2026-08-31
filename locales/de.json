@@ -1181,9 +1181,9 @@
   },
   "finding": {
     "dmarc-enforcement-without-auth": {
-      "msg": "DMARC erzwingt eine Richtlinie, aber SPF und DKIM fehlen — Ihre eigene E-Mail kann abgewiesen werden.",
-      "what": "DMARC teilt Empfängern nur mit, was zu tun ist, wenn eine Nachricht bei SPF und DKIM durchfällt. Wenn Sie <code>p=reject</code> oder <code>p=quarantine</code> veröffentlichen, bevor diese beiden bestehen, ist Ihre legitime E-Mail — die derzeit nichts authentifiziert — genau die, die abgewiesen oder in Quarantäne verschoben wird. Durchsetzung muss auf Authentifizierung folgen, ihr niemals vorausgehen.",
-      "fix": "Veröffentlichen Sie zuerst SPF und richten Sie die DKIM-Signierung ein, beobachten Sie die DMARC-Aggregatberichte, bis Ihre legitimen Quellen bestehen, und stellen Sie die Richtlinie erst dann auf Durchsetzung um.",
+      "msg": "DMARC erzwingt eine Richtlinie, während die SPF- oder DKIM-Authentifizierung nicht vollständig eingerichtet ist — Ihre eigene E-Mail kann abgewiesen werden.",
+      "what": "DMARC teilt Empfängern nur mit, was zu tun ist, wenn eine Nachricht bei SPF und DKIM durchfällt. Wenn Sie <code>p=reject</code> oder <code>p=quarantine</code> veröffentlichen, bevor beide bestehen, ist jede legitime Nachricht, die die fehlende Methode nicht authentifizieren kann, genau die, die abgewiesen oder in Quarantäne verschoben wird. Durchsetzung muss auf Authentifizierung folgen, ihr niemals vorausgehen.",
+      "fix": "Stellen Sie sicher, dass sowohl SPF als auch DKIM für Ihre legitimen Absender bestehen — veröffentlichen Sie, was noch nicht eingerichtet ist —, und beobachten Sie die DMARC-Aggregatberichte, bis dies der Fall ist, bevor Sie sich auf die Durchsetzung verlassen.",
       "fixCode": "; Schritt 1 — authentifizieren (Beispiel für Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Schritt 2 — erst wenn die Berichte sauber sind, durchsetzen\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
     "mx-dangling-with-enforcement": {
@@ -1272,7 +1272,8 @@
     },
     "rationale": {
       "foundation": "Beheben Sie diese zuerst — alles andere hängt davon ab",
-      "afterPrereq": "Sobald die obigen Voraussetzungen erfüllt sind"
+      "afterPrereq": "Sobald die obigen Voraussetzungen erfüllt sind",
+      "cleanup": "Keine Abhängigkeiten — erledigen Sie diese jederzeit"
     }
   }
 }

@@ -1181,9 +1181,9 @@
   },
   "finding": {
     "dmarc-enforcement-without-auth": {
-      "msg": "DMARC applique sa politique alors que SPF et DKIM ne sont pas en place — votre propre courrier peut être rejeté.",
-      "what": "DMARC indique seulement aux destinataires quoi faire lorsqu'un message échoue à SPF et DKIM. Publier <code>p=reject</code> ou <code>p=quarantine</code> avant que ces deux-là ne passent signifie que votre courrier légitime — qui n'a actuellement rien pour l'authentifier — est celui qui se retrouve rejeté ou mis en quarantaine. L'application doit suivre l'authentification, jamais la précéder.",
-      "fix": "Publiez d'abord SPF et configurez la signature DKIM, surveillez les rapports agrégés DMARC jusqu'à ce que vos sources légitimes passent, et ne faites passer la politique en application qu'à ce moment-là.",
+      "msg": "DMARC applique sa politique alors que l'authentification SPF ou DKIM n'est pas entièrement en place — votre propre courrier peut être rejeté.",
+      "what": "DMARC indique seulement aux destinataires quoi faire lorsqu'un message échoue à SPF et DKIM. Publier <code>p=reject</code> ou <code>p=quarantine</code> avant que les deux ne passent signifie que tout message légitime que la méthode manquante ne peut pas authentifier est celui qui se retrouve rejeté ou mis en quarantaine. L'application doit suivre l'authentification, jamais la précéder.",
+      "fix": "Vérifiez que SPF et DKIM passent tous deux pour vos expéditeurs légitimes — en publiant celui qui n'est pas encore en place — et surveillez les rapports agrégés DMARC jusqu'à ce que ce soit le cas, avant de vous appuyer sur l'application.",
       "fixCode": "; Étape 1 — authentifier (exemple pour Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Étape 2 — appliquer seulement une fois les rapports propres\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
     "mx-dangling-with-enforcement": {
@@ -1272,7 +1272,8 @@
     },
     "rationale": {
       "foundation": "Corrigez ceci en premier — tout le reste en dépend",
-      "afterPrereq": "Une fois les prérequis ci-dessus en place"
+      "afterPrereq": "Une fois les prérequis ci-dessus en place",
+      "cleanup": "Aucune dépendance — faites-les quand vous voulez"
     }
   }
 }

@@ -1191,9 +1191,9 @@
   },
   "finding": {
     "dmarc-enforcement-without-auth": {
-      "msg": "DMARC jest w trybie egzekwowania, ale SPF i DKIM nie są skonfigurowane — Twoja własna poczta może zostać odrzucona.",
-      "what": "DMARC mówi odbiorcom jedynie, co zrobić, gdy wiadomość nie przejdzie SPF i DKIM. Opublikowanie <code>p=reject</code> lub <code>p=quarantine</code> zanim te dwa mechanizmy zaczną przechodzić oznacza, że Twoja prawidłowa poczta — która obecnie nie ma niczego, co mogłoby ją uwierzytelnić — to właśnie ta poczta, która zostaje odrzucona lub poddana kwarantannie. Egzekwowanie musi następować po uwierzytelnianiu, nigdy go nie wyprzedzać.",
-      "fix": "Najpierw opublikuj SPF i skonfiguruj podpisywanie DKIM, obserwuj zbiorcze raporty DMARC, aż Twoje prawidłowe źródła zaczną przechodzić, i dopiero wtedy przełącz politykę na egzekwowanie.",
+      "msg": "DMARC jest w trybie egzekwowania, podczas gdy uwierzytelnianie SPF lub DKIM nie jest w pełni wdrożone — Twoja własna poczta może zostać odrzucona.",
+      "what": "DMARC mówi odbiorcom jedynie, co zrobić, gdy wiadomość nie przejdzie SPF i DKIM. Opublikowanie <code>p=reject</code> lub <code>p=quarantine</code> zanim oba mechanizmy zaczną przechodzić oznacza, że każda prawidłowa wiadomość, której brakujący mechanizm nie jest w stanie uwierzytelnić, to właśnie ta poczta, która zostaje odrzucona lub poddana kwarantannie. Egzekwowanie musi następować po uwierzytelnianiu, nigdy go nie wyprzedzać.",
+      "fix": "Potwierdź, że zarówno SPF, jak i DKIM przechodzą dla Twoich prawidłowych nadawców — publikując ten, którego jeszcze nie wdrożono — i obserwuj zbiorcze raporty DMARC, aż zaczną przechodzić, zanim zaczniesz polegać na egzekwowaniu.",
       "fixCode": "; Krok 1 — uwierzytelnij (przykład dla Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Krok 2 — dopiero gdy raporty są czyste, egzekwuj\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
     "mx-dangling-with-enforcement": {
@@ -1282,7 +1282,8 @@
     },
     "rationale": {
       "foundation": "Napraw je najpierw — wszystko inne od nich zależy",
-      "afterPrereq": "Gdy powyższe wymagania wstępne zostaną spełnione"
+      "afterPrereq": "Gdy powyższe wymagania wstępne zostaną spełnione",
+      "cleanup": "Bez zależności — wykonaj je w dowolnej chwili"
     }
   }
 }

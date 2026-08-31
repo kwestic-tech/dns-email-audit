@@ -1181,9 +1181,9 @@
   },
   "finding": {
     "dmarc-enforcement-without-auth": {
-      "msg": "DMARC está aplicando su política, pero SPF y DKIM no están configurados: su propio correo puede ser rechazado.",
-      "what": "DMARC solo indica a los receptores qué hacer cuando un mensaje falla SPF y DKIM. Publicar <code>p=reject</code> o <code>p=quarantine</code> antes de que esos dos pasen significa que su correo legítimo —que actualmente no tiene nada que lo autentique— es el que acaba siendo rechazado o puesto en cuarentena. La aplicación debe seguir a la autenticación, nunca precederla.",
-      "fix": "Publique primero SPF y configure la firma DKIM, observe los informes agregados de DMARC hasta que sus fuentes legítimas pasen, y solo entonces lleve la política a modo de aplicación.",
+      "msg": "DMARC está aplicando su política mientras la autenticación SPF o DKIM no está del todo implementada: su propio correo puede ser rechazado.",
+      "what": "DMARC solo indica a los receptores qué hacer cuando un mensaje falla SPF y DKIM. Publicar <code>p=reject</code> o <code>p=quarantine</code> antes de que ambos pasen significa que cualquier mensaje legítimo que el método ausente no pueda autenticar es el que acaba siendo rechazado o puesto en cuarentena. La aplicación debe seguir a la autenticación, nunca precederla.",
+      "fix": "Confirme que tanto SPF como DKIM pasan para sus emisores legítimos —publicando el que aún no esté implementado— y observe los informes agregados de DMARC hasta que lo hagan, antes de confiar en la aplicación.",
       "fixCode": "; Paso 1 — autenticar (ejemplo para Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Paso 2 — solo cuando los informes estén limpios, aplicar\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
     "mx-dangling-with-enforcement": {
@@ -1272,7 +1272,8 @@
     },
     "rationale": {
       "foundation": "Corrija esto primero: todo lo demás depende de ello",
-      "afterPrereq": "Una vez que los requisitos previos anteriores estén en su lugar"
+      "afterPrereq": "Una vez que los requisitos previos anteriores estén en su lugar",
+      "cleanup": "Sin dependencias: hágalos cuando quiera"
     }
   }
 }

@@ -1189,9 +1189,9 @@ export const LOCALE_EN = {
   },
   "finding": {
     "dmarc-enforcement-without-auth": {
-      "msg": "DMARC is enforcing but SPF and DKIM are not in place — your own mail can be rejected.",
-      "what": "DMARC only tells receivers what to do when a message fails SPF and DKIM. Publishing <code>p=reject</code> or <code>p=quarantine</code> before those two pass means your legitimate mail — which currently has nothing to authenticate it — is the mail that gets rejected or quarantined. Enforcement must follow authentication, never lead it.",
-      "fix": "Publish SPF and set up DKIM signing first, watch the DMARC aggregate reports until your legitimate sources pass, and only then move the policy to enforcement.",
+      "msg": "DMARC is enforcing while SPF or DKIM authentication is not fully in place — your own mail can be rejected.",
+      "what": "DMARC only tells receivers what to do when a message fails SPF and DKIM. Publishing <code>p=reject</code> or <code>p=quarantine</code> before both pass means any legitimate message that the missing method cannot authenticate is the mail that gets rejected or quarantined. Enforcement must follow authentication, never lead it.",
+      "fix": "Confirm that both SPF and DKIM pass for your legitimate senders — publishing whichever is not yet in place — and watch the DMARC aggregate reports until they do, before relying on enforcement.",
       "fixCode": "; Step 1 — authenticate (example for Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Step 2 — only once reports are clean, enforce\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
     "mx-dangling-with-enforcement": {

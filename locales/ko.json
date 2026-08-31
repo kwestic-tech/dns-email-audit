@@ -1181,9 +1181,9 @@
   },
   "finding": {
     "dmarc-enforcement-without-auth": {
-      "msg": "DMARC는 강제 적용 중이지만 SPF와 DKIM이 설정되어 있지 않아, 자신의 메일이 거부될 수 있습니다.",
-      "what": "DMARC는 메시지가 SPF와 DKIM에 실패했을 때 수신 측이 무엇을 해야 하는지를 알려줄 뿐입니다. 이 둘이 통과하기 전에 <code>p=reject</code>나 <code>p=quarantine</code>를 게시하면, 현재 이를 인증할 것이 전혀 없는 정상 메일이 바로 거부되거나 격리되는 메일이 됩니다. 강제 적용은 인증 뒤에 따라와야 하며, 결코 앞서서는 안 됩니다.",
-      "fix": "먼저 SPF를 게시하고 DKIM 서명을 설정한 뒤, 정상 발신 소스가 통과할 때까지 DMARC 집계 보고서를 관찰하고, 그런 다음에야 정책을 강제 적용으로 전환하십시오.",
+      "msg": "SPF 또는 DKIM 인증이 완전히 갖춰지지 않은 상태에서 DMARC가 강제 적용 중이어서, 자신의 메일이 거부될 수 있습니다.",
+      "what": "DMARC는 메시지가 SPF와 DKIM에 실패했을 때 수신 측이 무엇을 해야 하는지를 알려줄 뿐입니다. 이 둘이 모두 통과하기 전에 <code>p=reject</code>나 <code>p=quarantine</code>를 게시하면, 누락된 방식으로는 인증할 수 없는 정상 메시지가 바로 거부되거나 격리되는 메일이 됩니다. 강제 적용은 인증 뒤에 따라와야 하며, 결코 앞서서는 안 됩니다.",
+      "fix": "SPF와 DKIM이 모두 정상 발신자에 대해 통과하는지 확인하고 — 아직 갖춰지지 않은 쪽을 게시하여 — 통과할 때까지 DMARC 집계 보고서를 관찰한 뒤에 강제 적용에 의존하십시오.",
       "fixCode": "; 1단계 — 인증 (Google Workspace 예시)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; 2단계 — 보고서가 깨끗해진 뒤에만 강제 적용\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
     "mx-dangling-with-enforcement": {
@@ -1272,7 +1272,8 @@
     },
     "rationale": {
       "foundation": "이것들을 먼저 수정하십시오 — 나머지 모두가 이것들에 의존합니다.",
-      "afterPrereq": "위의 전제 조건이 갖춰진 뒤에"
+      "afterPrereq": "위의 전제 조건이 갖춰진 뒤에",
+      "cleanup": "의존성 없음 — 아무 때나 처리하십시오"
     }
   }
 }

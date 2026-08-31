@@ -1181,9 +1181,9 @@
   },
   "finding": {
     "dmarc-enforcement-without-auth": {
-      "msg": "DMARC menerapkan penegakan tetapi SPF dan DKIM belum diterapkan — email Anda sendiri dapat ditolak.",
-      "what": "DMARC hanya memberi tahu penerima apa yang harus dilakukan ketika sebuah pesan gagal SPF dan DKIM. Menerbitkan <code>p=reject</code> atau <code>p=quarantine</code> sebelum keduanya lolos berarti email sah Anda — yang saat ini tidak memiliki apa pun untuk mengautentikasinya — adalah email yang ditolak atau dikarantina. Penegakan harus mengikuti autentikasi, bukan mendahuluinya.",
-      "fix": "Terbitkan SPF dan siapkan penandatanganan DKIM terlebih dahulu, pantau laporan agregat DMARC hingga sumber sah Anda lolos, dan baru kemudian ubah kebijakan ke penegakan.",
+      "msg": "DMARC menerapkan penegakan sementara autentikasi SPF atau DKIM belum sepenuhnya diterapkan — email Anda sendiri dapat ditolak.",
+      "what": "DMARC hanya memberi tahu penerima apa yang harus dilakukan ketika sebuah pesan gagal SPF dan DKIM. Menerbitkan <code>p=reject</code> atau <code>p=quarantine</code> sebelum keduanya lolos berarti setiap pesan sah yang tidak dapat diautentikasi oleh metode yang hilang adalah email yang ditolak atau dikarantina. Penegakan harus mengikuti autentikasi, bukan mendahuluinya.",
+      "fix": "Pastikan baik SPF maupun DKIM lolos untuk pengirim sah Anda — dengan menerbitkan yang mana pun yang belum diterapkan — dan pantau laporan agregat DMARC hingga keduanya lolos, sebelum mengandalkan penegakan.",
       "fixCode": "; Langkah 1 — autentikasi (contoh untuk Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Langkah 2 — hanya setelah laporan bersih, terapkan penegakan\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
     "mx-dangling-with-enforcement": {
@@ -1272,7 +1272,8 @@
     },
     "rationale": {
       "foundation": "Perbaiki ini terlebih dahulu — semua yang lain bergantung padanya",
-      "afterPrereq": "Setelah prasyarat di atas terpenuhi"
+      "afterPrereq": "Setelah prasyarat di atas terpenuhi",
+      "cleanup": "Tanpa dependensi — kerjakan kapan saja"
     }
   }
 }

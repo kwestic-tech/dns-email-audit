@@ -1181,9 +1181,9 @@
   },
   "finding": {
     "dmarc-enforcement-without-auth": {
-      "msg": "O DMARC está aplicando a política, mas SPF e DKIM não estão configurados — o seu próprio e-mail pode ser rejeitado.",
-      "what": "O DMARC apenas informa aos destinatários o que fazer quando uma mensagem falha em SPF e DKIM. Publicar <code>p=reject</code> ou <code>p=quarantine</code> antes que esses dois passem significa que o seu e-mail legítimo — que atualmente não tem nada que o autentique — é o que acaba sendo rejeitado ou colocado em quarentena. A aplicação deve seguir a autenticação, nunca precedê-la.",
-      "fix": "Publique primeiro o SPF e configure a assinatura DKIM, acompanhe os relatórios agregados do DMARC até que as suas fontes legítimas passem e só então mude a política para o modo de aplicação.",
+      "msg": "O DMARC está aplicando a política enquanto a autenticação SPF ou DKIM não está totalmente implementada — o seu próprio e-mail pode ser rejeitado.",
+      "what": "O DMARC apenas informa aos destinatários o que fazer quando uma mensagem falha em SPF e DKIM. Publicar <code>p=reject</code> ou <code>p=quarantine</code> antes que ambos passem significa que qualquer mensagem legítima que o método ausente não consiga autenticar é o e-mail que acaba sendo rejeitado ou colocado em quarentena. A aplicação deve seguir a autenticação, nunca precedê-la.",
+      "fix": "Confirme que tanto SPF quanto DKIM passam para os seus remetentes legítimos — publicando aquele que ainda não estiver implementado — e acompanhe os relatórios agregados do DMARC até que passem, antes de confiar na aplicação.",
       "fixCode": "; Etapa 1 — autenticar (exemplo para Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Etapa 2 — aplicar somente quando os relatórios estiverem limpos\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
     "mx-dangling-with-enforcement": {
@@ -1272,7 +1272,8 @@
     },
     "rationale": {
       "foundation": "Corrija estes primeiro — todo o resto depende deles",
-      "afterPrereq": "Assim que os pré-requisitos acima estiverem em vigor"
+      "afterPrereq": "Assim que os pré-requisitos acima estiverem em vigor",
+      "cleanup": "Sem dependências — faça-os quando quiser"
     }
   }
 }
