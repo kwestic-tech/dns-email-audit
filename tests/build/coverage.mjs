@@ -78,6 +78,8 @@ const REVIEWED_SUITES = {
     'audit.finding.protocol': '*',
     'audit.finding.keyspace': '*',
     'audit.remediation.rationale': '*',
+    'audit.finding.key': '*',
+    'audit.finding.evidence.kind': '*',
   },
 };
 

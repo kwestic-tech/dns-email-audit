@@ -21,6 +21,7 @@ import { buildIssues } from './issues.js';
 import {
   buildFindings, buildRemediationPlan, FINDING_META, CROSS_PROTOCOL_RULES,
   SEVERITIES, CONFIDENCES, CATEGORIES, EFFORTS, PROTOCOLS, KEYSPACES, RATIONALES,
+  EVIDENCE_KINDS,
 } from './findings.js';
 
 const { eq, section, report } = createSuite();
@@ -135,7 +136,9 @@ const vocabOk = en.findings && en.findings.severity && SEVERITIES.every(s => en.
   && CONFIDENCES.every(c => en.findings.confidence[c])
   && CATEGORIES.every(c => en.findings.category[c])
   && EFFORTS.every(e => en.findings.effort[e])
-  && en.findings.rationale.foundation && en.findings.rationale.afterPrereq
+  // Every rationale token, derived from the vocabulary rather than listed — the
+  // hardcoded pair silently omitted `cleanup` when the isolated step was added.
+  && RATIONALES.every(r => en.findings.rationale[r])
   && en.findings.viewSeverity && en.findings.viewRemediation && en.findings.step;
 eq('the full view vocabulary is present in en.json', !!vocabOk, true);
 
@@ -176,6 +179,14 @@ eq('audit.finding.effort equals the exported enum', algebra('audit.finding.effor
 eq('audit.finding.protocol equals the exported enum', algebra('audit.finding.protocol').members, PROTOCOLS);
 eq('audit.finding.keyspace equals the exported enum', algebra('audit.finding.keyspace').members, KEYSPACES);
 eq('audit.remediation.rationale equals the exported enum', algebra('audit.remediation.rationale').members, RATIONALES);
+// findings[].key is closed exactly as issues[].key and suggestions[].key are.
+eq('audit.finding.key equals the keys the rules resolve',
+  algebra('audit.finding.key').members.slice().sort(),
+  [...new Set([...Object.keys(FINDING_META), ...CROSS_PROTOCOL_RULES.map(r => r.key)])].sort());
+eq('and it is the 106 migrated keys plus the ten cross-protocol ones',
+  algebra('audit.finding.key').members.length, 116);
+eq('audit.finding.evidence.kind equals the exported enum',
+  algebra('audit.finding.evidence.kind').members, EVIDENCE_KINDS);
 
 /* ── 5. Regression: migrated findings mirror buildIssues 1:1 ──────────── */
 section('5. Migrated findings mirror buildIssues, in order');
@@ -454,9 +465,56 @@ eq('dmarc.multiple-records evidence names the duplicate, not the applied record'
   dmarcDup.evidence.map(e => e.value), ['v=DMARC1; p=none DUP']);
 eq('and at the duplicate\'s own query name', dmarcDup.evidence[0].queryName, '_dmarc.x.test');
 
-// MX evidence can read the passed mx records.
-const mxImplicit = buildFindings(ctx({ emailProvider: '@implicit-mx', mx: ['0 mail.x.test'] })).find(f => f.id === 'mx.implicit');
-eq('mx.implicit evidence reads the passed mx records', mxImplicit.evidence.some(e => e.value === '0 mail.x.test'), true);
+// Implicit MX is selected ONLY when no MX record exists (providers/detectors.js
+// returns '@implicit-mx' under `!mx.length`), so the fixture must have none —
+// an earlier version fabricated an MX record beside it, a state the production
+// path cannot reach. Its evidence is that absence plus the A/AAAA records SMTP
+// would fall back to.
+const mxImplicit = buildFindings(ctx({ emailProvider: '@implicit-mx', mx: [], aRec: ['93.184.216.34'], aaaaRec: ['2606:2800::1'] })).find(f => f.id === 'mx.implicit');
+eq('mx.implicit evidence records the absent MX', mxImplicit.evidence[0].kind, 'absent');
+eq('and names the addresses that activate implicit delivery',
+  mxImplicit.evidence.filter(e => e.kind === 'address').map(e => e.value), ['93.184.216.34', '2606:2800::1']);
+
+/* Evidence is RAW published material, never authored prose (spec §1, 1.2). */
+// The wildcard probes' synthesized records, at the probed name.
+const wcApex = buildFindings(ctx({ wildcardApex: true, wildcardApexRecords: ['v=spf1 redirect=_spf.example.test'] })).find(f => f.id === 'dns.wildcard-apex');
+eq('dns.wildcard-apex evidence is the synthesized record',
+  wcApex.evidence.map(e => e.value), ['v=spf1 redirect=_spf.example.test']);
+eq('at the name that was probed', wcApex.evidence[0].queryName, '_wildcardtest99xyz.example.test');
+const wcDkim = buildFindings(ctx({ wildcardDkim: true, wildcardDkimRecords: ['v=DKIM1; p=AAAA'] })).find(f => f.id === 'dns.wildcard-dkim');
+eq('dns.wildcard-dkim evidence is the synthesized record',
+  wcDkim.evidence.map(e => e.value), ['v=DKIM1; p=AAAA']);
+// The CNAME chain that closes the loop, host by host.
+const loop = buildFindings(ctx({ hosting: '@cname-loop', websiteChain: ['a.test', 'b.test', 'a.test'] })).find(f => f.id === 'dns.hosting-loop');
+eq('dns.hosting-loop evidence is the CNAME chain',
+  loop.evidence.map(e => e.value), ['a.test', 'b.test', 'a.test']);
+// An absence carries the queried name and an EMPTY value — never a sentence.
+const noMx = buildFindings(ctx({ emailProvider: '@none' })).find(f => f.id === 'mx.none');
+eq('mx.none evidence is an absence with an empty value',
+  [noMx.evidence[0].kind, noMx.evidence[0].value], ['absent', '']);
+
+// The contract, asserted across a broad sweep rather than case by case: no
+// evidence value is an English sentence. Prose reaches every locale untranslated,
+// which is exactly what the raw-evidence rule exists to prevent.
+const sweepContexts = [
+  ctx(), ctx({ wildcardApex: true, wildcardApexRecords: ['r'] }),
+  ctx({ wildcardDkim: true, wildcardDkimRecords: ['r'] }),
+  ctx({ hosting: '@cname-loop', websiteChain: ['a.test'] }),
+  ctx({ emailProvider: '@implicit-mx', aRec: ['1.2.3.4'] }),
+  ctx({ hosting: '@dns-error', advanced: { caa: { unknown: true } } }),
+  ctx({ emailProvider: 'Google Workspace', spfStatus: { status: 'permerror', warnings: ['spf-multiple-records'] }, spfRecords: ['v=spf1 -all', 'v=spf1 a'] }),
+];
+const sweepEvidence = sweepContexts.flatMap(c => buildFindings(c).flatMap(f => f.evidence));
+eq('the sweep produced evidence to check', sweepEvidence.length > 10, true);
+// Three consecutive lowercase words is the shape of a sentence; no DNS record,
+// hostname or address has it.
+eq('no evidence value reads as an English sentence',
+  sweepEvidence.filter(e => / [a-z]+ [a-z]+ /.test(e.value)).map(e => e.value), []);
+// Proven able to fire: the prose this rule removed would be caught.
+eq('and the prose check really would catch a sentence',
+  / [a-z]+ [a-z]+ /.test('wildcard TXT synthesized at the apex'), true);
+eq('every evidence kind produced is in the registered vocabulary',
+  [...new Set(sweepEvidence.map(e => e.kind))].filter(k => !EVIDENCE_KINDS.includes(k)), []);
 
 // A DNS finding gets meaningful evidence, not an empty info entry.
 const checksUnverified = buildFindings(ctx({ hosting: '@dns-error', advanced: { caa: { unknown: true } } })).find(f => f.id === 'dns.checks-unverified');

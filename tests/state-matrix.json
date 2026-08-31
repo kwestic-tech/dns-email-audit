@@ -7723,6 +7723,1434 @@
         "dmarc-report-auth-absent",
         "spf-lookup-query-error"
       ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "bimi-invalid",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "bimi-duplicate-tags"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "bimi-multiple-records",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "bimi-without-authority",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "enforcing-signed"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "bimi-without-enforcement",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "caa-blocks-all-issuance",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "parked-null-mx",
+        "caa-policy"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "caa-malformed",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "caa-policy"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "caa-no-iodef",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "parked-null-mx",
+        "grade-tiers"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "caa-single-issuer",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "enforcing-signed",
+        "grade-tiers"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "caa-unknown-critical-tag",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "caa-policy"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "checks-unverified",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "provider-sentinels",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "spf-lookup-query-error"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "defensive-contradictory",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-key-1024",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-key-malformed",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-key-mixed",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-key-not-email",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-key-revoked",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-key-sha1",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-key-testing",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-key-unparseable",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dkim-crypto-import-rejects",
+        "dkim-key-shapes"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-key-weak",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-missing",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-multiple-records",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-not-checked",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-unverified",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "bare-registered",
+        "cache-reuse-siblings",
+        "dnssec-bogus",
+        "dnssec-orphan-ds",
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dkim-weak-with-enforcement",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dkim-key-shapes"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-at-apex",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-at-apex-ignored",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-bad-adkim",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-bad-aspf",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-bad-fo",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-bad-np",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-bad-pct",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-bad-psd",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-bad-sp",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-bad-t",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-duplicate-tags",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-enforcement-without-auth",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "cache-reuse-siblings",
+        "parked-null-mx",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "unverified-controls",
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-external-override-mismatch",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-report-authorization"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-external-reporting",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-external-unauthorized",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-report-authorization",
+        "dmarc-report-auth-absent"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-external-unverifiable",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-fo-without-ruf",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-invalid-policy",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-missing",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "bare-registered",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-multiple-records",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-multiple-records-inherited",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-no-rua",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "parked-null-mx",
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-none",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dnssec-bogus",
+        "dnssec-orphan-ds",
+        "hygiene-sentinels",
+        "dkim-discovery-notes",
+        "spf-lookup-query-error"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-np-not-applied",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-partial-pct",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-quarantine",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "cache-reuse-siblings",
+        "dmarc-record-variants",
+        "dmarc-tree-walk"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-removed-tags",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-report-destinations-truncated",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-rua-invalid",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-ruf-invalid",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-test-mode",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-unknown-tags",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-record-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-unverified",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-version-bad-value",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-version-missing",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-version-not-first",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dmarc-tree-walk"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-weak-np",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dmarc-weak-sp",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dns-loop",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "provider-sentinels"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dnssec-bogus",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dnssec-bogus"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dnssec-deprecated-algorithm",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dnssec-deprecated-digest",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dnssec-chain-states",
+        "dnssec-record-parsing"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dnssec-ds-orphan",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dnssec-indeterminate",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dnssec-evidence-missing"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dnssec-key-algorithm-ineligible",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dnssec-key-malformed",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dnssec-key-not-zone-key",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dnssec-mismatch",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dnssec-orphan-ds",
+        "dnssec-chain-states",
+        "dnssec-record-parsing"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dnssec-revoke-flag",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "dnssec-unanchored",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dnssec-chain-states"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "implicit-mx",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "provider-sentinels"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "mta-sts-invalid",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "mta-sts-multiple-records",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "mta-sts-policy-unverified",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "enforcing-signed"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "mta-sts-without-tls-rpt",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "mx-cname-target",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "mx-dangling",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-variants",
+        "provider-sentinels"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "mx-dangling-with-enforcement",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "mx-duplicate-preference",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "mx-no-ipv6",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "bare-registered",
+        "cache-reuse-siblings",
+        "dnssec-bogus",
+        "dnssec-orphan-ds",
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "unverified-controls",
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "mx-same-prefix",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "mx-single-host",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "enforcing-signed",
+        "bare-registered",
+        "cache-reuse-siblings",
+        "dnssec-bogus",
+        "dnssec-orphan-ds",
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "unverified-controls",
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "no-mx",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "provider-sentinels"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "porkbun-forward",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "provider-sentinels"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "reporting-blind",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "bare-registered",
+        "parked-null-mx",
+        "dnssec-bogus",
+        "dnssec-orphan-ds",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-all-permit",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-cycle",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-indeterminate",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-subnets-and-lookups",
+        "spf-lookup-query-error"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-large-subnet",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-variants",
+        "spf-subnets-and-lookups"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-medium-subnet",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-missing",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "bare-registered",
+        "provider-sentinels",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-unverifiable-reasons"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-missing-google",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-missing-icloud",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-missing-microsoft",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-multiple-records",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-near-limit",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-neutral",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-over-limit",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-partial-coverage",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-redundant-mechanism",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-subnets-and-lookups"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-redundant-mechanism-nocount",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-redundant-with-enforcement",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "spf-softfail",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "spf-variants"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "tls-rpt-invalid",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "tls-rpt-multiple-records",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "tls-rpt-without-transport-policy",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "tlsa-malformed",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "tlsa-partial-coverage",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "tlsa-published-unsigned",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "wildcard-txt-apex",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.key",
+      "member": "wildcard-txt-dkim",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dkim-discovery-notes"
+      ]
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "txt",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "enforcing-signed",
+        "cache-reuse-siblings",
+        "parked-null-mx",
+        "dnssec-bogus",
+        "dnssec-orphan-ds",
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "unverified-controls",
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
+      ]
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "absent",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "bare-registered",
+        "cache-reuse-siblings",
+        "parked-null-mx",
+        "dnssec-bogus",
+        "dnssec-orphan-ds",
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
+      ]
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "selector",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dkim-crypto-import-rejects",
+        "dkim-key-shapes"
+      ]
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "host",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "enforcing-signed",
+        "bare-registered",
+        "cache-reuse-siblings",
+        "dnssec-bogus",
+        "dnssec-orphan-ds",
+        "hygiene-sentinels",
+        "spf-variants",
+        "spf-subnets-and-lookups",
+        "provider-sentinels",
+        "website-probe-off",
+        "grade-tiers",
+        "dkim-crypto-import-rejects",
+        "dkim-crypto-import-accepts",
+        "dkim-key-shapes",
+        "dkim-discovery-notes",
+        "dmarc-record-variants",
+        "dmarc-tree-walk",
+        "dmarc-report-authorization",
+        "dmarc-report-unverifiable",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons",
+        "dnssec-digest-unavailable",
+        "caa-policy",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "bimi-duplicate-tags",
+        "dmarc-report-auth-absent",
+        "spf-lookup-query-error"
+      ]
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "mx",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "provider-sentinels"
+      ]
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "address",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "cname",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "provider-sentinels"
+      ]
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "caa",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "enforcing-signed",
+        "parked-null-mx",
+        "grade-tiers",
+        "caa-policy"
+      ]
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "dnssec",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "dnssec-bogus",
+        "dnssec-orphan-ds",
+        "dnssec-chain-states",
+        "dnssec-record-parsing",
+        "dnssec-evidence-missing",
+        "dnssec-unverifiable-reasons"
+      ]
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "tlsa",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "mx-health-and-tlsa"
+      ]
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "mechanism",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.finding.evidence.kind",
+      "member": "info",
+      "suites": [
+        "src/audit/findings.test.js"
+      ],
+      "fixtures": [
+        "provider-sentinels",
+        "mx-health-and-tlsa",
+        "unverified-controls",
+        "spf-lookup-query-error"
+      ]
     }
   ]
 }
