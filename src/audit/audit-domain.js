@@ -354,7 +354,9 @@ export function createAuditDomain(capabilities) {
       emailProvider, spfStatus, spfRecords, spfRecord, dkimStatus, dmarcStatus,
       dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan,
       wildcardApex, wildcardDkim, hosting, advanced, domain: d,
-      dmarcRecord, dmarcAtDomain, spfUsesMx,
+      // `mx` is passed so MX findings can name the actual records as evidence —
+      // it is a fact the coordinator already holds, not a new query.
+      mx, dmarcRecord, dmarcAtDomain, spfUsesMx,
     });
     const remediationPlan = buildRemediationPlan(findings);
 

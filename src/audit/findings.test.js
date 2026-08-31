@@ -185,12 +185,21 @@ regressionContexts.forEach((c, i) => {
     migrated.every(f => f.keyspace === 'issue'), true);
 });
 // An unknown legacy key is skipped, never thrown on — the mutation-safety the
-// equivalence validator's spf-absent probe depends on.
-eq('an unknown legacy key is skipped, not thrown on', (() => {
-  // Fabricate a status that makes buildIssues emit only known keys, then confirm
-  // the enrichment never throws on the bare context either.
-  try { buildFindings(ctx()); return true; } catch (e) { return false; }
-})(), true);
+// equivalence validator's spf-absent probe depends on. Fed a FABRICATED issue
+// array (via the override) with an unknown key beside a known one, so the branch
+// is actually exercised rather than assumed.
+// Scope to the migrated (keyspace 'issue') subset: the cross-protocol rules run
+// off the context regardless of the override, so they are not part of this test.
+const migratedOf = fs => fs.filter(f => f.keyspace === 'issue').map(f => f.id);
+const mixedIssues = buildFindings(ctx(), [
+  { key: 'not-a-real-key', sev: 'crit', args: [] },
+  { key: 'spf-missing', sev: 'crit', args: [] },
+]);
+eq('the unknown key produces no finding', mixedIssues.some(f => f.key === 'not-a-real-key'), false);
+eq('while the known key beside it still does', migratedOf(mixedIssues), ['spf.missing']);
+// Proven able to fail: the known key alone yields exactly its migrated finding.
+eq('a lone known key yields its finding',
+  migratedOf(buildFindings(ctx(), [{ key: 'dmarc-missing', sev: 'warn', args: [] }])), ['dmarc.missing']);
 
 /* ── 6. Behavioural fixtures from the spec ────────────────────────────── */
 section('6. The spec behavioural fixtures');
@@ -334,6 +343,25 @@ section('7. Negative cases (AGENTS.md rule 3)');
 eq('enforcement-without-auth absent when auth is present',
   idsFor({ emailProvider: 'Google Workspace', spfStatus: { status: 'ok', warnings: [] }, spfRecord: 'v=spf1 -all', spfRecords: ['v=spf1 -all'], dkimStatus: { found: true, selectors: [{ sel: 'g', key: { keyType: 'rsa', keyBits: 2048, errors: [], hashAlgorithms: [], testing: false, valid: true } }], testedSelectors: [] }, dmarcStatus: { status: 'ok', policy: 'reject', effectivePolicy: 'reject', enforcing: true, rua: true }, dmarcRecord: 'v=DMARC1; p=reject; rua=mailto:a@b' })
     .includes('dmarc.enforcement-without-auth'), false);
+// A permerror is a BROKEN SPF record, not a missing one (spec 1.1). It must not
+// fire the enforcement finding — which would land in step 1 beside the
+// broken-SPF finding, breaking the never-enforce-before-auth guarantee.
+const permErrEnforcing = ctx({
+  emailProvider: 'Google Workspace',
+  spfStatus: { status: 'permerror', warnings: ['spf-multiple-records'] }, spfRecords: ['v=spf1 -all', 'v=spf1 a'], spfRecord: 'v=spf1 -all',
+  dkimStatus: { found: true, selectors: [{ sel: 'g', key: { keyType: 'rsa', keyBits: 2048, errors: [], hashAlgorithms: [], testing: false, valid: true } }], testedSelectors: [] },
+  dmarcStatus: { status: 'ok', policy: 'reject', effectivePolicy: 'reject', enforcing: true, rua: true }, dmarcRecord: 'v=DMARC1; p=reject; rua=mailto:a@b',
+});
+eq('enforcement-without-auth does NOT fire on an SPF permerror',
+  buildFindings(permErrEnforcing).some(f => f.id === 'dmarc.enforcement-without-auth'), false);
+eq('and the SPF finding for a permerror is spf.multiple-records',
+  buildFindings(permErrEnforcing).some(f => f.id === 'spf.multiple-records'), true);
+eq('so no plan step puts enforcement beside the broken-SPF finding',
+  buildRemediationPlan(buildFindings(permErrEnforcing)).some(s => s.findings.includes('dmarc.enforcement-without-auth')), false);
+// But a genuinely MISSING SPF (with DKIM present) still fires it, as before.
+eq('enforcement-without-auth still fires on a missing SPF',
+  buildFindings(ctx({ emailProvider: 'Google Workspace', spfStatus: { status: 'missing', warnings: [] }, dkimStatus: { found: true, selectors: [{ sel: 'g', key: { keyType: 'rsa', keyBits: 2048, errors: [], hashAlgorithms: [], testing: false, valid: true } }], testedSelectors: [] }, dmarcStatus: { status: 'ok', policy: 'reject', effectivePolicy: 'reject', enforcing: true, rua: true }, dmarcRecord: 'v=DMARC1; p=reject; rua=mailto:a@b' }))
+    .some(f => f.id === 'dmarc.enforcement-without-auth'), true);
 eq('mx.dangling-with-enforcement absent without enforcement',
   buildFindings(ctx({ advanced: { mxHealth: { hosts: [], danglingHosts: ['x'], cnameHosts: [], duplicatePreferences: [], singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [] } }, dmarcStatus: { status: 'warn', policy: 'none', enforcing: false } }))
     .some(f => f.id === 'mx.dangling-with-enforcement'), false);
@@ -367,6 +395,63 @@ eq('defensive.contradictory absent when the domain is not null-MX',
 eq('reporting.blind absent when rua is configured',
   buildFindings(ctx({ dmarcStatus: { status: 'warn', policy: 'none', rua: true } }))
     .some(f => f.id === 'reporting.blind'), false);
+
+/* ── 7b. The remediation plan collects isolated findings last ─────────── */
+section('7b. Isolated findings land in a final step, not step 1');
+
+// An SPF-authentication chain (spf.missing → dmarc.policy-none) beside an
+// isolated hygiene finding (caa.single-issuer). The isolated one must not sit
+// in step 1 with the authentication work.
+const chainPlusHygiene = ctx({
+  emailProvider: 'Google Workspace',
+  spfStatus: { status: 'missing', warnings: [] },
+  dmarcStatus: { status: 'warn', policy: 'none', effectivePolicy: 'none', enforcing: false, rua: true },
+  dkimStatus: { found: true, selectors: [{ sel: 'g', key: { keyType: 'rsa', keyBits: 2048, errors: [], hashAlgorithms: [], testing: false, valid: true } }], testedSelectors: [] },
+  advanced: { caa: { found: true, issuers: ['one'], wildcardIssuers: [] } },
+});
+const cpPlan = buildRemediationPlan(buildFindings(chainPlusHygiene));
+eq('spf.missing (a prerequisite) is in step 1', cpPlan[0].findings.includes('spf.missing'), true);
+eq('the isolated caa.single-issuer is NOT in step 1', cpPlan[0].findings.includes('caa.single-issuer'), false);
+const cpLast = cpPlan[cpPlan.length - 1];
+eq('it lands in the final step, tagged cleanup', cpLast.rationale === 'cleanup' && cpLast.findings.includes('caa.single-issuer'), true);
+// dmarc.policy-none has dependents-none but IS a dependent of spf.missing... it
+// has dependencies, so it is connected and stays at its depth, never demoted.
+eq('a finding with dependencies but no dependents stays at its depth',
+  cpPlan.some(s => s.rationale === 'afterPrereq' && s.findings.includes('dmarc.policy-none')), true);
+// A plan of only isolated findings is a single cleanup step.
+const onlyHygiene = buildRemediationPlan(buildFindings(ctx({ advanced: { caa: { found: true, issuers: ['one'], wildcardIssuers: [] } } })));
+eq('an all-isolated plan is one cleanup step',
+  onlyHygiene.length === 1 && onlyHygiene[0].rationale === 'cleanup', true);
+
+/* ── 7c. Evidence is specific to the finding it justifies ─────────────── */
+section('7c. Evidence names the record that justified the finding');
+
+// SPF multiple-records shows every conflicting record, not just the first.
+const spfConflict = buildFindings(ctx({ spfStatus: { status: 'permerror', warnings: ['spf-multiple-records'] }, spfRecords: ['v=spf1 -all', 'v=spf1 include:a.test ~all'], spfRecord: 'v=spf1 -all' }))
+  .find(f => f.id === 'spf.multiple-records');
+eq('spf.multiple-records evidence carries both records',
+  spfConflict.evidence.map(e => e.value), ['v=spf1 -all', 'v=spf1 include:a.test ~all']);
+
+// DMARC duplicate evidence shows the DUPLICATE at its name, not the applied record.
+const dmarcDup = buildFindings(ctx({
+  dmarcDiscovery: { observed: [{ why: 'multiple-at-step', queryName: '_dmarc.x.test', record: 'v=DMARC1; p=none DUP' }], applied: { foundAt: 'x.test' } },
+  dmarcStatus: { status: 'missing' }, dmarcRecord: 'v=DMARC1; p=reject APPLIED',
+})).find(f => f.id === 'dmarc.multiple-records');
+eq('dmarc.multiple-records evidence names the duplicate, not the applied record',
+  dmarcDup.evidence.map(e => e.value), ['v=DMARC1; p=none DUP']);
+eq('and at the duplicate\'s own query name', dmarcDup.evidence[0].queryName, '_dmarc.x.test');
+
+// MX evidence can read the passed mx records.
+const mxImplicit = buildFindings(ctx({ emailProvider: '@implicit-mx', mx: ['0 mail.x.test'] })).find(f => f.id === 'mx.implicit');
+eq('mx.implicit evidence reads the passed mx records', mxImplicit.evidence.some(e => e.value === '0 mail.x.test'), true);
+
+// A DNS finding gets meaningful evidence, not an empty info entry.
+const checksUnverified = buildFindings(ctx({ hosting: '@dns-error', advanced: { caa: { unknown: true } } })).find(f => f.id === 'dns.checks-unverified');
+eq('dns.checks-unverified evidence names the checks that could not run',
+  checksUnverified.evidence[0].value.length > 0, true);
+// Every finding still carries at least one evidence entry (acceptance criterion 1).
+eq('every bare-domain finding still names evidence',
+  buildFindings(ctx()).every(f => f.evidence.length > 0), true);
 
 /* ── 8. Locale independence ───────────────────────────────────────────── */
 section('8. The finding layer is locale-independent');

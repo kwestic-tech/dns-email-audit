@@ -1280,7 +1280,8 @@ export const LOCALE_EN = {
     },
     "rationale": {
       "foundation": "Fix these first — everything else depends on them",
-      "afterPrereq": "Once the prerequisites above are in place"
+      "afterPrereq": "Once the prerequisites above are in place",
+      "cleanup": "No dependencies — do these whenever"
     }
   }
 };

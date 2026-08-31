@@ -218,11 +218,44 @@ export const FINDING_META = {
 function migratedEvidence(finding, ctx) {
   var adv = ctx.advanced || {};
   var q = function (kind, queryName, value) { return { kind: kind, queryName: queryName, value: value || '' }; };
+
+  // ── Finding-specific evidence, where the protocol-generic material would be
+  // wrong or too coarse for the record that actually justified THIS finding. ──
+  switch (finding.id) {
+    case 'spf.multiple-records': {
+      // The whole conflicting set, not one record — the count IS the evidence.
+      var recs = (ctx.spfRecords && ctx.spfRecords.length) ? ctx.spfRecords : (ctx.spfRecord ? [ctx.spfRecord] : []);
+      return recs.length ? recs.map(function (r) { return q('txt', ctx.domain, r); }) : [q('absent', ctx.domain, '')];
+    }
+    case 'dmarc.multiple-records':
+    case 'dmarc.multiple-inherited': {
+      // The DUPLICATE records the walk observed, at the name they are at —
+      // never the applied record higher in the tree, which is a different fact.
+      var dups = ((ctx.dmarcDiscovery && ctx.dmarcDiscovery.observed) || []).filter(function (o) { return o.why === 'multiple-at-step'; });
+      return dups.length
+        ? dups.map(function (o) { return q('txt', o.queryName || ('_dmarc.' + ctx.domain), o.record || ''); })
+        : [q('absent', '_dmarc.' + ctx.domain, '')];
+    }
+    case 'dns.wildcard-apex':
+      return [q('txt', '_wildcardtest99xyz.' + ctx.domain, 'wildcard TXT synthesized at the apex')];
+    case 'dns.wildcard-dkim':
+      return [q('txt', '_wildcardtest99xyz._domainkey.' + ctx.domain, 'wildcard TXT reaches DKIM selector names')];
+    case 'dns.hosting-loop':
+      return [q('cname', 'www.' + ctx.domain, 'CNAME resolution loop')];
+    case 'dns.checks-unverified':
+      // The finding's own args name exactly which checks could not be verified.
+      return (finding.args && finding.args.length) ? [q('info', ctx.domain, String(finding.args[0]))] : [q('info', ctx.domain, '')];
+    case 'mx.none':
+      return [q('absent', ctx.domain, 'no MX record')];
+    case 'mx.implicit':
+    case 'mx.porkbun-forwarding':
+      return (ctx.mx && ctx.mx.length) ? ctx.mx.slice(0, 4).map(function (m) { return q('mx', ctx.domain, String(m)); }) : [q('absent', ctx.domain, '')];
+  }
+
+  // ── Protocol-generic fallback. ──
   switch (finding.protocol) {
     case 'spf':
-      return ctx.spfRecord
-        ? [q('txt', ctx.domain, ctx.spfRecord)]
-        : [q('absent', ctx.domain, '')];
+      return ctx.spfRecord ? [q('txt', ctx.domain, ctx.spfRecord)] : [q('absent', ctx.domain, '')];
     case 'dmarc':
       return ctx.dmarcRecord
         ? [q('txt', '_dmarc.' + (ctx.dmarcAtDomain || ctx.domain), ctx.dmarcRecord)]
@@ -235,7 +268,7 @@ function migratedEvidence(finding, ctx) {
     case 'mx': {
       var hosts = (adv.mxHealth && adv.mxHealth.hosts) || [];
       if (hosts.length) return hosts.slice(0, 4).map(function (h) { return q('host', ctx.domain, h.preference + ' ' + h.host); });
-      return (ctx.mx || []).length ? [q('mx', ctx.domain, String((ctx.mx || []).length) + ' MX')] : [q('absent', ctx.domain, '')];
+      return (ctx.mx && ctx.mx.length) ? ctx.mx.slice(0, 4).map(function (m) { return q('mx', ctx.domain, String(m)); }) : [q('absent', ctx.domain, '')];
     }
     case 'caa':
       return [q('caa', (adv.caa && adv.caa.atDomain) || ctx.domain, ((adv.caa && adv.caa.records) || []).join(' '))];
@@ -278,8 +311,15 @@ function dmarcEnforcing(ctx) {
 function noUsableDkim(ctx) {
   return !!(ctx.dkimStatus && !ctx.dkimStatus.found);
 }
-function spfAbsent(ctx) {
-  return !!(ctx.spfStatus && (ctx.spfStatus.status === 'missing' || ctx.spfStatus.status === 'permerror'));
+// SPF `missing`, never `permerror` (spec §3 amendment 1.1). A permerror is a
+// BROKEN record, not a missing one: it raises its own critical finding
+// (spf.multiple-records / spf.over-limit / spf.cycle), and this rule does not
+// depend on those. Including permerror here fired the enforcement finding whose
+// declared prerequisite `spf.missing` never fired, so the dropped edge left it
+// unblocked in step 1 beside the broken-SPF finding — breaking the
+// never-enforce-before-authentication guarantee this release exists to keep.
+function spfMissing(ctx) {
+  return !!(ctx.spfStatus && ctx.spfStatus.status === 'missing');
 }
 function ev(kind, queryName, value) { return { kind: kind, queryName: queryName, value: value || '' }; }
 
@@ -288,7 +328,7 @@ export const CROSS_PROTOCOL_RULES = [
     id: 'dmarc.enforcement-without-auth', key: 'dmarc-enforcement-without-auth',
     protocol: 'dmarc', severity: 'critical', category: 'authentication', effort: 'moderate',
     dependsOn: ['spf.missing', 'dkim.none-found'],
-    when: function (ctx) { return dmarcEnforcing(ctx) && (spfAbsent(ctx) || noUsableDkim(ctx)); },
+    when: function (ctx) { return dmarcEnforcing(ctx) && (spfMissing(ctx) || noUsableDkim(ctx)); },
     evidence: function (ctx) { return [ev('txt', '_dmarc.' + (ctx.dmarcAtDomain || ctx.domain), ctx.dmarcRecord)]; },
   },
   {
@@ -411,8 +451,11 @@ export const CROSS_PROTOCOL_RULES = [
  * drop `dependsOn` edges pointing at findings that did not fire, and derive
  * `blocks` as the inverse (RQ-FIND-07).
  * ──────────────────────────────────────────────────────────────────────── */
-export function buildFindings(ctx) {
-  var issues = buildIssues(ctx);
+export function buildFindings(ctx, issuesOverride) {
+  // `issuesOverride` exists so the suite can feed a fabricated issue array —
+  // including an unknown key — to exercise the skip branch directly. Production
+  // and every ordinary caller pass one argument and get buildIssues(ctx).
+  var issues = issuesOverride || buildIssues(ctx);
   var findings = [];
 
   issues.forEach(function (issue) {
@@ -422,7 +465,7 @@ export function buildFindings(ctx) {
     // thrown on, so the layer never destabilizes a build. The invariant suite
     // proves the table is complete for the real vocabulary.
     if (!meta) return;
-    findings.push({
+    var f = {
       id: meta.id,
       key: issue.key,
       keyspace: 'issue',
@@ -431,13 +474,16 @@ export function buildFindings(ctx) {
       confidence: migratedConfidence(meta),
       category: meta.category,
       effort: meta.effort,
-      evidence: migratedEvidence(meta, ctx),
       args: issue.args || [],
       noteKey: issue.noteKey,
       noteArgs: issue.noteArgs,
       dependsOn: (meta.dependsOn || []).slice(),
       blocks: [],
-    });
+    };
+    // Evidence is computed from the finished finding so the id-specific cases
+    // can read its `args` (e.g. dns.checks-unverified names its own checks).
+    f.evidence = migratedEvidence(f, ctx);
+    findings.push(f);
   });
 
   CROSS_PROTOCOL_RULES.forEach(function (rule) {
@@ -491,11 +537,32 @@ export function buildFindings(ctx) {
 export function buildRemediationPlan(findings) {
   if (!findings.length) return [];
 
-  // Collapse to one node per fired id; a finding's depth is 1 + max(depth of its
-  // dependencies). Unresolved edges were already dropped in buildFindings, so
-  // every dependency named here is present, and the graph is acyclic by invariant.
+  // One node per distinct fired id (two findings never share an id at runtime,
+  // but the reduction is defensive). Unresolved edges were dropped in
+  // buildFindings, so every dependency named here is present; the graph is
+  // acyclic by invariant.
   var present = {};
-  findings.forEach(function (f) { present[f.id] = f; });
+  var ids = [];
+  findings.forEach(function (f) { if (!present[f.id]) { present[f.id] = f; ids.push(f.id); } });
+
+  // An id "has a dependent" when another fired finding depends on it.
+  var hasDependent = {};
+  ids.forEach(function (id) {
+    (present[id].dependsOn || []).forEach(function (dep) { if (present[dep]) hasDependent[dep] = true; });
+  });
+
+  // Isolated findings — no prerequisites AND no dependents — carry no ordering
+  // constraint, so they gather in a single FINAL step (spec §4, amendment 1.1),
+  // never in step 1 beside a blocking finding. Depth grouping governs only the
+  // connected findings; a finding with dependencies but no dependents (e.g.
+  // dmarc.enforcement-without-auth) is connected and stays at its depth.
+  var connected = [];
+  var isolated = [];
+  ids.forEach(function (id) {
+    var deps = (present[id].dependsOn || []).filter(function (d) { return present[d]; });
+    if (deps.length === 0 && !hasDependent[id]) isolated.push(id);
+    else connected.push(id);
+  });
 
   var depthCache = {};
   function depthOf(id, seen) {
@@ -503,54 +570,60 @@ export function buildRemediationPlan(findings) {
     seen = seen || {};
     if (seen[id]) return 0; // cycle guard; the invariant test forbids cycles
     seen[id] = true;
-    var f = present[id];
-    var deps = (f && f.dependsOn) || [];
+    var deps = (present[id] && present[id].dependsOn) || [];
     var d = 0;
-    deps.forEach(function (dep) {
-      if (present[dep]) d = Math.max(d, depthOf(dep, seen) + 1);
-    });
+    deps.forEach(function (dep) { if (present[dep]) d = Math.max(d, depthOf(dep, seen) + 1); });
     depthCache[id] = d;
     return d;
   }
 
-  var maxDepth = 0;
   var byDepth = {};
-  // One entry per distinct id, so two findings sharing an id (never happens at
-  // runtime, but the loop is defensive) do not double-list.
-  var seenId = {};
-  findings.forEach(function (f) {
-    if (seenId[f.id]) return;
-    seenId[f.id] = true;
-    var d = depthOf(f.id);
+  var maxDepth = 0;
+  connected.forEach(function (id) {
+    var d = depthOf(id);
     if (d > maxDepth) maxDepth = d;
-    (byDepth[d] = byDepth[d] || []).push(f);
+    (byDepth[d] = byDepth[d] || []).push(present[id]);
   });
+
+  // Tokens, never translated strings, so the plan is byte-identical across all
+  // fourteen locales (§6): severity, then effort, then id.
+  var withinStep = function (a, b) {
+    var s = (SEV_RANK[b.severity] || 0) - (SEV_RANK[a.severity] || 0);
+    if (s) return s;
+    var e = (EFFORT_RANK[a.effort] || 0) - (EFFORT_RANK[b.effort] || 0);
+    if (e) return e;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  };
 
   var steps = [];
   for (var d = 0; d <= maxDepth; d++) {
-    var group = byDepth[d] || [];
+    var group = (byDepth[d] || []).slice();
     if (!group.length) continue;
-    group.sort(function (a, b) {
-      var s = (SEV_RANK[b.severity] || 0) - (SEV_RANK[a.severity] || 0);
-      if (s) return s;
-      var e = (EFFORT_RANK[a.effort] || 0) - (EFFORT_RANK[b.effort] || 0);
-      if (e) return e;
-      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-    });
-    var ids = group.map(function (f) { return f.id; });
+    group.sort(withinStep);
+    var stepIds = group.map(function (f) { return f.id; });
     // What this step unblocks: findings one depth deeper that depend on an id here.
     var unblocks = [];
     (byDepth[d + 1] || []).forEach(function (f) {
-      if (f.dependsOn.some(function (dep) { return ids.indexOf(dep) !== -1; })) unblocks.push(f.id);
+      if (f.dependsOn.some(function (dep) { return stepIds.indexOf(dep) !== -1; })) unblocks.push(f.id);
     });
     steps.push({
       step: steps.length + 1,
-      findings: ids,
-      // A token, resolved by the UI as `findings.rationale.<token>`; never a
-      // translated string, so the plan is byte-identical across all locales (§6).
+      findings: stepIds,
       rationale: d === 0 ? 'foundation' : 'afterPrereq',
       unblocks: unblocks,
     });
   }
+
+  // The final step collects the isolated findings, where hygiene gathers.
+  if (isolated.length) {
+    var isoGroup = isolated.map(function (id) { return present[id]; }).sort(withinStep);
+    steps.push({
+      step: steps.length + 1,
+      findings: isoGroup.map(function (f) { return f.id; }),
+      rationale: 'cleanup',
+      unblocks: [],
+    });
+  }
+
   return steps;
 }
