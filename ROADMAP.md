@@ -59,6 +59,9 @@ and an unverifiable result is marked rather than hidden.
 | 0.2.0 | Version corrected to `0.2.0`, community health files, package metadata | [repository-hygiene](docs/specs/implemented/repository-hygiene.md) |
 | 0.2.1 | XLIFF-based locale pipeline, thirteen locales complete, five new languages | [locale-translation-pipeline](docs/specs/implemented/locale-translation-pipeline.md) |
 | 0.2.2 | DKIM selectors for vendors named in the domain's own SPF record | [spf-referenced-dkim-selectors](docs/specs/implemented/spf-referenced-dkim-selectors.md) |
+| 0.2.3 | Rendering correctness and decided malformed-record behavior | [rendering-and-robustness](docs/specs/implemented/rendering-and-robustness.md) |
+| 0.3.0 | RFC 9989 DMARC DNS Tree Walk and discovery provenance | [dmarcbis-tree-walk](docs/specs/implemented/dmarcbis-tree-walk.md) |
+| 0.4.0 | DKIM, CAA, MX and DNS-published DANE depth | [dns-protocol-depth](docs/specs/implemented/dns-protocol-depth.md) |
 | 0.5.0 | DNSSEC chain evidence: six states, local DS-to-DNSKEY matching, attributed claims | [dnssec-evidence](docs/specs/implemented/dnssec-evidence.md) |
 | 0.6.0 | ES modules under `src/` bundled to one artifact; a two-member browser API; no behaviour change | [modular-architecture-and-production-build](docs/specs/implemented/modular-architecture-and-production-build.md) |
 
@@ -78,6 +81,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 7 | Local report comparison | Not started. Exports are CSV and static HTML; nothing can be read back. | [0.9.0](docs/specs/report-comparison.md) |
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
 | 9 | Modular architecture and production build | **Done.** Released as 0.6.0; all six gates met. Spec `1.8`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with thirteen owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md), released |
+| 10 | 1.0 product contract and release readiness | Not started. The compatibility surface, supported environments, accessibility evidence and graduation gate are now explicit rather than inferred from completing 0.9.0. | [1.0.0](docs/specs/one-zero-readiness.md) |
 
 ## Release sequence
 
@@ -225,6 +229,22 @@ resolved, regressed, and unchanged findings. History is never persisted.
 Exit condition: reloading the page discards imported reports, and hostile strings
 inside imported JSON render as text only.
 
+### 1.0.0: Product contract and release readiness
+
+Spec: [`docs/specs/one-zero-readiness.md`](docs/specs/one-zero-readiness.md)
+
+Graduates the finished product without adding another protocol feature. Defines
+the supported 1.x compatibility surfaces, executes a real browser and keyboard
+accessibility matrix, verifies clean-checkout and production artifacts, closes
+the external-intelligence decision, and reconciles every public behavior claim
+with measurements from the finished branch.
+
+Exit condition: the supported facade, finding identities, JSON schema and CSV
+rules have explicit compatibility policies; the agreed browser and accessibility
+matrix passes; the privacy, storage and network claims match observation; all
+maintenance items are dispositioned; and deterministic replay against `v0.9.0`
+shows no unintended movement across every published surface.
+
 ### Post-1.0 decision: External intelligence
 
 Spec: [`docs/specs/external-intelligence.md`](docs/specs/external-intelligence.md)
@@ -246,31 +266,26 @@ Every spec ends with numbered open questions. Those are the decisions that are
 genuinely unsettled, and they are the primary input to review. See
 [`docs/specs/README.md`](docs/specs/README.md) for the review process.
 
-## Addendum: build order for the automated async development pipeline (2026-08-24)
+## Addendum: current execution order after the 0.6.0 refactor (2026-08-31)
 
-The release sequence above (0.2.3 through 0.9.0) states why the work is
-*shipped* in that order — grade stability, protocol claims already made, a
-findings engine that wants stable inputs. It is kept exactly as written and
-still governs version numbers and release notes.
+The earlier async plan allowed 0.8.0 artifact validation to run in parallel
+with the protocol chain and reconcile a temporary finding stub later. That did
+not happen before the refactor serialized the source tree, and preserving the
+old optimization would now create avoidable contract churn.
 
-It is **not** the order an automated agentic build pipeline uses to pick up
-work. That pipeline follows a separate priority ranking, graded on end-user
-usefulness first and build-dependency structure second, worked out in
-`claude/spec-evaluation-results.md` (in the Kwestic project) and turned into an
-execution plan in
-[`docs/async-development-handoff.md`](docs/async-development-handoff.md).
+The remaining work is intentionally sequential:
 
-The short version: `findings-and-remediation` (0.7.0) is the single
-highest-value spec for the tool's stated non-expert-owner audience, but it is
-also the most downstream in the dependency graph — it consumes the output
-shapes of `dmarcbis-tree-walk`, `dns-protocol-depth`, and `dnssec-evidence`.
-So the *value* ranking and the *build* ranking disagree, and
-`docs/async-development-handoff.md` is the document that reconciles them into
-an actual sequence, including which specs can be developed in parallel
-(`local-artifact-validation` alongside the 0.3.0→0.4.0→0.5.0 chain) and which
-cannot.
+```text
+0.7.0 findings → 0.8.0 artifacts → 0.9.0 reports → 1.0.0 graduation
+```
 
-Nothing about this addendum changes what any spec says, what release number it
-targets, or the naming rule above. It changes only the order in which specs
-are reviewed to `1.0 (Final)` and implemented. Update this addendum, not the
-sequence above, if the build-priority ranking changes.
+`0.7.0` freezes finding identity and provenance. `0.8.0` consumes that final
+shape rather than inventing a stub. `0.9.0` then freezes the public report
+schema around both DNS and user-supplied provenance decisions. `1.0.0` verifies
+and documents the compatibility promises made by those releases. The decision
+document for external intelligence can be reviewed alongside the feature specs,
+but it must be Final before 1.0.0 under the current readiness draft.
+
+[`HANDOFF.md`](HANDOFF.md) carries the current operational review checkpoints.
+Release numbers, filenames and stable
+`OQ-*` identifiers do not change when implementation scheduling changes.

@@ -32,30 +32,36 @@ diverged from.
 ## Planned
 
 `Target release` below is a version-numbering anchor, kept per the naming rule
-in this document — it is not a build-order commitment. **As of 2026-08-24,
-the actual implementation order for the automated async build pipeline
-follows the priority groups in
-[`docs/async-development-handoff.md`](../async-development-handoff.md)**,
-derived from an end-user-usefulness evaluation
-(`claude/spec-evaluation-results.md` in the project) rather than from release
-sequence. Release numbers are unaffected; only the order specs are picked up
-for review and implementation changed. See that document for the full
-rationale, the dependency map, and the group-by-group execution plan.
+in this document. **As of 2026-08-31, the remaining build order is also the
+release order:** 0.7.0 findings, 0.8.0 artifacts, 0.9.0 reports, then the 1.0.0
+graduation gate. The earlier parallel artifact proposal was retired after the
+0.6.0 refactor shipped; consuming the final finding shape is now cheaper than
+maintaining and reconciling a stub. See [`HANDOFF.md`](../../HANDOFF.md) for the
+current operational checkpoints. Shipped phase history belongs to the
+implemented specs rather than a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [findings-and-remediation](findings-and-remediation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
-| [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 0.1 | Draft, awaiting review |
-| [report-comparison](report-comparison.md) | 0.9.0 | 0.1 | Draft, awaiting review |
-| [external-intelligence](external-intelligence.md) | post-1.0 | 0.1 | Draft, decision pending |
+| [findings-and-remediation](findings-and-remediation.md) | 0.7.0 | 0.2 | Draft, rebased after 0.6.0; awaiting review |
+| [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 0.2 | Draft, rebased after 0.6.0; awaiting review |
+| [report-comparison](report-comparison.md) | 0.9.0 | 0.2 | Draft, rebased after 0.6.0; awaiting review |
+| [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
+| [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 
 **2026-08-27 — the three feature specs each moved up one release number** to
 make room for the architectural refactor at 0.6.0. Per the naming rule above
-this is expected and costs nothing: the specs are named for their capability,
-and their filenames, open-question identifiers and content are unchanged. The
+this did not rename the specs or their open-question identifiers. Their
+implementation sections did require a later architectural rebase: version 0.2
+of each planned feature spec replaces deleted `js/` paths, assigns work to the
+owners established by 0.6.0, and removes the obsolete parallel-branch stub. The
 refactor takes the slot because all three of them read or extend the output
 shapes the audit produces, and the boundaries are cheaper to establish before
 three more releases are layered onto a 5,704-line file than after.
+
+**2026-08-31 — 1.0.0 gained an explicit graduation spec.** Previously the
+roadmap ended at 0.9.0 and referred to work “post-1.0” without defining 1.0.0.
+The new spec proposes a dedicated compatibility, browser, accessibility,
+reproducibility and decision-closure release after the remaining features.
 
 ## Captured evidence
 

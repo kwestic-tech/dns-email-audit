@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.1 (Draft) |
+| Spec version | 0.2 (Draft, roadmap references synchronized) |
 | Target release | Post-1.0, conditional |
 | Status | Decision pending. This document exists to make the deferral explicit rather than accidental. |
 | Depends on | Everything. This is the last thing considered, if it is considered at all. |
 | Blocks | Nothing |
 | Slug for open questions | `EXT` |
-| Last updated | 2026-08-20 |
+| Last updated | 2026-08-31 |
 
 ## Position
 
@@ -58,7 +58,7 @@ they are not worth the property they cost.
 
 Two mitigations already exist and are the intended permanent answer.
 
-[local-artifact-validation](local-artifact-validation.md), the 0.7.0 release,
+[local-artifact-validation](local-artifact-validation.md), the 0.8.0 release,
 lets the user supply the artifact themselves. The person auditing their own
 domain has the file. The person auditing a third party can fetch it by whatever
 means they judge appropriate, from a network position they choose, and paste the
@@ -116,7 +116,8 @@ Failing any one of these is disqualifying, not a trade-off to be weighed.
 Stating these plainly so the deferral is honest about its costs.
 
 - MTA-STS scores half credit forever for domains whose owners do not supply the
-  policy, per `calcScore()` at `js/dns.js:1795`.
+  policy, per `calcScore()` in
+  [`src/audit/scoring.js`](../../src/audit/scoring.js).
 - BIMI conformance is unknown unless the user supplies the SVG.
 - CAA is checked for what it says, never for whether certificate authorities
   honored it.
@@ -167,4 +168,5 @@ against a recorded decision rather than a fresh idea.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 0.2 | 2026-08-31 | Synchronized the local-artifact release number to 0.8.0 and replaced the deleted scoring path after the 0.6.0 refactor. The deferral decision and all open questions are unchanged. |
 | 0.1 | 2026-08-20 | Initial draft. |
