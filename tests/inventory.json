@@ -48,6 +48,14 @@
       ]
     },
     {
+      "path": "tools/backtest.test.mjs",
+      "assertions": 2,
+      "areas": [
+        "the live backtest passes its counted fetch into the production engine",
+        "the 0.6.0 ambient-fetch regression is a proven negative case"
+      ]
+    },
+    {
       "path": "tools/interpolate.test.mjs",
       "assertions": 17,
       "areas": [
