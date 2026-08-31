@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.6 (Implemented) |
+| Spec version | 1.7 (Implemented) |
 | Target release | 0.7.0 |
 | Status | Released in `v0.7.0` |
 | Depends on | 0.2.3 through 0.6.0. This release consumes the stabilized protocol signals through the module boundaries shipped by the refactor. |
@@ -731,7 +731,7 @@ ways:
   CSV adds finding ids, severities and the first remediation step. Rendering order
   is measured identical under all fourteen locales.
 
-Verification at release: 250 inventory checks and 4,636 assertions; all thirteen
+Verification at release: 255 inventory checks and 4,643 assertions; all thirteen
 non-English locales complete; deterministic DNS trace unchanged across all 32
 equivalence cases; and legacy result fields byte-identical once the two additive
 fields are removed. Concurrent live comparisons of the final branch against
@@ -742,10 +742,21 @@ off and 40.9–41.2 with them on, consistent with `PRIVACY.md` and with the
 deterministic trace proof. `src/audit/issues.js` and `src/audit/scoring.js` are
 byte-identical to `v0.6.0`.
 
+The finished release is pinned by `baseline-v0.7.0.json` on all five surfaces
+for both the working tree and deployable artifact. The reproducible historical
+v0.5.0 baseline is retained rather than overwritten; a dedicated compatibility
+suite proves the release-to-history difference class exactly and carries
+negative controls for trace movement, legacy-result movement and insertion of a
+CSV cell. This replaces the 0.2 revision note's imprecise promise to "update the
+behavioral baseline to v0.6.0": comparing an intentional result/UI release to an
+old zero-difference oracle made CI reject the reviewed change, while replacing
+history would have erased the compatibility proof.
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.7 (Implemented) | 2026-08-31 | Corrected the release's equivalence policy after CI correctly rejected the intentional findings/result/UI changes against the historical zero-difference baseline. Added an exact finished 0.7.0 five-surface baseline for current-output gating and retained the reproducible v0.5.0 baseline behind a seven-assertion compatibility suite: same 32 cases, trace byte-identical, legacy result byte-identical after removing only `findings`/`remediationPlan`, CSV limited to three appended cells, and a negative control for each rule. This supersedes 0.2's imprecise "updated behavioral baseline to v0.6.0" note without erasing history. Final inventory: 255 checks and 4,643 assertions. |
 | 1.6 (Implemented) | 2026-08-31 | Merge-readiness cleanup after independent Claude Code verification. Reproduced acceptance criterion 5 directly against `v0.6.0` on all 40 live sample domains with deep checks off and on; added a JSON round-trip regression proving malformed TLSA finding evidence survives serialization; and repaired the 0.6.0 backtest composition regression that bypassed its request counter. The restored fan-out agrees with `PRIVACY.md`, so no product or privacy contract changed. Final inventory: 250 checks and 4,636 assertions. |
 | 1.5 (Implemented) | 2026-08-31 | Released in `v0.7.0`. Added the As implemented record, moved the spec and corrected its links, and recorded the final 4,633-assertion, locale, equivalence and backtest evidence. |
 | 1.4 (Final) | 2026-08-31 | Codex review round 4. Made evidence provenance and completeness binding after the 1.3 shape check admitted incomplete and finding-irrelevant material: complete four-field DS and DNSKEY presentations selected for the finding, the actual TLSA query owner and retained malformed presentation string, one CAA entry per resolver record, and non-empty values for every non-absence kind. Required the contract suite to cover every registered kind and the constructor's real unknown-kind path. |

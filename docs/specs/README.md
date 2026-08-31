@@ -121,7 +121,7 @@ precedent, and one spec was superseded outright during implementation.
 | [dns-protocol-depth](implemented/dns-protocol-depth.md) | 0.4.0 | [#22](https://github.com/kwestic-tech/dns-email-audit/pull/22) | `9bda3ad` | 1.2 (Implemented) |
 | [dnssec-evidence](implemented/dnssec-evidence.md) | 0.5.0 | [#25](https://github.com/kwestic-tech/dns-email-audit/pull/25) | `v0.5.0` | 1.5 (Implemented) |
 | [modular-architecture-and-production-build](implemented/modular-architecture-and-production-build.md) | 0.6.0 | — | `v0.6.0` | 1.8 (Implemented) |
-| [findings-and-remediation](implemented/findings-and-remediation.md) | 0.7.0 | [#29](https://github.com/kwestic-tech/dns-email-audit/pull/29) | `v0.7.0` | 1.6 (Implemented) |
+| [findings-and-remediation](implemented/findings-and-remediation.md) | 0.7.0 | [#29](https://github.com/kwestic-tech/dns-email-audit/pull/29) | `v0.7.0` | 1.7 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in
