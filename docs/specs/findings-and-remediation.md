@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.2 (Final) |
+| Spec version | 1.3 (Final) |
 | Target release | 0.7.0 |
 | Status | Final — implementation may begin |
 | Depends on | 0.2.3 through 0.6.0. This release consumes the stabilized protocol signals through the module boundaries shipped by the refactor. |
@@ -175,6 +175,31 @@ can show the record beside the claim and so the 0.9.0 report export carries
 verifiable material rather than assertions. It renders through the same
 node-building path (`R.value`) as any DNS-derived value, so display caps and
 sentinel substitution apply.
+
+> **Amendment (1.3):** 1.2's "published bytes or nothing" was the right
+> *intent* and too narrow as a *rule* — it described neither a record this
+> codebase only ever holds in parsed form nor the one legitimate non-record
+> kind, so it was violated in four places while reading as satisfied. The
+> binding rule is therefore stated per kind. **`evidence[].value` carries
+> published material or nothing, and never a verdict, a classifier state, or a
+> presentation string assembled for display:**
+>
+> | Kind | Value carries |
+> | --- | --- |
+> | `txt`, `selector`, `mx`, `address`, `cname`, `caa`, `mechanism`, `host` | the published string as the resolver returned it |
+> | `tlsa`, `dnssec` | the record's published wire fields, joined in presentation order (`3 1 1 <data>`; `<keyTag> <algorithm> <digestType>`). Faithful re-serialization of that record's own fields — never a `match`, `state` or `authenticated` verdict about it |
+> | `absent` | **empty**. The `queryName` says where it was looked for |
+> | `info` | one bare protocol token (`CAA`, `MTA-STS`) naming a control whose lookup did not complete. The only kind not backed by a record, because there is none — the lookup is what failed. One entry per control, never a comma-joined list |
+>
+> What this rules out, by the four cases that violated it: `dnssec.state`
+> ("indeterminate") and TLSA `present` ("published") are verdicts *about* records
+> and are replaced by the records; `"s1 (1024)"` is the message's presentation
+> form and belongs in `args`, with the published key record as the evidence; and
+> `"CAA, MTA-STS"` is a joined display string, now one token per entry.
+>
+> `severity`, `confidence` and every other derived judgement stay on the finding.
+> Evidence is what a reader checks the finding *against*, so it may not be
+> produced by the same reasoning the finding is.
 
 > **Amendment (1.2):** *raw* is binding, and it rules out authored prose.
 > `evidence[].value` carries **published bytes or nothing** — the record as the
@@ -659,6 +684,7 @@ configuration.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.3 (Final) | 2026-08-31 | Codex review round 3. Restated the evidence contract **per kind** after 1.2's "published bytes or nothing" proved too narrow to describe a parsed-only record or the token kind, and was violated in four places while reading as satisfied: DNSSEC and TLSA now carry the record's published wire fields instead of a `state`/`present` verdict, the weak-DKIM finding carries the published key record instead of its `s1 (1024)` presentation form, and `checks-unverified` emits one protocol token per control instead of a comma-joined list. Made `audit.finding.evidence.kind` closed by construction through a single evidence constructor. |
 | 1.2 (Final) | 2026-08-31 | Codex review round 2. Made `evidence[].value` explicitly *raw* — published bytes or nothing, never authored prose, with `kind: 'absent'` plus an empty value as the honest form of an absence; the coordinator now retains the wildcard probe records, the website CNAME chain and the A/AAAA records rather than the finding layer describing them. Resolved the `p=quarantine` disagreement in favour of the code: the rule fires on DMARC **enforcement**, which is `quarantine` or `reject`. Registered `audit.finding.key` and `audit.finding.evidence.kind` as closed algebras. |
 | 1.1 (Final) | 2026-08-31 | Codex review round. Fixed the `dmarc.enforcement-without-auth` SPF condition to `status === 'missing'` only (a `permerror` broke the never-enforce-before-auth guarantee); resolved the §4 standalone-finding contradiction (isolated findings collect in a final step, not step 1); documented the emitted `keyspace` field in the §1 schema; and committed to registering the finding vocabularies as reviewed algebras rather than bundling them to evade the `state-matrix` scanner. Also strengthened the testing table: a real fabricated-unknown-key negative case, and a direct fourteen-locale render comparison rather than only the structural import assertion. Implementation followed with finding-specific evidence, the remediation view marking blocked findings, and an enforcement message that no longer asserts both SPF and DKIM are absent. |
 | 1.0 (Final) | 2026-08-31 | Resolved all seven open questions and the four referred decisions against the real codebase and, for `RQ-FIND-05`, a recorded locale-pipeline experiment. Amended the architecture to **enrich rather than replace** `buildIssues()` (`RQ-FIND-08`), decoupled the Finding `id` from its locale key and kept the `issue.*` namespace (`RQ-FIND-05`), added `severity` as a new five-value field beside the untouched legacy `sev`, put the new material under a `finding.*` namespace, added `RQ-FIND-09` for the SPF-mechanism fact, moved finding rendering to `div.finding` with the equivalence binding update it requires, and updated the testing and acceptance sections to the enrich model. No behavioural claim about `buildIssues`, scoring or the DNS trace changes. |
