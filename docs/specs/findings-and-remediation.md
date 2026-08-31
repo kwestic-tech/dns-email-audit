@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.1 (Final) |
+| Spec version | 1.2 (Final) |
 | Target release | 0.7.0 |
 | Status | Final — implementation may begin |
 | Depends on | 0.2.3 through 0.6.0. This release consumes the stabilized protocol signals through the module boundaries shipped by the refactor. |
@@ -176,6 +176,21 @@ verifiable material rather than assertions. It renders through the same
 node-building path (`R.value`) as any DNS-derived value, so display caps and
 sentinel substitution apply.
 
+> **Amendment (1.2):** *raw* is binding, and it rules out authored prose.
+> `evidence[].value` carries **published bytes or nothing** — the record as the
+> resolver returned it, a hostname, an address. It may never carry an English
+> sentence such as "wildcard TXT synthesized at the apex" or "no MX record":
+> those are assertions wearing evidence's clothing, they reach every locale
+> untranslated, and they defeat the point of showing the operator the material
+> instead of the claim. An **absence** is evidence too, and its honest form is
+> `kind: 'absent'` with the queried `queryName` and an EMPTY `value` — the
+> finding's message says what is missing; the evidence says where it was looked
+> for. Where a finding rests on a fact the coordinator holds but did not
+> previously keep — the wildcard probe's synthesized records, the website CNAME
+> chain, the A/AAAA records that activate implicit MX delivery — the coordinator
+> retains and passes that material rather than the finding layer inventing a
+> description of it.
+
 ### 2. The rule layer
 
 `src/audit/findings.js` holds two declarative structures and the functions over
@@ -241,7 +256,16 @@ namespace); none collides with a migrated `issue.*` key.
 | `dkim.mixed-key-strength` | Selectors on one domain differ in modulus size (`dkimStatus.keyProfile.mixed`) | low | none |
 | `dkim.weak-with-enforcement` | RSA key at or under 1024 bits while DMARC enforces | high | none |
 | `dmarc.external-report-unauthorized` | `rua`/`ruf` destination has not published authorization (`advanced.reportAuth` state `unauthorized`) | medium | none |
-| `dmarc.enforcement-without-auth` | `p=reject` while SPF `status` is `missing` (NOT `permerror`) or DKIM is unproven | critical | `spf.missing`, `dkim.none-found` |
+| `dmarc.enforcement-without-auth` | DMARC **enforcement** (`p=quarantine` or `p=reject`) while SPF `status` is `missing` (NOT `permerror`) or DKIM is unproven | critical | `spf.missing`, `dkim.none-found` |
+> **Amendment (1.2):** the DMARC half is **enforcement**, not `p=reject` alone.
+> The 1.1 table said `p=reject` while the rule fired on `dmarcStatus.enforcing`,
+> which `core/dmarc/record.js` defines as an effective policy of `quarantine` OR
+> `reject`. Resolved in favour of the code: the finding is named
+> `enforcement-without-auth`, its own copy already names both policies, and
+> `quarantine` genuinely causes the harm — legitimate mail the missing method
+> cannot authenticate lands in spam rather than the inbox. `enforcing` is the
+> codebase-wide definition of enforcement and this rule uses it unchanged.
+
 > **Amendment (1.1):** the SPF half is `status === 'missing'` only. A `permerror`
 > (multiple records, over-limit, cycle) is a *broken* SPF record, not a missing
 > one; it raises its own critical finding (`spf.multiple-records` /
@@ -401,6 +425,14 @@ Registry invariants, asserted over `FINDING_META` and `CROSS_PROTOCOL_RULES`:
 - `FINDING_META` covers every legacy issue key `buildIssues()` can emit (proven
   against the `audit.issue.key` algebra), so no legacy finding silently loses its
   structured form.
+
+> **Amendment (1.2):** two further closed result vocabularies are registered
+> alongside them: `audit.finding.key` — the locale-key slug, closed exactly as
+> the already-registered `audit.issue.key` and `audit.suggestion.key` are, and
+> the union of the 106 migrated keys and the 10 cross-protocol ones — and
+> `audit.finding.evidence.kind`, the finite set of evidence kinds this module
+> produces. Neither is open by construction, so both are registered rather than
+> documented as exceptions.
 
 > **Amendment (1.1):** the finding vocabularies are **registered as reviewed
 > closed algebras** in `tests/state-algebras.json` — `audit.finding.id`,
@@ -627,6 +659,7 @@ configuration.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.2 (Final) | 2026-08-31 | Codex review round 2. Made `evidence[].value` explicitly *raw* — published bytes or nothing, never authored prose, with `kind: 'absent'` plus an empty value as the honest form of an absence; the coordinator now retains the wildcard probe records, the website CNAME chain and the A/AAAA records rather than the finding layer describing them. Resolved the `p=quarantine` disagreement in favour of the code: the rule fires on DMARC **enforcement**, which is `quarantine` or `reject`. Registered `audit.finding.key` and `audit.finding.evidence.kind` as closed algebras. |
 | 1.1 (Final) | 2026-08-31 | Codex review round. Fixed the `dmarc.enforcement-without-auth` SPF condition to `status === 'missing'` only (a `permerror` broke the never-enforce-before-auth guarantee); resolved the §4 standalone-finding contradiction (isolated findings collect in a final step, not step 1); documented the emitted `keyspace` field in the §1 schema; and committed to registering the finding vocabularies as reviewed algebras rather than bundling them to evade the `state-matrix` scanner. Also strengthened the testing table: a real fabricated-unknown-key negative case, and a direct fourteen-locale render comparison rather than only the structural import assertion. Implementation followed with finding-specific evidence, the remediation view marking blocked findings, and an enforcement message that no longer asserts both SPF and DKIM are absent. |
 | 1.0 (Final) | 2026-08-31 | Resolved all seven open questions and the four referred decisions against the real codebase and, for `RQ-FIND-05`, a recorded locale-pipeline experiment. Amended the architecture to **enrich rather than replace** `buildIssues()` (`RQ-FIND-08`), decoupled the Finding `id` from its locale key and kept the `issue.*` namespace (`RQ-FIND-05`), added `severity` as a new five-value field beside the untouched legacy `sev`, put the new material under a `finding.*` namespace, added `RQ-FIND-09` for the SPF-mechanism fact, moved finding rendering to `div.finding` with the equivalence binding update it requires, and updated the testing and acceptance sections to the enrich model. No behavioural claim about `buildIssues`, scoring or the DNS trace changes. |
 | 0.2 | 2026-08-31 | Rebased the implementation onto the shipped 0.6.0 module architecture and renumbered the target to 0.7.0. Assigned finding semantics to `src/audit/`, presentation to `src/ui/`, and composition to `src/runtime.js`; replaced deleted `js/` paths, moved invariant tests beside their owner, updated the behavioral baseline to `v0.6.0`, and updated the downstream report dependency to 0.9.0. No open question was resolved. |
