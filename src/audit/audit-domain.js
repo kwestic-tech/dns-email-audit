@@ -65,13 +65,14 @@ import { summarizeBimi } from '../core/bimi/bimi.js';
 import { summarizeMtaSts } from '../core/transport/mta-sts.js';
 import { summarizeTlsRpt } from '../core/transport/tls-rpt.js';
 import {
-  analyzeSpf, classifySpfSubnets, selectSpfRecords, spfReferencedCatalogKeys,
+  analyzeSpf, classifySpfSubnets, selectSpfRecords, spfReferencedCatalogKeys, spfUsesMechanism,
 } from '../core/spf/spf.js';
 import { analyzeDmarc, emptyDmarcStatus } from '../core/dmarc/record.js';
 import { applyInheritance } from '../core/dmarc/tree-walk.js';
 import { planReportDestinations } from '../core/dmarc/report-auth.js';
 import { calcScore, calcAdvScore } from './scoring.js';
 import { buildIssues, buildSuggestions } from './issues.js';
+import { buildFindings, buildRemediationPlan } from './findings.js';
 import {
   detectDNSProvider, detectEmailProvider, detectHosting, selectVerifications,
 } from '../providers/detectors.js';
@@ -344,6 +345,19 @@ export function createAuditDomain(capabilities) {
     const score = calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
     const advScore = ctx.options.advanced ? calcAdvScore(advanced) : null;
 
+    // Structured findings and the remediation plan (findings spec §1–§4). Pure
+    // over the completed context — no new query — so the published DNS fan-out
+    // does not move. `spfUsesMx` is the one fact the finding layer cannot parse
+    // for itself (RQ-FIND-09); it is derived here by SPF's owner and passed in.
+    const spfUsesMx = spfUsesMechanism(spfRecord, 'mx');
+    const findings = buildFindings({
+      emailProvider, spfStatus, spfRecords, spfRecord, dkimStatus, dmarcStatus,
+      dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan,
+      wildcardApex, wildcardDkim, hosting, advanced, domain: d,
+      dmarcRecord, dmarcAtDomain, spfUsesMx,
+    });
+    const remediationPlan = buildRemediationPlan(findings);
+
     ctx.record({
       ns, mx, txt, aRec, aaaaRec, dnsProvider, emailProvider,
       spfRecord, spfRecords, spfStatus, dmarcRecord, dmarcStatus, dmarcDiscovery, dmarcExistence,
@@ -351,7 +365,7 @@ export function createAuditDomain(capabilities) {
       // so the CSV export and the saved report keep working, then removed.
       dmarcAtDomain, organizationalDomain, dkimStatus,
       wildcardApex, wildcardDkim, hosting, verifications, advanced, advScore,
-      issues, suggestions, score,
+      issues, suggestions, score, findings, remediationPlan,
     });
     return ctx.result();
   }
