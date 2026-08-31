@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.3 (Final) |
+| Spec version | 1.4 (Final) |
 | Target release | 0.7.0 |
 | Status | Final — implementation may begin |
 | Depends on | 0.2.3 through 0.6.0. This release consumes the stabilized protocol signals through the module boundaries shipped by the refactor. |
@@ -200,6 +200,33 @@ sentinel substitution apply.
 > `severity`, `confidence` and every other derived judgement stay on the finding.
 > Evidence is what a reader checks the finding *against*, so it may not be
 > produced by the same reasoning the finding is.
+
+> **Amendment (1.4):** 1.3 made the value grammar explicit but did not make
+> provenance or completeness explicit, so a stricter shape check still admitted
+> evidence that could not verify its finding. The binding contract includes all
+> four of these properties:
+>
+> 1. `queryName` is the DNS owner actually queried. In particular TLSA evidence
+>    names `_25._tcp.<mx-host>`, not the MX host.
+> 2. Every non-`absent` entry has a **non-empty** value. An unparseable record is
+>    still published material; when its fields cannot be faithfully serialized,
+>    its cleaned presentation string is retained and shown.
+> 3. One resolver record is one evidence entry. Records are never joined into a
+>    value the resolver did not return.
+> 4. Evidence is specific to the finding. A DS finding carries the complete DS
+>    presentation (`<keyTag> <algorithm> <digestType> <digest>`); a DNSKEY finding
+>    carries the complete DNSKEY presentation (`<flags> <protocol> <algorithm>
+>    <publicKey>`). A DS without its digest cannot verify a mismatch, and a DS
+>    cannot verify a DNSKEY flag or structure finding.
+>
+> For `tlsa`, a successfully parsed record carries `<usage> <selector>
+> <matchingType> <associationData>`; a malformed record carries its retained
+> cleaned presentation string instead. For `caa`, each published CAA record is a
+> separate entry. The contract suite exercises every registered evidence kind,
+> exact field counts, empty/non-empty rules, lookup-owner provenance and
+> finding-specific DNSSEC selection; its negative controls include incomplete DS,
+> wrong-owner TLSA, joined CAA, empty non-absence evidence and the constructor's
+> unknown-kind coercion.
 
 > **Amendment (1.2):** *raw* is binding, and it rules out authored prose.
 > `evidence[].value` carries **published bytes or nothing** — the record as the
@@ -684,6 +711,7 @@ configuration.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.4 (Final) | 2026-08-31 | Codex review round 4. Made evidence provenance and completeness binding after the 1.3 shape check admitted incomplete and finding-irrelevant material: complete four-field DS and DNSKEY presentations selected for the finding, the actual TLSA query owner and retained malformed presentation string, one CAA entry per resolver record, and non-empty values for every non-absence kind. Required the contract suite to cover every registered kind and the constructor's real unknown-kind path. |
 | 1.3 (Final) | 2026-08-31 | Codex review round 3. Restated the evidence contract **per kind** after 1.2's "published bytes or nothing" proved too narrow to describe a parsed-only record or the token kind, and was violated in four places while reading as satisfied: DNSSEC and TLSA now carry the record's published wire fields instead of a `state`/`present` verdict, the weak-DKIM finding carries the published key record instead of its `s1 (1024)` presentation form, and `checks-unverified` emits one protocol token per control instead of a comma-joined list. Made `audit.finding.evidence.kind` closed by construction through a single evidence constructor. |
 | 1.2 (Final) | 2026-08-31 | Codex review round 2. Made `evidence[].value` explicitly *raw* — published bytes or nothing, never authored prose, with `kind: 'absent'` plus an empty value as the honest form of an absence; the coordinator now retains the wildcard probe records, the website CNAME chain and the A/AAAA records rather than the finding layer describing them. Resolved the `p=quarantine` disagreement in favour of the code: the rule fires on DMARC **enforcement**, which is `quarantine` or `reject`. Registered `audit.finding.key` and `audit.finding.evidence.kind` as closed algebras. |
 | 1.1 (Final) | 2026-08-31 | Codex review round. Fixed the `dmarc.enforcement-without-auth` SPF condition to `status === 'missing'` only (a `permerror` broke the never-enforce-before-auth guarantee); resolved the §4 standalone-finding contradiction (isolated findings collect in a final step, not step 1); documented the emitted `keyspace` field in the §1 schema; and committed to registering the finding vocabularies as reviewed algebras rather than bundling them to evade the `state-matrix` scanner. Also strengthened the testing table: a real fabricated-unknown-key negative case, and a direct fourteen-locale render comparison rather than only the structural import assertion. Implementation followed with finding-specific evidence, the remediation view marking blocked findings, and an enforcement message that no longer asserts both SPF and DKIM are absent. |
