@@ -561,7 +561,14 @@ export function bindExecutions(testCase, audits, ui) {
     if (score.pts !== row.score) problems.push(`${audit.domain}: score ${score.pts} vs UI ${row.score}`);
   }
 
-  const counted = className => ui.dom.filter(line => line.trim() === `<div class="${className}">`).length;
+  // Match the opening div by class, tolerating a following attribute — finding
+  // cards carry `data-finding-id` for the locale-stability render test, so the
+  // exact `<div class="finding">` form no longer covers every one. The trailing
+  // quote after the class name keeps `finding` from matching `finding-group`.
+  const counted = className => ui.dom.filter(line => {
+    const trimmed = line.trim();
+    return trimmed === `<div class="${className}">` || trimmed.startsWith(`<div class="${className}" `);
+  }).length;
   const total = key => audits.reduce((n, a) => n + ((a.result && a.result[key]) || []).length, 0);
   // The detail panel renders `result.findings` as `div.finding` (findings spec
   // §5), not the legacy `result.issues`; the severity view carries every

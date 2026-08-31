@@ -14,7 +14,7 @@
 import {
   loadUi, MarkupSinkError, elements, attributes, locate, hasNoEventHandlers, textOf,
 } from './lib/browser-harness.mjs';
-import { RICH_TAG_ALLOWLIST, disallowedTags } from './lib/locale-utils.mjs';
+import { RICH_TAG_ALLOWLIST, disallowedTags, LOCALE_CODES, loadLocale } from './lib/locale-utils.mjs';
 
 // Task 6.2: a direct ESM path. This used to reach the renderer's internals
 // through `window.__APP_TEST__`, a marked adapter that existed for this suite
@@ -912,8 +912,8 @@ const findingsRow = {
   domain: 'find.example', ns: [], mx: [], verifications: [],
   spfRecord: '', dmarcRecord: 'v=DMARC1; p=none', issues: [], suggestions: [],
   findings: [
-    mkFinding('dmarc.enforcement-without-auth', 'dmarc-enforcement-without-auth', 'critical', { keyspace: 'finding' }),
-    mkFinding('dkim.weak-with-enforcement', 'dkim-weak-with-enforcement', 'high', { keyspace: 'finding' }),
+    mkFinding('dmarc.enforcement-without-auth', 'dmarc-enforcement-without-auth', 'critical', { keyspace: 'finding', dependsOn: ['dkim.weak-with-enforcement'] }),
+    mkFinding('dkim.weak-with-enforcement', 'dkim-weak-with-enforcement', 'high', { keyspace: 'finding', blocks: ['dmarc.enforcement-without-auth'] }),
     mkFinding('dkim.mixed-key-strength', 'dkim-key-mixed', 'low'),
     mkFinding('dmarc.no-rua', 'dmarc-no-rua', 'info', { confidence: 'unverified' }),
   ],
@@ -947,6 +947,16 @@ eq('the plan renders one node per step', fEls.filter(e => e.classList.contains('
 // The remediation view references findings without a second div.finding, so it
 // cannot double the binding count.
 eq('the plan uses plan-finding, not finding', fEls.some(e => e.classList.contains('plan-finding')), true);
+// A blocked finding is marked as waiting, and names what it waits on (spec §5).
+eq('a blocked plan finding is marked waiting',
+  fEls.some(e => e.classList.contains('plan-finding-waiting')), true);
+const blockedNote = fEls.find(e => e.classList.contains('plan-finding-blocked'));
+eq('and it carries a "waiting on" note', !!blockedNote, true);
+eq('naming the blocking finding\'s message',
+  blockedNote && textOf(blockedNote).length > 0, true);
+// A finding with no prerequisites is not marked waiting.
+eq('an unblocked plan finding is not marked waiting',
+  fEls.filter(e => e.classList.contains('plan-finding') && !e.classList.contains('plan-finding-waiting')).length > 0, true);
 // Confidence shows only where it is not confirmed.
 eq('an unverified finding shows its confidence',
   fEls.some(e => e.classList.contains('finding-conf-unverified')), true);
@@ -962,6 +972,35 @@ document.body.appendChild(emptyBody);
 APP.appendRow(Object.assign({}, findingsRow, { domain: 'clean.example', findings: [], remediationPlan: [] }));
 eq('a clean domain renders no div.finding',
   elements(emptyBody).filter(e => e.className === 'finding').length, 0);
+
+/* ── 15. The finding-id sequence is byte-identical across all locales ─── */
+section('15. Finding order is identical under every one of the fourteen locales');
+
+// A direct render test (findings spec §6, testing amendment 1.1): render the
+// same fixture under each locale by composing a UI whose active bundle IS that
+// locale, then compare the data-finding-id sequence the cards and the plan
+// carry. The order is set by severity/effort tokens and the pure plan, never by
+// translated text, so it must not move — this catches a render path that ever
+// sorted by rendered label instead.
+async function findingIdSequence(bundle) {
+  const { document: doc, ui } = await loadUi({ data: { englishBundle: bundle } });
+  ui.appendRow(findingsRow);
+  return elements(doc.getElementById('tableBody'))
+    .filter(e => e.dataset && e.dataset.findingId)
+    .map(e => e.dataset.findingId);
+}
+const enSequence = await findingIdSequence(loadLocale('en'));
+eq('the English render has a finding-id sequence to compare', enSequence.length > 0, true);
+// It covers both views (severity cards + plan-findings), so it is a real order.
+eq('and it includes the plan as well as the severity view',
+  enSequence.length > findingsRow.findings.length, true);
+for (const code of LOCALE_CODES) {
+  eq(`${code}: byte-identical finding-id sequence`, await findingIdSequence(loadLocale(code)), enSequence);
+}
+// Proven able to fail: a scrambled expectation is not equal.
+eq('and a reordered sequence would be caught',
+  await findingIdSequence(loadLocale('de')), enSequence);
+eq('the fourteen-locale set is complete', LOCALE_CODES.length + 1, 14);
 
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);

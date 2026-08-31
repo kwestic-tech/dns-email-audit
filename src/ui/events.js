@@ -326,7 +326,7 @@ export function createUi(capabilities) {
       ]);
     });
 
-    return R.el('div', { className: 'finding' }, [
+    return R.el('div', { className: 'finding', dataset: { findingId: f.id } }, [
       R.el('span', { className: 'icon' }, SEV_GLYPH[f.severity] || 'ℹ️'),
       R.el('div', { className: 'finding-body' }, [
         R.el('span', { className: 'msg' }, findingMessage(f)),
@@ -380,9 +380,21 @@ export function createUi(capabilities) {
       var items = step.findings.map(function (id) {
         var f = byId[id];
         if (!f) return null;
-        return R.el('div', { className: 'plan-finding' }, [
-          R.el('span', { className: 'icon' }, SEV_GLYPH[f.severity] || 'ℹ️'),
-          R.el('span', { className: 'msg' }, findingMessage(f)),
+        // A finding with prerequisites present in the plan is blocked until they
+        // are done (findings spec §5). Mark it as waiting and name what it waits
+        // on — the blocker findings' own messages, already sentinel-substituted.
+        var blockers = (f.dependsOn || []).filter(function (d) { return byId[d]; });
+        var waiting = blockers.length > 0;
+        var blockedNote = waiting
+          ? R.el('div', { className: 'plan-finding-blocked' },
+            t('findings.blocked', blockers.map(function (d) { return findingMessage(byId[d]); }).join('; ')))
+          : null;
+        return R.el('div', { className: 'plan-finding' + (waiting ? ' plan-finding-waiting' : ''), dataset: { findingId: f.id } }, [
+          R.el('span', { className: 'icon' }, waiting ? '⏳' : (SEV_GLYPH[f.severity] || 'ℹ️')),
+          R.el('div', { className: 'plan-finding-body' }, [
+            R.el('span', { className: 'msg' }, findingMessage(f)),
+            blockedNote,
+          ]),
         ]);
       });
       return R.el('div', { className: 'plan-step' }, [

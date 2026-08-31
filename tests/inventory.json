@@ -56,7 +56,7 @@
     },
     {
       "path": "tools/render.test.mjs",
-      "assertions": 340,
+      "assertions": 361,
       "areas": [
         "row rendering and the detail panels",
         "DNS-derived values reach text nodes or allowlisted attributes, never markup",
