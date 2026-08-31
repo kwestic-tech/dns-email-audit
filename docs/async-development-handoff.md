@@ -1,15 +1,15 @@
 # Async agentic build handoff: dns-email-audit roadmap
 
 **Audience:** Claude Code (or any coding agent) executing this roadmap.
-**Purpose:** Turn the eight planned specs under `docs/specs/` into a concrete,
-dependency-safe execution order for an automated/async build pipeline,
-superseding release-number order for scheduling purposes only.
+**Purpose:** Preserve the completed release history and give the remaining four
+releases a concrete, dependency-safe execution order.
 **Source of the ranking and dependency map:** `claude/spec-evaluation-results.md`
 in the Kwestic project (an analysis pass over every spec, `ROADMAP.md`,
 `docs/specs/README.md`, `AGENTS.md`, and `PRIVACY.md`). This document turns
 that analysis into an execution plan. Read the evaluation doc first if you
 want the full reasoning; this document assumes it and gets operational.
-**Written:** 2026-08-24.
+**Written:** 2026-08-24. **Current continuation amended:** 2026-08-31 after the
+0.6.0 refactor shipped.
 
 ---
 
@@ -112,51 +112,38 @@ explicit reconciliation rather than being left to default behavior:
 
 ---
 
-## 1. Priority order (why this order, not release order)
+## 1. Current continuation after 0.6.0
 
-> **Amended 2026-08-27.** `modular-architecture-and-production-build` was added
-> at 0.6.0 and the three feature specs each moved up one release number —
-> `findings-and-remediation` 0.6.0 → 0.7.0, `local-artifact-validation`
-> 0.7.0 → 0.8.0, `report-comparison` 0.8.0 → 0.9.0. Only the numbers changed:
-> spec filenames, `OQ-*` identifiers, dependency structure and the usefulness
-> ranking below are all untouched, per the naming rule in
-> [`docs/specs/README.md`](specs/README.md). The refactor is inserted as
-> **Phase 3½**, described in §4½ below.
+> **Amended 2026-08-31.** Releases 0.2.3 through 0.6.0 are complete. The three
+> feature specs were renumbered on 2026-08-27 and rebased onto the shipped
+> module architecture as draft `0.2` on 2026-08-31. Their filenames and
+> `OQ-*` identifiers remain stable. The old parallel artifact track and its
+> temporary finding stub are retired: serial execution is now cheaper and
+> gives each exported contract one owner before the next release consumes it.
 
-| Order | Spec | Usefulness | Group | Why here |
-| --- | --- | --- | --- | --- |
-| 1 | `rendering-and-robustness` (0.2.3) | 4/10 | A | Hard prerequisite gate for 0.3.0 and 0.8.0. Must go first regardless of its own score. |
-| 2 | `dmarcbis-tree-walk` (0.3.0) | 7/10 | B (link 1/3) | First link in the protocol-correctness chain; also decides the fixture-resolver mechanism (`OQ-DMARC-03`) that 0.4.0 and 0.5.0 testing reuses. |
-| 3 | `dns-protocol-depth` (0.4.0) | 9/10 | B (link 2/3) | Second link; adds `DS`/`DNSKEY`/`TLSA` transport 0.5.0 needs, and the per-host `authenticated` evidence 0.5.0 keeps as the honest ceiling for DANE. |
-| 3′ | `local-artifact-validation` (0.8.0) | 5/10 | D (parallel) | Can start as soon as 0.2.3 lands, run alongside the whole B chain. Only sync point is 0.7.0's `Finding` shape (stub it, reconcile later). |
-| 4 | `dnssec-evidence` (0.5.0) | 6/10 | B (link 3/3) | Closes the B chain; needs 0.4.0's transport and TLSA shape. |
-| 4′ | `modular-architecture-and-production-build` (0.6.0) | n/a | G | **RELEASED as `v0.6.0`, 2026-08-30** — spec `1.8`, all six gates met. No audit/UI behavior change, and none happened: both equivalence subjects report zero differences. Undocumented legacy globals are replaced by a two-member supported facade. Sat between B and C because every spec below it reads or extends the output shapes the audit produces. |
-| 5 | `findings-and-remediation` (0.7.0) | 10/10 | C | Highest end-user value in the roadmap, but structurally the most downstream — it reads the output shapes of 0.3.0, 0.4.0, and 0.5.0. Cannot start for real until B is done. |
-| 6 | `report-comparison` (0.9.0) | 4/10 | E | Hard-bound to 0.7.0's finding-id namespace. Last in the signal chain. |
-| — | `external-intelligence` | 1/10 | F | No code. Finalize as a **decision document** (mark `1.0 (Final)` as a deliberate refusal per its own `OQ-EXT-04`) whenever convenient — no dependency either direction. |
-| — | `excluded-requires-companion-app` | n/a | n/a | No code, ever, in this repo. Documentation only, already recorded. Nothing to schedule. |
+| Order | Spec | Why here |
+| --- | --- | --- |
+| 1 | `findings-and-remediation` (0.7.0) | Freezes finding identity, evidence, confidence and provenance before either downstream consumer exists. |
+| 2 | `local-artifact-validation` (0.8.0) | Consumes the released 0.7.0 `Finding` shape directly and settles how user-supplied evidence is represented. |
+| 3 | `report-comparison` (0.9.0) | Freezes the JSON schema only after both DNS and artifact provenance decisions are final. |
+| 4 | `one-zero-readiness` (1.0.0) | Graduates the finished behavior with explicit compatibility, browser, accessibility and production evidence. |
+| Alongside 1–3 | `external-intelligence` | No code. Review to Final as a product-boundary decision before the 1.0 gate. |
+| — | `excluded-requires-companion-app` | No implementation inside this repository. |
 
-**Net effect on wall-clock:** the long pole is 0.2.3 → 0.3.0 → 0.4.0 → 0.5.0 →
-0.6.0 → 0.7.0 → 0.9.0, a seven-link sequential chain. The only real parallelism
-available is 0.8.0 running alongside links 2–5 of that chain. `external-intelligence`
-and the exclusion spec can be closed out by a single agent at any point with no
-scheduling coordination.
+**Net effect:** there is one four-link continuation. The removed parallelism is
+deliberate: it avoids a temporary finding schema, a reconciliation commit and a
+report provenance decision made against hypothetical data.
 
 ```
-Phase 1        Phase 2                        Phase 3½   Phase 4    Phase 5
-0.2.3    ──┬──  0.3.0 → 0.4.0 → 0.5.0   ────►  0.6.0  ──► 0.7.0  ──► 0.9.0
-           │                                  refactor
-           └──  0.8.0  (starts after 0.2.3, syncs once at 0.7.0's Finding type)
+released through 0.6.0
+          │
+          └──► 0.7.0 findings ──► 0.8.0 artifacts ──► 0.9.0 reports ──► 1.0.0 readiness
 
-anytime, no coordination:  external-intelligence → Final ; excluded-requires-companion-app already recorded
+alongside review: external-intelligence → Final
 ```
 
-> **The refactor is a serialization point, and that is the cost of scheduling
-> it here.** It moves every file the parallel 0.8.0 track will touch. Either
-> 0.8.0 finishes and merges before Phase 3½ starts, or it rebases onto `src/`
-> afterwards. Landing them concurrently means resolving a rename of the entire
-> source tree by hand, which is the one merge this plan should never ask anyone
-> to do.
+Sections 2 through 4½ below are retained as execution history. Sections 5
+onward are the actionable continuation and supersede any older start condition.
 
 ---
 
@@ -466,51 +453,13 @@ chain.**
 
 ---
 
-## 4. Phase 3 (parallel with Phase 2, links 2–3) — `local-artifact-validation` (0.8.0)
+## 4. Superseded parallel proposal — `local-artifact-validation` (0.8.0)
 
-**Start condition:** as soon as Phase 1 (0.2.3) is merged. Does not need to
-wait for any part of Phase 2 — it has no data dependency on DMARC discovery,
-DKIM key analysis, or DNSSEC state. Run this as a parallel workstream against
-the 0.4.0/0.5.0 links of Phase 2.
-
-**One soft sync point:** section 6 of the spec references "the Finding shape
-from 0.7.0" for `artifactFindings`. Since 0.7.0 hasn't been built yet when
-this phase starts, define a local stub matching the `Finding` type as
-described in `findings-and-remediation.md` section 1, and reconcile the
-actual shape once Phase 4 lands. Flag this reconciliation explicitly in the
-PR description so it doesn't get missed.
-
-**STOP — this spec's `OQ-ART-08` decides whether it's buildable as
-specified.** The zero-dependency testing rule cannot be satisfied for a
-hostile-SVG parser the way it was for the DOM renderer in 0.2.3 — there's no
-`DOMParser` in Node without a dependency, and a shim can't reproduce entity
-expansion or malformed-XML recovery. The spec itself ranks four ways out and
-prefers option 3 (a conservative fail-closed tokenizer instead of a real
-parser, testable with no dependency). **Get Ian's sign-off on which of the
-four options to take before writing the SVG validator** — this changes what
-gets built, not just how it's tested.
-
-**Other decisions to make explicit during review, not silently default:**
-- `OQ-ART-03` (is the supplied logo ever displayed) — draft says never;
-  this is flagged as the single most likely post-release feature request, so
-  get it decided deliberately rather than left ambiguous.
-- `OQ-ART-05` (does a verified MTA-STS policy earn the withheld scoring
-  points) — draft says no, report the finding without changing the score.
-  Consistent with the advisory-before-scoring rule in section 0.
-- `OQ-ART-07` (do artifact findings appear in the 0.9.0 report export) —
-  draft excludes them; this needs to match whatever `report-comparison`
-  (Phase 5) actually implements, so confirm the two specs agree before Phase 5
-  starts.
-
-**Key correctness surface:** the MTA-STS policy validator (pure string
-parsing, the MX-pattern cross-check is the headline feature), the SVG
-validator's hard rule that no parsed node is ever inserted into the live DOM
-under any code path, and every artifact-derived finding carrying
-`source: 'user-supplied'` through the interface and both exports.
-
-**On completion:** verify via the spec's own acceptance criterion 3 — grep
-`js/artifact.js` for `fetch`, `XMLHttpRequest`, `Image`, `import(`, `<img`,
-and confirm none appear. Move to `docs/specs/implemented/`.
+The 2026-08-24 plan proposed starting this work before findings and reconciling
+a temporary `Finding` stub later. It did not begin before 0.6.0 shipped. That
+proposal is retired: the actionable 0.8.0 phase is now section 6, after 0.7.0.
+The review questions remain live, especially `OQ-ART-03`, `OQ-ART-05`,
+`OQ-ART-07` and the buildability decision in `OQ-ART-08`.
 
 ---
 
@@ -581,9 +530,9 @@ and `PRIVACY.md` needed no edit. Move the spec to `docs/specs/implemented/`.
 
 ---
 
-## 5. Phase 4 — `findings-and-remediation` (0.7.0)
+## 5. Remaining phase 1 — `findings-and-remediation` (0.7.0)
 
-**Start condition:** Phase 2 fully merged (0.3.0, 0.4.0, 0.5.0). This is the
+**Start condition:** 0.6.0 released, which it is. This is the
 highest end-user-value spec in the roadmap and also the one with the most
 upstream dependencies — do not start the rule registry against
 still-changing context fields.
@@ -600,7 +549,7 @@ false-positive fixes that must not silently regress.
 against):**
 - `OQ-FIND-04` (does `confidence` belong on the finding or the evidence) —
   the spec is explicit that whichever shape this picks, `report-comparison`'s
-  schema (Phase 5) freezes around it. Decide this one carefully; it's not a
+  schema in 0.9.0 freezes around it. Decide this one carefully; it's not a
   low-stakes open question despite reading like one.
 - `OQ-FIND-05` (can the `issue.*` → `finding.*` locale-key rename preserve
   translations) — **investigate before committing to the rename.** If
@@ -621,17 +570,46 @@ matters most for the target user: **never recommend DMARC enforcement before
 SPF and DKIM authentication is in place.**
 
 **On completion:** confirm scoring is unaffected
-(`node tools/backtest.mjs --json` shows zero grade movement against 0.5.0,
+(`node tools/backtest.mjs --json` shows zero grade movement against `v0.6.0`,
 per acceptance criterion 5), confirm finding-id sequences are byte-identical
 across all fourteen locales (acceptance criterion 4 — this is the property
 `report-comparison` depends on for correct cross-language diffing). Move to
-`docs/specs/implemented/`. **This unblocks Phase 5.**
+`docs/specs/implemented/`. **This unblocks 0.8.0.**
 
 ---
 
-## 6. Phase 5 — `report-comparison` (0.9.0)
+## 6. Remaining phase 2 — `local-artifact-validation` (0.8.0)
 
-**Start condition:** Phase 4 fully merged. Finding identity (the `id`
+**Start condition:** 0.7.0 released. Use its actual `Finding` shape directly;
+do not create the temporary stub described by the superseded parallel plan.
+
+**Architecture boundary:** MTA-STS policy rules belong to
+`src/core/transport/`; BIMI SVG and optional VMC rules belong to
+`src/core/bimi/`; `src/audit/` composes the cross-protocol artifact findings;
+`src/runtime.js` injects one capability into `src/ui/`. Do not add a new matrix
+edge or rebuild the pre-refactor `js/artifact.js` monolith under another name.
+
+**Decide before finalizing:** `OQ-ART-08` determines whether the hostile-SVG
+validator is buildable under the dependency rule. Also settle whether the logo
+is displayed (`OQ-ART-03`), whether user input can affect scoring
+(`OQ-ART-05`), and the exact provenance rule 0.9.0 must encode
+(`OQ-ART-07`). These are product and security decisions, not implementation
+defaults.
+
+**Key correctness surface:** no parsed artifact node reaches the live DOM; no
+artifact path performs a request or persistence write; every derived finding is
+marked `source: 'user-supplied'`; the protocol validators return tokens and
+primitives only; the import graph retains its existing allowed edges.
+
+**On completion:** run the spec's negative hostile-input cases, source and
+import-graph checks, scoring equivalence, `npm test`, inventory and locale gate.
+Move the spec beside the shipped implementation. **This unblocks 0.9.0.**
+
+---
+
+## 7. Remaining phase 3 — `report-comparison` (0.9.0)
+
+**Start condition:** 0.8.0 released. Finding identity (the `id`
 namespace from 0.7.0) is a hard prerequisite — the spec is explicit that
 comparing on locale keys or message text "would report every finding as new
 the moment a translation changed."
@@ -643,7 +621,7 @@ the moment a translation changed."
   repurposed later once reports are in the wild**, so lock it in deliberately
   rather than defaulting.
 - `OQ-CMP-07` (do 0.8.0's artifact findings appear in the export) — resolve
-  in agreement with whatever Phase 3 actually shipped for `OQ-ART-07`. If the
+  in agreement with what 0.8.0 shipped for `OQ-ART-07`. If the
   two specs disagree, that's a real inconsistency to fix before either merges
   further, not a documentation nit.
 
@@ -659,12 +637,34 @@ field exists to prevent.
 **On completion:** verify the persistence assertion from the spec's own
 testing section — after an import and a comparison, `localStorage` contains
 exactly one key (`dns-email-audit-lang`) and `indexedDB.databases()` is
-empty. Move to `docs/specs/implemented/`. **This closes the main signal
-chain.**
+empty. Move to `docs/specs/implemented/`. **This unblocks the 1.0 gate.**
 
 ---
 
-## 7. Anytime, no scheduling coordination
+## 8. Remaining phase 4 — `one-zero-readiness` (1.0.0)
+
+**Start condition:** 0.7.0, 0.8.0 and 0.9.0 released. This is a graduation
+release, not a fourth feature release.
+
+**Decide before finalizing:** whether 1.0.0 is a dedicated release
+(`OQ-ONE-01`), the maintainable browser matrix (`OQ-ONE-02`), the exact public
+machine interfaces (`OQ-ONE-03`), the accessibility claim (`OQ-ONE-04`), and
+which backlog items block graduation (`OQ-ONE-06`). `OQ-ONE-05` ties the
+external-intelligence decision to this gate.
+
+**Key correctness surface:** real production-artifact execution, not source-only
+tests; explicit compatibility rules; keyboard and focus evidence; measured
+network and storage behavior; clean-checkout reproducibility; and deterministic
+zero-movement replay against `v0.9.0`, including the JSON surface introduced by
+0.9.0.
+
+**On completion:** cut the release on the same branch as the finished readiness
+work, after every gate and release artifact is current. Push once, open the PR,
+and stop for Ian's squash-merge decision.
+
+---
+
+## 9. Alongside the remaining feature reviews
 
 **`external-intelligence`:** no code to write. Its own `OQ-EXT-04` asks
 whether the document is ever marked Final. The draft position is yes — Final
@@ -672,7 +672,7 @@ as a deliberate refusal, so a future proposal argues against a recorded
 decision rather than pitching a fresh idea. Resolve its four open questions
 (mostly about whether informational links to CT search/etc. are worth
 including, and whether the deferral is restated in the interface) and bump to
-`1.0 (Final)` whenever convenient. No dependency on anything in Phases 1–5.
+`1.0 (Final)` before the 1.0 readiness gate, subject to `OQ-ONE-05`.
 
 **`excluded-requires-companion-app`:** already recorded at `0.1 (Draft)` as of
 this handoff. No implementation task exists or will exist against this
@@ -682,28 +682,22 @@ when there's a reason to decide" — not a blocking item for anything above.
 
 ---
 
-## 8. What changed in the repo to produce this handoff
+## 10. What changed in the 2026-08-31 continuation amendment
 
 For traceability, since an agent picking this up cold should be able to see
 exactly what was touched:
 
-- `docs/specs/excluded-requires-companion-app.md` — new. Records scheduled
-  drift monitoring as the first (and currently only) entry in the
-  "requires a companion app" exclusion category, structured to hold future
-  entries in one place.
-- `docs/specs/README.md` — added a note above the Planned table pointing to
-  this document for build order, and a new "Excluded — requires a companion
-  app" section listing the new spec.
-- `ROADMAP.md` — added an addendum section explaining that the release
-  sequence is preserved for versioning purposes, while build order for the
-  automated pipeline now follows this document.
-- `docs/async-development-handoff.md` — this file.
+- The three remaining feature specs moved to draft `0.2`, with current release
+  numbers, module owners and implementation boundaries.
+- `docs/specs/one-zero-readiness.md` now defines the previously missing 1.0.0
+  release and its open decisions.
+- `ROADMAP.md` and `docs/specs/README.md` now carry the same four-release
+  continuation.
+- This handoff retires the pre-refactor parallel/stub proposal and makes the
+  actionable dependency chain explicit while preserving the completed phase
+  history above.
 
-No file under `js/`, `tools/`, `locales/`, or `index.html` was touched. No
-spec's Design, Scope, or Non-goals section was edited — only status/ordering
-metadata and the two files above.
-
-## 9. Reporting back
+## 11. Reporting back
 
 Update `docs/specs/README.md`'s status table as each phase's spec moves
 Draft → Final → Implemented, per the existing convention. Update this

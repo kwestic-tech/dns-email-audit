@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.1 (Draft) |
-| Target release | 0.7.0 |
+| Spec version | 0.2 (Draft, rebased after 0.6.0) |
+| Target release | 0.8.0 |
 | Status | Awaiting review |
-| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), whose rendering boundary this release relies on absolutely |
-| Blocks | Nothing |
+| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](findings-and-remediation.md) for the final `Finding` shape |
+| Blocks | [report-comparison](report-comparison.md), which must decide whether user-supplied findings enter a DNS report |
 | Slug for open questions | `ART` |
-| Last updated | 2026-08-20 |
+| Last updated | 2026-08-31 |
 
 ## Problem
 
@@ -18,16 +18,17 @@ MTA-STS publishes a TXT record at `_mta-sts.<domain>` that says only "a policy
 exists, and here is its version id". The policy itself, which contains the mode,
 the permitted MX patterns and the max age, lives at
 `https://mta-sts.<domain>/.well-known/mta-sts.txt`. The tool validates the TXT
-record's syntax in `validateMtaStsRecord()` at
-`js/dns.js:896` and sets `policyVerified: false`
-unconditionally at `js/dns.js:1962`. `calcScore()` at
-`js/dns.js:1795` therefore awards half the MTA-STS pillar,
+record's syntax in `validateMtaStsRecord()` in
+[`src/core/transport/mta-sts.js`](../../src/core/transport/mta-sts.js) and sets
+`policyVerified: false` in the DNS-only result. `calcScore()` in
+[`src/audit/scoring.js`](../../src/audit/scoring.js) therefore awards half the MTA-STS pillar,
 four points out of eight, to every domain that publishes a syntactically valid
 TXT record. `README.md` states the reason honestly under Known limitations:
 browser CORS restrictions prevent reliable policy retrieval.
 
-BIMI has the same shape. `validateBimiRecord()` at
-`js/dns.js:910` confirms the `l=` and `a=` values are HTTPS
+BIMI has the same shape. `validateBimiRecord()` in
+[`src/core/bimi/bimi.js`](../../src/core/bimi/bimi.js) confirms the `l=` and
+`a=` values are HTTPS
 URLs and stops there. Whether the SVG at `l=` conforms to the SVG Portable/Secure
 profile, which is what determines whether mailbox providers actually display the
 logo, is unknown.
@@ -77,6 +78,27 @@ of any kind.
 
 ## Design
 
+### 0. Architecture and implementation boundary
+
+The pre-refactor proposal for one `js/artifact.js` is withdrawn. Artifact
+validation crosses two protocol owners and a UI, so the shipped allowed-edge
+matrix determines the split:
+
+| Responsibility | Owner |
+| --- | --- |
+| MTA-STS policy grammar and MX-pattern comparison | `src/core/transport/mta-sts-policy.js` |
+| BIMI SVG P/S and optional VMC structural validation | `src/core/bimi/` siblings |
+| Converting validator results into 0.7.0 findings and attaching provenance | `src/audit/artifacts.js` |
+| File/paste controls and token-only rendering | `src/ui/events.js` and `src/ui/render.js` |
+| Constructing one artifact-analysis capability and injecting it into the UI | `src/runtime.js` |
+
+The protocol validators are pure: strings and already-audited MX facts in,
+tokens and primitives out. They import only their permitted siblings or
+`core/shared/`. `src/audit/artifacts.js` is the only cross-protocol composer.
+`src/ui/` receives an injected callback and imports neither protocol owner.
+This adds no allowed edge. Implementation is divided into directory-bound
+commits so a protocol-rule change is never combined with a UI behavior change.
+
 ### 1. Panel separation
 
 A collapsed section below the results table, opened explicitly, labelled to make
@@ -94,7 +116,7 @@ Inputs, per artifact type:
 - A `<input type="file">` accepting `.txt` for MTA-STS and `.svg` for BIMI.
 
 Both read into a string with `FileReader`, following the existing upload pattern
-at [`js/app.js:848`](../../src/main.js), which already enforces a 1 MB cap through
+in `src/ui/events.js`, which already enforces a 1 MB cap through
 `MAX_UPLOAD_BYTES`.
 
 ### 2. Limits, enforced before parsing
@@ -176,9 +198,9 @@ artifact document is ever passed to `appendChild`, `replaceChildren`,
 attributes and element names and produces tokens. It never produces nodes.
 
 The `R.el` factory from 0.2.3 already refuses an `innerHTML` prop. The artifact
-validator additionally lives in its own file, `js/artifact.js`, which imports
-nothing from the renderer, so a future maintainer cannot casually wire the two
-together.
+validators additionally live outside `src/ui/` and return no nodes, so the
+import graph prevents a future maintainer from casually wiring parsed material
+into the renderer.
 
 Rejection rules, each producing a distinct error token:
 
@@ -230,7 +252,7 @@ Artifact findings live in a separate array from DNS findings:
 
 ```js
 artifactFindings: [{
-  …Finding shape from 0.6.0…,
+  …Finding shape from 0.7.0…,
   source: 'user-supplied',
   artifact: 'mta-sts-policy' | 'bimi-svg' | 'vmc',
 }]
@@ -309,9 +331,10 @@ assert nothing threw. In the browser, the CSP is the real enforcement and the
    request, a storage write, or an inserted DOM node.
 2. `connect-src` in `index.html` is unchanged and the 0.2.3 CSP test still
    passes.
-3. No MTA-STS, BIMI or VMC URL is fetched under any code path, verified by
-   grepping `js/artifact.js` for `fetch`, `XMLHttpRequest`, `Image`, `import(`
-   and `<img`.
+3. No MTA-STS, BIMI or VMC URL is fetched under any code path, verified by the
+   import graph plus source scans over `src/core/transport/mta-sts-policy.js`,
+   the new `src/core/bimi/` validators and `src/audit/artifacts.js` for network,
+   platform and markup sinks.
 4. Every artifact-derived finding carries `source: 'user-supplied'` in the
    interface and in both exports.
 5. Reloading the page discards every supplied artifact.
@@ -323,8 +346,8 @@ assert nothing threw. In the browser, the CSP is the real enforcement and the
 **SVG is a hostile format and this release accepts it from strangers.** The
 entire mitigation is that the parsed document is never inserted anywhere, which
 is a rule enforced by convention plus a file boundary plus a test. Mitigation:
-`js/artifact.js` has no dependency on the renderer, the validator's public API
-returns only tokens and primitives, and the test suite asserts no insertion.
+the protocol validators have no dependency on the renderer, their public APIs
+return only tokens and primitives, and the test suite asserts no insertion.
 
 **Users will expect the tool to fetch the file for them.** The panel is more
 work than a button that says "check my policy", and the reason for the extra work
@@ -388,15 +411,15 @@ marked second score. Which?
 Someone auditing their own estate has thirty policy files. Accepting a batch with
 filename-to-domain matching would make the panel genuinely useful at scale, and
 would add a filename-parsing surface and a matching heuristic. Out of scope for
-0.7.0 in this draft. Note it as a possible follow-up or reject it.
+0.8.0 in this draft. Note it as a possible follow-up or reject it.
 
-**OQ-ART-07: What happens to artifact findings in the 0.8.0 report export?**
-0.8.0 defines a versioned JSON report for comparison across time. A report
+**OQ-ART-07: What happens to artifact findings in the 0.9.0 report export?**
+0.9.0 defines a versioned JSON report for comparison across time. A report
 containing user-supplied findings is not reproducible from DNS, so comparing two
 of them compares two different kinds of claim. Options: exclude artifact findings
 from the exported report entirely; include them flagged, and have the comparison
 ignore them; include and compare them like any other finding. This draft excludes
-them, and flags the decision here so 0.8.0's schema accounts for it.
+them, and flags the decision here so 0.9.0's schema accounts for it.
 
 **OQ-ART-08: How is a hostile-SVG parser tested without a dependency?**
 This is now the question that decides whether the release is buildable as
@@ -428,5 +451,6 @@ a parser, just less accurate. Which?
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 0.2 | 2026-08-31 | Renumbered the target to 0.8.0 and rebased the design onto the 0.6.0 allowed-edge matrix. Replaced the proposed `js/artifact.js` monolith with pure validators under the existing MTA-STS and BIMI protocol owners, composition in `src/audit/`, injected UI capabilities through `src/runtime.js`, and directory-bound implementation commits. Added the now-sequential dependency on 0.7.0's final finding shape and updated the report dependency to 0.9.0. No open question was resolved. |
 | 0.1 | 2026-08-20 | Initial draft. |
 | 0.1 | 2026-08-20 | Not a version bump. Recorded a downstream consequence of the 0.2.3 rescope: `OQ-SEC-01` resolved to a dependency-free DOM shim, which cannot test this release's XML parsing. Added `OQ-ART-08`. |

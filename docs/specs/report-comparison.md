@@ -2,21 +2,21 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.1 (Draft) |
-| Target release | 0.8.0 |
+| Spec version | 0.2 (Draft, rebased after 0.6.0) |
+| Target release | 0.9.0 |
 | Status | Awaiting review |
-| Depends on | [findings-and-remediation](findings-and-remediation.md), which defines finding identity |
+| Depends on | [findings-and-remediation](findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
 | Blocks | Nothing |
 | Slug for open questions | `CMP` |
-| Last updated | 2026-08-20 |
+| Last updated | 2026-08-31 |
 
 ## Problem
 
 The tool answers "what is the state of these domains right now" and cannot answer
-"what changed". Both existing exports are terminal. `exportCSV()` at
-[`js/app.js:737`](../../src/main.js) writes localized, human-readable strings into
+"what changed". Both existing exports are terminal. `exportCSV()` in
+[`src/ui/report.js`](../../src/ui/report.js) writes localized, human-readable strings into
 positional columns and flattens findings into a single pipe-joined cell.
-`exportHTML()` at [`js/app.js:811`](../../src/main.js) writes a static document with
+`exportHTML()` in the same module writes a static document with
 the stylesheet inlined. Neither can be read back, and neither should be: parsing
 localized display text back into structured data would break the moment someone
 exported in a different language.
@@ -57,6 +57,25 @@ the page reloads.
 
 ## Design
 
+### 0. Architecture and implementation boundary
+
+The report feature uses the shipped module graph rather than adding an import
+from UI back into the audit engine:
+
+| Responsibility | Owner |
+| --- | --- |
+| Pure schema validation, upgrade functions and report comparison | new `src/ui/report-data.js` |
+| JSON construction/download and the existing CSV/HTML exports | `src/ui/report.js` |
+| Import controls, comparison mode and rendering | `src/ui/events.js` |
+| Scoring/analysis version source | `src/audit/scoring.js`, carried in audit output or injected capabilities |
+
+Both new UI modules remain within the existing `ui/` sibling edge. The UI must
+not import `src/audit/scoring.js`; the composition boundary passes version
+metadata with completed audit facts. If review chooses an `analysisVersion`
+rather than `rubricVersion` in `OQ-CMP-06`, its owner and transport follow the
+same rule. Implementation is split into directory-bound commits, with any
+audit-output metadata addition separate from UI behavior and schema work.
+
 ### 1. Schema
 
 ```json
@@ -64,7 +83,7 @@ the page reloads.
   "schema": "dns-email-audit/report",
   "schemaVersion": 1,
   "generatedAt": "2026-08-20T04:12:00Z",
-  "generator": { "version": "0.8.0", "rubricVersion": 3 },
+  "generator": { "version": "0.9.0", "rubricVersion": 3 },
   "resolver": "https://cloudflare-dns.com/dns-query",
   "options": { "dkim": true, "dkimComprehensive": false, "www": true,
                "wildcard": false, "advanced": true, "selectors": [] },
@@ -102,7 +121,7 @@ the schema from drifting with the locale files.
 **`rubricVersion` is explicit.** The scoring rubric changes across releases. A
 report generated under one rubric and compared against another produces score
 deltas that reflect the rubric change rather than any change in the domain.
-`rubricVersion` is a manually incremented integer in `js/dns.js`, bumped in the
+`rubricVersion` is owned by `src/audit/scoring.js`, bumped in the
 same commit as any change to `WEIGHTS`, `PARKED_WEIGHTS`, `GRADE_THRESHOLDS`,
 `calcDmarcScore()` or `calcSpfScore()`. A test asserts that the constant changes
 whenever those definitions change, by hashing them.
@@ -117,10 +136,10 @@ with a clear message rather than attempting a partial parse.
 
 ### 2. Export
 
-`exportJSON()` sits beside the existing two export buttons at
-[`index.html:80`](../../index.html). It builds the structure from the in-memory
-`results` array and downloads it through the existing `dl()` helper at
-[`js/app.js:729`](../../src/main.js).
+`exportJSON()` sits beside the existing two export buttons in
+[`index.html`](../../index.html). It builds the structure from the in-memory
+`results` array and downloads it through the existing download capability
+already passed into `src/ui/report.js`.
 
 The exported filename includes a UTC date so two exports do not collide in a
 downloads folder: `dns-email-audit-2026-08-20.json`.
@@ -193,7 +212,7 @@ function compareReports(baseline, current) → {
 ```
 
 Domain identity is the domain name. Finding identity is the finding `id`, which
-is why 0.6.0's stable id namespace is a hard prerequisite: comparing on locale
+is why 0.7.0's stable id namespace is a hard prerequisite: comparing on locale
 keys or on message text would report every finding as new the moment a
 translation changed.
 
@@ -219,11 +238,10 @@ Comparison mode is entered by importing a baseline report while results are on
 screen, or by importing two reports with no audit running.
 
 The results table gains a delta column and per-row change indicators, reusing the
-existing filter mechanism at [`js/app.js:571`](../../src/main.js) with new filter
+existing filter mechanism in `src/ui/events.js` with new filter
 values for `improved`, `regressed`, `added` and `removed`.
 
-A comparison summary replaces the stats grid at
-[`js/app.js:548`](../../src/main.js) while in comparison mode.
+A comparison summary replaces the existing stats grid while in comparison mode.
 
 Leaving comparison mode discards the imported report from memory. So does
 reloading, which is the point.
@@ -309,9 +327,9 @@ for me" is the obvious next ask and would end the privacy claim. Mitigation: the
 stateless design is stated in `PRIVACY.md` and in the interface, and the
 acceptance criteria make it testable.
 
-**Finding id churn breaks old reports.** If 0.9.0 renames a finding, every
-baseline report from 0.8.0 shows it as resolved and its replacement as new.
-Mitigation: finding ids are treated as public API from 0.6.0 onward, and a rename
+**Finding id churn breaks old reports.** If a later release renames a finding,
+every baseline report from 0.9.0 shows it as resolved and its replacement as new.
+Mitigation: finding ids are treated as public API from 0.7.0 onward, and a rename
 ships with an alias map that the comparison consults.
 
 **Report size on large estates.** A 1000-domain report with full evidence could
@@ -375,7 +393,7 @@ the noise and document it. This draft leans toward a single
 `analysisVersion` covering both, renamed from `rubricVersion`. Decide before the
 schema is frozen, because this field cannot be repurposed later.
 
-**OQ-CMP-07: Do artifact findings from 0.7.0 appear in the report?**
+**OQ-CMP-07: Do artifact findings from 0.8.0 appear in the report?**
 Cross-referenced from `OQ-ART-07`. This draft excludes them, since a
 user-supplied finding is not reproducible from DNS and a diff of two of them
 compares two different kinds of claim. Confirm, because the schema must reserve
@@ -385,4 +403,5 @@ or omit the field now.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 0.2 | 2026-08-31 | Renumbered the target to 0.9.0 and rebased the implementation on `src/ui/report.js`, `src/ui/events.js` and the shipped injection boundary. Assigned pure schema and comparison work to a UI sibling, kept scoring-version ownership in `src/audit/`, prohibited a reverse UI-to-audit import, updated finding stability to begin at 0.7.0, and made the 0.8.0 artifact provenance decision an explicit dependency. No open question was resolved. |
 | 0.1 | 2026-08-20 | Initial draft. |

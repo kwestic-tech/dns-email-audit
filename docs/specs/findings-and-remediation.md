@@ -2,19 +2,19 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.1 (Draft) |
-| Target release | 0.6.0 |
+| Spec version | 0.2 (Draft, rebased after 0.6.0) |
+| Target release | 0.7.0 |
 | Status | Awaiting review |
-| Depends on | 0.2.3 through 0.5.0. This release consumes signals; it is scheduled after they stabilize. |
+| Depends on | 0.2.3 through 0.6.0. This release consumes the stabilized protocol signals through the module boundaries shipped by the refactor. |
 | Blocks | [report-comparison](report-comparison.md), whose diff operates on finding identity |
 | Slug for open questions | `FIND` |
-| Last updated | 2026-08-20 |
+| Last updated | 2026-08-31 |
 
 ## Problem
 
-`buildIssues()` at `js/dns.js:1426` returns a flat array of
+`buildIssues()` in [`src/audit/issues.js`](../../src/audit/issues.js) returns a flat array of
 `{ key, sev, args }` objects in the order the function happens to test
-conditions. `buildSuggestions()` at `js/dns.js:1673` returns a
+conditions. `buildSuggestions()` in the same module returns a
 second flat array of `{ key, guide }`. Severity has three values, `crit`, `warn`
 and `info`, and nothing else about a finding is modelled.
 
@@ -34,7 +34,8 @@ between two protocols, and the current model has no way to say "this finding is
 blocked by that one".
 
 **Confidence.** `dkimStatus.confidence` already carries `observed`, `sampled` and
-`not-checked`, and `unprovenPillars()` at `js/dns.js:1725`
+`not-checked`, and `unprovenPillars()` in
+[`src/audit/scoring.js`](../../src/audit/scoring.js)
 already tracks which pillars scored zero because a lookup failed rather than
 because the control is absent. That distinction is captured in scoring and
 discarded in findings. A finding derived from a failed lookup and a finding
@@ -62,10 +63,30 @@ placeholders.
   score. See `OQ-FIND-06`.
 - **No new DNS queries.** This release derives everything from data the previous
   releases already collect.
-- **No English in `js/dns.js`.** The rule registry emits identifiers and
-  structured evidence. `js/app.js` remains the only place tokens become words.
+- **No English in `src/audit/`.** The rule registry emits identifiers and
+  structured evidence. `src/ui/` remains the only place tokens become words.
 
 ## Design
+
+### 0. Architecture and implementation boundary
+
+The 0.6.0 refactor is a binding input, not a path rename. The implementation
+uses the existing allowed-edge matrix without adding or widening a row:
+
+| Responsibility | Owner |
+| --- | --- |
+| Finding schema, registry, invariant checks and remediation ordering | `src/audit/` |
+| Existing score and rubric behavior | `src/audit/scoring.js`, unchanged semantically |
+| Protocol parsing and facts | Existing `src/core/<protocol>/` owners, unchanged |
+| Finding and plan rendering, controls, CSV and HTML presentation | `src/ui/` |
+| Passing audit output to the UI | `src/runtime.js` |
+
+`src/audit/` may import protocol owners and is where cross-protocol composition
+already belongs. `src/ui/` receives completed findings through the runtime and
+does not import `audit/` or `core/`. Protocol owners do not learn about finding
+ids, severities or remediation. The work is split into directory-bound commits:
+first the `src/audit/` model and regression suite, then `src/ui/` consumption,
+then localization. No move is combined with the semantics change.
 
 ### 1. The Finding type
 
@@ -100,10 +121,11 @@ and "your DKIM key is 1024 bits" into the same bucket.
 `confidence` is derived from the same signals `unprovenPillars()` already reads.
 A finding from a `sampled` DKIM result is `unverified`. A finding from a
 confirmed NXDOMAIN is `confirmed`. A finding from a heuristic, such as provider
-detection at `js/dns.js:303`, is `probable`.
+detection in [`src/providers/detectors.js`](../../src/providers/detectors.js), is
+`probable`.
 
 `evidence` is the raw DNS material that justified the finding, so the interface
-can show the record beside the claim and so the 0.8.0 report export carries
+can show the record beside the claim and so the 0.9.0 report export carries
 verifiable material rather than assertions.
 
 ### 2. Rule registry
@@ -111,7 +133,7 @@ verifiable material rather than assertions.
 Replace the imperative `buildIssues()` body with a data structure:
 
 ```js
-var RULES = [
+const RULES = [
   {
     id: 'dmarc.policy-none',
     protocol: 'dmarc',
@@ -139,10 +161,10 @@ var RULES = [
 findings that did not fire. A rule that depends on `spf.missing` on a domain
 whose SPF is fine has no unmet prerequisite.
 
-The registry is exported so `tools/scoring.test.mjs` can assert properties across
-all rules at once: every `id` is unique, every `dependsOn` target exists, every
-rule has a corresponding `finding.<id>.msg` key in `locales/en.json`, and the
-dependency graph is acyclic.
+The registry is exported so the co-located `src/audit/issues.test.js` suite can
+assert properties across all rules at once: every `id` is unique, every
+`dependsOn` target exists, every rule has a corresponding
+`finding.<id>.msg` key in `locales/en.json`, and the dependency graph is acyclic.
 
 That last assertion is the reason the registry is data rather than code. A cycle
 in the graph is a design error that produces an infinite loop or an arbitrary
@@ -178,8 +200,8 @@ the Finding type with the other existing issues; this release must not duplicate
 it as `dane.without-dnssec` or escalate it from an unrelated zone's state.
 
 `defensive.contradictory` deserves a note. A domain with a null MX is declaring it
-receives no mail, which `calcScore()` already treats as a separate rubric at
-`js/dns.js:1750`. If that same domain publishes
+receives no mail, which `calcScore()` in `src/audit/scoring.js` already treats
+as a separate rubric. If that same domain publishes
 `v=spf1 mx -all`, the SPF record authorizes an empty set through a mechanism
 that costs a lookup and communicates confusion rather than intent. It is not a
 vulnerability; it is a sign that nobody owns the configuration, which is worth
@@ -211,7 +233,8 @@ which is where hygiene items collect.
 
 ### 5. Interface
 
-The detail panel's issues block at [`js/app.js:513`](../../src/main.js) is replaced
+The detail panel's issues block in
+[`src/ui/events.js`](../../src/ui/events.js) is replaced
 by two views over the same finding set:
 
 - **By severity**, the default, preserving today's layout so nothing is lost for
@@ -220,8 +243,8 @@ by two views over the same finding set:
   findings grouped and blocked findings visibly marked as waiting.
 
 Confidence is rendered where it is not `confirmed`. An `unverified` finding
-carries the same visual treatment as the existing unproven-pillar asterisk at
-[`js/app.js:403`](../../src/main.js), for consistency.
+carries the same visual treatment as the existing unproven-pillar grade marker
+in `src/ui/events.js`, for consistency.
 
 Evidence renders under each finding as the record that produced it, using the
 node-building renderer from 0.2.3 so DNS-derived material stays a text node.
@@ -234,7 +257,7 @@ The CSV export gains `finding_ids`, `finding_severities` and
 Findings and their ordering must be identical across all fourteen locales. The
 rule registry contains no locale-dependent logic, and `buildRemediationPlan()`
 sorts on severity and effort tokens rather than on translated strings. The
-existing grade sort at [`js/app.js:618`](../../src/main.js) is the precedent: it
+existing grade sort in `src/ui/events.js` is the precedent: it
 sorts on `dataset.grade` rather than on rendered text precisely to stay
 locale-independent.
 
@@ -302,7 +325,7 @@ assert each old `issue.<key>` maps to exactly one new `finding.<id>`.
 4. Finding ids and remediation order are byte-identical across all fourteen
    locales.
 5. Scoring output is unchanged: `node tools/backtest.mjs --json` shows zero
-   grade movement against 0.5.0.
+   grade movement against `v0.6.0`.
 6. Every rule has a translation in all thirteen non-English locales.
 7. `npm test` and `npm run locale:gate` pass.
 
@@ -372,7 +395,7 @@ preserving current behavior. The opposite default is arguable.
 An organization auditing 200 domains wants "publish DMARC on these 34 domains
 first", not 200 separate plans. That is a genuinely different feature with its own
 interface, and it is the natural home for the bulk-audit use case the tool
-already supports. Is it in scope for 0.6.0, deferred to its own release, or out
+already supports. Is it in scope for 0.7.0, deferred to its own release, or out
 of scope entirely?
 
 **OQ-FIND-03: What is the display threshold?**
@@ -390,7 +413,7 @@ rule is uncertain. Modelling it on the evidence rather than the finding would be
 cleaner, and would let a finding with three pieces of evidence report mixed
 confidence. It would also complicate every consumer. This draft puts it on the
 finding. Reviewers with an opinion on the data model should weigh in now, because
-0.8.0's report schema will freeze whichever shape this release picks.
+0.9.0's report schema will freeze whichever shape this release picks.
 
 **OQ-FIND-05: Can `tools/locale-sync.mjs` express a key rename without losing
 translations?**
@@ -422,4 +445,5 @@ Confirm derived-only is acceptable.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 0.2 | 2026-08-31 | Rebased the implementation onto the shipped 0.6.0 module architecture and renumbered the target to 0.7.0. Assigned finding semantics to `src/audit/`, presentation to `src/ui/`, and composition to `src/runtime.js`; replaced deleted `js/` paths, moved invariant tests beside their owner, updated the behavioral baseline to `v0.6.0`, and updated the downstream report dependency to 0.9.0. No open question was resolved. |
 | 0.1 | 2026-08-20 | Initial draft. |
