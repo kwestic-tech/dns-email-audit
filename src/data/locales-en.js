@@ -339,7 +339,10 @@ export const LOCALE_EN = {
       "CAA Wildcard Issuers",
       "MX Dangling",
       "MX Host Count",
-      "TLSA Present"
+      "TLSA Present",
+      "Finding IDs",
+      "Finding Severities",
+      "Remediation Step 1"
     ],
     "yes": "Yes",
     "no": "No",

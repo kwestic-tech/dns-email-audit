@@ -179,6 +179,13 @@ export function createReport(capabilities) {
         r.advanced?.mxHealth ? ((r.advanced.mxHealth.danglingHosts || []).join(', ') || no) : unknown,
         r.advanced?.mxHealth ? (r.advanced.mxHealth.hosts || []).length : unknown,
         r.advanced?.tlsa ? (r.advanced.tlsa.anyPresent ? yes : no) : unknown,
+        // 0.7.0 structured findings (findings spec §5). Appended, never
+        // inserted — `csv.headers` is positional. Ids and severity tokens, not
+        // translated prose, so a consumer reads a stable machine vocabulary;
+        // the first remediation step's finding ids show what to fix first.
+        (r.findings || []).map(function (f) { return f.id; }).join(' | '),
+        (r.findings || []).map(function (f) { return f.severity; }).join(' | '),
+        (r.remediationPlan && r.remediationPlan[0] ? r.remediationPlan[0].findings : []).join(' | '),
       ];
     });
 

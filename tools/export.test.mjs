@@ -308,6 +308,11 @@ const row = {
   spfRecord: FIXTURES.bidiOverride,
   dmarcRecord: '',
   issues: [], suggestions: [],
+  findings: [
+    { id: 'spf.multiple-records', key: 'spf-multiple-records', keyspace: 'issue', protocol: 'spf', severity: 'critical', confidence: 'confirmed', category: 'authentication', effort: 'trivial', args: [2], evidence: [], dependsOn: [], blocks: [] },
+    { id: 'dmarc.missing', key: 'dmarc-missing', keyspace: 'issue', protocol: 'dmarc', severity: 'medium', confidence: 'confirmed', category: 'policy', effort: 'moderate', args: [], evidence: [], dependsOn: [], blocks: [] },
+  ],
+  remediationPlan: [{ step: 1, findings: ['spf.multiple-records', 'dmarc.missing'], rationale: 'foundation', unblocks: [] }],
   spfStatus: { status: 'permerror' },
   dmarcStatus: { status: 'missing', policy: '', pct: 100, adkim: 'r', aspf: 'r', rua: false, ruf: false, testMode: false, sp: '', np: '' },
   dkimStatus: { found: false, confidence: 'checked', selectors: [], missingSelectors: [] },
@@ -342,6 +347,21 @@ eq('the protocol-depth columns are appended after the Tree Walk columns',
 // 0.4.0 is still at the index it was at. Checked against English rather than
 // against a count, so an inserted column fails loudly here.
 eq('no pre-0.4.0 column moved', header.indexOf('Record Hygiene'), hygieneIdx);
+// 0.7.0's three structured-finding columns follow the protocol-depth block, in
+// their own fixed tail — appended after TLSA Present, never inserted.
+eq('the structured-finding columns are appended last',
+  header.slice(hygieneIdx + 12, hygieneIdx + 15),
+  ['Finding IDs', 'Finding Severities', 'Remediation Step 1']);
+eq('and they are the final three columns', header.slice(-3),
+  ['Finding IDs', 'Finding Severities', 'Remediation Step 1']);
+// The columns carry stable id and severity tokens, not translated prose, and
+// the remediation column names what to fix first.
+eq('the Finding IDs column joins finding ids',
+  data[header.indexOf('Finding IDs')], 'spf.multiple-records | dmarc.missing');
+eq('the Finding Severities column joins severity tokens',
+  data[header.indexOf('Finding Severities')], 'critical | medium');
+eq('the Remediation Step 1 column names the first step\'s findings',
+  data[header.indexOf('Remediation Step 1')], 'spf.multiple-records | dmarc.missing');
 eq('the first data column is still the domain', header[0], 'Domain');
 eq('the data column keeps the published bytes exactly',
   data[7], FIXTURES.bidiOverride);
@@ -586,6 +606,15 @@ const issueRow = {
   domain: 'evil.example', ns: [], mx: ['mx.example'], verifications: [],
   spfRecord: 'v=spf1 -all', dmarcRecord: 'v=DMARC1; p=none',
   issues: [{ key: 'dmarc-rua-invalid', sev: 'warn', args: ['mailto:x@safe.‮evil​z'] }],
+  // The detail panel renders findings; the migrated finding resolves the same
+  // issue.<key> message through the same DNS-argument boundary.
+  findings: [{
+    id: 'dmarc.rua-invalid', key: 'dmarc-rua-invalid', keyspace: 'issue',
+    protocol: 'dmarc', severity: 'medium', confidence: 'confirmed',
+    category: 'reporting', effort: 'trivial', args: ['mailto:x@safe.‮evil​z'],
+    evidence: [], dependsOn: [], blocks: [],
+  }],
+  remediationPlan: [],
   suggestions: [],
   spfStatus: { status: 'permerror', cls: 'crit' },
   dmarcStatus: { status: 'missing', cls: 'crit', policy: '', pct: 100, adkim: 'r', aspf: 'r', rua: false, ruf: false, testMode: false, sp: '', np: '' },

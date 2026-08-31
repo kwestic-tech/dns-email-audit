@@ -463,6 +463,16 @@ const hostileRow = {
   domain: 'evil.example', ns: [], mx: ['mx.example'], verifications: [],
   spfRecord: 'v=spf1 -all', dmarcRecord: 'v=DMARC1; p=none',
   issues: [hostileIssue], suggestions: [],
+  // The detail panel renders findings, so the end-to-end sentinel check needs
+  // the finding form of the hostile issue — a migrated finding resolves the
+  // same issue.<key> message, through the same DNS-argument boundary.
+  findings: [{
+    id: 'dmarc.rua-invalid', key: 'dmarc-rua-invalid', keyspace: 'issue',
+    protocol: 'dmarc', severity: 'medium', confidence: 'confirmed',
+    category: 'reporting', effort: 'trivial', args: hostileIssue.args,
+    evidence: [], dependsOn: [], blocks: [],
+  }],
+  remediationPlan: [],
   spfStatus: { status: 'permerror', cls: 'crit' },
   dmarcStatus: { status: 'missing', cls: 'crit', policy: '', pct: 100, adkim: 'r', aspf: 'r', rua: false, ruf: false, testMode: false, sp: '', np: '' },
   dkimStatus: { found: false, confidence: 'checked', selectors: [], missingSelectors: [] },
@@ -887,6 +897,71 @@ eq('every state that needs its own wording gets one',
     .map(state => APP.dnssecDot({ dnssec: { state } }).label === null),
   [true, true, false, false, false, false]);
 eq('a missing DNSSEC result still yields a dot', APP.dnssecDot({}).ok, false);
+
+/* ── 14. Structured findings render as two views (findings spec §5) ────── */
+section('14. The findings block renders both views');
+
+const mkFinding = (id, key, severity, over) => Object.assign({
+  id, key, keyspace: key.indexOf('.') === -1 ? 'finding' : 'issue',
+  protocol: 'dmarc', severity, confidence: 'confirmed', category: 'policy',
+  effort: 'moderate', args: [], evidence: [{ kind: 'txt', queryName: '_dmarc.x.test', value: 'v=DMARC1; p=none' }],
+  dependsOn: [], blocks: [],
+}, over || {});
+
+const findingsRow = {
+  domain: 'find.example', ns: [], mx: [], verifications: [],
+  spfRecord: '', dmarcRecord: 'v=DMARC1; p=none', issues: [], suggestions: [],
+  findings: [
+    mkFinding('dmarc.enforcement-without-auth', 'dmarc-enforcement-without-auth', 'critical', { keyspace: 'finding' }),
+    mkFinding('dkim.weak-with-enforcement', 'dkim-weak-with-enforcement', 'high', { keyspace: 'finding' }),
+    mkFinding('dkim.mixed-key-strength', 'dkim-key-mixed', 'low'),
+    mkFinding('dmarc.no-rua', 'dmarc-no-rua', 'info', { confidence: 'unverified' }),
+  ],
+  remediationPlan: [
+    { step: 1, findings: ['dkim.weak-with-enforcement', 'dkim.mixed-key-strength'], rationale: 'foundation', unblocks: ['dmarc.enforcement-without-auth'] },
+    { step: 2, findings: ['dmarc.enforcement-without-auth'], rationale: 'afterPrereq', unblocks: [] },
+  ],
+  spfStatus: { status: 'missing', cls: 'crit' },
+  dmarcStatus: { status: 'warn', cls: 'warn', policy: 'none', pct: 100, adkim: 'r', aspf: 'r', rua: false, ruf: false, testMode: false, sp: '', np: '' },
+  dkimStatus: { found: false, confidence: 'checked', selectors: [], missingSelectors: [] },
+  dnsProvider: 'Cloudflare', emailProvider: '@none', hosting: '@unknown',
+  advScore: 0, advanced: null,
+  score: { grade: 'F', pts: 0, max: 100, cls: 'score-f', breakdown: null, unproven: [] },
+};
+const fb = document.createElement('tbody');
+fb.id = 'tableBody';
+document.body.appendChild(fb);
+APP.appendRow(findingsRow);
+const fEls = elements(document.getElementById('tableBody'));
+
+// The result↔DOM binding rests on this: exactly one div.finding per finding,
+// low/info hidden but present, so the count equals findings.length.
+eq('one div.finding per finding, including the collapsed ones',
+  fEls.filter(e => e.className === 'finding').length, 4);
+eq('the severity view is present', fEls.some(e => e.classList.contains('findings-view-severity')), true);
+eq('the remediation view is present but hidden by default',
+  fEls.some(e => e.classList.contains('findings-view-remediation') && (e.getAttribute('style') || '').includes('display:none')), true);
+eq('low and info collapse behind a disclosure', fEls.some(e => e.classList.contains('finding-collapsed')), true);
+eq('both view toggles render', fEls.filter(e => e.classList.contains('findings-view-toggle')).length, 2);
+eq('the plan renders one node per step', fEls.filter(e => e.classList.contains('plan-step')).length, 2);
+// The remediation view references findings without a second div.finding, so it
+// cannot double the binding count.
+eq('the plan uses plan-finding, not finding', fEls.some(e => e.classList.contains('plan-finding')), true);
+// Confidence shows only where it is not confirmed.
+eq('an unverified finding shows its confidence',
+  fEls.some(e => e.classList.contains('finding-conf-unverified')), true);
+eq('a confirmed finding shows no confidence marker',
+  fEls.some(e => e.classList.contains('finding-conf-confirmed')), false);
+// Evidence renders under a finding.
+eq('evidence renders under a finding', fEls.some(e => e.classList.contains('finding-evidence')), true);
+// A domain with no findings renders no findings block — proven able to be empty.
+fb.id = '';
+const emptyBody = document.createElement('tbody');
+emptyBody.id = 'tableBody';
+document.body.appendChild(emptyBody);
+APP.appendRow(Object.assign({}, findingsRow, { domain: 'clean.example', findings: [], remediationPlan: [] }));
+eq('a clean domain renders no div.finding',
+  elements(emptyBody).filter(e => e.className === 'finding').length, 0);
 
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);

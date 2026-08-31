@@ -56,7 +56,7 @@
     },
     {
       "path": "tools/render.test.mjs",
-      "assertions": 329,
+      "assertions": 340,
       "areas": [
         "row rendering and the detail panels",
         "DNS-derived values reach text nodes or allowlisted attributes, never markup",
@@ -65,7 +65,7 @@
     },
     {
       "path": "tools/export.test.mjs",
-      "assertions": 199,
+      "assertions": 204,
       "areas": [
         "CSV column order, quoting and formula neutralization",
         "the exported HTML report's structure and its own security policy",

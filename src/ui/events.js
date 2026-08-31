@@ -266,6 +266,156 @@ export function createUi(capabilities) {
     return t.apply(null, ['issue.' + issue.key + '.msg'].concat(args));
   }
 
+  /* ── Structured findings (findings spec §5) ─────────────────────────────
+     Two views over the same finding set: by severity (default) and by
+     remediation step. Finding cards are `<div class="finding">`, deliberately
+     distinct from the legacy `<div class="issue">` the CSV still carries, so
+     the equivalence result↔DOM binding tracks `result.findings`. A migrated
+     finding resolves its message under `issue.<key>`, a cross-protocol one
+     under `finding.<key>`; the two are otherwise identical here. */
+
+  var SEV_GLYPH = { critical: '🔴', high: '🟠', medium: '⚠️', low: '🔸', info: 'ℹ️' };
+
+  function findingMessage(f, sentinel) {
+    var ns = f.keyspace === 'issue' ? 'issue.' : 'finding.';
+    var safe = sentinel === false ? function (x) { return x || []; } : dnsArgs;
+    var args = f.args ? safe(f.args.slice()) : [];
+    if (f.noteKey) {
+      args = [t.apply(null, ['dkim.' + f.noteKey].concat(safe(f.noteArgs || [])))];
+    }
+    return t.apply(null, [ns + f.key + '.msg'].concat(args));
+  }
+
+  function findingCard(f) {
+    var ns = f.keyspace === 'issue' ? 'issue.' : 'finding.';
+    var what = tRaw(ns + f.key + '.what');
+    var fix = tRaw(ns + f.key + '.fix');
+    var fixCode = tRaw(ns + f.key + '.fixCode');
+    var showMe = what
+      ? R.el('div', { className: 'showme-wrap' }, [
+        R.el('button', { className: 'showme-btn', type: 'button' }, t('showme.open')),
+        R.el('div', { className: 'showme-content' }, [
+          R.el('div', { className: 'showme-lbl' }, t('showme.whatItIs')),
+          R.el('div', { className: 'showme-text' }, R.rich(what)),
+          R.el('div', { className: 'showme-lbl' }, t('showme.whatItNeeds')),
+          R.el('div', { className: 'showme-text' }, [
+            R.rich(fix || ''),
+            fixCode ? R.el('div', { className: 'showme-code' }, fixCode) : null,
+          ]),
+        ]),
+      ])
+      : null;
+
+    var metaBits = [
+      R.el('span', { className: 'finding-sev finding-sev-' + f.severity }, t('findings.severity.' + f.severity)),
+      R.el('span', { className: 'finding-cat' }, t('findings.category.' + f.category)),
+    ];
+    // Confidence is shown only where it is not `confirmed`, the same rule the
+    // unproven-pillar grade marker uses — an unexamined control must not read
+    // as a confirmed one.
+    if (f.confidence !== 'confirmed') {
+      metaBits.push(R.el('span', { className: 'finding-conf finding-conf-' + f.confidence }, t('findings.confidence.' + f.confidence)));
+    }
+
+    // Evidence renders through R.value/R.host so DNS-derived material stays a
+    // text node with display caps and sentinel substitution applied.
+    var evNodes = (f.evidence || []).filter(function (e) { return e && (e.value || e.queryName); }).map(function (e) {
+      return R.el('div', { className: 'finding-evidence-item' }, [
+        e.queryName ? R.el('code', null, R.host(e.queryName)) : null,
+        e.value ? R.frag([R.text(' — '), R.el('span', null, R.value(e.value))]) : null,
+      ]);
+    });
+
+    return R.el('div', { className: 'finding' }, [
+      R.el('span', { className: 'icon' }, SEV_GLYPH[f.severity] || 'ℹ️'),
+      R.el('div', { className: 'finding-body' }, [
+        R.el('span', { className: 'msg' }, findingMessage(f)),
+        R.el('div', { className: 'finding-meta' }, metaBits),
+        evNodes.length
+          ? R.el('div', { className: 'finding-evidence' }, [
+            R.el('div', { className: 'showme-lbl' }, t('findings.evidence')),
+            R.frag(evNodes),
+          ])
+          : null,
+        showMe,
+      ]),
+    ]);
+  }
+
+  function severityView(findings) {
+    var order = ['critical', 'high', 'medium', 'low', 'info'];
+    var byTier = {};
+    order.forEach(function (s) { byTier[s] = []; });
+    findings.forEach(function (f) { (byTier[f.severity] || byTier.info).push(f); });
+
+    var groups = [];
+    ['critical', 'high', 'medium'].forEach(function (s) {
+      if (!byTier[s].length) return;
+      groups.push(R.el('div', { className: 'finding-group' }, [
+        R.el('div', { className: 'finding-group-label finding-sev-' + s }, t('findings.severity.' + s)),
+        R.frag(byTier[s].map(findingCard)),
+      ]));
+    });
+
+    // low + info collapse behind a count (RQ-FIND-03). The cards stay in the
+    // DOM — hidden, not withheld — so the result↔DOM finding count still holds.
+    var lowInfo = byTier.low.concat(byTier.info);
+    var collapsed = lowInfo.length
+      ? R.el('div', { className: 'finding-collapsed-wrap' }, [
+        R.el('button', {
+          className: 'showme-btn', type: 'button',
+          dataset: { openLabel: t('findings.showMore', lowInfo.length), closeLabel: t('findings.showLess') },
+        }, t('findings.showMore', lowInfo.length)),
+        R.el('div', { className: 'showme-content finding-collapsed' }, lowInfo.map(findingCard)),
+      ])
+      : null;
+
+    return R.el('div', { className: 'findings-view findings-view-severity' }, [R.frag(groups), collapsed]);
+  }
+
+  function remediationView(findings, plan) {
+    var byId = {};
+    findings.forEach(function (f) { if (!byId[f.id]) byId[f.id] = f; });
+    var steps = plan.map(function (step) {
+      var items = step.findings.map(function (id) {
+        var f = byId[id];
+        if (!f) return null;
+        return R.el('div', { className: 'plan-finding' }, [
+          R.el('span', { className: 'icon' }, SEV_GLYPH[f.severity] || 'ℹ️'),
+          R.el('span', { className: 'msg' }, findingMessage(f)),
+        ]);
+      });
+      return R.el('div', { className: 'plan-step' }, [
+        R.el('div', { className: 'plan-step-head' }, [
+          R.el('span', { className: 'plan-step-num' }, t('findings.step', step.step)),
+          R.el('span', { className: 'plan-step-rationale' }, t('findings.rationale.' + step.rationale)),
+        ]),
+        R.frag(items),
+        (step.unblocks && step.unblocks.length)
+          ? R.el('div', { className: 'plan-unblocks' }, t('findings.unblocks', step.unblocks.length))
+          : null,
+      ]);
+    });
+    return R.el('div', { className: 'findings-view findings-view-remediation', style: 'display:none' }, steps);
+  }
+
+  function findingsBlock(r) {
+    var findings = r.findings || [];
+    if (!findings.length) return null;
+    var plan = r.remediationPlan || [];
+    return R.el('div', { className: 'findings-block' }, [
+      R.el('div', { className: 'findings-toolbar' }, [
+        R.el('span', { className: 'issues-section-label' }, t('labels.issues')),
+        R.el('div', { className: 'findings-toggle' }, [
+          R.el('button', { className: 'findings-view-toggle active', type: 'button', dataset: { view: 'severity' } }, t('findings.viewSeverity')),
+          R.el('button', { className: 'findings-view-toggle', type: 'button', dataset: { view: 'remediation' } }, t('findings.viewRemediation')),
+        ]),
+      ]),
+      severityView(findings),
+      remediationView(findings, plan),
+    ]);
+  }
+
   /* ── Small helpers ──────────────────────────────────────────────────── */
 
   function $(id) { return document.getElementById(id); }
@@ -1129,32 +1279,11 @@ export function createUi(capabilities) {
     var spfMeterNode = (r.advanced && r.advanced.spfLookups && r.spfRecord)
       ? spfMeter(r.advanced.spfLookups) : null;
 
-    var issueNodes = r.issues.map(function (i) {
-      var what = tRaw('issue.' + i.key + '.what');
-      var fix = tRaw('issue.' + i.key + '.fix');
-      var fixCode = tRaw('issue.' + i.key + '.fixCode');
-      var showMe = what
-        ? R.el('div', { className: 'showme-wrap' }, [
-          R.el('button', { className: 'showme-btn', type: 'button' }, t('showme.open')),
-          R.el('div', { className: 'showme-content' }, [
-            R.el('div', { className: 'showme-lbl' }, t('showme.whatItIs')),
-            R.el('div', { className: 'showme-text' }, R.rich(what)),
-            R.el('div', { className: 'showme-lbl' }, t('showme.whatItNeeds')),
-            R.el('div', { className: 'showme-text' }, [
-              R.rich(fix || ''),
-              fixCode ? R.el('div', { className: 'showme-code' }, fixCode) : null,
-            ]),
-          ]),
-        ])
-        : null;
-      return R.el('div', { className: 'issue' }, [
-        R.el('span', { className: 'icon' }, i.sev === 'crit' ? '🔴' : i.sev === 'warn' ? '⚠️' : 'ℹ️'),
-        R.el('div', { className: 'issue-body' }, [
-          R.el('span', { className: 'msg' }, issueMessage(i)),
-          showMe,
-        ]),
-      ]);
-    });
+    // The detail panel's findings block (findings spec §5). It renders
+    // `r.findings`, not `r.issues`; the legacy `issues` array survives on the
+    // result for the CSV `Issues` column and back-compat, but nothing renders
+    // it any more.
+    var findingsView = findingsBlock(r);
 
     var suggestNodes = (r.suggestions && r.suggestions.length)
       ? R.frag([
@@ -1226,14 +1355,9 @@ export function createUi(capabilities) {
         hygieneNote,
         scoreBlock(r.score),
         r.advanced ? advFullDots(r.advanced) : null,
-        (issueNodes.length || suggestNodes)
+        (findingsView || suggestNodes)
           ? R.el('div', { className: 'issues-block' }, [
-            issueNodes.length
-              ? R.frag([
-                R.el('div', { className: 'issues-section-label' }, t('labels.issues')),
-                issueNodes,
-              ])
-              : null,
+            findingsView,
             suggestNodes,
           ])
           : null,
@@ -1254,6 +1378,23 @@ export function createUi(capabilities) {
     btn.textContent = open
       ? (btn.dataset.openLabel || t('showme.open'))
       : (btn.dataset.closeLabel || t('showme.close'));
+  }
+
+  // Switch between the by-severity and by-remediation views within one
+  // findings block. Both views live in the DOM; only their display toggles, so
+  // the finding cards (in the severity view) stay counted for the equivalence
+  // binding regardless of which view is showing.
+  function toggleFindingsView(btn) {
+    var block = btn.closest('.findings-block');
+    if (!block) return;
+    var view = btn.dataset.view;
+    block.querySelectorAll('.findings-view-toggle').forEach(function (b) {
+      b.classList.toggle('active', b === btn);
+    });
+    var sev = block.querySelector('.findings-view-severity');
+    var rem = block.querySelector('.findings-view-remediation');
+    if (sev) sev.style.display = view === 'severity' ? '' : 'none';
+    if (rem) rem.style.display = view === 'remediation' ? '' : 'none';
   }
 
   // The disclosure control for a truncated value (spec §4). Display caps never
@@ -1581,6 +1722,8 @@ export function createUi(capabilities) {
     $('tableBody').addEventListener('click', function (event) {
       var expand = event.target.closest('.expand-toggle');
       if (expand) { toggleDetail(expand.dataset.detailId, expand); return; }
+      var viewToggle = event.target.closest('.findings-view-toggle');
+      if (viewToggle) { toggleFindingsView(viewToggle); return; }
       var show = event.target.closest('.showme-btn');
       if (show) { toggleShowMe(show); return; }
       var more = event.target.closest('.rv-more');
