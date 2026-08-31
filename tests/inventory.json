@@ -647,6 +647,17 @@
       ]
     },
     {
+      "path": "tests/build/release-compat.test.mjs",
+      "assertions": 7,
+      "areas": [
+        "the v0.5.0 and v0.7.0 baselines cover the same deterministic cases",
+        "the DNS trace remains byte-identical across the release",
+        "legacy result fields remain byte-identical after the two additive fields are removed",
+        "CSV changes only through three appended cells",
+        "negative controls prove each bounded-difference rule fails"
+      ]
+    },
+    {
       "path": "tests/build/equivalence.validate.mjs",
       "assertions": 77,
       "areas": [
@@ -665,10 +676,10 @@
   ],
   "notInNpmTest": [
     {
-      "command": "node tests/build/equivalence.mjs --subject-root=.",
-      "why": "The five-surface comparison against the committed baseline. 38 s for 30 cases, so it runs at every phase gate rather than inside npm test. Framework §3's 'move it to every commit' reading was based on an 8-case corpus and was revised when the corpus was completed.",
+      "command": "node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.7.0.json",
+      "why": "The five-surface comparison against the finished release baseline. Roughly 70 s for 32 cases, so it runs in CI rather than inside npm test; release-compat.test.mjs separately bounds the intentional delta from the reproducible historical v0.5.0 baseline.",
       "areas": [
-        "five-surface equivalence against v0.5.0: result, query trace, CSV, HTML report, DOM"
+        "exact five-surface equivalence against v0.7.0: result, query trace, CSV, HTML report, DOM"
       ]
     },
     {
