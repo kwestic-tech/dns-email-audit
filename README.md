@@ -28,6 +28,9 @@ sent to Cloudflare and are subject to Cloudflare's privacy policy.
   one of them is named with the step that recovers the points.
 - Search, filters, sortable results, expandable evidence, CSV export, and a
   self-contained script-free HTML report.
+- Stable structured findings with five severity levels, confidence, source-bound
+  DNS evidence, and a dependency-ordered remediation view. CSV exports finding
+  ids, severities and the first remediation step alongside the legacy columns.
 - Complete UI localization in fourteen languages: English, German, Spanish,
   French, Indonesian, Italian, Japanese, Korean, Dutch, Polish, Brazilian
   Portuguese, Turkish, Simplified Chinese, and Traditional Chinese.
@@ -286,7 +289,7 @@ JSON files from disk, so translated interfaces require HTTP.
 | `npm ci` | Install exact versions of esbuild and its platform binary; no install scripts run. |
 | `npm start` | Serve the already-built application on port 8080 with the dependency-free development server. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Build the bundle, then run locale validation plus **4,451** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
+| `npm test` | Build the bundle, then run locale validation plus **4,633** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `src/data/locales-en.js` after editing `locales/en.json`. |

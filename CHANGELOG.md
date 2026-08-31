@@ -16,6 +16,45 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Nothing yet.
 
+## [0.7.0] — 2026-08-31
+
+### Added
+
+- **Structured findings alongside the existing issue list.** Every finding has a
+  stable protocol-qualified id, five-level severity, confidence, category,
+  effort, localized message key, source-bound evidence and explicit prerequisite
+  relationships. The legacy `result.issues`, suggestions, scores and grades are
+  unchanged; `findings` and `remediationPlan` are additive result fields.
+- **Ten cross-protocol findings** for conditions a single protocol owner cannot
+  judge alone, including DMARC enforcement without complete authentication,
+  weak DKIM or fragile MX under enforcement, BIMI without enforcement,
+  MTA-STS without TLS-RPT, TLS-RPT without a transport policy, contradictory
+  parked-domain controls and blind reporting.
+- **A dependency-ordered remediation plan.** Prerequisites are fixed before the
+  findings they block; independent cleanup collects in a final step. The detail
+  panel can switch between severity groups and remediation steps, and visibly
+  marks a finding that is waiting on another one.
+- **Finding-aware exports.** CSV adds finding ids, severities and the first
+  remediation step without moving any existing column. The HTML report renders
+  the same two-view findings block as the application.
+
+### Changed
+
+- Evidence now carries the material an operator can verify rather than authored
+  descriptions or classifier verdicts: complete DS or DNSKEY records selected
+  for DNSSEC claims, actual TLSA query owners and malformed source text,
+  individual CAA records, conflicting SPF/DMARC records, wildcard responses,
+  CNAME chains, implicit-MX addresses and explicit empty absences.
+- Finding ids, keys, severities, confidence levels, categories, effort levels,
+  protocols, keyspaces, evidence kinds and remediation rationales are registered
+  reviewed algebras. The state matrix contains 719 covered rows.
+- Added 65 English finding/remediation keys and 845 translated units across all
+  thirteen non-English locales. Finding and remediation order is measured
+  byte-identical in all fourteen interfaces.
+- The verification inventory now reports 245 suites and 4,633 assertions. The
+  deterministic 32-case DNS trace is unchanged, and a 40-domain backtest shows
+  zero grade or point movement from 0.6.0.
+
 ## [0.6.0] — 2026-08-30
 
 ### Changed
@@ -1201,7 +1240,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.3.0...v0.4.0

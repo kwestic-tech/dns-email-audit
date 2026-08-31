@@ -2,61 +2,57 @@
 
 ## Current state
 
-Released through `v0.6.0`. The behavior-neutral refactor is complete: browser
-code is ES modules under `src/`, the production boundary is one esbuild bundle,
-the import graph is enforced, and the supported browser facade has two members.
+Released through `v0.7.0`. Structured findings and ordered remediation are now
+the stable result boundary consumed by the remaining feature releases. Legacy
+issues, suggestions, scores and grades remain unchanged.
 
 The remaining release sequence is:
 
 ```text
-0.7.0 findings → 0.8.0 artifacts → 0.9.0 reports → 1.0.0 readiness
+0.8.0 artifacts → 0.9.0 reports → 1.0.0 readiness
 ```
 
-The four specs are Draft and must each be reviewed to `1.0 (Final)` before its
-implementation begins. Do not treat the sequence above as approval of the
-individual design choices still recorded as `OQ-*` questions.
+Each remaining spec must be reviewed to `1.0 (Final)` before its implementation
+begins. Do not treat the sequence above as approval of the individual design
+choices still recorded as `OQ-*` questions.
 
-## Start here: 0.7.0 structured findings
+## Start here: 0.8.0 private local artifact validation
 
-Spec: [`docs/specs/findings-and-remediation.md`](docs/specs/findings-and-remediation.md),
+Spec: [`docs/specs/local-artifact-validation.md`](docs/specs/local-artifact-validation.md),
 version `0.2`, awaiting review.
 
-This is the next and only implementation phase that is unblocked. It freezes the
-finding identity, evidence, confidence and dependency model that both later
-feature releases consume.
+This is the next design phase. It consumes 0.7.0's final Finding shape for
+user-supplied MTA-STS, BIMI SVG and optional VMC material without fetching any
+domain-controlled URL or persisting supplied content.
 
 Before writing implementation code:
 
-1. Review every `OQ-FIND-*` question and record each answer with reasoning.
-2. Reproduce every claim against the current modules, especially
-   [`src/audit/issues.js`](src/audit/issues.js),
-   [`src/audit/scoring.js`](src/audit/scoring.js),
-   [`src/ui/events.js`](src/ui/events.js), and the locale tooling.
-3. Investigate `OQ-FIND-05` with the real locale pipeline before approving any
-   `issue.*` to `finding.*` key move. Never edit
-   `locales/translation-status.json` by hand.
-4. Build the regression fixture set from current `buildIssues()` and
-   `buildSuggestions()` behavior before replacing either implementation.
+1. Review every `OQ-ART-*` question and record each answer with reasoning.
+2. Resolve `OQ-ART-08` before implementation: the hostile-SVG parser needs a
+   dependency-free test strategy that has been proved to fail.
+3. Keep `connect-src` unchanged and verify the feature makes no network request;
+   supplied material remains memory-only and is never injected into the DOM.
+4. Decide whether VMC material is in scope and whether artifact findings enter
+   0.9.0 reports before freezing either shape.
 5. Amend and re-version the spec for every accepted review finding. Stop if a
-   proposed solution needs an architecture-matrix change without a written
-   architectural justification.
+   proposed solution needs an architecture-matrix or CSP change without written
+   justification.
 
-The implementation boundary is already decided by 0.6.0: finding semantics and
-remediation ordering belong to `src/audit/`; protocol facts stay with their
-existing `src/core/<protocol>/` owners; presentation belongs to `src/ui/`; and
-`src/runtime.js` composes the two. Do not add a UI-to-audit import or move
-finding severity into a protocol owner.
+The implementation boundary is already decided: MTA-STS policy rules belong to
+`src/core/transport/`; BIMI SVG and optional VMC rules belong to `src/core/bimi/`;
+`src/audit/` composes artifact findings; `src/runtime.js` injects the capability
+into `src/ui/`. Do not add a UI-to-audit import or a temporary artifact monolith.
 
 ### Decisions that require deliberate review
 
-- Whether remediation or severity is the default view (`OQ-FIND-01`).
-- Whether plans remain per-domain (`OQ-FIND-02`).
-- The display threshold for low-information findings (`OQ-FIND-03`).
-- Whether confidence belongs on a finding or its evidence (`OQ-FIND-04`).
-- Whether locale keys can move without destroying translation state
-  (`OQ-FIND-05`).
-- The long-term relationship between findings and scoring (`OQ-FIND-06`).
-- Whether `blocks` is always derived from `dependsOn` (`OQ-FIND-07`).
+- Whether MTA-STS accepts a saved HTTP response or policy body only (`OQ-ART-01`).
+- Which DOMParser MIME type is used and whether supplied SVG is ever displayed
+  (`OQ-ART-02`, `OQ-ART-03`).
+- Whether VMC is in scope and whether verification can affect scoring
+  (`OQ-ART-04`, `OQ-ART-05`).
+- Single versus multiple-file input and the 0.9.0 report boundary
+  (`OQ-ART-06`, `OQ-ART-07`).
+- The dependency-free hostile-SVG test strategy (`OQ-ART-08`).
 
 The 0.9.0 schema will freeze the result of several of these decisions. Do not
 default them silently during implementation.
@@ -65,7 +61,7 @@ default them silently during implementation.
 
 | Release | Spec | Start condition | Contract it establishes |
 | --- | --- | --- | --- |
-| 0.7.0 | [findings-and-remediation](docs/specs/findings-and-remediation.md) | `v0.6.0` released; spec reviewed to Final | Stable finding identity, evidence, confidence and remediation dependencies |
+| 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/local-artifact-validation.md) | 0.7.0 released; spec reviewed to Final | User-supplied provenance and local MTA-STS/BIMI artifact results |
 | 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec reviewed to Final | Versioned JSON schema, import validation and stateless comparison |
 | 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
@@ -97,7 +93,7 @@ dedicated release is `OQ-ONE-01` and must be resolved during spec review.
 ## Product-boundary decision alongside the feature work
 
 [`docs/specs/external-intelligence.md`](docs/specs/external-intelligence.md) has
-no implementation phase. Review it as a decision document while 0.7.0–0.9.0
+no implementation phase. Review it as a decision document while 0.8.0–0.9.0
 progress. The 1.0 readiness draft currently requires it to be Final before
 1.0.0, subject to `OQ-ONE-05`.
 

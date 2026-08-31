@@ -5,7 +5,7 @@
 | Spec version | 0.2 (Draft, rebased after 0.6.0) |
 | Target release | 0.9.0 |
 | Status | Awaiting review |
-| Depends on | [findings-and-remediation](findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
+| Depends on | [findings-and-remediation](implemented/findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
 | Blocks | Nothing |
 | Slug for open questions | `CMP` |
 | Last updated | 2026-08-31 |

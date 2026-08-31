@@ -2,17 +2,17 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.4 (Final) |
+| Spec version | 1.5 (Implemented) |
 | Target release | 0.7.0 |
-| Status | Final — implementation may begin |
+| Status | Released in `v0.7.0` |
 | Depends on | 0.2.3 through 0.6.0. This release consumes the stabilized protocol signals through the module boundaries shipped by the refactor. |
-| Blocks | [report-comparison](report-comparison.md), whose diff operates on finding identity |
+| Blocks | [report-comparison](../report-comparison.md), whose diff operates on finding identity |
 | Slug for open questions | `FIND` |
 | Last updated | 2026-08-31 |
 
 ## Problem
 
-`buildIssues()` in [`src/audit/issues.js`](../../src/audit/issues.js) returns a flat array of
+`buildIssues()` in [`src/audit/issues.js`](../../../src/audit/issues.js) returns a flat array of
 `{ key, sev, args }` objects in the order the function happens to test
 conditions. `buildSuggestions()` in the same module returns a
 second flat array of `{ key, guide }`. Severity has three values, `crit`, `warn`
@@ -35,7 +35,7 @@ blocked by that one".
 
 **Confidence.** `dkimStatus.confidence` already carries `observed`, `sampled` and
 `not-checked`, and `unprovenPillars()` in
-[`src/audit/scoring.js`](../../src/audit/scoring.js)
+[`src/audit/scoring.js`](../../../src/audit/scoring.js)
 already tracks which pillars scored zero because a lookup failed rather than
 because the control is absent. That distinction is captured in scoring and
 discarded in findings. A finding derived from a failed lookup and a finding
@@ -404,7 +404,7 @@ this release produces.
 ### 5. Interface
 
 The detail panel's issues block in
-[`src/ui/events.js`](../../src/ui/events.js) is replaced
+[`src/ui/events.js`](../../../src/ui/events.js) is replaced
 by two views over the same finding set:
 
 - **By severity**, the default (`RQ-FIND-01`), grouped by the five severities with
@@ -459,7 +459,7 @@ namespace. **No existing translated unit is touched.** The new material is:
 All of it lands under new keys, is scaffolded to `initial` by `locale:sync`, and
 is translated into the thirteen non-English locales with `locale:set` before
 `locale:gate` passes. Register for the new material: second person, direct,
-practical, per [`AGENTS.md`](../../AGENTS.md). Remediation text in particular is
+practical, per [`AGENTS.md`](../../../AGENTS.md). Remediation text in particular is
 read by someone mid-incident and should say what to publish, not why it matters.
 
 ## Testing
@@ -613,7 +613,7 @@ unfinished designs.
 Five severities plus grouping is enough to keep a mediocre domain legible without
 a new toolbar filter. `critical`, `high` and `medium` show expanded; `low` and
 `info` collapse behind a disclosure count. The existing status filter at
-[`index.html`](../../index.html) is unchanged, keeping the scope bounded.
+[`index.html`](../../../index.html) is unchanged, keeping the scope bounded.
 
 **RQ-FIND-04: Does `confidence` belong in the model, or is it a property of the
 evidence?**
@@ -707,10 +707,42 @@ misconfiguration — already neutralized at export and flagged `formula-leading`
 the domain owner did nothing wrong in DNS, so it is not a finding about their
 configuration.
 
+## As implemented
+
+Released in `v0.7.0`. The shipped implementation follows the final amended
+design and differs materially from the original 0.2 draft in five deliberate
+ways:
+
+- `buildIssues()` remains the producer of the legacy `result.issues` array.
+  `buildFindings()` enriches it and appends `findings` and `remediationPlan`, so
+  existing issues, suggestions, scores and grades remain byte-identical.
+- Finding identity is decoupled from localization. Migrated findings keep their
+  established `issue.*` translations while carrying stable protocol-qualified
+  ids; the ten cross-protocol rules use the new `finding.*` namespace.
+- Standalone findings collect in a final `cleanup` step. A prerequisite that did
+  not fire is not represented as a false dependency, while blocked findings in
+  the remediation view are visibly marked as waiting on their real prerequisite.
+- Evidence is source-bound rather than descriptive prose: complete DS or DNSKEY
+  records selected for DNSSEC claims, the actual TLSA query owner and retained
+  malformed presentation, individual CAA records, explicit absences, and one
+  protocol token per unverified control. Twelve evidence kinds and every finding
+  vocabulary are registered reviewed algebras.
+- The detail panel offers severity and remediation views over the same findings;
+  CSV adds finding ids, severities and the first remediation step. Rendering order
+  is measured identical under all fourteen locales.
+
+Verification at release: 245 suites and 4,633 assertions; all thirteen
+non-English locales complete; deterministic DNS trace unchanged across all 32
+equivalence cases; legacy result fields byte-identical once the two additive
+fields are removed; and zero grade or point movement in the 40-domain sample
+backtest. `src/audit/issues.js` and `src/audit/scoring.js` are byte-identical to
+`v0.6.0`.
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.5 (Implemented) | 2026-08-31 | Released in `v0.7.0`. Added the As implemented record, moved the spec and corrected its links, and recorded the final 4,633-assertion, locale, equivalence and backtest evidence. |
 | 1.4 (Final) | 2026-08-31 | Codex review round 4. Made evidence provenance and completeness binding after the 1.3 shape check admitted incomplete and finding-irrelevant material: complete four-field DS and DNSKEY presentations selected for the finding, the actual TLSA query owner and retained malformed presentation string, one CAA entry per resolver record, and non-empty values for every non-absence kind. Required the contract suite to cover every registered kind and the constructor's real unknown-kind path. |
 | 1.3 (Final) | 2026-08-31 | Codex review round 3. Restated the evidence contract **per kind** after 1.2's "published bytes or nothing" proved too narrow to describe a parsed-only record or the token kind, and was violated in four places while reading as satisfied: DNSSEC and TLSA now carry the record's published wire fields instead of a `state`/`present` verdict, the weak-DKIM finding carries the published key record instead of its `s1 (1024)` presentation form, and `checks-unverified` emits one protocol token per control instead of a comma-joined list. Made `audit.finding.evidence.kind` closed by construction through a single evidence constructor. |
 | 1.2 (Final) | 2026-08-31 | Codex review round 2. Made `evidence[].value` explicitly *raw* — published bytes or nothing, never authored prose, with `kind: 'absent'` plus an empty value as the honest form of an absence; the coordinator now retains the wildcard probe records, the website CNAME chain and the A/AAAA records rather than the finding layer describing them. Resolved the `p=quarantine` disagreement in favour of the code: the rule fires on DMARC **enforcement**, which is `quarantine` or `reject`. Registered `audit.finding.key` and `audit.finding.evidence.kind` as closed algebras. |

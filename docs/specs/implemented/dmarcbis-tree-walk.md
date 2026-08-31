@@ -9,7 +9,7 @@
 | Pull request | [#20](https://github.com/kwestic-tech/dns-email-audit/pull/20) |
 | Merge commit | `8c3a36f` (squashed) |
 | Depends on | [rendering-and-robustness](rendering-and-robustness.md) (0.2.3), because this release adds new rendered evidence |
-| Blocks | [findings-and-remediation](../findings-and-remediation.md), which consumes discovery provenance |
+| Blocks | [findings-and-remediation](findings-and-remediation.md), which consumes discovery provenance |
 | Slug for open questions | `DMARC` |
 | Last updated | 2026-08-24 |
 
@@ -105,7 +105,7 @@ async function discoverDmarc(domain, queryOpts) → {
 
 **`applied.foundAt` and `applied.labelsUp` are defined as the location of the
 policy record actually applied**, and are not renamed. Both are read directly by
-[findings-and-remediation](../findings-and-remediation.md) and exported as schema
+[findings-and-remediation](findings-and-remediation.md) and exported as schema
 fields by [report-comparison](../report-comparison.md), so their names are frozen.
 `policyDomain` is an alias of `applied.foundAt` provided for readability at call
 sites that care about the policy rather than the discovery evidence.
@@ -515,7 +515,7 @@ None. All seven were resolved on 2026-08-24 — see **Resolved questions** below
 | OQ-DMARC-04 | Does the PSL stay after the Tree Walk lands? | **No — both call sites switch to the Tree Walk.** Approved by Ian 2026-08-24. RFC 9990 defines the externality test in terms of the Organizational Domain, which after this release means the Tree Walk result, and carrying two definitions of "organizational domain" in one codebase is the kind of ambiguity that produces a wrong answer years later. The cost is accepted and must be measured, not estimated: the externality test now walks the *destination's* tree, so the query fan-out rises beyond what this spec originally anticipated. `PRIVACY.md`'s stated fan-out is updated from a measured backtest before merge. | 1.0 |
 | OQ-DMARC-05 | What is the verdict when a report destination publishes multiple authorization records? | Not ambiguous, contrary to the 0.1 text. RFC 9990 §4 step 6 discards records that fail parsing, and step 8 states: *"If at least one TXT resource record remains in the set after parsing, then the external reporting arrangement was authorized by the Report Consumer."* Multiple authorization records are therefore **authorized** so long as one parses. This is the opposite of the conservative reading the draft leaned toward, and it is not a judgement call — the permissive reading is the normative one. Note this differs deliberately from the DMARC *policy* rule, where duplicates are discarded; the two questions are asked at different names for different purposes. | 1.0 |
 | OQ-DMARC-06 | Should discovery evidence be shown by default or on demand? | The middle option, confirmed. The found-at line always shows; the full step list appears only when `labelsUp > 0` or `terminated` is not `root`, and is behind a disclosure control otherwise. The step list is what makes a surprising result explicable and is noise the rest of the time. | 1.0 |
-| OQ-DMARC-07 | Does `psd=y` change the score? | No, in this release. `WEIGHTS`, `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` stay byte-identical, per the advisory-before-scoring rule: a new signal reports for at least one release before it affects a grade. Whether a correct `psd=y` earns credit, or an incorrect one costs it, is referred to [findings-and-remediation](../findings-and-remediation.md) (0.6.0), which owns severity. Recorded there rather than left as a verbal note. | 1.0 |
+| OQ-DMARC-07 | Does `psd=y` change the score? | No, in this release. `WEIGHTS`, `PARKED_WEIGHTS` and `GRADE_THRESHOLDS` stay byte-identical, per the advisory-before-scoring rule: a new signal reports for at least one release before it affects a grade. Whether a correct `psd=y` earns credit, or an incorrect one costs it, is referred to [findings-and-remediation](findings-and-remediation.md) (0.7.0), which owns severity. Recorded there rather than left as a verbal note. | 1.0 |
 
 **Scores will move in this release, and that is expected.** 0.3.0 is a
 discovery-only change: no rubric, weight or threshold is touched, but a domain

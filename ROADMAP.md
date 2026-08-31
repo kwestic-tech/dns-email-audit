@@ -74,7 +74,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | --- | --- | --- | --- |
 | 1 | Rendering correctness and robustness | **Done, and rescoped along the way.** The original framing was CSP and XSS hardening; a static site with no session or stored data has no compromise to defend, so the work that survived is output integrity. Shipped in 0.2.3: no markup sink remains under `js/`, interpolation is single-pass, and every class of malformed record has a decided, tested display behavior. | [0.2.3](docs/specs/implemented/rendering-and-robustness.md), released |
 | 2 | RFC 9989 DMARC | **Done.** The bis tag vocabulary, `t=`, `psd=`, inheritance, URI parsing and external report authorization were already implemented; 0.3.0 added the missing half — the RFC 9989 §4.10 DNS Tree Walk, replacing the Public Suffix List for every DMARC decision, with discovery provenance, `psd=` termination, existence-gated `np=`, and misplaced-record diagnosis. | [0.3.0](docs/specs/implemented/dmarcbis-tree-walk.md), released |
-| 3 | Anomaly and remediation engine | Not started. Findings are a flat list of localized strings with no severity model, dependencies, or ordering. | [0.7.0](docs/specs/findings-and-remediation.md) |
+| 3 | Anomaly and remediation engine | **Done.** 0.7.0 adds stable finding identity, five-level severity, confidence, source-bound evidence and dependency-ordered remediation while preserving the legacy issue and scoring surfaces. | [0.7.0](docs/specs/implemented/findings-and-remediation.md), released |
 | 4 | DKIM, MX, CAA and DANE depth | **Done.** 0.4.0 decodes DKIM public keys to algorithm and modulus size, parses CAA into a policy with wildcard semantics, resolves every MX target to find dangling and CNAME hosts, and adds TLSA lookup, reported per host as DNSSEC-authenticated or not on the strength of the resolver's AD bit for that host's own name. 0.5.0 reviewed and **retired** the `qualified` flag rather than completing it: a TLSA record lives in the MX host's zone, which the audited domain's chain evidence says nothing about, and local DS-to-DNSKEY matching never validates RRSIGs and so cannot exceed the resolver's per-host verdict (`OQ-SEC9-07`). Every observation is advisory: zero grade movement. | [0.4.0](docs/specs/implemented/dns-protocol-depth.md), released |
 | 5 | DNSSEC depth | **Done.** 0.5.0 queries the child `DNSKEY` set and the parent `DS` set, matches the digests locally with Web Crypto, and replaces the four-state model with six — separating a signed-but-unanchored zone and a DS/DNSKEY mismatch from a zone that was never signed. The resolver's AD flag remains the validation signal, and every claim is attributed to it or to local computation. | [0.5.0](docs/specs/implemented/dnssec-evidence.md), released |
 | 6 | Local MTA-STS and BIMI validation | Not started. Both are validated at the TXT record level only. | [0.8.0](docs/specs/local-artifact-validation.md) |
@@ -193,18 +193,19 @@ two, and a session that never runs one still sends the page-load probe.
 Pre-existing behaviour newly measured, not a 0.6.0 change. Spec `1.5` carries
 the correction.
 
-### 0.7.0: Anomaly and remediation roadmap
+### 0.7.0: Anomaly and remediation roadmap — released
 
-Spec: [`docs/specs/findings-and-remediation.md`](docs/specs/findings-and-remediation.md)
+Spec: [`docs/specs/implemented/findings-and-remediation.md`](docs/specs/implemented/findings-and-remediation.md)
 
-Introduces structured findings separate from localized display strings, with
+Introduced structured findings separate from localized display strings, with
 severity, confidence, evidence, and prerequisite dependencies. Detects
 cross-protocol conditions such as BIMI without DMARC enforcement, MTA-STS without
 TLS-RPT, and TLSA without usable DNSSEC. Produces an ordered remediation sequence
 rather than a flat suggestion list.
 
-Exit condition: every recommendation points at evidence and prerequisites, and
-results are identical across all fourteen locales.
+Exit condition met: every recommendation points at source-bound evidence and
+prerequisites, and finding/remediation order is identical across all fourteen
+locales. Released as `v0.7.0`.
 
 ### 0.8.0: Private local artifact validators
 
@@ -276,10 +277,10 @@ old optimization would now create avoidable contract churn.
 The remaining work is intentionally sequential:
 
 ```text
-0.7.0 findings → 0.8.0 artifacts → 0.9.0 reports → 1.0.0 graduation
+0.8.0 artifacts → 0.9.0 reports → 1.0.0 graduation
 ```
 
-`0.7.0` freezes finding identity and provenance. `0.8.0` consumes that final
+`0.7.0` froze finding identity and provenance. `0.8.0` consumes that final
 shape rather than inventing a stub. `0.9.0` then freezes the public report
 schema around both DNS and user-supplied provenance decisions. `1.0.0` verifies
 and documents the compatibility promises made by those releases. The decision

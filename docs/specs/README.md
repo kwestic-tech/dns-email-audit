@@ -33,16 +33,15 @@ diverged from.
 
 `Target release` below is a version-numbering anchor, kept per the naming rule
 in this document. **As of 2026-08-31, the remaining build order is also the
-release order:** 0.7.0 findings, 0.8.0 artifacts, 0.9.0 reports, then the 1.0.0
+release order:** 0.8.0 artifacts, 0.9.0 reports, then the 1.0.0
 graduation gate. The earlier parallel artifact proposal was retired after the
-0.6.0 refactor shipped; consuming the final finding shape is now cheaper than
-maintaining and reconciling a stub. See [`HANDOFF.md`](../../HANDOFF.md) for the
-current operational checkpoints. Shipped phase history belongs to the
-implemented specs rather than a second roadmap narrative.
+0.6.0 refactor shipped; 0.7.0 now supplies the final finding shape those releases
+consume. See [`HANDOFF.md`](../../HANDOFF.md) for the current operational
+checkpoints. Shipped phase history belongs to the implemented specs rather than
+a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [findings-and-remediation](findings-and-remediation.md) | 0.7.0 | 1.4 | Final — implementation may begin |
 | [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 0.2 | Draft, rebased after 0.6.0; awaiting review |
 | [report-comparison](report-comparison.md) | 0.9.0 | 0.2 | Draft, rebased after 0.6.0; awaiting review |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
@@ -122,6 +121,7 @@ precedent, and one spec was superseded outright during implementation.
 | [dns-protocol-depth](implemented/dns-protocol-depth.md) | 0.4.0 | [#22](https://github.com/kwestic-tech/dns-email-audit/pull/22) | `9bda3ad` | 1.2 (Implemented) |
 | [dnssec-evidence](implemented/dnssec-evidence.md) | 0.5.0 | [#25](https://github.com/kwestic-tech/dns-email-audit/pull/25) | `v0.5.0` | 1.5 (Implemented) |
 | [modular-architecture-and-production-build](implemented/modular-architecture-and-production-build.md) | 0.6.0 | — | `v0.6.0` | 1.8 (Implemented) |
+| [findings-and-remediation](implemented/findings-and-remediation.md) | 0.7.0 | — | `v0.7.0` | 1.5 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in

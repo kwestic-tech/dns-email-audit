@@ -9,7 +9,7 @@
 | Pull request | [#25](https://github.com/kwestic-tech/dns-email-audit/pull/25) |
 | Release tag | `v0.5.0` |
 | Depends on | [dns-protocol-depth](dns-protocol-depth.md) for `DS`, `DNSKEY` and `TLSA` transport support, the `DnsTypeError` re-throw in `optionalCheck()`, and the per-host `authenticated` field on `checkTlsa()` |
-| Blocks | [findings-and-remediation](../findings-and-remediation.md), whose DANE conditions read `checkTlsa()`'s per-host `authenticated` evidence. **Not** the audited domain's chain state — see `OQ-SEC9-07`. |
+| Blocks | [findings-and-remediation](findings-and-remediation.md), whose DANE conditions read `checkTlsa()`'s per-host `authenticated` evidence. **Not** the audited domain's chain state — see `OQ-SEC9-07`. |
 | Slug for open questions | `SEC9` |
 | Evidence | [fixtures/dnssec-live-states-0.5.0.md](fixtures/dnssec-live-states-0.5.0.md) |
 | Last updated | 2026-08-26 |
@@ -947,7 +947,7 @@ for all 40 must be identical to `v0.4.0`.
    deprecation set cites RFC 9905/9906 rather than the obsoleted RFC 8624.
 11. No active document directs future work at `qualified`. `ROADMAP.md`,
    `docs/async-development-handoff.md` and
-   [findings-and-remediation](../findings-and-remediation.md) read per-host
+   [findings-and-remediation](findings-and-remediation.md) read per-host
    `authenticated` instead.
 12. `npm test` and `npm run locale:gate` pass, 13/13 locales complete.
 
@@ -1026,7 +1026,7 @@ normalization the draft did not specify. §3 normalizes regardless.
 validates it, so it is `secure` and earns its points. Reducing its score is a
 scoring change, which this release does not make. Whether 0.6.0 introduces a
 partial-credit DNSSEC pillar is deferred to
-[findings-and-remediation](../findings-and-remediation.md), which is where severity
+[findings-and-remediation](findings-and-remediation.md), which is where severity
 and confidence get a model.
 
 **OQ-SEC9-06: How much belongs in the collapsed row versus the detail panel?**
