@@ -85,8 +85,8 @@ additions were made during implementation and are now load-bearing.
 **1. The `unproven` array and the asterisk marker.** The original spec removed
 the range and stopped there, which would have made an unverifiable check
 invisible. The shipped code adds `unprovenPillars()`
-([`js/dns.js:1725`](../../../js/dns.js)) and a `score.unproven` array
-([`js/dns.js:1807`](../../../js/dns.js)) naming the pillars a grade is resting
+(`js/dns.js:1725`) and a `score.unproven` array
+(`js/dns.js:1807`) naming the pillars a grade is resting
 on. `js/app.js:401`–`408` draws that grade with a dashed border in its own tier
 colour and appends an asterisk — `B*` rather than `B` — so a recoverable check
 is visible while scanning a 200-domain table without expanding a row.
@@ -104,7 +104,7 @@ failed optional lookup from discarding the whole audit, which made unverified
 optional checks common rather than theoretical.
 
 That release had already added the `checks-unverified` finding
-([`js/dns.js:1666`](../../../js/dns.js)) naming which checks could not be
+(`js/dns.js:1666`) naming which checks could not be
 completed. This release raises it from `info` to `warn`, for the same reason the
 other two were raised: the gap now costs points, and a re-run is what recovers
 them.
@@ -112,7 +112,7 @@ them.
 **3. The parked branch changed after all.** The spec stated that the
 parked-domain branch was already correct and needed no change. It needed one:
 parked domains also carry an `unproven` array
-([`js/dns.js:1775`](../../../js/dns.js)), filtered to the four parked pillars,
+(`js/dns.js:1775`), filtered to the four parked pillars,
 because DKIM is not a parked pillar and an unproven DKIM check must not mark a
 parked grade.
 

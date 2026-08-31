@@ -2,7 +2,9 @@
 /**
  * Grade-distribution back-test.
  *
- * Loads the real scoring code from js/dns.js and runs it against live domains
+ * Loads the real scoring code through `tools/lib/legacy-engine.mjs` — the
+ * harness that reconstructs the v0.5.0 engine surface over the production
+ * modules — and runs it against live domains
  * over Cloudflare DNS-over-HTTPS, then prints the resulting letter-grade
  * histogram and score percentiles. Use it to sanity-check GRADE_THRESHOLDS
  * before shipping a scoring change — a rubric that lands 80% of the internet
@@ -27,6 +29,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
+import { PUBLIC_SUFFIX_RULES } from '../src/data/public-suffixes.js';
+import { DKIM_SELECTOR_CATALOG } from '../src/data/dkim-selectors.js';
+import { createDnsEngine } from './lib/legacy-engine.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -133,10 +138,14 @@ const sandbox = {
 };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
-vm.runInContext(readFileSync(join(ROOT, 'js', 'public-suffixes.js'), 'utf8'), sandbox);
-vm.runInContext(readFileSync(join(ROOT, 'js', 'dkim-selectors.js'), 'utf8'), sandbox);
-vm.runInContext(readFileSync(join(ROOT, 'js', 'dns.js'), 'utf8'), sandbox);
-const D = sandbox.window.DnsAudit;
+// The engine, built with the production tables and the real fetch. This job
+// queries Cloudflare on purpose: it is a local grade-DISTRIBUTION check and is
+// never a gate, and never the equivalence oracle.
+const D = createDnsEngine({
+  publicSuffixRules: PUBLIC_SUFFIX_RULES,
+  dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
+  platform: { fetch, crypto, AbortController, URLSearchParams, setTimeout, clearTimeout },
+});
 
 const OPTS = { dkim: true, dkimComprehensive: comprehensiveDkim, www: false, advanced: true, wildcard: false, deepChecks };
 const CONCURRENCY = 6;

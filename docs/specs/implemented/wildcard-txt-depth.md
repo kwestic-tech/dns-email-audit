@@ -116,7 +116,7 @@ The implementation follows the design. Three details are worth recording.
 
 **1. The synthesized-value filter is carried as a set, not a flag.** `checkDKIM()`
 takes `{ dkim, records }` and builds `synthesized` from the probe's actual
-records ([`js/dns.js:495`](../../../js/dns.js)), passing it into
+records (`js/dns.js:495`), passing it into
 `inspectDkimSelector()`. Comparing by content is what makes it safe: a real key
 at a real selector is kept even on a domain that has a `_domainkey` wildcard.
 

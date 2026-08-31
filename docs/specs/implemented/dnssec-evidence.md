@@ -19,12 +19,12 @@
 DNSSEC carries 15 of the 100 available points on an active mail domain and 25
 of 100 on a parked one, and it gates the entire A tier. A domain cannot reach
 `A`, `A+` or `A++` without it, per `requiresDnssec` in `GRADE_THRESHOLDS` at
-[`js/dns.js:4491`](../../../js/dns.js). That is a defensible weighting, because an
+`js/dns.js:4491`. That is a defensible weighting, because an
 unsigned zone means every record the tool just examined can be forged in
 transit.
 
 The evidence behind that decision is one bit. `checkDNSSEC()` at
-[`js/dns.js:3981`](../../../js/dns.js) issues an NS query with `do=1`, reads the AD
+`js/dns.js:3981` issues an NS query with `do=1`, reads the AD
 flag from the resolver's response, and returns `secure` or `insecure`. On
 SERVFAIL it re-queries with `cd=1`, and a success there means the chain is bogus
 rather than merely unsigned. That is a clever and correct use of the resolver,
@@ -111,7 +111,7 @@ and `a.type === 48`, exactly as `checkTlsa()` filters `52` to survive the shared
 `_dane` CNAME.
 
 *`checkDNSSEC()` must stay unable to throw.* It is the only entry in the
-`Promise.all` at [`js/dns.js:5493`](../../../js/dns.js) with no `optionalCheck()`
+`Promise.all` at `js/dns.js:5493` with no `optionalCheck()`
 wrapper, and that is safe today only because it reads `dohFetch()`'s `.kind`
 and never calls `requireUsable()`. The new queries follow the same discipline:
 read `.kind`, never `requireUsable()`. If that ever becomes inconvenient, add
@@ -208,7 +208,7 @@ MTA-STS and DKIM in three separate rounds. Before the split, `257 3 15 AA==` —
 a one-octet Ed25519 key — parsed as `valid: true` and computed a key tag.
 
 **`parseDs()` may reuse `parseTlsaRecord()`'s normalization. `parseDnskey()` may
-not.** The idiom at [`js/dns.js:2643`](../../../js/dns.js) is
+not.** The idiom at `js/dns.js:2643` is
 `body.replace(/\s+/g, '').toLowerCase()`, which is right for a hex digest and
 fatal for base64: the DNSKEY key field is case-sensitive and contains `+`, `/`
 and `=`. Lowercasing it destroys the key, every digest then fails to match, and
@@ -494,10 +494,10 @@ diagnosis it cannot support.
 `signed = (state === 'secure')`, and `secure` holds exactly when AD is true. So
 `signed` is byte-identical to 0.4.0 for every domain, by construction rather
 than by measurement, and `state === 'indeterminate'` marks the same set of
-pillars unproven at [`js/dns.js:5252`](../../../js/dns.js). `calcScore()` at
-[`js/dns.js:5268`](../../../js/dns.js), `gradeFor()` at
-[`js/dns.js:4572`](../../../js/dns.js) and `unprovenPillars()` at
-[`js/dns.js:5252`](../../../js/dns.js) need no change. Acceptance criterion 6 is a
+pillars unproven at `js/dns.js:5252`. `calcScore()` at
+`js/dns.js:5268`, `gradeFor()` at
+`js/dns.js:4572` and `unprovenPillars()` at
+`js/dns.js:5252` need no change. Acceptance criterion 6 is a
 theorem about this table, and the backtest confirms it rather than establishing
 it.
 
@@ -560,7 +560,7 @@ from a lookup that established nothing. Cloudflare returns `AD: false` on
 there in the Authority section, because the answer describes an insecure
 delegation. The flag is therefore false in both cases and separates nothing.
 The evidence that would separate them lives in the Authority section, which
-`fetchDohOnce()` at [`js/dns.js:170`](../../../js/dns.js) does not return.
+`fetchDohOnce()` at `js/dns.js:170` does not return.
 Surfacing it is a transport change with one consumer, and it is not made here.
 
 The `chain` array is the honesty mechanism. It reads, in the interface, as a
@@ -654,15 +654,15 @@ reserved for demonstrably broken validation: `mismatch` and `bogus`
 
 ### 8. Interface
 
-The DNSSEC dot in the advanced strip at [`js/app.js:399`](../../../js/app.js) and
-[`js/app.js:416`](../../../js/app.js) gains an amber state for `unanchored` and
+The DNSSEC dot in the advanced strip at [`js/app.js:399`](../../../src/main.js) and
+[`js/app.js:416`](../../../src/main.js) gains an amber state for `unanchored` and
 `mismatch`, using the existing `partial` field that already drives the amber
-treatment for duplicated records at [`js/app.js:422`](../../../js/app.js) and
-[`js/app.js:464`](../../../js/app.js). The `done/5` count is unchanged: amber is not
+treatment for duplicated records at [`js/app.js:422`](../../../src/main.js) and
+[`js/app.js:464`](../../../src/main.js). The `done/5` count is unchanged: amber is not
 configured. Everything else — keys, DS records, match verdicts, the chain array
 — lives in the detail panel (`OQ-SEC9-06`).
 
-The CSV cell at [`js/app.js:1489`](../../../js/app.js) already emits
+The CSV cell at [`js/app.js:1489`](../../../src/main.js) already emits
 `dnssec.state` as a token when the domain is not signed, so `unanchored` and
 `mismatch` appear there without a schema change. That is a behaviour change for
 anything consuming the column and it is deliberate: tokens, not prose, is the
@@ -1032,8 +1032,8 @@ and confidence get a model.
 **OQ-SEC9-06: How much belongs in the collapsed row versus the detail panel?**
 *Amber in the dot, everything else in the panel.* Consistent with the
 duplicate-record precedent, and it needs no new rendering concept: the existing
-`partial` field already drives amber at [`js/app.js:422`](../../../js/app.js) and
-[`js/app.js:464`](../../../js/app.js). See §8.
+`partial` field already drives amber at [`js/app.js:422`](../../../src/main.js) and
+[`js/app.js:464`](../../../src/main.js). See §8.
 
 **OQ-SEC9-07: What becomes of `checkTlsa()`'s `qualified` flag?**
 *It is retired.* Raised during the 1.0 review; resolved by Ian. The draft's §6

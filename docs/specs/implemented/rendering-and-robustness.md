@@ -34,7 +34,7 @@ Four concrete defects, none of which is a vulnerability and all of which are
 worth fixing before six more releases extend the same code.
 
 **Placeholder interpolation is sequential.** `interpolate()` at
-[`js/i18n.js:54`](../../../js/i18n.js) loops `i` from 0 upward and replaces
+[`js/i18n.js:54`](../../../src/i18n/index.js) loops `i` from 0 upward and replaces
 `{i}` by string split and join. An argument substituted at `i=0` becomes part of
 the string that `i=1` then scans, so a value containing `{1}` causes the second
 argument to be interpolated into a position the translator never wrote. Every
@@ -44,18 +44,18 @@ exploits this today. [dmarcbis-tree-walk](dmarcbis-tree-walk.md) and
 argument is a DNS-derived name, which makes it reachable.
 
 **The progress log is quadratic.** `log()` at
-[`js/app.js:156`](../../../js/app.js) does `el.innerHTML +=`, which serializes and
+[`js/app.js:156`](../../../src/main.js) does `el.innerHTML +=`, which serializes and
 reparses the entire log on every append. A 200-domain run appends at least 200
 times and reparses a growing document each time.
 
-**`esc()` does not escape single quotes.** [`js/app.js:128`](../../../js/app.js)
+**`esc()` does not escape single quotes.** [`js/app.js:128`](../../../src/main.js)
 handles `&`, `<`, `>` and `"`. That is correct only because every generated
 attribute in the file happens to use double quotes. It is a property maintained
 by consistent habit across twenty-odd concatenation sites, not by construction,
 and the next four releases add more of them.
 
 **Sanitized rich text round-trips through a string.**
-`sanitizeHTML()` at [`js/i18n.js:96`](../../../js/i18n.js) parses into a
+`sanitizeHTML()` at [`js/i18n.js:96`](../../../src/i18n/index.js) parses into a
 `<template>`, walks and strips, then returns `template.innerHTML`. The caller
 reparses that string. Serializing a sanitized tree and reparsing it is the shape
 mutation XSS exploits. The content here is our own locale files rather than DNS
@@ -151,8 +151,8 @@ release is not gated on any of them and the CSP directive does not change.
 
 ### 1a. Document builders: build a tree, then serialize
 
-`buildLearnMorePage()` at [`js/app.js:195`](../../../js/app.js) and `exportHTML()`
-at [`js/app.js:811`](../../../js/app.js) both produce a complete HTML document, one
+`buildLearnMorePage()` at [`js/app.js:195`](../../../src/main.js) and `exportHTML()`
+at [`js/app.js:811`](../../../src/main.js) both produce a complete HTML document, one
 for a Blob and one for a download. In the 0.2 draft they were allowlisted as
 legitimate string builders, which does not compose with deleting `esc()`, since
 `buildLearnMorePage()` is its largest consumer.
@@ -233,7 +233,7 @@ backstop rather than a routine path. `tools/render.test.mjs` asserts the
 author-time allowlist and the runtime tokenizer agree tag for tag, so the two
 cannot drift.
 
-`applyTranslations()` at [`js/i18n.js:188`](../../../js/i18n.js) changes from
+`applyTranslations()` at [`js/i18n.js:188`](../../../src/i18n/index.js) changes from
 `el.innerHTML = sanitizeHTML(...)` to `el.replaceChildren(sanitizeFragment(...))`.
 
 The allowlist is unchanged: `A, BR, STRONG, CODE, EM, B, I, SMALL, UL, OL, LI, P`,
@@ -322,18 +322,18 @@ report and behind the disclosure control.
 | **Bidirectional overrides** (U+202A–202E, U+2066–2069, U+200E, U+200F) | Passed through to the DOM | Sentinel substitution per the rule above, plus `unicode-bidi: isolate` on the container, plus a record-hygiene note. This is the malformation that is a genuine output-integrity attack: an override inside an SPF `include:` host visually reverses the name, so a reader checks the wrong domain while the escaping was entirely correct. |
 | **C0 and C1 control characters** | May pass through `cleanAnswerData()` | Sentinel substitution naming the code point, and a record-hygiene note. |
 | **Zero-width characters** (U+200B–200D, U+FEFF) | Passed through | Sentinel substitution. Two hostnames differing only by a zero-width joiner render identically today. |
-| **Lone surrogates and invalid UTF-8** | `JSON.parse` may produce them; `cleanAnswerData()` falls back to the raw chunk on a parse failure | Normalize to U+FFFD. Confirm the fallback path at [`js/dns.js:201`](../../../js/dns.js) does not silently produce a differently-decoded string from the success path. |
+| **Lone surrogates and invalid UTF-8** | `JSON.parse` may produce them; `cleanAnswerData()` falls back to the raw chunk on a parse failure | Normalize to U+FFFD. Confirm the fallback path at `js/dns.js:201` does not silently produce a differently-decoded string from the success path. |
 | **Punycode names in responses** (`xn--` MX or CNAME targets) | Displayed verbatim | Keep displaying verbatim. Decoding to Unicode would reintroduce homoglyph confusion. Note the `xn--` prefix in the interface rather than hiding it. |
 | **Very long single label** in a CNAME or MX target | Unbounded | Truncate for display at 253 characters with the same disclosure control. |
-| **Unbounded DoH cache** at [`js/dns.js:65`](../../../js/dns.js) | `Map` grows for the page's lifetime | Cap at a fixed entry count with least-recently-used eviction. A long session auditing several batches currently retains every answer. |
+| **Unbounded DoH cache** at `js/dns.js:65` | `Map` grows for the page's lifetime | Cap at a fixed entry count with least-recently-used eviction. A long session auditing several batches currently retains every answer. |
 | **Records that look like templates** (a value containing `{0}`) | Sequential interpolation substitutes it | Fixed by section 2. |
 | **Empty and whitespace-only values** | Rendered as an empty cell | Render the existing `labels.none` token so an empty record is distinguishable from a lookup that returned nothing. |
 
 Three pathologies are already handled correctly and are listed so a reviewer can
 confirm rather than rediscover: CNAME loops are bounded by a visited set and a
-depth of 12 at [`js/dns.js:923`](../../../js/dns.js); SPF include cycles are bounded
-at depth 20 at [`js/dns.js:973`](../../../js/dns.js); duplicate versioned records
-fail closed at [`js/dns.js:1949`](../../../js/dns.js).
+depth of 12 at `js/dns.js:923`; SPF include cycles are bounded
+at depth 20 at `js/dns.js:973`; duplicate versioned records
+fail closed at `js/dns.js:1949`.
 
 ### 5. Dependency-free test harness
 
@@ -421,7 +421,7 @@ keeping the existing parse and returning `template.content`; that is an
 2 forbid with an allowlist they both require to be empty. As specified the
 implementation would have failed the test the spec itself mandates. It shipped
 as a fail-closed tokenizer that builds nodes directly
-([`js/i18n.js`](../../../js/i18n.js)); anything outside the twelve-tag allowlist
+([`js/i18n.js`](../../../src/i18n/index.js)); anything outside the twelve-tag allowlist
 is emitted as literal text, so a `<script>` in a locale string renders visibly
 as itself. `tools/check-locales.mjs` gained the matching author-time check, and
 `tools/render.test.mjs` asserts the two allowlists agree tag for tag.
@@ -432,7 +432,7 @@ a text node cannot be markup. `advFullDots()` puts BIMI and CAA record text into
 `data-tip`, which `css/style.css` paints with `content: attr(data-tip)` — an
 override there reorders a tooltip exactly as it would a table cell. `R.el`
 applies `R.sentinelText()` to `title` and every `data-*` value
-([`js/render.js`](../../../js/render.js)). Found in internal review; neither
+([`js/render.js`](../../../src/ui/render.js)). Found in internal review; neither
 test suite covered the attribute path until a fixture was added for it.
 
 **3. DNS-derived values are substituted at the interpolation boundary too.**
@@ -440,7 +440,7 @@ Found by external review. `issueMessage()` interpolated a DNS-derived argument
 straight into the translated sentence, so a record rendered as `‹RLO›` while the
 issue message beside it still reordered. Substitution is applied to the
 *argument* before translation (`dnsArgs`/`tDns` in
-[`js/app.js`](../../../js/app.js)), never to the finished string — a locale may
+[`js/app.js`](../../../src/main.js)), never to the finished string — a locale may
 legitimately use formatting characters of its own; the interpolated argument is
 the untrusted half. The other argument-bearing sites were audited with it.
 
@@ -690,7 +690,7 @@ condition `docs/specs/README.md` sets for `1.0 (Final)`.
 | OQ-SEC-08 | Display truncation threshold and unit? | 1024 characters, per value. A 4096-bit RSA DKIM key runs to roughly 760 characters with its tags, so 512 would truncate a legitimate key. The 20-record cap per cell is a separate, independent limit and both apply. | 0.3 |
 | OQ-SEC-09 | Strip bidirectional controls, or render them inert? | Neither. Replace each invisible character with a visible sentinel at its exact position. CSS cannot do this: `unicode-bidi: isolate` stops a value reordering its neighbours, not its own contents, so an override inside an SPF `include:` host still reverses that value. Substitution removes the character from the text run, which actually neutralizes it, while the marker keeps the technique visible. Isolation is applied to the container as well, since it is free. | 0.3 |
 | OQ-SEC-10 | Should the markup-sink check be a test or a lint? | A blocking test, and a runtime trap first. The shim defines `innerHTML` and `outerHTML` setters that throw, catching computed and destructured access a static pattern misses; an assignment-only scan backs it up for untested paths. The allowlist is empty, because section 1a makes both document builders construct trees and read `outerHTML` rather than write it. | 0.3 |
-| OQ-SEC-11 | Do sentinels appear in the CSV export, or only in the interface and the HTML report? | Raw characters stay in the CSV data column; a separate `record_hygiene` column names what was found (e.g. `bidi-override`). The CSV is the machine-readable export people pipe into other tools, so rewriting a cell's bytes to a sentinel string breaks programmatic parsing, while the new column still warns a human who opens it in a spreadsheet. Consistent with this spec's own "display caps never reach the data" rule: the interface is annotated and capped, the export stays faithful. The column is **appended, never inserted**, per the positional-header backfill rule at [`js/app.js:744`](../../../js/app.js). The interface and the HTML report keep the visible sentinels of section 4. | 1.0 |
+| OQ-SEC-11 | Do sentinels appear in the CSV export, or only in the interface and the HTML report? | Raw characters stay in the CSV data column; a separate `record_hygiene` column names what was found (e.g. `bidi-override`). The CSV is the machine-readable export people pipe into other tools, so rewriting a cell's bytes to a sentinel string breaks programmatic parsing, while the new column still warns a human who opens it in a spreadsheet. Consistent with this spec's own "display caps never reach the data" rule: the interface is annotated and capped, the export stays faithful. The column is **appended, never inserted**, per the positional-header backfill rule at [`js/app.js:744`](../../../src/main.js). The interface and the HTML report keep the visible sentinels of section 4. | 1.0 |
 | OQ-SEC-12 | Do record-hygiene observations become findings, or stay display annotations? | They stay display annotations in 0.2.3, explicitly deferred to [findings-and-remediation](../findings-and-remediation.md) (0.6.0). This release's non-goals rule out a scoring change and any edit to `js/dns.js` for grading purposes; promoting a hygiene observation to a finding would require a severity and so smuggle a scope change into a release whose entire point is rendering correctness. 0.6.0 is where severity is modelled properly. | 1.0 |
 
 ## Reopened questions

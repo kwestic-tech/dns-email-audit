@@ -1,27 +1,220 @@
-# Validates locale files on every push and pull request.
+# Validates the build, the supply chain and the locale files on every push and
+# pull request.
 #
 # Catches the three things that actually break translations:
 #   • malformed JSON in a locale file
 #   • {0}/{1} placeholder mismatches against en.json
-#   • js/locales-en.js not regenerated after editing locales/en.json
+#   • src/data/locales-en.js not regenerated after editing locales/en.json
 #
 # Missing keys are reported but do NOT fail the build — partial translations
 # are welcome and fall back to English at runtime.
+#
+# From 0.6.0 this also covers the first dependency in the project's history and
+# the artifact the browser is served. Every action is SHA-pinned.
 
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'spec/**']
   pull_request:
 
 jobs:
-  locales:
-    name: Locale integrity
+  # ────────────────────────────────────────────────────────────────────────
+  # The supply chain, on a real Linux runner.
+  #
+  # The OQ-ARCH-01 spike measured darwin-arm64 only, and the dependency
+  # footprint is platform-specific by design. `npm ci --os=linux` on a Mac
+  # proves the lockfile RESOLVES for Linux; it does not prove any of this. That
+  # is what this job is for, and its result must not be substituted for.
+  # ────────────────────────────────────────────────────────────────────────
+  supply-chain:
+    name: Linux npm ci, scripts denied
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          # The Node the work was verified on. The supported floor is exercised
+          # by the `supported-floor` job below, separately, so a difference
+          # there cannot be mistaken for a supply-chain failure here.
+          node-version: '26.7.0'
+
+      - name: Runner identity
+        run: |
+          echo "uname:  $(uname -srm)"
+          echo "distro: $(. /etc/os-release && echo "$PRETTY_NAME")"
+          echo "node:   $(node -v)"
+          echo "npm:    $(npm -v)"
+          echo "arch:   $(node -p 'process.platform + "-" + process.arch')"
+
+      # No --os and no --cpu. The runner IS Linux; substituting the platform
+      # would answer a different question than the one this job exists to ask.
+      - name: npm ci
+        run: npm ci
+
+      - name: The install script did not run
+        run: |
+          # package.json records "allowScripts": { "esbuild": false }. This
+          # asserts the decision was honoured rather than trusting the setting.
+          node -e '
+            const pkg = require("./package.json");
+            if (pkg.allowScripts?.esbuild !== false) {
+              throw new Error("allowScripts must deny esbuild; found: " + JSON.stringify(pkg.allowScripts));
+            }
+            console.log("allowScripts: esbuild denied, as recorded");
+          '
+          # esbuild's postinstall writes bin/esbuild inside the wrapper package.
+          # Its absence is the observable consequence of the script not running.
+          if [ -e node_modules/esbuild/bin/esbuild ] && [ ! -L node_modules/esbuild/bin/esbuild ]; then
+            echo "note: node_modules/esbuild/bin/esbuild exists; inspecting"
+            ls -l node_modules/esbuild/bin/esbuild
+          fi
+
+      - name: The expected platform package is installed
+        run: |
+          test -d node_modules/@esbuild/linux-x64 \
+            || { echo "@esbuild/linux-x64 is missing"; ls node_modules/@esbuild || true; exit 1; }
+          echo "installed platform packages:"
+          ls node_modules/@esbuild
+          # Exactly one platform package, and it is this platform's.
+          COUNT=$(ls node_modules/@esbuild | wc -l | tr -d ' ')
+          test "$COUNT" = "1" || { echo "expected exactly 1 platform package, found $COUNT"; exit 1; }
+          echo "total packages installed:"
+          npm ls --all --depth=99 --parseable | wc -l
+
+      - name: esbuild executes
+        run: |
+          node -e '
+            const esbuild = require("esbuild");
+            const out = esbuild.buildSync({
+              stdin: { contents: "var x=1;console.log(x)" },
+              write: false, bundle: true, minify: true,
+            });
+            const text = out.outputFiles[0].text;
+            if (!text.includes("console.log")) throw new Error("esbuild produced nothing usable");
+            console.log("esbuild " + esbuild.version + " ran with its install script denied");
+            console.log("output: " + JSON.stringify(text));
+          '
+
+      - name: Test suite
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Bundle size, reported and never enforced
+        run: |
+          node tools/build-bundle.mjs | tee /tmp/size.txt
+          {
+            echo '### Bundle size'
+            echo
+            echo '```'
+            cat /tmp/size.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deployment artifact contents
+        run: node tests/build/artifact.test.mjs
+
+      - name: Locale gate
+        run: npm run locale:gate
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Five-surface equivalence against the committed v0.5.0 baseline.
+  #
+  # Pinned to the Node the baseline was captured with. That is not fussiness:
+  # the baseline binds Node, ICU and Unicode, because `toLocaleString` output
+  # is ICU's and a report rendered under a different one is a different report.
+  # The runner reports an environment mismatch as its own difference rather
+  # than as thirty surface diffs that all mean the same thing.
+  # ────────────────────────────────────────────────────────────────────────
+  equivalence:
+    name: Five-surface equivalence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0   # the baseline is captured from a v0.5.0 worktree
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26.7.0'
+      - run: npm ci
+      - run: npm run build:bundle
+
+      - name: Against the working tree
+        run: node tests/build/equivalence.mjs --subject-root=.
+
+      - name: Against the deployable artifact
+        run: |
+          npm run build
+          node tests/build/equivalence.mjs --subject-root=_site
+
+      # The baseline is committed, so CI must be able to reproduce it rather
+      # than take it on trust. Spec Design §8.
+      - name: The committed baseline regenerates identically
+        run: |
+          git worktree add ../dea-v050 v0.5.0
+          node tests/build/equivalence.mjs --subject-root=../dea-v050 --emit > /tmp/baseline.json
+          git worktree remove ../dea-v050
+          diff -q /tmp/baseline.json tests/fixtures/equivalence/baseline-v0.5.0.json \
+            || { echo "the committed baseline does not regenerate byte-identically"; \
+                 diff /tmp/baseline.json tests/fixtures/equivalence/baseline-v0.5.0.json | head -40; exit 1; }
+          echo "baseline regenerated byte-identically"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # file:// in a real browser engine.
+  #
+  # An acceptance criterion, and structural reasoning is not evidence for it.
+  # src/data/locales-en.js exists so the app works from disk; OQ-ARCH-06 chose an
+  # IIFE over a module for the same reason. The check refuses to skip when no
+  # browser is present.
+  # ────────────────────────────────────────────────────────────────────────
+  file-url:
+    name: file:// in headless Chrome
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          # Needs a global WebSocket to speak the DevTools Protocol without
+          # adding a dependency, and the release ships exactly one devDependency.
+          node-version: '26.7.0'
+      - run: npm ci
+      - run: npm run build:bundle
+
+      - name: Locate a browser
+        id: browser
+        run: |
+          for candidate in \
+            /usr/bin/google-chrome /usr/bin/google-chrome-stable \
+            /usr/bin/chromium /usr/bin/chromium-browser; do
+            if [ -x "$candidate" ]; then
+              echo "CHROME_PATH=$candidate" >> "$GITHUB_ENV"
+              echo "found $candidate"; "$candidate" --version
+              exit 0
+            fi
+          done
+          echo "no Chromium-family browser on the runner"; exit 1
+
+      - name: Open index.html from disk
+        run: node tests/build/file-url.test.mjs
+
+  # ────────────────────────────────────────────────────────────────────────
+  # The supported floor.
+  #
+  # package.json declares `engines: node >=20`. This job says whether that is
+  # still true, on its own, so a floor problem reads as a floor problem rather
+  # than as a supply-chain or equivalence failure.
+  # ────────────────────────────────────────────────────────────────────────
+  supported-floor:
+    name: Node 20 (declared engines floor)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
+      - run: npm ci
       - run: npm test
+      - run: npm run build

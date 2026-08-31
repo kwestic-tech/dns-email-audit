@@ -33,7 +33,9 @@ when the comprehensive DKIM scan is enabled. For example, auditing
 `cloudflare.com` with the defaults issues 61 queries.
 
 These are measured numbers, not estimates: `node tools/backtest.mjs` reports
-the fan-out of every run it makes, and the figures above were taken from a
+the fan-out of every run it makes — it drives the audit directly and loads no
+page, so the two fixed probes below are not in these figures — and the figures
+above were taken from a
 40-domain sample at release 0.5.0. 0.5.0 added exactly **two** queries per
 domain — a `DNSKEY` and a `DS` lookup for the audited name — and that figure is
 per-domain and deterministic: `cloudflare.com` measured 43 at 0.4.0 and 45 at
@@ -104,9 +106,34 @@ That last category matters: because the SPF chain is resolved, the pattern of
 queries can reveal **which email and SaaS vendors the audited domain uses**,
 not merely that you looked the domain up.
 
-The app also issues one `A` query for `example.com` before each run, as a
-pre-flight check that the resolver is reachable. This is a fixed probe and
-does not depend on what you entered.
+### Two fixed probes that are not about your domains
+
+Separately from the audit itself, the app issues an `A` query for `example.com`
+**twice**, to check that the resolver is reachable:
+
+| When | How often |
+| --- | --- |
+| When the page finishes loading, before you have typed anything | once per page load |
+| Immediately before an audit run starts | once per run, however many domains that run covers |
+
+Both are fixed probes for the same fixed name. Neither depends on what you
+entered, and neither is repeated per domain — a run covering nine domains sends
+the second probe once, not nine times. They are excluded from the per-domain
+figures above, which count only the queries an audit makes about the domain you
+asked about.
+
+The page-load probe is why `example.com` is queried even in a session where you
+never run an audit. It has always been sent; it was measured for the first time
+in 0.6.0, when the equivalence runner began driving the page through its real
+`DOMContentLoaded` boot instead of skipping straight to the audit.
+
+> **Verified against the query trace, not asserted.** The equivalence suite
+> records every DNS query each of its 32 cases makes, and at the 0.6.0 release
+> every case shows `example.com A` exactly **twice** — including the case that
+> audits an unregistered domain and stops after three queries, and the case
+> that audits two domains in one page, which still shows two. That is the
+> page-load probe plus the per-run probe, and it is what makes "once per run,
+> however many domains that run covers" a measurement rather than a claim.
 
 All of these query names are visible to Cloudflare and are governed by
 Cloudflare's own privacy policy, not this project's. If that is not an
@@ -151,12 +178,15 @@ visit.
 Every claim above is checkable in code, at
 [github.com/kwestic-tech/dns-email-audit](https://github.com/kwestic-tech/dns-email-audit):
 
-- `js/dns.js` contains the only third-party network calls — every request to
-  Cloudflare's DoH endpoint goes through the `DOH` constant defined there.
-- `js/i18n.js` contains the only `localStorage` call in the app
+- `src/core/dns/doh.js` contains the only third-party network calls — every
+  request to Cloudflare's DoH endpoint goes through the `DOH_ENDPOINT` constant
+  defined there, and it is the only module in the application that calls
+  `fetch` against a host this project does not serve.
+- `src/i18n/index.js` contains the only `localStorage` call in the app
   (`localStorage.setItem` / `getItem` on `dns-email-audit-lang`), and the
-  same-origin fetch of `locales/*.json`.
-- `js/app.js` fetches `css/style.css` from the same origin when building an
+  same-origin fetch of `locales/*.json` — including the `locales/index.json`
+  read at page load.
+- `src/main.js` fetches `css/style.css` from the same origin when building an
   exported report, so the export is self-contained.
 - The `Content-Security-Policy` in `index.html` enforces this at the browser
   level: `connect-src` permits only `'self'` and `https://cloudflare-dns.com`,

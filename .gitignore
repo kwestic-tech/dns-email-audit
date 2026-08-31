@@ -1,10 +1,19 @@
 # Dependencies
 node_modules/
-package-lock.json
+
+# package-lock.json is NOT ignored, as of 0.6.0.
+#
+# It was ignored for the project's whole history because there were no
+# dependencies of any kind and the file would always have been empty. esbuild
+# is the first, which makes the build system part of the supply chain -- and
+# spec §28's requirement that development dependencies be pinned through the
+# lockfile cannot be met while the lockfile is ignored. See correction 5 in
+# docs/specs/modular-architecture-and-production-build.md.
 
 # Generated deploy output / editor / OS noise
 _site/
 dist/
+.build/
 .DS_Store
 Thumbs.db
 .idea/

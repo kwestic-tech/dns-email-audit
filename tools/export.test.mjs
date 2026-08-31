@@ -9,12 +9,14 @@
  */
 
 import {
-  loadApp, elements, attributes, textOf,
+  loadUi, elements, attributes, textOf,
 } from './lib/browser-harness.mjs';
+import { LOCALE_EN } from '../src/data/locales-en.js';
 
-const win = loadApp();
-const { R, document } = win;
-const APP = win.__APP_TEST__;
+// Task 6.2: a direct ESM path, replacing `window.__APP_TEST__`. See
+// `loadUi()`'s own note — the adapter existed for this suite and
+// `render.test.mjs`, and both import the runtime now.
+const { win, R, document, t, i18n, ui: APP } = await loadUi();
 
 let pass = 0, fail = 0;
 const eq = (label, actual, expected) => {
@@ -264,7 +266,9 @@ eq('the guide has a doctype', guide.startsWith('<!DOCTYPE html>'), true);
 eq('an unknown guide returns null', APP.buildLearnMorePage('nope'), null);
 
 // A locale fixture carrying markup outside the rich-text allowlist.
-const bundle = win.__I18N_EN__;
+// The English bundle, imported rather than read off a global — the same
+// table `loadUi()` hands the runtime.
+const bundle = LOCALE_EN;
 bundle.learnMore.__test__ = {
   title: '<script>alert(1)</script>',
   tagline: '<img src=x onerror=alert(1)>',
@@ -484,7 +488,7 @@ eq('the terminated column carries the token', walked[hygieneIdx + 3], 'root');
 // misalign, which is why it is appended rather than inserted.
 eq('every column before the new ones is unchanged',
   header.slice(0, hygieneIdx).join('|'),
-  (win.__I18N_EN__.csv.headers.slice(0, hygieneIdx)).join('|'));
+  (LOCALE_EN.csv.headers.slice(0, hygieneIdx)).join('|'));
 
 const csvText = APP.toCsvText(rows);
 eq('quotes in a value are doubled, not dropped',

@@ -19,15 +19,15 @@ exists, and here is its version id". The policy itself, which contains the mode,
 the permitted MX patterns and the max age, lives at
 `https://mta-sts.<domain>/.well-known/mta-sts.txt`. The tool validates the TXT
 record's syntax in `validateMtaStsRecord()` at
-[`js/dns.js:896`](../../js/dns.js) and sets `policyVerified: false`
-unconditionally at [`js/dns.js:1962`](../../js/dns.js). `calcScore()` at
-[`js/dns.js:1795`](../../js/dns.js) therefore awards half the MTA-STS pillar,
+`js/dns.js:896` and sets `policyVerified: false`
+unconditionally at `js/dns.js:1962`. `calcScore()` at
+`js/dns.js:1795` therefore awards half the MTA-STS pillar,
 four points out of eight, to every domain that publishes a syntactically valid
 TXT record. `README.md` states the reason honestly under Known limitations:
 browser CORS restrictions prevent reliable policy retrieval.
 
 BIMI has the same shape. `validateBimiRecord()` at
-[`js/dns.js:910`](../../js/dns.js) confirms the `l=` and `a=` values are HTTPS
+`js/dns.js:910` confirms the `l=` and `a=` values are HTTPS
 URLs and stops there. Whether the SVG at `l=` conforms to the SVG Portable/Secure
 profile, which is what determines whether mailbox providers actually display the
 logo, is unknown.
@@ -94,7 +94,7 @@ Inputs, per artifact type:
 - A `<input type="file">` accepting `.txt` for MTA-STS and `.svg` for BIMI.
 
 Both read into a string with `FileReader`, following the existing upload pattern
-at [`js/app.js:848`](../../js/app.js), which already enforces a 1 MB cap through
+at [`js/app.js:848`](../../src/main.js), which already enforces a 1 MB cap through
 `MAX_UPLOAD_BYTES`.
 
 ### 2. Limits, enforced before parsing

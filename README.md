@@ -3,10 +3,11 @@
 [![CI](https://github.com/kwestic-tech/dns-email-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/kwestic-tech/dns-email-audit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kwestic-tech/dns-email-audit/blob/main/LICENSE)
 
-A free, dependency-free browser application for auditing DNS, email
-authentication, mail-transport security, and related domain controls. Audit up
-to 200 domains at once and get evidence-backed findings, a confidence-aware
-grade, plain-language explanations, and copy-ready remediation examples.
+A free browser application with no runtime dependencies for auditing DNS,
+email authentication, mail-transport security, and related domain controls.
+Audit up to 200 domains at once and get evidence-backed findings, a
+confidence-aware grade, plain-language explanations, and copy-ready
+remediation examples.
 
 **[Open the live auditor →](https://dnsaudit.kwestic.com)**
 
@@ -259,32 +260,39 @@ placeholders, inline HTML, plurals, and DNS examples.
 
 ## Run locally
 
-Requirements: [Node.js](https://nodejs.org/) 18 or newer. There are no package
-dependencies to install.
+Requirements: [Node.js](https://nodejs.org/) 20 or newer. A clean checkout
+needs the exact-pinned build dependency installed and the browser artifact
+built before it can be served:
 
 ```bash
 git clone https://github.com/kwestic-tech/dns-email-audit.git
 cd dns-email-audit
+npm ci
+npm run build
 npm start
 ```
 
 Open <http://localhost:8080>.
 
-Any static HTTP server can serve the repository. Opening `index.html` directly
-over `file://` also works in English; browsers block fetching the other locale
+Any static HTTP server can serve the repository after `npm run build` has
+created `dist/app.min.js`. Opening `index.html` directly over `file://` also
+works in English after that build; browsers block fetching the other locale
 JSON files from disk, so translated interfaces require HTTP.
 
 ## Tests and developer commands
 
 | Command | Purpose |
 | --- | --- |
-| `npm start` | Start the dependency-free development server on port 8080. |
+| `npm ci` | Install exact versions of esbuild and its platform binary; no install scripts run. |
+| `npm start` | Serve the already-built application on port 8080 with the dependency-free development server. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Run locale validation plus 2,121 parser, protocol, scoring, rendering, export and CSP assertions. |
+| `npm test` | Build the bundle, then run locale validation plus **4,451** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
-| `npm run build:fallback` | Regenerate `js/locales-en.js` after editing `locales/en.json`. |
-| `npm run build` | Build the allowlisted static deployment into `_site/`. |
+| `npm run build:fallback` | Regenerate `src/data/locales-en.js` after editing `locales/en.json`. |
+| `npm run build` | Bundle `src/` into `dist/app.min.js`, then build the allowlisted static deployment into `_site/`. |
+| `npm run inventory` | Run every suite and check each one's assertion count against `tests/inventory.json`. |
+| `npm run test:file-url` | Open the built page from `file://` in real Chrome. |
 | `npm run update:psl` | Refresh the vendored Mozilla Public Suffix List snapshot. |
 | `npm run update:dkim-selectors` | Normalize or import the DKIM selector catalog. |
 
@@ -304,8 +312,9 @@ maximum possible score. It requires outbound network access and is not run in CI
 
 ## Build and deployment
 
-The browser application itself does not require bundling. For deployment,
-`npm run build` copies only the public runtime files into `_site/`:
+The browser loads `dist/app.min.js`, so a source checkout must be bundled
+before it can run. `npm run build` creates that artifact and then copies only
+the public runtime files into `_site/` for deployment:
 
 ```bash
 npm test
@@ -325,24 +334,33 @@ Netlify, Cloudflare Pages, S3, or a conventional web server.
 dns-email-audit/
 ├── index.html                  # accessible, localized application markup
 ├── css/style.css               # responsive application and report styles
-├── js/
-│   ├── app.js                  # UI orchestration, rendering, filtering, exports
-│   ├── dns.js                  # DNS transport, analysis, findings, and scoring
-│   ├── i18n.js                 # locale loading, fallback, and safe rich text
-│   ├── locales-en.js           # generated English file:// fallback
-│   ├── public-suffixes.js      # generated Public Suffix List snapshot
-│   └── dkim-selectors.js       # generated DKIM selector catalog
+├── src/                        # the application — ES modules
+│   ├── main.js                 # entry point: platform, one runtime, the facade
+│   ├── runtime.js              # composition root
+│   ├── core/dns/               # DoH transport, cache, resolver, cancellation
+│   ├── core/spf|dkim|dmarc|…/  # one directory per protocol, plus shared/
+│   ├── audit/                  # which checks run, scoring, findings
+│   ├── providers/              # DNS, email and hosting detection
+│   ├── ui/                     # render.js, report.js, events.js
+│   ├── i18n/index.js           # locale loading, fallback, and safe rich text
+│   └── data/                   # generated: locales-en, public suffixes, DKIM
+├── dist/app.min.js             # the built artifact — what the browser loads
 ├── locales/
 │   ├── index.json              # shipped-language registry
 │   ├── en.json                 # source-of-truth UI text
 │   └── de/es/fr/it/ja/ko/zh-*  # translated locale bundles
+├── tests/
+│   ├── contract/               # allowed imports, transport kinds, namespace
+│   ├── build/                  # artifact, parity, equivalence, file:// in Chrome
+│   └── fixtures/equivalence/   # the corpus and its committed baseline
 ├── tools/
 │   ├── serve.mjs               # dependency-free local server
+│   ├── build-bundle.mjs        # esbuild → dist/app.min.js
+│   ├── build-site.mjs          # allowlisted `_site` build
 │   ├── check-locales.mjs       # locale and fallback validation
 │   ├── scoring.test.mjs        # parser, protocol, and scoring tests
 │   ├── backtest.mjs            # live grade-distribution analysis
-│   ├── build-site.mjs          # allowlisted `_site` build
-│   ├── build-fallback.mjs      # en.json → locales-en.js
+│   ├── build-fallback.mjs      # en.json → src/data/locales-en.js
 │   ├── update-psl.mjs          # Public Suffix List updater
 │   └── update-dkim-selectors.mjs
 ├── .github/workflows/          # CI and GitHub Pages deployment
@@ -352,9 +370,16 @@ dns-email-audit/
 └── LICENSE
 ```
 
-All user-facing application text lives in the locale bundles. `js/dns.js`
-returns stable identifiers and structured data rather than English UI strings,
-keeping audit logic independent from translation work.
+**The source is `src/`; the artifact is `dist/app.min.js`.** `index.html` loads
+the artifact and nothing else — one script tag, a classic script rather than a
+module so the page still opens from `file://`. Edit `src/`, run
+`npm run build`, and the browser sees the change. `AGENTS.md` carries the
+directory ownership table and the allowed-import matrix, which a contract test
+enforces.
+
+All user-facing application text lives in the locale bundles. The protocol and
+audit layers return stable identifiers and structured data rather than English
+UI strings, keeping audit logic independent from translation work.
 
 ## Privacy and browser security
 
@@ -368,14 +393,14 @@ keeping audit logic independent from translation work.
   user or browser clears site data. See [PRIVACY.md](PRIVACY.md) for the
   full policy and [SECURITY.md](SECURITY.md) for vulnerability reporting.
 - One audit is many DNS queries, not one: a typical domain fans out to
-  roughly 30, and following the SPF `include:` chain means Cloudflare also
-  sees the audited domain's email vendor hostnames. See
+  roughly 41 with the default options, and following the SPF `include:` chain
+  means Cloudflare also sees the audited domain's email vendor hostnames. See
   [PRIVACY.md](PRIVACY.md#what-cloudflare-can-see) for detail.
 - A restrictive Content Security Policy allows same-origin runtime assets,
   limits external connections to Cloudflare DNS-over-HTTPS, and restricts
   scripts, frames, objects, forms, and referrer data.
 - DNS-derived output is inserted as text nodes and never parsed as markup. No
-  file under `js/` assigns to `innerHTML` or `outerHTML`; the allowlist for
+  file under `src/` assigns to `innerHTML` or `outerHTML`; the allowlist for
   that rule is empty and enforced by both a runtime setter trap in the test
   DOM and a static scan in `npm test`. Translated rich text is tokenized
   against a twelve-tag allowlist, and anything outside it is rendered as

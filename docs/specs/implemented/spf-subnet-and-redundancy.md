@@ -108,7 +108,7 @@ that `js/dns.js` returns identifiers and `js/app.js` turns them into words, and
 it would have been unlocalizable. The shipped code emits issue keys with
 arguments: `spf-large-subnet`, `spf-medium-subnet`, `spf-redundant-mechanism`,
 `spf-redundant-mechanism-nocount` and `spf-partial-coverage`
-([`js/dns.js:1628`](../../../js/dns.js)). This is the divergence with the
+(`js/dns.js:1628`). This is the divergence with the
 longest reach, and later specs restate the rule as inherited.
 
 **2. The Low tier is classified but never surfaced.** The spec listed
@@ -116,7 +116,7 @@ longest reach, and later specs restate the rule as inherited.
 was wrong: `stanford.edu` publishes 15 `ip4:` mechanisms, 13 of them `/32`, and
 a line each saying *this is one host* buries everything worth reading. The Low
 tier is still classified and still present in the result object; only its issue
-emission is suppressed ([`js/dns.js:1636`](../../../js/dns.js)).
+emission is suppressed (`js/dns.js:1636`).
 
 **3. The lookup count is folded into the advice.** The spec asked only that the
 two features be sequenced together. The shipped finding names the current count
@@ -127,7 +127,7 @@ number.
 
 **4. Redundancy resolution is skipped entirely when no block is present.** Not
 in the spec. With no `ip4:`/`ip6:` mechanism, nothing can be contained in one,
-so the whole resolution phase is skipped ([`js/dns.js:1197`](../../../js/dns.js))
+so the whole resolution phase is skipped (`js/dns.js:1197`)
 and records built purely from `include:` — `google.com`, `apple.com`, most of
 the sample — cost no DNS at all.
 

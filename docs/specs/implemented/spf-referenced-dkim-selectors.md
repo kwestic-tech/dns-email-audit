@@ -87,7 +87,7 @@ existing call site, which already has the record in scope.
 **1. The mapping table lives in `js/dns.js`, not `js/dkim-selectors.js`.** The
 spec placed it in the selector catalog file and exposed it as
 `global.__DKIM_SPF_INCLUDE_PROVIDERS__`. It shipped as a module-local
-`DKIM_SPF_INCLUDE_PROVIDERS` at [`js/dns.js:43`](../../../js/dns.js), beside the
+`DKIM_SPF_INCLUDE_PROVIDERS` at `js/dns.js:43`, beside the
 code that consumes it. `js/dkim-selectors.js` is a generated catalog maintained
 by `tools/update-dkim-selectors.mjs`; a hand-maintained mapping table does not
 belong in a generated file, and the global was unnecessary indirection. All ten
@@ -99,12 +99,12 @@ written — the verification the spec required before merge.
 *nice-to-have, skip if it adds meaningful scope*. It was built, because without
 it a selector belonging to neither the MX provider nor anything the user typed
 appears with no explanation. Each finding carries `viaSpf`
-([`js/dns.js:530`](../../../js/dns.js)) and renders as *via SPF: Zendesk* in the
-detail view ([`js/app.js:428`](../../../js/app.js)) and the CSV export
-([`js/app.js:761`](../../../js/app.js)). Selectors that would have been tested
+(`js/dns.js:530`) and renders as *via SPF: Zendesk* in the
+detail view ([`js/app.js:428`](../../../src/main.js)) and the CSV export
+([`js/app.js:761`](../../../src/main.js)). Selectors that would have been tested
 anyway are not tagged.
 
-**3. `spfReferencedCatalogKeys` is exported** ([`js/dns.js:1991`](../../../js/dns.js))
+**3. `spfReferencedCatalogKeys` is exported** (`js/dns.js:1991`)
 so the test suite can assert against it directly.
 
 ## Localization impact

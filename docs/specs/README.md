@@ -44,10 +44,18 @@ rationale, the dependency map, and the group-by-group execution plan.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [findings-and-remediation](findings-and-remediation.md) | 0.6.0 | 0.1 | Draft, awaiting review |
-| [local-artifact-validation](local-artifact-validation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
-| [report-comparison](report-comparison.md) | 0.8.0 | 0.1 | Draft, awaiting review |
+| [findings-and-remediation](findings-and-remediation.md) | 0.7.0 | 0.1 | Draft, awaiting review |
+| [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 0.1 | Draft, awaiting review |
+| [report-comparison](report-comparison.md) | 0.9.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.1 | Draft, decision pending |
+
+**2026-08-27 — the three feature specs each moved up one release number** to
+make room for the architectural refactor at 0.6.0. Per the naming rule above
+this is expected and costs nothing: the specs are named for their capability,
+and their filenames, open-question identifiers and content are unchanged. The
+refactor takes the slot because all three of them read or extend the output
+shapes the audit produces, and the boundaries are cheaper to establish before
+three more releases are layered onto a 5,704-line file than after.
 
 ## Captured evidence
 
@@ -58,10 +66,15 @@ that produced it:
 
 | Directory | Holds |
 | --- | --- |
-| [`implemented/fixtures/`](implemented/fixtures/) | Captures for the specs they belong to, moved with the spec |
+| `fixtures/` | Captures for specs still under review |
+| `implemented/fixtures/` | Captures for the specs they belong to, moved with the spec |
 
 A `fixtures/` directory alongside a spec still under review holds the same
-thing before the move; none exists at present.
+thing before the move. One exists:
+[esbuild-legacy-bundle-spike-0.6.0](implemented/fixtures/esbuild-legacy-bundle-spike-0.6.0.md),
+which settles `OQ-ARCH-01` and demonstrates — rather than predicts — that a
+bundled public-suffix list silently replaces a test fixture while the suite
+still reports 1,535 passing assertions.
 
 Two exist so far, both for the DNS record types 0.4.0 and 0.5.0 add.
 `OQ-DEPTH-01` and `OQ-DEPTH-05` were settled this way, and so were four of the
@@ -102,10 +115,16 @@ precedent, and one spec was superseded outright during implementation.
 | [dmarcbis-tree-walk](implemented/dmarcbis-tree-walk.md) | 0.3.0 | [#20](https://github.com/kwestic-tech/dns-email-audit/pull/20) | `8c3a36f` | 1.2 (Implemented) |
 | [dns-protocol-depth](implemented/dns-protocol-depth.md) | 0.4.0 | [#22](https://github.com/kwestic-tech/dns-email-audit/pull/22) | `9bda3ad` | 1.2 (Implemented) |
 | [dnssec-evidence](implemented/dnssec-evidence.md) | 0.5.0 | [#25](https://github.com/kwestic-tech/dns-email-audit/pull/25) | `v0.5.0` | 1.5 (Implemented) |
+| [modular-architecture-and-production-build](implemented/modular-architecture-and-production-build.md) | 0.6.0 | — | `v0.6.0` | 1.8 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in
 [`CHANGELOG.md`](../../CHANGELOG.md) only.
+
+The `modular-architecture-and-production-build` row carries **no PR**, and that
+is accurate rather than an omission: its release commit is the last commit on
+its own branch, cut before the pull request opens, so at release time the PR
+does not exist. It is recorded by release tag alone.
 
 Every spec above was written from an original working specification except
 [resilient-optional-checks](implemented/resilient-optional-checks.md), which had
@@ -216,8 +235,9 @@ These are not restated in each document. They are binding on all of them.
 - **Localization is part of the change.** A change to `locales/en.json`
   translates all thirteen other locales in the same change, runs
   `npm run build:fallback`, and passes `npm run locale:gate`.
-- **`js/dns.js` returns tokens, not English.** Audit logic emits stable
-  identifiers and structured data. `js/app.js` turns them into words.
+- **The protocol and audit layers return tokens, not English.** Everything
+    under `src/core/` and `src/audit/` emits stable identifiers and structured
+    data; `src/i18n/` and `src/ui/` turn them into words.
 - **Advisory before scoring.** A new check reports its finding for at least one
   release before it affects the grade, and a scoring change is backtested with
   `node tools/backtest.mjs` before it merges.
@@ -230,7 +250,7 @@ binding on every release that renders a DNS record, an imported report, or a
 user-supplied file. A spec that adds a new rendered value inherits these without
 restating them.
 
-- **No markup sinks.** Nothing under `js/` assigns to `innerHTML` or
+- **No markup sinks.** Nothing under `src/` assigns to `innerHTML` or
   `outerHTML`. Values become text nodes or allowlisted attributes. Reading
   `outerHTML` to serialize a tree is permitted; writing it is not. The allowlist
   is empty and stays empty.

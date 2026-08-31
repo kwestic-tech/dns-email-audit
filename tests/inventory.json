@@ -1,0 +1,675 @@
+{
+  "$comment": [
+    "The contract inventory. Spec Testing item 1, implementation Task 0.5.",
+    "",
+    "THE GATE IS THIS FILE, NOT THE ASSERTION TOTAL. The spike settled that",
+    "empirically rather than by argument: tools/scoring.test.mjs reported",
+    "`1535 passed, 0 failed` while running against a public suffix list that had",
+    "been silently swapped underneath it, and the count was byte-identical to the",
+    "correct baseline. A number that cannot notice that is not a coverage signal.",
+    "",
+    "So: every area below must have a passing suite; the total is REPORTED beside",
+    "it as a tripwire; and no entry is removed without a stated replacement.",
+    "A decrease in a suite's count must name the assertions removed and where the",
+    "property moved to.",
+    "",
+    "Enforced by tests/contract/inventory.test.mjs, which runs each suite and",
+    "compares what it printed against what is recorded here."
+  ],
+  "baseline": {
+    "release": "v0.5.0",
+    "total": 2121,
+    "note": "The pre-refactor total, from the spec's baseline table. Reproduced on 2026-08-27."
+  },
+  "suites": [
+    {
+      "path": "tools/check-locales.mjs",
+      "assertions": null,
+      "note": "Reports findings rather than an assertion count, which is why it has no number. Stays in npm test: it is the only thing that catches src/data/locales-en.js drifting from locales/en.json, and Phase 2 changed that file's format, which is exactly the drift it exists to catch.",
+      "areas": [
+        "the generated English module matches locales/en.json",
+        "every locale's key set is accounted for"
+      ]
+    },
+    {
+      "path": "tools/scoring.test.mjs",
+      "assertions": 1535,
+      "areas": [
+        "DMARC tag parsing, inheritance and the RFC 9989 vocabulary",
+        "the RFC 9989 tree walk: targets, termination, organizational domain, applied record",
+        "external report authorization (RFC 9990 §4)",
+        "SPF parsing, lookup accounting, subnet classification and redundancy",
+        "DKIM selector discovery, the record-set partition and key analysis",
+        "DNSSEC record parsing, DS-to-DNSKEY matching and chain classification",
+        "CAA, MX health, TLSA, MTA-STS, TLS-RPT and BIMI validation",
+        "the weighted scoring model, grade thresholds and unproven pillars",
+        "issue and suggestion construction",
+        "DoH transport: retry, cache, concurrency and the query-count fan-out"
+      ]
+    },
+    {
+      "path": "tools/interpolate.test.mjs",
+      "assertions": 17,
+      "areas": [
+        "message interpolation and plural selection in the i18n layer"
+      ]
+    },
+    {
+      "path": "tools/render.test.mjs",
+      "assertions": 329,
+      "areas": [
+        "row rendering and the detail panels",
+        "DNS-derived values reach text nodes or allowlisted attributes, never markup",
+        "the record-hygiene sentinels"
+      ]
+    },
+    {
+      "path": "tools/export.test.mjs",
+      "assertions": 199,
+      "areas": [
+        "CSV column order, quoting and formula neutralization",
+        "the exported HTML report's structure and its own security policy",
+        "display caps do not reach the exported data"
+      ]
+    },
+    {
+      "path": "tools/csp.test.mjs",
+      "assertions": 89,
+      "areas": [
+        "every Content-Security-Policy directive in index.html",
+        "the JSON-LD hash",
+        "script loading: exactly one, it is dist/app.min.js, same-origin, not a module",
+        "the markup-sink scan over js/ and src/, with an EMPTY named-file allowlist and a mechanical *.test.js suffix exclusion",
+        "the markup-sink scan over the built artifact, which is what pays for that exclusion",
+        "the exported report declares its own policy",
+        "the markup-sink allowlist is empty and src/ is the only source tree left to scan"
+      ],
+      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. 58 before Task 4.0; +4 core/shared, +1 core/caa, +1 core/mx, +1 core/bimi, +4 core/transport."
+    },
+    {
+      "path": "src/core/dns/doh.test.js",
+      "assertions": 59,
+      "note": "Co-located per spec §9: the unit test lives beside the module it owns. Phase 3, Task 3.1.",
+      "areas": [
+        "the ten transport kinds at their construction sites, six from the response status and four from the request failing",
+        "cacheable is a strict subset of retry-terminal, observed at the cache rather than only declared",
+        "cancellation has two shapes: an already-aborted signal throws before any request, an abort in flight returns the cancelled kind",
+        "the cache key: name normalization, and the do/cd bits that keep the DNSSEC probes from colliding",
+        "DnsTypeError is thrown before the request is attempted, on a cache hit as well as a miss",
+        "the concurrency ceiling bounds in-flight requests and queues the rest"
+      ]
+    },
+    {
+      "path": "src/core/dns/cache.test.js",
+      "assertions": 24,
+      "note": "Co-located per spec §9. Phase 3, Task 3.2.",
+      "areas": [
+        "least-recently-used eviction, distinguished from first-in-first-out by a read that rescues the oldest write",
+        "the ceiling holds under 500 writes into a 10-entry cache and at the shipped 4096",
+        "two caches share nothing, which is the isolation half of the per-runtime privacy invariant",
+        "the module retains no state of its own across factory calls"
+      ]
+    },
+    {
+      "path": "src/core/dns/errors.test.js",
+      "assertions": 29,
+      "note": "Co-located per spec §9. Phase 3, Task 3.3.",
+      "areas": [
+        "the eleven supported record types and their IANA numbers",
+        "dnsTypeNum throws rather than defaulting to TXT, including for Object.prototype names",
+        "the throw/kind boundary: no thrown name is among the ten transport kinds",
+        "dnsError names a cancelled query AbortError while its kind stays cancelled"
+      ]
+    },
+    {
+      "path": "src/core/dns/resolver.test.js",
+      "assertions": 61,
+      "note": "Co-located per spec §9. Phase 3, Task 3.4.",
+      "areas": [
+        "the usability gate: three kinds pass unchanged, the other seven throw with the query named",
+        "nxdomain is an answer rather than a failure to obtain one",
+        "layer 3 carries no kind, and nodata and nxdomain are indistinguishable after normalization",
+        "answer cleaning, including the TXT chunk join and the kept malformed-escape divergence",
+        "checkConnectivity as a named exception edge: one fixed uncached query, kind read directly"
+      ]
+    },
+    {
+      "path": "src/core/dns/optional.test.js",
+      "assertions": 39,
+      "note": "Co-located per spec §9; covers optional.js and existence.js, which decide the same question. Phase 3, Task 3.5.",
+      "areas": [
+        "an optional check degrades to the caller's declared unknown for every non-cancelled kind",
+        "the rethrow set is AbortError and DnsTypeError, keyed on name rather than kind",
+        "the two modules agree: only a cancelled query carries a re-thrown name",
+        "existence maps nxdomain to no, success and nodata to yes, and the other seven to unknown",
+        "a cancelled existence probe throws rather than claiming the resolver was asked"
+      ]
+    },
+    {
+      "path": "src/core/shared/uri.test.js",
+      "assertions": 49,
+      "note": "Co-located per spec §9. Phase 4, Task 4.0 — the shared-helper decision that precedes the protocol extractions.",
+      "areas": [
+        "the http/https production: scheme, percent-encoding, and the path/query/fragment character classes rather than merely the absence of whitespace",
+        "an IPv6 literal host is a legal URI, which is why the host rule is RFC 3986 §3.2.2 and not \"must be an FQDN\"",
+        "httpsOnly and requireFqdn are OFF by default on both functions — the negative control for the whole shared-module decision",
+        "the FQDN rule carries the DNS size limits, so a 64-octet label is not one",
+        "the RFC 6068 mailtoURI, its header fields, and the quoted local part"
+      ]
+    },
+    {
+      "path": "src/core/shared/record-fields.test.js",
+      "assertions": 27,
+      "note": "Co-located per spec §9. Phase 4, Task 4.0.",
+      "areas": [
+        "fields come back in record order, with the reversed record proven to be a different parse",
+        "a field that is not name=value fails the whole record rather than being dropped",
+        "field-delim is *WSP \";\" *WSP, and one trailing delimiter is permitted while two are not",
+        "EXT_NAME, the one extension-name production MTA-STS, TLS-RPT and BIMI share, including its 32-character bound and the absence of a g flag that lets a state-free directory export a regex",
+        "strictFieldSyntax keeps whitespace inside the field, which is what makes `v = STSv1` unusable in MTA-STS and legal in BIMI"
+      ]
+    },
+    {
+      "path": "src/core/shared/ip.test.js",
+      "assertions": 40,
+      "note": "Co-located per spec §9. Phase 4, Task 4.0.",
+      "areas": [
+        "IPv4 and IPv6 parsing, including the embedded dotted-quad of RFC 4291 §2.2.3",
+        ":: expands to exactly eight hextets before any arithmetic, asserted against the same address written in full",
+        "BigInt end to end: the all-ones IPv6 address is exact, not rounded",
+        "a malformed address or prefix returns null so one bad mechanism does not discard the record",
+        "family is the caller's declaration, never guessed from the text"
+      ]
+    },
+    {
+      "path": "src/core/shared/base64.test.js",
+      "assertions": 28,
+      "note": "Co-located per spec §9. Phase 4, Task 4.0.",
+      "areas": [
+        "decoding, and null rather than a throw for input that is not base64",
+        "RFC 4648 canonical form: unused pad bits must be zero, or two different key records compare equal",
+        "exactly the folding whitespace RFC 6376 §3.2 allows is removed, and a bare LF still makes the record malformed"
+      ]
+    },
+    {
+      "path": "src/core/shared/record-selection.test.js",
+      "assertions": 22,
+      "areas": [
+        "case-insensitive record selection by prefix",
+        "version-field candidates: recognizable before validated, including the record whose version field is not first",
+        "sender-compatible selection: the exact version literal and the whitespace a delimiter allows",
+        "the pair that carries the design — one record an auditor selects and a sender discards"
+      ]
+    },
+    {
+      "path": "src/core/caa/caa.test.js",
+      "assertions": 86,
+      "note": "Co-located per spec §9. Phase 4, Task 4.1 — the first protocol owner, and the one that proves the pattern: the resolver is passed, so the tree walk is driven by a fake transport with core/dns/ nowhere in the graph.",
+      "areas": [
+        "the two published state constants, with every error token the parser can emit shown to be one of them — the constant is a second statement of a fact the parser holds as literals, and this is what stops them drifting",
+        "the three states of an issue value — a name, '' for nobody, null for unparseable — asserted as three, because collapsing any two reports the policy backwards",
+        "RFC 8659 §4.2's own %%%%% example blocks issuance rather than authorizing a CA of that name",
+        "an absent issuewild is not an open wildcard policy (RFC 8659 §4.3)",
+        "the Issuer Critical bit is bit 0, so flag 1 is not critical and flag 128 is",
+        "contactemail and contactphone are known and deliberately unvalidated",
+        "the tree walk climbs to the parent, stops before the TLD, and counts only type-257 answers",
+        "a resolver failure throws rather than becoming a stated unknown, and two checks over two transports share nothing"
+      ]
+    },
+    {
+      "path": "src/core/mx/mx.test.js",
+      "assertions": 61,
+      "note": "Co-located per spec §9. Phase 4, Task 4.2. The audit runs against a fake resolver and the REAL optionalCheck imported from core/dns/ — the module has to work against the function it will actually be handed, and a local reimplementation would only prove the test agrees with itself. A test import is not a production edge.",
+      "areas": [
+        "the two published state constants, with every value the audit can produce shown to be one of them and all six shown to be reachable",
+        "RFC 7505: a null MX is exactly one record and exactly `0 .`, so a null MX beside another record is not one",
+        "resolves is three values, and `no` — a total inbound mail outage — is claimed only when both address lookups returned",
+        "an unknown host is never dangling and never contributes to the block-concentration grouping",
+        "optionalCheck applied per host: one unreachable target does not turn the others into an outage report",
+        "two records naming one exchange are one host, queried once, still a single point of failure — while duplicate PREFERENCES are about the records",
+        "block concentration through core/shared/ip.js at /24 and /48, with the private label renderer observed through sharedPrefixes[].prefix rather than exported for the test",
+        "two audits over two resolvers share nothing"
+      ]
+    },
+    {
+      "path": "src/core/bimi/bimi.test.js",
+      "assertions": 65,
+      "note": "Co-located per spec §9. Phase 4, Task 4.3. No resolver appears anywhere in the file, because the module takes none — the lookup and the present/declined/advertised shaping stay in the audit layer.",
+      "areas": [
+        "the published error vocabulary, with duplicate-tags shown to suppress invalid-syntax on a record that is both",
+        "l= present and EMPTY is a conformant declination, and is distinguishable from l= absent, which is invalid",
+        "v=BIMI1 is case-sensitive and must come first",
+        "l= is where BIMI turns on core/shared/uri.js's httpsOnly and requireFqdn, and adds the SVG suffix rule that a= does not carry",
+        "BIMI does NOT inherit MTA-STS's exclusion of = from the extension value class — asserted, which is why EXT_NAME is shared and RECORD_EXT_VALUE is not",
+        "every emitted token is in the constant, and both are reachable",
+        "the whole BIMI answer: present, declined, advertised, duplicated, and the malformed candidate an auditor still reports"
+      ]
+    },
+    {
+      "path": "src/core/transport/mta-sts.test.js",
+      "assertions": 45,
+      "note": "Co-located per spec §9. Phase 4, Task 4.4. Pure validator, no resolver.",
+      "areas": [
+        "the published error vocabulary, one member, emitted and only that",
+        "the version field is first and case-sensitive — the two readings that suppressed mta-sts-invalid",
+        "sts-id = 1*32(ALPHA/DIGIT), with the bad id still reported so the operator can see what they published",
+        "RFC 8461 §3.1 duplicate handling: a duplicated field is CONFORMANT, the FIRST wins, and the first copy still has to parse",
+        "an = in an extension value is refused here and accepted in BIMI — the executable half of why RECORD_EXT_VALUE is not shared",
+        "the whole MTA-STS answer, including the policy file this tool never claims to have verified"
+      ]
+    },
+    {
+      "path": "src/core/transport/tls-rpt.test.js",
+      "assertions": 47,
+      "note": "Co-located per spec §9. Phase 4, Task 4.4. Pure validator, no resolver.",
+      "areas": [
+        "the published error vocabulary",
+        "more than one rua field is conformant, and BOTH destinations survive — rejecting the second also threw away the first",
+        "a destination is a URI, not a scheme prefix; https is required and no FQDN rule is added",
+        "RFC 8460's raw comma/exclamation/semicolon exclusion, with the percent-encoded form accepted",
+        "the shared-with-MTA-STS extension value class",
+        "the whole TLS-RPT answer, and the lookup failure that is not an absent record"
+      ]
+    },
+    {
+      "path": "src/core/transport/tlsa.test.js",
+      "assertions": 79,
+      "note": "Co-located per spec §9. Phase 4, Task 4.4. The only transport module that takes a resolver, and the only one whose contract needs the RAW response — driven here by a fake transport and the real requireUsable, optionalCheck and cleanAnswerData.",
+      "areas": [
+        "the seven-token error vocabulary, one record per token",
+        "the captured Cloudflare presentation form: parenthesised, spaced, uppercase — where a DS-style whitespace split reads the data as empty and raises no error at all",
+        "the wrapper is one balanced outer pair, so a lone parenthesis on either side is unbalanced",
+        "usage, selector and matching type ranges, reported together rather than first-only",
+        "digest length follows the matching type, and type 0 has none",
+        "do=1 is requested, and the AD bit is read for the query name rather than the audited domain",
+        "authenticated is true, false and null — the third is what stops the unsigned finding firing on a signed zone nobody looked at",
+        "the type-52 filter, without which an ordinary _dane CNAME reports a malformed record",
+        "per-host degradation, and two checks over two transports sharing nothing"
+      ]
+    },
+    {
+      "path": "src/core/dnssec/records.test.js",
+      "assertions": 99,
+      "note": "Co-located per spec §9. Phase 4, Task 4.5. Pure parsers, no resolver and no crypto. The RSA fixture is BUILT rather than pasted: a hand-typed base64 string that is not a multiple of four decodes to null and every assertion then tests the failure path by accident.",
+      "areas": [
+        "the two error vocabularies, one record per token, seven and eight",
+        "a DS digest folds to lowercase hex and a DNSKEY public key does NOT — the two normalizers are separate because folding base64 destroys the key and reports a healthy zone as a broken chain",
+        "`valid` is about the RECORD; keyStructure and the zone flag are separate answers",
+        "unknown is not ineligible, and unknown key structure does not disqualify",
+        "digest 0 is RESERVED — named, not eligible for validation, and not rejected",
+        "deprecation is reported and never rejected, for both algorithms and digests",
+        "digest length follows the digest type",
+        "the wire name is length-prefixed, lowercased and root-terminated; rdata and key tag are stable",
+        "a mnemonic algorithm field is unparseable-record — deliberate scope, and not bad-algorithm"
+      ]
+    },
+    {
+      "path": "src/core/dnssec/matching.test.js",
+      "assertions": 52,
+      "note": "Co-located per spec §9. Phase 4, Task 4.5. Crypto is a passed capability, so the runtime-failure paths are driven directly: the same records go through a matcher over Node's webcrypto, one over a crypto with no subtle, and one that refuses the algorithm.",
+      "areas": [
+        "the two published state constants, and the three digest types Web Crypto implements",
+        "confirmed and digest-mismatch, the only two verdicts arithmetic that RAN can produce",
+        "every failure path lands on unverifiable, never digest-mismatch — invalid DS, invalid owner, uncomputable digest type, and a runtime that cannot hash",
+        "the owner name is part of the digest input, so the same records under a different owner do not confirm",
+        "unbuildable-key is asserted UNREACHABLE rather than faked — the property that makes it dead code",
+        "anchoring is a separate question from matching, and the one rule is read three ways",
+        "two matchers over two runtimes disagree exactly as their runtimes do"
+      ]
+    },
+    {
+      "path": "src/core/dnssec/chain.test.js",
+      "assertions": 64,
+      "note": "Co-located per spec §9. Phase 4, Task 4.5. The chain check is driven by a fake transport and a fake matcher, which is what makes rule precedence testable: a matcher that CONFIRMS while the resolver says nothing must not promote the zone.",
+      "areas": [
+        "the four published state constants",
+        "dnssecLookupStatus completes on exactly two of the ten transport kinds, so nxdomain stays indeterminate rather than becoming insecure",
+        "secure comes only from AD: a confirmed local anchor cannot promote an unauthenticated zone, and cannot un-bogus one either",
+        "the validated-servfail path — a servfail that RESOLVES with cd=1 is bogus, one that persists is indeterminate",
+        "every one of the ten transport kinds produces a state rather than an exception",
+        "unanchored, mismatch and the residual insecure, with positive local proof required for mismatch",
+        "evidence is complete/partial/none and incompleteness is stated rather than inferred",
+        "the type filter, without which a do=1 RRSIG parses as a DS with key tag NaN"
+      ]
+    },
+    {
+      "path": "src/core/dmarc/record.test.js",
+      "assertions": 58,
+      "note": "Co-located per spec §9. Phase 4, Task 4.6. Pure and resolver-free.",
+      "areas": [
+        "the RFC 9989 tag vocabulary, and the three DMARCbis removed — reported, neither scored nor treated as errors",
+        "status ok/present/missing is separate from malformed: a record that is there and cannot be applied is not no record",
+        "parseTagList is DMARC's own tag bag, with the four behavioural differences from core/shared's parseOrderedFields asserted",
+        "the hand-written mailto: rule is asserted to DISAGREE with core/shared/uri.js — preserved for 0.6.0, not endorsed"
+      ]
+    },
+    {
+      "path": "src/core/dmarc/org-domain.test.js",
+      "assertions": 18,
+      "note": "Co-located per spec §9. Phase 4, Task 4.6. Every assertion runs against a FOUR-RULE fixture list, never the shipped 10,239 — which is the property the factory exists for.",
+      "areas": [
+        "exact, wildcard and exception rules, and the prevailing single-label fallback",
+        "two factories over two lists read the same name differently and share nothing"
+      ]
+    },
+    {
+      "path": "src/core/dmarc/tree-walk.test.js",
+      "assertions": 62,
+      "note": "Co-located per spec §9. Phase 4, Task 4.6. The walk is driven by a fake transport; discoverDmarc is one of the two raw-kind readers this task moved.",
+      "areas": [
+        "the eight-query budget is reached by SHORTENING at thirteen labels, not by aborting, so no query-limit state is needed",
+        "the walk does not stop at the first record — selection happens after every target is queried, which is what makes the organizational domain computable",
+        "a FAILED walk carries an error and an absence does not; both are an empty array after normalization",
+        "RFC 9989 §4.10 step 2: duplicate records at a name are discarded and the walk continues",
+        "a cancelled walk throws under the name AbortError so optionalCheck rethrows it",
+        "inheritance applies a parent's sp to the subdomain and returns a NEW object"
+      ]
+    },
+    {
+      "path": "src/core/dmarc/report-auth.test.js",
+      "assertions": 46,
+      "note": "Co-located per spec §9. Phase 4, Task 4.6. The other raw-kind reader, and the RFC whose duplicate rule points the opposite way to the Tree Walk's.",
+      "areas": [
+        "the three published state constants, with exactKind's THREE members and nxdomain shown to reach it",
+        "RFC 9990 §4 step 8 is permissive — one valid record among several authorizes — which is deliberately the opposite of §4.10 step 2",
+        "exactly ONE constructed name is queried, because a wildcard is synthesized while answering it",
+        "a DNS failure is unverifiable and never unauthorized",
+        "an over-long constructed name is unverifiable with no query made",
+        "an override pointing at a third party is override-mismatch, not authorized",
+        "the destination cap reports external, total and omitted so a capped list is visible"
+      ]
+    },
+    {
+      "path": "src/core/dkim/dkim.test.js",
+      "assertions": 59,
+      "note": "Co-located per spec §9. Phase 4, Task 4.7. Runs against a fake transport, a substitute catalog, a REAL 2048-bit RSA SPKI key, and where it matters a runtime with no subtle implementation at all.",
+      "areas": [
+        "DKIM_SCAN_BATCH_SIZE is 24 and bounds CONCURRENCY, not the query count — a list longer than one batch is shown to be queried in full",
+        "the factory returns its ten members, counted rather than trusted to a doc comment",
+        "cryptoValidated is null / true / false asserted BY IDENTITY: a rejected SPKI import is false and claims structural invalidity — valid false, key-structure-invalid, DER size unchanged — while a missing implementation stays null",
+        "tag names are NOT lowercased — RFC 6376 §3.2 makes them case-sensitive, unlike DMARC's",
+        "a revoked key is a VALID record that does not apply to email — collapsing revocation into a parse failure loses an existing finding",
+        "the catalog is injected and reached through the provider-name-to-catalog-key indirection, so two catalogs disagree",
+        "the TRANSITIONAL spfReferencedCatalogKeys collaborator widens the scan, and attribution omits selectors the baseline would have supplied anyway"
+      ]
+    },
+    {
+      "path": "src/core/spf/spf.test.js",
+      "assertions": 73,
+      "note": "Co-located per spec §9. Phase 4, Task 4.8 — the last protocol owner. Driven by a fake transport and the real requireUsable/cleanAnswerData.",
+      "areas": [
+        "permerror outranks the record's contents: two v=spf1 records fail all mail even where -all would have been ok",
+        "term parsing — qualifiers, modifiers, and the raw term kept for reporting",
+        "TWO subnet tables, asserted by their consequence: prefix 32 is HIGH in IPv6 and LOW in IPv4, because RFC 4291 §2.5.4 makes /64 one subnet and the IPv4 host-count reasoning would call it eighteen quintillion hosts",
+        "blocks are separated by family so a v4 address is never tested against an ip6: mechanism",
+        "the ten-lookup accounting, the exclusive 8-10 warning band, cycle detection, and a void lookup distinguished from a failure",
+        "countSpfLookups THROWS on a resolver failure — this directory states no unknown, and the caller's fallback owns the shape",
+        "spfReferencedCatalogKeys is SPF-owned: include: and redirect= of the domain's OWN record only, and a macro is not a hostname",
+        "two checks over two resolvers are distinguished by voidLookups — the field that actually differs — with the note that lookup count alone would not have shown it",
+        "selecting a domain's SPF records, and the multiple-record case that keeps both as evidence"
+      ]
+    },
+    {
+      "path": "src/providers/detectors.test.js",
+      "assertions": 28,
+      "note": "Co-located per spec §9. Phase 4, Task 4.9 — the last extraction of Phase 4.",
+      "areas": [
+        "DNS operator naming, including the ccSLD rule that steps past a second-level label",
+        "the THREE ways to have no mail — @null-mx, @implicit-mx, @none — proven distinct, with the null-MX test shown to come first",
+        "isNullMx is a capability and not an import: a detector over a predicate that never fires cannot produce @null-mx, and one that always fires produces it for any MX set",
+        "hosting detection and the same-domain CNAME that is not a loop",
+        "verification-record selection"
+      ]
+    },
+    {
+      "path": "src/audit/context.test.js",
+      "assertions": 49,
+      "areas": [
+        "the audited name, normalized the way analyzeDomain() has always normalized it",
+        "the options in force, carried without defaulting or coercion",
+        "the query options: the abort signal, and exactly nothing else",
+        "the cd=1 re-issue, which never mutates options a query already holds",
+        "the accumulated result, its key order, and the normalized name no accumulated field can replace",
+        "result() isolation: a fresh outer object, with nested values shared by identity rather than cloned",
+        "the boundary: no cache, no resolver, no parsing, no scoring"
+      ]
+    },
+    {
+      "path": "src/audit/scoring.test.js",
+      "assertions": 52,
+      "areas": [
+        "the weights, parked weights and grade tiers — serialized values and ordering matching v0.5.0, and exported as plain unfrozen data",
+        "DNSSEC gating the A tier and DMARC as the largest pillar",
+        "calcDmarcScore: the effective posture, the weakest of sp and np, and what test mode collapses",
+        "calcSpfScore: the -all / ~all / present bands, and the two warnings that make an ok record worthless",
+        "the input boundary — scoring reads protocol facts, and a record attached to the same facts changes nothing",
+        "the parked rubric and its four pillars",
+        "calcAdvScore: an unverifiable check leaves the denominator"
+      ]
+    },
+    {
+      "path": "src/audit/issues.test.js",
+      "assertions": 72,
+      "areas": [
+        "the shape of a finding: a key, a severity, no complete message prose",
+        "the closed three-member severity vocabulary",
+        "four vocabularies kept apart: direct literal issue keys, the fourteen computed or forwarded ones, suggestion keys and learn-more guides",
+        "the fourteen non-literal keys pinned against audit.issue.key and en.json, with each of their four emission paths exercised",
+        "the compositional precondition: forwarded SPF warnings are trusted from the closed owner algebra, not filtered here",
+        "suggestions as tips rather than findings",
+        "a configured domain is not told to configure itself",
+        "the input boundary — record contents are never parsed, while owner facts and evidence including record count are consumed"
+      ]
+    },
+    {
+      "path": "src/audit/audit-domain.test.js",
+      "assertions": 59,
+      "areas": [
+        "the unregistered short-circuit, and that nothing downstream runs after it",
+        "the NS servfail DNSSEC preflight: the unchecked retry, its gate, and the verdict it does not re-derive",
+        "which checks the options run and which they skip",
+        "the deep-check gate, including the RFC 7505 null-MX skip",
+        "the derived null-MX fact and both of its readers, with the control that proves neither passes for want of an MX record",
+        "error isolation: a degraded check, the two different kind-copy policies, and cancellation escaping both",
+        "that the coordinator carries each protocol owner's answer rather than re-deriving it",
+        "the Promise.all structure — the four core lookups, all eight advanced checks and the wildcard pair, each proven in flight together against a bounded tick deadline"
+      ]
+    },
+    {
+      "path": "tests/contract/transport-edges.test.mjs",
+      "assertions": 44,
+      "note": "Spec §3's two inventories as amended in 1.6. Phase 3, Task 3.6.",
+      "areas": [
+        "the raw-kind reader allowlist: six reader entries across four owners, by function or family, with the layer implementations excluded",
+        "a structural closed-list control that fails on a new raw-kind reader in an unnamed function, with its lexical limits asserted",
+        "a thrown error's kind is classified as the §12.1 thrown path, not as a raw-response read",
+        "the eleven typed propagation paths, taken from the registry so the two cannot drift",
+        "every value on a declared path is a transport kind or its own owner's, and eight paths are transport-only",
+        "the dmarc-unverified issue copy tested against its own key, with the negative control that an unrelated issue argument cannot earn transport coverage",
+        "the allowlist's owners are LOCATED in the files the scan reads, so a protocol extraction that leaves the scanned set stale fails instead of quietly covering less",
+        "the DMARC readers are located in core/dmarc, and every production reader is shown to live under src/"
+      ]
+    },
+    {
+      "path": "tests/contract/dns-transport.test.mjs",
+      "assertions": 53,
+      "note": "The transport layer's cross-cutting contracts. Phase 3, Task 3.7.",
+      "areas": [
+        "the code's kind sets and the reviewed registry's algebras are compared rather than restated",
+        "cacheable is a strict subset of retry-terminal, and the usable set equals the cacheable set",
+        "seven usability throws, counted rather than listed",
+        "optionalCheck is policy-neutral: a static fallback acquires no kind, and the four kind-copying sites are counted AND located across every owning directory, so a move does not read as a deletion",
+        "no transport result or error shape carries a finding, severity, score or locale reference",
+        "the §12 allowed-edge matrix and the cycle rule over the real import graph, with core/shared's zero-outgoing-edge floor asserted directly because an empty matrix row cannot catch a sibling import",
+        "§12's floor for a protocol owner, asserted over every protocol directory that exists: core/shared and own siblings only, so an import of core/dns/ — the convenient one — fails",
+        "parsing ownership: the coordinator declares none of the selector or parser helpers, and each owner declares its own",
+        "Gate 5: no parser, selector, finding builder, issue token or severity under src/ui/"
+      ]
+    },
+    {
+      "path": "tests/contract/legacy-shapes.test.mjs",
+      "assertions": 136,
+      "areas": [
+        "fixture identity: divergent PSL and DKIM-catalog fingerprints, with their negative cases",
+        "generated data is injected, not imported: each of the three bindings has an independent probe, proven in both directions",
+        "the ten transport kinds, each at its own construction site",
+        "thrown paths: DnsTypeError, AbortError and the optionalCheck rethrow set",
+        "cacheable is a strict subset of retry-terminal; cancelled is never cached",
+        "computed values a literal scan cannot see, including the two 'ds-' + match claims",
+        "booleans, nullability and absence",
+        "platform-dependent key validation (the §6 decision of 2026-08-27)",
+        "states unreachable through analyzeDomain, each with its structural reason",
+        "the issue vocabulary closes against locales/en.json at 106 tokens"
+      ]
+    },
+    {
+      "path": "tests/contract/canonicalization.test.mjs",
+      "assertions": 108,
+      "areas": [
+        "determinism of the canonical form",
+        "array order, absence versus undefined, tagged non-JSON primitives",
+        "values refused at the result surface: functions, symbols, cycles",
+        "no empty value is dropped and no float is rounded",
+        "the query trace's stated tolerance, and the counts it must not cost",
+        "CSV as exact bytes",
+        "the DOM tree and its line form, proven equally sensitive",
+        "the report's byte-exact policy and stylesheet regions",
+        "exclusions: per-field, reasoned, no wildcards",
+        "each rule's NEGATIVE case — the difference it exists to catch"
+      ]
+    },
+    {
+      "path": "tests/contract/state-matrix.test.mjs",
+      "assertions": 54,
+      "areas": [
+        "every registry member has exactly one coverage row",
+        "every row names a suite or corpus case that exists",
+        "every non-enum shape names its axes and its cases",
+        "the extracted-module comparison: what src/ exports must match the registry",
+        "the targeted legacy contracts are wired",
+        "the legacy entry point has no exports, which is what keeps globalName safe to omit",
+        "src/data/ is a sink: the generated tables import nothing and export exactly one table each",
+        "no marked adapter remains under src/ — asserted at exactly zero, with the sentinel scan proven able to see one",
+        "the import-graph FLOOR is defined mechanically: src/data/ and src/platform/ import nothing, and a file that grows an import rejoins the state comparison",
+        "numeric-keyed reference tables are excused from the state-constant comparison by TWO controls — a shape test that finds candidates, proven in both directions AND proven unable to tell a numeric-keyed state map apart, and a closed four-entry inventory that is the semantic allowlist",
+        "reference VOCABULARIES exported as arrays are excused by a closed named inventory alone — there is no shape test, because a reference list and a state list are both arrays of strings",
+        "no module under src/ declares a binding nothing reads, with the stranded wrapper that shipped at Task 6.1 as the positive control"
+      ]
+    },
+    {
+      "path": "tests/contract/namespace.test.mjs",
+      "assertions": 18,
+      "areas": [
+        "the 24-name global inventory is closed",
+        "no module under src/ reads or writes any of the 24 watched namespace properties; src/main.js's one ambient read is createBrowserPlatform(window)",
+        "the marked-adapter list is empty, and the 24 historical names remain a watchlist so a reintroduction fails",
+        "the scan catches window, globalThis and self, and ignores comments and same-named locals",
+        "what still reaches for globals under js/ is counted, so a phase that adds one is visible"
+      ]
+    },
+    {
+      "path": "tests/contract/platform.test.mjs",
+      "assertions": 84,
+      "areas": [
+        "the §11 primitive set is complete, checked against the module's own declaration",
+        "a lexical scan rejects a bare read of a KNOWN ambient name outside the platform and adapters — defense in depth against regression, not a completeness proof, and its limits are asserted",
+        "language built-ins are required APIs, not injected services",
+        "every method keeps its receiver when destructured off the platform, proven against a window that refuses unbound calls",
+        "host objects are passed whole and constructors come from the window",
+        "a platform is per runtime: two calls share nothing and one window's calls do not reach another",
+        "now() and formatDateTime() preserve the v0.5.0 call and are pinnable by the window's clock",
+        "src/platform/ imports nothing and never reaches for the ambient window",
+        "open is bound and its exact url, _blank and noopener arguments reach the window in order"
+      ]
+    },
+    {
+      "path": "tests/contract/runtime.test.mjs",
+      "assertions": 41,
+      "areas": [
+        "importing src/runtime.js performs no DOM, network or global work, asserted in a process with no browser",
+        "it constructs nothing at module scope and reads no ambient global",
+        "the runtime carries the two supported facade members plus the Phase 2 parts",
+        "generated data reaches the engine and the fixture table is the one in force",
+        "ONE runtime holds ONE DoH cache with page lifetime: a sibling audit reuses the walk",
+        "two runtimes share nothing, and isolation comes from constructing rather than from cache-busting an import",
+        "the facade delegates to the engine, including a core transport failure",
+        "exactly one DOMContentLoaded boot path across src/, registered by ui/events.js and none by the entry point",
+        "one canonical mount: a single i18n.init() call site, passed to createUi and returned by the runtime"
+      ]
+    },
+    {
+      "path": "tests/build/parity.test.mjs",
+      "assertions": 70,
+      "areas": [
+        "the artifact under test is the one index.html names and _site publishes",
+        "the artifact creates exactly one global, DnsAudit, and the source graph creates none — the one name esbuild generates from the entry point’s exports",
+        "DnsAudit is the two-member facade on both sides, and __APP_TEST__ is absent from both",
+        "WEIGHTS, PARKED_WEIGHTS, GRADE_THRESHOLDS and POLICY_RANK are byte-identical",
+        "generated data survived bundling: the whole PSL, the catalog, and the inlined English bundle",
+        "computed behaviour agrees — the PSL-reading org-domain walk and the DER key walk",
+        "an altered artifact fails the comparison, and an extra global is caught"
+      ]
+    },
+    {
+      "path": "tests/build/artifact.test.mjs",
+      "assertions": 45,
+      "areas": [
+        "the exact top-level _site allowlist, asserted as a set",
+        "absence: src, tools, tests, docs, node_modules, js, assets, package files, AGENTS.md",
+        "absence by pattern at any depth: test files, stray source maps, markdown, translation-status.json",
+        "every script, stylesheet and source-map reference resolves inside _site",
+        "co-location safety bound to metafile.inputs and the source map's sources, not to a sentinel",
+        "no third-party JavaScript and no cross-origin reference at the delivery boundary",
+        "the allowlist and the pattern scans are each shown to catch an addition",
+        "no file under js/ is a bundle input"
+      ]
+    },
+    {
+      "path": "tests/build/equivalence.validate.mjs",
+      "assertions": 77,
+      "areas": [
+        "the runner is deterministic across two runs of one root",
+        "each of the five surfaces distinguishes cases",
+        "seven mutations, rebuilt into the artifact and each caught on the surfaces it should be and no others",
+        "a subject is a complete root: a stylesheet-only edit moves the report",
+        "a script listed in index.html but absent is refused, not skipped",
+        "a subject whose generated data was substituted is refused, not measured",
+        "a mutation that is NOT rebuilt moves nothing — the control that proves the rebuild is what makes section 2 work",
+        "the subject manifest is complete: every script, stylesheet and index.html hashed, and nothing else",
+        "re-reading one subject produces identical hashes, and a one-byte change moves one",
+        "module evaluation order: the entry installs before it imports its consumers"
+      ]
+    }
+  ],
+  "notInNpmTest": [
+    {
+      "command": "node tests/build/equivalence.mjs --subject-root=.",
+      "why": "The five-surface comparison against the committed baseline. 38 s for 30 cases, so it runs at every phase gate rather than inside npm test. Framework §3's 'move it to every commit' reading was based on an 8-case corpus and was revised when the corpus was completed.",
+      "areas": [
+        "five-surface equivalence against v0.5.0: result, query trace, CSV, HTML report, DOM"
+      ]
+    },
+    {
+      "command": "node tests/build/file-url.test.mjs  (npm run test:file-url)",
+      "why": "Drives a real headless browser at a real file:// URL. Kept out of npm test so a missing browser is one clearly-named failure rather than a broken suite -- but it REFUSES to skip, so it can never pass without having run. CI runs it as its own job, and it is a Gate 1 acceptance criterion.",
+      "areas": [
+        "the page loads from file:// with one classic script and no module",
+        "the application initialises: the ten globals that survive Task 2.8 and not one of the fourteen it removed, DnsAudit at exactly the two-member facade, the whole PSL carrying its discriminating rule",
+        "i18n resolves from the INLINED English bundle, with no network available",
+        "real computation runs with no network: the CSV formula guard, token-to-prose through the inlined bundle, and the renderer building a real element"
+      ]
+    },
+    {
+      "command": "node tests/build/coverage.mjs",
+      "why": "Regenerates the measured coverage columns of tests/state-matrix.json. Run when the corpus or the registry changes; state-matrix.test.mjs is what gates the result.",
+      "areas": [
+        "corpus coverage measurement"
+      ]
+    },
+    {
+      "command": "node tools/backtest.mjs --sample",
+      "why": "Live DNS. A local grade-DISTRIBUTION check and never a gate, never the equivalence oracle.",
+      "areas": []
+    }
+  ]
+}

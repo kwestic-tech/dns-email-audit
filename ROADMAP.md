@@ -60,6 +60,7 @@ and an unverifiable result is marked rather than hidden.
 | 0.2.1 | XLIFF-based locale pipeline, thirteen locales complete, five new languages | [locale-translation-pipeline](docs/specs/implemented/locale-translation-pipeline.md) |
 | 0.2.2 | DKIM selectors for vendors named in the domain's own SPF record | [spf-referenced-dkim-selectors](docs/specs/implemented/spf-referenced-dkim-selectors.md) |
 | 0.5.0 | DNSSEC chain evidence: six states, local DS-to-DNSKEY matching, attributed claims | [dnssec-evidence](docs/specs/implemented/dnssec-evidence.md) |
+| 0.6.0 | ES modules under `src/` bundled to one artifact; a two-member browser API; no behaviour change | [modular-architecture-and-production-build](docs/specs/implemented/modular-architecture-and-production-build.md) |
 
 `0.1.0` and the work merged as PRs #1 through #7 predate the spec process and are
 documented in [`CHANGELOG.md`](CHANGELOG.md) only.
@@ -70,12 +71,13 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | --- | --- | --- | --- |
 | 1 | Rendering correctness and robustness | **Done, and rescoped along the way.** The original framing was CSP and XSS hardening; a static site with no session or stored data has no compromise to defend, so the work that survived is output integrity. Shipped in 0.2.3: no markup sink remains under `js/`, interpolation is single-pass, and every class of malformed record has a decided, tested display behavior. | [0.2.3](docs/specs/implemented/rendering-and-robustness.md), released |
 | 2 | RFC 9989 DMARC | **Done.** The bis tag vocabulary, `t=`, `psd=`, inheritance, URI parsing and external report authorization were already implemented; 0.3.0 added the missing half — the RFC 9989 §4.10 DNS Tree Walk, replacing the Public Suffix List for every DMARC decision, with discovery provenance, `psd=` termination, existence-gated `np=`, and misplaced-record diagnosis. | [0.3.0](docs/specs/implemented/dmarcbis-tree-walk.md), released |
-| 3 | Anomaly and remediation engine | Not started. Findings are a flat list of localized strings with no severity model, dependencies, or ordering. | [0.6.0](docs/specs/findings-and-remediation.md) |
+| 3 | Anomaly and remediation engine | Not started. Findings are a flat list of localized strings with no severity model, dependencies, or ordering. | [0.7.0](docs/specs/findings-and-remediation.md) |
 | 4 | DKIM, MX, CAA and DANE depth | **Done.** 0.4.0 decodes DKIM public keys to algorithm and modulus size, parses CAA into a policy with wildcard semantics, resolves every MX target to find dangling and CNAME hosts, and adds TLSA lookup, reported per host as DNSSEC-authenticated or not on the strength of the resolver's AD bit for that host's own name. 0.5.0 reviewed and **retired** the `qualified` flag rather than completing it: a TLSA record lives in the MX host's zone, which the audited domain's chain evidence says nothing about, and local DS-to-DNSKEY matching never validates RRSIGs and so cannot exceed the resolver's per-host verdict (`OQ-SEC9-07`). Every observation is advisory: zero grade movement. | [0.4.0](docs/specs/implemented/dns-protocol-depth.md), released |
 | 5 | DNSSEC depth | **Done.** 0.5.0 queries the child `DNSKEY` set and the parent `DS` set, matches the digests locally with Web Crypto, and replaces the four-state model with six — separating a signed-but-unanchored zone and a DS/DNSKEY mismatch from a zone that was never signed. The resolver's AD flag remains the validation signal, and every claim is attributed to it or to local computation. | [0.5.0](docs/specs/implemented/dnssec-evidence.md), released |
-| 6 | Local MTA-STS and BIMI validation | Not started. Both are validated at the TXT record level only. | [0.7.0](docs/specs/local-artifact-validation.md) |
-| 7 | Local report comparison | Not started. Exports are CSV and static HTML; nothing can be read back. | [0.8.0](docs/specs/report-comparison.md) |
+| 6 | Local MTA-STS and BIMI validation | Not started. Both are validated at the TXT record level only. | [0.8.0](docs/specs/local-artifact-validation.md) |
+| 7 | Local report comparison | Not started. Exports are CSV and static HTML; nothing can be read back. | [0.9.0](docs/specs/report-comparison.md) |
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
+| 9 | Modular architecture and production build | **Done.** Released as 0.6.0; all six gates met. Spec `1.8`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with thirteen owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md), released |
 
 ## Release sequence
 
@@ -155,7 +157,39 @@ was reviewed and **retired** rather than completed: a TLSA record lives in the
 MX host's zone, which the audited domain's chain evidence says nothing about.
 Zero grade, score and `dnssec.signed` movement against `v0.4.0`.
 
-### 0.6.0: Anomaly and remediation roadmap
+### 0.6.0: Modular architecture and production build — **released**
+
+Spec: [`docs/specs/implemented/modular-architecture-and-production-build.md`](docs/specs/implemented/modular-architecture-and-production-build.md)
+
+Converted the browser code from `window`-attached IIFEs to ES modules under
+`src/`, split `js/dns.js` and `js/app.js` along four boundaries — DNS
+transport, protocol evaluation, audit coordination, UI — and introduced esbuild
+as the project's first development dependency, producing a single
+`dist/app.min.js` that GitHub Pages serves in place of seven source files.
+
+This is the one release in the sequence that ships **no audit or UI behavior
+change**, by design. It deliberately retired undocumented legacy JavaScript
+globals and replaced them with the two-member supported facade recorded in the
+spec. It was scheduled here rather than later because the three
+feature releases that follow all read or extend the output shapes that lived in
+`js/dns.js`, and establishing the boundaries cost less then than after three
+more releases had been layered onto a 5,704-line file.
+
+Exit condition, met: five-surface equivalence against a deterministic fixture
+corpus captured at `v0.5.0` — full result, query trace, CSV, HTML report and
+DOM, three-way through baseline/source/bundle — reports **zero differences**
+across 32 cases, with the contract and state inventories intact, 4,451
+assertions reported, `npm run locale:gate` at 13/13, and zero runtime
+dependencies. **One clause of it was wrong and is recorded rather than
+quietly dropped:** `PRIVACY.md` did need an edit. Driving the app through its
+real controls booted the page, which showed a second fixed `example.com` probe
+the document had never disclosed: one when the page finishes loading, and one
+immediately before each audit run — so a session that runs a single audit sends
+two, and a session that never runs one still sends the page-load probe.
+Pre-existing behaviour newly measured, not a 0.6.0 change. Spec `1.5` carries
+the correction.
+
+### 0.7.0: Anomaly and remediation roadmap
 
 Spec: [`docs/specs/findings-and-remediation.md`](docs/specs/findings-and-remediation.md)
 
@@ -168,7 +202,7 @@ rather than a flat suggestion list.
 Exit condition: every recommendation points at evidence and prerequisites, and
 results are identical across all fourteen locales.
 
-### 0.7.0: Private local artifact validators
+### 0.8.0: Private local artifact validators
 
 Spec: [`docs/specs/local-artifact-validation.md`](docs/specs/local-artifact-validation.md)
 
@@ -180,7 +214,7 @@ application DOM.
 Exit condition: artifact analysis produces no new network requests, no
 persistence, and no active markup.
 
-### 0.8.0: Stateless report comparison
+### 0.9.0: Stateless report comparison
 
 Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md)
 
@@ -214,7 +248,7 @@ genuinely unsettled, and they are the primary input to review. See
 
 ## Addendum: build order for the automated async development pipeline (2026-08-24)
 
-The release sequence above (0.2.3 through 0.8.0) states why the work is
+The release sequence above (0.2.3 through 0.9.0) states why the work is
 *shipped* in that order — grade stability, protocol claims already made, a
 findings engine that wants stable inputs. It is kept exactly as written and
 still governs version numbers and release notes.
@@ -226,7 +260,7 @@ usefulness first and build-dependency structure second, worked out in
 execution plan in
 [`docs/async-development-handoff.md`](docs/async-development-handoff.md).
 
-The short version: `findings-and-remediation` (0.6.0) is the single
+The short version: `findings-and-remediation` (0.7.0) is the single
 highest-value spec for the tool's stated non-expert-owner audience, but it is
 also the most downstream in the dependency graph — it consumes the output
 shapes of `dmarcbis-tree-walk`, `dns-protocol-depth`, and `dnssec-evidence`.

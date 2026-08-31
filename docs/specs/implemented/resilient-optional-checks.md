@@ -68,7 +68,7 @@ what makes failed selector lookups survive to be reported.
 ### `optionalCheck()`, the single wrapper
 
 Every optional check routes through one function
-([`js/dns.js:180`](../../../js/dns.js)):
+(`js/dns.js:180`):
 
 ```js
 async function optionalCheck(run, fallback) {

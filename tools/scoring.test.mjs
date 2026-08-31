@@ -2,28 +2,64 @@
 /**
  * Unit tests for the DMARC parser and the weighted scoring model.
  *
- * Loads js/dns.js in a minimal browser-ish sandbox (it's a plain IIFE that
- * attaches to `window`), so there's nothing to mock and no network involved.
+ * Imports the DNS engine directly and builds it with a fixture public suffix
+ * list and a swappable `fetch`. Until 0.6.0 this loaded the engine into a
+ * node:vm sandbox, because the file was a plain IIFE that attached to `window`;
+ * a sandbox cannot evaluate an ES module, so the conversion in Task 2.3 brought
+ * this suite's loading mechanism with it.
+ *
+ * No network is involved and the engine still gets no test seam: what is
+ * substituted is the lowest primitive, exactly as tools/lib/doh-fixture.mjs
+ * describes. What changed is that the primitives are now arguments rather than
+ * things the module finds on `window`.
  */
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import vm from 'node:vm';
 import { dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa, ds, dnskey, rrsig, TYPE_NUM } from './lib/doh-fixture.mjs';
+// Injected, not evaluated. The catalog is an ES module under src/data/ as of
+// 0.6.0, and injection is what lets the four-rule fixture PSL below stay the
+// one in force -- see the sandbox line and tests/lib/fixture-identity.mjs.
+import { DKIM_SELECTOR_CATALOG } from '../src/data/dkim-selectors.js';
+import { createDnsEngine } from './lib/legacy-engine.mjs';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
-// `crypto` is here for the OPTIONAL half of the DKIM key analysis — the Web
-// Crypto structural check. `atob` is deliberately NOT provided: the DER length
-// walk that produces every key size must work with nothing but the language,
-// and leaving the global out is what proves it does. A sandbox that handed the
-// code a convenience the browser might not have would test the wrong thing.
-const sandbox = { window: { __PUBLIC_SUFFIX_RULES__: ['com', 'co.uk', '*.ck', '!www.ck'] }, fetch: async () => ({ ok: false }), console, AbortController, URLSearchParams, setTimeout, clearTimeout, crypto };
-sandbox.globalThis = sandbox;
-vm.createContext(sandbox);
-vm.runInContext(readFileSync(`${REPO}/js/dkim-selectors.js`, 'utf8'), sandbox);
-vm.runInContext(readFileSync(`${REPO}/js/dns.js`, 'utf8'), sandbox);
-const D = sandbox.window.DnsAudit;
+/**
+ * The engine, built with a FIXTURE public suffix list and the production DKIM
+ * catalog. Both are arguments now rather than globals the module reaches for,
+ * which is what makes the four-rule table below the one actually in force —
+ * see the identity probe immediately after.
+ *
+ * `sandbox` survives the move to ESM as the holder for the swappable `fetch`.
+ * Sixty-nine assertions below reassign `sandbox.fetch` to a new DoH fixture,
+ * and `platform.fetch` reads it at call time, so every one of them keeps
+ * working unchanged. The engine still gets no test seam: what is substituted
+ * is the lowest primitive, exactly as `tools/lib/doh-fixture.mjs` describes.
+ *
+ * `crypto` is here for the OPTIONAL half of the DKIM key analysis — the Web
+ * Crypto structural check. `atob` is deliberately absent: the DER length walk
+ * that produces every key size must work with nothing but the language, and
+ * leaving it out is what proves it does.
+ */
+const FIXTURE_PSL = ['com', 'co.uk', '*.ck', '!www.ck'];
+const sandbox = { fetch: async () => ({ ok: false }) };
+const D = createDnsEngine({
+  publicSuffixRules: FIXTURE_PSL,
+  dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
+  platform: {
+    fetch: (...args) => sandbox.fetch(...args),
+    crypto, AbortController, URLSearchParams, setTimeout, clearTimeout,
+  },
+});
+
+// The fixture PSL is the one in force, proven behaviourally before anything
+// else runs. The real list resolves this probe one label deeper.
+if (D.getOrganizationalDomain('foo.blogspot.com') !== 'blogspot.com') {
+  throw new Error('scoring: the fixture public suffix list is not the one in force — ' +
+    `getOrganizationalDomain('foo.blogspot.com') returned ` +
+    JSON.stringify(D.getOrganizationalDomain('foo.blogspot.com')));
+}
 
 let pass = 0, fail = 0;
 // BigInt has no JSON representation, and the IPv6 address helpers return one.
@@ -3914,7 +3950,7 @@ eq('BIMI refuses a DNS-impossible 64-octet FQDN label',
 
 /* ── 44. The fixture harness and the transport agree on record types ──
    Groundwork for dnssec-evidence (0.5.0). Two type maps now describe the same
-   thing — DNS_TYPES in js/dns.js, which decides what can be queried, and
+   thing — DNS_TYPES in `src/core/dns/errors.js`, which decides what can be queried, and
    TYPE_NUM in tools/lib/doh-fixture.mjs, which decides what a fixture key
    resolves to. Nothing forced them to agree, and a divergence is silent in
    both directions: a fixture written for a type the transport cannot query is
@@ -4395,16 +4431,31 @@ eq('a DS with a bad digest length is unverifiable, never a mismatch',
 // that rejects an algorithm it advertised, produces `unverifiable` — "our
 // environment could not hash this" and "your zone is broken" are different
 // sentences and only one of them is ours to say.
-const realCrypto = sandbox.crypto;
-sandbox.crypto = undefined;
+//
+// Each runtime gets its OWN engine. Until 0.6.0 these three reassigned
+// `sandbox.crypto` between calls, because the IIFE looked the global up afresh
+// every time. A platform is fixed for the life of a runtime now — spec §11
+// calls it an immutable primitive adapter — so "a runtime without crypto" is
+// expressed by building one, which is what it actually means.
+const engineWithCrypto = cryptoRuntime => createDnsEngine({
+  publicSuffixRules: FIXTURE_PSL,
+  dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
+  platform: {
+    fetch: (...args) => sandbox.fetch(...args),
+    crypto: cryptoRuntime, AbortController, URLSearchParams, setTimeout, clearTimeout,
+  },
+});
+const matchOneWith = (engine, dsText, keys = rfcKeySet) =>
+  engine.matchDsToDnskeys(engine.parseDs(dsText), keys, OWNER);
+
 eq('no crypto.subtle at all is unverifiable, never a mismatch',
-  (await matchOne(RFC4509_DS)).match, 'unverifiable');
-sandbox.crypto = { subtle: { digest: async () => { throw Object.assign(new Error('nope'), { name: 'NotSupportedError' }); } } };
+  (await matchOneWith(engineWithCrypto(undefined), RFC4509_DS)).match, 'unverifiable');
 eq('a runtime rejecting the algorithm is unverifiable, never a mismatch',
-  (await matchOne(RFC4509_DS)).match, 'unverifiable');
-sandbox.crypto = realCrypto;
-eq('and the real runtime still confirms once restored',
-  (await matchOne(RFC4509_DS)).match, 'confirmed');
+  (await matchOneWith(engineWithCrypto({
+    subtle: { digest: async () => { throw Object.assign(new Error('nope'), { name: 'NotSupportedError' }); } },
+  }), RFC4509_DS)).match, 'unverifiable');
+eq('and a runtime that can hash confirms',
+  (await matchOneWith(engineWithCrypto(crypto), RFC4509_DS)).match, 'confirmed');
 
 /* ── Key tag collisions ──────────────────────────────────────────────── */
 
@@ -4507,18 +4558,19 @@ eq('the P-384 DS under the P-256 key does not confirm',
 
 // A completed proof cannot be revoked by failing to inspect another candidate.
 // Before this the verdict depended on array order.
+// One engine per runtime, as above: a flaky digest is a property of the
+// runtime, not something that changes underneath a live one.
 const flaky = onFirst => ({ subtle: { digest: async (alg, data) => {
-  if (onFirst-- > 0) return realCrypto.subtle.digest(alg, data);
+  if (onFirst-- > 0) return crypto.subtle.digest(alg, data);
   throw Object.assign(new Error('transient'), { name: 'OperationError' });
 } } });
-sandbox.crypto = flaky(1);
 eq('a confirmation survives a later candidate failing to hash',
-  (await matchOne(RFC4509_DS, [...rfcKeySet, decoy])).match, 'confirmed');
-sandbox.crypto = flaky(0);
+  (await matchOneWith(engineWithCrypto(flaky(1)), RFC4509_DS, [...rfcKeySet, decoy])).match, 'confirmed');
+const alwaysFailing = engineWithCrypto(flaky(0));
 eq('but with nothing confirmed, a failure is unverifiable and says why',
-  [(await matchOne(RFC4509_DS)).match, (await matchOne(RFC4509_DS)).unverifiableReason],
+  [(await matchOneWith(alwaysFailing, RFC4509_DS)).match,
+    (await matchOneWith(alwaysFailing, RFC4509_DS)).unverifiableReason],
   ['unverifiable', 'runtime-unavailable']);
-sandbox.crypto = realCrypto;
 
 // "No key carries that tag and algorithm" needs no hashing to establish, so it
 // must not hide behind a digest this build cannot compute — that made an

@@ -3,6 +3,123 @@
 Applies to any coding agent working in this repo — Claude Code, Codex, or
 otherwise. `CLAUDE.md` points here so both toolchains read the same rules.
 
+## Where the code lives, and what a change may touch
+
+The application is ES modules under `src/`, bundled to one artifact by esbuild.
+**A task should be boundable to one directory**, and this table is what makes
+that checkable rather than aspirational.
+
+It is the **enforced allowed-edge matrix**, checked against the real import
+graph — not a listing of it. Some rows permit an edge nothing currently uses:
+`runtime.js` may import `core/shared/` and does not. That permission is
+approved, and it is still part of the policy —
+`tests/contract/dns-transport.test.mjs` §5 fails on any edge **absent** from
+the matrix, so what the matrix grants is exactly what the architecture allows,
+used or not.
+
+**Adding a row, or widening one, is an architectural change and needs the same
+justification and review as any other.** An unused permission is not free: it
+is a direction someone may take later without further argument, which is
+precisely what the matrix exists to prevent. Do not add an edge to make an
+import compile.
+
+| Directory | Owns | May import |
+| --- | --- | --- |
+| `src/main.js` | the entry point: build the platform, construct one runtime, export the facade | `runtime.js`, `platform/`, `data/` |
+| `src/runtime.js` | composition — the DoH layer, the audit, i18n, the renderer, the page | `core/dns/`, `audit/`, `ui/`, `i18n/`, `core/shared/` |
+| `src/audit/` | which checks run, scoring, findings, per-audit state | `core/<protocol>/`, `providers/`, `audit/` siblings |
+| `src/core/dns/` | obtaining DNS information: transport, cache, resolver, errors, cancellation policy | `core/dns/` siblings, `core/shared/` |
+| `src/core/<protocol>/` | one protocol's rules — `bimi`, `caa`, `dkim`, `dmarc`, `dnssec`, `mx`, `spf`, `transport` | `core/shared/` only |
+| `src/core/shared/` | pure value helpers read by two or more protocol owners | **nothing** |
+| `src/providers/` | names from records: DNS, email and hosting detection | `core/shared/` only |
+| `src/ui/` | rendering, the exported CSV and report, event wiring | `ui/` siblings, `i18n/` |
+| `src/i18n/` | translation lookup and DOM translation | `core/shared/` only |
+| `src/data/` | generated tables — not hand-edited, not unit-tested | **nothing** |
+| `src/platform/` | the browser primitive adapter, built from one window | **nothing** |
+
+Three rules follow, and each is asserted:
+
+- **A resolver is passed, never imported.** `src/audit/` has no edge to
+  `core/dns/` and no protocol owner does either. That is what lets a protocol
+  module be tested without a transport.
+- **Generated data is passed, never imported by its consumer.** A module that
+  imports its own tables can never be handed different ones by a test — the
+  spike measured a four-rule public suffix fixture being silently replaced by
+  the real 10,239-rule list while 1,535 assertions still passed.
+- **No protocol module imports a sibling protocol module.** Cross-protocol
+  composition belongs to `src/audit/`, which derives the fact and passes it.
+
+### Where to make a change
+
+| Change | Directory |
+| --- | --- |
+| A DMARC parsing or Tree Walk rule | `src/core/dmarc/` |
+| An SPF lookup, subnet or redundancy rule | `src/core/spf/` |
+| What a finding says, or its severity | `src/audit/issues.js` |
+| What a control is worth | `src/audit/scoring.js` |
+| Which checks run, or in what order | `src/audit/audit-domain.js` |
+| How a value is displayed | `src/ui/render.js` |
+| What the CSV or HTML report contains | `src/ui/report.js` |
+| A control, a listener or the boot | `src/ui/events.js` |
+| A DoH transport, cache or retry rule | `src/core/dns/` |
+
+**Tests live beside what they test.** A `*.test.js` sits next to its module and
+runs as `node src/core/spf/spf.test.js`; cross-cutting contracts are in
+`tests/contract/`, build and artifact checks in `tests/build/`, and the older
+whole-engine suites in `tools/`. Every suite is registered in
+`tests/inventory.json` with its assertion count, and `npm run inventory` runs
+them all and fails if a count moved without the record moving with it.
+
+### Three rules that earned their place
+
+Carried from the 0.6.0 refactor's working contract, which is why they are
+phrased as rules rather than advice:
+
+1. **The browser works at every commit.** Not every phase — every commit.
+   There is one delivery boundary, `dist/app.min.js`, and a commit either
+   leaves it working or has the wrong boundary.
+2. **Nothing is asserted that has not been executed.** Before a statement
+   about how a tool, runtime or API behaves enters code, a commit message or a
+   review document, it is run. Four mechanism claims in this project's reviews
+   were wrong and all four were cheap to check.
+3. **Every check is proven to fail before it is trusted.** A green check nobody
+   has watched fail is not evidence. This is not theoretical: a fixture-identity
+   probe written to catch silent data substitution would itself have passed
+   under substitution. Every new check ships with the negative case that proves
+   it works — and that includes checks over source text, which must strip
+   comments, because the file most likely to discuss a thing is the one that
+   just stopped doing it.
+
+**Never in one commit:** a move *and* a semantics change, a result-schema
+change, a scoring change, a concurrency change, a cache-scope change, or a UI
+behaviour change.
+
+### When to stop and ask for a review
+
+Some findings are not yours to work around. **Stop, write down what you found,
+and say so** — do not push through:
+
+1. **An equivalence diff you cannot explain in one sitting.** Not "investigate
+   and continue" — stop. A query-trace diff with an identical result is still a
+   stop: it means cache or concurrency behaviour moved, and that is a published
+   privacy figure.
+2. **A canonicalization tolerance whose admitted difference class cannot be
+   bounded.** Widening the rule quietly is the failure mode.
+3. **A state in the reviewed registry the fixture corpus cannot reach.**
+   Inventing a response shape is worse than saying it cannot be reached.
+4. **Anything implying a `PRIVACY.md` edit.** That means DNS fan-out moved.
+5. **A spec defect.** `docs/specs/README.md`: a Final spec found wrong is
+   amended and re-versioned, never quietly diverged from.
+6. **A cross-module change with no architectural explanation.**
+7. **Any proposal to weaken a security control** — the markup-sink allowlist, a
+   CSP directive, the namespace contract, the deployment allowlist.
+
+**A reviewer's finding is a claim, not a fact.** Reproduce every one against
+the real code before folding it in, including findings that contradict this
+project's own earlier conclusions. Reviewers here have cited functions and
+paths that do not exist. Record every finding, accepted or declined, with its
+reasoning.
+
 ## Localization is part of the change, not a follow-up
 
 `locales/en.json` is the source of truth. Thirteen other locales track it:
@@ -21,7 +138,7 @@ You are a capable translator. Do the translation yourself, in-session.
 ### The loop
 
 ```bash
-npm run build:fallback              # after any en.json edit — keeps js/locales-en.js in sync
+npm run build:fallback              # after any en.json edit — keeps src/data/locales-en.js in sync
 npm run locale:sync                 # scaffold new keys, recompute state
 npm run locale:todo                 # what is outstanding, per locale
 npm run locale:todo -- de --json    # machine-readable work order for one locale
@@ -66,7 +183,7 @@ keep a failed patch cheap to redo.
   They name Unicode code points, which are the same in every language, and a
   translated marker would break the property that two auditors reading the
   same record in different languages see the same evidence. They are generated
-  in `js/render.js` and never appear in a locale file; the surrounding
+  in `src/ui/render.js` and never appear in a locale file; the surrounding
   `render.hygiene.*` prose is ordinary translatable text.
 
 **Always preserve exactly:**
@@ -88,7 +205,7 @@ transliterate them into kana or characters.
 **Plurals follow CLDR, not English.** A countable key is an object of plural
 categories, and a language supplies exactly the ones it uses — Indonesian needs
 only `other`, Polish needs `one`/`few`/`many`/`other`, Arabic all six. The
-tooling preserves categories `en.json` does not have; `js/i18n.js` resolves
+tooling preserves categories `en.json` does not have; `src/i18n/index.js` resolves
 them through `Intl.PluralRules`. Never trim a locale's plural forms to match
 English. See CONTRIBUTING.md for the full rule.
 
@@ -134,7 +251,7 @@ detected on the next run. Never hand-edit `translation-status.json`.
 
 - `npm test` must pass before you open a PR. `npm run locale:gate` too.
 - After editing `locales/en.json`, run `npm run build:fallback` or
-  `check-locales.mjs` will fail on `js/locales-en.js` being out of sync.
+  `check-locales.mjs` will fail on `src/data/locales-en.js` being out of sync.
 - Never edit while on `main`; branch first.
 - `tmp/` is scratch and git-ignored.
 

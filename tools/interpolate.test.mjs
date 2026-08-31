@@ -10,9 +10,12 @@
  * whose first argument is a DNS-derived name.
  */
 
-import { loadApp } from './lib/browser-harness.mjs';
+import { loadLayers } from './lib/browser-harness.mjs';
 
-const win = loadApp({ files: ['js/locales-en.js', 'js/i18n.js'] });
+// i18n is an ES module now: the harness constructs it from the injected English
+// bundle rather than evaluating a script, and this suite needs no entry point,
+// no DOM and no engine — only the interpolation the i18n layer performs.
+const win = await loadLayers({ render: false, engine: false });
 const { t, tp } = win;
 
 let pass = 0, fail = 0;

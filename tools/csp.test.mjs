@@ -7,10 +7,10 @@
  * away from the policy that authorizes it.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(REPO, 'index.html'), 'utf8');
@@ -76,11 +76,22 @@ eq('the structured data still parses', (() => {
 /* ── 3. Every script the page loads is listed ────────────────────────── */
 section('3. Script loading');
 
+// Amended when the delivery boundary moved (Task 1.6). This section used to
+// assert the seven-file load order, because index.html WAS the dependency
+// graph. It is not any more: the order lives in src/entry-legacy.js, and
+// tools/build-bundle.mjs verifies the bundle's input order against the markup
+// rather than either one trusting the other.
+//
+// Section 1's policy assertions are untouched and must stay that way.
 const srcs = [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map(m => m[1]);
-eq('js/render.js is loaded', srcs.includes('js/render.js'), true);
-eq('render.js loads after i18n.js', srcs.indexOf('js/render.js') > srcs.indexOf('js/i18n.js'), true);
-eq('render.js loads before app.js', srcs.indexOf('js/render.js') < srcs.indexOf('js/app.js'), true);
+eq('exactly one script is loaded', srcs.length, 1);
+eq('and it is the built artifact', srcs[0], 'dist/app.min.js');
 eq('every script is same-origin', srcs.every(s => !/^https?:/i.test(s)), true);
+// Not type="module". The CSP shape and file:// both depend on it: a module
+// script is fetched with CORS, which file:// refuses outright.
+eq('no script is a module', /<script[^>]*\stype="module"/.test(html), false);
+// The artifact is generated, never committed.
+eq('dist/ is git-ignored', readFileSync(join(REPO, '.gitignore'), 'utf8').split('\n').includes('dist/'), true);
 
 /* ── 4. The markup-sink scan ─────────────────────────────────────────── */
 section('4. Markup-sink scan (allowlist is empty)');
@@ -129,10 +140,55 @@ SINK_CASES.forEach(([code, shouldMatch]) => {
   eq(`the scan ${shouldMatch ? 'catches' : 'ignores'} \`${code}\``, SINK.test(code), shouldMatch);
 });
 
-const scanned = jsFiles(join(REPO, 'js')).sort();
-eq('the scan covers js/app.js', scanned.some(f => f.endsWith('app.js')), true);
-eq('the scan covers js/render.js', scanned.some(f => f.endsWith('render.js')), true);
-eq('the scan covers js/i18n.js', scanned.some(f => f.endsWith('i18n.js')), true);
+// The scan covers every source tree that still holds hand-written browser code,
+// plus the artifact that actually ships.
+//
+// Co-location (OQ-ARCH-09) will put *.test.js under src/, so the scan needs an
+// exclusion — and this file's own comment warns that an allowlist with judgment
+// calls in it stops being reliable. The exclusion is therefore a MECHANICAL
+// FILENAME SUFFIX, never a list of specific files. A suffix rule has no
+// judgment in it, and the named-file allowlist above stays empty.
+// `js/` is gone as of Task 6.1 and the filter would have hidden that silently
+// — a scan that quietly covers one tree fewer is the failure this file exists
+// to prevent. Named, and asserted to exist.
+const SOURCE_TREES = ['src'];
+eq('every source tree the scan names exists',
+  SOURCE_TREES.filter(dir => !existsSync(join(REPO, dir))), []);
+const scanned = SOURCE_TREES
+  .flatMap(dir => jsFiles(join(REPO, dir)))
+  .filter(file => !file.endsWith('.test.js'))
+  .sort();
+// Named by responsibility rather than by path, because the paths move every
+// Phase 2 commit and the property does not: whatever tree these files live in,
+// the markup-sink scan has to be looking at them.
+eq('the scan covers the audit coordinator', scanned.some(f => f.endsWith('main.js')), true);
+eq('the scan covers the renderer', scanned.some(f => f.endsWith('render.js')), true);
+eq('the scan covers the i18n layer', scanned.some(f => f.endsWith('index.js') && f.includes(`${sep}i18n${sep}`)), true);
+// The protocol engine is `src/core/` now — nine owning directories, not one
+// file. Named by responsibility, like its neighbours.
+eq('the scan covers the protocol owners',
+  scanned.some(f => f.includes(`${sep}core${sep}spf${sep}`)) &&
+  scanned.some(f => f.includes(`${sep}core${sep}dmarc${sep}`)), true);
+eq('and the audit layer', scanned.some(f => f.includes(`${sep}audit${sep}`)), true);
+eq('the scan covers the src/ tree', scanned.some(f => f.includes(`${sep}src${sep}`)), true);
+eq('and excludes co-located tests by suffix alone',
+  scanned.some(f => f.endsWith('.test.js')), false);
+
+/**
+ * And the built artifact, which is what the browser actually runs.
+ *
+ * This is what pays for the suffix exclusion above: whatever the source tree
+ * does, the property is proved on the code that ships. `npm test` runs
+ * `pretest`, which builds the bundle, so it is always here — a scan that
+ * silently skipped when the artifact was missing would be worth nothing.
+ */
+const ARTIFACT = join(REPO, 'dist', 'app.min.js');
+eq('the built artifact exists to be scanned', existsSync(ARTIFACT), true);
+const artifactSource = existsSync(ARTIFACT) ? readFileSync(ARTIFACT, 'utf8') : '';
+eq('the artifact assigns no markup sink', SINK.test(artifactSource), false);
+eq('and calls none of the other sinks', OTHER_SINKS.test(artifactSource), false);
+// The scan is only meaningful if it is looking at the real thing.
+eq('the artifact is the whole application, not a stub', artifactSource.length > 100000, true);
 
 for (const file of scanned) {
   const rel = relative(REPO, file);
@@ -150,11 +206,23 @@ for (const file of scanned) {
 /* ── 5. The report's own policy ──────────────────────────────────────── */
 section('5. The exported report declares its own policy');
 
-const app = readFileSync(join(REPO, 'js', 'app.js'), 'utf8');
+// Follows the report builder, which moved to its owner at Task 5.5. A source
+// assertion that keeps reading the file the code has LEFT goes green while
+// checking nothing — so the file is named once and the presence of the builder
+// in it is asserted before its policy is.
+const REPORT = join('src', 'ui', 'report.js');
+const report = readFileSync(join(REPO, REPORT), 'utf8');
+eq(`${REPORT} is where the report is built`,
+  report.includes('function buildReportDocument('), true);
 eq('the report builder emits a CSP meta tag',
-  app.includes('Content-Security-Policy'), true);
+  report.includes('Content-Security-Policy'), true);
 eq("the report's policy is default-src 'none'",
-  app.includes("default-src 'none'; style-src 'unsafe-inline'; img-src data:"), true);
+  report.includes("default-src 'none'; style-src 'unsafe-inline'; img-src data:"), true);
+// One construction site, so there is one place to change it. The module's
+// header quotes the policy too, which is documentation rather than a second
+// source of truth — so the count is of `content:` sites, not of the string.
+eq('the policy is constructed in exactly one place',
+  (report.match(/content: "default-src 'none'; style-src 'unsafe-inline'; img-src data:"/g) || []).length, 1);
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

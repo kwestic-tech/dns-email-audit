@@ -16,6 +16,161 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Nothing yet.
 
+## [0.6.0] — 2026-08-30
+
+### Changed
+
+- **The application is ES modules under `src/`, bundled to one artifact.** The
+  engine was a single 5,704-line IIFE, `js/dns.js`, loaded beside six other
+  scripts in an order the page could not state a reason for. Separate files
+  could only reach each other through `window`, and **twenty-four top-level
+  globals** was the surface that arrangement left behind — some of it
+  load-bearing between files, some of it published alongside a purely
+  internal function. Either way, all of it was reachable by anything on the
+  page.
+
+  There are now **thirteen owning directories** under `src/` — `audit/`, eight
+  protocol owners, `core/dns/`, `core/shared/`, `providers/` and `ui/` — each
+  with a checked-in `API.md`, and **30 co-located test modules** sitting beside
+  the code they test. `src/ui/` is the one owning directory with no co-located
+  test: it keeps its established coverage in `tools/render.test.mjs` and
+  `tools/export.test.mjs`. Imports are explicit, so load order is derived
+  rather than declared. The only application-created browser global is
+  `DnsAudit`, with the two facade members described below.
+
+- **`index.html` loads one script instead of seven.** `dist/app.min.js`, built
+  by esbuild, is the single delivery boundary: 437 KB raw and 131 KB gzipped,
+  down from 719 KB raw and 213 KB gzipped across the seven separately-fetched
+  files it replaces.
+
+- **`window.DnsAudit` is the supported browser API, and it has two members** —
+  `analyzeDomain` and `checkConnectivity`. The bundle publishes **one top-level
+  global** where 0.5.0 published twenty-four, and that one global carries two
+  members. A contract test asserts the artifact creates exactly that one name,
+  and that its members match the entry module's exports exactly in both
+  directions, so neither a second global nor a third member can appear by
+  accident.
+
+  **This is a breaking change for anything that drove the page from outside
+  it.** Three groups went:
+
+  - `DnsAudit` itself carried the entire 95-member engine; it now carries the
+    two members above — the only two the application itself ever called. Of
+    the other 93, this repository's own tools reached 81 (77 in the scoring
+    suite, four in the backtest) and now import the modules directly; the
+    remaining twelve had no consumer here at all.
+  - The fourteen `js/app.js` UI function globals — `startAudit`,
+    `cancelAudit`, `clearAll`, `exportCSV`, `exportHTML`, `filterTable`,
+    `loadExample`, `loadFile`, `openLearnMore`, `setLang`, `showHelp`,
+    `sortTable`, `toggleDetail`, `toggleShowMe`. **The functions themselves
+    were doing the work** — the page wired them to its controls with
+    `addEventListener` and called them from its own handlers. What went is the
+    published `window` binding beside each one, which nothing reached through:
+    `index.html` has no inline handlers, because its CSP carries no
+    `unsafe-inline`. Drive the controls by clicking them.
+  - The wiring and generated-data names — `i18n`, `t`, `tp`, `tRaw`, `R`,
+    `__APP_TEST__`, `__PUBLIC_SUFFIX_RULES__`, `__DKIM_SELECTOR_CATALOG__`,
+    `__I18N_EN__`. Every module now takes its renderer and translator as an
+    argument, and the generated tables live inside the bundle's closure.
+
+  A search of this repository found no consumer for any of them outside the
+  suites that moved. That is the basis for removing them, and it is worth
+  stating precisely: **it proves no repository consumer, not no consumer.** A
+  static site can be driven from a console or an embedding page that is not in
+  this checkout.
+
+- **Opening `index.html` from disk still works, and is still tested.** The
+  bundle is emitted as a classic script rather than `type="module"` — a module
+  script is blocked by CORS under `file://` — and the English locale is inlined
+  into the artifact rather than fetched. `npm run test:file-url` drives a real
+  Chrome over `file://` and asserts it. Other languages still need the app
+  served over HTTP, unchanged from 0.5.0.
+
+### Added
+
+- **A reproducible build with one direct development dependency.**
+  `package.json` declares
+  exactly one: esbuild `0.28.2`, exact-pinned, as a dev dependency — no
+  framework, and still nothing at runtime.
+
+  The developer and command-line tooling floor is now **Node.js 20**. The
+  browser application has no Node.js runtime requirement. The release review
+  tested the previous `>=18` declaration directly; Node 18 reaches the suite
+  but lacks the global Web Crypto API used by the production modules and
+  tools, so the old declaration promised support the project did not provide.
+
+  What that resolves to is worth stating separately, because "one dependency"
+  and "one package" are different claims. On a given platform `npm ci`
+  installs **two packages**: `esbuild` and the one `@esbuild/*` binary for
+  your architecture, out of 26 declared optional platform packages of which 25
+  go unmet. esbuild declares a `postinstall` script, and
+  **`package.json`'s `allowScripts` gate sets `esbuild: false`, so it does not
+  run** — the optional platform package supplies the binary directly. The
+  install runs no scripts at all, and that is a recorded decision rather than
+  a default.
+
+  `npm test` builds first, because several suites assert against the artifact
+  and a source-only run would be testing something the browser never sees.
+  A clean checkout therefore runs `npm ci` and `npm run build` before
+  `npm start`; `dist/` remains generated and untracked.
+
+- **An allowed-import matrix that a test enforces.** `AGENTS.md` carries the
+  edges the architecture permits, and
+  `tests/contract/dns-transport.test.mjs` checks them against the real import
+  graph: **an edge absent from the matrix is a test failure, not a judgement
+  call.** Adding or widening a row is an architectural change and takes the
+  same review as any other.
+
+- **A five-surface equivalence oracle.** `npm run equivalence` replays 32
+  corpus cases and compares the result object, the DNS query trace, the CSV
+  export, the HTML report and the rendered DOM against a baseline captured
+  from `v0.5.0`. It also validates itself: `npm run equivalence:validate`
+  mutates each surface in turn and fails if a mutation is *not* caught, so the
+  oracle cannot pass by reaching nothing.
+
+- **An assertion inventory.** `npm run inventory` runs every suite as a
+  subprocess and compares each one's count against `tests/inventory.json`. It
+  fails in both directions — a silent decrease is coverage leaving, a silent
+  increase is work nobody recorded.
+
+- **Contract suites for the seams the unit tests cannot see**: the transport
+  kinds each layer may use, the closed issue-token vocabulary, the browser
+  namespace, the platform boundary, and source-to-bundle parity.
+
+### Removed
+
+- **`js/` is deleted** — `dns.js`, `app.js`, `render.js`, `i18n.js` and the
+  three generated data files. Forks or self-hosted copies that reference those
+  paths should load `dist/app.min.js` instead. The generated tables now live in
+  `src/data/` and are still never hand-edited; `npm run build:fallback`
+  regenerates the inlined English bundle.
+
+### Verification
+
+**No behaviour changed across the five equivalence surfaces** — the result
+object, the DNS query trace, the CSV export, the HTML report and the rendered
+DOM — and that is a measured claim rather than an intention. The oracle reports
+**32 cases, 5 surfaces, 0 differences** against the `v0.5.0` baseline, covering
+**430 of 430** registry rows. The browser compatibility surface — the global
+namespace described above — **did change, deliberately**; it is observed by
+none of the five, which is why it is documented rather than diffed. `WEIGHTS`,
+`PARKED_WEIGHTS` and `GRADE_THRESHOLDS` are byte-identical to `v0.5.0`.
+
+`tools/scoring.test.mjs` still reaches the engine's 95-member surface by name,
+and passes the **same 1,535 assertions** it passed before the refactor, with
+**the count unmoved through all six phases**. It was not rewritten to match
+the new structure — that would have retired the instrument measuring the
+refactor. What did change in it is the loading
+mechanism (a `node:vm` sandbox cannot evaluate an ES module) and three DNSSEC
+tests that used to reassign `sandbox.crypto` between calls; a platform is fixed
+for the life of a runtime now, so "a runtime without crypto" is expressed by
+building one. No assertion's subject or expectation moved.
+
+`npm test` passes **4,451 assertions across 46 suites**, up from 2,121 at
+0.5.0; the increase is the new contract, build and co-located unit suites, not
+new behaviour. `npm run inventory` passes 240, `npm run test:file-url` passes
+22, and `npm run locale:gate` passes 13/13 at 771/771 keys.
+
 ## [0.5.0] — 2026-08-26
 
 ### Added
@@ -1046,7 +1201,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.2.3...v0.3.0

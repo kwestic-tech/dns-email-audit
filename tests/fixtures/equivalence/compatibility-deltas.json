@@ -1,0 +1,203 @@
+{
+  "$comment": [
+    "Authorized compatibility deltas for 0.6.0 — the equivalence manifest's named-delta record.",
+    "",
+    "An entry here is a deliberate, approved change to the browser-visible surface. It is NOT an",
+    "exclusion: no equivalence surface is relaxed by anything in this file, and",
+    "tests/lib/canonical.mjs's exclusion manifest stays empty. The five surfaces observe the audit",
+    "RESULT, and the globals below appear on none of them — which is exactly why they need naming",
+    "here rather than being caught by a diff.",
+    "",
+    "Together these two entries are ONE release-level compatibility policy, to be documented as one",
+    "in CHANGELOG.md and the PR description — written once, at the end, from the finished branch,",
+    "per repository policy. They stay two commits so each is mechanically auditable.",
+    "",
+    "The load-bearing distinction, and the reason this file exists: the search proved NO REPOSITORY",
+    "CONSUMER. It cannot prove no consumer. A static site can be driven from a console, an",
+    "extension, or an embedding page absent from this checkout. These are authorized decisions, not",
+    "discoveries, and neither may be described as 'nothing used it'.",
+    "",
+    "CORRECTED 2026-08-27, before Task 2.7 was implemented. The previous revision of this file",
+    "over-scoped Task 2.8: it folded __APP_TEST__, the i18n/renderer wiring globals and the three",
+    "generated-data transition inputs into the fourteen-function-global delta, and claimed the end",
+    "state was DnsAudit alone. Neither the binding plan's Task 2.8 nor spec §10 authorizes that.",
+    "Those nine names have REPOSITORY CONSUMERS and no direct ESM owner yet — tools/render.test.mjs",
+    "and tools/export.test.mjs read __APP_TEST__ across 528 assertions — so removing them before",
+    "the phase that gives each a home would delete coverage rather than retire an adapter. They",
+    "stay behind marked adapters and retire on their owners' schedule, recorded below rather than",
+    "silently folded into a compatibility entry that does not cover them."
+  ],
+  "release": "0.6.0",
+  "baseline": "v0.5.0",
+  "deltas": [
+    {
+      "id": "dnsaudit-facade-contraction",
+      "task": "2.7",
+      "status": "planned",
+      "summary": "window.DnsAudit contracts from 95 members to the two-member supported facade.",
+      "before": "95 members, the whole engine, assigned by js/dns.js:5601 and later by the Phase 2 bridge.",
+      "after": "Exactly analyzeDomain and checkConnectivity, produced by esbuild's globalName against src/main.js's named exports.",
+      "why": [
+        "Spec §10 derived the facade from actual consumers rather than from what looked exportable:",
+        "analyzeDomain and checkConnectivity are the ONLY two members js/app.js calls, out of 95.",
+        "77 of the rest are used by tools/scoring.test.mjs and 4 by tools/backtest.mjs; those became",
+        "direct ESM imports in Task 2.3 and need no global. The facade is the only supported browser",
+        "API from 0.6.0 onward."
+      ],
+      "authorizedBy": "Spec §10, 'Three stages, in order', stage 3. Sequencing confirmed by Ian 2026-08-27.",
+      "verification": [
+        "src/facade.expected.json is checked in and asserted against BOTH the source module's exports",
+        "and the built bundle's global — exactly, in both directions. This delta does not pass merely",
+        "because Task 2.7 permits the global surface to move.",
+        "The legacy window.DnsAudit assignment is removed in the SAME commit that enables globalName:",
+        "an early globalName would emit a top-level var that overwrites the real object, which is the",
+        "mistake spec 0.2 nearly shipped.",
+        "Five-surface equivalence must stay clean through the commit."
+      ],
+      "instrumentConsequence": [
+        "The contracted global is esbuild's export namespace: non-configurable accessors, and NOT the",
+        "engine object src/main.js calls. Measured — the assignment throws, and the artifact contains",
+        "the string window.DnsAudit zero times. The equivalence runner captured the RESULT surface by",
+        "wrapping window.DnsAudit.analyzeDomain, so this commit must also rebuild the oracle to the",
+        "two-execution shape spec 1.4 §8 now specifies: the facade for the result, the real UI",
+        "controls for the other four, one deterministic case, cross-surface binding asserted. No",
+        "exclusion is added and no surface is relaxed."
+      ],
+      "globalCount": {
+        "before": 24,
+        "after": 24,
+        "note": "The NAME set is unchanged; DnsAudit's membership contracts from 95 to 2. The producer moves from src/main.js to esbuild's generated boundary, so the source graph creates 23 and the bundle 24."
+      }
+    },
+    {
+      "id": "legacy-function-globals-removed",
+      "task": "2.8",
+      "status": "planned",
+      "summary": "The 14 unsupported js/app.js function globals are removed. Nothing else.",
+      "removed": {
+        "functionGlobals": [
+          "startAudit",
+          "cancelAudit",
+          "clearAll",
+          "exportCSV",
+          "exportHTML",
+          "filterTable",
+          "loadExample",
+          "loadFile",
+          "openLearnMore",
+          "setLang",
+          "showHelp",
+          "sortTable",
+          "toggleDetail",
+          "toggleShowMe"
+        ]
+      },
+      "why": [
+        "index.html contains no inline event handlers — the CSP carries no 'unsafe-inline', so it",
+        "cannot — and its single textual match for cancelAudit is data-i18n=\"btn.cancelAudit\", a",
+        "locale key. Nothing in index.html, tools/ or the suites reads any of the 14.",
+        "package.json declares no main, exports or files, so this project publishes no documented",
+        "JavaScript API. The names are unsupported legacy surface, not compatibility API."
+      ],
+      "authorizedBy": "Spec §10, 'The 14 function globals have no repository consumer'. Scope confirmed as these fourteen only, 2026-08-27.",
+      "verification": [
+        "tests/build/parity.test.mjs asserts the artifact's global set is exactly the ten names",
+        "below — the facade plus the nine adapters that have not reached their owners yet.",
+        "Five-surface equivalence must stay clean, which requires the equivalence runner to drive the",
+        "application through real DOM events rather than through window.startAudit()."
+      ],
+      "globalCount": {
+        "before": 24,
+        "after": 10,
+        "remaining": [
+          "DnsAudit",
+          "__APP_TEST__",
+          "i18n",
+          "t",
+          "tp",
+          "tRaw",
+          "R",
+          "__PUBLIC_SUFFIX_RULES__",
+          "__DKIM_SELECTOR_CATALOG__",
+          "__I18N_EN__"
+        ],
+        "note": "NOT DnsAudit alone. The previous revision of this file said so and it was wrong: the nine names beside the facade have repository consumers and no ESM owner yet. They are marked adapters, not compatibility API, and their removal is adapter retirement rather than a compatibility delta."
+      },
+      "knownConsequence": [
+        "tests/lib/subject.mjs drives the app by calling win.startAudit(), win.exportCSV() and",
+        "win.exportHTML(). All three disappear here. The runner must dispatch real click events on",
+        "#auditBtn, #exportCsvBtn and #exportHtmlBtn instead, which needs tools/lib/dom-shim.mjs to",
+        "actually dispatch to its stored listeners — it records them today and its click() is a",
+        "no-op. That is a more faithful driver, not a workaround: a user clicks a button.",
+        "It lands in the SAME commit as the removals. No commit may remove startAudit, exportCSV or",
+        "exportHTML while leaving the runner red."
+      ]
+    }
+  ],
+  "adapterRetirement": {
+    "$comment": [
+      "NOT compatibility deltas, and deliberately kept out of the two entries above.",
+      "",
+      "RETIRED AT TASK 6.2 — all nine, together with both marked adapters. The `retired` list below",
+      "is the record of what each name's consumer actually was and how it was retired.",
+      "",
+      "CORRECTED at Task 6.2. This block previously opened 'Each of these nine globals has a",
+      "repository consumer today', which was wrong on its own terms: the i18n/renderer entry beneath",
+      "it said the opposite, and src/main.js repeated the same broad claim before narrowing it a few",
+      "lines later. Three of the nine had a TEST consumer, three had a test consumer that was itself",
+      "an artifact check, and five had no consumer at all and were held for browser-surface",
+      "neutrality. The distinction is recorded rather than smoothed over, because it is the whole",
+      "reason these were not folded into a compatibility delta: a name nothing reads is finished work",
+      "on an adapter, and a name a suite reads is coverage that has to be moved before the name goes.",
+      "",
+      "tests/contract/state-matrix.test.mjs and tests/contract/namespace.test.mjs count the marked",
+      "adapters, and both now assert the count is exactly zero."
+    ],
+    "pending": [],
+    "retired": [
+      {
+        "globals": [
+          "__APP_TEST__"
+        ],
+        "consumerKind": "test",
+        "consumers": [
+          "tools/render.test.mjs (329 assertions)",
+          "tools/export.test.mjs (199 assertions)"
+        ],
+        "retiredAt": "6.2",
+        "how": "Both suites import the runtime directly through tools/lib/browser-harness.mjs's loadUi(), which builds a real runtime over a shim window and returns runtime.ui. No published name is involved. Assertion counts unchanged at 329 and 199.",
+        "why": "Spec §10 classed it as test-only surface that becomes DIRECT ESM IMPORTS. It could never be exported from src/main.js — the entry's exports ARE the facade, pinned at exactly two by Task 2.7."
+      },
+      {
+        "globals": [
+          "i18n",
+          "t",
+          "tp",
+          "tRaw",
+          "R"
+        ],
+        "consumerKind": "none — surface neutrality only",
+        "consumers": [],
+        "retiredAt": "6.2",
+        "how": "Deleted from src/main.js with the adapter sentinel. Nothing read them; every module takes its i18n and renderer as an argument or an import.",
+        "why": "The wiring globals src/legacy-bridge.js published for js/app.js. Their last reader became src/main.js's own module scope at Task 2.6, so what held them afterwards was browser-surface neutrality, not a consumer. Removing them is a decision, and the search proved NO REPOSITORY CONSUMER — which is not the same as no consumer."
+      },
+      {
+        "globals": [
+          "__PUBLIC_SUFFIX_RULES__",
+          "__DKIM_SELECTOR_CATALOG__",
+          "__I18N_EN__"
+        ],
+        "consumerKind": "test — fixture-identity probes only",
+        "consumers": [
+          "tests/build/parity.test.mjs section 5 read all three from both sides",
+          "tests/build/file-url.test.mjs probed them in a real browser",
+          "tests/build/equivalence.mjs's 'binding' fixture-identity probe form"
+        ],
+        "retiredAt": "6.2",
+        "how": "src/data/legacy-globals.js deleted. Every probe was re-pointed at the ARTIFACT TEXT and the source modules, with the SAME discriminators — the private blogspot.com rule, the fixture DKIM selector, the fixture English title. equivalence.mjs's second probe form is now 'artifact' rather than 'binding' and is recorded in each subject's manifest. Fixture-identity coverage is not weakened: the question moved, not the answer.",
+        "why": "Spec §10 classed them as TRANSITION INPUTS, not facade exports. Nothing in the application has read them since Task 2.1 made the data injected; the tables now live inside the bundle's closure, which is where the probes look."
+      }
+    ]
+  }
+}

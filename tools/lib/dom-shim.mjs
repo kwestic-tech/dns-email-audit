@@ -3,7 +3,7 @@
 
    What this proves
    ----------------
-   That `js/render.js` and `js/app.js` put every DNS-derived value into a text
+   That `src/ui/render.js` and `src/ui/events.js` put every DNS-derived value into a text
    node or an allowlisted attribute, and never into a markup sink. That is a
    question about which DOM methods the renderer calls, so a shim answers it
    exactly: after the 0.2.3 rewrite the render path never parses a string into
@@ -149,10 +149,85 @@ class ShimNode {
   }
 
   addEventListener(type, handler) {
-    (this._listeners || (this._listeners = {}))[type] = handler;
+    if (typeof handler !== 'function') return;
+    const listeners = this._listeners || (this._listeners = {});
+    (listeners[type] || (listeners[type] = [])).push(handler);
   }
 
-  removeEventListener() { /* nothing dispatches in the shim */ }
+  removeEventListener(type, handler) {
+    const handlers = this._listeners && this._listeners[type];
+    if (!handlers) return;
+    const at = handlers.indexOf(handler);
+    if (at >= 0) handlers.splice(at, 1);
+  }
+
+  /**
+   * Dispatch to the listeners this tree actually registered, then bubble.
+   *
+   * A no-op until Task 2.8, and the change is what that task needs. The
+   * equivalence runner used to drive the application by calling
+   * `win.startAudit()`, `win.exportCSV()` and `win.exportHTML()` — three of the
+   * fourteen unsupported globals that task removes. The runner now clicks
+   * `#auditBtn`, `#exportCsvBtn` and `#exportHtmlBtn`, which is a MORE FAITHFUL
+   * DRIVER rather than a workaround: a user clicks a button, and the path from
+   * the click to the audit is now part of what the five surfaces cover.
+   *
+   * Bubbling is real because the application depends on it: `src/ui/events.js` wires
+   * ONE click listener on `#tableBody` and dispatches inside it with
+   * `event.target.closest(...)`, so a shim that only ran listeners on the exact
+   * target would model the direct handlers and silently skip every delegated
+   * one.
+   *
+   * `stopPropagation()` is honoured for the same reason — it is the only
+   * control a delegated handler has — and `preventDefault()` is recorded
+   * without acting on it, because nothing in this shim has a default action to
+   * prevent and pretending otherwise would be the kind of half-model that
+   * misleads.
+   */
+  dispatchEvent(event) {
+    const target = event.target || this;
+    let node = this;
+    while (node) {
+      const handlers = node._listeners && node._listeners[event.type];
+      if (handlers) {
+        // A copy: a handler that removes another must not shift this iteration.
+        for (const handler of handlers.slice()) {
+          const returned = handler.call(node, { ...event, target, currentTarget: node });
+          // The one extension, and it is on the EVENT rather than on the DOM
+          // API. `startAudit` is an async function wired straight to the
+          // button, and a real `click()` discards the promise it returns — a
+          // browser has nothing to await it with, and neither does a user.
+          // The equivalence runner does: it has to know when the audit it
+          // started has finished. So a caller that built the event can read
+          // what the handlers returned, and a caller that used `click()` sees
+          // exactly what a browser would.
+          if (event.__results) event.__results.push(returned);
+          if (event.__stopped) break;
+        }
+      }
+      if (event.__stopped || !event.bubbles) break;
+      node = node.parentNode;
+    }
+    return !event.__prevented;
+  }
+
+  /**
+   * A real click, and a detached node still absorbs it.
+   *
+   * `src/ui/report.js`'s `dl()` synthesises a click on a DETACHED anchor to start a
+   * download. The download is the browser's, not the document's, and the
+   * equivalence runner captures the content at the `Blob` instead — so that
+   * anchor has no listeners and no parent, and dispatching to it does exactly
+   * what it did when this method was empty. Nothing about the export path
+   * changed.
+   */
+  click() {
+    const event = { type: 'click', bubbles: true };
+    event.stopPropagation = () => { event.__stopped = true; };
+    event.preventDefault = () => { event.__prevented = true; };
+    event.target = this;
+    return this.dispatchEvent(event);
+  }
 
   /** Depth-first walk over every descendant, this node excluded. */
   * walk() {
@@ -427,10 +502,35 @@ class ShimDocument {
   createDocumentFragment() { return new ShimFragment(); }
 
   addEventListener(type, handler) {
-    (this._listeners || (this._listeners = {}))[type] = handler;
+    if (typeof handler !== 'function') return;
+    const listeners = this._listeners || (this._listeners = {});
+    (listeners[type] || (listeners[type] = [])).push(handler);
   }
 
-  removeEventListener() { /* nothing dispatches in the shim */ }
+  removeEventListener(type, handler) {
+    const handlers = this._listeners && this._listeners[type];
+    if (!handlers) return;
+    const at = handlers.indexOf(handler);
+    if (at >= 0) handlers.splice(at, 1);
+  }
+
+  /**
+   * The document has no parent, so nothing bubbles past it.
+   *
+   * This is how `DOMContentLoaded` reaches the application: `src/ui/events.js`
+   * wires every control from inside that listener, so a subject whose document
+   * never fires it has an inert page with no handlers on any button. The
+   * equivalence runner fires it before it clicks anything.
+   */
+  dispatchEvent(event) {
+    const handlers = this._listeners && this._listeners[event.type];
+    if (!handlers) return true;
+    for (const handler of handlers.slice()) {
+      handler.call(this, { ...event, target: event.target || this, currentTarget: this });
+      if (event.__stopped) break;
+    }
+    return !event.__prevented;
+  }
 
   /** No selector engine: tests walk the tree. Present so load-time calls work. */
   querySelectorAll() { return []; }
@@ -452,7 +552,8 @@ class ShimDocument {
 /**
  * A detached document with html/head/body, matching
  * `document.implementation.createHTMLDocument()` closely enough for the two
- * document builders in `js/app.js` (spec §1a).
+ * document builders in `src/ui/report.js` and `src/main.js`'s learn-more page
+ * (spec §1a).
  */
 export function createHTMLDocument(title) {
   const doc = new ShimDocument();
@@ -480,9 +581,11 @@ export function createDocument() {
 }
 
 /**
- * Build a `window`-like global for loading `js/render.js`, `js/i18n.js` and
- * `js/app.js` into a `node:vm` sandbox, the way `tools/backtest.mjs` already
- * loads `js/dns.js`.
+ * Build a `window`-like global for the harness that loads the application.
+ *
+ * Written when `js/render.js`, `js/i18n.js` and `js/app.js` were separate
+ * files evaluated into a `node:vm` sandbox. They are `src/` modules now and
+ * `js/` is gone; what this still provides is the same `window` shape.
  */
 export function createWindow(extra = {}) {
   const document = createDocument();

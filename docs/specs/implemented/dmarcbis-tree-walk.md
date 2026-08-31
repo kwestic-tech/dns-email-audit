@@ -16,7 +16,7 @@
 ## Problem
 
 The application already advertises RFC 9989 conformance. `js/dns.js` implements
-the full DMARCbis tag vocabulary at [`js/dns.js:558`](../../../js/dns.js), handles
+the full DMARCbis tag vocabulary at `js/dns.js:558`, handles
 `t=` test mode, `psd=`, `sp`/`np` inheritance, case-insensitive anchored tag
 parsing, DMARC URI list parsing with size-limit suffixes, and external report
 authorization. The scoring rubric was already migrated off `pct=`. That is most
@@ -24,10 +24,10 @@ of the specification.
 
 What is missing is discovery. RFC 9989 replaced the Public Suffix List with a
 DNS Tree Walk for locating the Organizational Domain, and this application still
-uses the PSL. `analyzeDomain()` at [`js/dns.js:1844`](../../../js/dns.js) queries
+uses the PSL. `analyzeDomain()` at `js/dns.js:1844` queries
 `_dmarc.<domain>`, and on a miss makes exactly one more query at
 `_dmarc.<organizational-domain>` where the organizational domain comes from
-`getOrganizationalDomain()` at [`js/dns.js:246`](../../../js/dns.js), which reads
+`getOrganizationalDomain()` at `js/dns.js:246`, which reads
 the vendored PSL snapshot in `js/public-suffixes.js`.
 
 That approximation is wrong in three ways that matter. It reaches the wrong name
@@ -38,10 +38,10 @@ which exists precisely so the walk knows where to stop without consulting a
 list maintained outside DNS.
 
 Two smaller defects sit alongside it. Record selection at
-[`js/dns.js:1846`](../../../js/dns.js) filters TXT strings with
+`js/dns.js:1846` filters TXT strings with
 `startsWithCI(v, 'v=DMARC1')`, so a record written as `p=reject; v=DMARC1` is
 never selected and is reported as if no record exists. `validateDmarcVersion()`
-at [`js/dns.js:601`](../../../js/dns.js) already knows how to say `not-first`, but
+at `js/dns.js:601` already knows how to say `not-first`, but
 nothing ever reaches it in that case. Separately, `np=` is scored through
 `effectiveNp` without ever testing whether the audited name is in fact a
 non-existent subdomain, so the non-existent-subdomain branch of the policy is
@@ -65,7 +65,7 @@ applied to names that plainly exist.
 ## Non-goals
 
 - No scoring change in this release. The rubric in `calcDmarcScore()` at
-  [`js/dns.js:1334`](../../../js/dns.js) is untouched. Discovery correctness will
+  `js/dns.js:1334` is untouched. Discovery correctness will
   move some domains between grades because a different record is found, and that
   is a discovery change, not a rubric change. Any deliberate rubric change is a
   separate release and is backtested first.
@@ -121,7 +121,7 @@ keeps its current signature. The orchestration in `analyzeDomain()` calls
 discovery object to the result as `dmarcDiscovery`.
 
 The existing post-hoc mutation of `dmarcStatus` at
-[`js/dns.js:1856`](../../../js/dns.js), which overwrites `policy` with
+`js/dns.js:1856`, which overwrites `policy` with
 `effectiveSp` and rewrites `status` and `cls`, is replaced by an explicit
 `applyInheritance(dmarcStatus, discovery)` function returning a new object. That
 mutation is currently the only place a `dmarcStatus` is edited after
@@ -199,7 +199,7 @@ Implementation constraints that are settled:
 - A step returning `servfail`, `timeout`, `network-error` or `http-error`
   terminates the walk with `terminated: 'error'` and `applied: null`. A failed
   lookup is not a missing record. The result is `unknown`, and per the pattern
-  established by `optionalCheck()` at [`js/dns.js:180`](../../../js/dns.js) an
+  established by `optionalCheck()` at `js/dns.js:180` an
   unknown control must never be presented as an absent one. This holds even when
   a record was already collected at a lower step: a transient error means the
   higher names could not be examined, so the *highest* record is not knowable.
@@ -241,7 +241,7 @@ Selection runs in two passes at each step.
 
 The **strict pass** is what determines policy. Keep TXT strings that begin with
 `v=DMARC1` after leading-whitespace trimming, case-sensitive on the value
-`DMARC1` per [`js/dns.js:601`](../../../js/dns.js) and case-insensitive on the tag
+`DMARC1` per `js/dns.js:601` and case-insensitive on the tag
 name `v`. If exactly one survives, it is that step's record. If more than one
 survives, **all are discarded and the walk continues**, and the step is recorded
 in `observed[]` with `why: 'multiple-at-step'`.
@@ -254,7 +254,7 @@ reported only "no DMARC record" would be describing the symptom instead of the
 cause. What changes is the *policy verdict*, which becomes RFC-correct: a record
 higher in the tree still applies, and if none exists the status is `missing`.
 Scoring is unaffected either way — `missing`, `present` and `permerror` all
-score zero at [`js/dns.js:1371`](../../../js/dns.js).
+score zero at `js/dns.js:1371`.
 
 **The message must not lie about the policy.** When a duplicate is found at one
 name but a valid record applies from higher in the tree, the finding says the
@@ -298,7 +298,7 @@ async function domainExists(name, queryOpts) → 'yes' | 'no' | 'unknown'
 Implementation: an NXDOMAIN response for any type at that name means `no`;
 NOERROR with or without data means `yes`; any transport failure means `unknown`.
 `analyzeDomain()` already issues NS, MX, TXT, A and AAAA queries for the audited
-name at [`js/dns.js:1819`](../../../js/dns.js), and `nsResult.status === 3` is
+name at `js/dns.js:1819`, and `nsResult.status === 3` is
 already the unregistered-domain test. The existence verdict should be derived
 from those existing responses rather than adding a query. See `OQ-DMARC-02` for
 which record type is authoritative for this purpose.
@@ -306,7 +306,7 @@ which record type is authoritative for this purpose.
 The consequence for scoring is deliberately conservative: when the audited name
 exists, `effectiveSp` governs and `effectiveNp` is reported but not applied. When
 existence is `unknown`, the weaker of the two continues to govern, matching the
-existing weakest-link rule at [`js/dns.js:1349`](../../../js/dns.js).
+existing weakest-link rule at `js/dns.js:1349`.
 
 ### 5. Stricter tag validation
 
@@ -318,7 +318,7 @@ an English string.
 | --- | --- |
 | `p` | An unrecognized value already forces `malformed`. Add the raw value to the status so the message can name it. |
 | `sp`, `np` | Same treatment: an unrecognized value is currently silently normalized to `null` by `normalizePolicy()` and then inherits. Distinguish "absent, inherits" from "present but unrecognized". |
-| `adkim`, `aspf` | Currently any value other than `s` becomes `r` at [`js/dns.js:715`](../../../js/dns.js). Distinguish `absent`, `r`, `s`, and `invalid`. |
+| `adkim`, `aspf` | Currently any value other than `s` becomes `r` at `js/dns.js:715`. Distinguish `absent`, `r`, `s`, and `invalid`. |
 | `t` | `tValid` exists. Surface it as a finding rather than only as a field. |
 | `psd` | `psdValid` exists. A `psd=y` on a name that is plainly not a public suffix is worth naming. |
 | `fo` | `foValid` exists. Add the existing "fo without ruf is a no-op" observation as a first-class finding. |
@@ -327,12 +327,12 @@ an English string.
 
 ### 6. External report authorization
 
-`checkExternalReportAuth()` at [`js/dns.js:828`](../../../js/dns.js) is close to
+`checkExternalReportAuth()` at `js/dns.js:828` is close to
 correct and needs three tightenings.
 
 First, the authorization record must have `v=DMARC1` as its **first** tag, which
 is what RFC 9990 §4 requires and what the comment at
-[`js/dns.js:815`](../../../js/dns.js) already states. The check uses
+`js/dns.js:815` already states. The check uses
 `startsWithCI(r, 'v=DMARC1')`, which is correct for position but accepts
 `v=DMARC1x`. Route it through `validateDmarcVersion()` so one function owns the
 rule.
@@ -360,7 +360,7 @@ normal vendor practice, while NOERROR with unrelated TXT data usually means
 someone put the record at the wrong name.
 
 The `policyDomain` passed in is `dmarcAtDomain` at
-[`js/dns.js:1938`](../../../js/dns.js). Once the Tree Walk lands, the correct value
+`js/dns.js:1938`. Once the Tree Walk lands, the correct value
 is the name the applied record was found at, which is `discovery.applied.foundAt`.
 This must be updated in the same change or authorization will be checked against
 the wrong source domain.
@@ -378,13 +378,13 @@ dmarcExistence: 'yes' | 'no' | 'unknown',
 one release so the CSV export and the report do not break, then removed.
 
 The detail panel gains a discovery line under the existing DMARC row at
-[`js/app.js:494`](../../../js/app.js), showing the found-at name, the number of
+[`js/app.js:494`](../../../src/main.js), showing the found-at name, the number of
 steps, and the termination reason. The existing `dmarc.inheritedFrom` message is
 kept and extended.
 
-The CSV export at [`js/app.js:737`](../../../js/app.js) gains columns for
+The CSV export at [`js/app.js:737`](../../../src/main.js) gains columns for
 `dmarc_found_at`, `dmarc_labels_up` and `dmarc_discovery_terminated`. Note the
-positional-header backfill logic at [`js/app.js:744`](../../../js/app.js): new
+positional-header backfill logic at [`js/app.js:744`](../../../src/main.js): new
 columns must be appended, never inserted, and `locales/en.json` `csv.headers`
 defines the column count.
 
@@ -486,7 +486,7 @@ discovery difference and listed in `CHANGELOG.md`.
 queries per domain. A Tree Walk issues more, and a 200-domain audit multiplies
 that. `PRIVACY.md` states a typical domain fans out to roughly 30 queries, and
 that number will rise. Mitigation: the `dohFetch()` cache at
-[`js/dns.js:65`](../../../js/dns.js) is keyed on name and type and already
+`js/dns.js:65` is keyed on name and type and already
 deduplicates shared upper steps across domains in the same run. Measure the
 actual fan-out change with the backtest and update `PRIVACY.md` with the real
 number.
