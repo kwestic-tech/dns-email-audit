@@ -18,7 +18,7 @@
 import { createSuite } from '../../../tests/lib/assert.mjs';
 import { optionalCheck } from '../dns/optional.js';
 import { cleanAnswerData, requireUsable } from '../dns/resolver.js';
-import { createTlsaCheck, parseTlsaRecord, TLSA_ERRORS } from './tlsa.js';
+import { createTlsaCheck, parseTlsaRecord, tlsaPresentation, TLSA_ERRORS } from './tlsa.js';
 
 const { eq, section, report } = createSuite();
 const SHA256 = 'a'.repeat(64);
@@ -53,6 +53,8 @@ section('2. parseTlsaRecord');
 
 eq('four plain fields parse', parseTlsaRecord(`3 1 1 ${SHA256}`),
   { usage: 3, selector: 1, matchingType: 1, data: SHA256, valid: true, errors: [] });
+eq('the parsed record retains its cleaned presentation out of band',
+  tlsaPresentation(parseTlsaRecord(`  3 1 1 ${SHA256}  `)), `3 1 1 ${SHA256}`);
 
 // The captured Cloudflare shape. A DS-style whitespace split reads the data as
 // '' and raises no error at all, which is the failure this parser exists for.
@@ -76,8 +78,11 @@ eq('but it keeps the three numeric fields, which did parse',
 
 eq('three fields is not a record', parseTlsaRecord('3 1 1').valid, false);
 eq('and says unparseable-record', parseTlsaRecord('3 1 1').errors, ['unparseable-record']);
+eq('an unparseable record still retains the published material',
+  tlsaPresentation(parseTlsaRecord('not a tlsa record')), 'not a tlsa record');
 eq('an empty string is not a record', parseTlsaRecord('').valid, false);
 eq('undefined is not one', parseTlsaRecord(undefined).valid, false);
+eq('an unrelated object has no retained presentation', tlsaPresentation({}), '');
 
 /* ── 3. The numeric fields, RFC 6698 §2.1.1–2.1.3 ─────────────────────── */
 section('3. Usage, selector and matching type');

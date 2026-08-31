@@ -72,6 +72,22 @@ export const TLSA_ERRORS = Object.freeze([
 
 var TLSA_MATCHING_LENGTHS = { 1: 32, 2: 64 };   // SHA-256, SHA-512; 0 is a full cert, any length
 
+// The result surface deliberately keeps the reviewed parsed-record shape. The
+// finding layer nevertheless needs the resolver's cleaned presentation string
+// when a malformed record cannot be faithfully re-serialized. A WeakMap keeps
+// that provenance beside the live parsed object without adding a result field.
+var TLSA_PRESENTATIONS = new WeakMap();
+
+function withPresentation(record, presentation) {
+  TLSA_PRESENTATIONS.set(record, presentation);
+  return record;
+}
+
+export function tlsaPresentation(record) {
+  if (!record || (typeof record !== 'object' && typeof record !== 'function')) return '';
+  return TLSA_PRESENTATIONS.get(record) || '';
+}
+
 /**
  * Parse one TLSA record from its presentation form.
  *
@@ -87,7 +103,10 @@ export function parseTlsaRecord(presentationString) {
   var text = String(presentationString || '').trim();
   var match = /^(\d+)\s+(\d+)\s+(\d+)\s+([\s\S]+)$/.exec(text);
   if (!match) {
-    return { usage: null, selector: null, matchingType: null, data: '', valid: false, errors: ['unparseable-record'] };
+    return withPresentation(
+      { usage: null, selector: null, matchingType: null, data: '', valid: false, errors: ['unparseable-record'] },
+      text
+    );
   }
   var usage = Number(match[1]);
   var selector = Number(match[2]);
@@ -102,10 +121,10 @@ export function parseTlsaRecord(presentationString) {
   var opened = body.charAt(0) === '(';
   var closed = body.length > 1 && body.charAt(body.length - 1) === ')';
   if (opened !== closed) {
-    return {
+    return withPresentation({
       usage: usage, selector: selector, matchingType: matchingType,
       data: '', valid: false, errors: ['unbalanced-parentheses'],
-    };
+    }, text);
   }
   if (opened) body = body.slice(1, -1);
   var data = body.replace(/\s+/g, '').toLowerCase();
@@ -121,10 +140,10 @@ export function parseTlsaRecord(presentationString) {
     if (expected !== undefined && data.length / 2 !== expected) errors.push('bad-digest-length');
   }
 
-  return {
+  return withPresentation({
     usage: usage, selector: selector, matchingType: matchingType,
     data: data, valid: errors.length === 0, errors: errors,
-  };
+  }, text);
 }
 
 /**

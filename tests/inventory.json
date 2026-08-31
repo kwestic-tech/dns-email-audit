@@ -273,7 +273,7 @@
     },
     {
       "path": "src/core/transport/tlsa.test.js",
-      "assertions": 79,
+      "assertions": 82,
       "note": "Co-located per spec §9. Phase 4, Task 4.4. The only transport module that takes a resolver, and the only one whose contract needs the RAW response — driven here by a fake transport and the real requireUsable, optionalCheck and cleanAnswerData.",
       "areas": [
         "the seven-token error vocabulary, one record per token",
