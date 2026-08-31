@@ -1175,5 +1175,101 @@
       "dsVerdict": "DS {0} {1}",
       "lookupIncomplete": "the {0} lookup did not complete ({1})"
     }
+  },
+  "finding": {
+    "dmarc-enforcement-without-auth": {
+      "msg": "DMARC is enforcing but SPF and DKIM are not in place — your own mail can be rejected.",
+      "what": "DMARC only tells receivers what to do when a message fails SPF and DKIM. Publishing <code>p=reject</code> or <code>p=quarantine</code> before those two pass means your legitimate mail — which currently has nothing to authenticate it — is the mail that gets rejected or quarantined. Enforcement must follow authentication, never lead it.",
+      "fix": "Publish SPF and set up DKIM signing first, watch the DMARC aggregate reports until your legitimate sources pass, and only then move the policy to enforcement.",
+      "fixCode": "; Step 1 — authenticate (example for Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Step 2 — only once reports are clean, enforce\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
+    },
+    "mx-dangling-with-enforcement": {
+      "msg": "An MX host does not resolve while DMARC enforces: {0}.",
+      "what": "A mail exchanger that returns no address accepts no mail. On a domain that enforces DMARC there is no permissive fallback to absorb the gap, so delivery to the affected host simply fails. This is an outage, not a hygiene note.",
+      "fix": "Correct or remove the MX records that point at a host with no A/AAAA record, and confirm every remaining MX host resolves."
+    },
+    "dkim-weak-with-enforcement": {
+      "msg": "DKIM signs with an RSA key at or below 1024 bits while DMARC enforces: {0}.",
+      "what": "A 1024-bit RSA key is below the RFC 8301 minimum and can be factored by a well-resourced attacker, who could then forge signatures that pass your enforced DMARC policy — the exact outcome enforcement is meant to prevent.",
+      "fix": "Rotate the affected selectors to a 2048-bit RSA key (or Ed25519), publish the new public key, and retire the weak selector once mail has moved to it."
+    },
+    "bimi-without-enforcement": {
+      "msg": "BIMI is published but DMARC is not enforced, so no mailbox provider will show your logo.",
+      "what": "BIMI requires an enforced DMARC policy (<code>p=quarantine</code> or <code>p=reject</code>). With <code>p=none</code> or test mode set, mailbox providers ignore the BIMI record entirely, so the effort of publishing a logo returns nothing.",
+      "fix": "Move DMARC to enforcement first; the BIMI record then becomes eligible for display."
+    },
+    "bimi-without-authority": {
+      "msg": "BIMI has no VMC authority (<code>a=</code>), so major mailbox providers will not display the logo.",
+      "what": "Gmail and other large providers require a Verified Mark Certificate, referenced by the BIMI record's <code>a=</code> tag, before they will render a logo. A BIMI record with only <code>l=</code> is valid but will not display where a VMC is mandatory.",
+      "fix": "Obtain a VMC for your registered trademark and add its HTTPS URL as the <code>a=</code> tag alongside the existing <code>l=</code>."
+    },
+    "mta-sts-without-tls-rpt": {
+      "msg": "MTA-STS is published without TLS-RPT, so TLS enforcement failures go unreported.",
+      "what": "MTA-STS tells sending servers to require TLS, but without TLS-RPT there is no channel for them to report when a connection could not be secured. You get the policy without the visibility into whether it is working.",
+      "fix": "Publish a TLS-RPT record so senders send you a daily report of any TLS negotiation failures.",
+      "fixCode": "; Report TLS failures to a mailbox you monitor\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "tls-rpt-without-transport-policy": {
+      "msg": "TLS-RPT is published but there is no transport policy (no MTA-STS, no authenticated DANE) for it to report on.",
+      "what": "TLS-RPT reports how well a transport security policy is being honoured. With neither MTA-STS nor a DNSSEC-authenticated TLSA record in place, there is no policy to enforce, so the reports describe best-effort TLS rather than a commitment.",
+      "fix": "Publish MTA-STS (or DANE, if your MX zone is DNSSEC-signed) so the reporting has a policy to measure."
+    },
+    "spf-redundant-with-enforcement": {
+      "msg": "SPF authorizes a large address block while DMARC enforces: {0}.",
+      "what": "Authorizing a wide range of addresses in SPF means any host in that range can send mail that passes SPF and your enforced DMARC policy. On an enforcing domain the blast radius of a shared or compromised host in that block is your own domain's reputation.",
+      "fix": "Narrow the SPF mechanism to the specific senders you use, replacing a broad block with individual includes or tighter CIDR ranges."
+    },
+    "defensive-contradictory": {
+      "msg": "This domain declares it accepts no mail (null MX) yet its SPF authorizes senders — a contradictory configuration.",
+      "what": "A null MX (<code>0 .</code>) states the domain receives no mail, which is a deliberate hardening choice. Publishing an SPF record that authorizes senders — or references <code>mx</code> — on the same domain communicates confusion rather than intent, and usually means nobody owns the configuration.",
+      "fix": "Decide what the domain is for. A parked domain that sends nothing should publish <code>v=spf1 -all</code> and no permissive mechanism; a domain that does send should not carry a null MX.",
+      "fixCode": "; A parked domain that neither sends nor receives\n@            TXT    \"v=spf1 -all\"\n@            MX     0 ."
+    },
+    "reporting-blind": {
+      "msg": "No reporting is configured — neither DMARC rua nor TLS-RPT — so authentication and delivery failures are invisible to you.",
+      "what": "Without a DMARC <code>rua=</code> destination you never see who is sending mail as your domain or whether authentication passes; without TLS-RPT you never see TLS delivery failures. Reporting is how a configuration is proven correct rather than assumed to be.",
+      "fix": "Add a DMARC <code>rua=</code> address, and a TLS-RPT record if you run a transport policy, so failures reach a mailbox you monitor.",
+      "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    }
+  },
+  "findings": {
+    "viewSeverity": "By severity",
+    "viewRemediation": "By remediation step",
+    "step": "Step {0}",
+    "evidence": "Evidence",
+    "showMore": "Show {0} more",
+    "showLess": "Show less",
+    "blocked": "Waiting on {0}",
+    "unblocks": "Unblocks {0}",
+    "severity": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "info": "Info"
+    },
+    "confidence": {
+      "confirmed": "Confirmed",
+      "probable": "Probable",
+      "unverified": "Unverified"
+    },
+    "category": {
+      "authentication": "Authentication",
+      "policy": "Policy",
+      "reporting": "Reporting",
+      "transport": "Transport",
+      "issuance": "Issuance",
+      "resilience": "Resilience",
+      "hygiene": "Hygiene"
+    },
+    "effort": {
+      "trivial": "Trivial",
+      "moderate": "Moderate",
+      "involved": "Involved"
+    },
+    "rationale": {
+      "foundation": "Fix these first — everything else depends on them",
+      "afterPrereq": "Once the prerequisites above are in place"
+    }
   }
 }

@@ -74,7 +74,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 89,
+      "assertions": 90,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -459,6 +459,20 @@
         "suggestions as tips rather than findings",
         "a configured domain is not told to configure itself",
         "the input boundary — record contents are never parsed, while owner facts and evidence including record count are consumed"
+      ]
+    },
+    {
+      "path": "src/audit/findings.test.js",
+      "assertions": 75,
+      "areas": [
+        "the structured Finding shape and its five closed vocabularies (severity, confidence, category, effort, protocol)",
+        "the dependency graph is resolvable and acyclic, with the cycle detector proven able to fire",
+        "every finding resolves to a real issue.* or finding.* locale message and the view vocabulary exists",
+        "FINDING_META is complete against the 106-token audit.issue.key vocabulary",
+        "migrated findings mirror buildIssues 1:1 in order (enrich, not replace), and an unknown legacy key is skipped not thrown on",
+        "the spec behavioural fixtures, including authentication planned before enforcement",
+        "each cross-protocol rule proven NOT to fire against its negative case",
+        "the finding layer is locale-independent: imports only its audit sibling and sorts on tokens"
       ]
     },
     {
