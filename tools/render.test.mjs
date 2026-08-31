@@ -997,9 +997,15 @@ eq('and it includes the plan as well as the severity view',
 for (const code of LOCALE_CODES) {
   eq(`${code}: byte-identical finding-id sequence`, await findingIdSequence(loadLocale(code)), enSequence);
 }
-// Proven able to fail: a scrambled expectation is not equal.
+// Proven able to fail: the comparison must reject a REORDERED sequence, not
+// merely agree with itself. An earlier version of this control compared German
+// against English a second time — which is the assertion above, not a negative
+// case, and would have passed even if the comparison were vacuous.
+const scrambled = enSequence.slice().reverse();
+eq('the scrambled control really differs from the real sequence',
+  scrambled.join() === enSequence.join(), false);
 eq('and a reordered sequence would be caught',
-  await findingIdSequence(loadLocale('de')), enSequence);
+  JSON.stringify(await findingIdSequence(loadLocale('de'))) === JSON.stringify(scrambled), false);
 eq('the fourteen-locale set is complete', LOCALE_CODES.length + 1, 14);
 
 console.log(`\n${'='.repeat(60)}`);
