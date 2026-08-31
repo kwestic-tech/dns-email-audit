@@ -298,8 +298,8 @@ the feature branch**, made after the work is finished and before the push:
 3. **Cut the release, as its own commit:** bump `package.json`, promote
    `## [Unreleased]` to `## [<version>] — <date>` and add the compare links,
    and set the released status in `docs/specs/implemented/<spec>.md`,
-   `docs/specs/README.md`, `ROADMAP.md` and the phase marker in
-   `docs/async-development-handoff.md`.
+   `docs/specs/README.md`, `ROADMAP.md` and the current-phase marker in
+   `HANDOFF.md`.
 4. Push once, open the PR, and stop.
 5. Ian says when to squash and merge. **Tag after the merge**, annotated, on the
    squashed commit: `git tag -a v<version> -m "<version> — <subject>"`.

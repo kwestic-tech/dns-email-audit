@@ -286,6 +286,6 @@ and documents the compatibility promises made by those releases. The decision
 document for external intelligence can be reviewed alongside the feature specs,
 but it must be Final before 1.0.0 under the current readiness draft.
 
-[`docs/async-development-handoff.md`](docs/async-development-handoff.md) carries
-the operational review checkpoints. Release numbers, filenames and stable
+[`HANDOFF.md`](HANDOFF.md) carries the current operational review checkpoints.
+Release numbers, filenames and stable
 `OQ-*` identifiers do not change when implementation scheduling changes.

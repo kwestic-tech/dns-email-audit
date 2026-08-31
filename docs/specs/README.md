@@ -36,9 +36,9 @@ in this document. **As of 2026-08-31, the remaining build order is also the
 release order:** 0.7.0 findings, 0.8.0 artifacts, 0.9.0 reports, then the 1.0.0
 graduation gate. The earlier parallel artifact proposal was retired after the
 0.6.0 refactor shipped; consuming the final finding shape is now cheaper than
-maintaining and reconciling a stub. See
-[`docs/async-development-handoff.md`](../async-development-handoff.md) for the
-operational checkpoints and the preserved history of completed phases.
+maintaining and reconciling a stub. See [`HANDOFF.md`](../../HANDOFF.md) for the
+current operational checkpoints. Shipped phase history belongs to the
+implemented specs rather than a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
