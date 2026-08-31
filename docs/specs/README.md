@@ -42,7 +42,7 @@ implemented specs rather than a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [findings-and-remediation](findings-and-remediation.md) | 0.7.0 | 1.0 | Final — implementation may begin |
+| [findings-and-remediation](findings-and-remediation.md) | 0.7.0 | 1.1 | Final — implementation may begin |
 | [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 0.2 | Draft, rebased after 0.6.0; awaiting review |
 | [report-comparison](report-comparison.md) | 0.9.0 | 0.2 | Draft, rebased after 0.6.0; awaiting review |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.0 (Final) |
+| Spec version | 1.1 (Final) |
 | Target release | 0.7.0 |
 | Status | Final — implementation may begin |
 | Depends on | 0.2.3 through 0.6.0. This release consumes the stabilized protocol signals through the module boundaries shipped by the refactor. |
@@ -132,6 +132,8 @@ semantics change, a result-schema change or a UI-behaviour change:
   id: string,            // stable, e.g. 'dmarc.policy-none' — matches /^[a-z0-9-]+\.[a-z0-9-]+$/
   key: string,           // the locale-key slug: 'issue.<key>' for a migrated
                          //   finding, 'finding.<key>' for a cross-protocol one
+  keyspace: 'issue' | 'finding',  // which locale namespace `key` resolves under,
+                         //   so a consumer need not infer it from the key shape
   protocol: string,      // 'spf' | 'dkim' | 'dmarc' | 'dnssec' | 'caa'
                          // | 'mta-sts' | 'tls-rpt' | 'bimi' | 'mx' | 'dane'
                          // | 'dns' | 'defensive' | 'reporting'
@@ -239,7 +241,15 @@ namespace); none collides with a migrated `issue.*` key.
 | `dkim.mixed-key-strength` | Selectors on one domain differ in modulus size (`dkimStatus.keyProfile.mixed`) | low | none |
 | `dkim.weak-with-enforcement` | RSA key at or under 1024 bits while DMARC enforces | high | none |
 | `dmarc.external-report-unauthorized` | `rua`/`ruf` destination has not published authorization (`advanced.reportAuth` state `unauthorized`) | medium | none |
-| `dmarc.enforcement-without-auth` | `p=reject` while SPF is missing or DKIM is unproven | critical | `spf.missing`, `dkim.none-found` |
+| `dmarc.enforcement-without-auth` | `p=reject` while SPF `status` is `missing` (NOT `permerror`) or DKIM is unproven | critical | `spf.missing`, `dkim.none-found` |
+> **Amendment (1.1):** the SPF half is `status === 'missing'` only. A `permerror`
+> (multiple records, over-limit, cycle) is a *broken* SPF record, not a missing
+> one; it raises its own critical finding (`spf.multiple-records` /
+> `spf.over-limit` / `spf.cycle`), and `dmarc.enforcement-without-auth` does not
+> depend on those, so including `permerror` here would fire an enforcement finding
+> whose declared prerequisite (`spf.missing`) never fired — the resolved edge
+> would be dropped and the enforcement finding would land in step 1 beside the
+> broken-SPF finding, breaking the never-enforce-before-authentication guarantee.
 | `mx.dangling-with-enforcement` | An MX host does not resolve on a domain that enforces DMARC | critical | none |
 | `defensive.contradictory` | Null MX published alongside a permissive SPF or an MX-referencing SPF | medium | none |
 | `spf.redundant-with-enforcement` | SPF authorizes a large block (`spfSubnets` HIGH tier) while DMARC enforces | medium | none |
@@ -291,8 +301,22 @@ function buildRemediationPlan(findings) → [{
 }]
 ```
 
-The plan is a topological sort of the dependency graph, with findings at the same
-depth grouped into one step and ordered within the step by severity then effort.
+The plan is a topological sort of the dependency graph. A finding that
+participates in a dependency chain — it depends on something, or something
+depends on it — is placed at its dependency depth (blockers first), and findings
+at the same depth are grouped into one step, ordered within the step by severity
+then effort.
+
+> **Amendment (1.1):** the 1.0 text combined "findings at the same depth are one
+> step" (which places a depth-zero finding in step 1) with "a finding with no
+> unmet dependencies and no dependents lands in the last step" — contradictory for
+> an isolated finding, which is depth zero. Resolved: **isolated findings — no
+> prerequisites AND no dependents — carry no ordering constraint, so they are
+> collected into a single FINAL step**, where hygiene items gather. Depth grouping
+> governs only the connected findings. A finding that has dependencies but no
+> dependents (such as `dmarc.enforcement-without-auth`) is connected, so it stays
+> at its depth, never demoted to the final step. When every finding is isolated,
+> that final step is also the first and only step.
 
 The ordering rule that matters: **never recommend enforcement before
 authentication.** `dmarc.policy-none` depends on `spf.missing` and
@@ -300,9 +324,6 @@ authentication.** `dmarc.policy-none` depends on `spf.missing` and
 at step one and to move DMARC to enforcement at step two. That is the opposite of
 the current source-order presentation and it is the single most valuable thing
 this release produces.
-
-A finding with no unmet dependencies and no dependents lands in the last step,
-which is where hygiene items collect.
 
 ### 5. Interface
 
@@ -381,6 +402,17 @@ Registry invariants, asserted over `FINDING_META` and `CROSS_PROTOCOL_RULES`:
   against the `audit.issue.key` algebra), so no legacy finding silently loses its
   structured form.
 
+> **Amendment (1.1):** the finding vocabularies are **registered as reviewed
+> closed algebras** in `tests/state-algebras.json` — `audit.finding.id`,
+> `.severity`, `.confidence`, `.category`, `.effort`, `.protocol`, `.keyspace`,
+> and `audit.remediation.rationale` — each with its `resultPaths`, given
+> reviewed-suite coverage in `tests/build/coverage.mjs`, and with the state matrix
+> regenerated. `findings.test.js` asserts the registered `audit.finding.id`
+> members equal the ids `FINDING_META` and `CROSS_PROTOCOL_RULES` produce, the
+> same drift guard `audit.issue.key` already has. This replaces the 1.0 choice to
+> bundle the enums so the `state-matrix` scanner would skip them, which satisfied
+> the letter of the check by evading it rather than the intent.
+
 Behavioral fixtures, each a synthetic audit context:
 
 | Fixture | Expectation |
@@ -396,9 +428,12 @@ Behavioral fixtures, each a synthetic audit context:
 | Null MX with `v=spf1 mx -all` | `defensive.contradictory` |
 | DKIM 1024-bit with `p=reject` | `dkim.weak-with-enforcement` high |
 | Mixed 1024 and 2048 selectors | `dkim.mixed-key-strength` low |
+| SPF `permerror` (multiple records), enforcing, DKIM present | `dmarc.enforcement-without-auth` does NOT fire; `spf.multiple-records` is the SPF finding |
+| Isolated hygiene finding beside an SPF-authentication chain | the isolated finding lands in the FINAL plan step, never step 1 |
 | Everything correct | Empty finding set, empty plan |
 | DKIM lookup failed | Finding confidence `unverified`, not `confirmed` |
-| All fourteen locales, one fixture | Identical id sequences |
+| An issue key with no `FINDING_META` entry | skipped, not thrown on — fed a fabricated unknown key, not merely a bare context |
+| All fourteen locales, one fixture | Byte-identical finding-id and remediation-step sequences, asserted by rendering the fixture under each locale (`data-finding-id` on the cards) and comparing the sequences — a direct render test, not only the structural import assertion |
 
 Regression: the existing findings must fire on the same inputs they fire on
 today. Because `buildIssues()` is untouched, this is proven directly — the
@@ -592,6 +627,7 @@ configuration.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.1 (Final) | 2026-08-31 | Codex review round. Fixed the `dmarc.enforcement-without-auth` SPF condition to `status === 'missing'` only (a `permerror` broke the never-enforce-before-auth guarantee); resolved the §4 standalone-finding contradiction (isolated findings collect in a final step, not step 1); documented the emitted `keyspace` field in the §1 schema; and committed to registering the finding vocabularies as reviewed algebras rather than bundling them to evade the `state-matrix` scanner. Also strengthened the testing table: a real fabricated-unknown-key negative case, and a direct fourteen-locale render comparison rather than only the structural import assertion. Implementation followed with finding-specific evidence, the remediation view marking blocked findings, and an enforcement message that no longer asserts both SPF and DKIM are absent. |
 | 1.0 (Final) | 2026-08-31 | Resolved all seven open questions and the four referred decisions against the real codebase and, for `RQ-FIND-05`, a recorded locale-pipeline experiment. Amended the architecture to **enrich rather than replace** `buildIssues()` (`RQ-FIND-08`), decoupled the Finding `id` from its locale key and kept the `issue.*` namespace (`RQ-FIND-05`), added `severity` as a new five-value field beside the untouched legacy `sev`, put the new material under a `finding.*` namespace, added `RQ-FIND-09` for the SPF-mechanism fact, moved finding rendering to `div.finding` with the equivalence binding update it requires, and updated the testing and acceptance sections to the enrich model. No behavioural claim about `buildIssues`, scoring or the DNS trace changes. |
 | 0.2 | 2026-08-31 | Rebased the implementation onto the shipped 0.6.0 module architecture and renumbered the target to 0.7.0. Assigned finding semantics to `src/audit/`, presentation to `src/ui/`, and composition to `src/runtime.js`; replaced deleted `js/` paths, moved invariant tests beside their owner, updated the behavioral baseline to `v0.6.0`, and updated the downstream report dependency to 0.9.0. No open question was resolved. |
 | 0.1 | 2026-08-20 | Initial draft. |
