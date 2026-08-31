@@ -331,7 +331,10 @@
       "通配符 CAA 签发者",
       "无法解析的 MX",
       "MX 主机数量",
-      "已发布 TLSA"
+      "已发布 TLSA",
+      "问题 ID",
+      "问题严重程度",
+      "修复步骤 1"
     ],
     "yes": "是",
     "no": "否",
@@ -1174,6 +1177,102 @@
       "dsConfirms": "DS {0} 通过 {1} 与一个已发布的密钥匹配",
       "dsVerdict": "DS {0} {1}",
       "lookupIncomplete": "{0} 查询未完成（{1}）"
+    }
+  },
+  "finding": {
+    "dmarc-enforcement-without-auth": {
+      "msg": "DMARC 正在强制执行，但 SPF 和 DKIM 尚未部署——你自己的邮件可能会被拒收。",
+      "what": "DMARC 只是告诉接收方，当邮件未通过 SPF 和 DKIM 时该如何处理。在这两项通过之前就发布 <code>p=reject</code> 或 <code>p=quarantine</code>，意味着你的合法邮件——目前没有任何机制为其提供身份验证——正是会被拒收或隔离的那些邮件。强制执行必须在身份验证之后，绝不能先于它。",
+      "fix": "先发布 SPF 并配置 DKIM 签名，观察 DMARC 汇总报告，直到你的合法发件源全部通过，然后再将策略切换到强制执行。",
+      "fixCode": "; 第 1 步 — 身份验证（以 Google Workspace 为例）\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; 第 2 步 — 仅当报告干净无误后再强制执行\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
+    },
+    "mx-dangling-with-enforcement": {
+      "msg": "在 DMARC 强制执行的情况下，某个 MX 主机无法解析：{0}。",
+      "what": "不返回地址的邮件交换主机不会接收任何邮件。在强制执行 DMARC 的域上，没有宽松的回退机制来弥补这一缺口，因此发往受影响主机的投递直接失败。这是一次服务中断，而不是一条卫生提示。",
+      "fix": "更正或删除指向没有 A/AAAA 记录的主机的 MX 记录，并确认其余每个 MX 主机都能解析。"
+    },
+    "dkim-weak-with-enforcement": {
+      "msg": "在 DMARC 强制执行的情况下，DKIM 使用不超过 1024 位的 RSA 密钥进行签名：{0}。",
+      "what": "1024 位的 RSA 密钥低于 RFC 8301 规定的最小值，资源充足的攻击者可以将其分解，进而伪造出能够通过你强制执行的 DMARC 策略的签名——而这正是强制执行本应阻止的结果。",
+      "fix": "将受影响的选择器轮换为 2048 位的 RSA 密钥（或 Ed25519），发布新的公钥，待邮件迁移完成后停用弱选择器。"
+    },
+    "bimi-without-enforcement": {
+      "msg": "已发布 BIMI，但 DMARC 未强制执行，因此没有邮箱服务商会显示你的徽标。",
+      "what": "BIMI 需要强制执行的 DMARC 策略（<code>p=quarantine</code> 或 <code>p=reject</code>）。若设置了 <code>p=none</code> 或测试模式，邮箱服务商会完全忽略 BIMI 记录，因此发布徽标的努力将毫无回报。",
+      "fix": "先将 DMARC 切换到强制执行；BIMI 记录随后才有资格被显示。"
+    },
+    "bimi-without-authority": {
+      "msg": "BIMI 没有 VMC 授权凭证（<code>a=</code>），因此主流邮箱服务商不会显示徽标。",
+      "what": "Gmail 等大型服务商在渲染徽标之前，要求提供由 BIMI 记录的 <code>a=</code> 标签引用的验证标记证书（VMC）。仅含 <code>l=</code> 的 BIMI 记录虽然有效，但在强制要求 VMC 的场合不会显示。",
+      "fix": "为你的注册商标申请 VMC，并将其 HTTPS URL 作为 <code>a=</code> 标签添加到现有的 <code>l=</code> 旁边。"
+    },
+    "mta-sts-without-tls-rpt": {
+      "msg": "已发布 MTA-STS 但缺少 TLS-RPT，因此 TLS 强制失败不会被上报。",
+      "what": "MTA-STS 告诉发送服务器必须使用 TLS，但如果没有 TLS-RPT，它们就没有渠道在连接无法加密时进行上报。你得到了策略，却看不到它是否在起作用。",
+      "fix": "发布一条 TLS-RPT 记录，让发送方每天向你发送一份 TLS 协商失败的报告。",
+      "fixCode": "; 将 TLS 失败上报到你监控的邮箱\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "tls-rpt-without-transport-policy": {
+      "msg": "已发布 TLS-RPT，但没有任何传输策略（既无 MTA-STS，也无经过身份验证的 DANE）供其上报。",
+      "what": "TLS-RPT 报告传输安全策略被遵守的程度。如果既没有 MTA-STS，也没有经过 DNSSEC 验证的 TLSA 记录，就没有可强制执行的策略，因此这些报告描述的是尽力而为的 TLS，而非一项承诺。",
+      "fix": "发布 MTA-STS（如果你的 MX 区域已用 DNSSEC 签名，也可以用 DANE），让上报有可衡量的策略。"
+    },
+    "spf-redundant-with-enforcement": {
+      "msg": "在 DMARC 强制执行的情况下，SPF 授权了一大段地址块：{0}。",
+      "what": "在 SPF 中授权大范围的地址，意味着该范围内的任何主机都能发送通过 SPF 和你强制执行的 DMARC 策略的邮件。在强制执行的域上，该地址块中某台共享或被入侵主机的波及范围，就是你自己域名的声誉。",
+      "fix": "将 SPF 机制收窄到你实际使用的具体发件方，用单独的 include 或更精确的 CIDR 范围替换宽泛的地址块。"
+    },
+    "defensive-contradictory": {
+      "msg": "该域声明不接收任何邮件（null MX），但其 SPF 却授权了发件方——这是一种自相矛盾的配置。",
+      "what": "null MX（<code>0 .</code>）表明该域不接收任何邮件，这是一种刻意的加固选择。在同一个域上发布授权发件方——或引用 <code>mx</code>——的 SPF 记录，传达的是混乱而非意图，通常意味着没有人负责维护该配置。",
+      "fix": "确定该域的用途。不发送任何邮件的停放域应发布 <code>v=spf1 -all</code> 且不含任何宽松机制；确实发送邮件的域则不应带有 null MX。",
+      "fixCode": "; 既不发送也不接收的停放域\n@            TXT    \"v=spf1 -all\"\n@            MX     0 ."
+    },
+    "reporting-blind": {
+      "msg": "未配置任何上报——既没有 DMARC rua，也没有 TLS-RPT——因此身份验证和投递失败对你来说都是不可见的。",
+      "what": "没有 DMARC <code>rua=</code> 目标地址，你就永远看不到谁在以你的域名发送邮件、身份验证是否通过；没有 TLS-RPT，你就永远看不到 TLS 投递失败。上报是证明一项配置正确、而非想当然认为其正确的方式。",
+      "fix": "添加一个 DMARC <code>rua=</code> 地址，如果你运行了传输策略，再添加一条 TLS-RPT 记录，让失败信息送达你监控的邮箱。",
+      "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    }
+  },
+  "findings": {
+    "viewSeverity": "按严重程度",
+    "viewRemediation": "按修复步骤",
+    "step": "第 {0} 步",
+    "evidence": "证据",
+    "showMore": "显示另外 {0} 项",
+    "showLess": "收起",
+    "blocked": "等待 {0}",
+    "unblocks": "解除对 {0} 的阻塞",
+    "severity": {
+      "critical": "严重",
+      "high": "高",
+      "medium": "中",
+      "low": "低",
+      "info": "信息"
+    },
+    "confidence": {
+      "confirmed": "已确认",
+      "probable": "很可能",
+      "unverified": "未验证"
+    },
+    "category": {
+      "authentication": "身份验证",
+      "policy": "策略",
+      "reporting": "上报",
+      "transport": "传输",
+      "issuance": "签发",
+      "resilience": "韧性",
+      "hygiene": "卫生"
+    },
+    "effort": {
+      "trivial": "轻松",
+      "moderate": "适中",
+      "involved": "复杂"
+    },
+    "rationale": {
+      "foundation": "先修复这些——其他一切都依赖于它们",
+      "afterPrereq": "在上述前置条件就位之后"
     }
   }
 }

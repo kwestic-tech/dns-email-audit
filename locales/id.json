@@ -331,7 +331,10 @@
       "Penerbit CAA untuk Wildcard",
       "MX Tidak Teresolusi",
       "Jumlah Host MX",
-      "TLSA Diterbitkan"
+      "TLSA Diterbitkan",
+      "ID Temuan",
+      "Tingkat Keparahan Temuan",
+      "Langkah Remediasi 1"
     ],
     "yes": "Ya",
     "no": "Tidak",
@@ -1174,6 +1177,102 @@
       "dsConfirms": "DS {0} cocok dengan kunci terpublikasi melalui {1}",
       "dsVerdict": "DS {0} {1}",
       "lookupIncomplete": "kueri {0} tidak selesai ({1})"
+    }
+  },
+  "finding": {
+    "dmarc-enforcement-without-auth": {
+      "msg": "DMARC menerapkan penegakan tetapi SPF dan DKIM belum diterapkan — email Anda sendiri dapat ditolak.",
+      "what": "DMARC hanya memberi tahu penerima apa yang harus dilakukan ketika sebuah pesan gagal SPF dan DKIM. Menerbitkan <code>p=reject</code> atau <code>p=quarantine</code> sebelum keduanya lolos berarti email sah Anda — yang saat ini tidak memiliki apa pun untuk mengautentikasinya — adalah email yang ditolak atau dikarantina. Penegakan harus mengikuti autentikasi, bukan mendahuluinya.",
+      "fix": "Terbitkan SPF dan siapkan penandatanganan DKIM terlebih dahulu, pantau laporan agregat DMARC hingga sumber sah Anda lolos, dan baru kemudian ubah kebijakan ke penegakan.",
+      "fixCode": "; Langkah 1 — autentikasi (contoh untuk Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Langkah 2 — hanya setelah laporan bersih, terapkan penegakan\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
+    },
+    "mx-dangling-with-enforcement": {
+      "msg": "Sebuah host MX tidak dapat di-resolve saat DMARC menerapkan penegakan: {0}.",
+      "what": "Server pertukaran email yang tidak mengembalikan alamat tidak menerima email apa pun. Pada domain yang menerapkan penegakan DMARC, tidak ada cadangan permisif untuk menutupi celah tersebut, sehingga pengiriman ke host yang terpengaruh langsung gagal. Ini adalah gangguan layanan, bukan sekadar catatan kebersihan.",
+      "fix": "Perbaiki atau hapus rekaman MX yang menunjuk ke host tanpa rekaman A/AAAA, dan pastikan setiap host MX yang tersisa dapat di-resolve."
+    },
+    "dkim-weak-with-enforcement": {
+      "msg": "DKIM menandatangani dengan kunci RSA berukuran 1024 bit atau kurang saat DMARC menerapkan penegakan: {0}.",
+      "what": "Kunci RSA 1024 bit berada di bawah minimum RFC 8301 dan dapat difaktorkan oleh penyerang dengan sumber daya besar, yang kemudian dapat memalsukan tanda tangan yang lolos kebijakan DMARC yang Anda tegakkan — persis hasil yang seharusnya dicegah oleh penegakan.",
+      "fix": "Rotasikan selektor yang terpengaruh ke kunci RSA 2048 bit (atau Ed25519), terbitkan kunci publik baru, dan pensiunkan selektor lemah setelah email beralih ke selektor baru."
+    },
+    "bimi-without-enforcement": {
+      "msg": "BIMI diterbitkan tetapi DMARC tidak ditegakkan, sehingga tidak ada penyedia kotak surat yang akan menampilkan logo Anda.",
+      "what": "BIMI memerlukan kebijakan DMARC yang ditegakkan (<code>p=quarantine</code> atau <code>p=reject</code>). Dengan <code>p=none</code> atau mode uji yang disetel, penyedia kotak surat sepenuhnya mengabaikan rekaman BIMI, sehingga upaya menerbitkan logo tidak menghasilkan apa pun.",
+      "fix": "Ubah DMARC ke penegakan terlebih dahulu; rekaman BIMI kemudian menjadi memenuhi syarat untuk ditampilkan."
+    },
+    "bimi-without-authority": {
+      "msg": "BIMI tidak memiliki otoritas VMC (<code>a=</code>), sehingga penyedia kotak surat besar tidak akan menampilkan logo.",
+      "what": "Gmail dan penyedia besar lainnya memerlukan Verified Mark Certificate, yang dirujuk oleh tag <code>a=</code> pada rekaman BIMI, sebelum mereka menampilkan logo. Rekaman BIMI yang hanya memiliki <code>l=</code> valid tetapi tidak akan ditampilkan di tempat VMC diwajibkan.",
+      "fix": "Dapatkan VMC untuk merek dagang terdaftar Anda dan tambahkan URL HTTPS-nya sebagai tag <code>a=</code> di samping <code>l=</code> yang sudah ada."
+    },
+    "mta-sts-without-tls-rpt": {
+      "msg": "MTA-STS diterbitkan tanpa TLS-RPT, sehingga kegagalan penegakan TLS tidak dilaporkan.",
+      "what": "MTA-STS memberi tahu server pengirim untuk mewajibkan TLS, tetapi tanpa TLS-RPT tidak ada saluran bagi mereka untuk melaporkan ketika sebuah koneksi tidak dapat diamankan. Anda mendapatkan kebijakan tanpa visibilitas apakah kebijakan itu berjalan.",
+      "fix": "Terbitkan rekaman TLS-RPT agar pengirim mengirimkan laporan harian tentang setiap kegagalan negosiasi TLS kepada Anda.",
+      "fixCode": "; Laporkan kegagalan TLS ke kotak surat yang Anda pantau\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "tls-rpt-without-transport-policy": {
+      "msg": "TLS-RPT diterbitkan tetapi tidak ada kebijakan transport (tidak ada MTA-STS, tidak ada DANE terautentikasi) untuk dilaporkan.",
+      "what": "TLS-RPT melaporkan seberapa baik kebijakan keamanan transport dipatuhi. Tanpa MTA-STS maupun rekaman TLSA yang terautentikasi DNSSEC, tidak ada kebijakan untuk ditegakkan, sehingga laporan menggambarkan TLS best-effort dan bukan sebuah komitmen.",
+      "fix": "Terbitkan MTA-STS (atau DANE, jika zona MX Anda ditandatangani DNSSEC) agar pelaporan memiliki kebijakan untuk diukur."
+    },
+    "spf-redundant-with-enforcement": {
+      "msg": "SPF mengotorisasi blok alamat besar saat DMARC menerapkan penegakan: {0}.",
+      "what": "Mengotorisasi rentang alamat yang luas dalam SPF berarti host mana pun dalam rentang itu dapat mengirim email yang lolos SPF dan kebijakan DMARC yang Anda tegakkan. Pada domain yang menegakkan, radius dampak dari host bersama atau yang disusupi dalam blok itu adalah reputasi domain Anda sendiri.",
+      "fix": "Persempit mekanisme SPF ke pengirim spesifik yang Anda gunakan, mengganti blok yang luas dengan include individual atau rentang CIDR yang lebih ketat."
+    },
+    "defensive-contradictory": {
+      "msg": "Domain ini menyatakan tidak menerima email (null MX) namun SPF-nya mengotorisasi pengirim — konfigurasi yang bertentangan.",
+      "what": "Null MX (<code>0 .</code>) menyatakan domain tidak menerima email, yang merupakan pilihan pengerasan yang disengaja. Menerbitkan rekaman SPF yang mengotorisasi pengirim — atau merujuk <code>mx</code> — pada domain yang sama menyampaikan kebingungan alih-alih niat, dan biasanya berarti tidak ada yang mengelola konfigurasi tersebut.",
+      "fix": "Tentukan untuk apa domain itu. Domain terparkir yang tidak mengirim apa pun harus menerbitkan <code>v=spf1 -all</code> dan tanpa mekanisme permisif; domain yang mengirim email tidak boleh membawa null MX.",
+      "fixCode": "; Domain terparkir yang tidak mengirim maupun menerima\n@            TXT    \"v=spf1 -all\"\n@            MX     0 ."
+    },
+    "reporting-blind": {
+      "msg": "Tidak ada pelaporan yang dikonfigurasi — baik DMARC rua maupun TLS-RPT — sehingga kegagalan autentikasi dan pengiriman tidak terlihat oleh Anda.",
+      "what": "Tanpa tujuan DMARC <code>rua=</code>, Anda tidak pernah melihat siapa yang mengirim email atas nama domain Anda atau apakah autentikasi lolos; tanpa TLS-RPT, Anda tidak pernah melihat kegagalan pengiriman TLS. Pelaporan adalah cara sebuah konfigurasi dibuktikan benar alih-alih diasumsikan benar.",
+      "fix": "Tambahkan alamat DMARC <code>rua=</code>, dan rekaman TLS-RPT jika Anda menjalankan kebijakan transport, agar kegagalan sampai ke kotak surat yang Anda pantau.",
+      "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    }
+  },
+  "findings": {
+    "viewSeverity": "Berdasarkan keparahan",
+    "viewRemediation": "Berdasarkan langkah remediasi",
+    "step": "Langkah {0}",
+    "evidence": "Bukti",
+    "showMore": "Tampilkan {0} lainnya",
+    "showLess": "Tampilkan lebih sedikit",
+    "blocked": "Menunggu {0}",
+    "unblocks": "Membuka blokir {0}",
+    "severity": {
+      "critical": "Kritis",
+      "high": "Tinggi",
+      "medium": "Sedang",
+      "low": "Rendah",
+      "info": "Info"
+    },
+    "confidence": {
+      "confirmed": "Terkonfirmasi",
+      "probable": "Kemungkinan",
+      "unverified": "Belum diverifikasi"
+    },
+    "category": {
+      "authentication": "Autentikasi",
+      "policy": "Kebijakan",
+      "reporting": "Pelaporan",
+      "transport": "Transport",
+      "issuance": "Penerbitan",
+      "resilience": "Ketahanan",
+      "hygiene": "Higiene"
+    },
+    "effort": {
+      "trivial": "Sepele",
+      "moderate": "Sedang",
+      "involved": "Rumit"
+    },
+    "rationale": {
+      "foundation": "Perbaiki ini terlebih dahulu — semua yang lain bergantung padanya",
+      "afterPrereq": "Setelah prasyarat di atas terpenuhi"
     }
   }
 }

@@ -331,7 +331,10 @@
       "Joker Karakter için CAA Verenleri",
       "Çözümlenmeyen MX",
       "MX Ana Makine Sayısı",
-      "TLSA Yayımlanmış"
+      "TLSA Yayımlanmış",
+      "Bulgu Kimlikleri",
+      "Bulgu Önem Dereceleri",
+      "Düzeltme Adımı 1"
     ],
     "yes": "Evet",
     "no": "Hayır",
@@ -1174,6 +1177,102 @@
       "dsConfirms": "DS {0}, {1} ile yayımlanmış bir anahtarla eşleşiyor",
       "dsVerdict": "DS {0} {1}",
       "lookupIncomplete": "{0} sorgusu tamamlanmadı ({1})"
+    }
+  },
+  "finding": {
+    "dmarc-enforcement-without-auth": {
+      "msg": "DMARC zorunlu kılınıyor ancak SPF ve DKIM yapılandırılmamış — kendi postanız reddedilebilir.",
+      "what": "DMARC, alıcılara yalnızca bir ileti SPF ve DKIM doğrulamasını geçemediğinde ne yapacaklarını söyler. Bu ikisi geçerli hale gelmeden <code>p=reject</code> veya <code>p=quarantine</code> yayınlamak, şu anda kendisini doğrulayacak hiçbir şeyi olmayan meşru postanızın reddedilen veya karantinaya alınan posta olması anlamına gelir. Zorunlu kılma, doğrulamayı izlemelidir, asla ondan önce gelmemelidir.",
+      "fix": "Önce SPF yayınlayın ve DKIM imzalamayı kurun, meşru kaynaklarınız doğrulamayı geçene kadar DMARC toplu raporlarını izleyin ve ancak o zaman politikayı zorunlu kılmaya geçirin.",
+      "fixCode": "; Adım 1 — doğrulayın (Google Workspace için örnek)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Adım 2 — yalnızca raporlar temiz olduğunda zorunlu kılın\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
+    },
+    "mx-dangling-with-enforcement": {
+      "msg": "DMARC zorunlu kılarken bir MX ana bilgisayarı çözümlenmiyor: {0}.",
+      "what": "Hiçbir adres döndürmeyen bir posta değişim sunucusu hiçbir posta kabul etmez. DMARC’ı zorunlu kılan bir alan adında bu boşluğu telafi edecek hoşgörülü bir yedek yoktur, bu nedenle etkilenen ana bilgisayara teslimat basitçe başarısız olur. Bu bir kesintidir, bir hijyen notu değil.",
+      "fix": "A/AAAA kaydı olmayan bir ana bilgisayarı gösteren MX kayıtlarını düzeltin veya kaldırın ve kalan her MX ana bilgisayarının çözümlendiğini doğrulayın."
+    },
+    "dkim-weak-with-enforcement": {
+      "msg": "DMARC zorunlu kılarken DKIM, 1024 bit veya daha küçük bir RSA anahtarıyla imzalıyor: {0}.",
+      "what": "1024 bitlik bir RSA anahtarı RFC 8301 asgari değerinin altındadır ve kaynağı bol bir saldırgan tarafından çarpanlarına ayrılabilir; bu saldırgan daha sonra zorunlu kıldığınız DMARC politikasını geçen imzalar sahteleyebilir — ki bu, zorunlu kılmanın tam da önlemesi gereken sonuçtur.",
+      "fix": "Etkilenen seçicileri 2048 bitlik bir RSA anahtarına (veya Ed25519’a) döndürün, yeni ortak anahtarı yayınlayın ve posta yeni seçiciye geçtikten sonra zayıf seçiciyi kullanımdan kaldırın."
+    },
+    "bimi-without-enforcement": {
+      "msg": "BIMI yayınlandı ancak DMARC zorunlu kılınmadı, bu nedenle hiçbir posta kutusu sağlayıcısı logonuzu göstermeyecek.",
+      "what": "BIMI, zorunlu kılınan bir DMARC politikası gerektirir (<code>p=quarantine</code> veya <code>p=reject</code>). <code>p=none</code> veya test modu ayarlandığında, posta kutusu sağlayıcıları BIMI kaydını tamamen görmezden gelir, bu nedenle bir logo yayınlama çabası hiçbir şey döndürmez.",
+      "fix": "Önce DMARC’ı zorunlu kılmaya geçirin; BIMI kaydı o zaman görüntülenmeye uygun hale gelir."
+    },
+    "bimi-without-authority": {
+      "msg": "BIMI’nin VMC yetkisi (<code>a=</code>) yok, bu nedenle büyük posta kutusu sağlayıcıları logoyu görüntülemeyecek.",
+      "what": "Gmail ve diğer büyük sağlayıcılar, bir logoyu görüntülemeden önce BIMI kaydının <code>a=</code> etiketiyle başvurulan bir Verified Mark Certificate gerektirir. Yalnızca <code>l=</code> içeren bir BIMI kaydı geçerlidir ancak VMC’nin zorunlu olduğu yerlerde görüntülenmez.",
+      "fix": "Tescilli ticari markanız için bir VMC edinin ve HTTPS URL’sini mevcut <code>l=</code> etiketinin yanına <code>a=</code> etiketi olarak ekleyin."
+    },
+    "mta-sts-without-tls-rpt": {
+      "msg": "MTA-STS, TLS-RPT olmadan yayınlanmış, bu nedenle TLS zorunlu kılma hataları raporlanmadan kalıyor.",
+      "what": "MTA-STS, gönderen sunuculara TLS gerektirmelerini söyler, ancak TLS-RPT olmadan bir bağlantının güvenli hale getirilemediğini raporlayacakları bir kanal yoktur. Politikaya sahip olursunuz ancak çalışıp çalışmadığına dair görünürlükten yoksun olursunuz.",
+      "fix": "Göndericilerin size herhangi bir TLS anlaşması hatasının günlük bir raporunu göndermesi için bir TLS-RPT kaydı yayınlayın.",
+      "fixCode": "; TLS hatalarını izlediğiniz bir posta kutusuna raporlayın\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "tls-rpt-without-transport-policy": {
+      "msg": "TLS-RPT yayınlandı ancak raporlayacağı bir taşıma politikası (MTA-STS yok, doğrulanmış DANE yok) yok.",
+      "what": "TLS-RPT, bir taşıma güvenliği politikasına ne kadar iyi uyulduğunu raporlar. Ne MTA-STS ne de DNSSEC ile doğrulanmış bir TLSA kaydı mevcut olmadığında, zorunlu kılınacak bir politika yoktur, bu nedenle raporlar bir taahhüt yerine olabildiğince iyi (best-effort) TLS’yi tanımlar.",
+      "fix": "Raporlamanın ölçeceği bir politikası olması için MTA-STS (veya MX bölgeniz DNSSEC ile imzalanmışsa DANE) yayınlayın."
+    },
+    "spf-redundant-with-enforcement": {
+      "msg": "DMARC zorunlu kılarken SPF büyük bir adres bloğunu yetkilendiriyor: {0}.",
+      "what": "SPF’te geniş bir adres aralığını yetkilendirmek, o aralıktaki herhangi bir ana bilgisayarın SPF’i ve zorunlu kıldığınız DMARC politikasını geçen posta gönderebileceği anlamına gelir. Zorunlu kılan bir alan adında, o bloktaki paylaşılan veya ele geçirilmiş bir ana bilgisayarın etki alanı, kendi alan adınızın itibarıdır.",
+      "fix": "Geniş bir bloğu tekil include’larla veya daha dar CIDR aralıklarıyla değiştirerek SPF mekanizmasını kullandığınız belirli göndericilere daraltın."
+    },
+    "defensive-contradictory": {
+      "msg": "Bu alan adı hiçbir posta kabul etmediğini (null MX) beyan ediyor ancak SPF’i göndericileri yetkilendiriyor — çelişkili bir yapılandırma.",
+      "what": "Null MX (<code>0 .</code>), alan adının hiçbir posta almadığını belirtir; bu, bilinçli bir sıkılaştırma tercihidir. Aynı alan adında göndericileri yetkilendiren — veya <code>mx</code>’e başvuran — bir SPF kaydı yayınlamak, niyetten çok karışıklığı ifade eder ve genellikle yapılandırmayı kimsenin sahiplenmediği anlamına gelir.",
+      "fix": "Alan adının ne için olduğuna karar verin. Hiçbir şey göndermeyen park edilmiş bir alan adı <code>v=spf1 -all</code> yayınlamalı ve hoşgörülü bir mekanizma içermemelidir; posta gönderen bir alan adı null MX taşımamalıdır.",
+      "fixCode": "; Ne gönderen ne de alan, park edilmiş bir alan adı\n@            TXT    \"v=spf1 -all\"\n@            MX     0 ."
+    },
+    "reporting-blind": {
+      "msg": "Hiçbir raporlama yapılandırılmamış — ne DMARC rua ne de TLS-RPT — bu nedenle kimlik doğrulama ve teslimat hataları sizin için görünmez.",
+      "what": "Bir DMARC <code>rua=</code> hedefi olmadan, alan adınız olarak kimin posta gönderdiğini veya kimlik doğrulamanın geçip geçmediğini asla göremezsiniz; TLS-RPT olmadan TLS teslimat hatalarını asla göremezsiniz. Raporlama, bir yapılandırmanın doğru olduğunun varsayılması yerine kanıtlanma biçimidir.",
+      "fix": "Bir DMARC <code>rua=</code> adresi ve bir taşıma politikası yürütüyorsanız bir TLS-RPT kaydı ekleyin, böylece hatalar izlediğiniz bir posta kutusuna ulaşır.",
+      "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    }
+  },
+  "findings": {
+    "viewSeverity": "Önem derecesine göre",
+    "viewRemediation": "Düzeltme adımına göre",
+    "step": "Adım {0}",
+    "evidence": "Kanıt",
+    "showMore": "{0} tane daha göster",
+    "showLess": "Daha az göster",
+    "blocked": "{0} bekleniyor",
+    "unblocks": "{0} engelini kaldırır",
+    "severity": {
+      "critical": "Kritik",
+      "high": "Yüksek",
+      "medium": "Orta",
+      "low": "Düşük",
+      "info": "Bilgi"
+    },
+    "confidence": {
+      "confirmed": "Doğrulandı",
+      "probable": "Olası",
+      "unverified": "Doğrulanmadı"
+    },
+    "category": {
+      "authentication": "Kimlik doğrulama",
+      "policy": "Politika",
+      "reporting": "Raporlama",
+      "transport": "Taşıma",
+      "issuance": "Sertifika verme",
+      "resilience": "Dayanıklılık",
+      "hygiene": "Hijyen"
+    },
+    "effort": {
+      "trivial": "Önemsiz",
+      "moderate": "Orta düzey",
+      "involved": "Kapsamlı"
+    },
+    "rationale": {
+      "foundation": "Önce bunları düzeltin — diğer her şey bunlara bağlı",
+      "afterPrereq": "Yukarıdaki ön koşullar sağlandıktan sonra"
     }
   }
 }
