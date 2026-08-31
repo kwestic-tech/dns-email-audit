@@ -1182,7 +1182,7 @@
   "finding": {
     "dmarc-enforcement-without-auth": {
       "msg": "SPF 또는 DKIM 인증이 완전히 갖춰지지 않은 상태에서 DMARC가 강제 적용 중이어서, 자신의 메일이 거부될 수 있습니다.",
-      "what": "DMARC는 메시지가 SPF와 DKIM에 실패했을 때 수신 측이 무엇을 해야 하는지를 알려줄 뿐입니다. 이 둘이 모두 통과하기 전에 <code>p=reject</code>나 <code>p=quarantine</code>를 게시하면, 누락된 방식으로는 인증할 수 없는 정상 메시지가 바로 거부되거나 격리되는 메일이 됩니다. 강제 적용은 인증 뒤에 따라와야 하며, 결코 앞서서는 안 됩니다.",
+      "what": "DMARC는 메시지가 SPF와 DKIM 양쪽 모두에 실패했을 때에만 작동합니다. 둘 중 하나가 정렬된 상태로 통과하면 그 메시지는 통과합니다. 한 가지 방식이 없으면 나머지 하나가 모든 메시지를 홀로 감당하게 되므로, 그 방식이 포괄하지 못하는 정상 메일(전달된 메시지, 새로운 발신 서비스, 서명되지 않은 경로)은 DMARC에 그대로 실패하여 <code>p=reject</code> 또는 <code>p=quarantine</code> 아래에서 거부되거나 격리됩니다. 강제 적용은 인증 뒤에 따라와야 하며, 결코 앞서서는 안 됩니다.",
       "fix": "SPF와 DKIM이 모두 정상 발신자에 대해 통과하는지 확인하고 — 아직 갖춰지지 않은 쪽을 게시하여 — 통과할 때까지 DMARC 집계 보고서를 관찰한 뒤에 강제 적용에 의존하십시오.",
       "fixCode": "; 1단계 — 인증 (Google Workspace 예시)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; 2단계 — 보고서가 깨끗해진 뒤에만 강제 적용\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },

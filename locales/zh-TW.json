@@ -1182,7 +1182,7 @@
   "finding": {
     "dmarc-enforcement-without-auth": {
       "msg": "DMARC 正在強制執行，而 SPF 或 DKIM 身份驗證尚未完全就位——你自己的郵件可能會被拒收。",
-      "what": "DMARC 只是告訴接收方，當郵件未通過 SPF 和 DKIM 時該如何處理。在兩者都通過之前就發布 <code>p=reject</code> 或 <code>p=quarantine</code>，意味著凡是缺失的那種方法無法驗證的合法郵件，正是會被拒收或隔離的那些郵件。強制執行必須在身份驗證之後，絕不能先於它。",
+      "what": "只有當郵件同時未通過 SPF 和 DKIM 時，DMARC 才會採取行動——其中任意一項通過並滿足對齊要求，郵件就算通過。而當缺少其中一種方法時，另一種就要獨自承載全部郵件，因此它涵蓋不到的任何合法郵件——被轉發的郵件、新啟用的發信服務、未簽名的發送路徑——都會直接未通過 DMARC，並在 <code>p=reject</code> 或 <code>p=quarantine</code> 下被拒收或隔離。強制執行必須在身份驗證之後，絕不能先於它。",
       "fix": "確認 SPF 和 DKIM 對你的合法發件方都能通過——尚未就位的那一項就補充發布——並觀察 DMARC 彙總報告，直到兩者都通過，然後再依賴強制執行。",
       "fixCode": "; 第 1 步 — 身份驗證（以 Google Workspace 為例）\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; 第 2 步 — 僅當報告乾淨無誤後再強制執行\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },

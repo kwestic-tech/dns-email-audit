@@ -1182,7 +1182,7 @@
   "finding": {
     "dmarc-enforcement-without-auth": {
       "msg": "DMARC menerapkan penegakan sementara autentikasi SPF atau DKIM belum sepenuhnya diterapkan — email Anda sendiri dapat ditolak.",
-      "what": "DMARC hanya memberi tahu penerima apa yang harus dilakukan ketika sebuah pesan gagal SPF dan DKIM. Menerbitkan <code>p=reject</code> atau <code>p=quarantine</code> sebelum keduanya lolos berarti setiap pesan sah yang tidak dapat diautentikasi oleh metode yang hilang adalah email yang ditolak atau dikarantina. Penegakan harus mengikuti autentikasi, bukan mendahuluinya.",
+      "what": "DMARC hanya bertindak ketika sebuah pesan gagal pada KEDUANYA, SPF dan DKIM — salah satu saja yang lolos dengan domain yang selaras sudah cukup agar pesan tersebut lolos. Dengan satu metode yang hilang, metode lainnya menanggung setiap pesan sendirian, sehingga email sah apa pun yang tidak dicakupnya — pesan yang diteruskan, layanan pengiriman baru, jalur yang tidak ditandatangani — langsung gagal DMARC dan ditolak atau dikarantina di bawah <code>p=reject</code> atau <code>p=quarantine</code>. Penegakan harus mengikuti autentikasi, bukan mendahuluinya.",
       "fix": "Pastikan baik SPF maupun DKIM lolos untuk pengirim sah Anda — dengan menerbitkan yang mana pun yang belum diterapkan — dan pantau laporan agregat DMARC hingga keduanya lolos, sebelum mengandalkan penegakan.",
       "fixCode": "; Langkah 1 — autentikasi (contoh untuk Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Langkah 2 — hanya setelah laporan bersih, terapkan penegakan\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },

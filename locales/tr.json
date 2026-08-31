@@ -1182,7 +1182,7 @@
   "finding": {
     "dmarc-enforcement-without-auth": {
       "msg": "SPF veya DKIM kimlik doğrulaması tam olarak yerinde değilken DMARC zorunlu kılınıyor — kendi postanız reddedilebilir.",
-      "what": "DMARC, alıcılara yalnızca bir ileti SPF ve DKIM doğrulamasını geçemediğinde ne yapacaklarını söyler. Her ikisi de geçerli hale gelmeden <code>p=reject</code> veya <code>p=quarantine</code> yayınlamak, eksik yöntemin doğrulayamadığı herhangi bir meşru iletinin reddedilen veya karantinaya alınan posta olması anlamına gelir. Zorunlu kılma, doğrulamayı izlemelidir, asla ondan önce gelmemelidir.",
+      "what": "DMARC yalnızca bir ileti HEM SPF HEM DE DKIM doğrulamasını geçemediğinde devreye girer — ikisinden birinin hizalı olarak geçmesi, iletinin geçmesi için yeterlidir. Yöntemlerden biri eksik olduğunda diğeri her iletiyi tek başına taşır; bu nedenle onun kapsamadığı herhangi bir meşru posta — iletilen bir ileti, yeni bir gönderim hizmeti, imzalanmamış bir yol — DMARC’ı doğrudan geçemez ve <code>p=reject</code> veya <code>p=quarantine</code> altında reddedilir ya da karantinaya alınır. Zorunlu kılma, doğrulamayı izlemelidir, asla ondan önce gelmemelidir.",
       "fix": "Meşru göndericileriniz için hem SPF hem de DKIM’in geçtiğini doğrulayın — henüz yerinde olmayan hangisiyse onu yayınlayarak — ve zorunlu kılmaya güvenmeden önce geçene kadar DMARC toplu raporlarını izleyin.",
       "fixCode": "; Adım 1 — doğrulayın (Google Workspace için örnek)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Adım 2 — yalnızca raporlar temiz olduğunda zorunlu kılın\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },

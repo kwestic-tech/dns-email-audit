@@ -1182,7 +1182,7 @@
   "finding": {
     "dmarc-enforcement-without-auth": {
       "msg": "DMARC handhaaft een beleid terwijl de SPF- of DKIM-authenticatie niet volledig aanwezig is — uw eigen e-mail kan worden geweigerd.",
-      "what": "DMARC vertelt ontvangers alleen wat ze moeten doen wanneer een bericht faalt op SPF en DKIM. Als u <code>p=reject</code> of <code>p=quarantine</code> publiceert voordat beide slagen, is elk legitiem bericht dat de ontbrekende methode niet kan authenticeren juist de mail die wordt geweigerd of in quarantaine geplaatst. Handhaving moet volgen op authenticatie, er nooit aan voorafgaan.",
+      "what": "DMARC grijpt alleen in wanneer een bericht faalt op ZOWEL SPF ALS DKIM — als één van beide slaagt en uitgelijnd is, is dat genoeg om het bericht te laten slagen. Als één methode ontbreekt, draagt de andere elk bericht alleen, dus elke legitieme mail die zij niet dekt — een doorgestuurd bericht, een nieuwe verzenddienst, een niet-ondertekend pad — faalt regelrecht op DMARC en wordt geweigerd of in quarantaine geplaatst onder <code>p=reject</code> of <code>p=quarantine</code>. Handhaving moet volgen op authenticatie, er nooit aan voorafgaan.",
       "fix": "Controleer of zowel SPF als DKIM slagen voor uw legitieme afzenders — publiceer wat nog niet aanwezig is — en houd de DMARC-aggregatierapporten in de gaten tot dat zo is, voordat u op handhaving vertrouwt.",
       "fixCode": "; Stap 1 — authenticeren (voorbeeld voor Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Stap 2 — pas handhaven wanneer de rapporten schoon zijn\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },

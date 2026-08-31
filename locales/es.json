@@ -1182,7 +1182,7 @@
   "finding": {
     "dmarc-enforcement-without-auth": {
       "msg": "DMARC está aplicando su política mientras la autenticación SPF o DKIM no está del todo implementada: su propio correo puede ser rechazado.",
-      "what": "DMARC solo indica a los receptores qué hacer cuando un mensaje falla SPF y DKIM. Publicar <code>p=reject</code> o <code>p=quarantine</code> antes de que ambos pasen significa que cualquier mensaje legítimo que el método ausente no pueda autenticar es el que acaba siendo rechazado o puesto en cuarentena. La aplicación debe seguir a la autenticación, nunca precederla.",
+      "what": "DMARC solo actúa cuando un mensaje no supera NI SPF NI DKIM: basta con que uno de los dos pase, con alineación, para que el mensaje pase. Si falta uno de los métodos, el otro sostiene por sí solo todos los mensajes, de modo que cualquier correo legítimo que este no cubra —un mensaje reenviado, un nuevo servicio de envío, una ruta sin firmar— falla DMARC de plano y es rechazado o puesto en cuarentena con <code>p=reject</code> o <code>p=quarantine</code>. La aplicación debe seguir a la autenticación, nunca precederla.",
       "fix": "Confirme que tanto SPF como DKIM pasan para sus emisores legítimos —publicando el que aún no esté implementado— y observe los informes agregados de DMARC hasta que lo hagan, antes de confiar en la aplicación.",
       "fixCode": "; Paso 1 — autenticar (ejemplo para Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Paso 2 — solo cuando los informes estén limpios, aplicar\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
     },
