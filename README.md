@@ -260,7 +260,7 @@ placeholders, inline HTML, plurals, and DNS examples.
 
 ## Run locally
 
-Requirements: [Node.js](https://nodejs.org/) 18 or newer. A clean checkout
+Requirements: [Node.js](https://nodejs.org/) 20 or newer. A clean checkout
 needs the exact-pinned build dependency installed and the browser artifact
 built before it can be served:
 

@@ -68,10 +68,16 @@ packages, exactly one of them resolved per platform.
 
 ### The declared engines floor
 
-`package.json` declares `engines: node >=18`. A separate job runs `npm ci`,
-`npm test` and `npm run build` on **Node 20**: 11 suites green, build
-successful. Kept separate so a floor problem reads as itself rather than as a
-supply-chain failure.
+At Gate 1, `package.json` declared `engines: node >=18`, while the separate
+floor job ran `npm ci`, `npm test` and `npm run build` on **Node 20**. That run
+was green, but it did not establish the declared Node 18 floor.
+
+The final release review tested Node 18.20.8 directly. `npm ci` succeeded, then
+`npm test` stopped in `tools/scoring.test.mjs` because Node 18 does not provide
+the global Web Crypto API used by the production modules and tools. Release
+0.6.0 therefore corrects the declaration to `engines: node >=20`, and the
+separate job exercises Node 20. This is an addendum to the Gate 1 evidence, not
+a claim that the earlier run tested a runtime it did not.
 
 ## 2. `file://` in a real browser
 

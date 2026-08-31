@@ -93,6 +93,12 @@ Nothing yet.
   exactly one: esbuild `0.28.2`, exact-pinned, as a dev dependency — no
   framework, and still nothing at runtime.
 
+  The developer and command-line tooling floor is now **Node.js 20**. The
+  browser application has no Node.js runtime requirement. The release review
+  tested the previous `>=18` declaration directly; Node 18 reaches the suite
+  but lacks the global Web Crypto API used by the production modules and
+  tools, so the old declaration promised support the project did not provide.
+
   What that resolves to is worth stating separately, because "one dependency"
   and "one package" are different claims. On a given platform `npm ci`
   installs **two packages**: `esbuild` and the one `@esbuild/*` binary for
