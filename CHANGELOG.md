@@ -51,9 +51,14 @@ Nothing yet.
 - Added 65 English finding/remediation keys and 845 translated units across all
   thirteen non-English locales. Finding and remediation order is measured
   byte-identical in all fourteen interfaces.
-- The verification inventory now reports 245 suites and 4,633 assertions. The
-  deterministic 32-case DNS trace is unchanged, and a 40-domain backtest shows
-  zero grade or point movement from 0.6.0.
+- The verification inventory now reports 250 checks and 4,636 assertions. The
+  deterministic 32-case DNS trace is unchanged, and concurrent 40-domain
+  backtests with deep checks both off and on show zero grade or point movement
+  from 0.6.0.
+- Repaired the live backtest's request counter after the 0.6.0 composition moved
+  the engine around its counted fetch. A negative control pins the wiring; the
+  restored measurements remain about 34 queries per domain with deep checks off
+  and 41 with them on, matching `PRIVACY.md`.
 
 ## [0.6.0] — 2026-08-30
 

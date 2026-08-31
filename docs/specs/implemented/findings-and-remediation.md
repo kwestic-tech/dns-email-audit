@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.5 (Implemented) |
+| Spec version | 1.6 (Implemented) |
 | Target release | 0.7.0 |
 | Status | Released in `v0.7.0` |
 | Depends on | 0.2.3 through 0.6.0. This release consumes the stabilized protocol signals through the module boundaries shipped by the refactor. |
@@ -731,17 +731,22 @@ ways:
   CSV adds finding ids, severities and the first remediation step. Rendering order
   is measured identical under all fourteen locales.
 
-Verification at release: 245 suites and 4,633 assertions; all thirteen
+Verification at release: 250 inventory checks and 4,636 assertions; all thirteen
 non-English locales complete; deterministic DNS trace unchanged across all 32
-equivalence cases; legacy result fields byte-identical once the two additive
-fields are removed; and zero grade or point movement in the 40-domain sample
-backtest. `src/audit/issues.js` and `src/audit/scoring.js` are byte-identical to
-`v0.6.0`.
+equivalence cases; and legacy result fields byte-identical once the two additive
+fields are removed. Concurrent live comparisons of the final branch against
+`v0.6.0` scored all 40 sampled domains with identical inputs, weights and
+thresholds and zero grade or point movement, both with deep checks off and on.
+The repaired request counter measured 33.9 queries per domain with deep checks
+off and 40.9–41.2 with them on, consistent with `PRIVACY.md` and with the
+deterministic trace proof. `src/audit/issues.js` and `src/audit/scoring.js` are
+byte-identical to `v0.6.0`.
 
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.6 (Implemented) | 2026-08-31 | Merge-readiness cleanup after independent Claude Code verification. Reproduced acceptance criterion 5 directly against `v0.6.0` on all 40 live sample domains with deep checks off and on; added a JSON round-trip regression proving malformed TLSA finding evidence survives serialization; and repaired the 0.6.0 backtest composition regression that bypassed its request counter. The restored fan-out agrees with `PRIVACY.md`, so no product or privacy contract changed. Final inventory: 250 checks and 4,636 assertions. |
 | 1.5 (Implemented) | 2026-08-31 | Released in `v0.7.0`. Added the As implemented record, moved the spec and corrected its links, and recorded the final 4,633-assertion, locale, equivalence and backtest evidence. |
 | 1.4 (Final) | 2026-08-31 | Codex review round 4. Made evidence provenance and completeness binding after the 1.3 shape check admitted incomplete and finding-irrelevant material: complete four-field DS and DNSKEY presentations selected for the finding, the actual TLSA query owner and retained malformed presentation string, one CAA entry per resolver record, and non-empty values for every non-absence kind. Required the contract suite to cover every registered kind and the constructor's real unknown-kind path. |
 | 1.3 (Final) | 2026-08-31 | Codex review round 3. Restated the evidence contract **per kind** after 1.2's "published bytes or nothing" proved too narrow to describe a parsed-only record or the token kind, and was violated in four places while reading as satisfied: DNSSEC and TLSA now carry the record's published wire fields instead of a `state`/`present` verdict, the weak-DKIM finding carries the published key record instead of its `s1 (1024)` presentation form, and `checks-unverified` emits one protocol token per control instead of a comma-joined list. Made `audit.finding.evidence.kind` closed by construction through a single evidence constructor. |
