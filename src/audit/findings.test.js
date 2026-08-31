@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Structured findings and the remediation plan. Spec findings-and-remediation
- * 1.0 (Final), Testing section.
+ * 1.4 (Final), Testing section.
  *
  * What this pins: the closed vocabularies, the dependency graph is acyclic and
  * resolvable, every finding resolves to a real locale message, the migrated
@@ -18,10 +18,11 @@ import { dirname, join } from 'node:path';
 
 import { createSuite } from '../../tests/lib/assert.mjs';
 import { buildIssues } from './issues.js';
+import { parseTlsaRecord } from '../core/transport/tlsa.js';
 import {
   buildFindings, buildRemediationPlan, FINDING_META, CROSS_PROTOCOL_RULES,
   SEVERITIES, CONFIDENCES, CATEGORIES, EFFORTS, PROTOCOLS, KEYSPACES, RATIONALES,
-  EVIDENCE_KINDS,
+  EVIDENCE_KINDS, evidenceEntry,
 } from './findings.js';
 
 const { eq, section, report } = createSuite();
@@ -494,71 +495,107 @@ eq('mx.none evidence is an absence with an empty value',
   [noMx.evidence[0].kind, noMx.evidence[0].value], ['absent', '']);
 
 /**
- * The evidence contract, asserted PER KIND (spec §1, amendment 1.3).
- *
- * The previous version of this check was a prose regex, and it was too weak to
- * be worth much: all four values that actually violated the contract —
- * `"indeterminate"`, `"published"`, `"CAA, MTA-STS"` and `"s1 (1024)"` — sailed
- * through it while the suite stayed green. A rule stated per kind is checkable;
- * "not prose" was not.
+ * The evidence contract, asserted against SOURCE MATERIAL and the exact DNS
+ * owner (spec §1, amendment 1.4). Shape alone failed twice: first prose, then
+ * incomplete wire-looking strings. These cases exercise all twelve kinds and
+ * compare every entry to the material its owner actually supplied.
  */
-const VERBATIM_KINDS = ['txt', 'selector', 'mx', 'address', 'cname', 'caa', 'mechanism', 'host'];
-// Wire fields only: digits and hex, space separated. A verdict word cannot match.
-const WIRE_FIELDS = /^[0-9a-f]+( [0-9a-f]+)*$/i;
-// A single bare protocol token — no comma, no space, so no joined display list.
-const BARE_TOKEN = /^[A-Za-z0-9-]+$/;
+const DS_DIGEST = 'ab'.repeat(32);
+const DS_RECORD = `12345 13 2 ${DS_DIGEST}`;
+const DNSKEY_RECORD = '256 3 13 AQIDBA==';
+const TLSA_RECORD = '3 1 1 abcdef01';
+const TLSA_BAD = 'not a tlsa record';
+const CAA_RECORDS = ['0 issue "ca.test"', '0 issuewild "wild.test"'];
 
-function kindViolations(entries, published) {
-  return entries.filter(function (e) {
-    if (e.kind === 'absent') return e.value !== '';
-    if (e.kind === 'info') return !BARE_TOKEN.test(e.value);
-    if (e.kind === 'tlsa' || e.kind === 'dnssec') return !WIRE_FIELDS.test(e.value);
-    if (VERBATIM_KINDS.indexOf(e.kind) !== -1) return e.value !== '' && published.indexOf(e.value) === -1;
-    return false;
-  }).map(function (e) { return e.kind + '=' + JSON.stringify(e.value); });
+const caaEvidence = buildFindings(ctx({ advanced: { caa: { found: true, atDomain: 'example.test', records: CAA_RECORDS, iodef: [] } } }),
+  [{ key: 'caa-no-iodef', sev: 'info', args: [] }]).find(f => f.id === 'caa.no-iodef').evidence;
+eq('CAA evidence keeps one resolver record per entry', caaEvidence.map(e => e.value), CAA_RECORDS);
+
+const dnssecBase = {
+  ds: [{ keyTag: 12345, algorithm: 13, digestType: 2, digest: DS_DIGEST, match: 'digest-mismatch' }],
+  keys: [{ keyTag: 12345, flags: 256, protocol: 3, algorithm: 13, publicKey: 'AQIDBA==', hasZoneFlag: false }],
+};
+const mismatchEvidence = buildFindings(ctx({ advanced: { dnssec: dnssecBase } }),
+  [{ key: 'dnssec-mismatch', sev: 'crit', args: [] }]).find(f => f.id === 'dnssec.mismatch').evidence;
+eq('a mismatch carries the complete DS record', mismatchEvidence.map(e => e.value), [DS_RECORD]);
+const keyEvidence = buildFindings(ctx({ advanced: { dnssec: dnssecBase } }),
+  [{ key: 'dnssec-key-not-zone-key', sev: 'warn', args: ['12345'] }]).find(f => f.id === 'dnssec.key-not-zone-key').evidence;
+eq('a DNSKEY flag finding carries DNSKEY rather than DS material', keyEvidence.map(e => e.value), [DNSKEY_RECORD]);
+
+const parsedTlsa = parseTlsaRecord(TLSA_RECORD);
+const malformedTlsa = parseTlsaRecord(TLSA_BAD);
+const tlsaEvidence = buildFindings(ctx({ advanced: { tlsa: { hosts: [{ host: 'mail.example.test', queryName: '_25._tcp.mail.example.test', records: [parsedTlsa, malformedTlsa] }] } } }),
+  [{ key: 'tlsa-malformed', sev: 'warn', args: [] }]).find(f => f.id === 'dane.malformed').evidence;
+eq('TLSA evidence uses the actual queried owner',
+  tlsaEvidence.map(e => e.queryName), ['_25._tcp.mail.example.test', '_25._tcp.mail.example.test']);
+eq('and keeps valid fields plus the malformed published source',
+  tlsaEvidence.map(e => e.value), [TLSA_RECORD, TLSA_BAD]);
+
+const selectorEvidence = buildFindings(ctx({
+  spfStatus: { status: 'ok', warnings: [] },
+  dmarcStatus: { status: 'ok', enforcing: true }, dmarcRecord: 'v=DMARC1; p=reject',
+  dkimStatus: { found: true, selectors: [{ sel: 's1', queryName: 's1._domainkey.example.test', value: 'v=DKIM1; p=KEY', key: { keyType: 'rsa', keyBits: 1024 } }] },
+}), []).find(f => f.id === 'dkim.weak-with-enforcement').evidence;
+const hostEvidence = buildFindings(ctx({
+  spfStatus: { status: 'ok', warnings: [] }, dkimStatus: { found: true, selectors: [{ key: { valid: true } }] },
+  dmarcStatus: { status: 'ok', enforcing: true }, dmarcRecord: 'v=DMARC1; p=reject',
+  advanced: { mxHealth: { danglingHosts: ['mail.example.test'] } },
+}), []).find(f => f.id === 'mx.dangling-with-enforcement').evidence;
+const mechanismEvidence = buildFindings(ctx({
+  spfStatus: { status: 'ok', warnings: [] }, dkimStatus: { found: true, selectors: [{ key: { valid: true } }] },
+  dmarcStatus: { status: 'ok', enforcing: true }, dmarcRecord: 'v=DMARC1; p=reject',
+  advanced: { spfSubnets: { subnets: [{ severity: 'HIGH', mechanism: 'ip4:0.0.0.0/0' }] } },
+}), []).find(f => f.id === 'spf.redundant-with-enforcement').evidence;
+const mxEvidence = buildFindings(ctx({ mx: ['10 mail.example.test'] }),
+  [{ key: 'porkbun-forward', sev: 'warn', args: [] }]).find(f => f.id === 'mx.porkbun-forwarding').evidence;
+const infoEvidence = buildFindings(ctx({ hosting: '@dns-error', advanced: { caa: { unknown: true } } }))
+  .find(f => f.id === 'dns.checks-unverified').evidence;
+
+const contractEvidence = [
+  ...spfConflict.evidence, noMx.evidence[0], ...mxImplicit.evidence.filter(e => e.kind === 'address'),
+  ...loop.evidence, ...mxEvidence, ...caaEvidence, ...mismatchEvidence, ...keyEvidence,
+  ...tlsaEvidence, ...selectorEvidence, ...hostEvidence, ...mechanismEvidence, ...infoEvidence,
+];
+const allowed = new Map([
+  ['txt\0example.test', new Set(['v=spf1 -all', 'v=spf1 include:a.test ~all'])],
+  ['absent\0example.test', new Set([''])],
+  ['address\0example.test', new Set(['93.184.216.34', '2606:2800::1'])],
+  ['cname\0www.example.test', new Set(['a.test', 'b.test'])],
+  ['mx\0example.test', new Set(['10 mail.example.test'])],
+  ['caa\0example.test', new Set(CAA_RECORDS)],
+  ['dnssec\0example.test', new Set([DS_RECORD, DNSKEY_RECORD])],
+  ['tlsa\0_25._tcp.mail.example.test', new Set([TLSA_RECORD, TLSA_BAD])],
+  ['selector\0s1._domainkey.example.test', new Set(['v=DKIM1; p=KEY'])],
+  ['host\0example.test', new Set(['mail.example.test'])],
+  ['mechanism\0example.test', new Set(['ip4:0.0.0.0/0'])],
+  ['info\0example.test', new Set(infoEvidence.map(e => e.value))],
+]);
+
+function contractViolations(entries) {
+  return entries.flatMap(function (e) {
+    if (!EVIDENCE_KINDS.includes(e.kind)) return ['unknown-kind:' + e.kind];
+    if (e.kind === 'absent') return e.value === '' ? [] : ['nonempty-absence'];
+    if (!e.value) return ['empty-' + e.kind];
+    const values = allowed.get(e.kind + '\0' + e.queryName);
+    return values && values.has(e.value) ? [] : ['unpublished:' + e.kind + ':' + e.queryName + ':' + e.value];
+  });
 }
 
-// Every published string this context contains. A verbatim-kind value that is
-// not one of these was assembled rather than observed.
-const PUBLISHED = ['v=spf1 -all', 'v=spf1 a', 'v=DKIM1; k=rsa; p=KEYBYTES',
-  'v=DMARC1; p=reject; rua=mailto:a@b', '10 mail.x.test', '93.184.216.34',
-  'host.cdn.test', '0 issue "ca.test"',
-  // The MX hostname itself, as published in the MX record above — what a
-  // dangling-host finding names.
-  'mail.x.test'];
-const contractCtx = ctx({
-  emailProvider: 'Google Workspace',
-  spfStatus: { status: 'permerror', warnings: ['spf-multiple-records'] },
-  spfRecords: ['v=spf1 -all', 'v=spf1 a'], spfRecord: 'v=spf1 -all',
-  dkimStatus: { found: true, selectors: [{ sel: 's1', queryName: 's1._domainkey.example.test', value: 'v=DKIM1; k=rsa; p=KEYBYTES', key: { keyType: 'rsa', keyBits: 1024, errors: [], hashAlgorithms: [], testing: false, valid: true } }], testedSelectors: [] },
-  dmarcStatus: { status: 'ok', policy: 'reject', effectivePolicy: 'reject', enforcing: true, rua: true },
-  dmarcRecord: 'v=DMARC1; p=reject; rua=mailto:a@b',
-  mx: ['10 mail.x.test'], aRec: ['93.184.216.34'], websiteChain: ['host.cdn.test'],
-  advanced: {
-    caa: { found: true, atDomain: 'example.test', records: ['0 issue "ca.test"'], issuers: ['ca.test'], wildcardIssuers: [] },
-    dnssec: { state: 'indeterminate', ds: [{ keyTag: 12345, algorithm: 13, digestType: 2 }] },
-    tlsa: { anyPresent: true, unauthenticatedHosts: ['mail.x.test'], hosts: [{ host: 'mail.x.test', present: true, authenticated: false, records: [{ usage: 3, selector: 1, matchingType: 1, data: 'abcdef01' }] }] },
-    mxHealth: { hosts: [{ host: 'mail.x.test', preference: 10, resolves: 'no', addresses: [] }], danglingHosts: ['mail.x.test'], cnameHosts: [], duplicatePreferences: [], singleHost: true, ipv6Coverage: 'none', sharedPrefixes: [] },
-  },
-});
-const contractEvidence = buildFindings(contractCtx).flatMap(f => f.evidence);
-eq('the contract fixture produced evidence across many kinds',
-  [...new Set(contractEvidence.map(e => e.kind))].length >= 5, true);
-eq('every evidence entry satisfies its kind\'s contract',
-  kindViolations(contractEvidence, PUBLISHED), []);
+eq('the contract cases exercise every registered evidence kind',
+  [...new Set(contractEvidence.map(e => e.kind))].sort(), EVIDENCE_KINDS.slice().sort());
+eq('every evidence entry matches its source material and query owner',
+  contractViolations(contractEvidence), []);
 
-// Proven able to fail — and specifically on the four that slipped through the
-// prose regex. Without this the check above could be vacuous.
-eq('the four round-3 violations would each be caught now',
-  kindViolations([
-    { kind: 'dnssec', value: 'indeterminate' },
-    { kind: 'tlsa', value: 'published' },
-    { kind: 'info', value: 'CAA, MTA-STS' },
-    { kind: 'selector', value: 's1 (1024)' },
-  ], PUBLISHED).length, 4);
-// And the old prose regex would have caught none of them, which is why it went.
-eq('while the retired prose regex caught none of the four',
-  ['indeterminate', 'published', 'CAA, MTA-STS', 's1 (1024)'].filter(v => / [a-z]+ [a-z]+ /.test(v)), []);
+// One negative case for each dimension that the previous shape check missed.
+const contractMutants = [
+  { kind: 'dnssec', queryName: 'example.test', value: '12345 13 2' },
+  { kind: 'tlsa', queryName: 'mail.example.test', value: TLSA_RECORD },
+  { kind: 'caa', queryName: 'example.test', value: CAA_RECORDS.join(' ') },
+  { kind: 'selector', queryName: 's1._domainkey.example.test', value: '' },
+  { kind: 'not-registered', queryName: 'example.test', value: 'x' },
+];
+eq('incomplete, wrong-owner, joined, empty and unknown evidence all fail',
+  contractViolations(contractMutants).length, contractMutants.length);
 
 // The weaker sweep is kept as a second line: no evidence value is a sentence.
 const sweepContexts = [
@@ -600,8 +637,10 @@ const codeOnly = findingsSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*
 // 1. The constructor closes it: an unregistered kind cannot survive, whatever
 //    branch produced it.
 eq('an unregistered kind is coerced rather than emitted',
-  buildFindings(ctx(), [{ key: 'spf-missing', sev: 'crit', args: [] }])
-    .every(f => f.evidence.every(e => EVIDENCE_KINDS.includes(e.kind))), true);
+  evidenceEntry('not-registered', 'example.test', 'CAA'),
+  { kind: 'info', queryName: 'example.test', value: 'CAA' });
+eq('while a registered kind survives the same constructor',
+  evidenceEntry('txt', 'example.test', 'v=spf1 -all').kind, 'txt');
 
 // 2. Every kind literal at a call site is a registered member.
 const literalKinds = [...new Set([...codeOnly.matchAll(/\b(?:q|ev|evidenceEntry)\(\s*'([a-z-]+)'/g)].map(m => m[1]))].sort();
@@ -648,8 +687,8 @@ eq('every bare-domain finding still names evidence',
 section('8. The finding layer is locale-independent');
 
 const source = readFileSync(join(REPO, 'src/audit/findings.js'), 'utf8');
-eq('findings.js imports only its audit sibling',
-  [...source.matchAll(/^import .* from '([^']+)'/gm)].map(m => m[1]), ['./issues.js']);
+eq('findings.js imports only its audit sibling and the TLSA evidence reader',
+  [...source.matchAll(/^import .* from '([^']+)'/gm)].map(m => m[1]), ['./issues.js', '../core/transport/tlsa.js']);
 eq('it holds no i18n or ui edge', /i18n|\/ui\//.test(source), false);
 // The plan sorts on tokens, never translated strings.
 eq('the plan carries token rationales, not prose',

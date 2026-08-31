@@ -1,6 +1,6 @@
 /**
  * Structured findings and the remediation plan. Spec: findings-and-remediation
- * 1.0 (Final), §1–§4.
+ * 1.4 (Final), §1–§4.
  *
  * ── Enrich, not replace (RQ-FIND-08) ────────────────────────────────────
  *
@@ -37,6 +37,7 @@
  * report schema freezes, decoupled from either.
  */
 import { buildIssues } from './issues.js';
+import { tlsaPresentation } from '../core/transport/tlsa.js';
 
 /* ── Closed vocabularies ─────────────────────────────────────────────────
  *
@@ -84,12 +85,79 @@ const EVIDENCE_KIND_SET = EVIDENCE_KINDS.reduce(function (set, k) { set[k] = tru
  * never fires in practice — every call site's literal is in the enum, and the
  * enum has no dead members — so this is a floor, not a licence.
  */
-function evidenceEntry(kind, queryName, value) {
+export function evidenceEntry(kind, queryName, value) {
   return {
     kind: EVIDENCE_KIND_SET[kind] ? kind : 'info',
     queryName: queryName,
     value: value || '',
   };
+}
+
+function completeFields(values) {
+  if (values.some(function (v) { return v === undefined || v === null || v === ''; })) return '';
+  return values.join(' ');
+}
+
+function dsPresentation(record) {
+  return completeFields([record.keyTag, record.algorithm, record.digestType, record.digest]);
+}
+
+function dnskeyPresentation(record) {
+  return completeFields([record.flags, record.protocol, record.algorithm, record.publicKey]);
+}
+
+function findingTags(finding) {
+  return String((finding.args && finding.args[0]) || '').split(',')
+    .map(function (v) { return v.trim(); }).filter(Boolean);
+}
+
+function dnssecEvidence(finding, ctx) {
+  var dnssec = (ctx.advanced && ctx.advanced.dnssec) || {};
+  var ds = dnssec.ds || [];
+  var keys = dnssec.keys || [];
+  var tags = findingTags(finding);
+  var hasTag = function (record) { return !tags.length || tags.indexOf(String(record.keyTag)) !== -1; };
+  var selectedDs = [];
+  var selectedKeys = [];
+
+  switch (finding.id) {
+    case 'dnssec.mismatch':
+      selectedDs = ds.filter(function (r) { return r.match === 'digest-mismatch'; });
+      break;
+    case 'dnssec.ds-orphan':
+      selectedDs = ds.filter(function (r) { return hasTag(r); });
+      break;
+    case 'dnssec.deprecated-digest':
+      selectedDs = ds.filter(function (r) { return r.deprecated; });
+      break;
+    case 'dnssec.deprecated-algorithm':
+      selectedDs = ds.filter(function (r) { return r.deprecated; });
+      selectedKeys = keys.filter(function (r) { return r.deprecated; });
+      break;
+    case 'dnssec.key-algorithm-ineligible':
+      selectedKeys = keys.filter(function (r) { return hasTag(r) && r.algorithmEligibility === 'ineligible'; });
+      break;
+    case 'dnssec.key-not-zone-key':
+      selectedKeys = keys.filter(function (r) { return hasTag(r) && r.hasZoneFlag === false; });
+      break;
+    case 'dnssec.key-malformed':
+      selectedKeys = keys.filter(function (r) { return hasTag(r) && r.keyStructure === 'invalid'; });
+      break;
+    case 'dnssec.revoke-flag':
+      selectedKeys = keys.filter(function (r) { return hasTag(r) && r.hasRevokeFlag; });
+      break;
+    default:
+      selectedDs = ds;
+      selectedKeys = keys;
+  }
+
+  var entries = selectedDs.map(function (r) {
+    return evidenceEntry('dnssec', ctx.domain, dsPresentation(r));
+  }).concat(selectedKeys.map(function (r) {
+    return evidenceEntry('dnssec', ctx.domain, dnskeyPresentation(r));
+  })).filter(function (e) { return e.value; }).slice(0, 4);
+
+  return entries.length ? entries : [evidenceEntry('absent', ctx.domain, '')];
 }
 
 // Severity ranking for within-step ordering (RQ-FIND-01 / §4). Higher is worse.
@@ -326,33 +394,31 @@ function migratedEvidence(finding, ctx) {
       if (hosts.length) return hosts.slice(0, 4).map(function (h) { return q('host', ctx.domain, h.preference + ' ' + h.host); });
       return (ctx.mx && ctx.mx.length) ? ctx.mx.slice(0, 4).map(function (m) { return q('mx', ctx.domain, String(m)); }) : [q('absent', ctx.domain, '')];
     }
-    case 'caa':
-      return [q('caa', (adv.caa && adv.caa.atDomain) || ctx.domain, ((adv.caa && adv.caa.records) || []).join(' '))];
-    // The published delegation records, never the classifier's verdict. `state`
-    // ("indeterminate", "bogus") is what the FINDING says; the DS records are
-    // what justifies it. Each entry carries the DS wire fields as published:
-    // key tag, algorithm, digest type.
-    case 'dnssec': {
-      var ds = (adv.dnssec && adv.dnssec.ds) || [];
-      if (ds.length) {
-        return ds.slice(0, 4).map(function (r) {
-          return q('dnssec', ctx.domain, [r.keyTag, r.algorithm, r.digestType].filter(function (v) { return v !== undefined && v !== null; }).join(' '));
-        });
-      }
-      // A zone with no DS at all — the delegation is where the evidence would be.
-      return [q('absent', ctx.domain, '')];
+    case 'caa': {
+      var caa = (adv.caa && adv.caa.records) || [];
+      var caaName = (adv.caa && adv.caa.atDomain) || ctx.domain;
+      return caa.length ? caa.slice(0, 4).map(function (r) { return q('caa', caaName, r); }) : [q('absent', caaName, '')];
     }
-    // The published TLSA records in presentation form, per host — not
-    // "published"/"absent", which are verdicts about the record rather than it.
+    // Complete DS or DNSKEY material selected for the finding — never the
+    // classifier state, an incomplete DS, or a DS offered for a DNSKEY claim.
+    case 'dnssec':
+      return dnssecEvidence(finding, ctx);
+    // A valid TLSA record is faithfully re-serialized from its wire fields. A
+    // malformed one uses the presentation retained by its protocol owner,
+    // because fields that did not parse cannot be reconstructed here.
     case 'dane': {
       var th = (adv.tlsa && adv.tlsa.hosts) || [];
       if (!th.length) return [q('absent', ctx.domain, '')];
       var out = [];
       th.slice(0, 4).forEach(function (h) {
         var recs = h.records || [];
-        if (!recs.length) { out.push(q('absent', h.host, '')); return; }
+        var queryName = h.queryName || ('_25._tcp.' + h.host);
+        if (!recs.length) { out.push(q('absent', queryName, '')); return; }
         recs.slice(0, 2).forEach(function (r) {
-          out.push(q('tlsa', h.host, [r.usage, r.selector, r.matchingType, r.data].filter(function (v) { return v !== undefined && v !== null && v !== ''; }).join(' ')));
+          var value = r.valid
+            ? completeFields([r.usage, r.selector, r.matchingType, r.data])
+            : tlsaPresentation(r);
+          out.push(value ? q('tlsa', queryName, value) : q('absent', queryName, ''));
         });
       });
       return out;
