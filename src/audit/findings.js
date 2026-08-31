@@ -57,6 +57,20 @@ export const PROTOCOLS = ['spf', 'dkim', 'dmarc', 'dnssec', 'caa', 'mta-sts',
 export const KEYSPACES = ['issue', 'finding'];
 export const RATIONALES = ['foundation', 'afterPrereq', 'cleanup'];
 
+/**
+ * The evidence kinds this module produces, and it is CLOSED by construction:
+ * every entry is built by the two local helpers below, so the set is exactly
+ * what this file writes. Registered as `audit.finding.evidence.kind`.
+ *
+ * `absent` is the honest form of an absence — a name that was queried and had
+ * nothing — and carries an empty value by design (spec §1, amendment 1.2).
+ * `info` is the one non-record kind: it carries a finding's own protocol-token
+ * arguments, used by `dns.checks-unverified` to name the checks that could not
+ * run. Everything else is published DNS material.
+ */
+export const EVIDENCE_KINDS = ['txt', 'absent', 'selector', 'host', 'mx',
+  'address', 'cname', 'caa', 'dnssec', 'tlsa', 'mechanism', 'info'];
+
 // Severity ranking for within-step ordering (RQ-FIND-01 / §4). Higher is worse.
 const SEV_RANK = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
 const EFFORT_RANK = { trivial: 0, moderate: 1, involved: 2 };
@@ -231,18 +245,40 @@ function migratedEvidence(finding, ctx) {
         ? dups.map(function (o) { return q('txt', o.queryName || ('_dmarc.' + ctx.domain), o.record || ''); })
         : [q('absent', '_dmarc.' + ctx.domain, '')];
     }
-    case 'dns.wildcard-apex':
-      return [q('txt', '_wildcardtest99xyz.' + ctx.domain, 'wildcard TXT synthesized at the apex')];
-    case 'dns.wildcard-dkim':
-      return [q('txt', '_wildcardtest99xyz._domainkey.' + ctx.domain, 'wildcard TXT reaches DKIM selector names')];
-    case 'dns.hosting-loop':
-      return [q('cname', 'www.' + ctx.domain, 'CNAME resolution loop')];
+    // The wildcard probes' SYNTHESIZED RECORDS, at the name that was probed.
+    // The record is the evidence; an empty set falls back to naming the probe.
+    case 'dns.wildcard-apex': {
+      var apexName = '_wildcardtest99xyz.' + ctx.domain;
+      var apexRecs = ctx.wildcardApexRecords || [];
+      return apexRecs.length ? apexRecs.slice(0, 4).map(function (r) { return q('txt', apexName, String(r)); }) : [q('txt', apexName, '')];
+    }
+    case 'dns.wildcard-dkim': {
+      var dkimName = '_wildcardtest99xyz._domainkey.' + ctx.domain;
+      var dkimRecs = ctx.wildcardDkimRecords || [];
+      return dkimRecs.length ? dkimRecs.slice(0, 4).map(function (r) { return q('txt', dkimName, String(r)); }) : [q('txt', dkimName, '')];
+    }
+    // The chain that closes the loop, host by host.
+    case 'dns.hosting-loop': {
+      var chain = ctx.websiteChain || [];
+      return chain.length ? chain.slice(0, 8).map(function (h) { return q('cname', 'www.' + ctx.domain, String(h)); }) : [q('cname', 'www.' + ctx.domain, '')];
+    }
     case 'dns.checks-unverified':
-      // The finding's own args name exactly which checks could not be verified.
+      // The finding's own args name exactly which checks could not be verified —
+      // protocol tokens (CAA, MTA-STS, …), not prose.
       return (finding.args && finding.args.length) ? [q('info', ctx.domain, String(finding.args[0]))] : [q('info', ctx.domain, '')];
+    // An absence: the name that was queried, and nothing. The message says what
+    // is missing; the evidence says where it was looked for.
     case 'mx.none':
-      return [q('absent', ctx.domain, 'no MX record')];
-    case 'mx.implicit':
+      return [q('absent', ctx.domain, '')];
+    // Implicit MX is selected only when NO MX record exists (providers/detectors),
+    // so its evidence is that absence plus the A/AAAA records SMTP would fall
+    // back to — the records that actually activate implicit delivery.
+    case 'mx.implicit': {
+      var addrs = (ctx.aRec || []).concat(ctx.aaaaRec || []);
+      return [q('absent', ctx.domain, '')].concat(
+        addrs.slice(0, 4).map(function (a) { return q('address', ctx.domain, String(a)); })
+      );
+    }
     case 'mx.porkbun-forwarding':
       return (ctx.mx && ctx.mx.length) ? ctx.mx.slice(0, 4).map(function (m) { return q('mx', ctx.domain, String(m)); }) : [q('absent', ctx.domain, '')];
   }

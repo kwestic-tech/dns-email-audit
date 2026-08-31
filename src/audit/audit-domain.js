@@ -237,6 +237,11 @@ export function createAuditDomain(capabilities) {
     let wildcardApex = false;
     let wildcardDkim = false;
     let wildcardDkimRecords = [];
+    // The synthesized records themselves, not just the boolean. A wildcard
+    // finding's evidence is the record the probe got back; without keeping it the
+    // finding layer could only describe the probe in prose, which the findings
+    // spec §1 forbids as evidence.
+    let wildcardApexRecords = [];
     if (ctx.options.wildcard) {
       const [apexProbe, dkimProbe] = await Promise.all([
         optionalCheck(() => dohQuery(`_wildcardtest99xyz.${d}`, 'TXT', queryOpts), null),
@@ -245,6 +250,7 @@ export function createAuditDomain(capabilities) {
       wildcardApex = apexProbe !== null && apexProbe.length > 0;
       wildcardDkim = dkimProbe !== null && dkimProbe.length > 0;
       wildcardDkimRecords = wildcardDkim ? dkimProbe : [];
+      wildcardApexRecords = wildcardApex ? apexProbe : [];
     }
 
     let dkimStatus = { found: false, selectors: [], testedSelectors: [], confidence: 'not-checked', note: '' };
@@ -261,11 +267,16 @@ export function createAuditDomain(capabilities) {
     }
 
     let hosting = '@dash';
+    // The CNAME chain the walk followed. `dns.hosting-loop`'s evidence is the
+    // chain itself — the hostnames that close the loop — rather than a sentence
+    // saying a loop exists.
+    let websiteChain = [];
     if (ctx.options.www) {
       const website = await optionalCheck(
         () => resolveWebsite(d, queryOpts),
         error => ({ loop: false, chain: [], addresses: [], error: (error && error.kind) || 'dns-error' })
       );
+      websiteChain = website.chain || [];
       hosting = website.error ? '@dns-error'
         : website.loop ? '@cname-loop'
           : detectHosting(website.addresses, website.chain, d);
@@ -354,9 +365,13 @@ export function createAuditDomain(capabilities) {
       emailProvider, spfStatus, spfRecords, spfRecord, dkimStatus, dmarcStatus,
       dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan,
       wildcardApex, wildcardDkim, hosting, advanced, domain: d,
-      // `mx` is passed so MX findings can name the actual records as evidence —
-      // it is a fact the coordinator already holds, not a new query.
-      mx, dmarcRecord, dmarcAtDomain, spfUsesMx,
+      // Facts the coordinator already holds, passed so findings can name the
+      // real DNS material as evidence rather than describing it (spec §1, 1.2).
+      // None of these is a new query: `mx`, the address records that activate
+      // implicit MX delivery, the wildcard probes' synthesized records, and the
+      // website CNAME chain.
+      mx, aRec, aaaaRec, wildcardApexRecords, wildcardDkimRecords, websiteChain,
+      dmarcRecord, dmarcAtDomain, spfUsesMx,
     });
     const remediationPlan = buildRemediationPlan(findings);
 
