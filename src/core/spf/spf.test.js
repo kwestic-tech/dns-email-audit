@@ -20,7 +20,7 @@
 import { createSuite } from '../../../tests/lib/assert.mjs';
 import { requireUsable, cleanAnswerData } from '../dns/resolver.js';
 import {
-  createSpfChecks, analyzeSpf, parseSpfTerms, cidrContains, classifySpfSubnet, classifySpfSubnets, stripSpfQualifier, spfReferencedCatalogKeys, selectSpfRecords,
+  createSpfChecks, analyzeSpf, parseSpfTerms, cidrContains, classifySpfSubnet, classifySpfSubnets, stripSpfQualifier, spfReferencedCatalogKeys, selectSpfRecords, spfUsesMechanism,
 } from './spf.js';
 
 const { eq, section, report } = createSuite();
@@ -266,5 +266,22 @@ eq('and neither is none', selectSpfRecords([]).multiple, false);
 // The interpretation the selection feeds: multiple outranks the contents.
 eq('and that is what makes the record set a permerror',
   analyzeSpf(two.record, '@none', two.multiple).status, 'permerror');
+
+/* ── 8. spfUsesMechanism — the fact audit composes with a null MX ──────── */
+section('8. spfUsesMechanism');
+
+eq('a bare mx mechanism is a use of mx', spfUsesMechanism('v=spf1 mx -all', 'mx'), true);
+eq('mx:host counts too', spfUsesMechanism('v=spf1 mx:mail.example.com -all', 'mx'), true);
+eq('a qualified ~mx still counts', spfUsesMechanism('v=spf1 ~mx -all', 'mx'), true);
+eq('a record without mx does not', spfUsesMechanism('v=spf1 include:_spf.google.com -all', 'mx'), false);
+// A modifier is not a mechanism: redirect= names a domain, not an mx use.
+eq('redirect=mx.example.com is not a use of the mx mechanism',
+  spfUsesMechanism('v=spf1 redirect=mx.example.com', 'mx'), false);
+// The `a` mechanism uses the same path.
+eq('the a mechanism is detected the same way', spfUsesMechanism('v=spf1 a -all', 'a'), true);
+eq('and an empty or missing record is never a use', spfUsesMechanism('', 'mx') || spfUsesMechanism(null, 'mx'), false);
+// Proven able to distinguish: `mx` must not match a substring like `include:mx.x`.
+eq('an include naming an mx host is not a use of the mx mechanism',
+  spfUsesMechanism('v=spf1 include:mx.example.com -all', 'mx'), false);
 
 report();

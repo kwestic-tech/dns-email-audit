@@ -395,7 +395,7 @@
     },
     {
       "path": "src/core/spf/spf.test.js",
-      "assertions": 73,
+      "assertions": 81,
       "note": "Co-located per spec §9. Phase 4, Task 4.8 — the last protocol owner. Driven by a fake transport and the real requireUsable/cleanAnswerData.",
       "areas": [
         "permerror outranks the record's contents: two v=spf1 records fail all mail even where -all would have been ok",

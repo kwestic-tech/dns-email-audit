@@ -47,6 +47,7 @@ ranks.
 | `cidrContains(block, address)` | pure | Prefix-bit comparison. |
 | `stripSpfQualifier(raw)` | pure | Removes a leading `+`, `-`, `~` or `?`. |
 | `spfReferencedCatalogKeys(spf)` | pure | The DKIM catalog keys a record's own `include:`/`redirect=` names. See below. |
+| `spfUsesMechanism(spf, name)` | pure | Whether the record uses a mechanism by name (`mx`, `a`), modifiers excluded. Composed with a null MX by the audit layer to raise `defensive.contradictory` (findings spec RQ-FIND-09). |
 
 ## `permerror` outranks the contents
 
