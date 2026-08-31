@@ -31,6 +31,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
+      - name: Install exact dependencies
+        run: npm ci
       - name: Run full test suite
         run: npm test
       - name: Build deployable site
