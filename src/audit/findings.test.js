@@ -530,6 +530,9 @@ eq('TLSA evidence uses the actual queried owner',
   tlsaEvidence.map(e => e.queryName), ['_25._tcp.mail.example.test', '_25._tcp.mail.example.test']);
 eq('and keeps valid fields plus the malformed published source',
   tlsaEvidence.map(e => e.value), [TLSA_RECORD, TLSA_BAD]);
+eq('malformed TLSA evidence survives a serialized result round trip',
+  JSON.parse(JSON.stringify({ findings: [{ evidence: tlsaEvidence }] })).findings[0].evidence,
+  tlsaEvidence);
 
 const selectorEvidence = buildFindings(ctx({
   spfStatus: { status: 'ok', warnings: [] },
