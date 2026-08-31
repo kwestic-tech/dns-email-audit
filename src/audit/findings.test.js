@@ -493,9 +493,74 @@ const noMx = buildFindings(ctx({ emailProvider: '@none' })).find(f => f.id === '
 eq('mx.none evidence is an absence with an empty value',
   [noMx.evidence[0].kind, noMx.evidence[0].value], ['absent', '']);
 
-// The contract, asserted across a broad sweep rather than case by case: no
-// evidence value is an English sentence. Prose reaches every locale untranslated,
-// which is exactly what the raw-evidence rule exists to prevent.
+/**
+ * The evidence contract, asserted PER KIND (spec §1, amendment 1.3).
+ *
+ * The previous version of this check was a prose regex, and it was too weak to
+ * be worth much: all four values that actually violated the contract —
+ * `"indeterminate"`, `"published"`, `"CAA, MTA-STS"` and `"s1 (1024)"` — sailed
+ * through it while the suite stayed green. A rule stated per kind is checkable;
+ * "not prose" was not.
+ */
+const VERBATIM_KINDS = ['txt', 'selector', 'mx', 'address', 'cname', 'caa', 'mechanism', 'host'];
+// Wire fields only: digits and hex, space separated. A verdict word cannot match.
+const WIRE_FIELDS = /^[0-9a-f]+( [0-9a-f]+)*$/i;
+// A single bare protocol token — no comma, no space, so no joined display list.
+const BARE_TOKEN = /^[A-Za-z0-9-]+$/;
+
+function kindViolations(entries, published) {
+  return entries.filter(function (e) {
+    if (e.kind === 'absent') return e.value !== '';
+    if (e.kind === 'info') return !BARE_TOKEN.test(e.value);
+    if (e.kind === 'tlsa' || e.kind === 'dnssec') return !WIRE_FIELDS.test(e.value);
+    if (VERBATIM_KINDS.indexOf(e.kind) !== -1) return e.value !== '' && published.indexOf(e.value) === -1;
+    return false;
+  }).map(function (e) { return e.kind + '=' + JSON.stringify(e.value); });
+}
+
+// Every published string this context contains. A verbatim-kind value that is
+// not one of these was assembled rather than observed.
+const PUBLISHED = ['v=spf1 -all', 'v=spf1 a', 'v=DKIM1; k=rsa; p=KEYBYTES',
+  'v=DMARC1; p=reject; rua=mailto:a@b', '10 mail.x.test', '93.184.216.34',
+  'host.cdn.test', '0 issue "ca.test"',
+  // The MX hostname itself, as published in the MX record above — what a
+  // dangling-host finding names.
+  'mail.x.test'];
+const contractCtx = ctx({
+  emailProvider: 'Google Workspace',
+  spfStatus: { status: 'permerror', warnings: ['spf-multiple-records'] },
+  spfRecords: ['v=spf1 -all', 'v=spf1 a'], spfRecord: 'v=spf1 -all',
+  dkimStatus: { found: true, selectors: [{ sel: 's1', queryName: 's1._domainkey.example.test', value: 'v=DKIM1; k=rsa; p=KEYBYTES', key: { keyType: 'rsa', keyBits: 1024, errors: [], hashAlgorithms: [], testing: false, valid: true } }], testedSelectors: [] },
+  dmarcStatus: { status: 'ok', policy: 'reject', effectivePolicy: 'reject', enforcing: true, rua: true },
+  dmarcRecord: 'v=DMARC1; p=reject; rua=mailto:a@b',
+  mx: ['10 mail.x.test'], aRec: ['93.184.216.34'], websiteChain: ['host.cdn.test'],
+  advanced: {
+    caa: { found: true, atDomain: 'example.test', records: ['0 issue "ca.test"'], issuers: ['ca.test'], wildcardIssuers: [] },
+    dnssec: { state: 'indeterminate', ds: [{ keyTag: 12345, algorithm: 13, digestType: 2 }] },
+    tlsa: { anyPresent: true, unauthenticatedHosts: ['mail.x.test'], hosts: [{ host: 'mail.x.test', present: true, authenticated: false, records: [{ usage: 3, selector: 1, matchingType: 1, data: 'abcdef01' }] }] },
+    mxHealth: { hosts: [{ host: 'mail.x.test', preference: 10, resolves: 'no', addresses: [] }], danglingHosts: ['mail.x.test'], cnameHosts: [], duplicatePreferences: [], singleHost: true, ipv6Coverage: 'none', sharedPrefixes: [] },
+  },
+});
+const contractEvidence = buildFindings(contractCtx).flatMap(f => f.evidence);
+eq('the contract fixture produced evidence across many kinds',
+  [...new Set(contractEvidence.map(e => e.kind))].length >= 5, true);
+eq('every evidence entry satisfies its kind\'s contract',
+  kindViolations(contractEvidence, PUBLISHED), []);
+
+// Proven able to fail — and specifically on the four that slipped through the
+// prose regex. Without this the check above could be vacuous.
+eq('the four round-3 violations would each be caught now',
+  kindViolations([
+    { kind: 'dnssec', value: 'indeterminate' },
+    { kind: 'tlsa', value: 'published' },
+    { kind: 'info', value: 'CAA, MTA-STS' },
+    { kind: 'selector', value: 's1 (1024)' },
+  ], PUBLISHED).length, 4);
+// And the old prose regex would have caught none of them, which is why it went.
+eq('while the retired prose regex caught none of the four',
+  ['indeterminate', 'published', 'CAA, MTA-STS', 's1 (1024)'].filter(v => / [a-z]+ [a-z]+ /.test(v)), []);
+
+// The weaker sweep is kept as a second line: no evidence value is a sentence.
 const sweepContexts = [
   ctx(), ctx({ wildcardApex: true, wildcardApexRecords: ['r'] }),
   ctx({ wildcardDkim: true, wildcardDkimRecords: ['r'] }),
@@ -515,6 +580,61 @@ eq('and the prose check really would catch a sentence',
   / [a-z]+ [a-z]+ /.test('wildcard TXT synthesized at the apex'), true);
 eq('every evidence kind produced is in the registered vocabulary',
   [...new Set(sweepEvidence.map(e => e.kind))].filter(k => !EVIDENCE_KINDS.includes(k)), []);
+
+/* ── 7d. The evidence kind vocabulary is closed BY CONSTRUCTION ───────── */
+section('7d. Nothing can emit an evidence kind outside the enum');
+
+/**
+ * A runtime sweep can only prove the branches it swept. Both halves are needed:
+ * the constructor closes the set for any branch (swept or not), and the source
+ * scan proves the constructor is the only door and that no call site names a
+ * kind the enum lacks.
+ *
+ * The scan strips comments first. `AGENTS.md` rule 3 is explicit about this —
+ * the file most likely to discuss a thing is the one that just stopped doing it,
+ * and this file's own header names every kind in prose.
+ */
+const findingsSource = readFileSync(join(REPO, 'src/audit/findings.js'), 'utf8');
+const codeOnly = findingsSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+// 1. The constructor closes it: an unregistered kind cannot survive, whatever
+//    branch produced it.
+eq('an unregistered kind is coerced rather than emitted',
+  buildFindings(ctx(), [{ key: 'spf-missing', sev: 'crit', args: [] }])
+    .every(f => f.evidence.every(e => EVIDENCE_KINDS.includes(e.kind))), true);
+
+// 2. Every kind literal at a call site is a registered member.
+const literalKinds = [...new Set([...codeOnly.matchAll(/\b(?:q|ev|evidenceEntry)\(\s*'([a-z-]+)'/g)].map(m => m[1]))].sort();
+eq('the scan found the call sites', literalKinds.length > 5, true);
+eq('every kind literal is registered', literalKinds.filter(k => !EVIDENCE_KINDS.includes(k)), []);
+// 3. …and every registered member is actually used, so a dead enum entry — which
+//    would sit in the algebra describing nothing — is caught too.
+eq('every registered kind is emitted somewhere', EVIDENCE_KINDS.filter(k => !literalKinds.includes(k)), []);
+// 4. No call site passes a COMPUTED kind, which is the blind spot a literal scan
+//    would otherwise have. Every `q(`/`ev(` opens with a quoted literal.
+// The `function evidenceEntry(kind, …)` DECLARATION is not a call site, and an
+// earlier draft of this scan counted it — reporting the parameter name as a
+// computed kind. Excluded by lookbehind rather than by loosening the assertion.
+const CALL_SITE = /(?<!function )\b(?:q|ev|evidenceEntry)\(\s*([^\s,)])/g;
+const callOpens = [...codeOnly.matchAll(CALL_SITE)].map(m => m[1]);
+eq('the scan saw every call site', callOpens.length >= literalKinds.length, true);
+eq('and no call site passes a computed kind', callOpens.filter(c => c !== "'"), []);
+
+// Proven able to fire, on all three properties — an empty result is also what a
+// scan for the wrong pattern produces.
+const fakeSource = "q('not-a-kind', d, v); ev(someVariable, d, v);";
+eq('the scan would catch an unregistered literal',
+  [...fakeSource.matchAll(/\b(?:q|ev|evidenceEntry)\(\s*'([a-z-]+)'/g)].map(m => m[1])
+    .filter(k => !EVIDENCE_KINDS.includes(k)), ['not-a-kind']);
+eq('and would catch a computed kind',
+  [...fakeSource.matchAll(new RegExp(CALL_SITE.source, 'g'))].map(m => m[1]).filter(c => c !== "'").length, 1);
+// …while still ignoring the declaration, so the exclusion is not just hiding it.
+eq('but not the declaration it must ignore',
+  [...'function evidenceEntry(kind, a, b) {'.matchAll(new RegExp(CALL_SITE.source, 'g'))].length, 0);
+// And the comment strip really is load-bearing: the header discusses kinds in
+// prose, so a scan over the raw file would read them as call sites.
+eq('stripping comments changes what the file appears to contain',
+  codeOnly.length < findingsSource.length, true);
 
 // A DNS finding gets meaningful evidence, not an empty info entry.
 const checksUnverified = buildFindings(ctx({ hosting: '@dns-error', advanced: { caa: { unknown: true } } })).find(f => f.id === 'dns.checks-unverified');

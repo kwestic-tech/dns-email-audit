@@ -463,7 +463,7 @@
     },
     {
       "path": "src/audit/findings.test.js",
-      "assertions": 113,
+      "assertions": 127,
       "areas": [
         "the structured Finding shape and its five closed vocabularies (severity, confidence, category, effort, protocol)",
         "the dependency graph is resolvable and acyclic, with the cycle detector proven able to fire",

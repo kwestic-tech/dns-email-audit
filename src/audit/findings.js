@@ -71,6 +71,27 @@ export const RATIONALES = ['foundation', 'afterPrereq', 'cleanup'];
 export const EVIDENCE_KINDS = ['txt', 'absent', 'selector', 'host', 'mx',
   'address', 'cname', 'caa', 'dnssec', 'tlsa', 'mechanism', 'info'];
 
+const EVIDENCE_KIND_SET = EVIDENCE_KINDS.reduce(function (set, k) { set[k] = true; return set; }, {});
+
+/**
+ * The ONE constructor for an evidence entry, and the thing that makes
+ * `audit.finding.evidence.kind` closed by CONSTRUCTION rather than by a scan
+ * that happens to have swept every branch.
+ *
+ * An unregistered kind is coerced to `info` rather than thrown: a finding
+ * builder that throws takes down the whole audit row, and a mislabelled piece
+ * of evidence is not worth that. The co-located suite asserts the coercion
+ * never fires in practice — every call site's literal is in the enum, and the
+ * enum has no dead members — so this is a floor, not a licence.
+ */
+function evidenceEntry(kind, queryName, value) {
+  return {
+    kind: EVIDENCE_KIND_SET[kind] ? kind : 'info',
+    queryName: queryName,
+    value: value || '',
+  };
+}
+
 // Severity ranking for within-step ordering (RQ-FIND-01 / §4). Higher is worse.
 const SEV_RANK = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
 const EFFORT_RANK = { trivial: 0, moderate: 1, involved: 2 };
@@ -226,7 +247,7 @@ export const FINDING_META = {
  * ──────────────────────────────────────────────────────────────────────── */
 function migratedEvidence(finding, ctx) {
   var adv = ctx.advanced || {};
-  var q = function (kind, queryName, value) { return { kind: kind, queryName: queryName, value: value || '' }; };
+  var q = evidenceEntry;
 
   // ── Finding-specific evidence, where the protocol-generic material would be
   // wrong or too coarse for the record that actually justified THIS finding. ──
@@ -262,10 +283,14 @@ function migratedEvidence(finding, ctx) {
       var chain = ctx.websiteChain || [];
       return chain.length ? chain.slice(0, 8).map(function (h) { return q('cname', 'www.' + ctx.domain, String(h)); }) : [q('cname', 'www.' + ctx.domain, '')];
     }
-    case 'dns.checks-unverified':
-      // The finding's own args name exactly which checks could not be verified —
-      // protocol tokens (CAA, MTA-STS, …), not prose.
-      return (finding.args && finding.args.length) ? [q('info', ctx.domain, String(finding.args[0]))] : [q('info', ctx.domain, '')];
+    case 'dns.checks-unverified': {
+      // One entry per control that could not be verified, each carrying that
+      // control's bare protocol token. There IS no record to show — the lookups
+      // are what failed — so `info` names which control is unproven rather than
+      // a comma-joined presentation string standing in for evidence.
+      var checks = String((finding.args && finding.args[0]) || '').split(', ').filter(Boolean);
+      return checks.length ? checks.map(function (c) { return q('info', ctx.domain, c); }) : [q('info', ctx.domain, '')];
+    }
     // An absence: the name that was queried, and nothing. The message says what
     // is missing; the evidence says where it was looked for.
     case 'mx.none':
@@ -303,11 +328,34 @@ function migratedEvidence(finding, ctx) {
     }
     case 'caa':
       return [q('caa', (adv.caa && adv.caa.atDomain) || ctx.domain, ((adv.caa && adv.caa.records) || []).join(' '))];
-    case 'dnssec':
-      return [q('dnssec', ctx.domain, (adv.dnssec && adv.dnssec.state) || '')];
+    // The published delegation records, never the classifier's verdict. `state`
+    // ("indeterminate", "bogus") is what the FINDING says; the DS records are
+    // what justifies it. Each entry carries the DS wire fields as published:
+    // key tag, algorithm, digest type.
+    case 'dnssec': {
+      var ds = (adv.dnssec && adv.dnssec.ds) || [];
+      if (ds.length) {
+        return ds.slice(0, 4).map(function (r) {
+          return q('dnssec', ctx.domain, [r.keyTag, r.algorithm, r.digestType].filter(function (v) { return v !== undefined && v !== null; }).join(' '));
+        });
+      }
+      // A zone with no DS at all — the delegation is where the evidence would be.
+      return [q('absent', ctx.domain, '')];
+    }
+    // The published TLSA records in presentation form, per host — not
+    // "published"/"absent", which are verdicts about the record rather than it.
     case 'dane': {
       var th = (adv.tlsa && adv.tlsa.hosts) || [];
-      return th.length ? th.slice(0, 4).map(function (h) { return q('tlsa', h.host, h.present ? 'published' : 'absent'); }) : [q('tlsa', ctx.domain, '')];
+      if (!th.length) return [q('absent', ctx.domain, '')];
+      var out = [];
+      th.slice(0, 4).forEach(function (h) {
+        var recs = h.records || [];
+        if (!recs.length) { out.push(q('absent', h.host, '')); return; }
+        recs.slice(0, 2).forEach(function (r) {
+          out.push(q('tlsa', h.host, [r.usage, r.selector, r.matchingType, r.data].filter(function (v) { return v !== undefined && v !== null && v !== ''; }).join(' ')));
+        });
+      });
+      return out;
     }
     case 'bimi':
       return [q('txt', 'default._bimi.' + ctx.domain, (adv.bimi && adv.bimi.record) || '')];
@@ -352,7 +400,7 @@ function noUsableDkim(ctx) {
 function spfMissing(ctx) {
   return !!(ctx.spfStatus && ctx.spfStatus.status === 'missing');
 }
-function ev(kind, queryName, value) { return { kind: kind, queryName: queryName, value: value || '' }; }
+var ev = evidenceEntry;
 
 export const CROSS_PROTOCOL_RULES = [
   {
@@ -382,9 +430,11 @@ export const CROSS_PROTOCOL_RULES = [
       var sels = (ctx.dkimStatus && ctx.dkimStatus.selectors) || [];
       return sels.some(function (s) { return s.key && s.key.keyType === 'rsa' && typeof s.key.keyBits === 'number' && s.key.keyBits <= 1024; });
     },
+    // The published key record itself, not "s1 (1024)" — that presentation form
+    // is the message's job and it is already carried in `args` below.
     evidence: function (ctx) {
       return (ctx.dkimStatus.selectors || []).filter(function (s) { return s.key && s.key.keyType === 'rsa' && s.key.keyBits <= 1024; })
-        .slice(0, 4).map(function (s) { return ev('selector', s.queryName || s.sel, s.sel + ' (' + s.key.keyBits + ')'); });
+        .slice(0, 4).map(function (s) { return ev('selector', s.queryName || s.sel, s.value); });
     },
     args: function (ctx) {
       return [(ctx.dkimStatus.selectors || []).filter(function (s) { return s.key && s.key.keyType === 'rsa' && s.key.keyBits <= 1024; })
