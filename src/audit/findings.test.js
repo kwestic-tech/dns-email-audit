@@ -20,11 +20,8 @@ import { createSuite } from '../../tests/lib/assert.mjs';
 import { buildIssues } from './issues.js';
 import {
   buildFindings, buildRemediationPlan, FINDING_META, CROSS_PROTOCOL_RULES,
-  FINDING_ENUMS,
+  SEVERITIES, CONFIDENCES, CATEGORIES, EFFORTS, PROTOCOLS, KEYSPACES, RATIONALES,
 } from './findings.js';
-
-const { severity: SEVERITIES, confidence: CONFIDENCES, category: CATEGORIES,
-  effort: EFFORTS, protocol: PROTOCOLS } = FINDING_ENUMS;
 
 const { eq, section, report } = createSuite();
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -156,13 +153,29 @@ eq('the only shared migrated id is dkim.none-found',
 /* ── 4. FINDING_META covers the whole legacy vocabulary ───────────────── */
 section('4. The migrated table is complete against audit.issue.key');
 
-const issueAlgebra = JSON.parse(readFileSync(join(REPO, 'tests/state-algebras.json'), 'utf8'))
-  .algebras.find(a => a.id === 'audit.issue.key').members.slice().sort();
+const registry = JSON.parse(readFileSync(join(REPO, 'tests/state-algebras.json'), 'utf8'));
+const algebra = id => registry.algebras.find(a => a.id === id);
+const issueAlgebra = algebra('audit.issue.key').members.slice().sort();
 eq('the reviewed vocabulary is 106 tokens', issueAlgebra.length, 106);
 eq('FINDING_META has an entry for every one',
   issueAlgebra.filter(k => !(k in FINDING_META)), []);
 eq('and no FINDING_META entry names a key outside the vocabulary',
   Object.keys(FINDING_META).filter(k => !issueAlgebra.includes(k)), []);
+
+// The finding vocabularies are registered as reviewed closed algebras, and this
+// pins them against what the code actually produces — the drift guard
+// audit.issue.key already has. If a rule adds an id or an enum value without the
+// registry moving with it, this fails here rather than shipping an unregistered
+// result token.
+eq('audit.finding.id equals the ids the rules produce',
+  algebra('audit.finding.id').members.slice().sort(), ALL_IDS.slice().sort());
+eq('audit.finding.severity equals the exported enum', algebra('audit.finding.severity').members, SEVERITIES);
+eq('audit.finding.confidence equals the exported enum', algebra('audit.finding.confidence').members, CONFIDENCES);
+eq('audit.finding.category equals the exported enum', algebra('audit.finding.category').members, CATEGORIES);
+eq('audit.finding.effort equals the exported enum', algebra('audit.finding.effort').members, EFFORTS);
+eq('audit.finding.protocol equals the exported enum', algebra('audit.finding.protocol').members, PROTOCOLS);
+eq('audit.finding.keyspace equals the exported enum', algebra('audit.finding.keyspace').members, KEYSPACES);
+eq('audit.remediation.rationale equals the exported enum', algebra('audit.remediation.rationale').members, RATIONALES);
 
 /* ── 5. Regression: migrated findings mirror buildIssues 1:1 ──────────── */
 section('5. Migrated findings mirror buildIssues, in order');

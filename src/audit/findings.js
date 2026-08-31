@@ -38,29 +38,24 @@
  */
 import { buildIssues } from './issues.js';
 
-/* ── Closed vocabularies (findings.test.js asserts membership) ──────────────
+/* ── Closed vocabularies ─────────────────────────────────────────────────
  *
- * Grouped under one exported object rather than five bare string arrays on
- * purpose: `state-matrix.test.mjs` §3 requires every all-string constant a
- * `src/` module exports to match a reviewed `state-algebras.json` algebra.
- * These finding vocabularies are not yet registered there — they are fully
- * asserted by the co-located `findings.test.js`, and registering them would
- * pull the coverage matrix into this commit. `FINDING_ENUMS`'s own values are
- * arrays, so the §3 all-string scan skips it, and the deferral is recorded for
- * review rather than hidden.
+ * Each is a reviewed closed algebra in `tests/state-algebras.json`
+ * (`audit.finding.severity` and its siblings), so the `state-matrix.test.mjs`
+ * §3 scan MATCHES these exported constants against the registry rather than
+ * skipping them, and coverage over the `findings[].*` result paths is checked.
+ * `findings.test.js` also pins `audit.finding.id` against the ids these
+ * structures produce, the same drift guard `audit.issue.key` carries.
  * ──────────────────────────────────────────────────────────────────────── */
-const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'];
-const CONFIDENCES = ['confirmed', 'probable', 'unverified'];
-const CATEGORIES = ['authentication', 'policy', 'reporting', 'transport',
+export const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'];
+export const CONFIDENCES = ['confirmed', 'probable', 'unverified'];
+export const CATEGORIES = ['authentication', 'policy', 'reporting', 'transport',
   'issuance', 'resilience', 'hygiene'];
-const EFFORTS = ['trivial', 'moderate', 'involved'];
-const PROTOCOLS = ['spf', 'dkim', 'dmarc', 'dnssec', 'caa', 'mta-sts',
+export const EFFORTS = ['trivial', 'moderate', 'involved'];
+export const PROTOCOLS = ['spf', 'dkim', 'dmarc', 'dnssec', 'caa', 'mta-sts',
   'tls-rpt', 'bimi', 'mx', 'dane', 'dns', 'defensive', 'reporting'];
-
-export const FINDING_ENUMS = {
-  severity: SEVERITIES, confidence: CONFIDENCES, category: CATEGORIES,
-  effort: EFFORTS, protocol: PROTOCOLS,
-};
+export const KEYSPACES = ['issue', 'finding'];
+export const RATIONALES = ['foundation', 'afterPrereq', 'cleanup'];
 
 // Severity ranking for within-step ordering (RQ-FIND-01 / §4). Higher is worse.
 const SEV_RANK = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
