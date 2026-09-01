@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.2 (Draft, rebased after 0.6.0) |
+| Spec version | 1.0 (Final) |
 | Target release | 0.8.0 |
-| Status | Awaiting review |
+| Status | Final; approved for implementation |
 | Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](implemented/findings-and-remediation.md) for the final `Finding` shape |
 | Blocks | [report-comparison](report-comparison.md), which must decide whether user-supplied findings enter a DNS report |
 | Slug for open questions | `ART` |
-| Last updated | 2026-08-31 |
+| Last updated | 2026-09-01 |
 
 ## Problem
 
@@ -51,15 +51,15 @@ of any kind.
 1. A visually and structurally separate local-analysis panel.
 2. MTA-STS policy text accepted by paste or file selection, validated against
    RFC 8461 §3.2.
-3. BIMI SVG accepted by paste or file selection, validated against the SVG
-   Portable/Secure profile.
-4. Optional VMC material accepted, with structural inspection only.
-5. Strict size and type limits, enforced before parsing.
-6. Rejection of DTDs, entity declarations, scripts, event handlers, external
+3. BIMI SVG accepted by paste or file selection and inspected against the
+   security-critical and operator-actionable SVG Portable/Secure requirements.
+   The result is diagnostic, not a claim of complete RNC-schema conformance.
+4. Strict size and type limits, enforced before parsing.
+5. Rejection of DTDs, entity declarations, scripts, event handlers, external
    references and unsupported features.
-7. User-supplied SVG never injected into the application DOM.
-8. No automatic fetching of any MTA-STS, BIMI or VMC URL.
-9. Every artifact-derived finding labelled "user supplied".
+6. User-supplied SVG never injected into the application DOM.
+7. No automatic fetching of any MTA-STS, BIMI or VMC URL.
+8. Every artifact-derived finding labelled "user supplied".
 
 ## Non-goals
 
@@ -67,14 +67,16 @@ of any kind.
   not of the VMC `a=` URL, not through a proxy, not with the user's permission,
   not behind a flag. `connect-src` remains `'self' https://cloudflare-dns.com`
   and the CSP test from 0.2.3 enforces it.
-- **No rendering of the supplied logo.** See `OQ-ART-03`.
-- **No certificate chain validation for VMC.** The browser has no access to the
-  trust store used for VMC issuance and could not validate a chain if it did.
+- **No rendering of the supplied logo.** The result describes the SVG; no image
+  preview, parsed node or `blob:` URL is created.
+- **No VMC inspection.** Structural PEM details without chain validation do not
+  answer whether a mailbox provider will accept the certificate. The existing
+  DNS result continues to report the `a=` URL without fetching it.
 - **No persistence.** Supplied artifacts live in a JavaScript variable for the
   lifetime of the page. Nothing is written to `localStorage`, `IndexedDB`, a
   cookie, or a cache.
-- **No scoring change.** A verified MTA-STS policy does not turn the existing
-  half-credit into full credit in this release. See `OQ-ART-05`.
+- **No scoring change.** A user-supplied MTA-STS policy does not turn the
+  existing half-credit into full credit. Public-DNS grades remain reproducible.
 
 ## Design
 
@@ -87,17 +89,20 @@ matrix determines the split:
 | Responsibility | Owner |
 | --- | --- |
 | MTA-STS policy grammar and MX-pattern comparison | `src/core/transport/mta-sts-policy.js` |
-| BIMI SVG P/S and optional VMC structural validation | `src/core/bimi/` siblings |
+| BIMI SVG security screening and P/S diagnostics | `src/core/bimi/` siblings |
 | Converting validator results into 0.7.0 findings and attaching provenance | `src/audit/artifacts.js` |
 | File/paste controls and token-only rendering | `src/ui/events.js` and `src/ui/render.js` |
-| Constructing one artifact-analysis capability and injecting it into the UI | `src/runtime.js` |
+| Constructing one artifact-analysis capability, including the injected XML parser, and passing it to the UI | `src/runtime.js` |
 
-The protocol validators are pure: strings and already-audited MX facts in,
-tokens and primitives out. They import only their permitted siblings or
-`core/shared/`. `src/audit/artifacts.js` is the only cross-protocol composer.
-`src/ui/` receives an injected callback and imports neither protocol owner.
-This adds no allowed edge. Implementation is divided into directory-bound
-commits so a protocol-rule change is never combined with a UI behavior change.
+The protocol validators are deterministic over their inputs: strings,
+already-audited MX facts and an injected `parseSvg` callback in; tokens and
+primitives out. `DOMParser` is added to the platform capability set and is
+constructed by `src/runtime.js`; no protocol owner reads an ambient browser
+global. The validators import only permitted siblings or `core/shared/`.
+`src/audit/artifacts.js` is the only cross-protocol composer. `src/ui/` receives
+an injected callback and imports neither protocol owner. This adds no allowed
+edge. Implementation is divided into directory-bound commits so a protocol-rule
+change is never combined with a UI behavior change.
 
 ### 1. Panel separation
 
@@ -125,19 +130,21 @@ in `src/ui/events.js`, which already enforces a 1 MB cap through
 | --- | --- | --- | --- |
 | MTA-STS policy | 64 KB | `text/plain` | A conformant policy is a few hundred bytes |
 | BIMI SVG | 32 KB | `image/svg+xml` | The BIMI specification's own recommended ceiling |
-| VMC | 64 KB | `application/x-pem-file`, `text/plain` | A PEM certificate with a logotype extension |
 
 The declared MIME type from the file picker is advisory and is checked, but the
 byte limit and the content inspection are what actually enforce the boundary. A
 `.svg` file containing HTML is rejected by the parser, not by its extension.
 
-Limits are checked on the string length before any parse call, so a hostile file
-never reaches a parser at all.
+For selected files, `File.size` is checked before `FileReader` runs. For pasted
+text, the UTF-8 byte length is measured with the already-injected `Blob`
+capability. JavaScript string length is not a byte count and MUST NOT enforce
+either limit. Oversized input never reaches a protocol parser.
 
 ### 3. MTA-STS policy validation
 
-RFC 8461 §3.2 defines the policy as a sequence of `key: value` lines with CRLF
-line endings.
+RFC 8461 §3.2 defines the policy as a sequence of `key: value` lines. Its prose
+describes CRLF-separated fields, while its normative ABNF permits either LF or
+CRLF for each terminator. Both forms, including a mixture, are valid.
 
 ```js
 function validateMtaStsPolicy(text) → {
@@ -156,15 +163,21 @@ function validateMtaStsPolicy(text) → {
 
 Validation rules:
 
-- `version: STSv1` must be present. RFC 8461 requires it first.
+- `version: STSv1` must be present. Unlike the DNS TXT record, the policy ABNF
+  does not require the version field to come first.
 - `mode` must be exactly one of `enforce`, `testing`, `none`.
-- `max_age` must be a positive integer not exceeding 31557600.
+- `max_age` must be a non-negative integer not exceeding 31557600. Zero is
+  valid and is also reported by the short-lifetime diagnostic.
 - At least one `mx` line is required unless `mode: none`.
-- `mx` patterns permit a single leading `*.` wildcard and nothing else.
-- Duplicate keys other than `mx` are an error.
-- LF-only line endings are a warning, not an error. Real implementations vary in
-  strictness and the tool should say which risk the operator is taking rather
-  than declare a working policy invalid.
+- `mx` patterns permit a single leading `*.` wildcard and nothing else. The
+  wildcard matches exactly one left-most label: `*.example.com` matches
+  `mail.example.com`, not `example.com` or `a.b.example.com`.
+- Later duplicates of a non-`mx` field are ignored, as RFC 8461 requires. They
+  are reported as hygiene diagnostics rather than making the policy invalid.
+- Unknown syntactically valid extension fields are retained in `unknownKeys`
+  for display and ignored for validity.
+- LF, CRLF and mixed terminators are recorded as evidence but produce no error
+  or warning.
 
 Cross-checks against DNS data already held, which is where the value is:
 
@@ -175,7 +188,6 @@ Cross-checks against DNS data already held, which is where the value is:
 | `mta-sts.mode-testing` | `mode: testing` provides no enforcement. |
 | `mta-sts.mode-none` | `mode: none` actively withdraws a previously published policy. |
 | `mta-sts.max-age-short` | `max_age` under 86400 seconds weakens the protection substantially. |
-| `mta-sts.id-mismatch` | Reported only if the policy carries an id and it differs from the TXT record's `id=`. Note the policy format has no id field, so this applies only if `OQ-ART-01` resolves toward accepting an HTTP response body with headers. |
 
 The MX cross-check is the headline feature. A policy whose `mx` patterns do not
 cover the domain's actual MX hosts causes conformant senders in `enforce` mode to
@@ -219,63 +231,73 @@ Rejection rules, each producing a distinct error token:
 | A parser error node | `malformed-xml` |
 | Anything other than `<svg>` as the root | `bad-root` |
 
-Profile conformance checks, which are findings rather than security rejections:
+Profile diagnostics, which are findings rather than security rejections:
 
 | Check | Requirement |
 | --- | --- |
+| SVG namespace is `http://www.w3.org/2000/svg` | Required by the document definition |
 | `baseProfile="tiny-ps"` | Required by the SVG P/S profile |
 | `version="1.2"` | Required |
-| `<title>` present and non-empty | Required |
-| `viewBox` present, square aspect ratio | Required |
+| Exactly one direct-child `<title>`, present and non-empty | Required |
+| A non-empty `<desc>`, when present | Required |
+| `viewBox` present, square aspect ratio | Operator compatibility diagnostic |
 | No `x` or `y` on the root | Required |
 | Single root element | Required |
 | No raster data URI in a fill or a `<style>` | Required |
+| `zoomAndPan`, `externalResourcesRequired`, `focusable`, `snapshotTime`, `playbackOrder` and `timelineBegin` absent or set to their permitted inert values | Required when present |
 
-Every one of these is reported with the specification requirement it comes from,
-because "your logo will not display" is useless without "and here is the line to
-change".
+Every one of these is reported with the requirement it comes from, because "your
+logo may not display" is useless without "and here is the line to change". The
+panel says explicitly that it does not run the full SVG P/S RNC schema and does
+not certify mailbox-provider acceptance.
 
-### 5. VMC
-
-Structural inspection only: confirm PEM framing, decode base64 to DER, confirm
-the DER parses as an X.509 certificate, extract subject, issuer, validity dates
-and whether a logotype extension is present. Report expiry. Explicitly state that
-the chain is not validated and that the tool cannot determine whether the
-certificate would be accepted by any mailbox provider.
-
-If DER parsing turns out to need a library, it is dropped rather than depended
-on. See `OQ-ART-04`.
-
-### 6. Result and export handling
+### 5. Result and export handling
 
 Artifact findings live in a separate array from DNS findings:
 
 ```js
 artifactFindings: [{
-  …Finding shape from 0.7.0…,
+  // The 0.7.0 identity, display, severity, confidence, dependency, effort and
+  // category fields. keyspace remains 'finding'.
+  id, key, keyspace, protocol, severity, confidence,
+  args, noteKey, noteArgs, dependsOn, blocks, effort, category,
   source: 'user-supplied',
-  artifact: 'mta-sts-policy' | 'bimi-svg' | 'vmc',
+  artifact: 'mta-sts-policy' | 'bimi-svg',
+  evidence: [{
+    kind: 'line' | 'element' | 'input',
+    location: string, // e.g. 'line 3', '<svg>', or the artifact label
+    value: string,    // the bounded user-supplied material that caused it
+  }],
 }]
 ```
 
-`source: 'user-supplied'` is rendered on every one of them, and it survives into
-the CSV and HTML exports. The reason is provenance: a report handed to a third
-party must not blur the line between what the tool observed in public DNS and
-what someone typed into a text box.
+`artifactFindings` is never merged into the DNS-derived `findings` array. Its
+`source`, `artifact` and evidence `kind` fields each have their own closed
+vocabulary and constructor in `src/audit/artifacts.js`; the DNS-only
+`audit.finding.evidence.kind` algebra and its `queryName` contract do not widen.
+The shared metadata shape lets the existing finding renderer present the result
+without pretending a line of pasted text was queried from DNS.
 
-Artifact findings do not enter `calcScore()`. See `OQ-ART-05`.
+`source: 'user-supplied'` is rendered on every artifact finding, and it survives
+into the CSV and HTML exports. The reason is provenance: a report handed to a
+third party must not blur the line between what the tool observed in public DNS
+and what someone typed into a text box.
+
+Artifact findings do not enter `calcScore()`. CSV and static HTML exports include
+them with provenance because those are presentations of the current session.
+The versioned JSON report introduced by 0.9.0 excludes them so a comparison
+continues to describe reproducible public-DNS observations.
 
 ## Localization impact
 
-Roughly 45 to 60 new keys: panel headings and instructions, the MTA-STS policy
-checks, the SVG rejection tokens, the SVG profile checks, VMC fields, the
-"user supplied" label, and the limit and type error messages.
+Roughly 35 to 50 new keys: panel headings and instructions, the MTA-STS policy
+checks, the SVG rejection tokens, the SVG profile diagnostics, the "user
+supplied" label, and the limit and type error messages.
 
 Never translated: `STSv1`, `enforce`, `testing`, `none`, `max_age`, `mx`,
-`baseProfile`, `tiny-ps`, `viewBox`, `<title>`, `xlink:href`, `foreignObject`,
-`PEM`, `X.509`, and file extensions. Always translated: "user supplied",
-"policy", "logo", "certificate", "rejected", "not fetched", and every explanatory
-sentence.
+`baseProfile`, `tiny-ps`, `viewBox`, `<title>`, `xlink:href`, `foreignObject`
+and file extensions. Always translated: "user supplied", "policy", "logo",
+"rejected", "not fetched", and every explanatory sentence.
 
 The privacy statement in the panel is the most important string in the release
 and should be reviewed as copy, not only as translation.
@@ -284,20 +306,27 @@ and should be reviewed as copy, not only as translation.
 
 `validateMtaStsPolicy()` is pure and tests in the existing sandbox.
 
-The SVG validator is the problem. 0.2.3 resolved `OQ-SEC-01` in favor of a
-dependency-free DOM shim, which is sufficient there precisely because the
-renderer stops parsing strings into markup. This release does the opposite: its
-whole job is to parse a hostile XML string, so a shim cannot test it, and there
-is no `DOMParser` in Node without a dependency. That is a hard conflict between
-this release and the project's zero-dependency rule, and it is not resolvable by
-being clever about the design. See `OQ-ART-08`, which is now the question that
-decides whether this release is buildable as specified.
+The SVG parser is tested in a real Chromium-family engine through the existing
+dependency-free DevTools Protocol harness used by
+`tests/build/file-url.test.mjs`. The test drives the production bundle and the
+real panel, records `Network.requestWillBeSent`, instruments storage writes, and
+wraps DOM insertion methods to fail if a node whose `ownerDocument` is the
+parsed artifact document enters the application document. This tests the parser
+the browser actually ships rather than substituting a Node XML implementation.
+
+The browser suite's instrument is proved before it is trusted: a deliberately
+unsafe local fixture attempts one network request, one storage write and one
+foreign-document insertion, and the harness must detect all three. Removing
+each detector in a temporary negative run must make its corresponding assertion
+fail. This is the resolved `OQ-ART-08` mechanism and adds no dependency.
 
 MTA-STS fixtures: a conformant `enforce` policy; `mode: testing`; `mode: none`;
-missing `version`; `version` not first; duplicate `mode`; `max_age` of 0, of
-31557601, and non-numeric; wildcard `mx` patterns matching and not matching the
-DNS MX set; LF-only line endings; CRLF; mixed; a 64 KB policy accepted and a
-65 KB one rejected before parsing; a policy containing null bytes.
+missing `version`; version not first and still valid; duplicate `mode` with the
+first value retained; `max_age` of 0 and valid, of 31557601 and invalid, and
+non-numeric; wildcard `mx` patterns matching exactly one label and not matching
+the apex or two labels; LF-only, CRLF and mixed line endings all valid; a 64 KB
+policy accepted and a 65 KB one rejected before parsing; a policy containing
+null bytes.
 
 SVG fixtures, each asserting rejection with the right token and, critically,
 asserting that no network request occurred and no node was inserted:
@@ -320,10 +349,9 @@ asserting that no network request occurred and no node was inserted:
 | 33 KB SVG | Rejected on size before parsing |
 | Data URI raster in a fill | Profile finding |
 
-The network assertion is the important one and needs a mechanism: stub `fetch`
-and `XMLHttpRequest` in the test environment to throw, run every fixture, and
-assert nothing threw. In the browser, the CSP is the real enforcement and the
-0.2.3 CSP test is what guarantees it.
+The browser run is the behavioral proof that parsing causes no request,
+persistence or foreign-node insertion. The unchanged CSP and its existing
+source test remain independent defense in depth.
 
 ## Acceptance criteria
 
@@ -340,6 +368,8 @@ assert nothing threw. In the browser, the CSP is the real enforcement and the
 5. Reloading the page discards every supplied artifact.
 6. `calcScore()` output is unaffected by artifact input.
 7. `npm test` and `npm run locale:gate` pass, 13/13 locales complete.
+8. The real-browser artifact suite passes, and its deliberate unsafe instrument
+   is shown to fail when each detector is removed.
 
 ## Risks
 
@@ -356,101 +386,44 @@ reason in the panel in one sentence, and link to the privacy document.
 
 **Scope creep toward rendering the logo.** Displaying the supplied SVG is an
 obvious next request and would reintroduce every risk this design removes.
-Mitigation: `OQ-ART-03` decides it explicitly rather than leaving it to a future
-maintainer's judgment.
+Mitigation: 0.8.0 explicitly ships no preview and keeps `img-src` unchanged.
 
 **The panel dilutes the tool's identity.** Everything else in the application is
 a bulk DNS auditor. This is a single-domain file inspector. Mitigation: the panel
 is collapsed by default and clearly subordinate.
 
-## Open questions
+## Resolved questions
 
-**OQ-ART-01: Does the MTA-STS validator accept a saved HTTP response, or only
-the body?**
-Some MTA-STS failures are HTTP-layer failures: the wrong `Content-Type`, a
-redirect, a missing certificate. A user who saved the response with headers
-could have those checked too. Accepting a raw HTTP response adds a parsing mode
-and a plausible-looking way for someone to paste something confusing. This draft
-accepts the body only. Worth the extra mode?
+| Question | Decision | Reasoning |
+| --- | --- | --- |
+| `OQ-ART-01` | Accept the policy body only. | HTTP status, redirects, certificate validation and response media type cannot be established faithfully from pasted headers. A second ambiguous input mode would appear to validate evidence it did not observe. |
+| `OQ-ART-02` | Parse with `image/svg+xml`. | Correct SVG namespace semantics matter to the diagnostics. The document remains detached, no parsed node may cross into the application document, and the real-browser hostile-fixture suite verifies inert behavior. |
+| `OQ-ART-03` | Never display the logo. | A preview is not validation and would require a new image-loading path plus a CSP change. Tokens and primitives are the only validator outputs. |
+| `OQ-ART-04` | Drop VMC inspection from 0.8.0. | Without trust-chain and mailbox-provider validation, decoded certificate metadata does not answer the useful question and adds a DER parser and maintenance surface. |
+| `OQ-ART-05` | User-supplied artifacts never affect the score. | A public-DNS grade must not depend on unverified text supplied by the person running the audit. No second score is introduced. |
+| `OQ-ART-06` | One domain and one artifact of each type at a time. | Batch filename-to-domain inference is a separate workflow and an avoidable matching surface. It may be proposed later with its own spec. |
+| `OQ-ART-07` | Exclude artifact findings from 0.9.0's versioned JSON comparison report. | CSV and static HTML may present the current session with explicit provenance, but longitudinal comparison remains reproducible from public observations alone. |
+| `OQ-ART-08` | Use the existing automated Chromium/CDP harness; add no parser dependency. | It exercises the production bundle with the browser's real `DOMParser`, records network activity, storage writes and foreign-document insertion, and includes a deliberate unsafe instrument proving each detector can fail. A Node parser substitute would test different behavior. |
 
-**OQ-ART-02: Which DOMParser MIME type?**
-`image/svg+xml` gives XML parsing with SVG semantics and correct namespace
-handling. `text/xml` gives XML parsing with no SVG semantics at all, which is
-slightly more inert and slightly less accurate for profile checks that depend on
-namespace resolution. `application/xml` behaves as `text/xml`. This draft uses
-`image/svg+xml` on the grounds that a detached document is inert either way and
-the namespace handling matters for correctness. Confirm.
+### Review corrections made before Final
 
-**OQ-ART-03: Is the supplied logo ever displayed?**
-Never displaying it is safest and means a user validating their own logo cannot
-see whether it looks right. Displaying it through a `blob:` URL in an `<img>`
-would keep the SVG out of the DOM tree and render it as an image, which blocks
-scripts by the image sandbox, at the cost of widening `img-src` to include
-`blob:`. A third option renders it only after validation passes, on the argument
-that a validated tiny-ps SVG has already had every dangerous construct rejected.
-This draft displays nothing. This is the single most likely feature request after
-release, so decide it now.
+Review against RFC 8461 corrected four draft rules: `max_age` is non-negative
+and therefore permits zero; LF and CRLF are both valid policy terminators;
+later duplicate non-`mx` fields are ignored rather than fatal; and the policy
+version field, unlike the TXT version field, is not required to come first.
+Wildcard MX matching is also stated as exactly one left-most label.
 
-**OQ-ART-04: Is VMC in scope at all?**
-Structural PEM and DER inspection without chain validation tells the user the
-subject, the issuer and the expiry date, which they can also get from any
-certificate viewer. The genuinely useful check, whether a mailbox provider would
-accept it, is impossible here. Dropping VMC removes a parser, a set of locale
-keys and a maintenance burden. This draft includes it at minimum depth. Cut it?
-
-**OQ-ART-05: Does a verified MTA-STS policy earn the other four points?**
-`calcScore()` awards half the MTA-STS pillar when the TXT record is present and
-`policyVerified` is false, which it always is. A user-supplied, validated
-`enforce` policy is real evidence that the control works. Awarding the full eight
-points for it would mean a domain's grade depends on what the user typed, which
-makes grades non-reproducible from public data and unsound in an exported report.
-This draft awards nothing and reports the finding. The alternative is a clearly
-marked second score. Which?
-
-**OQ-ART-06: Should the panel accept a directory or multiple files at once?**
-Someone auditing their own estate has thirty policy files. Accepting a batch with
-filename-to-domain matching would make the panel genuinely useful at scale, and
-would add a filename-parsing surface and a matching heuristic. Out of scope for
-0.8.0 in this draft. Note it as a possible follow-up or reject it.
-
-**OQ-ART-07: What happens to artifact findings in the 0.9.0 report export?**
-0.9.0 defines a versioned JSON report for comparison across time. A report
-containing user-supplied findings is not reproducible from DNS, so comparing two
-of them compares two different kinds of claim. Options: exclude artifact findings
-from the exported report entirely; include them flagged, and have the comparison
-ignore them; include and compare them like any other finding. This draft excludes
-them, and flags the decision here so 0.9.0's schema accounts for it.
-
-**OQ-ART-08: How is a hostile-SVG parser tested without a dependency?**
-This is now the question that decides whether the release is buildable as
-specified. The zero-dependency rule holds elsewhere because nothing else in the
-project parses untrusted markup. This release exists to parse untrusted markup,
-and an XML parser cannot be shimmed the way a DOM renderer can: the fixtures that
-matter are entity expansion, DTD handling and malformed-XML recovery, which are
-properties of the parser itself. Four ways out, in rough order of preference:
-
-1. **Drop the SVG validator.** Ship MTA-STS policy validation alone, which is
-   pure string parsing, needs no dependency, and carries most of the release's
-   value through the MX cross-check. Revisit BIMI separately.
-2. **Accept a devDependency for tests only.** The shipped site stays
-   dependency-free; `npm test` requires an install. Contradicts the rule as
-   stated but not the property users care about.
-3. **Validate the SVG without a parser.** A tokenizer that rejects on any
-   `<!DOCTYPE`, `<!ENTITY`, `<script`, `on*=` or external reference, and refuses
-   anything it cannot tokenize unambiguously. Testable with no dependency, and
-   strictly more conservative than a parser, at the cost of rejecting some
-   conformant logos it cannot confidently read.
-4. **Browser-only tests.** A manual test page, not run in CI. Rejected in this
-   draft as untestable in practice.
-
-Option 3 is the one that preserves both the feature and the rule, and it inverts
-the usual risk: a tokenizer that fails closed on anything ambiguous is safer than
-a parser, just less accurate. Which?
+Review against the current SVG Tiny PS draft bounded the product claim. The
+panel performs security rejection and named high-value profile diagnostics; it
+does not implement the complete RNC schema and must not label an SVG fully
+conformant or accepted by a mailbox provider. UTF-8 byte limits replace the
+draft's incorrect JavaScript string-length check.
 
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.0 | 2026-09-01 | Final. Resolved all eight open questions: body-only MTA-STS input; `image/svg+xml` parsing; no logo rendering; VMC removed; no scoring; single-artifact workflow; artifact findings excluded from 0.9.0 JSON comparison; and real-browser hostile-SVG verification through the existing Chromium/CDP harness. Corrected the RFC 8461 rules for zero `max_age`, line endings, duplicate fields, version ordering and one-label wildcard matching. Bounded SVG output to security rejection and named profile diagnostics rather than unsupported full-schema certification, and replaced string length with UTF-8 byte measurement. |
 | 0.2 | 2026-08-31 | Renumbered the target to 0.8.0 and rebased the design onto the 0.6.0 allowed-edge matrix. Replaced the proposed `js/artifact.js` monolith with pure validators under the existing MTA-STS and BIMI protocol owners, composition in `src/audit/`, injected UI capabilities through `src/runtime.js`, and directory-bound implementation commits. Added the now-sequential dependency on 0.7.0's final finding shape and updated the report dependency to 0.9.0. No open question was resolved. |
 | 0.1 | 2026-08-20 | Initial draft. |
 | 0.1 | 2026-08-20 | Not a version bump. Recorded a downstream consequence of the 0.2.3 rescope: `OQ-SEC-01` resolved to a dependency-free DOM shim, which cannot test this release's XML parsing. Added `OQ-ART-08`. |

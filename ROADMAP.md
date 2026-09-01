@@ -213,7 +213,7 @@ locales. Released as `v0.7.0`.
 Spec: [`docs/specs/local-artifact-validation.md`](docs/specs/local-artifact-validation.md)
 
 Adds a visually separate panel accepting pasted or selected MTA-STS policy text
-and BIMI SVG material, validated strictly in memory. No MTA-STS, BIMI, or VMC URL
+and BIMI SVG material, inspected strictly in memory. No MTA-STS, BIMI, or VMC URL
 is ever fetched automatically, and user-supplied SVG is never injected into the
 application DOM.
 

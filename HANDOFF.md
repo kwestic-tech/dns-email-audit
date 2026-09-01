@@ -19,43 +19,30 @@ choices still recorded as `OQ-*` questions.
 ## Start here: 0.8.0 private local artifact validation
 
 Spec: [`docs/specs/local-artifact-validation.md`](docs/specs/local-artifact-validation.md),
-version `0.2`, awaiting review.
+version `1.0 (Final)`, approved for implementation.
 
-This is the next design phase. It consumes 0.7.0's final Finding shape for
-user-supplied MTA-STS, BIMI SVG and optional VMC material without fetching any
+This is the active implementation phase. It consumes 0.7.0's final Finding
+shape for user-supplied MTA-STS and BIMI SVG material without fetching any
 domain-controlled URL or persisting supplied content.
 
-Before writing implementation code:
+The Final review resolved the implementation stops:
 
-1. Review every `OQ-ART-*` question and record each answer with reasoning.
-2. Resolve `OQ-ART-08` before implementation: the hostile-SVG parser needs a
-   dependency-free test strategy that has been proved to fail.
-3. Keep `connect-src` unchanged and verify the feature makes no network request;
+1. Accept the MTA-STS policy body only; user-supplied material never affects the
+   score and never enters 0.9.0's versioned JSON comparison report.
+2. Parse SVG with `image/svg+xml`, never display it, and drop VMC inspection.
+3. Exercise hostile SVG through the existing automated Chromium/CDP harness,
+   including the negative case proving its network, storage and foreign-node
+   detectors fail when disabled.
+4. Keep `connect-src` unchanged and verify the feature makes no network request;
    supplied material remains memory-only and is never injected into the DOM.
-4. Decide whether VMC material is in scope and whether artifact findings enter
-   0.9.0 reports before freezing either shape.
-5. Amend and re-version the spec for every accepted review finding. Stop if a
-   proposed solution needs an architecture-matrix or CSP change without written
-   justification.
+5. Amend and re-version the spec for every accepted implementation finding.
+   Stop if a proposed solution needs an architecture-matrix or CSP change
+   without written justification.
 
 The implementation boundary is already decided: MTA-STS policy rules belong to
-`src/core/transport/`; BIMI SVG and optional VMC rules belong to `src/core/bimi/`;
+`src/core/transport/`; BIMI SVG rules belong to `src/core/bimi/`;
 `src/audit/` composes artifact findings; `src/runtime.js` injects the capability
 into `src/ui/`. Do not add a UI-to-audit import or a temporary artifact monolith.
-
-### Decisions that require deliberate review
-
-- Whether MTA-STS accepts a saved HTTP response or policy body only (`OQ-ART-01`).
-- Which DOMParser MIME type is used and whether supplied SVG is ever displayed
-  (`OQ-ART-02`, `OQ-ART-03`).
-- Whether VMC is in scope and whether verification can affect scoring
-  (`OQ-ART-04`, `OQ-ART-05`).
-- Single versus multiple-file input and the 0.9.0 report boundary
-  (`OQ-ART-06`, `OQ-ART-07`).
-- The dependency-free hostile-SVG test strategy (`OQ-ART-08`).
-
-The 0.9.0 schema will freeze the result of several of these decisions. Do not
-default them silently during implementation.
 
 ## What follows
 
@@ -68,11 +55,11 @@ default them silently during implementation.
 
 ### 0.8.0 boundary
 
-MTA-STS policy rules belong to `src/core/transport/`; BIMI SVG and optional VMC
-rules belong to `src/core/bimi/`; `src/audit/` composes artifact findings;
+MTA-STS policy rules belong to `src/core/transport/`; BIMI SVG rules belong to
+`src/core/bimi/`; `src/audit/` composes artifact findings;
 `src/runtime.js` injects the capability into `src/ui/`. There is no temporary
-finding stub and no replacement `artifact.js` monolith. `OQ-ART-08`, the
-hostile-SVG testing strategy, is a real stop before implementation.
+finding stub and no replacement `artifact.js` monolith. The hostile-SVG suite
+uses the real browser parser and must prove its own detectors fail.
 
 ### 0.9.0 boundary
 

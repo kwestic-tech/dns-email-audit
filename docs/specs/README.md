@@ -42,8 +42,8 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 0.2 | Draft, rebased after 0.6.0; awaiting review |
-| [report-comparison](report-comparison.md) | 0.9.0 | 0.2 | Draft, rebased after 0.6.0; awaiting review |
+| [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 1.0 | Final; approved for implementation |
+| [report-comparison](report-comparison.md) | 0.9.0 | 0.3 | Draft; awaiting review |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 
