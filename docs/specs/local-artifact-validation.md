@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.0 (Final) |
+| Spec version | 1.1 (Final) |
 | Target release | 0.8.0 |
 | Status | Final; approved for implementation |
 | Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](implemented/findings-and-remediation.md) for the final `Finding` shape |
@@ -155,9 +155,10 @@ function validateMtaStsPolicy(text) → {
   maxAge: number | null,               // seconds
   duplicateKeys: string[],
   unknownKeys: string[],
-  lineEndings: 'crlf' | 'lf' | 'mixed',
+  lineEndings: 'crlf' | 'lf' | 'mixed' | 'none',
   errors: string[],                    // tokens
   warnings: string[],
+  diagnostics: [{ token: string, line: number }],
 }
 ```
 
@@ -175,16 +176,32 @@ Validation rules:
 - Later duplicates of a non-`mx` field are ignored, as RFC 8461 requires. They
   are reported as hygiene diagnostics rather than making the policy invalid.
 - Unknown syntactically valid extension fields are retained in `unknownKeys`
-  for display and ignored for validity.
+  for display and ignored for validity. The module header and tests preserve
+  that policy extension values may contain `=` and `;`, even though the DNS
+  TXT record parser's different ABNF refuses those characters.
+- A leading UTF-8 BOM is removed before field parsing and reported as the
+  `bom-present` hygiene warning. Blank lines are invalid and produce
+  `blank-line`; other lines that cannot be parsed produce `malformed-line`.
+  Neither condition discards diagnostics already collected from other lines.
+- Field names and registered values are case-sensitive. A case-insensitive
+  spelling of a registered field produces `wrong-case-field` at that line,
+  rather than being presented only as an unknown extension.
 - LF, CRLF and mixed terminators are recorded as evidence but produce no error
-  or warning.
+  or warning. `none` records an input with no terminator; it is part of the
+  parser's result vocabulary even though such an input cannot contain every
+  required policy field.
+- `errors`, `warnings`, `lineEndings` and the MX comparison state are frozen,
+  exported vocabularies registered in `tests/state-algebras.json` and covered
+  in `tests/state-matrix.json`. The SVG rejection and diagnostic vocabularies
+  receive the same treatment when their validators are added.
 
 Cross-checks against DNS data already held, which is where the value is:
 
-| Check | Condition |
+| Check | Precondition and condition |
 | --- | --- |
-| `mta-sts.policy-mx-mismatch` | An MX host from DNS matches no `mx` pattern in the policy. This breaks mail delivery in `enforce` mode. |
-| `mta-sts.policy-mx-unused` | An `mx` pattern matches none of the domain's MX hosts. Usually a stale policy after a provider migration. |
+| `mta-sts.policy-mx-mismatch` | Only when the DNS MX result is known and is not null MX: an MX host from DNS matches no `mx` pattern in the policy. This breaks mail delivery in `enforce` mode. |
+| `mta-sts.policy-mx-unused` | Only when the DNS MX result is known and is not null MX: an `mx` pattern matches none of the domain's MX hosts. Usually a stale policy after a provider migration. |
+| `mta-sts.policy-on-null-mx` | The domain publishes RFC 7505 null MX while the supplied policy advertises mail handling. This is distinct from an MX mismatch. |
 | `mta-sts.mode-testing` | `mode: testing` provides no enforcement. |
 | `mta-sts.mode-none` | `mode: none` actively withdraws a previously published policy. |
 | `mta-sts.max-age-short` | `max_age` under 86400 seconds weakens the protection substantially. |
@@ -192,6 +209,9 @@ Cross-checks against DNS data already held, which is where the value is:
 The MX cross-check is the headline feature. A policy whose `mx` patterns do not
 cover the domain's actual MX hosts causes conformant senders in `enforce` mode to
 refuse delivery, and it is invisible to every check the tool currently performs.
+The comparator therefore accepts the audit's MX fact as
+`{ hosts, unknown, nullMx }` and returns a closed state of `compared`, `unknown`
+or `null-mx`. In either non-compared state, both mismatch arrays are empty.
 
 ### 4. BIMI SVG validation
 
@@ -275,24 +295,41 @@ artifactFindings: [{
 `source`, `artifact` and evidence `kind` fields each have their own closed
 vocabulary and constructor in `src/audit/artifacts.js`; the DNS-only
 `audit.finding.evidence.kind` algebra and its `queryName` contract do not widen.
-The shared metadata shape lets the existing finding renderer present the result
-without pretending a line of pasted text was queried from DNS.
+The shared metadata shape does not make DNS evidence rendering reusable. The
+artifact branch in `src/ui/events.js` renders `location` as bounded text/code
+and `value` through the existing value renderer; it never calls `R.host()` and
+never maps `location` into `queryName`. This named branch preserves the DNS
+evidence contract while showing both halves of an actionable artifact result.
 
 `source: 'user-supplied'` is rendered on every artifact finding, and it survives
 into the CSV and HTML exports. The reason is provenance: a report handed to a
 third party must not blur the line between what the tool observed in public DNS
 and what someone typed into a text box.
 
-Artifact findings do not enter `calcScore()`. CSV and static HTML exports include
-them with provenance because those are presentations of the current session.
+Artifact findings do not enter `calcScore()`. CSV appends three columns after
+all existing columns: artifact finding ids, artifact severities and artifact
+evidence with its user-supplied provenance. It does not append artifact ids to
+the existing DNS findings cell. Static HTML renders a separate artifact section
+with the same provenance. These are presentations of the current session.
 The versioned JSON report introduced by 0.9.0 excludes them so a comparison
 continues to describe reproducible public-DNS observations.
 
+The existing `mta-sts.policy-unverified` copy is revised to say that the
+DNS-only audit did not fetch the HTTPS policy and to point the user to the local
+artifact panel. It must not say the policy cannot be checked once a supplied
+policy has been analyzed.
+
 ## Localization impact
 
-Roughly 35 to 50 new keys: panel headings and instructions, the MTA-STS policy
-checks, the SVG rejection tokens, the SVG profile diagnostics, the "user
-supplied" label, and the limit and type error messages.
+Budget 95 to 145 new English leaf keys: panel headings and instructions, the
+MTA-STS policy checks, SVG rejection tokens, SVG profile diagnostics, the
+"user supplied" label, limit and type errors, export headings and privacy copy.
+The range is based on the existing finding metadata rate rather than counting
+conditions as though each needed one string. Rejection-token findings may share
+a parameterized message whose `{0}` is the untranslated token, but their
+actionable explanation and remediation still have to be represented honestly.
+Against the current 732-key English corpus, all new keys must be translated
+across all 13 tracked locales in the same change.
 
 Never translated: `STSv1`, `enforce`, `testing`, `none`, `max_age`, `mx`,
 `baseProfile`, `tiny-ps`, `viewBox`, `<title>`, `xlink:href`, `foreignObject`
@@ -308,7 +345,12 @@ and should be reviewed as copy, not only as translation.
 
 The SVG parser is tested in a real Chromium-family engine through the existing
 dependency-free DevTools Protocol harness used by
-`tests/build/file-url.test.mjs`. The test drives the production bundle and the
+`tests/build/file-url.test.mjs`. The new suite is named
+`tests/build/local-input-security.test.mjs` to avoid collision with the existing
+deployment `artifact.test.mjs`. It is invoked by
+`npm run test:local-input-security` and a required CI job named
+`Local input security (real browser)`; it is not hidden behind `npm test`, whose
+supported environments do not all provide a browser. The test drives the production bundle and the
 real panel, records `Network.requestWillBeSent`, instruments storage writes, and
 wraps DOM insertion methods to fail if a node whose `ownerDocument` is the
 parsed artifact document enters the application document. This tests the parser
@@ -326,7 +368,10 @@ first value retained; `max_age` of 0 and valid, of 31557601 and invalid, and
 non-numeric; wildcard `mx` patterns matching exactly one label and not matching
 the apex or two labels; LF-only, CRLF and mixed line endings all valid; a 64 KB
 policy accepted and a 65 KB one rejected before parsing; a policy containing
-null bytes.
+null bytes; a leading BOM warning; interior and extra trailing blank lines with
+line numbers; a malformed line that does not erase a separate invalid field;
+wrong-case registered names; extension punctuation; an unknown MX result that
+emits no mismatch; and a null-MX result that emits only its dedicated finding.
 
 SVG fixtures, each asserting rejection with the right token and, critically,
 asserting that no network request occurred and no node was inserted:
@@ -368,8 +413,9 @@ source test remain independent defense in depth.
 5. Reloading the page discards every supplied artifact.
 6. `calcScore()` output is unaffected by artifact input.
 7. `npm test` and `npm run locale:gate` pass, 13/13 locales complete.
-8. The real-browser artifact suite passes, and its deliberate unsafe instrument
-   is shown to fail when each detector is removed.
+8. `npm run test:local-input-security` passes, its deliberate unsafe instrument
+   is shown to fail when each detector is removed, and the required
+   `Local input security (real browser)` CI job invokes that script.
 
 ## Risks
 
@@ -419,10 +465,32 @@ does not implement the complete RNC schema and must not label an SVG fully
 conformant or accepted by a mailbox provider. UTF-8 byte limits replace the
 draft's incorrect JavaScript string-length check.
 
+### Review round after 1.0 Final
+
+Every claim in this round was reproduced against the repository before the spec
+was amended.
+
+| Finding | Outcome | Reasoning |
+| --- | --- | --- |
+| Localization estimate | Accepted | Counting conditions understated the existing finding key shape by roughly two to three times. The budget is now 95–145 leaf keys, with parameterization allowed only where it preserves actionable copy. |
+| Unknown and null-MX comparison | Accepted | An empty host list previously reported every pattern as unused. Comparison now has explicit `unknown` and `null-mx` states; null MX receives its own finding. |
+| Unregistered vocabularies | Accepted | Policy error, warning, line-ending and comparison tokens, and later SVG tokens, are frozen exports registered in both state files. |
+| Undeclared `none` line ending | Accepted | The parser already returns it for unterminated input, so the public result vocabulary now declares and tests it. |
+| Artifact evidence renderer mismatch | Accepted | The DNS renderer ignores `location`; a named artifact branch renders `location` and `value` without widening `queryName`. |
+| Malformed-line diagnostic loss | Accepted | BOM, blank lines and generic malformed lines are distinguished, carry line numbers, and no longer erase other errors. |
+| Case-sensitive field diagnostic | Accepted | RFC case sensitivity remains strict, with a dedicated wrong-case error instead of only an unknown-extension presentation. |
+| DNS-only unverified copy | Accepted | The copy will distinguish no automatic fetch from local user-supplied validation and point to the panel. |
+| CSV artifact shape | Accepted | Three artifact-only columns are appended; DNS finding columns retain their meaning and position. |
+| Browser-suite invocation | Accepted | The spec now names the script, file and required CI job explicitly. |
+| Policy module absent from the bundle at its first commit | Declined as a defect | A directory-bound pure-module commit is intentionally test-first and browser-working. The module enters the single delivery artifact when the audit composer is added; state registration covers source contracts, not bundle reachability. |
+| `artifact` naming collision | Accepted | The browser suite is named `local-input-security`; `src/audit/artifacts.js` remains the domain composer, and the existing deployment artifact test keeps its established name. |
+| Extension-value asymmetry | Accepted | It follows different RFC productions and is now documented and pinned by a test so it is not normalized to the TXT parser later. |
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.1 | 2026-09-01 | Amended Final after reproducing the first implementation review. Added explicit unknown and null-MX comparison states; registered closed vocabularies; declared `lineEndings: none`; preserved per-line malformed diagnostics; added BOM, blank-line and wrong-case decisions; named the artifact evidence renderer branch, export columns, unverified-policy copy change, browser script and CI job; renamed the browser suite; documented policy extension punctuation; and replaced the low localization estimate with a measured 95–145-key budget. Recorded all accepted and declined review outcomes. |
 | 1.0 | 2026-09-01 | Final. Resolved all eight open questions: body-only MTA-STS input; `image/svg+xml` parsing; no logo rendering; VMC removed; no scoring; single-artifact workflow; artifact findings excluded from 0.9.0 JSON comparison; and real-browser hostile-SVG verification through the existing Chromium/CDP harness. Corrected the RFC 8461 rules for zero `max_age`, line endings, duplicate fields, version ordering and one-label wildcard matching. Bounded SVG output to security rejection and named profile diagnostics rather than unsupported full-schema certification, and replaced string length with UTF-8 byte measurement. |
 | 0.2 | 2026-08-31 | Renumbered the target to 0.8.0 and rebased the design onto the 0.6.0 allowed-edge matrix. Replaced the proposed `js/artifact.js` monolith with pure validators under the existing MTA-STS and BIMI protocol owners, composition in `src/audit/`, injected UI capabilities through `src/runtime.js`, and directory-bound implementation commits. Added the now-sequential dependency on 0.7.0's final finding shape and updated the report dependency to 0.9.0. No open question was resolved. |
 | 0.1 | 2026-08-20 | Initial draft. |
