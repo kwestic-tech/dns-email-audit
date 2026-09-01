@@ -31,7 +31,7 @@
  * | Detector | Mechanism | Defeatable by page code? |
  * | --- | --- | --- |
  * | network | CDP `Network.requestWillBeSent` | no — outside the page |
- * | storage | before/after snapshot of Web Storage, cookies, IndexedDB and Cache Storage, plus CDP `DOMStorage` events | no — it compares state, not calls |
+ * | storage | before/after snapshot of Web Storage, cookies, and the CONTENTS of IndexedDB and Cache Storage, plus CDP `DOMStorage` events | no — it compares state, not calls |
  * | insertion | every node the instrumented `DOMParser` produces is tagged, and a `MutationObserver` on the application document reports any tagged node that arrives | no — it observes the document, not the call |
  *
  * **The first version of this file wrapped a list of methods, and that was
@@ -52,8 +52,12 @@
  * A later round found the same mistake one level down: the snapshot named
  * "every storage surface" while reading only Web Storage and cookie NAMES, so
  * analysis could create an IndexedDB database, write a Cache Storage entry,
- * delete a key or change a cookie's value with the gate still green. A
- * detector is only as behavioural as the surfaces it actually enumerates.
+ * delete a key or change a cookie's value with the gate still green. The round
+ * after THAT found the same shortcut one level deeper: the new snapshot read
+ * database names, versions and cached request URLs — catalogs — so a record
+ * put into an object store that already existed, or a response body replaced
+ * for a URL already cached, changed nothing it looked at. A detector is only
+ * as behavioural as the surfaces it enumerates AND as deep as it reads them.
  *
  * The acceptance criterion is behavioural — *no request, no storage write, no
  * inserted node* — so the detectors are now behavioural too. Enumerating
@@ -336,10 +340,46 @@ const detectorSource = enabled => `
         if (name) out['cookie:' + name] = at < 0 ? '' : pair.slice(at + 1).trim();
       }
     } catch (e) { out['cookie:<unreadable>'] = String(e && e.name); }
+    /* CONTENTS, not catalogs. Recording a database name and version detects a
+     * new database; it does not detect a record put into an object store that
+     * already existed, which needs no version change. The same shortcut in
+     * Cache Storage recorded request URLs, so replacing the stored response for
+     * a URL already present was invisible. Both are exactly the persistence the
+     * spec forbids, so both are read through. */
     try {
       if (indexedDB && indexedDB.databases) {
-        for (const db of await indexedDB.databases()) {
-          out['indexedDB:' + db.name] = String(db.version);
+        for (const info of await indexedDB.databases()) {
+          out['indexedDB:' + info.name] = String(info.version);
+          let db = null;
+          try {
+            db = await new Promise((resolve, reject) => {
+              // No version argument: opening at the current version cannot
+              // trigger an upgrade, so reading state never changes it.
+              const request = indexedDB.open(info.name);
+              request.onsuccess = () => resolve(request.result);
+              request.onerror = () => reject(request.error);
+              request.onblocked = () => reject(new Error('blocked'));
+            });
+            for (const store of Array.from(db.objectStoreNames)) {
+              const rows = await new Promise(resolve => {
+                try {
+                  const tx = db.transaction(store, 'readonly');
+                  const target = tx.objectStore(store);
+                  const keys = target.getAllKeys();
+                  const values = target.getAll();
+                  tx.oncomplete = () => resolve([keys.result, values.result]);
+                  tx.onerror = () => resolve('<unreadable>');
+                  tx.onabort = () => resolve('<unreadable>');
+                } catch (e) { resolve('<unreadable>'); }
+              });
+              try { out['indexedDB:' + info.name + '/' + store] = JSON.stringify(rows); }
+              catch (e) { out['indexedDB:' + info.name + '/' + store] = '<unserializable>'; }
+            }
+          } catch (e) {
+            out['indexedDB:' + info.name + '/<unreadable>'] = String(e && e.name);
+          } finally {
+            try { if (db) db.close(); } catch (e) {}
+          }
         }
       }
     } catch (e) { out['indexedDB:<unreadable>'] = String(e && e.name); }
@@ -349,11 +389,41 @@ const detectorSource = enabled => `
           const cache = await caches.open(key);
           const entries = await cache.keys();
           out['cache:' + key] = entries.map(r => r.url).sort().join(' ');
+          for (const request of entries) {
+            let body = '<none>';
+            try {
+              const response = await cache.match(request);
+              if (response) body = String((await response.text()) || '');
+            } catch (e) { body = '<unreadable:' + (e && e.name) + '>'; }
+            out['cache:' + key + '|' + request.url] = body;
+          }
         }
       }
     } catch (e) { out['cache:<unreadable>'] = String(e && e.name); }
     return out;
   };
+
+  const openSeedDb = () => new Promise((resolve, reject) => {
+    const request = indexedDB.open('__seed_db__', 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains('items')) {
+        request.result.createObjectStore('items');
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error('blocked'));
+  });
+
+  const putRecord = (db, value) => new Promise(resolve => {
+    try {
+      const tx = db.transaction('items', 'readwrite');
+      tx.objectStore('items').put(value, 'k');
+      tx.oncomplete = resolve;
+      tx.onerror = resolve;
+      tx.onabort = resolve;
+    } catch (e) { resolve(); }
+  });
 
   // The UNION of both key sets, so a removal is a difference too. Walking only
   // the after-snapshot made deleting a key indistinguishable from never having
@@ -378,6 +448,19 @@ const detectorSource = enabled => `
     if (seedNonce !== undefined) {
       try { localStorage.setItem('__seed_remove__', 'seeded' + seedNonce); } catch (e) {}
       try { document.cookie = '__seed_cookie__=old' + seedNonce + '; path=/'; } catch (e) {}
+      // An IndexedDB database and a cache that ALREADY EXIST when the phase
+      // opens. Creating a container is easy to notice; writing inside one that
+      // was already there is the case a catalog-shaped snapshot cannot see.
+      try {
+        const db = await openSeedDb();
+        await putRecord(db, 'old' + seedNonce);
+        db.close();
+      } catch (e) {}
+      try {
+        const cache = await caches.open('__seed_cache__');
+        await cache.put(new Request(location.pathname + '?seed=1'),
+          new Response('old' + seedNonce));
+      } catch (e) {}
     }
     // Arming begins a fresh analysis phase, so anything a PREVIOUS phase
     // recorded is cleared with it. Otherwise a later phase inherits an earlier
@@ -439,6 +522,22 @@ const detectorSource = enabled => `
       await cache.put(new Request(location.pathname + '?cached=' + nonce), new Response('x'));
       attempted.push('storage-cache');
     } catch (e) { attempted.push('storage-cache-threw:' + e.name); }
+
+    // Writes INSIDE containers that already existed when the phase opened.
+    // Neither changes a database name, a database version, or a cached request
+    // URL, so a snapshot of container metadata alone reports nothing.
+    try {
+      const db = await openSeedDb();
+      await putRecord(db, 'new' + nonce);
+      db.close();
+      attempted.push('storage-idb-record');
+    } catch (e) { attempted.push('storage-idb-record-threw:' + e.name); }
+    try {
+      const cache = await caches.open('__seed_cache__');
+      await cache.put(new Request(location.pathname + '?seed=1'),
+        new Response('new' + nonce));
+      attempted.push('storage-cache-body');
+    } catch (e) { attempted.push('storage-cache-body-threw:' + e.name); }
 
     // Insertion, by both routes.
     const parse = t => new DOMParser().parseFromString(t, 'image/svg+xml');
@@ -559,6 +658,7 @@ section('2. The deliberately unsafe fixture is caught');
 const caught = await probe({ enabled: ALL, unsafe: true });
 const EVERY_ROUTE = ['network', 'storage-setItem', 'storage-property',
   'storage-remove', 'storage-cookie', 'storage-indexeddb', 'storage-cache',
+  'storage-idb-record', 'storage-cache-body',
   'insertion-appendChild', 'insertion-range'];
 eq('the fixture committed every violation by every route it claims',
   caught.attempted, EVERY_ROUTE);
@@ -580,6 +680,14 @@ eq('an IndexedDB database is seen',
   caught.storage.some(k => k.startsWith('indexedDB:__unsafe_db__')), true);
 eq('and a Cache Storage entry is seen',
   caught.storage.some(k => k.startsWith('cache:__unsafe_cache__')), true);
+
+/* Container metadata is the easy half. These two write INSIDE containers that
+ * already existed, changing no database name, no version and no cached request
+ * URL — the case a catalog-shaped snapshot reports as nothing at all. */
+eq('a record written into an EXISTING object store is seen',
+  caught.storage.some(k => k.startsWith('indexedDB:__seed_db__/')), true);
+eq('and a replaced response body for an EXISTING cached URL is seen',
+  caught.storage.some(k => k.startsWith('cache:__seed_cache__|')), true);
 eq('the external CDP corroborator saw the Web Storage writes',
   caught.storageEvents.slice().sort(), ['__direct_probe__', '__unsafe_probe__']);
 

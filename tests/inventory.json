@@ -716,9 +716,10 @@
         "a deliberately unsafe fixture commits one network request, one storage write and one foreign-document insertion, and all three are caught",
         "the negative control is mechanical rather than a manual source edit: each detector removed in turn stops seeing its own violation while the other two still report, and all three report again once restored",
         "detection is BEHAVIOURAL, not API enumeration: a MutationObserver over tagged parser output catches Range.insertNode and clones, and a storage state comparison catches a named-property write -- both of which walked past the first version's method wrappers",
-        "the storage snapshot covers Web Storage, cookies WITH VALUES, IndexedDB and Cache Storage, and diffs the union of both key sets so removals and value replacements are differences rather than absences",
+        "the storage snapshot covers Web Storage, cookies WITH VALUES, and the CONTENTS of IndexedDB object stores and Cache Storage responses -- not their catalogs -- and diffs the union of both key sets so removals and value replacements are differences rather than absences",
         "the validator-phase network gate exempts nothing: a same-origin request during analysis fails it, since connect-src 'self' still permits exfiltration",
         "a collector that errors fails the gate instead of defaulting to an empty result",
+        "writes INSIDE containers that already existed when the phase opened: a record put into or deleted from an existing object store with no version change, and a response body replaced for an already-cached URL",
         "the SVG validator driven by the real DOMParser: thirteen hostile fixtures, wrong-case names XML does not fold, the Tiny PS permitted values, and the proof that analysing all of them caused no request, no storage write and no insertion"
       ]
     },
