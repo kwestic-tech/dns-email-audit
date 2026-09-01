@@ -223,6 +223,32 @@ function noComparison(state) {
 }
 
 /**
+ * Whether comparing this policy's `mx` patterns against DNS means anything.
+ *
+ * The comparator answers "do these patterns cover these hosts". It cannot
+ * answer "should anyone care", because that depends on the policy the patterns
+ * came from, and two valid-looking cases make the comparison a lie:
+ *
+ *   - `mode: none` withdraws enforcement and requires no `mx` at all, so
+ *     `policy.mx` is legitimately `[]`. Comparing `[]` against real MX hosts
+ *     reports every host unmatched — a `policy-mx-mismatch` on a policy that
+ *     is deliberately inactive. `mta-sts.mode-none` is the finding that case
+ *     deserves.
+ *   - An INVALID policy still exposes whichever `mx` lines happened to parse.
+ *     Comparing that partial list reports mismatches and unused patterns
+ *     derived from a document no sender will honour.
+ *
+ * `src/audit/artifacts.js` MUST gate both mismatch classes on this predicate
+ * and emit the parser's own syntax findings first. Kept here rather than in the
+ * composer because it is a statement about RFC 8461 mode semantics, which is
+ * this directory's to own.
+ */
+export function mxComparisonApplies(policy) {
+  if (!policy || typeof policy !== 'object' || !policy.valid) return false;
+  return policy.mode === 'enforce' || policy.mode === 'testing';
+}
+
+/**
  * Compare policy patterns with already-audited DNS MX hostnames.
  *
  * `mxFact` is `{ hosts: string[], unknown?: boolean }` and is built by

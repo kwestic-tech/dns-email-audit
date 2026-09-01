@@ -20,7 +20,7 @@ import {
   validateMtaStsRecord, MTA_STS_ERRORS, summarizeMtaSts,
 } from './mta-sts.js';
 import {
-  validateMtaStsPolicy, compareMtaStsMx,
+  validateMtaStsPolicy, compareMtaStsMx, mxComparisonApplies,
   MTA_STS_POLICY_ERRORS, MTA_STS_POLICY_WARNINGS,
   MTA_STS_POLICY_LINE_ENDINGS, MTA_STS_MX_COMPARE_STATES,
 } from './mta-sts-policy.js';
@@ -379,5 +379,46 @@ eq('a good entry does not rescue a bad one',
 eq('but the good entry alone still compares',
   compareMtaStsMx(['mail.example.test'], { hosts: ['mail.example.test'] }).state,
   'compared');
+
+/* ── Whether the comparison should run at all ──────────────────────────
+ *
+ * The comparator answers "do these patterns cover these hosts". Two policies
+ * make that question a lie, and both produce a confident wrong answer if the
+ * composer asks it anyway. These fixtures pin the counterexamples, not just
+ * the predicate, so the guard cannot be removed without a failure that shows
+ * the false finding it prevents. ─────────────────────────────────────────── */
+section('mxComparisonApplies');
+
+const HOSTS = { hosts: ['mail.example.test'] };
+
+const modeNone = validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 1');
+eq('a mode: none policy is valid and legitimately carries no mx',
+  [modeNone.valid, modeNone.mode, modeNone.mx], [true, 'none', []]);
+eq('comparing it anyway reports every MX host unmatched',
+  compareMtaStsMx(modeNone.mx, HOSTS).unmatchedHosts, ['mail.example.test']);
+eq('so the comparison must not run: mode: none withdraws enforcement',
+  mxComparisonApplies(modeNone), false);
+
+const partiallyParsed = validateMtaStsPolicy(
+  'version: STSv1\nmode: enforce\nmax_age: 1\nmx: ok.example.test\nmx: bad_host');
+eq('an invalid policy still exposes the mx lines that parsed',
+  [partiallyParsed.valid, partiallyParsed.mx], [false, ['ok.example.test']]);
+eq('comparing that partial list yields both mismatch classes',
+  compareMtaStsMx(partiallyParsed.mx, { hosts: ['other.example.test'] }),
+  { state: 'compared', unmatchedHosts: ['other.example.test'],
+    unusedPatterns: ['ok.example.test'] });
+eq('so the comparison must not run on a policy no sender will honour',
+  mxComparisonApplies(partiallyParsed), false);
+
+eq('enforce is eligible', mxComparisonApplies(
+  validateMtaStsPolicy('version: STSv1\nmode: enforce\nmax_age: 1\nmx: a.example.test')), true);
+eq('testing is eligible: the patterns still describe intended coverage',
+  mxComparisonApplies(
+    validateMtaStsPolicy('version: STSv1\nmode: testing\nmax_age: 1\nmx: a.example.test')), true);
+eq('a missing mode is not eligible',
+  mxComparisonApplies(validateMtaStsPolicy('version: STSv1\nmax_age: 1')), false);
+eq('and neither is a non-result',
+  [mxComparisonApplies(null), mxComparisonApplies(undefined), mxComparisonApplies('enforce')],
+  [false, false, false]);
 
 report();
