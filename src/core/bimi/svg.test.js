@@ -327,7 +327,8 @@ eq('a wrong-case root is a bad root, not an SVG document',
     baseProfile: 'tiny-ps', version: '1.2', viewBox: '0 0 64 64',
   }, [el('title', {}, [text('x')])]))),
   { valid: false, parsed: true, root: 'SVG', title: '',
-    rejections: ['bad-root'], diagnostics: [], sites: [] });
+    rejections: ['bad-root'], diagnostics: [],
+    sites: [{ token: 'bad-root', element: '<SVG>', value: 'http://www.w3.org/2000/svg' }] });
 eq('a wrong-case TITLE does not satisfy the title requirement',
   diag({}, [el('TITLE', {}, [text('x')])]), ['title-missing']);
 eq('nor does a wrong-case DESC trip the desc rule',
@@ -393,7 +394,7 @@ eq('every emitted diagnostic is a registered member',
 /* ── Located material: the composer must not have to reparse the SVG to
  *    build evidence, so every token records where it came from and what the
  *    offending construct actually was. ─────────────────────────────────── */
-section('7. Every token records its site');
+section('7. Tree-walk tokens record their site');
 
 const located = check(conformant({ children: [
   el('title', {}, [text('t')]),
@@ -425,6 +426,38 @@ eq('but every occurrence gets its own site',
   repeated.sites.filter(s => s.token === 'external-reference-element')
     .map(s => s.value),
   ['https://a.example/1.png', 'https://b.example/2.png']);
+
+/* The paths raised BEFORE or AROUND parsing, which have no element to name.
+ * An earlier version left these on the token-only helper, so two distinct
+ * pre-parse rejections collapsed into one blank evidence entry downstream. */
+section('7a. Pre-parse and root rejections record theirs too');
+
+const preParse = validateBimiSvg('<!DOCTYPE x [<!ENTITY a "b">]><svg/>', () => null);
+eq('DOCTYPE and ENTITY each get their own site, carrying the declaration',
+  preParse.sites,
+  [{ token: 'doctype-present', element: '', value: '<!DOCTYPE x [<!ENTITY a "b">' },
+    { token: 'entity-declaration', element: '', value: '<!ENTITY a "b">' }]);
+eq('a bad root names the root that WAS found',
+  check(el('html', {}, [], 'http://www.w3.org/1999/xhtml')).sites,
+  [{ token: 'bad-root', element: '<html>', value: 'http://www.w3.org/1999/xhtml' }]);
+eq('a parser that throws records why',
+  validateBimiSvg(OK_TEXT, () => { throw new TypeError('boom'); }).sites,
+  [{ token: 'malformed-xml', element: '', value: 'TypeError' }]);
+eq('a parser error node carries the engine message',
+  check(el('svg', {}, [el('parsererror', {}, [text('bad xml')],
+    'http://www.w3.org/1999/xhtml')])).sites,
+  [{ token: 'malformed-xml', element: '<parsererror>', value: 'bad xml' }]);
+eq('and an empty document is located without inventing an element',
+  validateBimiSvg('   ', parserFor(conformant())).sites,
+  [{ token: 'malformed-xml', element: '', value: '' }]);
+
+eq('a clean title is bounded in code points, never split mid-character',
+  (() => {
+    const long = 'y'.repeat(199) + '\u{1F600}';
+    const r = check(conformant({ children: [el('title', {}, [text(long)])] }));
+    const last = r.title.charCodeAt(r.title.length - 1);
+    return last >= 0xD800 && last <= 0xDBFF;
+  })(), false);
 
 eq('site material is bounded in code points, never split mid-character',
   (() => {

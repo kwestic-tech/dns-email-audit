@@ -97,6 +97,12 @@ const ENTITY_DECL = /<!ENTITY/i;
 const RASTER_DATA_URI = /data:image\/(?!svg\+xml)/i;
 const EXTERNAL_STYLE = /@import|url\s*\(/i;
 
+/** The declaration starting at `index`, bounded, for evidence. */
+function declarationAt(text, index) {
+  var end = text.indexOf('>', index);
+  return end === -1 ? text.slice(index) : text.slice(index, end + 1);
+}
+
 function emptyResult() {
   return {
     valid: false,
@@ -330,7 +336,7 @@ function profile(root, result) {
   if (!titles.length || !textOf(titles[0]).trim()) {
     site(result, 'diagnostics', 'title-missing', written, '');
   } else {
-    result.title = textOf(titles[0]).trim().slice(0, 200);
+    result.title = bounded(textOf(titles[0]).trim());
   }
 
   var descs = kids.filter(function (el) { return nameOf(el) === 'desc'; });
@@ -351,17 +357,25 @@ export function validateBimiSvg(input, parseSvg) {
   var result = emptyResult();
 
   if (!text.trim()) {
-    add(result.rejections, 'malformed-xml');
+    site(result, 'rejections', 'malformed-xml', '', '');
     return result;
   }
 
   // BEFORE the parser. Chrome expands internal entities; see the header.
-  if (DOCTYPE.test(text)) add(result.rejections, 'doctype-present');
-  if (ENTITY_DECL.test(text)) add(result.rejections, 'entity-declaration');
+  // Each records the DECLARATION ITSELF, so an operator is shown the construct
+  // that was refused rather than only the name of the rule that refused it.
+  var doctype = DOCTYPE.exec(text);
+  if (doctype) {
+    site(result, 'rejections', 'doctype-present', '', declarationAt(text, doctype.index));
+  }
+  var entity = ENTITY_DECL.exec(text);
+  if (entity) {
+    site(result, 'rejections', 'entity-declaration', '', declarationAt(text, entity.index));
+  }
   if (result.rejections.length) return result;
 
   if (typeof parseSvg !== 'function') {
-    add(result.rejections, 'malformed-xml');
+    site(result, 'rejections', 'malformed-xml', '', '');
     return result;
   }
 
@@ -375,24 +389,26 @@ export function validateBimiSvg(input, parseSvg) {
   try {
     doc = parseSvg(text);
   } catch (e) {
-    add(result.rejections, 'malformed-xml');
+    site(result, 'rejections', 'malformed-xml', '', String((e && e.name) || 'parse-threw'));
     return result;
   }
 
   var root = doc && doc.documentElement;
   if (!root) {
-    add(result.rejections, 'malformed-xml');
+    site(result, 'rejections', 'malformed-xml', '', '');
     return result;
   }
 
   // A parse error is reported as a `parsererror` element in the XHTML
   // namespace, and it may be the root or nested — measured both ways.
-  var sawParserError = false;
+  var parserError = null;
   walk(root, function (el) {
-    if (lower(nameOf(el)) === 'parsererror') sawParserError = true;
+    if (!parserError && lower(nameOf(el)) === 'parsererror') parserError = el;
   });
-  if (sawParserError) {
-    add(result.rejections, 'malformed-xml');
+  if (parserError) {
+    // The engine's own message, which is the most actionable thing available
+    // for a document that would not parse.
+    site(result, 'rejections', 'malformed-xml', nameOf(parserError), textOf(parserError));
     return result;
   }
 
@@ -401,7 +417,8 @@ export function validateBimiSvg(input, parseSvg) {
   result.root = nameOf(root);
   if (result.root !== 'svg') {
     // HTML in a `.svg` file parses cleanly, so nothing but this catches it.
-    add(result.rejections, 'bad-root');
+    // Located at the root that WAS found, not at the document.
+    site(result, 'rejections', 'bad-root', result.root, String(root.namespaceURI || ''));
     return result;
   }
 
