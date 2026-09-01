@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.2 (Final) |
+| Spec version | 1.3 (Final) |
 | Target release | 0.8.0 |
 | Status | Final; approved for implementation |
 | Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](implemented/findings-and-remediation.md) for the final `Finding` shape |
@@ -192,7 +192,10 @@ Validation rules:
   §3.2 says unknown fields SHALL be ignored: a conformant policy may carry a
   case-variant extension and must not be reported invalid. Where the operator
   did mean the registered field, the resulting `missing-*` error already
-  carries the invalidity and this token only explains it.
+  carries the invalidity and this token only explains it. The warning does not
+  short-circuit the field: a case variant is retained in `unknownKeys` and
+  takes the ordinary non-`mx` duplicate rule, exactly like any other
+  extension, because that is what it is.
 - `diagnostics` is a line index, not a mirror of `errors` + `warnings`. Every
   token raised against a line appears in both. The four `missing-*` errors are
   raised against the document and have no line, so they appear in `errors`
@@ -225,11 +228,10 @@ The comparator accepts an MX fact of `{ hosts: string[], unknown, nullMx }`
 and returns a closed state of `compared`, `unknown` or `null-mx`. In either
 non-compared state, both mismatch arrays are empty.
 
-**`src/audit/artifacts.js` builds that fact from the domain's published MX
-records — `parseMxRecord().host` over the base MX lookup, plus `isNullMx()` —
-and never from `advanced.mxHealth`.** No such `{ hosts, unknown, nullMx }`
+**`src/audit/artifacts.js` builds that fact from the domain's delivery
+candidates, and never from `advanced.mxHealth`.** No such `{ hosts, unknown }`
 object exists in the audit result today; the composer constructs it. Three
-reasons, each independently sufficient:
+reasons for excluding `mxHealth`, each independently sufficient:
 
 1. `mxHealth.hosts` holds audit objects, not hostnames. `audit-domain.js`
    already writes `mxHealth.hosts.map(h => h.host)` to get names out of it.
@@ -243,14 +245,56 @@ reasons, each independently sufficient:
    base MX lookup answers for every domain. Binding the headline check to a
    cost-gated resolution-health artifact would switch it off silently.
 
-An empty host list compares as "every pattern is unused", so an absent fact
-read as an empty one turns a healthy policy into a stale-policy claim. The
-comparator therefore **fails closed to `unknown`** on an absent fact, a missing
-or non-array `hosts`, or any `hosts` entry that is not a string, and both
-guards ship with negative runs proving they fail when removed.
+#### Delivery candidates are not MX records
 
-`null-mx` has no producer until `src/audit/artifacts.js` lands. The state file
-records that rather than implying corpus reachability it does not yet have.
+RFC 5321 §5.1: *"If an empty list of MXs is returned, the address is treated as
+if it was associated with an implicit MX RR, with a preference of 0, pointing
+to that host"*, and that rule *"applies only if there are no MX records
+present"*. RFC 7505 exists to distinguish "no explicit MX" from "accepts no
+mail". A domain with no MX and a usable address record therefore has exactly
+one delivery candidate — itself — and a policy publishing `mx: example.com`
+covers it correctly. Building `hosts` from published MX records alone would
+report that policy stale.
+
+The composer MUST distinguish four cases:
+
+| Domain state | Fact |
+| --- | --- |
+| Explicit null MX (RFC 7505 `0 .`) | the `null-mx` non-comparison state |
+| Explicit MX records, all parseable | `hosts` = their parsed exchange hostnames |
+| No MX, plus a usable A or AAAA record | `hosts` = the audited domain itself, the RFC 5321 §5.1 implicit MX |
+| No established candidate, an unusable input, or any MX record that fails to parse | `unknown` |
+
+The last row is a fail-closed rule, not a convenience: a partially parsed MX
+set cannot distinguish a stale pattern from an unread one, so the composer
+fails the whole comparison rather than silently filtering the entry out.
+
+#### Fail-closed rules the comparator enforces today
+
+An empty or silently-filtered host list compares as "every pattern is unused",
+so an absent fact read as an empty one turns a healthy policy into a
+stale-policy claim. The comparator returns `unknown` on:
+
+- an absent, non-object fact, or one carrying `unknown`;
+- a missing or non-array `hosts`;
+- an **empty** `hosts` array — no delivery candidate is established;
+- any entry that is not a string, or that is not a valid hostname after
+  normalisation, including `''`, whitespace-only and a bare `.`.
+
+A single invalid entry fails the whole comparison. Each guard ships with a
+negative run proving it fails when removed.
+
+#### `null-mx` is not a member yet
+
+`MTA_STS_MX_COMPARE_STATES` is `['compared', 'unknown']`. Nothing in the tree
+produces a `nullMx` fact — null MX exists as `isNullMx()` and the `@null-mx`
+provider token — and a registered state the fixture corpus cannot reach is a
+stop under the agent contract, with a hand-built `{ nullMx: true }` in a unit
+test being exactly the invented response shape that rule names. The member is
+added to the constant, `tests/state-algebras.json` and `tests/state-matrix.json`
+in the **same reviewed step** as the composer that produces it. Until then a
+null-MX domain arrives as an empty host list and degrades to `unknown`, which
+claims nothing untrue.
 
 ### 4. BIMI SVG validation
 
@@ -367,8 +411,12 @@ The range is based on the existing finding metadata rate rather than counting
 conditions as though each needed one string. Rejection-token findings may share
 a parameterized message whose `{0}` is the untranslated token, but their
 actionable explanation and remediation still have to be represented honestly.
-Against the current 732-key English corpus, all new keys must be translated
-across all 13 tracked locales in the same change.
+Against the current **837-key** English corpus, all new keys must be translated
+across all 13 tracked locales in the same change. 837 is what
+`npm run locale:gate` counts and is the operative figure: `flatten()` in
+`tools/lib/locale-utils.mjs` expands array values by index and drops `meta.*`,
+so a naive count of JSON leaf objects reports 732 and understates the work by
+105 keys.
 
 Never translated: `STSv1`, `enforce`, `testing`, `none`, `max_age`, `mx`,
 `baseProfile`, `tiny-ps`, `viewBox`, `<title>`, `xlink:href`, `foreignObject`
@@ -541,10 +589,25 @@ spec was amended.
 | `diagnostics` not a mirror of `errors` | Accepted | Correct as built — a missing field has no line — but undocumented against the promised `evidence[].location`. The line-less rule and its `kind: 'input'` variant are now stated. |
 | Spec and code disagreed on `missing-mx` | Accepted | The code had narrowed to `enforce`/`testing` without a written rule. That reading is the better one and is now the spec's: with no established mode the requirement is not established either. |
 
+### Review round after 1.2
+
+Both factual claims were verified from source before amendment: RFC 5321 §5.1
+was read from `rfc-editor.org`, and the 837-vs-732 key gap was traced to
+`flatten()` expanding arrays.
+
+| Finding | Outcome | Reasoning |
+| --- | --- | --- |
+| `null-mx` registered with no producer | Accepted | The honest note was not a permitted exemption. The member is removed from the constant and both state files until `src/audit/artifacts.js` lands, and is added in the same reviewed step as its producer. A null-MX domain meanwhile degrades to `unknown`. |
+| Published MX records omit the RFC 5321 implicit MX | Accepted | Verified against §5.1. A domain with no MX and a usable address record has one delivery candidate — itself — so a policy naming it is correct, not stale. The composer contract is now four enumerated cases over delivery candidates rather than MX records, with unparseable input failing the whole comparison. |
+| Case-variant extensions not retained | Accepted | The warning short-circuited the field, so it left `unknownKeys` and escaped the duplicate rule, contradicting the retained-extension rule stated two bullets above it. The warning no longer short-circuits. |
+| The host guard accepted empty strings | Accepted | `typeof h === 'string'` passed `''` and `'   '`, which normalised away under `filter(Boolean)` into a confident empty comparison — the same stale-policy claim in a different costume. Entries are now validated after normalisation and a single bad entry fails the comparison. |
+| Stale 732-key localisation baseline | Accepted | 837 is what the gate counts. The gap is `flatten()` expanding array values by index; the spec now states the measured figure and why a leaf count disagrees. |
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.3 | 2026-09-01 | Amended Final after the follow-up review. Replaced the published-MX-records fact source with a four-case delivery-candidate contract covering the RFC 5321 §5.1 implicit MX and RFC 7505 null MX; removed `null-mx` from the comparison vocabulary and both state files until its composer exists; extended the fail-closed rules to an empty host list and to any entry that is not a valid hostname after normalisation; made a case-variant extension retained and duplicate-checked rather than short-circuited; and corrected the localisation baseline from 732 to the gate-measured 837. |
 | 1.2 | 2026-09-01 | Amended Final after executing the 1.1 implementation. Named the published MX records as the comparator's fact source and forbade `advanced.mxHealth`; made the comparator fail closed to `unknown` on any fact that is not an established list of hostname strings; recorded `null-mx` as having no producer until `src/audit/artifacts.js` lands; moved `wrong-case-field` from `errors` to `warnings` so a conformant case-variant extension stays valid; stated the `diagnostics` line-index rule and the line-less evidence variant; and aligned the `missing-mx` rule with the mode-conditioned reading. |
 | 1.1 | 2026-09-01 | Amended Final after reproducing the first implementation review. Added explicit unknown and null-MX comparison states; registered closed vocabularies; declared `lineEndings: none`; preserved per-line malformed diagnostics; added BOM, blank-line and wrong-case decisions; named the artifact evidence renderer branch, export columns, unverified-policy copy change, browser script and CI job; renamed the browser suite; documented policy extension punctuation; and replaced the low localization estimate with a measured 95–145-key budget. Recorded all accepted and declined review outcomes. |
 | 1.0 | 2026-09-01 | Final. Resolved all eight open questions: body-only MTA-STS input; `image/svg+xml` parsing; no logo rendering; VMC removed; no scoring; single-artifact workflow; artifact findings excluded from 0.9.0 JSON comparison; and real-browser hostile-SVG verification through the existing Chromium/CDP harness. Corrected the RFC 8461 rules for zero `max_age`, line endings, duplicate fields, version ordering and one-label wildcard matching. Bounded SVG output to security rejection and named profile diagnostics rather than unsupported full-schema certification, and replaced string length with UTF-8 byte measurement. |
