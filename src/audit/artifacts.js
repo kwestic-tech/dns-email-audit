@@ -180,6 +180,21 @@ const ARTIFACT_FINDINGS = Object.freeze({
 /** RFC 8461 §8.3's removal procedure publishes a small max_age on purpose. */
 const SHORT_MAX_AGE = 86400;
 
+/**
+ * The ids the CATALOG can actually construct.
+ *
+ * Exported so the co-located suite can assert exact equality against
+ * `ARTIFACT_FINDING_IDS` and the registry in BOTH directions — the drift guard
+ * `audit.finding.id` has. A one-way "everything emitted is registered" check
+ * cannot see an unused registry member or a catalog entry whose emission path
+ * no fixture happens to reach.
+ */
+export function artifactFindingCatalogIds() {
+  return Object.keys(ARTIFACT_FINDINGS).map(function (key) {
+    return ARTIFACT_FINDINGS[key].id;
+  });
+}
+
 function finding(key, artifact, args, evidence) {
   var meta = ARTIFACT_FINDINGS[key];
   if (!meta) return null;
@@ -206,15 +221,23 @@ function finding(key, artifact, args, evidence) {
 /**
  * The domain's delivery candidates, as a fact `compareMtaStsMx()` can use.
  *
- * Takes `{ mx, addresses, domain, unknown }`. `mx` is the raw MX record set
- * from the base lookup — presentation strings like `10 mail.example.com`, not
- * the deep-check audit objects. `addresses` is whatever A/AAAA answers the
- * audit already holds, and it decides only whether an implicit MX exists.
+ * Takes `{ mx, addresses, domain }`, all of which `audit-domain.js` holds.
+ * `mx` is the raw MX record set from the base lookup — presentation strings
+ * like `10 mail.example.com`, not the deep-check audit objects. `addresses` is
+ * whatever A/AAAA answers the audit already holds, and it decides only whether
+ * an implicit MX exists.
+ *
+ * There is deliberately NO "the lookup failed" input. A base MX failure
+ * rejects `analyzeDomain()`, so no completed audit result carries such a flag
+ * and nothing could set one; an earlier version accepted `mxUnknown` from a
+ * producer that does not exist. `unknown` today means what the data says: no
+ * candidate could be established, or a record would not parse. When a runtime
+ * can genuinely report a failed lookup, the input arrives with that producer —
+ * the same rule that kept `null-mx` out of the comparison vocabulary until
+ * this function existed to derive it.
  */
 export function deliveryCandidates(input) {
   var supplied = input || {};
-  if (supplied.unknown) return { hosts: [], unknown: true };
-
   var records = Array.isArray(supplied.mx) ? supplied.mx : [];
   if (isNullMx(records)) return { hosts: [], nullMx: true };
 
@@ -270,16 +293,20 @@ export function mtaStsPolicyFindings(text, mxFact) {
     // once per occurrence, so iterating the raw list emitted the cross product
     // — two blank lines produced four evidence entries.
     var unique = tokens.filter(function (t, i) { return tokens.indexOf(t) === i; });
+    var documentLevel = false;
     unique.forEach(function (token) {
       var sites = located[token];
-      if (!sites || !sites.length) {
-        out2.push(artifactEvidence('input', 'policy', token));
-        return;
-      }
+      if (!sites || !sites.length) { documentLevel = true; return; }
       sites.forEach(function (d) {
         out2.push(artifactEvidence('line', 'line ' + d.line, d.text));
       });
     });
+    /* A `missing-*` error is raised against the document and has no line. Its
+     * evidence value stays EMPTY: spec 1.7 says the value is supplied material
+     * and never the diagnostic token, and the token is already this finding's
+     * `args`. One entry, not one per missing field, because they all point at
+     * the same place — the document. */
+    if (documentLevel) out2.push(artifactEvidence('input', 'policy', ''));
     return out2;
   };
 
@@ -355,8 +382,12 @@ export function bimiSvgFindings(text, parseSvg) {
     var entries = (svg.sites || []).filter(function (site) {
       return tokens.indexOf(site.token) !== -1;
     }).map(function (site) {
-      return artifactEvidence('element',
-        site.element || (svg.root ? '<' + svg.root + '>' : 'logo'), site.value);
+      // A pre-parse rejection — DOCTYPE, ENTITY, a parser that threw — has no
+      // element, because no tree existed when it was raised. That is the
+      // `input` variant, not an element located at a document.
+      return site.element
+        ? artifactEvidence('element', site.element, site.value)
+        : artifactEvidence('input', 'logo', site.value);
     });
     // A token with no site — `bad-root` and `malformed-xml` are raised before
     // any element exists — still has to be evidenced.
@@ -407,7 +438,6 @@ export function analyzeArtifacts(input) {
     mx: supplied.mx,
     addresses: [].concat(supplied.aRec || [], supplied.aaaaRec || []),
     domain: supplied.domain,
-    unknown: supplied.mxUnknown,
   });
 
   var result = {

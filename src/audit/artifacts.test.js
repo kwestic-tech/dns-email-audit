@@ -15,11 +15,13 @@
  * deep-check audit objects that caused the `[object Object]` round.
  */
 
+import { readFileSync } from 'node:fs';
+
 import { createSuite } from '../../tests/lib/assert.mjs';
 import {
   analyzeArtifacts, deliveryCandidates, mtaStsPolicyFindings, bimiSvgFindings,
   artifactEvidence, ARTIFACT_KINDS, ARTIFACT_SOURCES, ARTIFACT_EVIDENCE_KINDS,
-  ARTIFACT_FINDING_IDS, MAX_EVIDENCE_CHARS,
+  ARTIFACT_FINDING_IDS, MAX_EVIDENCE_CHARS, artifactFindingCatalogIds,
 } from './artifacts.js';
 import { SEVERITIES, CONFIDENCES, CATEGORIES, EFFORTS, EVIDENCE_KINDS } from './findings.js';
 
@@ -39,10 +41,31 @@ eq('and artifact evidence kinds are frozen',
 
 /* The finding identity itself is a closed algebra, like every other published
  * vocabulary here. `audit.finding.id` stays the DNS contract; this is its
- * artifact counterpart, and the catalog is pinned against it so a thirteenth
- * id cannot appear without the registry moving too. */
+ * artifact counterpart.
+ *
+ * The pin is EXACT and runs in BOTH directions — catalog against constant, and
+ * constant against the registry file — because that is the drift guard
+ * `audit.finding.id` has in `findings.test.js`. A one-way "everything emitted
+ * is registered" check cannot see an unused registry member, nor a catalog
+ * entry whose emission path no fixture happens to reach: the earlier version
+ * of this assertion covered seven of the twelve ids and reported nothing. */
+const ALGEBRAS = JSON.parse(readFileSync(
+  new URL('../../tests/state-algebras.json', import.meta.url), 'utf8')).algebras;
+const algebra = id => ALGEBRAS.find(a => a.id === id);
+
 eq('the artifact finding ids are frozen', Object.isFrozen(ARTIFACT_FINDING_IDS), true);
-eq('and every id the composer can emit is a registered member',
+eq('the exported list equals the ids the CATALOG can construct',
+  [...ARTIFACT_FINDING_IDS].sort(), artifactFindingCatalogIds().slice().sort());
+eq('and audit.artifact.finding.id equals that list exactly',
+  algebra('audit.artifact.finding.id').members.slice().sort(),
+  [...ARTIFACT_FINDING_IDS].sort());
+eq('the catalog has no duplicate ids',
+  new Set(artifactFindingCatalogIds()).size, artifactFindingCatalogIds().length);
+eq('and it stays disjoint from the DNS finding-id algebra',
+  ARTIFACT_FINDING_IDS.filter(id => algebra('audit.finding.id').members.includes(id)), []);
+
+// Reachability is a SEPARATE question from registration, and both matter.
+eq('every id a fixture reaches is a registered member',
   [...new Set([
     ...mtaStsPolicyFindings('nonsense', { hosts: [], unknown: true }).findings,
     ...mtaStsPolicyFindings('version: STSv1\nmode: none\nmax_age: 1', { hosts: ['a.example.com'] }).findings,
@@ -90,9 +113,13 @@ eq('no MX with an address record is the implicit MX',
 eq('no MX and no address record establishes nothing',
   deliveryCandidates({ mx: [], addresses: [], domain: 'example.com' }),
   { hosts: [], unknown: true });
-eq('a failed lookup is unknown even with records in hand',
-  deliveryCandidates({ mx: ['10 mail.example.com'], domain: 'example.com', unknown: true }),
-  { hosts: [], unknown: true });
+/* There is deliberately no "the lookup failed" input. A base MX failure
+ * rejects analyzeDomain(), so no completed audit result could carry such a
+ * flag — an earlier version accepted `mxUnknown` from a producer that does not
+ * exist. `unknown` means what the data says, and nothing else. */
+eq('records in hand are used, since a failed lookup produces no result at all',
+  deliveryCandidates({ mx: ['10 mail.example.com'], domain: 'example.com' }),
+  { hosts: ['mail.example.com'], unknown: false });
 
 // Fail closed: half an MX set read is worse than none, because it would be
 // compared with confidence.
@@ -307,9 +334,15 @@ eq('an AAAA-only domain still has an implicit candidate',
     domain: 'mail.example.com', mx: [], aRec: [], aaaaRec: ['2001:db8::1'],
     mtaStsPolicyText: MATCHING,
   }).artifactFindings.map(f => f.id), []);
-eq('a failed MX lookup says the check did not run',
-  entry({ mx: ['10 mail.example.com'], mxUnknown: true }),
+// `unknown` is reachable from the DATA: a domain with no MX and no usable
+// address record has no established delivery candidate.
+eq('a domain with no candidate at all says the check did not run',
+  entry({ mx: [], aRec: [], aaaaRec: [] }), ['mta-sts.policy-mx-unknown']);
+eq('and so does a domain with an unparseable MX record',
+  entry({ mx: ['10 mail.example.com', 'garbage'], aRec: [], aaaaRec: [] }),
   ['mta-sts.policy-mx-unknown']);
+eq('no invented input field reaches the derivation',
+  entry({ mx: ['10 mail.example.com'], aRec: [], aaaaRec: [], mxUnknown: true }), []);
 eq('and the derived fact is exposed for the panel to explain itself',
   analyzeArtifacts({ domain: 'example.com', mx: ['0 .'] }).mxFact,
   { hosts: [], nullMx: true });
@@ -324,6 +357,36 @@ eq('the value is the offending LINE, not the diagnostic token',
   invalidMode.evidence, [{ kind: 'line', location: 'line 2', value: 'mode: bogus' }]);
 eq('and the token is carried by args, where it belongs',
   invalidMode.args, ['invalid-mode']);
+
+/* Spec 1.7: the value is supplied material and NEVER the diagnostic token —
+ * the token is already `args`. A missing field has no offending line, so its
+ * evidence points at the document with an empty value rather than repeating
+ * the token in both places. */
+const missingField = analyzeArtifacts({
+  domain: 'example.com', mx: ['10 mail.example.com'],
+  mtaStsPolicyText: 'version: STSv1\nmode: enforce\nmx: mail.example.com',
+}).artifactFindings[0];
+eq('a document-level error is located at the document with no material',
+  missingField.evidence, [{ kind: 'input', location: 'policy', value: '' }]);
+eq('and its token appears in args only, never in the evidence value',
+  [missingField.args, missingField.evidence.some(e => e.value.includes('missing'))],
+  [['missing-max-age'], false]);
+eq('several missing fields are ONE document-level entry, not one each',
+  analyzeArtifacts({
+    domain: 'example.com', mx: ['10 mail.example.com'],
+    mtaStsPolicyText: 'version: STSv1',
+  }).artifactFindings[0].evidence.length, 1);
+
+const preParseSvg = analyzeArtifacts({
+  domain: 'example.com', bimiSvgText: '<!DOCTYPE x [<!ENTITY a "b">]><svg/>',
+  parseSvg: () => null,
+}).artifactFindings[0];
+eq('two pre-parse rejections do NOT collapse into one blank entry',
+  preParseSvg.evidence.map(e => e.value),
+  ['<!DOCTYPE x [<!ENTITY a "b">', '<!ENTITY a "b">']);
+eq('and neither carries its token as the value',
+  preParseSvg.evidence.some(e => e.value.includes('doctype-present') ||
+    e.value.includes('entity-declaration')), false);
 
 const twoBlanks = analyzeArtifacts({
   domain: 'example.com', mx: ['10 mail.example.com'],

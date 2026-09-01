@@ -211,7 +211,7 @@
     },
     {
       "path": "src/core/bimi/svg.test.js",
-      "assertions": 120,
+      "assertions": 126,
       "note": "Co-located per spec §9. local-artifact-validation 1.6. Pure screening over an INJECTED parser: the fixture tree exercises the rules, and tests/build/local-input-security.test.mjs drives the real DOMParser. Neither half is evidence for the other.",
       "areas": [
         "the two frozen vocabularies, and why multiple-roots is not among the diagnostics: XML makes a second root a parse error",
@@ -510,7 +510,7 @@
     },
     {
       "path": "src/audit/artifacts.test.js",
-      "assertions": 62,
+      "assertions": 73,
       "note": "Co-located per spec §9. local-artifact-validation 1.6. The only place the two artifact validators meet, and the only place artifact findings are constructed.",
       "areas": [
         "the three artifact vocabularies, and the assertion that artifact evidence kinds share NO member with the DNS evidence algebra -- an overlap would let pasted text render as a queried DNS name",
@@ -519,8 +519,8 @@
         "line-located diagnostics versus document-level errors that take the `input` evidence variant rather than inventing a line number",
         "a security rejection outranks profile diagnostics for an SVG, and an entity-declaring document never reaches the parser through the composer",
         "the PUBLIC entry point derives the fact from mx/aRec/aaaaRec, which is what audit-domain.js holds -- an earlier version took a ready-made mxFact nothing produces, so deliveryCandidates and the composer were both green while their join reported policy-mx-unknown for a perfectly matching domain",
-        "evidence carries the offending LINE or ELEMENT and the supplied material that caused it, one entry per occurrence, with the token left in args where it belongs",
-        "the twelve artifact finding ids are a frozen, registered vocabulary pinned against the catalog",
+        "evidence carries the offending LINE or ELEMENT and the supplied material that caused it, one entry per occurrence, with the token left in args where it belongs -- including document-level policy errors and pre-parse SVG rejections, which take the input variant with an empty or declaration value rather than repeating the token",
+        "the twelve artifact finding ids are pinned EXACTLY and in both directions -- catalog against the exported constant, constant against the registry file, and disjoint from audit.finding.id -- with behavioural reachability asserted separately",
         "the boundaries, asserted structurally: one separate array with no `findings` key to merge by habit, provenance on every finding, no queryName on any evidence entry, and severity/confidence/category/effort all drawn from the 0.7.0 vocabularies so the existing renderer can present them"
       ]
     },
