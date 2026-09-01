@@ -31,7 +31,7 @@
  * | Detector | Mechanism | Defeatable by page code? |
  * | --- | --- | --- |
  * | network | CDP `Network.requestWillBeSent` | no — outside the page |
- * | storage | before/after snapshot of Web Storage, cookies, and the CONTENTS of IndexedDB and Cache Storage, plus CDP `DOMStorage` events | no — it compares state, not calls |
+ * | storage | before/after snapshot of Web Storage, cookies, and the byte-level CONTENTS of IndexedDB and Cache Storage, plus CDP `DOMStorage` events | no — it compares state, not calls |
  * | insertion | every node the instrumented `DOMParser` produces is tagged, and a `MutationObserver` on the application document reports any tagged node that arrives | no — it observes the document, not the call |
  *
  * **The first version of this file wrapped a list of methods, and that was
@@ -56,8 +56,15 @@
  * after THAT found the same shortcut one level deeper: the new snapshot read
  * database names, versions and cached request URLs — catalogs — so a record
  * put into an object store that already existed, or a response body replaced
- * for a URL already cached, changed nothing it looked at. A detector is only
- * as behavioural as the surfaces it enumerates AND as deep as it reads them.
+ * for a URL already cached, changed nothing it looked at. And the round after
+ * THAT found the representation itself lossy: `JSON.stringify` turns a Blob
+ * into `{}`, and `.text()` decodes two different invalid bytes to the same
+ * character, so replacing either value looked like replacing nothing.
+ *
+ * A detector is only as behavioural as the surfaces it enumerates, as deep as
+ * it reads them, and as faithful as the representation it compares. Four
+ * rounds found the same mistake at four levels; the encoder below is why the
+ * fourth one is written down rather than left to be discovered again.
  *
  * The acceptance criterion is behavioural — *no request, no storage write, no
  * inserted node* — so the detectors are now behavioural too. Enumerating
@@ -372,8 +379,7 @@ const detectorSource = enabled => `
                   tx.onabort = () => resolve('<unreadable>');
                 } catch (e) { resolve('<unreadable>'); }
               });
-              try { out['indexedDB:' + info.name + '/' + store] = JSON.stringify(rows); }
-              catch (e) { out['indexedDB:' + info.name + '/' + store] = '<unserializable>'; }
+              out['indexedDB:' + info.name + '/' + store] = await encode(rows);
             }
           } catch (e) {
             out['indexedDB:' + info.name + '/<unreadable>'] = String(e && e.name);
@@ -393,7 +399,13 @@ const detectorSource = enabled => `
             let body = '<none>';
             try {
               const response = await cache.match(request);
-              if (response) body = String((await response.text()) || '');
+              if (response) {
+                // Bytes, plus the status and headers that are also persisted
+                // state. .text() decoded them and lost the distinction.
+                body = response.status + ' ' + response.statusText + ' ' +
+                  [...response.headers].map(([k, v]) => k + '=' + v).sort().join('&') +
+                  ' ' + hex(await response.arrayBuffer());
+              }
             } catch (e) { body = '<unreadable:' + (e && e.name) + '>'; }
             out['cache:' + key + '|' + request.url] = body;
           }
@@ -403,11 +415,75 @@ const detectorSource = enabled => `
     return out;
   };
 
+  /* ── A byte-preserving encoder for persisted values ─────────────────────
+   *
+   * JSON.stringify was the wrong tool twice over. IndexedDB stores structured
+   * clones, and a Blob serialises to {}, so replacing one Blob with another
+   * produced identical snapshots. Cache Storage persists BYTES, and reading a
+   * body with .text() decodes them, so 0x80 and 0x81 both became U+FFFD and a
+   * changed body looked unchanged.
+   *
+   * Everything is therefore reduced to a string that distinguishes byte from
+   * byte and type from type. Hex is verbose, and that is the correct trade for
+   * an instrument whose failure mode is silence. */
+  const hex = buffer => Array.from(new Uint8Array(buffer),
+    b => b.toString(16).padStart(2, '0')).join('');
+
+  const encode = async (value, depth) => {
+    const d = depth || 0;
+    if (d > 8) return '<deep>';
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
+    const type = typeof value;
+    if (type === 'string') return 's:' + value;
+    if (type === 'number' || type === 'boolean') return type[0] + ':' + String(value);
+    if (type === 'bigint') return 'n:' + value.toString();
+    try {
+      if (value instanceof Date) return 'date:' + value.getTime();
+      if (value instanceof RegExp) return 're:' + String(value);
+      if (value instanceof Blob) {
+        return 'blob:' + value.type + ':' + value.size + ':' + hex(await value.arrayBuffer());
+      }
+      if (ArrayBuffer.isView(value)) {
+        return 'view:' + value.constructor.name + ':' +
+          hex(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+      }
+      if (value instanceof ArrayBuffer) return 'buf:' + hex(value);
+      if (value instanceof Map) {
+        const parts = [];
+        for (const [k, v] of value) parts.push(await encode(k, d + 1) + '=>' + await encode(v, d + 1));
+        return 'map:[' + parts.sort().join(',') + ']';
+      }
+      if (value instanceof Set) {
+        const parts = [];
+        for (const v of value) parts.push(await encode(v, d + 1));
+        return 'set:[' + parts.sort().join(',') + ']';
+      }
+      if (Array.isArray(value)) {
+        const parts = [];
+        for (const v of value) parts.push(await encode(v, d + 1));
+        return '[' + parts.join(',') + ']';
+      }
+      if (type === 'object') {
+        const parts = [];
+        for (const k of Object.keys(value).sort()) parts.push(k + ':' + await encode(value[k], d + 1));
+        return '{' + parts.join(',') + '}';
+      }
+    } catch (e) { return '<unencodable:' + (e && e.name) + '>'; }
+    return type + ':' + String(value);
+  };
+
   const openSeedDb = () => new Promise((resolve, reject) => {
     const request = indexedDB.open('__seed_db__', 1);
     request.onupgradeneeded = () => {
+      // Two stores on purpose. With the Blob beside the string record, a
+      // change to the string alone made the whole store's serialisation
+      // differ, so a Blob assertion passed without the Blob being seen.
       if (!request.result.objectStoreNames.contains('items')) {
         request.result.createObjectStore('items');
+      }
+      if (!request.result.objectStoreNames.contains('blobs')) {
+        request.result.createObjectStore('blobs');
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -415,10 +491,10 @@ const detectorSource = enabled => `
     request.onblocked = () => reject(new Error('blocked'));
   });
 
-  const putRecord = (db, value) => new Promise(resolve => {
+  const putRecord = (db, value, key, store) => new Promise(resolve => {
     try {
-      const tx = db.transaction('items', 'readwrite');
-      tx.objectStore('items').put(value, 'k');
+      const tx = db.transaction(store || 'items', 'readwrite');
+      tx.objectStore(store || 'items').put(value, key || 'k');
       tx.oncomplete = resolve;
       tx.onerror = resolve;
       tx.onabort = resolve;
@@ -453,13 +529,20 @@ const detectorSource = enabled => `
       // was already there is the case a catalog-shaped snapshot cannot see.
       try {
         const db = await openSeedDb();
-        await putRecord(db, 'old' + seedNonce);
+        await putRecord(db, 'old' + seedNonce, 'k');
+        // A Blob-valued record. IndexedDB stores structured clones, and a Blob
+        // is one of the shapes a pasted artifact would most naturally take.
+        await putRecord(db, new Blob(['before' + seedNonce]), 'blob', 'blobs');
         db.close();
       } catch (e) {}
       try {
         const cache = await caches.open('__seed_cache__');
         await cache.put(new Request(location.pathname + '?seed=1'),
           new Response('old' + seedNonce));
+        // A response whose body is not valid UTF-8. Decoding it to text throws
+        // away the distinction between one invalid byte and another.
+        await cache.put(new Request(location.pathname + '?bytes=1'),
+          new Response(new Uint8Array([0x80])));
       } catch (e) {}
     }
     // Arming begins a fresh analysis phase, so anything a PREVIOUS phase
@@ -488,7 +571,7 @@ const detectorSource = enabled => `
    * route — including the two that bypassed the previous wrappers — so a
    * detector that only covers the obvious path cannot pass.
    *
-   * The request is SAME-ORIGIN on purpose. \`connect-src 'self'\` permits it,
+   * The request is SAME-ORIGIN on purpose. \connect-src 'self'\` permits it,
    * and the point is that the detector sees a request that really reached the
    * network layer, not that the CSP blocked a cross-origin one.
    * ───────────────────────────────────────────────────────────────────── */
@@ -528,7 +611,7 @@ const detectorSource = enabled => `
     // URL, so a snapshot of container metadata alone reports nothing.
     try {
       const db = await openSeedDb();
-      await putRecord(db, 'new' + nonce);
+      await putRecord(db, 'new' + nonce, 'k');
       db.close();
       attempted.push('storage-idb-record');
     } catch (e) { attempted.push('storage-idb-record-threw:' + e.name); }
@@ -538,6 +621,23 @@ const detectorSource = enabled => `
         new Response('new' + nonce));
       attempted.push('storage-cache-body');
     } catch (e) { attempted.push('storage-cache-body-threw:' + e.name); }
+
+    /* The two representation cases. Neither changes anything a JSON- or
+     * text-coercing snapshot can see: a Blob serialises as {} under
+     * JSON.stringify, and 0x80 and 0x81 both decode to the same replacement
+     * character. Both are still the persistence the spec forbids. */
+    try {
+      const db = await openSeedDb();
+      await putRecord(db, new Blob(['after' + nonce]), 'blob', 'blobs');
+      db.close();
+      attempted.push('storage-idb-blob');
+    } catch (e) { attempted.push('storage-idb-blob-threw:' + e.name); }
+    try {
+      const cache = await caches.open('__seed_cache__');
+      await cache.put(new Request(location.pathname + '?bytes=1'),
+        new Response(new Uint8Array([0x81])));
+      attempted.push('storage-cache-bytes');
+    } catch (e) { attempted.push('storage-cache-bytes-threw:' + e.name); }
 
     // Insertion, by both routes.
     const parse = t => new DOMParser().parseFromString(t, 'image/svg+xml');
@@ -659,6 +759,7 @@ const caught = await probe({ enabled: ALL, unsafe: true });
 const EVERY_ROUTE = ['network', 'storage-setItem', 'storage-property',
   'storage-remove', 'storage-cookie', 'storage-indexeddb', 'storage-cache',
   'storage-idb-record', 'storage-cache-body',
+  'storage-idb-blob', 'storage-cache-bytes',
   'insertion-appendChild', 'insertion-range'];
 eq('the fixture committed every violation by every route it claims',
   caught.attempted, EVERY_ROUTE);
@@ -688,6 +789,14 @@ eq('a record written into an EXISTING object store is seen',
   caught.storage.some(k => k.startsWith('indexedDB:__seed_db__/')), true);
 eq('and a replaced response body for an EXISTING cached URL is seen',
   caught.storage.some(k => k.startsWith('cache:__seed_cache__|')), true);
+
+/* Representation, not just location. A snapshot that coerces to JSON or to
+ * text collapses values the storage APIs really do persist: a Blob becomes
+ * {}, and two different invalid UTF-8 bytes become the same character. */
+eq('a replaced Blob-valued record is seen',
+  caught.storage.includes('indexedDB:__seed_db__/blobs'), true);
+eq('and a cached body whose BYTES changed but whose text did not is seen',
+  caught.storage.some(k => k.endsWith('?bytes=1')), true);
 eq('the external CDP corroborator saw the Web Storage writes',
   caught.storageEvents.slice().sort(), ['__direct_probe__', '__unsafe_probe__']);
 
