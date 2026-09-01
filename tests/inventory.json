@@ -82,7 +82,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 92,
+      "assertions": 93,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -92,7 +92,7 @@
         "the exported report declares its own policy",
         "the markup-sink allowlist is empty and src/ is the only source tree left to scan"
       ],
-      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. 58 before Task 4.0; +4 core/shared, +1 core/caa, +1 core/mx, +1 core/bimi, +4 core/transport, +1 local MTA-STS policy module, +1 BIMI SVG module."
+      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. 58 before Task 4.0; +4 core/shared, +1 core/caa, +1 core/mx, +1 core/bimi, +4 core/transport, +1 local MTA-STS policy module, +1 BIMI SVG module, +1 artifact composer."
     },
     {
       "path": "src/core/dns/doh.test.js",
@@ -506,6 +506,19 @@
         "the spec behavioural fixtures, including authentication planned before enforcement",
         "each cross-protocol rule proven NOT to fire against its negative case",
         "the finding layer is locale-independent: imports only its audit sibling and sorts on tokens"
+      ]
+    },
+    {
+      "path": "src/audit/artifacts.test.js",
+      "assertions": 47,
+      "note": "Co-located per spec §9. local-artifact-validation 1.6. The only place the two artifact validators meet, and the only place artifact findings are constructed.",
+      "areas": [
+        "the three artifact vocabularies, and the assertion that artifact evidence kinds share NO member with the DNS evidence algebra -- an overlap would let pasted text render as a queried DNS name",
+        "deliveryCandidates over the shapes the audit really holds: explicit MX presentation strings, RFC 7505 null MX, the RFC 5321 5.1 implicit MX when no MX exists but an address record does, and fail-closed unknown when one record will not parse",
+        "the finding-scope matrix applied: an invalid policy yields only the parser diagnostic, and RFC 8461 8.3's withdrawal document raises its mode finding without max-age-short or an MX comparison",
+        "line-located diagnostics versus document-level errors that take the `input` evidence variant rather than inventing a line number",
+        "a security rejection outranks profile diagnostics for an SVG, and an entity-declaring document never reaches the parser through the composer",
+        "the boundaries, asserted structurally: one separate array with no `findings` key to merge by habit, provenance on every finding, no queryName on any evidence entry, and severity/confidence/category/effort all drawn from the 0.7.0 vocabularies so the existing renderer can present them"
       ]
     },
     {

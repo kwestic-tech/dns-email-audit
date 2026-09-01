@@ -43,19 +43,17 @@ export const MTA_STS_POLICY_LINE_ENDINGS = Object.freeze([
   'crlf', 'lf', 'mixed', 'none',
 ]);
 /**
- * `null-mx` is deliberately ABSENT until `src/audit/artifacts.js` exists.
+ * `null-mx` joined this vocabulary with its producer, not before it.
  *
- * A registered state no fixture can reach is a stop under the agent contract,
+ * It was deliberately absent while `src/audit/artifacts.js` did not exist: a
+ * registered state no fixture can reach is a stop under the agent contract,
  * and a hand-built `{ nullMx: true }` in a unit test is the invented response
- * shape that rule names. Nothing in the tree produces a `nullMx` fact today —
- * null MX lives as `isNullMx()` and the `@null-mx` provider token — so the
- * member is added in the same reviewed step as the composer that produces it.
- * Until then a null-MX domain reaches this function as an empty host list and
- * degrades to `unknown`, which is correct: no delivery candidate is
- * established, so no mismatch may be claimed.
+ * shape that rule names. `deliveryCandidates()` now derives the fact from
+ * `isNullMx()` over the published MX records, so the state has a real producer
+ * and the member is added in the same commit as it.
  */
 export const MTA_STS_MX_COMPARE_STATES = Object.freeze([
-  'compared', 'unknown',
+  'compared', 'unknown', 'null-mx',
 ]);
 
 function lineEndingKind(text) {
@@ -327,6 +325,7 @@ export function mxComparisonApplies(policy) {
 export function compareMtaStsMx(patterns, mxFact) {
   if (!mxFact || typeof mxFact !== 'object') return noComparison('unknown');
   if (mxFact.unknown) return noComparison('unknown');
+  if (mxFact.nullMx) return noComparison('null-mx');
   if (!Array.isArray(mxFact.hosts) || !mxFact.hosts.length) {
     return noComparison('unknown');
   }

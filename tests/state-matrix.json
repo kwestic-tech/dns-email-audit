@@ -2963,6 +2963,42 @@
       ]
     },
     {
+      "algebra": "audit.artifact.kind",
+      "member": "mta-sts-policy",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.kind",
+      "member": "bimi-svg",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.source",
+      "member": "user-supplied",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.evidence.kind",
+      "member": "line",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.evidence.kind",
+      "member": "element",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.evidence.kind",
+      "member": "input",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
       "algebra": "bimi.svg.rejections",
       "member": "doctype-present",
       "suites": ["src/core/bimi/svg.test.js"],
@@ -3317,6 +3353,12 @@
       "algebra": "transport.mtaStsPolicy.mxComparisonState",
       "member": "unknown",
       "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.mxComparisonState",
+      "member": "null-mx",
+      "suites": ["src/core/transport/mta-sts.test.js", "src/audit/artifacts.test.js"],
       "fixtures": []
     },
     {

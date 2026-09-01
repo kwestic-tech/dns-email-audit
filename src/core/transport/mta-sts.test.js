@@ -158,9 +158,12 @@ eq('the line-ending vocabulary is frozen',
   [true, ['crlf', 'lf', 'mixed', 'none']]);
 eq('the MX comparison vocabulary is frozen',
   [Object.isFrozen(MTA_STS_MX_COMPARE_STATES), [...MTA_STS_MX_COMPARE_STATES]],
-  [true, ['compared', 'unknown']]);
-eq('and null-mx is absent until a producer for it exists',
-  MTA_STS_MX_COMPARE_STATES.includes('null-mx'), false);
+  [true, ['compared', 'unknown', 'null-mx']]);
+// `null-mx` was held out of this vocabulary until `deliveryCandidates()` in
+// src/audit/artifacts.js existed to produce it, and joined in the same commit
+// as that producer — never as a member no fixture could reach.
+eq('null-mx is a member now that a producer derives it',
+  MTA_STS_MX_COMPARE_STATES.includes('null-mx'), true);
 
 const POLICY = [
   'version: STSv1',
@@ -305,9 +308,9 @@ eq('an unknown MX result suppresses both mismatch classes',
 eq('an empty host list is unknown: no delivery candidate is established',
   compareMtaStsMx(['mail.example.test'], { hosts: [] }),
   { state: 'unknown', unmatchedHosts: [], unusedPatterns: [] });
-eq('a nullMx flag has no producer yet and earns no special state',
-  compareMtaStsMx(['mail.example.test'], { hosts: [], nullMx: true }).state,
-  'unknown');
+eq('a null-MX fact is its own state, not an empty comparison',
+  compareMtaStsMx(['mail.example.test'], { hosts: [], nullMx: true }),
+  { state: 'null-mx', unmatchedHosts: [], unusedPatterns: [] });
 
 /* ── The comparator fails closed on anything that is not an established
  *    list of hostname STRINGS.
