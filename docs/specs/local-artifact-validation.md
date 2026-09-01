@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.5 (Final) |
+| Spec version | 1.6 (Final) |
 | Target release | 0.8.0 |
 | Status | Final; approved for implementation |
 | Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](implemented/findings-and-remediation.md) for the final `Finding` shape |
@@ -402,11 +402,43 @@ Profile diagnostics, which are findings rather than security rejections:
 | `version="1.2"` | Required |
 | Exactly one direct-child `<title>`, present and non-empty | Required |
 | A non-empty `<desc>`, when present | Required |
-| `viewBox` present, square aspect ratio | Operator compatibility diagnostic |
+| `viewBox` present, square, and both extents greater than zero | Operator compatibility diagnostic |
 | No `x` or `y` on the root | Required |
-| Single root element | Required |
 | No raster data URI in a fill or a `<style>` | Required |
-| `zoomAndPan`, `externalResourcesRequired`, `focusable`, `snapshotTime`, `playbackOrder` and `timelineBegin` absent or set to their permitted inert values | Required when present |
+| The six constrained attributes carry their permitted value when present | Required when present |
+
+**The "single root element" row is withdrawn.** XML makes a second root a parse
+error — measured in Chrome — so the condition arrives as `malformed-xml`, a
+rejection. A diagnostic for it would be a state no fixture can reach.
+
+**The six constrained attributes have enumerated values**, quoted from
+[draft-svg-tiny-ps-abrotman-12 §2.3](https://datatracker.ietf.org/doc/html/draft-svg-tiny-ps-abrotman-12#section-2.3),
+which says of each that it "SHOULD NOT be present in an SVG Tiny PS document.
+If it is present, it MUST be set to" the value below:
+
+| Attribute | Permitted value |
+| --- | --- |
+| `zoomAndPan` | `disable` |
+| `externalResourcesRequired` | `false` |
+| `focusable` | `false` |
+| `snapshotTime` | `none` |
+| `playbackOrder` | `all` |
+| `timelineBegin` | `onLoad` |
+
+`unsupported-attribute` means present with a value outside this table. Reporting
+mere presence diagnosed the draft's own conformant example.
+
+**Profile names are matched exactly; the security screen is not.** XML is
+case-sensitive and the SVG Tiny PS schema names `svg`, `baseProfile`, `viewBox`
+and `title` exactly, so folding case would tell an operator that a
+nonconformant document conforms. Security screening deliberately keeps folding
+case, because there the dangerous direction is missing a `<SCRIPT>`. The
+asymmetry is intentional and each half is wrong in the safe direction for its
+own job.
+
+**A `viewBox` needs usable extents.** SVG Tiny 1.2 makes a negative width or
+height an error and zero disables rendering, so comparing width to height alone
+called `0 0 0 0` and `0 0 -64 -64` square. Both are `viewbox-missing`.
 
 Every one of these is reported with the requirement it comes from, because "your
 logo may not display" is useless without "and here is the line to change". The
@@ -690,10 +722,23 @@ amended.
 | --- | --- | --- |
 | The semantic-finding precondition is incomplete | Accepted | 1.4 gated only the two mismatch classes, leaving `max-age-short`, the mode findings and the null-MX conflict ungated. Verified verbatim against §8.3: *"Publish a new policy with 'mode' equal to 'none' and a small 'max_age' (e.g., one day)"* — one day being exactly the `max-age-short` threshold, so the finding would advise breaking the protocol's removal procedure. Replaced the one-off precondition with a four-state matrix, made it executable as `policyFindingScope()` with a registered closed algebra, and had `mxComparisonApplies` delegate to it so the rule has one implementation. |
 
+### Review round after 1.5
+
+Every finding reproduced by execution, and both cited sources read directly.
+
+| Finding | Outcome | Reasoning |
+| --- | --- | --- |
+| Unreachable "single root element" row | Accepted | Withdrawn from the profile table. Measured: a second XML root is a parse error, so the condition is `malformed-xml`. |
+| "Permitted inert values" were enumerable all along | Accepted | I flagged this as an open standards question rather than fetching the draft, and the draft answers it in §2.3 for all six attributes. Verified verbatim from `datatracker.ietf.org`. The validator reported any presence as unsupported, so it diagnosed the draft's own conformant example. |
+| The instrument enumerated APIs instead of observing behaviour | Accepted | Both reported bypasses reproduced: `Range.insertNode` inserted an SVG with the wrapper count at 0, and a named-property write stored a value with the wrapper count at 0. Detection is now behavioural — a `MutationObserver` over tagged parser output, and a storage state comparison — and the unsafe fixture commits each violation by both routes. |
+| Case-insensitive profile matching | Accepted | `baseprofile`, `viewbox`, `VERSION`, `<SVG>` and `<TITLE>` all satisfied requirements they do not meet. Profile checks are exact; the security screen stays case-insensitive by design, and the asymmetry is now written down. |
+| Degenerate `viewBox` passed the square check | Accepted | `0 0 0 0` and `0 0 -64 -64` compared equal. Both extents must now exceed zero. |
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.6 | 2026-09-01 | Amended Final after the SVG review. Withdrew the unreachable "single root element" diagnostic; enumerated the six SVG Tiny PS constrained attributes and their permitted values from draft-svg-tiny-ps-abrotman-12 §2.3, redefining `unsupported-attribute` as a value outside that table; required exact XML name matching for profile conformance while keeping the security screen case-insensitive, and stated why the two differ; and required a `viewBox` to have extents greater than zero before it can be square. |
 | 1.5 | 2026-09-01 | Amended Final after the third follow-up review. Replaced the mismatch-only precondition with a four-state semantic-finding matrix covering every policy finding, keyed on RFC 8461 §8.3's withdrawal procedure; made it executable as the exported `policyFindingScope()` with `transport.mtaStsPolicy.findingScope` registered as a closed algebra in both state files; had `mxComparisonApplies` delegate to that matrix rather than re-derive it; and required composer fixtures that prove suppression rather than absence. |
 | 1.4 | 2026-09-01 | Amended Final after the second follow-up review. Replaced the contradictory comparator paragraph with an explicit current-commit vs composer-commit contract table and moved the cross-check table and surrounding prose to delivery-candidate terminology. Added the policy-side precondition — both MX mismatch classes now require `mxComparisonApplies(policy)`, a new exported predicate requiring a valid policy in `enforce` or `testing` mode — with both false-finding counterexamples pinned by fixtures. |
 | 1.3 | 2026-09-01 | Amended Final after the follow-up review. Replaced the published-MX-records fact source with a four-case delivery-candidate contract covering the RFC 5321 §5.1 implicit MX and RFC 7505 null MX; removed `null-mx` from the comparison vocabulary and both state files until its composer exists; extended the fail-closed rules to an empty host list and to any entry that is not a valid hostname after normalisation; made a case-variant extension retained and duplicate-checked rather than short-circuited; and corrected the localisation baseline from 732 to the gate-measured 837. |
