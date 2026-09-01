@@ -64,6 +64,7 @@ and an unverifiable result is marked rather than hidden.
 | 0.4.0 | DKIM, CAA, MX and DNS-published DANE depth | [dns-protocol-depth](docs/specs/implemented/dns-protocol-depth.md) |
 | 0.5.0 | DNSSEC chain evidence: six states, local DS-to-DNSKEY matching, attributed claims | [dnssec-evidence](docs/specs/implemented/dnssec-evidence.md) |
 | 0.6.0 | ES modules under `src/` bundled to one artifact; a two-member browser API; no behaviour change | [modular-architecture-and-production-build](docs/specs/implemented/modular-architecture-and-production-build.md) |
+| 0.7.0 | Stable finding identity, source-bound evidence and dependency-ordered remediation | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) |
 
 `0.1.0` and the work merged as PRs #1 through #7 predate the spec process and are
 documented in [`CHANGELOG.md`](CHANGELOG.md) only.
