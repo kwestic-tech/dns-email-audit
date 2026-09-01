@@ -75,15 +75,22 @@ const ANIMATION_ELEMENTS = ['animate', 'animatetransform', 'set', 'animatemotion
 const EXTERNAL_REF_ELEMENTS = ['image', 'use'];
 
 /**
- * SVG Tiny PS attributes this profile constrains. The spec says "absent or set
- * to their permitted inert values" without enumerating those values, so the
- * strict reading is implemented: presence alone is the diagnostic. Narrowing it
- * to specific permitted values needs a spec decision, not a guess here.
+ * The six attributes SVG Tiny PS constrains, with the value each MUST carry
+ * when present. Quoted from draft-svg-tiny-ps-abrotman-12 §2.3, which says of
+ * each one that it "SHOULD NOT be present in an SVG Tiny PS document. If it is
+ * present, it MUST be set to" the value below.
+ *
+ * These names are exact. XML is case-sensitive, so `zoomandpan` is not
+ * `zoomAndPan` and carries no profile meaning at all.
  */
-const CONSTRAINED_ATTRS = [
-  'zoomandpan', 'externalresourcesrequired', 'focusable',
-  'snapshottime', 'playbackorder', 'timelinebegin',
-];
+const CONSTRAINED_ATTRS = Object.freeze({
+  zoomAndPan: 'disable',
+  externalResourcesRequired: 'false',
+  focusable: 'false',
+  snapshotTime: 'none',
+  playbackOrder: 'all',
+  timelineBegin: 'onLoad',
+});
 
 const DOCTYPE = /<!DOCTYPE/i;
 const ENTITY_DECL = /<!ENTITY/i;
@@ -139,18 +146,41 @@ function lower(value) {
   return String(value == null ? '' : value).toLowerCase();
 }
 
+/** The element's name AS WRITTEN. XML is case-sensitive; `<SVG>` is not `<svg>`. */
+function nameOf(node) {
+  return String((node && (node.localName || node.nodeName)) || '');
+}
+
+/**
+ * An attribute value by EXACT name.
+ *
+ * Profile conformance is a question about a schema, and the SVG Tiny PS RNC
+ * names `baseProfile` and `viewBox` exactly. Folding case here made
+ * `baseprofile="tiny-ps"` satisfy a requirement it does not meet, which is the
+ * one failure mode a conformance check must never have: telling an operator
+ * their nonconformant document conforms.
+ */
 function attrValue(el, name) {
   var attrs = attributesOf(el);
   for (var i = 0; i < attrs.length; i++) {
-    if (lower(attrs[i].name) === name) return String(attrs[i].value == null ? '' : attrs[i].value);
+    if (String(attrs[i].name) === name) return String(attrs[i].value == null ? '' : attrs[i].value);
   }
   return null;
 }
 
-/** Security rules over the whole tree. Reads names and values, produces tokens. */
+/**
+ * Security rules over the whole tree. Reads names and values, produces tokens.
+ *
+ * Element and attribute matching here is deliberately CASE-INSENSITIVE, and
+ * that is the opposite of the profile rules below. The asymmetry is intended:
+ * a conformance check must not call a nonconformant document conformant, while
+ * a security screen must not miss `<SCRIPT>` on the grounds that XML says it is
+ * a different element. Being wrong in the safe direction is different in each
+ * half, so the two halves are written differently.
+ */
 function screen(root, result) {
   walk(root, function (el) {
-    var name = lower(el.localName || el.nodeName);
+    var name = lower(nameOf(el));
 
     if (name === 'script') add(result.rejections, 'script-element');
     if (name === 'foreignobject') add(result.rejections, 'foreign-object');
@@ -194,7 +224,7 @@ function screen(root, result) {
 /** SVG P/S diagnostics on the root and its direct children. */
 function profile(root, result) {
   if (root.namespaceURI !== SVG_NS) add(result.diagnostics, 'namespace-not-svg');
-  if (attrValue(root, 'baseprofile') !== 'tiny-ps') {
+  if (attrValue(root, 'baseProfile') !== 'tiny-ps') {
     add(result.diagnostics, 'base-profile-not-tiny-ps');
   }
   if (attrValue(root, 'version') !== '1.2') add(result.diagnostics, 'version-not-1-2');
@@ -202,18 +232,26 @@ function profile(root, result) {
     add(result.diagnostics, 'root-has-position');
   }
 
-  for (var i = 0; i < CONSTRAINED_ATTRS.length; i++) {
-    if (attrValue(root, CONSTRAINED_ATTRS[i]) !== null) {
+  // Present is a SHOULD NOT; present with the wrong value is a MUST violation.
+  // Only the second is diagnosable without second-guessing the author.
+  var names = Object.keys(CONSTRAINED_ATTRS);
+  for (var i = 0; i < names.length; i++) {
+    var present = attrValue(root, names[i]);
+    if (present !== null && present !== CONSTRAINED_ATTRS[names[i]]) {
       add(result.diagnostics, 'unsupported-attribute');
     }
   }
 
-  var viewBox = attrValue(root, 'viewbox');
+  var viewBox = attrValue(root, 'viewBox');
   if (viewBox === null) {
     add(result.diagnostics, 'viewbox-missing');
   } else {
     var parts = viewBox.trim().split(/[\s,]+/).map(Number);
-    if (parts.length !== 4 || parts.some(function (n) { return !isFinite(n); })) {
+    var usable = parts.length === 4 && parts.every(function (n) { return isFinite(n); });
+    // SVG Tiny 1.2: a negative width or height is an error, and zero disables
+    // rendering. Neither is a square logo, and comparing width to height would
+    // call `0 0 0 0` and `0 0 -64 -64` square.
+    if (!usable || !(parts[2] > 0) || !(parts[3] > 0)) {
       add(result.diagnostics, 'viewbox-missing');
     } else if (parts[2] !== parts[3]) {
       add(result.diagnostics, 'viewbox-not-square');
@@ -223,7 +261,7 @@ function profile(root, result) {
   // `<title>` must be a DIRECT child, exactly one, non-empty. A title nested
   // inside a group is not the document's title.
   var kids = elementChildren(root);
-  var titles = kids.filter(function (el) { return lower(el.localName || el.nodeName) === 'title'; });
+  var titles = kids.filter(function (el) { return nameOf(el) === 'title'; });
   if (titles.length > 1) add(result.diagnostics, 'title-not-unique');
   if (!titles.length || !textOf(titles[0]).trim()) {
     add(result.diagnostics, 'title-missing');
@@ -231,7 +269,7 @@ function profile(root, result) {
     result.title = textOf(titles[0]).trim().slice(0, 200);
   }
 
-  var descs = kids.filter(function (el) { return lower(el.localName || el.nodeName) === 'desc'; });
+  var descs = kids.filter(function (el) { return nameOf(el) === 'desc'; });
   if (descs.length && !textOf(descs[0]).trim()) add(result.diagnostics, 'desc-empty');
 }
 
@@ -285,14 +323,16 @@ export function validateBimiSvg(input, parseSvg) {
   // namespace, and it may be the root or nested — measured both ways.
   var sawParserError = false;
   walk(root, function (el) {
-    if (lower(el.localName || el.nodeName) === 'parsererror') sawParserError = true;
+    if (lower(nameOf(el)) === 'parsererror') sawParserError = true;
   });
   if (sawParserError) {
     add(result.rejections, 'malformed-xml');
     return result;
   }
 
-  result.root = lower(root.localName || root.nodeName);
+  // Exact, not folded. `<SVG>` is a different XML element and is not the SVG
+  // element, so it is a bad root rather than a conformant document.
+  result.root = nameOf(root);
   if (result.root !== 'svg') {
     // HTML in a `.svg` file parses cleanly, so nothing but this catches it.
     add(result.rejections, 'bad-root');

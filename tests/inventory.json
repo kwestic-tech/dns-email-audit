@@ -211,14 +211,17 @@
     },
     {
       "path": "src/core/bimi/svg.test.js",
-      "assertions": 85,
-      "note": "Co-located per spec §9. local-artifact-validation 1.5. Pure screening over an INJECTED parser: the fixture tree exercises the rules, and tests/build/local-input-security.test.mjs drives the real DOMParser. Neither half is evidence for the other.",
+      "assertions": 113,
+      "note": "Co-located per spec §9. local-artifact-validation 1.6. Pure screening over an INJECTED parser: the fixture tree exercises the rules, and tests/build/local-input-security.test.mjs drives the real DOMParser. Neither half is evidence for the other.",
       "areas": [
         "the two frozen vocabularies, and why multiple-roots is not among the diagnostics: XML makes a second root a parse error",
         "DOCTYPE and ENTITY refused by a source-text scan with the parser INVOCATION COUNTED, not inferred -- Chrome expands internal entities, so reaching the parser is the failure",
         "root identity: HTML in a .svg file parses cleanly and is caught only by name, while a wrong namespace on an svg root is a diagnostic rather than a refusal",
         "every security refusal: script, event handlers, foreignObject, image/use, external href in both the plain and xlink spellings, anchors, animation elements and external styles",
         "every profile diagnostic, including a title that must be a direct child and a viewBox that must be square",
+        "XML case sensitivity: baseprofile/viewbox/VERSION/<SVG>/<TITLE> do not satisfy the exact names a conformance check requires, while the SECURITY screen stays deliberately case-insensitive so <SCRIPT> is still caught",
+        "the six SVG Tiny PS constrained attributes against the value each MUST carry when present, per draft-svg-tiny-ps-abrotman-12 2.3, including the draft's own conformant example",
+        "a viewBox with zero or negative extent is unusable rather than square",
         "diagnostics never make a document invalid, and the result carries tokens and primitives only -- never a node"
       ]
     },
@@ -706,12 +709,14 @@
     },
     {
       "command": "node tests/build/local-input-security.test.mjs  (npm run test:local-input-security)",
-      "why": "The instrument 0.8.0's hostile-SVG analysis depends on, built before the validator it will measure. Drives the production bundle in a real headless browser over an http origin -- file:// blocks the same-origin fetch the network detector must be shown catching -- and installs three detectors: CDP Network.requestWillBeSent, wrapped storage writers, and wrapped DOM insertion points comparing ownerDocument BEFORE delegating, since the DOM adopts a foreign node on insertion. Kept out of npm test for the same reason as file-url, so a missing browser reads as one clearly named failure, but it REFUSES to skip. CI runs it as the required `Local input security (real browser)` job.",
+      "why": "The instrument 0.8.0's hostile-SVG analysis depends on, and since local-artifact-validation 1.6 the real-DOMParser half of the SVG validator's proof. Drives the production bundle in a real headless browser over an http origin -- file:// blocks the same-origin fetch the network detector must be shown catching -- and installs three detectors: CDP Network.requestWillBeSent, wrapped storage writers, and wrapped DOM insertion points comparing ownerDocument BEFORE delegating, since the DOM adopts a foreign node on insertion. Kept out of npm test for the same reason as file-url, so a missing browser reads as one clearly named failure, but it REFUSES to skip. CI runs it as the required `Local input security (real browser)` job.",
       "areas": [
         "a clean load attributes no request, storage write or foreign-node insertion to the analysis phase",
         "boot writes nothing beyond the one localStorage key PRIVACY.md documents",
         "a deliberately unsafe fixture commits one network request, one storage write and one foreign-document insertion, and all three are caught",
-        "the negative control is mechanical rather than a manual source edit: each detector removed in turn stops seeing its own violation while the other two still report, and all three report again once restored"
+        "the negative control is mechanical rather than a manual source edit: each detector removed in turn stops seeing its own violation while the other two still report, and all three report again once restored",
+        "detection is BEHAVIOURAL, not API enumeration: a MutationObserver over tagged parser output catches Range.insertNode and clones, and a storage state comparison catches a named-property write -- both of which walked past the first version's method wrappers",
+        "the SVG validator driven by the real DOMParser: thirteen hostile fixtures, wrong-case names XML does not fold, the Tiny PS permitted values, and the proof that analysing all of them caused no request, no storage write and no insertion"
       ]
     },
     {

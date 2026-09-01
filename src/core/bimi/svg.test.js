@@ -278,13 +278,83 @@ eq('an SVG data URI is not a raster one',
   check(conformant({ children: [el('title', {}, [text('t')]),
     el('rect', { fill: 'data:image/svg+xml,%3Csvg/%3E' })] })).diagnostics, []);
 
-// The spec constrains six attributes to "permitted inert values" without
-// enumerating them, so presence alone is the diagnostic until it decides.
-['zoomAndPan', 'externalResourcesRequired', 'focusable',
-  'snapshotTime', 'playbackOrder', 'timelineBegin'].forEach(name => {
-  eq(`${name} present is an unsupported-attribute diagnostic`,
-    diag({ [name]: 'x' }, null), ['unsupported-attribute']);
+/* The six constrained attributes and the value each MUST carry when present,
+ * quoted from draft-svg-tiny-ps-abrotman-12 §2.3: each "SHOULD NOT be present
+ * ... If it is present, it MUST be set to" the value below. An earlier version
+ * of this module reported ANY presence as unsupported, which diagnosed the
+ * draft's own conformant example. */
+const INERT = {
+  zoomAndPan: 'disable',
+  externalResourcesRequired: 'false',
+  focusable: 'false',
+  snapshotTime: 'none',
+  playbackOrder: 'all',
+  timelineBegin: 'onLoad',
+};
+
+Object.entries(INERT).forEach(([name, permitted]) => {
+  eq(`${name}="${permitted}" is permitted and raises nothing`,
+    diag({ [name]: permitted }, null), []);
+  eq(`${name} with any other value is unsupported`,
+    diag({ [name]: 'nonsense' }, null), ['unsupported-attribute']);
+  // XML is case-sensitive, so the folded spelling is not this attribute at all
+  // and carries no profile meaning to violate. `focusable` is already
+  // lowercase, so it has no folded variant to be a different attribute from.
+  if (name !== name.toLowerCase()) {
+    eq(`${name.toLowerCase()} is a different attribute and is not constrained`,
+      diag({ [name.toLowerCase()]: 'nonsense' }, null), []);
+  }
 });
+
+eq('the draft\'s own conformant example is not diagnosed',
+  diag({ zoomAndPan: 'disable', externalResourcesRequired: 'false' }, null), []);
+
+/* ── XML is case-sensitive, and a conformance check that folds case tells an
+ *    operator their nonconformant document conforms ──────────────────────── */
+section('5c. Profile names are matched exactly');
+
+eq('baseprofile is not baseProfile',
+  diag({ baseProfile: undefined, baseprofile: 'tiny-ps' }, null),
+  ['base-profile-not-tiny-ps']);
+eq('viewbox is not viewBox',
+  diag({ viewBox: undefined, viewbox: '0 0 64 64' }, null), ['viewbox-missing']);
+eq('VERSION is not version',
+  diag({ version: undefined, VERSION: '1.2' }, null), ['version-not-1-2']);
+eq('a wrong-case root is a bad root, not an SVG document',
+  validateBimiSvg(OK_TEXT, parserFor(el('SVG', {
+    baseProfile: 'tiny-ps', version: '1.2', viewBox: '0 0 64 64',
+  }, [el('title', {}, [text('x')])]))),
+  { valid: false, parsed: true, root: 'SVG', title: '',
+    rejections: ['bad-root'], diagnostics: [] });
+eq('a wrong-case TITLE does not satisfy the title requirement',
+  diag({}, [el('TITLE', {}, [text('x')])]), ['title-missing']);
+eq('nor does a wrong-case DESC trip the desc rule',
+  diag({}, [el('title', {}, [text('t')]), el('DESC', {}, [text('  ')])]), []);
+
+// The deliberate asymmetry: the SECURITY screen stays case-insensitive,
+// because missing `<SCRIPT>` is the dangerous direction there.
+eq('but security screening still catches a wrong-case SCRIPT',
+  check(conformant({ children: [el('title', {}, [text('t')]), el('SCRIPT', {}, [text('x')])] })).rejections,
+  ['script-element']);
+eq('and a wrong-case ONLOAD handler',
+  check(conformant({ children: [el('title', {}, [text('t')]), el('rect', { ONLOAD: 'x' })] })).rejections,
+  ['event-handler']);
+
+/* ── A square that cannot render is not a square ─────────────────────────── */
+section('5d. viewBox dimensions must be usable');
+
+eq('a zero-area viewBox is not square, it is unusable',
+  diag({ viewBox: '0 0 0 0' }, null), ['viewbox-missing']);
+eq('a negative square viewBox is unusable too',
+  diag({ viewBox: '0 0 -64 -64' }, null), ['viewbox-missing']);
+eq('zero width alone is unusable', diag({ viewBox: '0 0 0 64' }, null), ['viewbox-missing']);
+eq('zero height alone is unusable', diag({ viewBox: '0 0 64 0' }, null), ['viewbox-missing']);
+eq('negative width alone is unusable', diag({ viewBox: '0 0 -64 64' }, null), ['viewbox-missing']);
+eq('a positive square control still passes', diag({ viewBox: '0 0 64 64' }, null), []);
+eq('and a positive non-square is still reported as non-square',
+  diag({ viewBox: '0 0 64 32' }, null), ['viewbox-not-square']);
+eq('a negative origin with positive extent is fine',
+  diag({ viewBox: '-32 -32 64 64' }, null), []);
 
 section('5b. Diagnostics never make a document invalid');
 
