@@ -157,7 +157,9 @@ eq('the line-ending vocabulary is frozen',
   [true, ['crlf', 'lf', 'mixed', 'none']]);
 eq('the MX comparison vocabulary is frozen',
   [Object.isFrozen(MTA_STS_MX_COMPARE_STATES), [...MTA_STS_MX_COMPARE_STATES]],
-  [true, ['compared', 'unknown', 'null-mx']]);
+  [true, ['compared', 'unknown']]);
+eq('and null-mx is absent until a producer for it exists',
+  MTA_STS_MX_COMPARE_STATES.includes('null-mx'), false);
 
 const POLICY = [
   'version: STSv1',
@@ -250,8 +252,11 @@ eq('a wrong-case registered field is a warning, not an error',
     ['missing-version', 'missing-mode', 'missing-max-age']]);
 eq('and it still carries the line it was seen on',
   wrongCase.diagnostics.map(d => d.line), [1, 2, 3]);
-eq('wrong-case registered fields are not presented as extensions',
-  wrongCase.unknownKeys, []);
+// They are retained, because that is what they are: `sts-policy-ext-name`
+// admits them and §3.2 ignores unknown fields. The warning is the explanation,
+// not a reason to hide the field from the operator reading the panel.
+eq('wrong-case registered fields are still retained as the extensions they are',
+  wrongCase.unknownKeys, ['Version', 'Mode', 'Max_age']);
 
 // sts-policy-ext-name = (ALPHA / DIGIT) *31(...), so `Mode` IS a legal
 // extension name and §3.2 says unknown fields SHALL be ignored. Making the
@@ -262,6 +267,20 @@ const caseExtension = validateMtaStsPolicy(
 eq('a conformant policy carrying a case-variant extension stays valid',
   [caseExtension.valid, caseExtension.errors, caseExtension.warnings],
   [true, [], ['wrong-case-field']]);
+eq('and it is retained for display like any other extension',
+  caseExtension.unknownKeys, ['Mode']);
+
+const twoCaseExtensions = validateMtaStsPolicy(
+  'version: STSv1\nmode: none\nmax_age: 1\nMode: first\nMode: second');
+eq('a repeated case-variant extension takes the ordinary duplicate rule',
+  [twoCaseExtensions.duplicateKeys, twoCaseExtensions.unknownKeys],
+  [['Mode'], ['Mode']]);
+eq('and reports both the wrong case and the duplication',
+  twoCaseExtensions.warnings,
+  ['wrong-case-field', 'wrong-case-field', 'duplicate-field']);
+eq('a case-variant name is a distinct field from the registered one',
+  validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 1\nMode: x').mode,
+  'none');
 eq('policy extension punctuation follows the policy ABNF',
   validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 1\nfoo: a=b;c').valid,
   true);
@@ -282,9 +301,12 @@ eq('the wildcard does not match its own apex',
 eq('an unknown MX result suppresses both mismatch classes',
   compareMtaStsMx(['mail.example.test'], { hosts: [], unknown: true }),
   { state: 'unknown', unmatchedHosts: [], unusedPatterns: [] });
-eq('null MX is a distinct state and not a stale-policy claim',
-  compareMtaStsMx(['mail.example.test'], { hosts: [], nullMx: true }),
-  { state: 'null-mx', unmatchedHosts: [], unusedPatterns: [] });
+eq('an empty host list is unknown: no delivery candidate is established',
+  compareMtaStsMx(['mail.example.test'], { hosts: [] }),
+  { state: 'unknown', unmatchedHosts: [], unusedPatterns: [] });
+eq('a nullMx flag has no producer yet and earns no special state',
+  compareMtaStsMx(['mail.example.test'], { hosts: [], nullMx: true }).state,
+  'unknown');
 
 /* ── The comparator fails closed on anything that is not an established
  *    list of hostname STRINGS.
@@ -331,5 +353,31 @@ eq('no host name is ever coerced through String() on an object',
 eq('the same domain compares clean once the composer extracts hostnames',
   compareMtaStsMx(PATTERNS, { hosts: MX_HEALTH_SHAPE.hosts.map(h => h.host) }),
   { state: 'compared', unmatchedHosts: [], unusedPatterns: ['*.backup.example.test'] });
+
+/* An entry that normalizes away is the same confident-empty comparison in a
+ * different costume: `filter(Boolean)` would silently drop it and report every
+ * pattern unused. Each of these must fail closed, and none may equal WRONG. */
+const BAD_HOSTS = [
+  ['an empty hostname', { hosts: [''] }],
+  ['a whitespace-only hostname', { hosts: ['   '] }],
+  ['a bare presentation dot', { hosts: ['.'] }],
+  ['one bad entry beside a good one', { hosts: ['mail.example.test', ''] }],
+  ['a syntactically impossible hostname', { hosts: ['not a host!'] }],
+  ['a label over 63 characters', { hosts: ['a'.repeat(64) + '.example.test'] }],
+  ['a non-string entry', { hosts: [{ host: 'mail.example.test' }] }],
+];
+BAD_HOSTS.forEach(([label, fact]) => {
+  eq(`${label} fails closed to unknown`, compareMtaStsMx(PATTERNS, fact), UNKNOWN);
+  eq(`${label} never claims a stale policy`, stale(compareMtaStsMx(PATTERNS, fact)), false);
+});
+
+// One bad entry fails the whole comparison rather than being dropped: partial
+// host knowledge cannot tell a stale pattern from an unread one.
+eq('a good entry does not rescue a bad one',
+  compareMtaStsMx(['mail.example.test'], { hosts: ['mail.example.test', ''] }).state,
+  'unknown');
+eq('but the good entry alone still compares',
+  compareMtaStsMx(['mail.example.test'], { hosts: ['mail.example.test'] }).state,
+  'compared');
 
 report();

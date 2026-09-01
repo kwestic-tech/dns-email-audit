@@ -3158,13 +3158,6 @@
       "fixtures": []
     },
     {
-      "algebra": "transport.mtaStsPolicy.mxComparisonState",
-      "member": "null-mx",
-      "suites": ["src/core/transport/mta-sts.test.js"],
-      "fixtures": [],
-      "note": "No producer yet. The composer that derives { hosts, unknown, nullMx } from the published MX records and isNullMx() is src/audit/artifacts.js, which 0.8.0 has not added. Reachable from the corpus only once that module lands; until then the suite is the sole exercise of this member."
-    },
-    {
       "algebra": "transport.tlsRpt.errors",
       "member": "invalid-syntax",
       "suites": [],

@@ -42,8 +42,20 @@ export const MTA_STS_POLICY_WARNINGS = Object.freeze([
 export const MTA_STS_POLICY_LINE_ENDINGS = Object.freeze([
   'crlf', 'lf', 'mixed', 'none',
 ]);
+/**
+ * `null-mx` is deliberately ABSENT until `src/audit/artifacts.js` exists.
+ *
+ * A registered state no fixture can reach is a stop under the agent contract,
+ * and a hand-built `{ nullMx: true }` in a unit test is the invented response
+ * shape that rule names. Nothing in the tree produces a `nullMx` fact today —
+ * null MX lives as `isNullMx()` and the `@null-mx` provider token — so the
+ * member is added in the same reviewed step as the composer that produces it.
+ * Until then a null-MX domain reaches this function as an empty host list and
+ * degrades to `unknown`, which is correct: no delivery candidate is
+ * established, so no mismatch may be claimed.
+ */
 export const MTA_STS_MX_COMPARE_STATES = Object.freeze([
-  'compared', 'unknown', 'null-mx',
+  'compared', 'unknown',
 ]);
 
 function lineEndingKind(text) {
@@ -145,10 +157,14 @@ export function validateMtaStsPolicy(input) {
       continue;
     }
 
+    // A case variant of a registered name IS a legal extension name, so the
+    // warning explains it and then flow CONTINUES into the ordinary extension
+    // path: it is retained in `unknownKeys` for display and is subject to the
+    // non-`mx` duplicate rule like any other extension. Short-circuiting here
+    // dropped it from both.
     var foldedName = name.toLowerCase();
     if (name !== foldedName && REGISTERED_FIELDS.includes(foldedName)) {
       addDiagnostic(result, 'warnings', 'wrong-case-field', lineNumber);
-      continue;
     }
 
     if (name !== 'mx' && seen[name]) {
@@ -209,10 +225,9 @@ function noComparison(state) {
 /**
  * Compare policy patterns with already-audited DNS MX hostnames.
  *
- * `mxFact` is `{ hosts: string[], unknown?: boolean, nullMx?: boolean }` and is
- * built by `src/audit/artifacts.js` from the domain's PUBLISHED MX records —
- * `parseMxRecord().host` over the base MX lookup, plus `isNullMx()` — never
- * from `advanced.mxHealth`. Three reasons, all of them load-bearing:
+ * `mxFact` is `{ hosts: string[], unknown?: boolean }` and is built by
+ * `src/audit/artifacts.js` from the domain's PUBLISHED delivery candidates —
+ * never from `advanced.mxHealth`. Three reasons, all of them load-bearing:
  *
  *   1. `mxHealth.hosts` holds audit OBJECTS, not hostnames. `audit-domain.js`
  *      already writes `mxHealth.hosts.map(h => h.host)` to get names out.
@@ -224,23 +239,40 @@ function noComparison(state) {
  *      cost-gated resolution-health check would silently switch the comparison
  *      off on the largest audits.
  *
- * Fails closed: anything that is not an established list of hostname strings
- * yields `unknown` rather than an empty host list, because an empty host list
- * compares as "every pattern is unused" and would report a healthy policy as
- * stale. `null-mx` is produced only by the composer, and until
- * `src/audit/artifacts.js` exists no caller can reach it.
+ * The composer owes this function the domain's delivery candidates, which is
+ * NOT the same as its MX records. RFC 5321 §5.1: "If an empty list of MXs is
+ * returned, the address is treated as if it was associated with an implicit MX
+ * RR, with a preference of 0, pointing to that host", and that rule "applies
+ * only if there are no MX records present". A domain with no MX and a usable
+ * address record therefore has one candidate — itself — and a policy naming it
+ * is correct, not stale. The composer's four cases are in spec §3.
+ *
+ * Fails closed. Anything that is not an established, non-empty list of valid
+ * hostnames yields `unknown`, because an empty or silently-filtered host list
+ * compares as "every pattern is unused" and reports a healthy policy as stale.
+ * A single unparseable entry fails the whole comparison rather than being
+ * dropped: partial host knowledge cannot distinguish a stale pattern from an
+ * unread one.
  */
 export function compareMtaStsMx(patterns, mxFact) {
   if (!mxFact || typeof mxFact !== 'object') return noComparison('unknown');
   if (mxFact.unknown) return noComparison('unknown');
-  if (mxFact.nullMx) return noComparison('null-mx');
-  if (!Array.isArray(mxFact.hosts)) return noComparison('unknown');
-  if (!mxFact.hosts.every(function (h) { return typeof h === 'string'; })) {
+  if (!Array.isArray(mxFact.hosts) || !mxFact.hosts.length) {
     return noComparison('unknown');
   }
 
+  var actual = [];
+  for (var i = 0; i < mxFact.hosts.length; i++) {
+    var entry = mxFact.hosts[i];
+    if (typeof entry !== 'string') return noComparison('unknown');
+    var host = normalizeHost(entry);
+    // `filter(Boolean)` here would turn '' and '   ' into a confident empty
+    // comparison, which is the stale-policy claim this guard exists to refuse.
+    if (!validDomain(host)) return noComparison('unknown');
+    actual.push(host);
+  }
+
   var expected = (patterns || []).map(String);
-  var actual = mxFact.hosts.map(normalizeHost).filter(Boolean);
   return {
     state: 'compared',
     unmatchedHosts: actual.filter(function (host) {

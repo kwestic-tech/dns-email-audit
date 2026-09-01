@@ -1212,10 +1212,9 @@
       "site": "src/core/transport/mta-sts-policy.js",
       "members": [
         "compared",
-        "unknown",
-        "null-mx"
+        "unknown"
       ],
-      "note": "The fact is { hosts: string[], unknown, nullMx }, derived by src/audit/artifacts.js from the PUBLISHED MX records (parseMxRecord().host) and isNullMx() -- never from advanced.mxHealth, whose hosts are audit objects and which is null whenever deep checks are off, the domain has no MX, or the domain publishes a null MX. The comparator fails closed to `unknown` on anything else, because an empty host list compares as every-pattern-unused. `null-mx` has no producer until that composer lands.",
+      "note": "The fact is { hosts: string[], unknown }, derived by src/audit/artifacts.js from the domain's DELIVERY CANDIDATES -- explicit MX exchanges, or the RFC 5321 5.1 implicit MX when no MX is published -- never from advanced.mxHealth, whose hosts are audit objects and which is null whenever deep checks are off. The comparator fails closed to `unknown` on an absent fact, an empty list, or any entry that is not a valid hostname, because a silently filtered list compares as every-pattern-unused. `null-mx` is NOT a member: no producer sets a nullMx fact, and a registered state the corpus cannot reach is a stop. It is added in the same reviewed step as the composer.",
       "resultPaths": [
         "artifact.mtaStsPolicy.mxComparison.state"
       ]
