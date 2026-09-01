@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.1 (Final) |
+| Spec version | 1.2 (Final) |
 | Target release | 0.8.0 |
 | Status | Final; approved for implementation |
 | Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](implemented/findings-and-remediation.md) for the final `Finding` shape |
@@ -169,7 +169,9 @@ Validation rules:
 - `mode` must be exactly one of `enforce`, `testing`, `none`.
 - `max_age` must be a non-negative integer not exceeding 31557600. Zero is
   valid and is also reported by the short-lifetime diagnostic.
-- At least one `mx` line is required unless `mode: none`.
+- At least one `mx` line is required when `mode` is `enforce` or `testing`.
+  When `mode` is absent or invalid the requirement is not established, so no
+  `missing-mx` is claimed and the mode error carries the invalidity on its own.
 - `mx` patterns permit a single leading `*.` wildcard and nothing else. The
   wildcard matches exactly one left-most label: `*.example.com` matches
   `mail.example.com`, not `example.com` or `a.b.example.com`.
@@ -184,8 +186,18 @@ Validation rules:
   `blank-line`; other lines that cannot be parsed produce `malformed-line`.
   Neither condition discards diagnostics already collected from other lines.
 - Field names and registered values are case-sensitive. A case-insensitive
-  spelling of a registered field produces `wrong-case-field` at that line,
-  rather than being presented only as an unknown extension.
+  spelling of a registered field produces the `wrong-case-field` **warning** at
+  that line, rather than being presented only as an unknown extension. It is a
+  warning and not an error because `sts-policy-ext-name` permits `Mode`, and
+  §3.2 says unknown fields SHALL be ignored: a conformant policy may carry a
+  case-variant extension and must not be reported invalid. Where the operator
+  did mean the registered field, the resulting `missing-*` error already
+  carries the invalidity and this token only explains it.
+- `diagnostics` is a line index, not a mirror of `errors` + `warnings`. Every
+  token raised against a line appears in both. The four `missing-*` errors are
+  raised against the document and have no line, so they appear in `errors`
+  only and take the `kind: 'input'` evidence variant, located by the artifact
+  label rather than a line.
 - LF, CRLF and mixed terminators are recorded as evidence but produce no error
   or warning. `none` records an input with no terminator; it is part of the
   parser's result vocabulary even though such an input cannot contain every
@@ -209,9 +221,36 @@ Cross-checks against DNS data already held, which is where the value is:
 The MX cross-check is the headline feature. A policy whose `mx` patterns do not
 cover the domain's actual MX hosts causes conformant senders in `enforce` mode to
 refuse delivery, and it is invisible to every check the tool currently performs.
-The comparator therefore accepts the audit's MX fact as
-`{ hosts, unknown, nullMx }` and returns a closed state of `compared`, `unknown`
-or `null-mx`. In either non-compared state, both mismatch arrays are empty.
+The comparator accepts an MX fact of `{ hosts: string[], unknown, nullMx }`
+and returns a closed state of `compared`, `unknown` or `null-mx`. In either
+non-compared state, both mismatch arrays are empty.
+
+**`src/audit/artifacts.js` builds that fact from the domain's published MX
+records — `parseMxRecord().host` over the base MX lookup, plus `isNullMx()` —
+and never from `advanced.mxHealth`.** No such `{ hosts, unknown, nullMx }`
+object exists in the audit result today; the composer constructs it. Three
+reasons, each independently sufficient:
+
+1. `mxHealth.hosts` holds audit objects, not hostnames. `audit-domain.js`
+   already writes `mxHealth.hosts.map(h => h.host)` to get names out of it.
+   Passing the raw shape stringifies each entry to `[object Object]`, so a
+   correctly configured domain reports a mismatch against nothing.
+2. `advanced.mxHealth` is initialised to `null` and replaced only when deep
+   checks are on, the domain has MX records, and it is not a null MX. The
+   interface disables deep checks above 50 domains, so on the largest audits
+   the fact is absent for every row.
+3. MTA-STS `mx` patterns describe which exchanges the policy permits, which the
+   base MX lookup answers for every domain. Binding the headline check to a
+   cost-gated resolution-health artifact would switch it off silently.
+
+An empty host list compares as "every pattern is unused", so an absent fact
+read as an empty one turns a healthy policy into a stale-policy claim. The
+comparator therefore **fails closed to `unknown`** on an absent fact, a missing
+or non-array `hosts`, or any `hosts` entry that is not a string, and both
+guards ship with negative runs proving they fail when removed.
+
+`null-mx` has no producer until `src/audit/artifacts.js` lands. The state file
+records that rather than implying corpus reachability it does not yet have.
 
 ### 4. BIMI SVG validation
 
@@ -370,8 +409,11 @@ the apex or two labels; LF-only, CRLF and mixed line endings all valid; a 64 KB
 policy accepted and a 65 KB one rejected before parsing; a policy containing
 null bytes; a leading BOM warning; interior and extra trailing blank lines with
 line numbers; a malformed line that does not erase a separate invalid field;
-wrong-case registered names; extension punctuation; an unknown MX result that
-emits no mismatch; and a null-MX result that emits only its dedicated finding.
+wrong-case registered names as warnings that leave a conformant policy valid;
+extension punctuation; an unknown MX result that emits no mismatch; a null-MX
+result that emits only its dedicated finding; and the fail-closed comparator
+inputs — an absent fact, a fact with no `hosts` array, and the raw `mxHealth`
+audit shape — each asserted not to produce the every-pattern-is-stale answer.
 
 SVG fixtures, each asserting rejection with the right token and, critically,
 asserting that no network request occurred and no node was inserted:
@@ -486,10 +528,24 @@ was amended.
 | `artifact` naming collision | Accepted | The browser suite is named `local-input-security`; `src/audit/artifacts.js` remains the domain composer, and the existing deployment artifact test keeps its established name. |
 | Extension-value asymmetry | Accepted | It follows different RFC productions and is now documented and pinned by a test so it is not normalized to the TXT parser later. |
 
+### Review round after 1.1
+
+Every claim in this round was reproduced by executing the module before the
+spec was amended.
+
+| Finding | Outcome | Reasoning |
+| --- | --- | --- |
+| Comparator fact contract matched no fact the audit produces | Accepted | `mxHealth.hosts` holds audit objects, so a healthy domain compared against `[object Object]` and reported every pattern stale. `advanced.mxHealth` is also `null` for null MX, for no MX, and whenever deep checks are off, all of which read as an empty host list. The fact source is now the published MX records, the comparator fails closed to `unknown`, and both guards have negative runs. |
+| `null-mx` registered but unreachable | Accepted | No producer sets a `nullMx` field; null MX exists as `isNullMx()` and the `@null-mx` provider token. The member stays registered with the composer named as its future producer, recorded in `tests/state-matrix.json` rather than implied. |
+| `wrong-case-field` rejected conformant policies | Accepted | `sts-policy-ext-name` permits `Mode`, and §3.2 ignores unknown fields, so a conformant policy carrying a case-variant extension was being marked invalid. The token moved to `warnings`; the `missing-*` error still carries invalidity in the real-mistake case, which also removes the doubled six-errors-for-three-lines output. |
+| `diagnostics` not a mirror of `errors` | Accepted | Correct as built — a missing field has no line — but undocumented against the promised `evidence[].location`. The line-less rule and its `kind: 'input'` variant are now stated. |
+| Spec and code disagreed on `missing-mx` | Accepted | The code had narrowed to `enforce`/`testing` without a written rule. That reading is the better one and is now the spec's: with no established mode the requirement is not established either. |
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.2 | 2026-09-01 | Amended Final after executing the 1.1 implementation. Named the published MX records as the comparator's fact source and forbade `advanced.mxHealth`; made the comparator fail closed to `unknown` on any fact that is not an established list of hostname strings; recorded `null-mx` as having no producer until `src/audit/artifacts.js` lands; moved `wrong-case-field` from `errors` to `warnings` so a conformant case-variant extension stays valid; stated the `diagnostics` line-index rule and the line-less evidence variant; and aligned the `missing-mx` rule with the mode-conditioned reading. |
 | 1.1 | 2026-09-01 | Amended Final after reproducing the first implementation review. Added explicit unknown and null-MX comparison states; registered closed vocabularies; declared `lineEndings: none`; preserved per-line malformed diagnostics; added BOM, blank-line and wrong-case decisions; named the artifact evidence renderer branch, export columns, unverified-policy copy change, browser script and CI job; renamed the browser suite; documented policy extension punctuation; and replaced the low localization estimate with a measured 95–145-key budget. Recorded all accepted and declined review outcomes. |
 | 1.0 | 2026-09-01 | Final. Resolved all eight open questions: body-only MTA-STS input; `image/svg+xml` parsing; no logo rendering; VMC removed; no scoring; single-artifact workflow; artifact findings excluded from 0.9.0 JSON comparison; and real-browser hostile-SVG verification through the existing Chromium/CDP harness. Corrected the RFC 8461 rules for zero `max_age`, line endings, duplicate fields, version ordering and one-label wildcard matching. Bounded SVG output to security rejection and named profile diagnostics rather than unsupported full-schema certification, and replaced string length with UTF-8 byte measurement. |
 | 0.2 | 2026-08-31 | Renumbered the target to 0.8.0 and rebased the design onto the 0.6.0 allowed-edge matrix. Replaced the proposed `js/artifact.js` monolith with pure validators under the existing MTA-STS and BIMI protocol owners, composition in `src/audit/`, injected UI capabilities through `src/runtime.js`, and directory-bound implementation commits. Added the now-sequential dependency on 0.7.0's final finding shape and updated the report dependency to 0.9.0. No open question was resolved. |
