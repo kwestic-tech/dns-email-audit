@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.7 (Final) |
+| Spec version | 1.8 (Final) |
 | Target release | 0.8.0 |
 | Status | Final; approved for implementation |
 | Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](implemented/findings-and-remediation.md) for the final `Finding` shape |
@@ -328,6 +328,13 @@ The last row is a fail-closed rule, not a convenience: a partially parsed MX
 set cannot distinguish a stale pattern from an unread one, so the composer
 fails the whole comparison rather than silently filtering the entry out.
 
+There is deliberately **no "the lookup failed" input**. A base MX failure
+rejects `analyzeDomain()`, so no completed audit result carries such a flag and
+nothing could set one. `unknown` today means what the data says: no candidate
+established, or a record that would not parse. The input arrives with its
+producer, if a runtime ever gains one — the same rule that kept `null-mx` out
+of the comparison vocabulary until `deliveryCandidates()` existed to derive it.
+
 #### Fail-closed rules the comparator enforces today
 
 An empty or silently-filtered host list compares as "every pattern is unused",
@@ -483,6 +490,13 @@ SVG to find an element: a second copy of a parser's own position handling would
 diverge silently. `validateMtaStsPolicy().diagnostics` carries
 `{ token, line, text }` and `validateBimiSvg().sites` carries
 `{ token, element, value }`, one entry per occurrence.
+
+**A condition with no position takes the `input` variant with an EMPTY value.**
+A missing required field has no offending line and a pre-parse rejection has no
+element, so neither may borrow the token as its material — the token is already
+`args`, and repeating it says nothing. Several missing fields are one entry,
+because they point at the same place. A pre-parse rejection still carries the
+refused declaration itself, which is material rather than a token.
 
 **Bounds are applied in code points.** `String.slice` through an astral
 character leaves a lone surrogate; `tools/export.test.mjs` §10 exists because
@@ -799,10 +813,20 @@ Every finding reproduced by execution before the spec was amended.
 | Repeated diagnostics pointed at the first line | Accepted | Occurrences are consumed in order; two blank lines produce two entries at lines 2 and 3. |
 | The evidence cap split astral characters | Accepted | Bounds are in code points in all three places that apply one. |
 
+### Review round after spec 1.7
+
+| Finding | Outcome | Reasoning |
+| --- | --- | --- |
+| Site-less paths still carried the token as evidence | Accepted | Document-level policy errors and every pre-parse, parser and root SVG rejection now route through the located-site constructor. Two distinct pre-parse rejections had been collapsing into one blank entry. The suite section that claimed "every token records its site" covered only tree-walk tokens and is renamed. |
+| The clean-logo title split astral characters | Accepted | `result.title` was the one bound still slicing UTF-16, and `bimi.svg-valid` used the already-damaged value, so the evidence constructor could not repair it. |
+| The catalog pin was one-way | Accepted | It covered seven of twelve ids and could not see an unused registry member. Replaced with exact equality in both directions — catalog to constant, constant to registry — plus a disjointness check against `audit.finding.id`, matching the guard `findings.test.js` already has. |
+| `mxUnknown` had no producer | Accepted | Removed rather than documented. Inventing a field and calling it current audit data is the mistake `null-mx` already taught; `unknown` now comes only from the data. |
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.8 | 2026-09-01 | Amended Final after the evidence-contract review. Required every diagnostic path — document-level, pre-parse, parser and root — to produce located evidence, and defined the `input` variant as an empty value rather than the token. Removed the producer-less failed-lookup input from the delivery-candidate contract. |
 | 1.7 | 2026-09-01 | Amended Final after the composer review. Defined the evidence contract precisely — supplied material rather than the diagnostic token, the offending construct rather than the document, one entry per occurrence, code-point bounds — and required the owner validators to supply the located material so `src/audit/` never reparses. Recorded the twelve-id artifact finding catalog with its severities as a registered closed algebra separate from `audit.finding.id`, including the two outcomes (`policy-mx-unknown`, `bimi.svg-valid`) that earlier tables did not name. |
 | 1.6 | 2026-09-01 | Amended Final after the SVG review. Withdrew the unreachable "single root element" diagnostic; enumerated the six SVG Tiny PS constrained attributes and their permitted values from draft-svg-tiny-ps-abrotman-12 §2.3, redefining `unsupported-attribute` as a value outside that table; required exact XML name matching for profile conformance while keeping the security screen case-insensitive, and stated why the two differ; and required a `viewBox` to have extents greater than zero before it can be square. |
 | 1.5 | 2026-09-01 | Amended Final after the third follow-up review. Replaced the mismatch-only precondition with a four-state semantic-finding matrix covering every policy finding, keyed on RFC 8461 §8.3's withdrawal procedure; made it executable as the exported `policyFindingScope()` with `transport.mtaStsPolicy.findingScope` registered as a closed algebra in both state files; had `mxComparisonApplies` delegate to that matrix rather than re-derive it; and required composer fixtures that prove suppression rather than absence. |
