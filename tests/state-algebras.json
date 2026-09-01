@@ -1151,6 +1151,74 @@
       ]
     },
     {
+      "id": "transport.mtaStsPolicy.errors",
+      "owner": "core/transport",
+      "field": "validateMtaStsPolicy().errors[] tokens",
+      "closed": true,
+      "site": "src/core/transport/mta-sts-policy.js",
+      "members": [
+        "malformed-line",
+        "blank-line",
+        "wrong-case-field",
+        "invalid-version",
+        "invalid-mode",
+        "invalid-mx",
+        "invalid-max-age",
+        "missing-version",
+        "missing-mode",
+        "missing-max-age",
+        "missing-mx"
+      ],
+      "resultPaths": [
+        "artifact.mtaStsPolicy.errors[]"
+      ]
+    },
+    {
+      "id": "transport.mtaStsPolicy.warnings",
+      "owner": "core/transport",
+      "field": "validateMtaStsPolicy().warnings[] tokens",
+      "closed": true,
+      "site": "src/core/transport/mta-sts-policy.js",
+      "members": [
+        "duplicate-field",
+        "bom-present"
+      ],
+      "resultPaths": [
+        "artifact.mtaStsPolicy.warnings[]"
+      ]
+    },
+    {
+      "id": "transport.mtaStsPolicy.lineEndings",
+      "owner": "core/transport",
+      "field": "validateMtaStsPolicy().lineEndings",
+      "closed": true,
+      "site": "src/core/transport/mta-sts-policy.js",
+      "members": [
+        "crlf",
+        "lf",
+        "mixed",
+        "none"
+      ],
+      "resultPaths": [
+        "artifact.mtaStsPolicy.lineEndings"
+      ]
+    },
+    {
+      "id": "transport.mtaStsPolicy.mxComparisonState",
+      "owner": "core/transport",
+      "field": "compareMtaStsMx().state",
+      "closed": true,
+      "site": "src/core/transport/mta-sts-policy.js",
+      "members": [
+        "compared",
+        "unknown",
+        "null-mx"
+      ],
+      "resultPaths": [
+        "artifact.mtaStsPolicy.mxComparison.state"
+      ]
+    },
+    {
       "id": "transport.tlsRpt.errors",
       "owner": "core/transport",
       "field": "validateTlsRptRecord().errors[] tokens",

@@ -3044,6 +3044,126 @@
       ]
     },
     {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "malformed-line",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "blank-line",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "wrong-case-field",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "invalid-version",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "invalid-mode",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "invalid-mx",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "invalid-max-age",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "missing-version",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "missing-mode",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "missing-max-age",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "missing-mx",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.warnings",
+      "member": "duplicate-field",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.warnings",
+      "member": "bom-present",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.lineEndings",
+      "member": "crlf",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.lineEndings",
+      "member": "lf",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.lineEndings",
+      "member": "mixed",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.lineEndings",
+      "member": "none",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.mxComparisonState",
+      "member": "compared",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.mxComparisonState",
+      "member": "unknown",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.mxComparisonState",
+      "member": "null-mx",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
       "algebra": "transport.tlsRpt.errors",
       "member": "invalid-syntax",
       "suites": [],

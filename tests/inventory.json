@@ -255,7 +255,7 @@
     },
     {
       "path": "src/core/transport/mta-sts.test.js",
-      "assertions": 66,
+      "assertions": 85,
       "note": "Co-located per spec §9. Phase 4, Task 4.4 and local-artifact-validation 1.0. Pure validators, no resolver.",
       "areas": [
         "the published error vocabulary, one member, emitted and only that",

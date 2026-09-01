@@ -57,8 +57,8 @@ is one protocol's field grammar and belongs nowhere else.
 
 | Export | Kind | Contract |
 | --- | --- | --- |
-| `validateMtaStsPolicy(text)` | pure | Parses an already size-bounded user-supplied RFC 8461 §3.2 policy body. LF and CRLF are valid, the version need not be first, `max_age` may be zero, later duplicate non-`mx` fields are ignored, and unknown extensions are retained for diagnostics. Returns tokens and primitives only. |
-| `compareMtaStsMx(patterns, hosts)` | pure | Returns unmatched DNS MX hosts and unused policy patterns. Matching is case-insensitive, ignores a DNS presentation dot, and a wildcard matches exactly one left-most label. |
+| `validateMtaStsPolicy(text)` | pure | Parses an already size-bounded user-supplied RFC 8461 §3.2 policy body. LF and CRLF are valid, the version need not be first, `max_age` may be zero, later duplicate non-`mx` fields are ignored, and unknown extensions are retained for diagnostics. A BOM is reported and removed; blank, malformed and wrong-case lines retain their line numbers. Policy extension values may contain `=` and `;` under their policy-specific ABNF. Returns tokens and primitives only. |
+| `compareMtaStsMx(patterns, { hosts, unknown, nullMx })` | pure | Returns the closed state `compared`, `unknown` or `null-mx`, plus unmatched DNS MX hosts and unused policy patterns only when comparison is possible. Matching is case-insensitive, ignores a DNS presentation dot, and a wildcard matches exactly one left-most label. |
 
 The caller measures the UTF-8 byte limit before invoking the parser. This
 module imports no platform capability and performs no I/O.

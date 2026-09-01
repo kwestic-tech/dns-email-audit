@@ -19,7 +19,11 @@ import { createSuite } from '../../../tests/lib/assert.mjs';
 import {
   validateMtaStsRecord, MTA_STS_ERRORS, summarizeMtaSts,
 } from './mta-sts.js';
-import { validateMtaStsPolicy, compareMtaStsMx } from './mta-sts-policy.js';
+import {
+  validateMtaStsPolicy, compareMtaStsMx,
+  MTA_STS_POLICY_ERRORS, MTA_STS_POLICY_WARNINGS,
+  MTA_STS_POLICY_LINE_ENDINGS, MTA_STS_MX_COMPARE_STATES,
+} from './mta-sts-policy.js';
 
 const { eq, section, report } = createSuite();
 
@@ -138,6 +142,23 @@ eq('while an empty answer is not', summarizeMtaSts([]).unknown, false);
 /* ── The user-supplied policy body (RFC 8461 §3.2) ───────────────────── */
 section('validateMtaStsPolicy');
 
+eq('the policy error vocabulary is frozen',
+  [Object.isFrozen(MTA_STS_POLICY_ERRORS), [...MTA_STS_POLICY_ERRORS]],
+  [true, [
+    'malformed-line', 'blank-line', 'wrong-case-field',
+    'invalid-version', 'invalid-mode', 'invalid-mx', 'invalid-max-age',
+    'missing-version', 'missing-mode', 'missing-max-age', 'missing-mx',
+  ]]);
+eq('the policy warning vocabulary is frozen',
+  [Object.isFrozen(MTA_STS_POLICY_WARNINGS), [...MTA_STS_POLICY_WARNINGS]],
+  [true, ['duplicate-field', 'bom-present']]);
+eq('the line-ending vocabulary is frozen',
+  [Object.isFrozen(MTA_STS_POLICY_LINE_ENDINGS), [...MTA_STS_POLICY_LINE_ENDINGS]],
+  [true, ['crlf', 'lf', 'mixed', 'none']]);
+eq('the MX comparison vocabulary is frozen',
+  [Object.isFrozen(MTA_STS_MX_COMPARE_STATES), [...MTA_STS_MX_COMPARE_STATES]],
+  [true, ['compared', 'unknown', 'null-mx']]);
+
 const POLICY = [
   'version: STSv1',
   'mode: enforce',
@@ -161,6 +182,18 @@ eq('version need not be first in the policy body',
   validateMtaStsPolicy('mode: none\nmax_age: 0\nversion: STSv1').valid, true);
 eq('max_age zero is valid',
   validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 0').maxAge, 0);
+eq('a wrong policy version is reported specifically',
+  validateMtaStsPolicy('version: stsv1\nmode: none\nmax_age: 1').errors,
+  ['invalid-version']);
+eq('a missing version is reported specifically',
+  validateMtaStsPolicy('mode: none\nmax_age: 1').errors,
+  ['missing-version']);
+eq('a missing mode is reported specifically',
+  validateMtaStsPolicy('version: STSv1\nmax_age: 1').errors,
+  ['missing-mode']);
+eq('a missing max_age is reported specifically',
+  validateMtaStsPolicy('version: STSv1\nmode: none').errors,
+  ['missing-max-age']);
 eq('but the RFC maximum may not be exceeded',
   validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 31557601').errors,
   ['invalid-max-age']);
@@ -188,18 +221,57 @@ eq('a wildcard is allowed only as the complete left-most label',
 eq('control characters are rejected',
   validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 1\u0000').errors,
   ['malformed-line']);
+eq('an input without a terminator reports the declared none state',
+  validateMtaStsPolicy('version: STSv1').lineEndings, 'none');
+
+const withBom = validateMtaStsPolicy('\ufeffversion: STSv1\nmode: none\nmax_age: 1');
+eq('a leading BOM is stripped and reported as hygiene',
+  [withBom.valid, withBom.warnings, withBom.diagnostics[0]],
+  [true, ['bom-present'], { token: 'bom-present', line: 1 }]);
+
+const blankLine = validateMtaStsPolicy(
+  'version: STSv1\n\nmode: bogus\njunk\nmax_age: 1');
+eq('blank and malformed lines do not erase a separate field error',
+  blankLine.errors, ['blank-line', 'invalid-mode', 'malformed-line']);
+eq('each diagnostic retains its line', blankLine.diagnostics, [
+  { token: 'blank-line', line: 2 },
+  { token: 'invalid-mode', line: 3 },
+  { token: 'malformed-line', line: 4 },
+]);
+eq('a second trailing terminator is an invalid blank line',
+  validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 1\n\n').errors,
+  ['blank-line']);
+
+const wrongCase = validateMtaStsPolicy(
+  'Version: STSv1\nMode: none\nMax_age: 1');
+eq('registered fields with the wrong case get the specific error',
+  wrongCase.errors,
+  ['wrong-case-field', 'wrong-case-field', 'wrong-case-field',
+    'missing-version', 'missing-mode', 'missing-max-age']);
+eq('wrong-case registered fields are not presented as extensions',
+  wrongCase.unknownKeys, []);
+eq('policy extension punctuation follows the policy ABNF',
+  validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 1\nfoo: a=b;c').valid,
+  true);
 
 section('compareMtaStsMx');
 
 const compared = compareMtaStsMx(
   ['mail.example.test', '*.backup.example.test', 'unused.example.test'],
-  ['MAIL.EXAMPLE.TEST.', 'mx.backup.example.test', 'a.b.backup.example.test']);
+  { hosts: ['MAIL.EXAMPLE.TEST.', 'mx.backup.example.test', 'a.b.backup.example.test'] });
+eq('a known MX result is compared', compared.state, 'compared');
 eq('matching is case-insensitive and ignores the DNS presentation dot',
   compared.unmatchedHosts, ['a.b.backup.example.test']);
 eq('the wildcard matches exactly one left-most label',
   compared.unusedPatterns, ['unused.example.test']);
 eq('the wildcard does not match its own apex',
-  compareMtaStsMx(['*.example.test'], ['example.test']).unmatchedHosts,
+  compareMtaStsMx(['*.example.test'], { hosts: ['example.test'] }).unmatchedHosts,
   ['example.test']);
+eq('an unknown MX result suppresses both mismatch classes',
+  compareMtaStsMx(['mail.example.test'], { hosts: [], unknown: true }),
+  { state: 'unknown', unmatchedHosts: [], unusedPatterns: [] });
+eq('null MX is a distinct state and not a stale-policy claim',
+  compareMtaStsMx(['mail.example.test'], { hosts: [], nullMx: true }),
+  { state: 'null-mx', unmatchedHosts: [], unusedPatterns: [] });
 
 report();
