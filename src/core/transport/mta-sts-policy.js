@@ -223,29 +223,69 @@ function noComparison(state) {
 }
 
 /**
+ * Which SEMANTIC findings a policy in this state may produce.
+ *
+ * Parsing tells you what a document says. It does not tell you which
+ * interpretations of it are honest, and every semantic finding this release
+ * emits has a policy state in which it becomes a lie:
+ *
+ *   - An INVALID policy still exposes whichever fields happened to parse. Any
+ *     mode, max-age, null-MX or mismatch claim built from the survivors
+ *     describes a document no sender will honour. Only the parser's own
+ *     diagnostics are honest there.
+ *   - `mode: none` is the WITHDRAWAL state, and RFC 8461 §8.3 gives it a
+ *     procedure: "Publish a new policy with 'mode' equal to 'none' and a small
+ *     'max_age' (e.g., one day)." A short `max_age` is therefore CORRECT here,
+ *     and `mta-sts.max-age-short` would tell the operator to work against the
+ *     protocol's own removal steps. `mode: none` also requires no `mx`, so
+ *     comparing its empty pattern list reports every host unmatched, and it
+ *     cannot conflict with a null MX because it advertises no mail handling.
+ *     `mta-sts.mode-none` is the one finding this state deserves.
+ *
+ * One function rather than a predicate per finding: the rows below are a single
+ * RFC-semantics decision, and splitting them lets the composer drift on one
+ * row without anything noticing. `src/audit/artifacts.js` reads these flags; it
+ * does not re-derive them.
+ */
+export const MTA_STS_POLICY_SCOPES = Object.freeze([
+  'invalid', 'withdrawal', 'testing', 'enforce',
+]);
+
+export function policyFindingScope(policy) {
+  var valid = !!(policy && typeof policy === 'object' && policy.valid);
+  var mode = valid ? policy.mode : null;
+
+  if (!valid) {
+    return scope('invalid', false, false, false, false);
+  }
+  if (mode === 'none') {
+    return scope('withdrawal', true, false, false, false);
+  }
+  if (mode === 'testing') {
+    return scope('testing', true, true, true, true);
+  }
+  return scope('enforce', false, true, true, true);
+}
+
+function scope(state, modeFinding, maxAgeFinding, nullMxConflict, mxComparison) {
+  return Object.freeze({
+    state: state,
+    modeFinding: modeFinding,
+    maxAgeFinding: maxAgeFinding,
+    nullMxConflict: nullMxConflict,
+    mxComparison: mxComparison,
+  });
+}
+
+/**
  * Whether comparing this policy's `mx` patterns against DNS means anything.
  *
- * The comparator answers "do these patterns cover these hosts". It cannot
- * answer "should anyone care", because that depends on the policy the patterns
- * came from, and two valid-looking cases make the comparison a lie:
- *
- *   - `mode: none` withdraws enforcement and requires no `mx` at all, so
- *     `policy.mx` is legitimately `[]`. Comparing `[]` against real MX hosts
- *     reports every host unmatched — a `policy-mx-mismatch` on a policy that
- *     is deliberately inactive. `mta-sts.mode-none` is the finding that case
- *     deserves.
- *   - An INVALID policy still exposes whichever `mx` lines happened to parse.
- *     Comparing that partial list reports mismatches and unused patterns
- *     derived from a document no sender will honour.
- *
- * `src/audit/artifacts.js` MUST gate both mismatch classes on this predicate
- * and emit the parser's own syntax findings first. Kept here rather than in the
- * composer because it is a statement about RFC 8461 mode semantics, which is
- * this directory's to own.
+ * One row of `policyFindingScope()`, kept as a named export because the two MX
+ * mismatch findings are its most consequential consumer. It DELEGATES rather
+ * than re-deriving: two copies of this rule would drift.
  */
 export function mxComparisonApplies(policy) {
-  if (!policy || typeof policy !== 'object' || !policy.valid) return false;
-  return policy.mode === 'enforce' || policy.mode === 'testing';
+  return policyFindingScope(policy).mxComparison;
 }
 
 /**

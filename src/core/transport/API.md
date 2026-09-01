@@ -59,7 +59,8 @@ is one protocol's field grammar and belongs nowhere else.
 | --- | --- | --- |
 | `validateMtaStsPolicy(text)` | pure | Parses an already size-bounded user-supplied RFC 8461 §3.2 policy body. LF and CRLF are valid, the version need not be first, `max_age` may be zero, later duplicate non-`mx` fields are ignored, and unknown extensions are retained for diagnostics. A BOM is reported and removed; blank, malformed and wrong-case lines retain their line numbers. Policy extension values may contain `=` and `;` under their policy-specific ABNF. Returns tokens and primitives only. |
 | `compareMtaStsMx(patterns, { hosts, unknown })` | pure | Returns the closed state `compared` or `unknown`, plus unmatched delivery hosts and unused policy patterns only when comparison is possible. Matching is case-insensitive, ignores a DNS presentation dot, and a wildcard matches exactly one left-most label. **Fails closed to `unknown`** on an absent fact, a missing, non-array or EMPTY `hosts`, or any entry that is not a valid hostname after normalisation — a single bad entry fails the whole comparison. `null-mx` is not a member until its composer exists. |
-| `mxComparisonApplies(policyResult)` | pure | Whether comparing this policy's `mx` patterns against DNS means anything: true only when the policy is **valid** and its mode is `enforce` or `testing`. `src/audit/artifacts.js` MUST gate both MX mismatch findings on it. A valid `mode: none` policy legitimately has no `mx`, and an invalid policy still exposes the `mx` lines that parsed — comparing either produces a confident false finding. |
+| `mxComparisonApplies(policyResult)` | pure | One row of `policyFindingScope()`, kept named because the two MX mismatch findings are its most consequential consumer; it delegates rather than re-deriving. Whether comparing this policy's `mx` patterns against DNS means anything: true only when the policy is **valid** and its mode is `enforce` or `testing`. `src/audit/artifacts.js` MUST gate both MX mismatch findings on it. A valid `mode: none` policy legitimately has no `mx`, and an invalid policy still exposes the `mx` lines that parsed — comparing either produces a confident false finding. |
+| `policyFindingScope(policyResult)` | pure | Which SEMANTIC findings this policy state may produce: `{ state, modeFinding, maxAgeFinding, nullMxConflict, mxComparison }`, frozen. `state` is the closed algebra `transport.mtaStsPolicy.findingScope`. `src/audit/artifacts.js` READS these flags and does not re-derive them. |
 
 The caller measures the UTF-8 byte limit before invoking the parser. This
 module imports no platform capability and performs no I/O.
@@ -67,6 +68,21 @@ module imports no platform capability and performs no I/O.
 `validateMtaStsPolicy().diagnostics` is a line index, not a mirror of
 `errors` + `warnings`: the four `missing-*` errors are raised against the
 document rather than a line and therefore appear in `errors` only.
+
+#### Which findings a policy state may produce
+
+| Policy state | Semantic findings allowed |
+| --- | --- |
+| `invalid` | Parser and profile diagnostics only. No mode, max-age, null-MX or mismatch interpretation: they would be built from the fields that happened to parse. |
+| `withdrawal` (valid `mode: none`) | `mta-sts.mode-none` only. RFC 8461 §8.3's removal procedure is "publish a new policy with 'mode' equal to 'none' and a small 'max_age' (e.g., one day)", so `max-age-short` here advises working against the protocol. A withdrawn policy also advertises no mail handling, so it cannot conflict with a null MX. |
+| `testing` | `mta-sts.mode-testing`, max-age-short when applicable, and either the null-MX conflict or the gated MX comparison. |
+| `enforce` | Max-age-short when applicable, and either the null-MX conflict or the gated MX comparison. No mode finding — `enforce` is the intended state. |
+
+`maxAgeFinding`, `nullMxConflict` and `mxComparison` are currently true under
+exactly the same condition (valid, and mode is `enforce` or `testing`); only
+`modeFinding` is independent. They are kept as separate flags because they are
+separate finding classes that may diverge, and collapsing them would make any
+future divergence a re-derivation rather than an edit.
 
 #### Where the MX fact comes from, and where it must not
 

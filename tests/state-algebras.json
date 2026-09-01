@@ -1205,6 +1205,23 @@
       ]
     },
     {
+      "id": "transport.mtaStsPolicy.findingScope",
+      "owner": "core/transport",
+      "field": "policyFindingScope().state",
+      "closed": true,
+      "site": "src/core/transport/mta-sts-policy.js",
+      "members": [
+        "invalid",
+        "withdrawal",
+        "testing",
+        "enforce"
+      ],
+      "note": "Which SEMANTIC findings a policy in this state may produce. Parsing says what a document contains, not which readings of it are honest. `invalid` allows parser diagnostics only, because any mode/max-age/null-MX/mismatch claim built from the fields that happened to parse describes a document no sender will honour. `withdrawal` (mode: none) allows only its own mode finding: RFC 8461 8.3 tells an operator to publish mode:none with a small max_age (e.g. one day), so max-age-short there would advise working against the protocol's removal procedure, and a withdrawn policy cannot conflict with a null MX. Every member is reachable from a real validateMtaStsPolicy() result and the co-located suite proves it.",
+      "resultPaths": [
+        "artifact.mtaStsPolicy.findingScope.state"
+      ]
+    },
+    {
       "id": "transport.mtaStsPolicy.mxComparisonState",
       "owner": "core/transport",
       "field": "compareMtaStsMx().state",

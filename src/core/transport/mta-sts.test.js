@@ -21,6 +21,7 @@ import {
 } from './mta-sts.js';
 import {
   validateMtaStsPolicy, compareMtaStsMx, mxComparisonApplies,
+  policyFindingScope, MTA_STS_POLICY_SCOPES,
   MTA_STS_POLICY_ERRORS, MTA_STS_POLICY_WARNINGS,
   MTA_STS_POLICY_LINE_ENDINGS, MTA_STS_MX_COMPARE_STATES,
 } from './mta-sts-policy.js';
@@ -420,5 +421,67 @@ eq('a missing mode is not eligible',
 eq('and neither is a non-result',
   [mxComparisonApplies(null), mxComparisonApplies(undefined), mxComparisonApplies('enforce')],
   [false, false, false]);
+
+/* -- Which semantic findings each policy state may produce -----------------
+ *
+ * Parsing says what a document contains; it does not say which readings of it
+ * are honest. The withdrawal row is the one with teeth: RFC 8461 8.3 tells an
+ * operator to publish `mode: none` with "a small max_age (e.g., one day)", so
+ * flagging that max_age as short would tell them to work against the
+ * protocol's own removal procedure. ------------------------------------- */
+section('policyFindingScope');
+
+eq('the scope vocabulary is frozen',
+  [Object.isFrozen(MTA_STS_POLICY_SCOPES), [...MTA_STS_POLICY_SCOPES]],
+  [true, ['invalid', 'withdrawal', 'testing', 'enforce']]);
+
+const P_ENFORCE = validateMtaStsPolicy(
+  'version: STSv1\nmode: enforce\nmax_age: 1\nmx: a.example.test');
+const P_TESTING = validateMtaStsPolicy(
+  'version: STSv1\nmode: testing\nmax_age: 1\nmx: a.example.test');
+const P_NONE = validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 1');
+const P_INVALID = validateMtaStsPolicy(
+  'version: STSv1\nmode: enforce\nmax_age: 1\nmx: ok.example.test\nmx: bad_host');
+
+const row = p => {
+  const sc = policyFindingScope(p);
+  return [sc.state, sc.modeFinding, sc.maxAgeFinding, sc.nullMxConflict, sc.mxComparison];
+};
+
+eq('an invalid policy yields parser diagnostics only',
+  row(P_INVALID), ['invalid', false, false, false, false]);
+eq('a withdrawal policy yields its mode finding and nothing else',
+  row(P_NONE), ['withdrawal', true, false, false, false]);
+eq('testing yields every semantic class',
+  row(P_TESTING), ['testing', true, true, true, true]);
+eq('enforce yields every class except a mode finding',
+  row(P_ENFORCE), ['enforce', false, true, true, true]);
+eq('a non-result is invalid, not a crash',
+  [policyFindingScope(null).state, policyFindingScope(undefined).state,
+    policyFindingScope('enforce').state],
+  ['invalid', 'invalid', 'invalid']);
+eq('every declared scope is reachable from a real parser result',
+  [...new Set([P_INVALID, P_NONE, P_TESTING, P_ENFORCE].map(p => policyFindingScope(p).state))],
+  [...MTA_STS_POLICY_SCOPES]);
+eq('the returned scope is frozen', Object.isFrozen(policyFindingScope(P_ENFORCE)), true);
+
+// RFC 8461 8.3's own removal example, executed. `max_age: 86400` is "one day";
+// anything a withdrawing operator publishes below the max-age-short threshold
+// must not be reported as weakening protection.
+const withdrawal = validateMtaStsPolicy(
+  'version: STSv1\nmode: none\nmax_age: 3600');
+eq('the RFC 8.3 withdrawal document parses as valid',
+  [withdrawal.valid, withdrawal.mode, withdrawal.maxAge], [true, 'none', 3600]);
+eq('and its deliberately short max_age raises no max-age finding',
+  policyFindingScope(withdrawal).maxAgeFinding, false);
+eq('while the same short max_age under enforce does',
+  policyFindingScope(validateMtaStsPolicy(
+    'version: STSv1\nmode: enforce\nmax_age: 3600\nmx: a.example.test')).maxAgeFinding,
+  true);
+
+// One rule, one implementation: the predicate is a view onto the matrix.
+eq('mxComparisonApplies agrees with the matrix for every state',
+  [P_INVALID, P_NONE, P_TESTING, P_ENFORCE].map(mxComparisonApplies),
+  [P_INVALID, P_NONE, P_TESTING, P_ENFORCE].map(p => policyFindingScope(p).mxComparison));
 
 report();

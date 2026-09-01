@@ -3146,6 +3146,30 @@
       "fixtures": []
     },
     {
+      "algebra": "transport.mtaStsPolicy.findingScope",
+      "member": "invalid",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.findingScope",
+      "member": "withdrawal",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.findingScope",
+      "member": "testing",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.findingScope",
+      "member": "enforce",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
       "algebra": "transport.mtaStsPolicy.mxComparisonState",
       "member": "compared",
       "suites": ["src/core/transport/mta-sts.test.js"],

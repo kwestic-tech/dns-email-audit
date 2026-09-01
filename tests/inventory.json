@@ -255,8 +255,8 @@
     },
     {
       "path": "src/core/transport/mta-sts.test.js",
-      "assertions": 127,
-      "note": "Co-located per spec §9. Phase 4, Task 4.4 and local-artifact-validation 1.4. Pure validators, no resolver.",
+      "assertions": 139,
+      "note": "Co-located per spec §9. Phase 4, Task 4.4 and local-artifact-validation 1.5. Pure validators, no resolver.",
       "areas": [
         "the published error vocabulary, one member, emitted and only that",
         "the version field is first and case-sensitive — the two readings that suppressed mta-sts-invalid",
@@ -270,7 +270,8 @@
         "the MX comparator fails closed to unknown on an absent fact, a non-array hosts, or the raw mxHealth audit shape whose entries are objects — each proven not to return the every-pattern-is-stale answer",
         "an empty host list, an empty or whitespace-only hostname, a bare presentation dot and one bad entry beside a good one all fail closed rather than filtering away into a confident empty comparison",
         "a case-variant registered name is a legal extension: warned about, retained in unknownKeys, and subject to the ordinary non-mx duplicate rule",
-        "the MX comparison precondition, with both false-finding counterexamples pinned: a valid mode:none policy has no mx and an invalid policy exposes the mx lines that parsed, and comparing either is shown to produce the wrong answer the predicate refuses"
+        "the MX comparison precondition, with both false-finding counterexamples pinned: a valid mode:none policy has no mx and an invalid policy exposes the mx lines that parsed, and comparing either is shown to produce the wrong answer the predicate refuses",
+        "the semantic-finding scope matrix: all four states reachable from real parser results, an invalid policy limited to parser diagnostics, and RFC 8461 8.3's withdrawal document proven not to raise max-age-short while the same max_age under enforce does"
       ]
     },
     {
