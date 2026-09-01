@@ -252,19 +252,23 @@ export const MTA_STS_POLICY_SCOPES = Object.freeze([
 ]);
 
 export function policyFindingScope(policy) {
-  var valid = !!(policy && typeof policy === 'object' && policy.valid);
+  // `valid === true`, not merely truthy: this is an exported boundary, and a
+  // drifted or hand-built result carrying `valid: 'yes'` must not buy its way
+  // into a semantic scope. `validateMtaStsPolicy()` always sets a real boolean.
+  var valid = !!policy && typeof policy === 'object' && policy.valid === true;
   var mode = valid ? policy.mode : null;
 
-  if (!valid) {
-    return scope('invalid', false, false, false, false);
+  if (valid) {
+    if (mode === 'none') return scope('withdrawal', true, false, false, false);
+    if (mode === 'testing') return scope('testing', true, true, true, true);
+    if (mode === 'enforce') return scope('enforce', false, true, true, true);
   }
-  if (mode === 'none') {
-    return scope('withdrawal', true, false, false, false);
-  }
-  if (mode === 'testing') {
-    return scope('testing', true, true, true, true);
-  }
-  return scope('enforce', false, true, true, true);
+  // Every other shape — invalid, absent, a mode this module does not define —
+  // takes the closed scope. `enforce` is NOT the fall-through: it is the widest
+  // scope there is, so defaulting to it would let a malformed result enable
+  // every confident semantic claim and the MX comparison at once. Unreachable
+  // from today's validator, which is exactly why it has to be written down.
+  return scope('invalid', false, false, false, false);
 }
 
 function scope(state, modeFinding, maxAgeFinding, nullMxConflict, mxComparison) {

@@ -479,6 +479,26 @@ eq('while the same short max_age under enforce does',
     'version: STSv1\nmode: enforce\nmax_age: 3600\nmx: a.example.test')).maxAgeFinding,
   true);
 
+/* The scope is an exported boundary, so it fails closed on shapes the current
+ * validator cannot produce. `enforce` is the WIDEST scope, so defaulting an
+ * unrecognised mode to it would let a drifted result enable every semantic
+ * class at once — the opposite of what a fall-through should do. */
+const DRIFTED = [
+  ['a valid result with no mode at all', { valid: true }],
+  ['a mode this module does not define', { valid: true, mode: 'bogus' }],
+  ['a mode that only differs in case', { valid: true, mode: 'Enforce' }],
+  ['a non-boolean truthy valid', { valid: 'yes', mode: 'enforce' }],
+  ['valid as 1 rather than true', { valid: 1, mode: 'testing' }],
+];
+DRIFTED.forEach(([label, p]) => {
+  eq(`${label} takes the closed scope`, policyFindingScope(p).state, 'invalid');
+  eq(`${label} enables no semantic finding`,
+    [policyFindingScope(p).modeFinding, policyFindingScope(p).maxAgeFinding,
+      policyFindingScope(p).nullMxConflict, policyFindingScope(p).mxComparison],
+    [false, false, false, false]);
+  eq(`${label} runs no MX comparison`, mxComparisonApplies(p), false);
+});
+
 // One rule, one implementation: the predicate is a view onto the matrix.
 eq('mxComparisonApplies agrees with the matrix for every state',
   [P_INVALID, P_NONE, P_TESTING, P_ENFORCE].map(mxComparisonApplies),

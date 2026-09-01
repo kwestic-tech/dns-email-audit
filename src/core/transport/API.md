@@ -60,7 +60,7 @@ is one protocol's field grammar and belongs nowhere else.
 | `validateMtaStsPolicy(text)` | pure | Parses an already size-bounded user-supplied RFC 8461 §3.2 policy body. LF and CRLF are valid, the version need not be first, `max_age` may be zero, later duplicate non-`mx` fields are ignored, and unknown extensions are retained for diagnostics. A BOM is reported and removed; blank, malformed and wrong-case lines retain their line numbers. Policy extension values may contain `=` and `;` under their policy-specific ABNF. Returns tokens and primitives only. |
 | `compareMtaStsMx(patterns, { hosts, unknown })` | pure | Returns the closed state `compared` or `unknown`, plus unmatched delivery hosts and unused policy patterns only when comparison is possible. Matching is case-insensitive, ignores a DNS presentation dot, and a wildcard matches exactly one left-most label. **Fails closed to `unknown`** on an absent fact, a missing, non-array or EMPTY `hosts`, or any entry that is not a valid hostname after normalisation — a single bad entry fails the whole comparison. `null-mx` is not a member until its composer exists. |
 | `mxComparisonApplies(policyResult)` | pure | One row of `policyFindingScope()`, kept named because the two MX mismatch findings are its most consequential consumer; it delegates rather than re-deriving. Whether comparing this policy's `mx` patterns against DNS means anything: true only when the policy is **valid** and its mode is `enforce` or `testing`. `src/audit/artifacts.js` MUST gate both MX mismatch findings on it. A valid `mode: none` policy legitimately has no `mx`, and an invalid policy still exposes the `mx` lines that parsed — comparing either produces a confident false finding. |
-| `policyFindingScope(policyResult)` | pure | Which SEMANTIC findings this policy state may produce: `{ state, modeFinding, maxAgeFinding, nullMxConflict, mxComparison }`, frozen. `state` is the closed algebra `transport.mtaStsPolicy.findingScope`. `src/audit/artifacts.js` READS these flags and does not re-derive them. |
+| `policyFindingScope(policyResult)` | pure | Which SEMANTIC findings this policy state may produce: `{ state, modeFinding, maxAgeFinding, nullMxConflict, mxComparison }`, frozen. `state` is the closed algebra `transport.mtaStsPolicy.findingScope`. **Fails closed to the `invalid` scope** on anything that is not `valid === true` with a defined mode — `enforce` is the widest scope, so it is never the fall-through. `src/audit/artifacts.js` READS these flags and does not re-derive them. |
 
 The caller measures the UTF-8 byte limit before invoking the parser. This
 module imports no platform capability and performs no I/O.
@@ -77,6 +77,12 @@ document rather than a line and therefore appear in `errors` only.
 | `withdrawal` (valid `mode: none`) | `mta-sts.mode-none` only. RFC 8461 §8.3's removal procedure is "publish a new policy with 'mode' equal to 'none' and a small 'max_age' (e.g., one day)", so `max-age-short` here advises working against the protocol. A withdrawn policy also advertises no mail handling, so it cannot conflict with a null MX. |
 | `testing` | `mta-sts.mode-testing`, max-age-short when applicable, and either the null-MX conflict or the gated MX comparison. |
 | `enforce` | Max-age-short when applicable, and either the null-MX conflict or the gated MX comparison. No mode finding — `enforce` is the intended state. |
+
+A result that is not `valid === true`, or whose mode is not one of the three
+RFC 8461 values, takes the `invalid` scope. Today's validator cannot produce
+such a shape — which is the reason to write the rule down rather than rely on
+it: `enforce` enables every semantic class at once, so a drifted or hand-built
+result must not reach it by falling through.
 
 `maxAgeFinding`, `nullMxConflict` and `mxComparison` are currently true under
 exactly the same condition (valid, and mode is `enforce` or `testing`); only
