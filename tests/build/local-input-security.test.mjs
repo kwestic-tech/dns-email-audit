@@ -31,7 +31,7 @@
  * | Detector | Mechanism | Defeatable by page code? |
  * | --- | --- | --- |
  * | network | CDP `Network.requestWillBeSent` | no — outside the page |
- * | storage | before/after snapshot of every storage surface, plus CDP `DOMStorage` events | no — it compares state, not calls |
+ * | storage | before/after snapshot of Web Storage, cookies, IndexedDB and Cache Storage, plus CDP `DOMStorage` events | no — it compares state, not calls |
  * | insertion | every node the instrumented `DOMParser` produces is tagged, and a `MutationObserver` on the application document reports any tagged node that arrives | no — it observes the document, not the call |
  *
  * **The first version of this file wrapped a list of methods, and that was
@@ -48,6 +48,12 @@
  * through a replaced `setItem`. The suite stayed green because its own unsafe
  * fixture used exactly the two methods the wrappers watched. Removing a wrapper
  * proved the wrapper worked; it proved nothing about the promised behaviour.
+ *
+ * A later round found the same mistake one level down: the snapshot named
+ * "every storage surface" while reading only Web Storage and cookie NAMES, so
+ * analysis could create an IndexedDB database, write a Cache Storage entry,
+ * delete a key or change a cookie's value with the gate still green. A
+ * detector is only as behavioural as the surfaces it actually enumerates.
  *
  * The acceptance criterion is behavioural — *no request, no storage write, no
  * inserted node* — so the detectors are now behavioural too. Enumerating
@@ -295,24 +301,83 @@ const detectorSource = enabled => `
 
   /* ── storage: compare state, do not watch calls ─────────────────────────
    *
-   * A snapshot diff catches a named-property write, a setItem, a cookie and an
-   * IndexedDB database alike, because it never asks how the change was made. */
-  const snapshot = () => {
+   * A state comparison never asks HOW a change was made, so a named-property
+   * write, a setItem, a cookie and a database all report the same way.
+   *
+   * It has to enumerate every surface it claims, though, and an earlier version
+   * of this file did not: it read Web Storage and cookie NAMES only, while its
+   * own comment promised IndexedDB. A negative control created a database
+   * during the analysis phase and the gate stayed green. Two narrower bugs came
+   * from the same shortcut — the diff walked only the after-snapshot's keys, so
+   * a REMOVAL was invisible, and cookies were stored as name-only, so changing
+   * an existing cookie's value was invisible too.
+   *
+   * Asynchronous because IndexedDB and Cache Storage are. */
+  const snapshot = async () => {
     const out = {};
-    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); out['localStorage:' + k] = localStorage.getItem(k); } } catch (e) {}
-    try { for (let i = 0; i < sessionStorage.length; i++) { const k = sessionStorage.key(i); out['sessionStorage:' + k] = sessionStorage.getItem(k); } } catch (e) {}
-    try { if (document.cookie) for (const pair of document.cookie.split(';')) out['cookie:' + pair.split('=')[0].trim()] = 1; } catch (e) {}
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        out['localStorage:' + k] = localStorage.getItem(k);
+      }
+    } catch (e) { out['localStorage:<unreadable>'] = String(e && e.name); }
+    try {
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        out['sessionStorage:' + k] = sessionStorage.getItem(k);
+      }
+    } catch (e) { out['sessionStorage:<unreadable>'] = String(e && e.name); }
+    try {
+      if (document.cookie) for (const pair of document.cookie.split(';')) {
+        const at = pair.indexOf('=');
+        const name = (at < 0 ? pair : pair.slice(0, at)).trim();
+        // The VALUE, not just the name: replacing a cookie's contents is a
+        // storage write and a name-only snapshot cannot see it.
+        if (name) out['cookie:' + name] = at < 0 ? '' : pair.slice(at + 1).trim();
+      }
+    } catch (e) { out['cookie:<unreadable>'] = String(e && e.name); }
+    try {
+      if (indexedDB && indexedDB.databases) {
+        for (const db of await indexedDB.databases()) {
+          out['indexedDB:' + db.name] = String(db.version);
+        }
+      }
+    } catch (e) { out['indexedDB:<unreadable>'] = String(e && e.name); }
+    try {
+      if (window.caches) {
+        for (const key of await caches.keys()) {
+          const cache = await caches.open(key);
+          const entries = await cache.keys();
+          out['cache:' + key] = entries.map(r => r.url).sort().join(' ');
+        }
+      }
+    } catch (e) { out['cache:<unreadable>'] = String(e && e.name); }
     return out;
   };
-  const diff = (before, after) => Object.keys(after)
-    .filter(k => !(k in before) || before[k] !== after[k]).sort();
 
-  let bootBefore = snapshot();
+  // The UNION of both key sets, so a removal is a difference too. Walking only
+  // the after-snapshot made deleting a key indistinguishable from never having
+  // written one.
+  const diff = (before, after) => {
+    const keys = new Set(Object.keys(before).concat(Object.keys(after)));
+    return [...keys].filter(k => before[k] !== after[k]).sort();
+  };
+
+  let bootBefore = null;
   let phaseBefore = null;
+  const booted = snapshot().then(v => { bootBefore = v; });
 
-  window.__probeArmed = () => {
+  window.__probeArmed = async (seedNonce) => {
+    await booted;
     if (probe.phase === 'boot') {
-      probe.bootStorage = on.includes('storage') ? diff(bootBefore, snapshot()) : [];
+      probe.bootStorage = on.includes('storage') ? diff(bootBefore, await snapshot()) : [];
+    }
+    // Seeded AFTER the boot diff and BEFORE the phase snapshot, so the values
+    // the fixture will remove or overwrite exist without counting as boot
+    // writes. Nonced because storage survives navigation within one profile.
+    if (seedNonce !== undefined) {
+      try { localStorage.setItem('__seed_remove__', 'seeded' + seedNonce); } catch (e) {}
+      try { document.cookie = '__seed_cookie__=old' + seedNonce + '; path=/'; } catch (e) {}
     }
     // Arming begins a fresh analysis phase, so anything a PREVIOUS phase
     // recorded is cleared with it. Otherwise a later phase inherits an earlier
@@ -321,12 +386,12 @@ const detectorSource = enabled => `
     probe.insertion = [];
     if (window.__probeFlush) window.__probeFlush();
     probe.insertion = [];
-    phaseBefore = snapshot();
+    phaseBefore = await snapshot();
     probe.phase = 'analysis';
   };
-  window.__probeCollect = () => {
+  window.__probeCollect = async () => {
     if (on.includes('storage') && phaseBefore) {
-      probe.storage = diff(phaseBefore, snapshot());
+      probe.storage = diff(phaseBefore, await snapshot());
     }
     window.__probeFlush();
     return JSON.stringify({ storage: probe.storage, insertion: probe.insertion });
@@ -349,11 +414,31 @@ const detectorSource = enabled => `
     try { await fetch(location.pathname + '?probe=1', { cache: 'no-store' }); attempted.push('network'); }
     catch (e) { attempted.push('network-threw:' + e.name); }
 
-    // Storage, by both routes.
+    // Storage, across every surface the snapshot claims and by every route:
+    // a method call, a named-property write, a REMOVAL, a value REPLACEMENT,
+    // a database and a cache entry.
     try { localStorage.setItem('__unsafe_probe__', String(nonce)); attempted.push('storage-setItem'); }
     catch (e) { attempted.push('storage-threw:' + e.name); }
     try { localStorage.__direct_probe__ = String(nonce); attempted.push('storage-property'); }
     catch (e) { attempted.push('storage-property-threw:' + e.name); }
+    try { localStorage.removeItem('__seed_remove__'); attempted.push('storage-remove'); }
+    catch (e) { attempted.push('storage-remove-threw:' + e.name); }
+    try { document.cookie = '__seed_cookie__=new' + nonce + '; path=/'; attempted.push('storage-cookie'); }
+    catch (e) { attempted.push('storage-cookie-threw:' + e.name); }
+    try {
+      await new Promise(resolve => {
+        const request = indexedDB.open('__unsafe_db__' + nonce);
+        request.onsuccess = () => { try { request.result.close(); } catch (e) {} resolve(); };
+        request.onerror = () => resolve();
+        request.onblocked = () => resolve();
+      });
+      attempted.push('storage-indexeddb');
+    } catch (e) { attempted.push('storage-indexeddb-threw:' + e.name); }
+    try {
+      const cache = await caches.open('__unsafe_cache__' + nonce);
+      await cache.put(new Request(location.pathname + '?cached=' + nonce), new Response('x'));
+      attempted.push('storage-cache');
+    } catch (e) { attempted.push('storage-cache-threw:' + e.name); }
 
     // Insertion, by both routes.
     const parse = t => new DOMParser().parseFromString(t, 'image/svg+xml');
@@ -417,7 +502,7 @@ async function probe({ enabled, unsafe }) {
   }
 
   // Everything above this line is page load. Everything below is analysis.
-  await evaluate('window.__probeArmed()');
+  await evaluate(`window.__probeArmed(${runNonce})`);
   const bootStorage = await evaluate('JSON.stringify(window.__probe.bootStorage)');
   cdp.clearEvents();
 
@@ -472,17 +557,30 @@ eq('boot writes nothing beyond the one key PRIVACY.md documents',
 section('2. The deliberately unsafe fixture is caught');
 
 const caught = await probe({ enabled: ALL, unsafe: true });
+const EVERY_ROUTE = ['network', 'storage-setItem', 'storage-property',
+  'storage-remove', 'storage-cookie', 'storage-indexeddb', 'storage-cache',
+  'insertion-appendChild', 'insertion-range'];
 eq('the fixture committed every violation by every route it claims',
-  caught.attempted,
-  ['network', 'storage-setItem', 'storage-property',
-    'insertion-appendChild', 'insertion-range']);
+  caught.attempted, EVERY_ROUTE);
 eq('the network detector saw the request', caught.network.length, 1);
 
 // Both storage routes, including the named-property write that walked past the
 // previous wrapper entirely.
-eq('the storage detector saw BOTH writes, including the property assignment',
-  caught.storage, ['localStorage:__direct_probe__', 'localStorage:__unsafe_probe__']);
-eq('and the external CDP corroborator saw them too',
+/* Every surface the snapshot claims, and the three change KINDS: an addition,
+ * a removal, and a replacement of an existing value. */
+eq('the storage detector saw a write by method call and by property assignment',
+  caught.storage.filter(k => k.startsWith('localStorage:__')).sort(),
+  ['localStorage:__direct_probe__', 'localStorage:__seed_remove__',
+    'localStorage:__unsafe_probe__']);
+eq('a REMOVAL is a difference, not an absence',
+  caught.storage.includes('localStorage:__seed_remove__'), true);
+eq('a cookie whose VALUE changed is a difference',
+  caught.storage.includes('cookie:__seed_cookie__'), true);
+eq('an IndexedDB database is seen',
+  caught.storage.some(k => k.startsWith('indexedDB:__unsafe_db__')), true);
+eq('and a Cache Storage entry is seen',
+  caught.storage.some(k => k.startsWith('cache:__unsafe_cache__')), true);
+eq('the external CDP corroborator saw the Web Storage writes',
   caught.storageEvents.slice().sort(), ['__direct_probe__', '__unsafe_probe__']);
 
 // Both insertion routes, including Range.insertNode, which does not dispatch
@@ -506,9 +604,7 @@ for (const removed of ALL) {
   const blind = await probe({ enabled, unsafe: true });
 
   eq(`without the ${removed} detector, the fixture still commits every violation`,
-    blind.attempted,
-    ['network', 'storage-setItem', 'storage-property',
-      'insertion-appendChild', 'insertion-range']);
+    blind.attempted, EVERY_ROUTE);
   eq(`without the ${removed} detector, that violation goes unseen`,
     blind[removed].length, 0);
 
@@ -559,15 +655,19 @@ const NS = 'http://www.w3.org/2000/svg';
 const conformantSvg =
   `<svg xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewBox="0 0 64 64"><title>Brand</title></svg>`;
 
+/* A fresh analysis phase, opened BEFORE the first validator call. Section 4
+ * left its own deliberate violations on this page and they are not this
+ * section's to report — but the window must also cover every call below,
+ * including this one. Arming after the first call left an idempotent leak
+ * outside the measured window entirely, which is how an early version of this
+ * section reported "no storage write" while analysis created a database. */
+await evaluate('window.__probeArmed()');
+cdp.clearEvents();
+
 const cleanSvg = await checkSvg(conformantSvg);
 eq('a conformant tiny-ps logo passes through the real parser',
   [cleanSvg.valid, cleanSvg.rejections, cleanSvg.diagnostics, cleanSvg.title],
   [true, [], [], 'Brand']);
-
-/* A fresh analysis phase: section 4 left its own deliberate violations on this
- * page, and they are not this section's to report. */
-await evaluate('window.__probeArmed()');
-cdp.clearEvents();
 
 section('5a. Hostile fixtures, parsed by the engine that ships');
 
@@ -636,17 +736,26 @@ section('5d. Analysing all of that caused no violation');
  * validator ran, including on every hostile fixture above. */
 await evaluate('window.__probeFlush()');
 const afterAnalysis = await evaluate('window.__probeCollect()');
+// A collector that throws must FAIL the gate. Defaulting to an empty result
+// would turn a broken instrument into a clean bill of health, which is the
+// one outcome a security suite must never produce.
+eq('the collector returned a result rather than erroring',
+  typeof afterAnalysis === 'string', true);
 const analysisSeen = typeof afterAnalysis === 'string'
-  ? JSON.parse(afterAnalysis) : { storage: [], insertion: [] };
+  ? JSON.parse(afterAnalysis) : { storage: ['<collector-failed>'], insertion: ['<collector-failed>'] };
+// NO filter. The criterion is "analysis caused no request", not "no
+// cross-origin request": a same-origin call can still exfiltrate the supplied
+// artifact to a route `connect-src 'self'` permits. The validator source and
+// its fixtures are installed before the events are cleared, so nothing
+// legitimate is expected here at all.
 const analysisRequests = cdp.drain('Network.requestWillBeSent')
-  .map(e => e.params?.request?.url || '')
-  .filter(url => !url.includes('probe=1'));
+  .map(e => e.params?.request?.url || '');
 
 eq('no foreign node from any hostile fixture entered the document',
   analysisSeen.insertion, []);
 eq('no storage write happened while analysing them', analysisSeen.storage, []);
-eq('and no fixture caused a network request',
-  analysisRequests.filter(u => !u.startsWith(origin)), []);
+eq('and no fixture caused ANY network request, same-origin included',
+  analysisRequests, []);
 
 cdp.close();
 cleanup();
