@@ -49,6 +49,38 @@ symmetry standing in for structure.
 | `validateBimiRecord(record)` | pure | `{ valid, logo, authority, declined, errors }`. Always returns a result; never throws. |
 | `BIMI_ERRORS` | frozen array | `invalid-syntax`, `duplicate-tags`. Registry algebra `bimi.errors`. |
 
+### `svg.js`
+
+Local screening of a user-supplied indicator SVG. Added by 0.8.0; it fetches
+nothing, and the `l=` URL in a DNS record is still never retrieved.
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `validateBimiSvg(text, parseSvg)` | pure | `{ valid, parsed, root, title, rejections, diagnostics }`. Tokens and primitives only — **it never returns a node**, which is what keeps the parsed document unable to reach the renderer. `parseSvg` is injected by `src/runtime.js` from the platform's `DOMParser`; this module reads no ambient global. |
+| `BIMI_SVG_REJECTIONS` | frozen array | Twelve security refusals. Registry algebra `bimi.svg.rejections`. |
+| `BIMI_SVG_DIAGNOSTICS` | frozen array | Eleven SVG P/S diagnostics. Registry algebra `bimi.svg.diagnostics`. |
+
+**`doctype-present` and `entity-declaration` are raised before `parseSvg` is
+called, and that ordering is load-bearing.** Chrome expands internal general
+entities: a nine-level billion-laughs document parsed to 59,049 characters in
+8 ms, and each further level triples it. A post-parse check would run after the
+cost was already paid, so the scan is on the source text and the function
+returns without ever invoking the parser. `parsed` reports whether the parser
+was *reached*, not whether it succeeded, so the guarantee is observable.
+
+Three behaviours of the real parser the rules are shaped around, all measured
+rather than assumed:
+
+| Input | Chrome | Consequence |
+| --- | --- | --- |
+| two root elements | parse error | `malformed-xml`; a "multiple roots" diagnostic would be unreachable |
+| HTML in a `.svg` file | parses cleanly, root `html` | `bad-root` exists because nothing else catches it |
+| `xlink:href` | `name` `xlink:href`, `localName` `href` | one `localName` rule covers both spellings |
+
+`valid` is about the twelve refusals only. A document carrying nothing but
+profile diagnostics is valid and simply may not display, and the panel says so
+rather than implying the logo was certified.
+
 `duplicate-tags` is the more specific complaint and **suppresses**
 `invalid-syntax` on a record that is both.
 

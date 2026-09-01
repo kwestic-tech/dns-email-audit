@@ -2963,6 +2963,144 @@
       ]
     },
     {
+      "algebra": "bimi.svg.rejections",
+      "member": "doctype-present",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "entity-declaration",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "malformed-xml",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "bad-root",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "script-element",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "event-handler",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "foreign-object",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "external-reference-element",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "external-reference",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "link-element",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "external-style",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "animation",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "namespace-not-svg",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "base-profile-not-tiny-ps",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "version-not-1-2",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "title-missing",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "title-not-unique",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "desc-empty",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "viewbox-missing",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "viewbox-not-square",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "root-has-position",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "raster-data-uri",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "unsupported-attribute",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
       "algebra": "bimi.errors",
       "member": "invalid-syntax",
       "suites": [],

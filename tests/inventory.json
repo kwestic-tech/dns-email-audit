@@ -82,7 +82,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 91,
+      "assertions": 92,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -92,7 +92,7 @@
         "the exported report declares its own policy",
         "the markup-sink allowlist is empty and src/ is the only source tree left to scan"
       ],
-      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. 58 before Task 4.0; +4 core/shared, +1 core/caa, +1 core/mx, +1 core/bimi, +4 core/transport, +1 local MTA-STS policy module."
+      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. 58 before Task 4.0; +4 core/shared, +1 core/caa, +1 core/mx, +1 core/bimi, +4 core/transport, +1 local MTA-STS policy module, +1 BIMI SVG module."
     },
     {
       "path": "src/core/dns/doh.test.js",
@@ -207,6 +207,19 @@
         "version-field candidates: recognizable before validated, including the record whose version field is not first",
         "sender-compatible selection: the exact version literal and the whitespace a delimiter allows",
         "the pair that carries the design — one record an auditor selects and a sender discards"
+      ]
+    },
+    {
+      "path": "src/core/bimi/svg.test.js",
+      "assertions": 85,
+      "note": "Co-located per spec §9. local-artifact-validation 1.5. Pure screening over an INJECTED parser: the fixture tree exercises the rules, and tests/build/local-input-security.test.mjs drives the real DOMParser. Neither half is evidence for the other.",
+      "areas": [
+        "the two frozen vocabularies, and why multiple-roots is not among the diagnostics: XML makes a second root a parse error",
+        "DOCTYPE and ENTITY refused by a source-text scan with the parser INVOCATION COUNTED, not inferred -- Chrome expands internal entities, so reaching the parser is the failure",
+        "root identity: HTML in a .svg file parses cleanly and is caught only by name, while a wrong namespace on an svg root is a diagnostic rather than a refusal",
+        "every security refusal: script, event handlers, foreignObject, image/use, external href in both the plain and xlink spellings, anchors, animation elements and external styles",
+        "every profile diagnostic, including a title that must be a direct child and a viewBox that must be square",
+        "diagnostics never make a document invalid, and the result carries tokens and primitives only -- never a node"
       ]
     },
     {

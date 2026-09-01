@@ -1124,6 +1124,55 @@
       ]
     },
     {
+      "id": "bimi.svg.rejections",
+      "owner": "core/bimi",
+      "field": "validateBimiSvg().rejections[] tokens",
+      "closed": true,
+      "site": "src/core/bimi/svg.js",
+      "members": [
+        "doctype-present",
+        "entity-declaration",
+        "malformed-xml",
+        "bad-root",
+        "script-element",
+        "event-handler",
+        "foreign-object",
+        "external-reference-element",
+        "external-reference",
+        "link-element",
+        "external-style",
+        "animation"
+      ],
+      "note": "Security refusals over a user-supplied indicator SVG. doctype-present and entity-declaration are raised by a scan of the SOURCE TEXT before the parser is invoked, because Chrome expands internal general entities -- measured: a nine-level billion-laughs document produced 59,049 characters of text -- so a post-parse check would run after the cost was already paid. bad-root is its own member because HTML in a .svg file parses cleanly with no parser error, so nothing but an explicit root-name check catches it.",
+      "resultPaths": [
+        "artifact.bimiSvg.rejections[]"
+      ]
+    },
+    {
+      "id": "bimi.svg.diagnostics",
+      "owner": "core/bimi",
+      "field": "validateBimiSvg().diagnostics[] tokens",
+      "closed": true,
+      "site": "src/core/bimi/svg.js",
+      "members": [
+        "namespace-not-svg",
+        "base-profile-not-tiny-ps",
+        "version-not-1-2",
+        "title-missing",
+        "title-not-unique",
+        "desc-empty",
+        "viewbox-missing",
+        "viewbox-not-square",
+        "root-has-position",
+        "raster-data-uri",
+        "unsupported-attribute"
+      ],
+      "note": "SVG P/S profile diagnostics: why a mailbox provider may not display the logo. Never a refusal -- a document carrying only these is still valid. The spec's \"single root element\" row is deliberately NOT a member: XML makes a second root a parse error (measured), so it arrives as malformed-xml and a diagnostic for it would be unreachable. unsupported-attribute covers the six attributes the spec constrains to \"permitted inert values\" without enumerating them, so presence alone is the diagnostic until the spec decides.",
+      "resultPaths": [
+        "artifact.bimiSvg.diagnostics[]"
+      ]
+    },
+    {
       "id": "bimi.errors",
       "owner": "core/bimi",
       "field": "validateBimiRecord().errors[] tokens",
