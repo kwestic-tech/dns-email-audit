@@ -33,6 +33,7 @@
     "equivalence:baseline": "node tests/build/equivalence.mjs --subject-root=../dea-v050 --emit > tests/fixtures/equivalence/baseline-v0.5.0.json",
     "inventory": "node tests/contract/inventory.test.mjs",
     "test:file-url": "node tests/build/file-url.test.mjs",
+    "test:local-input-security": "node tests/build/local-input-security.test.mjs",
     "coverage": "node tests/build/coverage.mjs",
     "equivalence:validate": "node tests/build/equivalence.validate.mjs",
     "test:render": "node tools/interpolate.test.mjs && node tools/render.test.mjs && node tools/export.test.mjs && node tools/csp.test.mjs"

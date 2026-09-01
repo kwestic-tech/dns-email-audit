@@ -692,6 +692,16 @@
       ]
     },
     {
+      "command": "node tests/build/local-input-security.test.mjs  (npm run test:local-input-security)",
+      "why": "The instrument 0.8.0's hostile-SVG analysis depends on, built before the validator it will measure. Drives the production bundle in a real headless browser over an http origin -- file:// blocks the same-origin fetch the network detector must be shown catching -- and installs three detectors: CDP Network.requestWillBeSent, wrapped storage writers, and wrapped DOM insertion points comparing ownerDocument BEFORE delegating, since the DOM adopts a foreign node on insertion. Kept out of npm test for the same reason as file-url, so a missing browser reads as one clearly named failure, but it REFUSES to skip. CI runs it as the required `Local input security (real browser)` job.",
+      "areas": [
+        "a clean load attributes no request, storage write or foreign-node insertion to the analysis phase",
+        "boot writes nothing beyond the one localStorage key PRIVACY.md documents",
+        "a deliberately unsafe fixture commits one network request, one storage write and one foreign-document insertion, and all three are caught",
+        "the negative control is mechanical rather than a manual source edit: each detector removed in turn stops seeing its own violation while the other two still report, and all three report again once restored"
+      ]
+    },
+    {
       "command": "node tests/build/file-url.test.mjs  (npm run test:file-url)",
       "why": "Drives a real headless browser at a real file:// URL. Kept out of npm test so a missing browser is one clearly-named failure rather than a broken suite -- but it REFUSES to skip, so it can never pass without having run. CI runs it as its own job, and it is a Gate 1 acceptance criterion.",
       "areas": [
