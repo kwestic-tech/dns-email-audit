@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.4 (Final) |
+| Spec version | 1.5 (Final) |
 | Target release | 0.8.0 |
 | Status | Final; approved for implementation |
 | Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](implemented/findings-and-remediation.md) for the final `Finding` shape |
@@ -212,27 +212,42 @@ Validation rules:
 
 Cross-checks against DNS data already held, which is where the value is.
 
-**Two preconditions gate the two mismatch classes, and both must hold.** The
-first is about the DNS side, the second about the policy side:
+#### The semantic-finding matrix
 
-1. `compareMtaStsMx()` returned `compared` — a delivery-candidate fact was
-   established.
-2. `mxComparisonApplies(policy)` is true — the policy is **valid** and its mode
-   is `enforce` or `testing`.
+Parsing says what a document contains. It does not say which readings of it are
+honest, and **every** semantic finding has a policy state in which it becomes a
+lie — not just the two mismatch classes. `policyFindingScope(policy)` is the one
+place that decision lives; `src/audit/artifacts.js` reads its flags and does not
+re-derive them.
+
+| Policy state | Semantic findings allowed |
+| --- | --- |
+| **Invalid** | Parser and profile diagnostics, and hygiene, only. No mode, max-age, null-MX or mismatch interpretation — each would be built from the fields that happened to survive parsing, describing a document no sender will honour. |
+| **Valid `none`** (withdrawal) | `mta-sts.mode-none` and hygiene. No max-age-short, no null-MX conflict, no mismatch findings. |
+| **Valid `testing`** | `mta-sts.mode-testing`; max-age-short when applicable; and either the null-MX conflict or the gated MX comparison. |
+| **Valid `enforce`** | Max-age-short when applicable; and either the null-MX conflict or the gated MX comparison. No mode finding — `enforce` is the intended state. |
+
+The withdrawal row is the one with teeth. RFC 8461 §8.3's removal procedure is
+*"Publish a new policy with 'mode' equal to 'none' and a small 'max_age' (e.g.,
+one day)."* One day is exactly the `max-age-short` threshold, so emitting that
+finding against a conforming withdrawal document tells the operator to work
+against the protocol's own removal steps.
+
+The individual checks, each gated by the matrix above:
 
 | Check | Precondition and condition |
 | --- | --- |
-| `mta-sts.policy-mx-mismatch` | Both preconditions: a delivery candidate matches no `mx` pattern in the policy. This breaks mail delivery in `enforce` mode. |
-| `mta-sts.policy-mx-unused` | Both preconditions: an `mx` pattern matches none of the domain's delivery candidates. Usually a stale policy after a provider migration. |
-| `mta-sts.policy-on-null-mx` | Arrives with the composer. The domain publishes RFC 7505 null MX while the supplied policy advertises mail handling. This is distinct from an MX mismatch. |
-| `mta-sts.mode-testing` | `mode: testing` provides no enforcement. |
-| `mta-sts.mode-none` | `mode: none` actively withdraws a previously published policy. |
-| `mta-sts.max-age-short` | `max_age` under 86400 seconds weakens the protection substantially. |
+| `mta-sts.policy-mx-mismatch` | Scope allows `mxComparison`, **and** `compareMtaStsMx()` returned `compared`: a delivery candidate matches no `mx` pattern in the policy. This breaks mail delivery in `enforce` mode. |
+| `mta-sts.policy-mx-unused` | Same two conditions: an `mx` pattern matches none of the domain's delivery candidates. Usually a stale policy after a provider migration. |
+| `mta-sts.policy-on-null-mx` | Scope allows `nullMxConflict`, **and** the comparator returned `null-mx`. Arrives with the composer. The domain publishes RFC 7505 null MX while the supplied policy advertises mail handling. Distinct from an MX mismatch. |
+| `mta-sts.mode-testing` | Scope is `testing`. `mode: testing` provides no enforcement. |
+| `mta-sts.mode-none` | Scope is `withdrawal`. `mode: none` actively withdraws a previously published policy. |
+| `mta-sts.max-age-short` | Scope allows `maxAgeFinding`, i.e. never on a withdrawal or an invalid policy: `max_age` under 86400 seconds weakens the protection substantially. |
 
-#### Why the policy-side precondition exists
+#### Why the policy-side preconditions exist
 
-Without it the comparison produces confident false findings from two policies
-that are not defects at all. Both are executed in `mta-sts.test.js`:
+Without them the composer produces confident false findings from documents that
+are not defects at all. All are executed in `mta-sts.test.js`:
 
 - A **valid `mode: none`** policy legitimately carries no `mx` at all, because
   it withdraws enforcement. `compareMtaStsMx([], { hosts: ['mail.example.test'] })`
@@ -243,8 +258,15 @@ that are not defects at all. Both are executed in `mta-sts.test.js`:
   comparing that partial list reports mismatches and unused patterns derived
   from a document no sender will honour.
 
-The composer therefore emits the parser's own syntax findings first, and runs
-the comparison only when `mxComparisonApplies(policy)` is true.
+- A **valid `mode: none`** policy with `max_age: 3600` is RFC 8461 §8.3's own
+  removal document. `max-age-short` on it is advice to break the removal
+  procedure, so the withdrawal scope suppresses it — while the same `max_age`
+  under `enforce` still raises it.
+
+The composer therefore emits the parser's own diagnostics first, then consults
+`policyFindingScope(policy)` before every semantic finding. `mxComparisonApplies`
+remains available as the named view of that matrix's `mxComparison` row and
+delegates to it, so the rule has exactly one implementation.
 
 #### The comparator's contract, now and at the end state
 
@@ -496,9 +518,18 @@ null bytes; a leading BOM warning; interior and extra trailing blank lines with
 line numbers; a malformed line that does not erase a separate invalid field;
 wrong-case registered names as warnings that leave a conformant policy valid;
 extension punctuation; an unknown MX result that emits no mismatch; a null-MX
-result that emits only its dedicated finding; and the fail-closed comparator
+result that emits only its dedicated finding; the fail-closed comparator
 inputs — an absent fact, a fact with no `hosts` array, and the raw `mxHealth`
-audit shape — each asserted not to produce the every-pattern-is-stale answer.
+audit shape — each asserted not to produce the every-pattern-is-stale answer;
+and the four finding scopes, each reachable from a real parser result, with the
+§8.3 withdrawal document proven not to raise `max-age-short` while the same
+`max_age` under `enforce` does.
+
+Composer fixtures, when `src/audit/artifacts.js` lands, must prove **suppression
+rather than absence** for at least: a valid `mode: none` policy with a small
+`max_age`; a valid `mode: none` policy on a null-MX domain; and an invalid
+policy carrying fields that would otherwise trigger mode, max-age and mismatch
+findings. Asserting only that parsing failed would pass without the matrix.
 
 SVG fixtures, each asserting rejection with the right token and, critically,
 asserting that no network request occurred and no node was inserted:
@@ -650,10 +681,20 @@ spec was amended.
 | Two incompatible comparator contracts in one Final spec | Accepted | The 1.3 amendment rewrote the fail-closed block but left the paragraph above it describing `{ hosts, unknown, nullMx }` and a `null-mx` state the same document withdraws 60 lines later. Replaced with an explicit current-vs-end-state table, and the cross-check table and prose moved from "DNS MX hosts" to delivery candidates. |
 | No policy-validity or mode precondition on the composer | Accepted | Reproduced exactly as reported: a valid `mode: none` policy has `mx: []`, and comparing it against a real MX host returns `unmatchedHosts: ['mail.example.test']` — a false `policy-mx-mismatch` on a deliberately inactive policy. An invalid policy's surviving partial `mx` list produces both mismatch classes. Rather than leave the rule as composer prose nothing enforces, `mxComparisonApplies(policy)` is now an exported pure predicate in the protocol owner, because it is a statement about RFC 8461 mode semantics. Its suite pins both counterexamples, not just the predicate. |
 
+### Review round after 1.4
+
+The RFC 8461 §8.3 claim was read from `rfc-editor.org` before the spec was
+amended.
+
+| Finding | Outcome | Reasoning |
+| --- | --- | --- |
+| The semantic-finding precondition is incomplete | Accepted | 1.4 gated only the two mismatch classes, leaving `max-age-short`, the mode findings and the null-MX conflict ungated. Verified verbatim against §8.3: *"Publish a new policy with 'mode' equal to 'none' and a small 'max_age' (e.g., one day)"* — one day being exactly the `max-age-short` threshold, so the finding would advise breaking the protocol's removal procedure. Replaced the one-off precondition with a four-state matrix, made it executable as `policyFindingScope()` with a registered closed algebra, and had `mxComparisonApplies` delegate to it so the rule has one implementation. |
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.5 | 2026-09-01 | Amended Final after the third follow-up review. Replaced the mismatch-only precondition with a four-state semantic-finding matrix covering every policy finding, keyed on RFC 8461 §8.3's withdrawal procedure; made it executable as the exported `policyFindingScope()` with `transport.mtaStsPolicy.findingScope` registered as a closed algebra in both state files; had `mxComparisonApplies` delegate to that matrix rather than re-derive it; and required composer fixtures that prove suppression rather than absence. |
 | 1.4 | 2026-09-01 | Amended Final after the second follow-up review. Replaced the contradictory comparator paragraph with an explicit current-commit vs composer-commit contract table and moved the cross-check table and surrounding prose to delivery-candidate terminology. Added the policy-side precondition — both MX mismatch classes now require `mxComparisonApplies(policy)`, a new exported predicate requiring a valid policy in `enforce` or `testing` mode — with both false-finding counterexamples pinned by fixtures. |
 | 1.3 | 2026-09-01 | Amended Final after the follow-up review. Replaced the published-MX-records fact source with a four-case delivery-candidate contract covering the RFC 5321 §5.1 implicit MX and RFC 7505 null MX; removed `null-mx` from the comparison vocabulary and both state files until its composer exists; extended the fail-closed rules to an empty host list and to any entry that is not a valid hostname after normalisation; made a case-variant extension retained and duplicate-checked rather than short-circuited; and corrected the localisation baseline from 732 to the gate-measured 837. |
 | 1.2 | 2026-09-01 | Amended Final after executing the 1.1 implementation. Named the published MX records as the comparator's fact source and forbade `advanced.mxHealth`; made the comparator fail closed to `unknown` on any fact that is not an established list of hostname strings; recorded `null-mx` as having no producer until `src/audit/artifacts.js` lands; moved `wrong-case-field` from `errors` to `warnings` so a conformant case-variant extension stays valid; stated the `diagnostics` line-index rule and the line-less evidence variant; and aligned the `missing-mx` rule with the mode-conditioned reading. |
