@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.6 (Final) |
+| Spec version | 1.7 (Final) |
 | Target release | 0.8.0 |
 | Status | Final; approved for implementation |
 | Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](implemented/findings-and-remediation.md) for the final `Finding` shape |
@@ -459,11 +459,63 @@ artifactFindings: [{
   artifact: 'mta-sts-policy' | 'bimi-svg',
   evidence: [{
     kind: 'line' | 'element' | 'input',
-    location: string, // e.g. 'line 3', '<svg>', or the artifact label
+    location: string, // e.g. 'line 3', '<use>', or the artifact label
     value: string,    // the bounded user-supplied material that caused it
   }],
 }]
 ```
+
+**`value` is the supplied material, never the diagnostic token.** The token is
+already the finding's `args`; repeating it as evidence tells an operator
+nothing they did not have. `value` carries the offending policy line, the
+offending attribute pair, or the offending URL.
+
+**`location` names the offending construct, not the document.** An SVG
+rejection is located at the element that caused it — `<use>`, `<script>` — not
+at the root. A `line` location is the line the parser saw the token on, and a
+repeated token produces ONE evidence entry PER OCCURRENCE at its own line.
+`input` is for a condition raised against the whole document, such as a missing
+required field, which has no line to point at.
+
+**The owner validators supply this, and `src/audit/` never reparses.** The
+composer may not re-split a policy body to recover line text, nor re-walk an
+SVG to find an element: a second copy of a parser's own position handling would
+diverge silently. `validateMtaStsPolicy().diagnostics` carries
+`{ token, line, text }` and `validateBimiSvg().sites` carries
+`{ token, element, value }`, one entry per occurrence.
+
+**Bounds are applied in code points.** `String.slice` through an astral
+character leaves a lone surrogate; `tools/export.test.mjs` §10 exists because
+that has already been a defect in this project once, and a bound applied at the
+source must not manufacture malformed Unicode ahead of the renderer.
+
+#### The artifact finding catalog
+
+Twelve ids, frozen and exported as `ARTIFACT_FINDING_IDS`, registered as the
+closed algebra `audit.artifact.finding.id`. It is deliberately separate from
+`audit.finding.id`, which stays the DNS contract.
+
+| Id | Severity | When |
+| --- | --- | --- |
+| `mta-sts.policy-invalid` | high | the parser reported any error |
+| `mta-sts.policy-hygiene` | info | the parser reported only warnings |
+| `mta-sts.policy-mx-mismatch` | critical | a delivery candidate no pattern covers — this breaks delivery under `enforce` |
+| `mta-sts.policy-mx-unused` | medium | a pattern covering no candidate |
+| `mta-sts.policy-on-null-mx` | medium | a mail-handling policy on an RFC 7505 null-MX domain |
+| `mta-sts.policy-mx-unknown` | info, unverified | the MX fact could not be established, so the headline check did not run |
+| `mta-sts.mode-testing` | medium | `mode: testing` |
+| `mta-sts.mode-none` | high | `mode: none` withdraws the control |
+| `mta-sts.max-age-short` | medium | `max_age` under 86400, where the scope permits the finding |
+| `bimi.svg-rejected` | high | any security rejection |
+| `bimi.svg-profile` | medium | profile diagnostics with no rejection |
+| `bimi.svg-valid` | info | neither — the panel answers the question it was asked |
+
+Two of these are outcomes the earlier check tables did not name, and both are
+deliberate. **`policy-mx-unknown` is reported rather than skipped**: above the
+50-domain deep-check threshold a user who supplied a policy would otherwise see
+nothing and be unable to tell "no problem" from "not checked". **`bimi.svg-valid`
+is reported for the same reason** — the panel exists to answer a question — and
+its copy must not imply mailbox-provider acceptance.
 
 `artifactFindings` is never merged into the DNS-derived `findings` array. Its
 `source`, `artifact` and evidence `kind` fields each have their own closed
@@ -734,10 +786,24 @@ Every finding reproduced by execution, and both cited sources read directly.
 | Case-insensitive profile matching | Accepted | `baseprofile`, `viewbox`, `VERSION`, `<SVG>` and `<TITLE>` all satisfied requirements they do not meet. Profile checks are exact; the security screen stays case-insensitive by design, and the asymmetry is now written down. |
 | Degenerate `viewBox` passed the square check | Accepted | `0 0 0 0` and `0 0 -64 -64` compared equal. Both extents must now exceed zero. |
 
+### Review round after the composer
+
+Every finding reproduced by execution before the spec was amended.
+
+| Finding | Outcome | Reasoning |
+| --- | --- | --- |
+| `analyzeArtifacts()` never composed the fact | Accepted | Reproduced: the public entry reported `policy-mx-unknown` for a domain whose MX matched perfectly, because it took a ready-made `mxFact` that nothing in the audit produces. `deliveryCandidates()` and the composition path each had green tests; the join between them had none. The entry point now derives from `mx`/`aRec`/`aaaaRec`/`domain`, and every case is driven through the public entry. |
+| Evidence carried tokens, not material | Accepted | The token is already `args`. The owner validators now return `{token, line, text}` and `{token, element, value}` so the composer can build honest evidence without reparsing protocol input in `src/audit/`. |
+| The twelve finding ids were unregistered | Accepted | Exported, frozen, registered as `audit.artifact.finding.id`, and pinned against the catalog by the co-located suite. |
+| New outcomes and severities outran the spec | Accepted | `policy-mx-unknown`, `bimi.svg-valid` and the full severity table are recorded above. Labelling them judgement calls in a handoff is exactly why they needed to be in the spec, not a review document. |
+| Repeated diagnostics pointed at the first line | Accepted | Occurrences are consumed in order; two blank lines produce two entries at lines 2 and 3. |
+| The evidence cap split astral characters | Accepted | Bounds are in code points in all three places that apply one. |
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.7 | 2026-09-01 | Amended Final after the composer review. Defined the evidence contract precisely — supplied material rather than the diagnostic token, the offending construct rather than the document, one entry per occurrence, code-point bounds — and required the owner validators to supply the located material so `src/audit/` never reparses. Recorded the twelve-id artifact finding catalog with its severities as a registered closed algebra separate from `audit.finding.id`, including the two outcomes (`policy-mx-unknown`, `bimi.svg-valid`) that earlier tables did not name. |
 | 1.6 | 2026-09-01 | Amended Final after the SVG review. Withdrew the unreachable "single root element" diagnostic; enumerated the six SVG Tiny PS constrained attributes and their permitted values from draft-svg-tiny-ps-abrotman-12 §2.3, redefining `unsupported-attribute` as a value outside that table; required exact XML name matching for profile conformance while keeping the security screen case-insensitive, and stated why the two differ; and required a `viewBox` to have extents greater than zero before it can be square. |
 | 1.5 | 2026-09-01 | Amended Final after the third follow-up review. Replaced the mismatch-only precondition with a four-state semantic-finding matrix covering every policy finding, keyed on RFC 8461 §8.3's withdrawal procedure; made it executable as the exported `policyFindingScope()` with `transport.mtaStsPolicy.findingScope` registered as a closed algebra in both state files; had `mxComparisonApplies` delegate to that matrix rather than re-derive it; and required composer fixtures that prove suppression rather than absence. |
 | 1.4 | 2026-09-01 | Amended Final after the second follow-up review. Replaced the contradictory comparator paragraph with an explicit current-commit vs composer-commit contract table and moved the cross-check table and surrounding prose to delivery-candidate terminology. Added the policy-side precondition — both MX mismatch classes now require `mxComparisonApplies(policy)`, a new exported predicate requiring a valid policy in `enforce` or `testing` mode — with both false-finding counterexamples pinned by fixtures. |
