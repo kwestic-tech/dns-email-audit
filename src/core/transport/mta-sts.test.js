@@ -19,6 +19,7 @@ import { createSuite } from '../../../tests/lib/assert.mjs';
 import {
   validateMtaStsRecord, MTA_STS_ERRORS, summarizeMtaSts,
 } from './mta-sts.js';
+import { validateMtaStsPolicy, compareMtaStsMx } from './mta-sts-policy.js';
 
 const { eq, section, report } = createSuite();
 
@@ -133,5 +134,72 @@ eq('but not present', trailing.present, false);
 eq('a domain with no record advertises nothing', summarizeMtaSts([]).advertised, false);
 eq('a failed lookup is unknown', summarizeMtaSts(null).unknown, true);
 eq('while an empty answer is not', summarizeMtaSts([]).unknown, false);
+
+/* ── The user-supplied policy body (RFC 8461 §3.2) ───────────────────── */
+section('validateMtaStsPolicy');
+
+const POLICY = [
+  'version: STSv1',
+  'mode: enforce',
+  'mx: mail.example.test',
+  'mx: *.backup.example.test',
+  'max_age: 604800',
+].join('\r\n');
+const policy = validateMtaStsPolicy(POLICY);
+eq('a conforming policy is valid', policy.valid, true);
+eq('and exposes its fields',
+  [policy.version, policy.mode, policy.maxAge], ['STSv1', 'enforce', 604800]);
+eq('repeated mx fields survive in order', policy.mx,
+  ['mail.example.test', '*.backup.example.test']);
+eq('CRLF is recorded', policy.lineEndings, 'crlf');
+
+eq('LF is valid under the normative ABNF',
+  validateMtaStsPolicy(POLICY.replace(/\r\n/g, '\n')).valid, true);
+eq('and mixed terminators are valid and recorded',
+  validateMtaStsPolicy(POLICY.replace(/\r\n/, '\n')).lineEndings, 'mixed');
+eq('version need not be first in the policy body',
+  validateMtaStsPolicy('mode: none\nmax_age: 0\nversion: STSv1').valid, true);
+eq('max_age zero is valid',
+  validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 0').maxAge, 0);
+eq('but the RFC maximum may not be exceeded',
+  validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 31557601').errors,
+  ['invalid-max-age']);
+
+const duplicateMode = validateMtaStsPolicy(
+  'version: STSv1\nmode: testing\nmode: enforce\nmx: mail.example.test\nmax_age: 1');
+eq('a later duplicate non-mx field is ignored', duplicateMode.valid, true);
+eq('the first duplicate value wins', duplicateMode.mode, 'testing');
+eq('and the duplicate is exposed as a hygiene diagnostic',
+  [duplicateMode.duplicateKeys, duplicateMode.warnings], [['mode'], ['duplicate-field']]);
+
+const extended = validateMtaStsPolicy(
+  'version: STSv1\nmode: none\nmax_age: 1\nextension-name: value');
+eq('a syntactically valid extension is ignored for validity', extended.valid, true);
+eq('and retained for display', extended.unknownKeys, ['extension-name']);
+
+eq('enforce requires an mx field',
+  validateMtaStsPolicy('version: STSv1\nmode: enforce\nmax_age: 1').errors,
+  ['missing-mx']);
+eq('none does not require mx',
+  validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 1').valid, true);
+eq('a wildcard is allowed only as the complete left-most label',
+  validateMtaStsPolicy('version: STSv1\nmode: enforce\nmx: mail.*.test\nmax_age: 1').errors,
+  ['invalid-mx']);
+eq('control characters are rejected',
+  validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 1\u0000').errors,
+  ['malformed-line']);
+
+section('compareMtaStsMx');
+
+const compared = compareMtaStsMx(
+  ['mail.example.test', '*.backup.example.test', 'unused.example.test'],
+  ['MAIL.EXAMPLE.TEST.', 'mx.backup.example.test', 'a.b.backup.example.test']);
+eq('matching is case-insensitive and ignores the DNS presentation dot',
+  compared.unmatchedHosts, ['a.b.backup.example.test']);
+eq('the wildcard matches exactly one left-most label',
+  compared.unusedPatterns, ['unused.example.test']);
+eq('the wildcard does not match its own apex',
+  compareMtaStsMx(['*.example.test'], ['example.test']).unmatchedHosts,
+  ['example.test']);
 
 report();

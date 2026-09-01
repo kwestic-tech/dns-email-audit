@@ -3,14 +3,15 @@
 Required by spec [§12](../../../docs/specs/implemented/modular-architecture-and-production-build.md#12-module-apis-and-the-allowed-edge-matrix):
 each owning directory checks in `API.md` in the same commit that creates it.
 
-**Responsibility.** Mail **transport** security as DNS publishes it: MTA-STS
-(RFC 8461), TLS-RPT (RFC 8460) and TLSA/DANE (RFC 6698, RFC 7671). This
-directory emits no finding, severity, score or locale key.
+**Responsibility.** Mail **transport** security as DNS publishes it, plus pure
+inspection of an MTA-STS policy body the user supplies: MTA-STS (RFC 8461),
+TLS-RPT (RFC 8460) and TLSA/DANE (RFC 6698, RFC 7671). This directory emits no
+finding, severity, score or locale key.
 
 **Nothing here connects to port 25.** Nothing fetches the MTA-STS policy file
-and nothing compares a TLSA record against a certificate, so what is reported
-is what is published. `advanced.mtaSts.policyVerified` stays false in this
-release for exactly that reason.
+and nothing compares a TLSA record against a certificate. The DNS-derived
+`advanced.mtaSts.policyVerified` stays false; local policy analysis is a
+separate user-supplied result and never upgrades that public observation.
 
 BIMI is **not** here. Brand indicators are not mail transport security; see
 [`../bimi/API.md`](../bimi/API.md).
@@ -23,12 +24,13 @@ BIMI is **not** here. Brand indicators are not mail transport security; see
 
 ## Split by record, and only one takes a resolver
 
-Spec §3's tree names three files, and the split is by record responsibility —
+The split is by protocol artifact responsibility —
 not by layer, and not by whether a module happens to need injection.
 
 | Module | Does a lookup? | Shape |
 | --- | --- | --- |
 | `mta-sts.js` | no | pure validator |
+| `mta-sts-policy.js` | no | pure policy validator and MX comparator |
 | `tls-rpt.js` | no | pure validator |
 | `tlsa.js` | **yes** | factory + pure parser |
 | `ext-value.js` | no | one internal constant |
@@ -50,6 +52,16 @@ be symmetry standing in for structure.
 
 `STS_ID` — `sts-id = 1*32(ALPHA / DIGIT)` — is **private to this module**. It
 is one protocol's field grammar and belongs nowhere else.
+
+### `mta-sts-policy.js`
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `validateMtaStsPolicy(text)` | pure | Parses an already size-bounded user-supplied RFC 8461 §3.2 policy body. LF and CRLF are valid, the version need not be first, `max_age` may be zero, later duplicate non-`mx` fields are ignored, and unknown extensions are retained for diagnostics. Returns tokens and primitives only. |
+| `compareMtaStsMx(patterns, hosts)` | pure | Returns unmatched DNS MX hosts and unused policy patterns. Matching is case-insensitive, ignores a DNS presentation dot, and a wildcard matches exactly one left-most label. |
+
+The caller measures the UTF-8 byte limit before invoking the parser. This
+module imports no platform capability and performs no I/O.
 
 ### `tls-rpt.js`
 
@@ -150,7 +162,8 @@ record and threw away the first destination as evidence.
 
 ## Moved, not redesigned
 
-`js/dns.js`'s TLSA, MTA-STS and TLS-RPT blocks, unchanged apart from the
+Except for the new `mta-sts-policy.js`, `js/dns.js`'s TLSA, MTA-STS and TLS-RPT
+blocks are unchanged apart from the
 two-space dedent, the `export` keywords, `checkTlsa` becoming the body of a
 factory that names its four resolver capabilities, and the three published
 state constants. No parsing rule, no lookup and no result shape moved with

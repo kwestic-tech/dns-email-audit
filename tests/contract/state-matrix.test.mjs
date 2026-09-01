@@ -229,7 +229,7 @@ eq('src/ holds the entry point, the runtime and the converted layers',
     'core/shared/base64.js', 'core/shared/ip.js', 'core/shared/record-fields.js',
     'core/shared/record-selection.js', 'core/shared/uri.js',
     'core/spf/spf.js',
-    'core/transport/ext-value.js', 'core/transport/mta-sts.js',
+    'core/transport/ext-value.js', 'core/transport/mta-sts-policy.js', 'core/transport/mta-sts.js',
     'core/transport/tls-rpt.js', 'core/transport/tlsa.js',
     'i18n/index.js', 'main.js', 'providers/detectors.js', 'runtime.js',
     'ui/events.js', 'ui/render.js', 'ui/report.js']);

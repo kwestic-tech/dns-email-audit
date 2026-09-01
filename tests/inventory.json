@@ -82,7 +82,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 90,
+      "assertions": 91,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -92,7 +92,7 @@
         "the exported report declares its own policy",
         "the markup-sink allowlist is empty and src/ is the only source tree left to scan"
       ],
-      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. 58 before Task 4.0; +4 core/shared, +1 core/caa, +1 core/mx, +1 core/bimi, +4 core/transport."
+      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. 58 before Task 4.0; +4 core/shared, +1 core/caa, +1 core/mx, +1 core/bimi, +4 core/transport, +1 local MTA-STS policy module."
     },
     {
       "path": "src/core/dns/doh.test.js",
@@ -255,15 +255,17 @@
     },
     {
       "path": "src/core/transport/mta-sts.test.js",
-      "assertions": 45,
-      "note": "Co-located per spec §9. Phase 4, Task 4.4. Pure validator, no resolver.",
+      "assertions": 66,
+      "note": "Co-located per spec §9. Phase 4, Task 4.4 and local-artifact-validation 1.0. Pure validators, no resolver.",
       "areas": [
         "the published error vocabulary, one member, emitted and only that",
         "the version field is first and case-sensitive — the two readings that suppressed mta-sts-invalid",
         "sts-id = 1*32(ALPHA/DIGIT), with the bad id still reported so the operator can see what they published",
         "RFC 8461 §3.1 duplicate handling: a duplicated field is CONFORMANT, the FIRST wins, and the first copy still has to parse",
         "an = in an extension value is refused here and accepted in BIMI — the executable half of why RECORD_EXT_VALUE is not shared",
-        "the whole MTA-STS answer, including the policy file this tool never claims to have verified"
+        "the whole MTA-STS answer, including the policy file this tool never claims to have verified",
+        "RFC 8461 policy bodies: LF and CRLF, non-first version, zero max_age, first-wins duplicates, extensions and mode-dependent mx",
+        "MTA-STS MX comparison: case and presentation-dot normalization, with wildcards matching exactly one left-most label"
       ]
     },
     {
