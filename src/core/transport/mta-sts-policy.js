@@ -8,6 +8,12 @@
  * permits visible punctuation such as `=` and `;`. The DNS TXT record uses a
  * different production; do not make this parser match that sibling's stricter
  * extension-value rule.
+ *
+ * `diagnostics` is a line index, NOT a mirror of `errors` + `warnings`. Every
+ * token raised against a line appears in both; the four `missing-*` errors are
+ * raised against the document as a whole and have no line, so they appear in
+ * `errors` only. A consumer mapping tokens to evidence must handle both — the
+ * spec's `kind: 'input'` evidence variant is what a line-less error gets.
  */
 
 const MAX_AGE = 31557600;
@@ -16,12 +22,22 @@ const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 const REGISTERED_FIELDS = Object.freeze(['version', 'mode', 'mx', 'max_age']);
 
 export const MTA_STS_POLICY_ERRORS = Object.freeze([
-  'malformed-line', 'blank-line', 'wrong-case-field',
+  'malformed-line', 'blank-line',
   'invalid-version', 'invalid-mode', 'invalid-mx', 'invalid-max-age',
   'missing-version', 'missing-mode', 'missing-max-age', 'missing-mx',
 ]);
+
+/**
+ * `wrong-case-field` is a WARNING and not an error, and the reason is the ABNF.
+ *
+ * `sts-policy-ext-name = (ALPHA / DIGIT) *31(...)`, so `Mode` is a legal
+ * extension name and §3.2 says unknown fields SHALL be ignored. A conformant
+ * policy may carry one, and calling that policy invalid would be wrong. When
+ * the operator did mean the registered field, the resulting `missing-*` error
+ * already carries the invalidity — this token only explains why.
+ */
 export const MTA_STS_POLICY_WARNINGS = Object.freeze([
-  'duplicate-field', 'bom-present',
+  'duplicate-field', 'bom-present', 'wrong-case-field',
 ]);
 export const MTA_STS_POLICY_LINE_ENDINGS = Object.freeze([
   'crlf', 'lf', 'mixed', 'none',
@@ -131,7 +147,7 @@ export function validateMtaStsPolicy(input) {
 
     var foldedName = name.toLowerCase();
     if (name !== foldedName && REGISTERED_FIELDS.includes(foldedName)) {
-      addDiagnostic(result, 'errors', 'wrong-case-field', lineNumber);
+      addDiagnostic(result, 'warnings', 'wrong-case-field', lineNumber);
       continue;
     }
 
@@ -186,17 +202,45 @@ function patternMatches(pattern, host) {
     labels.slice(1).join('.') === suffix.join('.');
 }
 
-/** Compare policy patterns with already-audited DNS MX hostnames. */
+function noComparison(state) {
+  return { state: state, unmatchedHosts: [], unusedPatterns: [] };
+}
+
+/**
+ * Compare policy patterns with already-audited DNS MX hostnames.
+ *
+ * `mxFact` is `{ hosts: string[], unknown?: boolean, nullMx?: boolean }` and is
+ * built by `src/audit/artifacts.js` from the domain's PUBLISHED MX records —
+ * `parseMxRecord().host` over the base MX lookup, plus `isNullMx()` — never
+ * from `advanced.mxHealth`. Three reasons, all of them load-bearing:
+ *
+ *   1. `mxHealth.hosts` holds audit OBJECTS, not hostnames. `audit-domain.js`
+ *      already writes `mxHealth.hosts.map(h => h.host)` to get names out.
+ *   2. `advanced.mxHealth` is `null` whenever deep checks are off (the
+ *      interface disables them above 50 domains), the domain has no MX, or the
+ *      domain publishes a null MX. An absent fact is NOT an empty fact.
+ *   3. MTA-STS `mx` patterns are about which exchanges the policy permits,
+ *      which the base MX lookup answers for every domain. Binding this to a
+ *      cost-gated resolution-health check would silently switch the comparison
+ *      off on the largest audits.
+ *
+ * Fails closed: anything that is not an established list of hostname strings
+ * yields `unknown` rather than an empty host list, because an empty host list
+ * compares as "every pattern is unused" and would report a healthy policy as
+ * stale. `null-mx` is produced only by the composer, and until
+ * `src/audit/artifacts.js` exists no caller can reach it.
+ */
 export function compareMtaStsMx(patterns, mxFact) {
-  var fact = mxFact || {};
-  if (fact.unknown) {
-    return { state: 'unknown', unmatchedHosts: [], unusedPatterns: [] };
+  if (!mxFact || typeof mxFact !== 'object') return noComparison('unknown');
+  if (mxFact.unknown) return noComparison('unknown');
+  if (mxFact.nullMx) return noComparison('null-mx');
+  if (!Array.isArray(mxFact.hosts)) return noComparison('unknown');
+  if (!mxFact.hosts.every(function (h) { return typeof h === 'string'; })) {
+    return noComparison('unknown');
   }
-  if (fact.nullMx) {
-    return { state: 'null-mx', unmatchedHosts: [], unusedPatterns: [] };
-  }
+
   var expected = (patterns || []).map(String);
-  var actual = (fact.hosts || []).map(normalizeHost).filter(Boolean);
+  var actual = mxFact.hosts.map(normalizeHost).filter(Boolean);
   return {
     state: 'compared',
     unmatchedHosts: actual.filter(function (host) {

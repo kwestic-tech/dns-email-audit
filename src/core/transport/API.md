@@ -58,10 +58,32 @@ is one protocol's field grammar and belongs nowhere else.
 | Export | Kind | Contract |
 | --- | --- | --- |
 | `validateMtaStsPolicy(text)` | pure | Parses an already size-bounded user-supplied RFC 8461 §3.2 policy body. LF and CRLF are valid, the version need not be first, `max_age` may be zero, later duplicate non-`mx` fields are ignored, and unknown extensions are retained for diagnostics. A BOM is reported and removed; blank, malformed and wrong-case lines retain their line numbers. Policy extension values may contain `=` and `;` under their policy-specific ABNF. Returns tokens and primitives only. |
-| `compareMtaStsMx(patterns, { hosts, unknown, nullMx })` | pure | Returns the closed state `compared`, `unknown` or `null-mx`, plus unmatched DNS MX hosts and unused policy patterns only when comparison is possible. Matching is case-insensitive, ignores a DNS presentation dot, and a wildcard matches exactly one left-most label. |
+| `compareMtaStsMx(patterns, { hosts, unknown, nullMx })` | pure | Returns the closed state `compared`, `unknown` or `null-mx`, plus unmatched DNS MX hosts and unused policy patterns only when comparison is possible. Matching is case-insensitive, ignores a DNS presentation dot, and a wildcard matches exactly one left-most label. **Fails closed to `unknown`** on an absent fact, a missing or non-array `hosts`, or any `hosts` entry that is not a string. |
 
 The caller measures the UTF-8 byte limit before invoking the parser. This
 module imports no platform capability and performs no I/O.
+
+`validateMtaStsPolicy().diagnostics` is a line index, not a mirror of
+`errors` + `warnings`: the four `missing-*` errors are raised against the
+document rather than a line and therefore appear in `errors` only.
+
+#### Where the MX fact comes from, and where it must not
+
+`compareMtaStsMx` takes `{ hosts: string[], unknown, nullMx }` built by
+`src/audit/artifacts.js` from the domain's **published MX records** —
+`parseMxRecord().host` over the base MX lookup, plus `isNullMx()`. It must not
+be handed `advanced.mxHealth`:
+
+| | `advanced.mxHealth` | What this comparator needs |
+| --- | --- | --- |
+| `hosts` | audit objects; `audit-domain.js` writes `mxHealth.hosts.map(h => h.host)` to get names out | hostname strings |
+| Availability | `null` whenever deep checks are off — the interface disables them above 50 domains — or the domain has no MX, or publishes a null MX | every audited domain |
+| Meaning | whether each exchange resolves | which exchanges the domain publishes |
+
+An empty host list compares as "every pattern is unused", so an absent fact
+that reads as an empty one turns a healthy policy into a stale-policy claim.
+That is why the guard fails closed rather than defaulting `hosts` to `[]`, and
+why both guards ship with negative runs proving they fail when removed.
 
 ### `tls-rpt.js`
 

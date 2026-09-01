@@ -255,8 +255,8 @@
     },
     {
       "path": "src/core/transport/mta-sts.test.js",
-      "assertions": 85,
-      "note": "Co-located per spec §9. Phase 4, Task 4.4 and local-artifact-validation 1.0. Pure validators, no resolver.",
+      "assertions": 95,
+      "note": "Co-located per spec §9. Phase 4, Task 4.4 and local-artifact-validation 1.2. Pure validators, no resolver.",
       "areas": [
         "the published error vocabulary, one member, emitted and only that",
         "the version field is first and case-sensitive — the two readings that suppressed mta-sts-invalid",
@@ -265,7 +265,9 @@
         "an = in an extension value is refused here and accepted in BIMI — the executable half of why RECORD_EXT_VALUE is not shared",
         "the whole MTA-STS answer, including the policy file this tool never claims to have verified",
         "RFC 8461 policy bodies: LF and CRLF, non-first version, zero max_age, first-wins duplicates, extensions and mode-dependent mx",
-        "MTA-STS MX comparison: case and presentation-dot normalization, with wildcards matching exactly one left-most label"
+        "MTA-STS MX comparison: case and presentation-dot normalization, with wildcards matching exactly one left-most label",
+        "the four frozen policy vocabularies, with wrong-case-field a WARNING so a conformant case-variant extension stays valid",
+        "the MX comparator fails closed to unknown on an absent fact, a non-array hosts, or the raw mxHealth audit shape whose entries are objects — each proven not to return the every-pattern-is-stale answer"
       ]
     },
     {

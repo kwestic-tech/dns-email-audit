@@ -145,13 +145,13 @@ section('validateMtaStsPolicy');
 eq('the policy error vocabulary is frozen',
   [Object.isFrozen(MTA_STS_POLICY_ERRORS), [...MTA_STS_POLICY_ERRORS]],
   [true, [
-    'malformed-line', 'blank-line', 'wrong-case-field',
+    'malformed-line', 'blank-line',
     'invalid-version', 'invalid-mode', 'invalid-mx', 'invalid-max-age',
     'missing-version', 'missing-mode', 'missing-max-age', 'missing-mx',
   ]]);
 eq('the policy warning vocabulary is frozen',
   [Object.isFrozen(MTA_STS_POLICY_WARNINGS), [...MTA_STS_POLICY_WARNINGS]],
-  [true, ['duplicate-field', 'bom-present']]);
+  [true, ['duplicate-field', 'bom-present', 'wrong-case-field']]);
 eq('the line-ending vocabulary is frozen',
   [Object.isFrozen(MTA_STS_POLICY_LINE_ENDINGS), [...MTA_STS_POLICY_LINE_ENDINGS]],
   [true, ['crlf', 'lf', 'mixed', 'none']]);
@@ -244,12 +244,24 @@ eq('a second trailing terminator is an invalid blank line',
 
 const wrongCase = validateMtaStsPolicy(
   'Version: STSv1\nMode: none\nMax_age: 1');
-eq('registered fields with the wrong case get the specific error',
-  wrongCase.errors,
-  ['wrong-case-field', 'wrong-case-field', 'wrong-case-field',
-    'missing-version', 'missing-mode', 'missing-max-age']);
+eq('a wrong-case registered field is a warning, not an error',
+  [wrongCase.warnings, wrongCase.errors],
+  [['wrong-case-field', 'wrong-case-field', 'wrong-case-field'],
+    ['missing-version', 'missing-mode', 'missing-max-age']]);
+eq('and it still carries the line it was seen on',
+  wrongCase.diagnostics.map(d => d.line), [1, 2, 3]);
 eq('wrong-case registered fields are not presented as extensions',
   wrongCase.unknownKeys, []);
+
+// sts-policy-ext-name = (ALPHA / DIGIT) *31(...), so `Mode` IS a legal
+// extension name and §3.2 says unknown fields SHALL be ignored. Making the
+// wrong-case token an error marked this conformant policy invalid; the
+// warning bucket is what keeps `valid` an RFC answer rather than a style one.
+const caseExtension = validateMtaStsPolicy(
+  'version: STSv1\nmode: none\nmax_age: 1\nMode: an-extension-value');
+eq('a conformant policy carrying a case-variant extension stays valid',
+  [caseExtension.valid, caseExtension.errors, caseExtension.warnings],
+  [true, [], ['wrong-case-field']]);
 eq('policy extension punctuation follows the policy ABNF',
   validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 1\nfoo: a=b;c').valid,
   true);
@@ -273,5 +285,51 @@ eq('an unknown MX result suppresses both mismatch classes',
 eq('null MX is a distinct state and not a stale-policy claim',
   compareMtaStsMx(['mail.example.test'], { hosts: [], nullMx: true }),
   { state: 'null-mx', unmatchedHosts: [], unusedPatterns: [] });
+
+/* ── The comparator fails closed on anything that is not an established
+ *    list of hostname STRINGS.
+ *
+ * Every case below previously returned `state: 'compared'` with an empty host
+ * list, which reports EVERY pattern as unused — a healthy policy declared
+ * stale. `WRONG` is that answer, asserted explicitly so these checks cannot
+ * pass vacuously: if a guard is removed, the assertion that the result is not
+ * `WRONG` is what fails. ────────────────────────────────────────────────── */
+const PATTERNS = ['mail.example.test', '*.backup.example.test'];
+const WRONG = { state: 'compared', unmatchedHosts: [], unusedPatterns: PATTERNS };
+const UNKNOWN = { state: 'unknown', unmatchedHosts: [], unusedPatterns: [] };
+const stale = r => JSON.stringify(r) === JSON.stringify(WRONG);
+
+// `advanced.mxHealth` is initialised to null and only replaced when deep
+// checks are on, the domain has MX records, and it is not a null MX. Above 50
+// domains the interface turns deep checks off for every row.
+eq('an absent MX fact is unknown, not an empty comparison',
+  compareMtaStsMx(PATTERNS, null), UNKNOWN);
+eq('and it is specifically not the every-pattern-is-stale answer',
+  stale(compareMtaStsMx(PATTERNS, null)), false);
+eq('an undefined MX fact is unknown too',
+  compareMtaStsMx(PATTERNS, undefined), UNKNOWN);
+eq('a fact with no hosts array at all is unknown',
+  compareMtaStsMx(PATTERNS, { unknown: false }), UNKNOWN);
+eq('and none of the degraded inputs claims a stale policy',
+  [null, undefined, { unknown: false }, { hosts: 'mail.example.test' }]
+    .map(f => stale(compareMtaStsMx(PATTERNS, f))),
+  [false, false, false, false]);
+
+// mxHealth.hosts holds audit objects; audit-domain.js already writes
+// `mxHealth.hosts.map(h => h.host)` to get names out of it. Passing the raw
+// audit shape stringified each entry to "[object Object]" and matched nothing.
+const MX_HEALTH_SHAPE = {
+  hosts: [{ host: 'mail.example.test', preference: 10, resolves: 'yes' }],
+  danglingHosts: [], cnameHosts: [], duplicatePreferences: [],
+  singleHost: true, ipv6Coverage: 'all', sharedPrefixes: [], unknown: false,
+};
+eq('the raw mxHealth audit shape is refused rather than stringified',
+  compareMtaStsMx(PATTERNS, MX_HEALTH_SHAPE), UNKNOWN);
+eq('no host name is ever coerced through String() on an object',
+  JSON.stringify(compareMtaStsMx(PATTERNS, MX_HEALTH_SHAPE)).includes('object'),
+  false);
+eq('the same domain compares clean once the composer extracts hostnames',
+  compareMtaStsMx(PATTERNS, { hosts: MX_HEALTH_SHAPE.hosts.map(h => h.host) }),
+  { state: 'compared', unmatchedHosts: [], unusedPatterns: ['*.backup.example.test'] });
 
 report();

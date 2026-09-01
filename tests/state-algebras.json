@@ -1159,7 +1159,6 @@
       "members": [
         "malformed-line",
         "blank-line",
-        "wrong-case-field",
         "invalid-version",
         "invalid-mode",
         "invalid-mx",
@@ -1181,8 +1180,10 @@
       "site": "src/core/transport/mta-sts-policy.js",
       "members": [
         "duplicate-field",
-        "bom-present"
+        "bom-present",
+        "wrong-case-field"
       ],
+      "note": "wrong-case-field is a WARNING. sts-policy-ext-name permits `Mode`, and RFC 8461 3.2 says unknown fields SHALL be ignored, so a conformant policy may carry a case-variant name and must not be called invalid. When the operator did mean the registered field, the missing-* error already carries the invalidity.",
       "resultPaths": [
         "artifact.mtaStsPolicy.warnings[]"
       ]
@@ -1214,6 +1215,7 @@
         "unknown",
         "null-mx"
       ],
+      "note": "The fact is { hosts: string[], unknown, nullMx }, derived by src/audit/artifacts.js from the PUBLISHED MX records (parseMxRecord().host) and isNullMx() -- never from advanced.mxHealth, whose hosts are audit objects and which is null whenever deep checks are off, the domain has no MX, or the domain publishes a null MX. The comparator fails closed to `unknown` on anything else, because an empty host list compares as every-pattern-unused. `null-mx` has no producer until that composer lands.",
       "resultPaths": [
         "artifact.mtaStsPolicy.mxComparison.state"
       ]
