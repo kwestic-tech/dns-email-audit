@@ -19,7 +19,7 @@ import { createSuite } from '../../tests/lib/assert.mjs';
 import {
   analyzeArtifacts, deliveryCandidates, mtaStsPolicyFindings, bimiSvgFindings,
   artifactEvidence, ARTIFACT_KINDS, ARTIFACT_SOURCES, ARTIFACT_EVIDENCE_KINDS,
-  MAX_EVIDENCE_CHARS,
+  ARTIFACT_FINDING_IDS, MAX_EVIDENCE_CHARS,
 } from './artifacts.js';
 import { SEVERITIES, CONFIDENCES, CATEGORIES, EFFORTS, EVIDENCE_KINDS } from './findings.js';
 
@@ -36,6 +36,21 @@ eq('provenance is a closed vocabulary, not a boolean',
 eq('and artifact evidence kinds are frozen',
   [Object.isFrozen(ARTIFACT_EVIDENCE_KINDS), [...ARTIFACT_EVIDENCE_KINDS]],
   [true, ['line', 'element', 'input']]);
+
+/* The finding identity itself is a closed algebra, like every other published
+ * vocabulary here. `audit.finding.id` stays the DNS contract; this is its
+ * artifact counterpart, and the catalog is pinned against it so a thirteenth
+ * id cannot appear without the registry moving too. */
+eq('the artifact finding ids are frozen', Object.isFrozen(ARTIFACT_FINDING_IDS), true);
+eq('and every id the composer can emit is a registered member',
+  [...new Set([
+    ...mtaStsPolicyFindings('nonsense', { hosts: [], unknown: true }).findings,
+    ...mtaStsPolicyFindings('version: STSv1\nmode: none\nmax_age: 1', { hosts: ['a.example.com'] }).findings,
+    ...mtaStsPolicyFindings('version: STSv1\nmode: testing\nmax_age: 1\nmx: x.example.com',
+      { hosts: ['a.example.com'] }).findings,
+    ...mtaStsPolicyFindings('version: STSv1\nmode: enforce\nmax_age: 1\nmx: a.example.com',
+      { hosts: [], nullMx: true }).findings,
+  ].map(f => f.id))].filter(id => !ARTIFACT_FINDING_IDS.includes(id)), []);
 
 /**
  * The boundary that matters most. If these two vocabularies ever overlap, an
@@ -205,16 +220,18 @@ section('5. Boundaries');
 
 const both = analyzeArtifacts({
   domain: 'example.com',
+  mx: ['10 mail.example.com'],
+  aRec: [], aaaaRec: [],
   mtaStsPolicyText: 'version: STSv1\nmode: enforce\nmax_age: 3600\nmx: other.example.com',
   bimiSvgText: OK_TEXT,
   parseSvg: parserFor(conformant()),
-  mxFact: HOSTS,
 });
 
 eq('both artifacts compose into ONE separate array',
   both.artifactFindings.length > 0, true);
 eq('the result exposes no `findings` key that could be merged by habit',
-  Object.keys(both).sort(), ['artifactFindings', 'bimiSvg', 'domain', 'mtaStsPolicy']);
+  Object.keys(both).sort(),
+  ['artifactFindings', 'bimiSvg', 'domain', 'mtaStsPolicy', 'mxFact']);
 
 eq('EVERY finding carries user-supplied provenance',
   both.artifactFindings.every(f => f.source === 'user-supplied'), true);
@@ -252,10 +269,86 @@ eq('an absent input does not throw', analyzeArtifacts().artifactFindings, []);
 section('5b. One artifact does not imply the other');
 
 const policyOnly = analyzeArtifacts({
-  domain: 'example.com', mtaStsPolicyText: ENFORCE, mxFact: HOSTS,
+  domain: 'example.com', mx: ['10 mail.example.com'], mtaStsPolicyText: ENFORCE,
 });
 eq('a policy alone leaves the SVG result null', policyOnly.bimiSvg, null);
 eq('and reports the policy it validated',
   policyOnly.mtaStsPolicy.result.mode, 'enforce');
+
+/* ── 6. The public entry point, over the fields the audit really holds ──
+ *
+ * `deliveryCandidates()` had unit tests and `mtaStsPolicyFindings()` had unit
+ * tests, and the composer still reported `policy-mx-unknown` for a domain
+ * whose MX matched perfectly — because `analyzeArtifacts()` never called the
+ * derivation. Two green halves proving nothing about the join. These fixtures
+ * drive the PUBLIC entry with `mx`/`aRec`/`aaaaRec`, which is what
+ * `audit-domain.js` actually has. ─────────────────────────────────────── */
+section('6. analyzeArtifacts derives the fact from audit fields');
+
+const MATCHING = 'version: STSv1\nmode: enforce\nmax_age: 604800\nmx: mail.example.com';
+const entry = (fields) => analyzeArtifacts(Object.assign(
+  { domain: 'example.com', mtaStsPolicyText: MATCHING }, fields))
+  .artifactFindings.map(f => f.id);
+
+eq('explicit MX that the policy covers produces nothing',
+  entry({ mx: ['10 mail.example.com'], aRec: [], aaaaRec: [] }), []);
+eq('explicit MX the policy misses is a mismatch',
+  entry({ mx: ['10 other.example.com'], aRec: [], aaaaRec: [] }),
+  ['mta-sts.policy-mx-mismatch', 'mta-sts.policy-mx-unused']);
+eq('a null MX reaches its own finding through the public entry',
+  entry({ mx: ['0 .'], aRec: [], aaaaRec: [] }), ['mta-sts.policy-on-null-mx']);
+eq('an implicit MX is covered by a policy naming the domain',
+  analyzeArtifacts({
+    domain: 'mail.example.com', mx: [], aRec: ['192.0.2.1'], aaaaRec: [],
+    mtaStsPolicyText: MATCHING,
+  }).artifactFindings.map(f => f.id), []);
+eq('an AAAA-only domain still has an implicit candidate',
+  analyzeArtifacts({
+    domain: 'mail.example.com', mx: [], aRec: [], aaaaRec: ['2001:db8::1'],
+    mtaStsPolicyText: MATCHING,
+  }).artifactFindings.map(f => f.id), []);
+eq('a failed MX lookup says the check did not run',
+  entry({ mx: ['10 mail.example.com'], mxUnknown: true }),
+  ['mta-sts.policy-mx-unknown']);
+eq('and the derived fact is exposed for the panel to explain itself',
+  analyzeArtifacts({ domain: 'example.com', mx: ['0 .'] }).mxFact,
+  { hosts: [], nullMx: true });
+
+section('6a. Evidence carries the supplied material, per occurrence');
+
+const invalidMode = analyzeArtifacts({
+  domain: 'example.com', mx: ['10 mail.example.com'],
+  mtaStsPolicyText: 'version: STSv1\nmode: bogus\nmax_age: 604800\nmx: mail.example.com',
+}).artifactFindings[0];
+eq('the value is the offending LINE, not the diagnostic token',
+  invalidMode.evidence, [{ kind: 'line', location: 'line 2', value: 'mode: bogus' }]);
+eq('and the token is carried by args, where it belongs',
+  invalidMode.args, ['invalid-mode']);
+
+const twoBlanks = analyzeArtifacts({
+  domain: 'example.com', mx: ['10 mail.example.com'],
+  mtaStsPolicyText: 'version: STSv1\n\n\nmode: enforce\nmax_age: 604800\nmx: mail.example.com',
+}).artifactFindings[0];
+eq('two occurrences of one token get two evidence entries, at their own lines',
+  twoBlanks.evidence.map(e => e.location), ['line 2', 'line 3']);
+
+const hostile = analyzeArtifacts({
+  domain: 'example.com', bimiSvgText: OK_TEXT,
+  parseSvg: parserFor(conformant([
+    el('title', {}, [text('t')]),
+    el('use', { 'xlink:href': 'https://evil.example/a#x' }),
+  ])),
+}).artifactFindings[0];
+eq('an SVG rejection names the OFFENDING element, not the root',
+  hostile.evidence.map(e => e.location).includes('<use>'), true);
+eq('and carries the material that made it a rejection',
+  hostile.evidence.some(e => e.value.includes('evil.example')), true);
+
+eq('a bounded value is cut on code points, never mid-character',
+  (() => {
+    const v = artifactEvidence('input', 'x', 'y'.repeat(199) + '\u{1F600}').value;
+    const last = v.charCodeAt(v.length - 1);
+    return last >= 0xD800 && last <= 0xDBFF;
+  })(), false);
 
 report();

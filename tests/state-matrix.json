@@ -2963,6 +2963,78 @@
       ]
     },
     {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-invalid",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-hygiene",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-mx-mismatch",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-mx-unused",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-on-null-mx",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-mx-unknown",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.mode-testing",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.mode-none",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.max-age-short",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "bimi.svg-rejected",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "bimi.svg-profile",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "bimi.svg-valid",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
       "algebra": "audit.artifact.kind",
       "member": "mta-sts-policy",
       "suites": ["src/audit/artifacts.test.js"],

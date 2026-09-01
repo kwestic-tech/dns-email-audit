@@ -74,13 +74,48 @@ const KIND_SET = ARTIFACT_EVIDENCE_KINDS.reduce(function (set, k) { set[k] = tru
  * travels into the CSV and the HTML report; a cap at the source is one fewer
  * place for it to arrive unbounded.
  */
+function bounded(value) {
+  // Code POINTS, not UTF-16 indexes. `.slice(0, 200)` through an astral
+  // character leaves a lone high surrogate, and `tools/export.test.mjs` §10
+  // exists because that has already been a defect in this project once. A
+  // bound applied at the source must not manufacture malformed Unicode before
+  // the renderer or the export sees it.
+  var points = Array.from(String(value == null ? '' : value));
+  return points.length > MAX_EVIDENCE_CHARS
+    ? points.slice(0, MAX_EVIDENCE_CHARS).join('') : points.join('');
+}
+
 export function artifactEvidence(kind, location, value) {
   return {
     kind: KIND_SET[kind] ? kind : 'input',
-    location: String(location == null ? '' : location).slice(0, MAX_EVIDENCE_CHARS),
-    value: String(value == null ? '' : value).slice(0, MAX_EVIDENCE_CHARS),
+    location: bounded(location),
+    value: bounded(value),
   };
 }
+
+/**
+ * Every artifact finding id, frozen and exported.
+ *
+ * `audit.finding.id` is the DNS contract and stays narrow; this is its
+ * artifact counterpart, and it is a closed algebra for the same reason: the
+ * catalog below constructs every published id, so an unregistered table would
+ * be twelve identities drifting outside the guard every other vocabulary in
+ * this repository has. The co-located suite pins the catalog against it.
+ */
+export const ARTIFACT_FINDING_IDS = Object.freeze([
+  'mta-sts.policy-invalid',
+  'mta-sts.policy-hygiene',
+  'mta-sts.policy-mx-mismatch',
+  'mta-sts.policy-mx-unused',
+  'mta-sts.policy-on-null-mx',
+  'mta-sts.policy-mx-unknown',
+  'mta-sts.mode-testing',
+  'mta-sts.mode-none',
+  'mta-sts.max-age-short',
+  'bimi.svg-rejected',
+  'bimi.svg-profile',
+  'bimi.svg-valid',
+]);
 
 /* ── The finding catalog ──────────────────────────────────────────────────
  *
@@ -88,7 +123,7 @@ export function artifactEvidence(kind, location, value) {
  * can present these, but a separate table: an artifact finding is not a DNS
  * finding with a flag on it, and merging the catalogs would be the first step
  * toward merging the arrays. */
-const ARTIFACT_FINDINGS = {
+const ARTIFACT_FINDINGS = Object.freeze({
   // MTA-STS policy body.
   'mta-sts-policy-invalid': {
     id: 'mta-sts.policy-invalid', protocol: 'mta-sts',
@@ -140,7 +175,7 @@ const ARTIFACT_FINDINGS = {
     id: 'bimi.svg-valid', protocol: 'bimi',
     severity: 'info', category: 'issuance', effort: 'trivial',
   },
-};
+});
 
 /** RFC 8461 §8.3's removal procedure publishes a small max_age on purpose. */
 const SHORT_MAX_AGE = 86400;
@@ -209,34 +244,55 @@ export function mtaStsPolicyFindings(text, mxFact) {
   var policy = validateMtaStsPolicy(text);
   var scope = policyFindingScope(policy);
   var out = [];
-  var byLine = {};
 
+  /**
+   * One evidence entry per DIAGNOSTIC OCCURRENCE, carrying the offending line
+   * itself as the value.
+   *
+   * Two things were wrong before. The value was the diagnostic TOKEN, but the
+   * token is already the finding's `args` — spec §5 defines `value` as "the
+   * bounded user-supplied material that caused it", and an operator cannot act
+   * on `blank-line` without being shown which line. And occurrences were
+   * grouped by token and then read `lines[0]`, so two blank lines both pointed
+   * at the first.
+   *
+   * A `missing-*` error is raised against the document and has no diagnostic
+   * entry, so it takes the `input` variant rather than inventing a line.
+   */
+  var located = {};
   (policy.diagnostics || []).forEach(function (d) {
-    if (!byLine[d.token]) byLine[d.token] = [];
-    byLine[d.token].push(d.line);
+    if (!located[d.token]) located[d.token] = [];
+    located[d.token].push(d);
   });
+  var evidenceFor = function (tokens) {
+    var out2 = [];
+    // Unique TOKENS, every OCCURRENCE. The parser reports a repeated token
+    // once per occurrence, so iterating the raw list emitted the cross product
+    // — two blank lines produced four evidence entries.
+    var unique = tokens.filter(function (t, i) { return tokens.indexOf(t) === i; });
+    unique.forEach(function (token) {
+      var sites = located[token];
+      if (!sites || !sites.length) {
+        out2.push(artifactEvidence('input', 'policy', token));
+        return;
+      }
+      sites.forEach(function (d) {
+        out2.push(artifactEvidence('line', 'line ' + d.line, d.text));
+      });
+    });
+    return out2;
+  };
 
   // The parser's own diagnostics come first, and they are the ONLY thing an
   // invalid policy produces. Everything below reads fields that a document no
   // sender will honour cannot be trusted to have set meaningfully.
   if (policy.errors.length) {
     out.push(finding('mta-sts-policy-invalid', 'mta-sts-policy',
-      policy.errors.slice(),
-      policy.errors.map(function (token) {
-        var lines = byLine[token];
-        return lines && lines.length
-          ? artifactEvidence('line', 'line ' + lines[0], token)
-          : artifactEvidence('input', 'policy', token);
-      })));
+      policy.errors.slice(), evidenceFor(policy.errors)));
   }
   if (policy.warnings.length) {
     out.push(finding('mta-sts-policy-hygiene', 'mta-sts-policy',
-      policy.warnings.slice(),
-      policy.warnings.map(function (token) {
-        var lines = byLine[token];
-        return artifactEvidence(lines && lines.length ? 'line' : 'input',
-          lines && lines.length ? 'line ' + lines[0] : 'policy', token);
-      })));
+      policy.warnings.slice(), evidenceFor(policy.warnings)));
   }
 
   if (scope.modeFinding && policy.mode === 'testing') {
@@ -289,16 +345,33 @@ export function bimiSvgFindings(text, parseSvg) {
   var svg = validateBimiSvg(text, parseSvg);
   var out = [];
 
+  /**
+   * Evidence comes from the validator's `sites`, one per occurrence, so it
+   * names the OFFENDING element and the material that made it offending.
+   * Mapping the token arrays instead located every rejection at the root and
+   * put the token where the supplied material belongs.
+   */
+  var sitesFor = function (tokens) {
+    var entries = (svg.sites || []).filter(function (site) {
+      return tokens.indexOf(site.token) !== -1;
+    }).map(function (site) {
+      return artifactEvidence('element',
+        site.element || (svg.root ? '<' + svg.root + '>' : 'logo'), site.value);
+    });
+    // A token with no site — `bad-root` and `malformed-xml` are raised before
+    // any element exists — still has to be evidenced.
+    if (!entries.length) {
+      return [artifactEvidence('input', 'logo', svg.root ? '<' + svg.root + '>' : '')];
+    }
+    return entries;
+  };
+
   if (svg.rejections.length) {
     out.push(finding('bimi-svg-rejected', 'bimi-svg', svg.rejections.slice(),
-      svg.rejections.map(function (token) {
-        return artifactEvidence('element', svg.root ? '<' + svg.root + '>' : 'logo', token);
-      })));
+      sitesFor(svg.rejections)));
   } else if (svg.diagnostics.length) {
     out.push(finding('bimi-svg-profile', 'bimi-svg', svg.diagnostics.slice(),
-      svg.diagnostics.map(function (token) {
-        return artifactEvidence('element', '<svg>', token);
-      })));
+      sitesFor(svg.diagnostics)));
   } else {
     // Deliberately a finding rather than silence: the panel's whole purpose is
     // to answer a question, and "nothing was wrong with what you supplied" is
@@ -319,15 +392,34 @@ export function bimiSvgFindings(text, parseSvg) {
 export function analyzeArtifacts(input) {
   var supplied = input || {};
   var findings = [];
+
+  /**
+   * The fact is DERIVED here, from the fields the audit actually holds.
+   *
+   * An earlier version took a ready-made `mxFact`, which nothing in the audit
+   * produces — `audit-domain.js` holds `mx`, `aRec` and `aaaaRec`. The result
+   * was that `deliveryCandidates()` was correct, its unit tests were green,
+   * the composer's tests were green against a hand-built fact, and the public
+   * entry point reported `policy-mx-unknown` for a domain whose MX matched
+   * perfectly. Two green halves proving nothing about the join between them.
+   */
+  var mxFact = deliveryCandidates({
+    mx: supplied.mx,
+    addresses: [].concat(supplied.aRec || [], supplied.aaaaRec || []),
+    domain: supplied.domain,
+    unknown: supplied.mxUnknown,
+  });
+
   var result = {
     domain: String(supplied.domain || ''),
     artifactFindings: findings,
+    mxFact: mxFact,
     mtaStsPolicy: null,
     bimiSvg: null,
   };
 
   if (typeof supplied.mtaStsPolicyText === 'string' && supplied.mtaStsPolicyText) {
-    var policy = mtaStsPolicyFindings(supplied.mtaStsPolicyText, supplied.mxFact);
+    var policy = mtaStsPolicyFindings(supplied.mtaStsPolicyText, mxFact);
     result.mtaStsPolicy = { result: policy.policy, scope: policy.scope };
     policy.findings.forEach(function (f) { findings.push(f); });
   }

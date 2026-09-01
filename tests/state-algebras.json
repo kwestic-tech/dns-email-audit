@@ -1124,6 +1124,31 @@
       ]
     },
     {
+      "id": "audit.artifact.finding.id",
+      "owner": "audit",
+      "field": "artifactFindings[].id",
+      "closed": true,
+      "site": "src/audit/artifacts.js",
+      "members": [
+        "mta-sts.policy-invalid",
+        "mta-sts.policy-hygiene",
+        "mta-sts.policy-mx-mismatch",
+        "mta-sts.policy-mx-unused",
+        "mta-sts.policy-on-null-mx",
+        "mta-sts.policy-mx-unknown",
+        "mta-sts.mode-testing",
+        "mta-sts.mode-none",
+        "mta-sts.max-age-short",
+        "bimi.svg-rejected",
+        "bimi.svg-profile",
+        "bimi.svg-valid"
+      ],
+      "note": "Artifact finding identity. Deliberately SEPARATE from audit.finding.id, which stays the DNS contract: an artifact finding is not a DNS finding with a flag on it. The private catalog in artifacts.js constructs every published id and the co-located suite pins it against this list, so a thirteenth identity cannot appear without the registry moving with it.",
+      "resultPaths": [
+        "artifact.finding.id"
+      ]
+    },
+    {
       "id": "audit.artifact.kind",
       "owner": "audit",
       "field": "artifactFindings[].artifact",
