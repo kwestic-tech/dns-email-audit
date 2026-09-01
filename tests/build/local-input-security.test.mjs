@@ -31,7 +31,7 @@
  * | Detector | Mechanism | Defeatable by page code? |
  * | --- | --- | --- |
  * | network | CDP `Network.requestWillBeSent` | no — outside the page |
- * | storage | before/after snapshot of Web Storage, cookies, and the byte-level CONTENTS of IndexedDB and Cache Storage, plus CDP `DOMStorage` events | no — it compares state, not calls |
+ * | storage | CDP mutation events for Web Storage, IndexedDB and Cache Storage, plus a before/after content snapshot and cookies | no — the authoritative signals are outside the page |
  * | insertion | every node the instrumented `DOMParser` produces is tagged, and a `MutationObserver` on the application document reports any tagged node that arrives | no — it observes the document, not the call |
  *
  * **The first version of this file wrapped a list of methods, and that was
@@ -63,8 +63,10 @@
  *
  * A detector is only as behavioural as the surfaces it enumerates, as deep as
  * it reads them, and as faithful as the representation it compares. Four
- * rounds found the same mistake at four levels; the encoder below is why the
- * fourth one is written down rather than left to be discovered again.
+ * rounds found the same mistake at four levels. The content snapshots remain
+ * useful corroboration, but CDP's browser-external content-mutation events are
+ * now authoritative for IndexedDB and Cache Storage: they observe the write,
+ * not a hand-written approximation of the value before and after it.
  *
  * The acceptance criterion is behavioural — *no request, no storage write, no
  * inserted node* — so the detectors are now behavioural too. Enumerating
@@ -415,7 +417,7 @@ const detectorSource = enabled => `
     return out;
   };
 
-  /* ── A byte-preserving encoder for persisted values ─────────────────────
+  /* ── A byte-preserving snapshot corroborator ────────────────────────────
    *
    * JSON.stringify was the wrong tool twice over. IndexedDB stores structured
    * clones, and a Blob serialises to {}, so replacing one Blob with another
@@ -423,9 +425,11 @@ const detectorSource = enabled => `
    * body with .text() decodes them, so 0x80 and 0x81 both became U+FFFD and a
    * changed body looked unchanged.
    *
-   * Everything is therefore reduced to a string that distinguishes byte from
-   * byte and type from type. Hex is verbose, and that is the correct trade for
-   * an instrument whose failure mode is silence. */
+   * This is deliberately corroboration, not the authoritative write detector.
+   * Structured-clone values include graphs and platform objects whose identity
+   * cannot be made injective by a small custom encoder. CDP content-update
+   * events supply that authority outside the page; this encoder keeps the
+   * before/after evidence human-readable for the common stored shapes. */
   const hex = buffer => Array.from(new Uint8Array(buffer),
     b => b.toString(16).padStart(2, '0')).join('');
 
@@ -474,7 +478,7 @@ const detectorSource = enabled => `
   };
 
   const openSeedDb = () => new Promise((resolve, reject) => {
-    const request = indexedDB.open('__seed_db__', 1);
+    const request = indexedDB.open('__seed_db__', 2);
     request.onupgradeneeded = () => {
       // Two stores on purpose. With the Blob beside the string record, a
       // change to the string alone made the whole store's serialisation
@@ -484,6 +488,12 @@ const detectorSource = enabled => `
       }
       if (!request.result.objectStoreNames.contains('blobs')) {
         request.result.createObjectStore('blobs');
+      }
+      if (!request.result.objectStoreNames.contains('deep')) {
+        request.result.createObjectStore('deep');
+      }
+      if (!request.result.objectStoreNames.contains('files')) {
+        request.result.createObjectStore('files');
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -500,6 +510,12 @@ const detectorSource = enabled => `
       tx.onabort = resolve;
     } catch (e) { resolve(); }
   });
+
+  const nestedValue = leaf => {
+    let value = leaf;
+    for (let i = 0; i < 12; i++) value = { next: value };
+    return value;
+  };
 
   // The UNION of both key sets, so a removal is a difference too. Walking only
   // the after-snapshot made deleting a key indistinguishable from never having
@@ -533,6 +549,11 @@ const detectorSource = enabled => `
         // A Blob-valued record. IndexedDB stores structured clones, and a Blob
         // is one of the shapes a pasted artifact would most naturally take.
         await putRecord(db, new Blob(['before' + seedNonce]), 'blob', 'blobs');
+        // Two values the snapshot encoder deliberately does not claim to
+        // represent injectively. CDP must still report their writes.
+        await putRecord(db, nestedValue('before' + seedNonce), 'deep', 'deep');
+        await putRecord(db, new File(['same'], 'before.svg',
+          { type: 'image/svg+xml', lastModified: seedNonce }), 'file', 'files');
         db.close();
       } catch (e) {}
       try {
@@ -571,7 +592,7 @@ const detectorSource = enabled => `
    * route — including the two that bypassed the previous wrappers — so a
    * detector that only covers the obvious path cannot pass.
    *
-   * The request is SAME-ORIGIN on purpose. \connect-src 'self'\` permits it,
+   * The request is SAME-ORIGIN on purpose. The connect-src 'self' policy permits it,
    * and the point is that the detector sees a request that really reached the
    * network layer, not that the CSP blocked a cross-origin one.
    * ───────────────────────────────────────────────────────────────────── */
@@ -639,6 +660,22 @@ const detectorSource = enabled => `
       attempted.push('storage-cache-bytes');
     } catch (e) { attempted.push('storage-cache-bytes-threw:' + e.name); }
 
+    // Values the corroborating encoder collapses. The authoritative CDP event
+    // must report both writes without understanding either representation.
+    try {
+      const db = await openSeedDb();
+      await putRecord(db, nestedValue('after' + nonce), 'deep', 'deep');
+      db.close();
+      attempted.push('storage-idb-deep');
+    } catch (e) { attempted.push('storage-idb-deep-threw:' + e.name); }
+    try {
+      const db = await openSeedDb();
+      await putRecord(db, new File(['same'], 'after.svg',
+        { type: 'image/svg+xml', lastModified: nonce + 1000 }), 'file', 'files');
+      db.close();
+      attempted.push('storage-idb-file');
+    } catch (e) { attempted.push('storage-idb-file-threw:' + e.name); }
+
     // Insertion, by both routes.
     const parse = t => new DOMParser().parseFromString(t, 'image/svg+xml');
     try {
@@ -665,7 +702,36 @@ const evaluate = async expression => {
   return response.result?.result?.value;
 };
 
+const requireCdp = async (method, params = {}) => {
+  const response = await cdp.send(method, params);
+  if (response.error) {
+    throw new Error(`${method}: ${response.error.message || 'unsupported'}`);
+  }
+  return response;
+};
+
+/* IndexedDB and Cache Storage can persist arbitrary structured-clone values
+ * and response bytes. A before/after serializer is inevitably an
+ * approximation; these browser-external events are the authoritative signal
+ * that content changed. The snapshot remains useful independent evidence. */
+const storageMutationEvents = () => [
+  ...cdp.drain('DOMStorage.domStorageItemAdded').map(e =>
+    `cdp:webStorage-added:${e.params?.key || '?'}`),
+  ...cdp.drain('DOMStorage.domStorageItemUpdated').map(e =>
+    `cdp:webStorage-updated:${e.params?.key || '?'}`),
+  ...cdp.drain('DOMStorage.domStorageItemRemoved').map(e =>
+    `cdp:webStorage-removed:${e.params?.key || '?'}`),
+  ...cdp.drain('DOMStorage.domStorageItemsCleared').map(() => 'cdp:webStorage-cleared'),
+  ...cdp.drain('Storage.indexedDBContentUpdated').map(e =>
+    `cdp:indexedDB-content:${e.params?.databaseName || '?'}:${e.params?.objectStoreName || '?'}`),
+  ...cdp.drain('Storage.indexedDBListUpdated').map(() => 'cdp:indexedDB-list'),
+  ...cdp.drain('Storage.cacheStorageContentUpdated').map(e =>
+    `cdp:cache-content:${e.params?.cacheName || '?'}`),
+  ...cdp.drain('Storage.cacheStorageListUpdated').map(() => 'cdp:cache-list'),
+].sort();
+
 let installedScript = null;
+let storageTracking = false;
 // localStorage survives navigation inside one browser profile, so each run
 // writes a distinct value. Otherwise the second run's snapshot comparison
 // correctly reports "nothing changed" and the detector looks broken.
@@ -692,6 +758,16 @@ async function probe({ enabled, unsafe }) {
   // for DOMStorage, the external half of the storage detector.
   await cdp.send(enabled.includes('network') ? 'Network.enable' : 'Network.disable');
   await cdp.send(enabled.includes('storage') ? 'DOMStorage.enable' : 'DOMStorage.disable');
+  if (storageTracking) {
+    await requireCdp('Storage.untrackIndexedDBForOrigin', { origin });
+    await requireCdp('Storage.untrackCacheStorageForOrigin', { origin });
+    storageTracking = false;
+  }
+  if (enabled.includes('storage')) {
+    await requireCdp('Storage.trackIndexedDBForOrigin', { origin });
+    await requireCdp('Storage.trackCacheStorageForOrigin', { origin });
+    storageTracking = true;
+  }
 
   await cdp.send('Page.navigate', { url: APP_URL });
   for (let attempt = 0; attempt < 80; attempt++) {
@@ -720,6 +796,7 @@ async function probe({ enabled, unsafe }) {
     .concat(cdp.drain('DOMStorage.domStorageItemUpdated'))
     .map(e => e.params?.key || '')
     .filter(Boolean);
+  const contentEvents = storageMutationEvents();
 
   const seen = await evaluate('window.__probeCollect()');
   const parsed = typeof seen === 'string' ? JSON.parse(seen) : { storage: [], insertion: [] };
@@ -727,8 +804,9 @@ async function probe({ enabled, unsafe }) {
     attempted: JSON.parse(typeof attempted === 'string' ? attempted : '[]'),
     bootStorage: JSON.parse(typeof bootStorage === 'string' ? bootStorage : '[]'),
     network: requests,
-    storage: parsed.storage,
+    storage: [...new Set(parsed.storage.concat(contentEvents))].sort(),
     storageEvents,
+    contentEvents,
     insertion: parsed.insertion,
   };
 }
@@ -760,6 +838,7 @@ const EVERY_ROUTE = ['network', 'storage-setItem', 'storage-property',
   'storage-remove', 'storage-cookie', 'storage-indexeddb', 'storage-cache',
   'storage-idb-record', 'storage-cache-body',
   'storage-idb-blob', 'storage-cache-bytes',
+  'storage-idb-deep', 'storage-idb-file',
   'insertion-appendChild', 'insertion-range'];
 eq('the fixture committed every violation by every route it claims',
   caught.attempted, EVERY_ROUTE);
@@ -797,6 +876,12 @@ eq('a replaced Blob-valued record is seen',
   caught.storage.includes('indexedDB:__seed_db__/blobs'), true);
 eq('and a cached body whose BYTES changed but whose text did not is seen',
   caught.storage.some(k => k.endsWith('?bytes=1')), true);
+eq('a deep value change is seen without serialising its leaf',
+  caught.contentEvents.includes('cdp:indexedDB-content:__seed_db__:deep'), true);
+eq('and a File metadata change is seen without serialising its metadata',
+  caught.contentEvents.includes('cdp:indexedDB-content:__seed_db__:files'), true);
+eq('Cache Storage writes also reach the browser-external content signal',
+  caught.contentEvents.includes('cdp:cache-content:__seed_cache__'), true);
 eq('the external CDP corroborator saw the Web Storage writes',
   caught.storageEvents.slice().sort(), ['__direct_probe__', '__unsafe_probe__']);
 
@@ -824,6 +909,10 @@ for (const removed of ALL) {
     blind.attempted, EVERY_ROUTE);
   eq(`without the ${removed} detector, that violation goes unseen`,
     blind[removed].length, 0);
+  if (removed === 'storage') {
+    eq('  and the browser-external content signal is genuinely absent',
+      blind.contentEvents, []);
+  }
 
   for (const other of enabled) {
     eq(`  but the ${other} detector still reports it`, blind[other].length > 0, true);
@@ -960,6 +1049,8 @@ eq('the collector returned a result rather than erroring',
   typeof afterAnalysis === 'string', true);
 const analysisSeen = typeof afterAnalysis === 'string'
   ? JSON.parse(afterAnalysis) : { storage: ['<collector-failed>'], insertion: ['<collector-failed>'] };
+const analysisStorage = [...new Set(
+  analysisSeen.storage.concat(storageMutationEvents()))].sort();
 // NO filter. The criterion is "analysis caused no request", not "no
 // cross-origin request": a same-origin call can still exfiltrate the supplied
 // artifact to a route `connect-src 'self'` permits. The validator source and
@@ -970,7 +1061,7 @@ const analysisRequests = cdp.drain('Network.requestWillBeSent')
 
 eq('no foreign node from any hostile fixture entered the document',
   analysisSeen.insertion, []);
-eq('no storage write happened while analysing them', analysisSeen.storage, []);
+eq('no storage write happened while analysing them', analysisStorage, []);
 eq('and no fixture caused ANY network request, same-origin included',
   analysisRequests, []);
 

@@ -709,18 +709,18 @@
     },
     {
       "command": "node tests/build/local-input-security.test.mjs  (npm run test:local-input-security)",
-      "why": "The instrument 0.8.0's hostile-SVG analysis depends on, and since local-artifact-validation 1.6 the real-DOMParser half of the SVG validator's proof. Drives the production bundle in a real headless browser over an http origin -- file:// blocks the same-origin fetch the network detector must be shown catching -- and installs three detectors: CDP Network.requestWillBeSent, wrapped storage writers, and wrapped DOM insertion points comparing ownerDocument BEFORE delegating, since the DOM adopts a foreign node on insertion. Kept out of npm test for the same reason as file-url, so a missing browser reads as one clearly named failure, but it REFUSES to skip. CI runs it as the required `Local input security (real browser)` job.",
+      "why": "The instrument 0.8.0's hostile-SVG analysis depends on, and since local-artifact-validation 1.6 the real-DOMParser half of the SVG validator's proof. Drives the production bundle in a real headless browser over an http origin -- file:// blocks the same-origin fetch the network detector must be shown catching -- and installs three behavioral detectors: CDP network and storage-mutation events outside the page, content snapshots as storage corroboration, and a MutationObserver over tagged parser output. Kept out of npm test for the same reason as file-url, so a missing browser reads as one clearly named failure, but it REFUSES to skip. CI runs it as the required `Local input security (real browser)` job.",
       "areas": [
         "a clean load attributes no request, storage write or foreign-node insertion to the analysis phase",
         "boot writes nothing beyond the one localStorage key PRIVACY.md documents",
         "a deliberately unsafe fixture commits one network request, one storage write and one foreign-document insertion, and all three are caught",
         "the negative control is mechanical rather than a manual source edit: each detector removed in turn stops seeing its own violation while the other two still report, and all three report again once restored",
         "detection is BEHAVIOURAL, not API enumeration: a MutationObserver over tagged parser output catches Range.insertNode and clones, and a storage state comparison catches a named-property write -- both of which walked past the first version's method wrappers",
-        "the storage snapshot covers Web Storage, cookies WITH VALUES, and the BYTE-LEVEL contents of IndexedDB object stores and Cache Storage responses -- not their catalogs and not a JSON or text coercion of them -- diffing the union of both key sets so removals and value replacements are differences rather than absences",
+        "CDP content-mutation events outside the page are authoritative for IndexedDB and Cache Storage writes; the deep content snapshot is independent corroboration, not a claim that a custom encoder can represent every structured-clone value injectively",
         "the validator-phase network gate exempts nothing: a same-origin request during analysis fails it, since connect-src 'self' still permits exfiltration",
         "a collector that errors fails the gate instead of defaulting to an empty result",
         "writes INSIDE containers that already existed when the phase opened: a record put into or deleted from an existing object store with no version change, and a response body replaced for an already-cached URL",
-        "representation-level changes a JSON or text coercion collapses: a replaced Blob-valued record, a replaced typed-array record, cached bytes that decode to the same text, and changed response headers with an identical body",
+        "representation-level changes a snapshot can collapse: replaced Blob and File records, a changed leaf below the encoder depth cap, a replaced typed-array record, cached bytes that decode to the same text, and changed response headers with an identical body",
         "the SVG validator driven by the real DOMParser: thirteen hostile fixtures, wrong-case names XML does not fold, the Tiny PS permitted values, and the proof that analysing all of them caused no request, no storage write and no insertion"
       ]
     },
