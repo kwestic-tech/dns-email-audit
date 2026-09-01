@@ -14,6 +14,14 @@
  * raised against the document as a whole and have no line, so they appear in
  * `errors` only. A consumer mapping tokens to evidence must handle both — the
  * spec's `kind: 'input'` evidence variant is what a line-less error gets.
+ *
+ * Each entry carries `{ token, line, text }`, and `text` is the OFFENDING LINE
+ * itself, bounded. The composer needs the supplied material to build honest
+ * evidence, and the only alternative was for `src/audit/` to re-split the
+ * policy body and re-derive line numbers — a second, silently divergent copy
+ * of this parser's own line handling, BOM strip included. A parser that
+ * reports a position without the thing at that position forces its callers to
+ * guess.
  */
 
 const MAX_AGE = 31557600;
@@ -99,9 +107,20 @@ function emptyResult(text) {
   };
 }
 
-function addDiagnostic(result, bucket, token, line) {
+/** How much of an offending line travels with its diagnostic. */
+const MAX_DIAGNOSTIC_TEXT = 200;
+
+function bounded(value) {
+  // Code POINTS, not UTF-16 indexes: slicing through an astral character
+  // leaves a lone surrogate, and the export path treats that as a defect.
+  var points = Array.from(String(value == null ? '' : value));
+  return points.length > MAX_DIAGNOSTIC_TEXT
+    ? points.slice(0, MAX_DIAGNOSTIC_TEXT).join('') : points.join('');
+}
+
+function addDiagnostic(result, bucket, token, line, text) {
   result[bucket].push(token);
-  result.diagnostics.push({ token: token, line: line });
+  result.diagnostics.push({ token: token, line: line, text: bounded(text) });
 }
 
 /** Validate one policy body without fetching it or changing audit state. */
@@ -109,13 +128,13 @@ export function validateMtaStsPolicy(input) {
   var text = typeof input === 'string' ? input : '';
   var result = emptyResult(text);
   if (!text) {
-    addDiagnostic(result, 'errors', 'malformed-line', 1);
+    addDiagnostic(result, 'errors', 'malformed-line', 1, '');
     return result;
   }
 
   if (text.charCodeAt(0) === 0xfeff) {
     text = text.slice(1);
-    addDiagnostic(result, 'warnings', 'bom-present', 1);
+    addDiagnostic(result, 'warnings', 'bom-present', 1, '\uFEFF');
   }
 
   var lines = text.split(/\r\n|\n/);
@@ -127,30 +146,30 @@ export function validateMtaStsPolicy(input) {
     var line = lines[i];
     var lineNumber = i + 1;
     if (!line) {
-      addDiagnostic(result, 'errors', 'blank-line', lineNumber);
+      addDiagnostic(result, 'errors', 'blank-line', lineNumber, line);
       continue;
     }
     if (CONTROL.test(line) || line.includes('\r')) {
-      addDiagnostic(result, 'errors', 'malformed-line', lineNumber);
+      addDiagnostic(result, 'errors', 'malformed-line', lineNumber, line);
       hasMalformedLine = true;
       continue;
     }
     var match = /^([^:]+):([\s\S]*)$/.exec(line);
     if (!match) {
-      addDiagnostic(result, 'errors', 'malformed-line', lineNumber);
+      addDiagnostic(result, 'errors', 'malformed-line', lineNumber, line);
       hasMalformedLine = true;
       continue;
     }
     var name = match[1];
     var tail = match[2];
     if (!FIELD_NAME.test(name)) {
-      addDiagnostic(result, 'errors', 'malformed-line', lineNumber);
+      addDiagnostic(result, 'errors', 'malformed-line', lineNumber, line);
       hasMalformedLine = true;
       continue;
     }
     var value = tail.replace(/^[ \t]*/, '').replace(/[ \t]*$/, '');
     if (!value || value.includes('\t')) {
-      addDiagnostic(result, 'errors', 'malformed-line', lineNumber);
+      addDiagnostic(result, 'errors', 'malformed-line', lineNumber, line);
       hasMalformedLine = true;
       continue;
     }
@@ -162,30 +181,30 @@ export function validateMtaStsPolicy(input) {
     // dropped it from both.
     var foldedName = name.toLowerCase();
     if (name !== foldedName && REGISTERED_FIELDS.includes(foldedName)) {
-      addDiagnostic(result, 'warnings', 'wrong-case-field', lineNumber);
+      addDiagnostic(result, 'warnings', 'wrong-case-field', lineNumber, line);
     }
 
     if (name !== 'mx' && seen[name]) {
       if (!result.duplicateKeys.includes(name)) result.duplicateKeys.push(name);
-      addDiagnostic(result, 'warnings', 'duplicate-field', lineNumber);
+      addDiagnostic(result, 'warnings', 'duplicate-field', lineNumber, line);
       continue;
     }
     seen[name] = true;
 
     if (name === 'version') {
       result.version = value;
-      if (value !== 'STSv1') addDiagnostic(result, 'errors', 'invalid-version', lineNumber);
+      if (value !== 'STSv1') addDiagnostic(result, 'errors', 'invalid-version', lineNumber, line);
     } else if (name === 'mode') {
       if (value === 'enforce' || value === 'testing' || value === 'none') {
         result.mode = value;
-      } else addDiagnostic(result, 'errors', 'invalid-mode', lineNumber);
+      } else addDiagnostic(result, 'errors', 'invalid-mode', lineNumber, line);
     } else if (name === 'mx') {
       if (validMxPattern(value)) result.mx.push(value.toLowerCase());
-      else addDiagnostic(result, 'errors', 'invalid-mx', lineNumber);
+      else addDiagnostic(result, 'errors', 'invalid-mx', lineNumber, line);
     } else if (name === 'max_age') {
       if (/^\d{1,10}$/.test(value) && Number(value) <= MAX_AGE) {
         result.maxAge = Number(value);
-      } else addDiagnostic(result, 'errors', 'invalid-max-age', lineNumber);
+      } else addDiagnostic(result, 'errors', 'invalid-max-age', lineNumber, line);
     } else {
       result.unknownKeys.push(name);
     }

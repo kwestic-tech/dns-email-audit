@@ -266,7 +266,9 @@ eq('a raster data URI in a fill is a diagnostic, not a rejection',
   check(conformant({ children: [el('title', {}, [text('t')]),
     el('rect', { fill: 'url(data:image/png;base64,iVBOR)' })] })),
   { valid: true, parsed: true, root: 'svg', title: 't',
-    rejections: [], diagnostics: ['raster-data-uri'] });
+    rejections: [], diagnostics: ['raster-data-uri'],
+    sites: [{ token: 'raster-data-uri', element: '<rect>',
+      value: 'fill="url(data:image/png;base64,iVBOR)"' }] });
 eq('a raster data URI inside a style block is caught too',
   check(conformant({ children: [el('title', {}, [text('t')]),
     el('style', {}, [text('.a{fill:data:image/png;base64,iVBOR}')])] })).diagnostics,
@@ -325,7 +327,7 @@ eq('a wrong-case root is a bad root, not an SVG document',
     baseProfile: 'tiny-ps', version: '1.2', viewBox: '0 0 64 64',
   }, [el('title', {}, [text('x')])]))),
   { valid: false, parsed: true, root: 'SVG', title: '',
-    rejections: ['bad-root'], diagnostics: [] });
+    rejections: ['bad-root'], diagnostics: [], sites: [] });
 eq('a wrong-case TITLE does not satisfy the title requirement',
   diag({}, [el('TITLE', {}, [text('x')])]), ['title-missing']);
 eq('nor does a wrong-case DESC trip the desc rule',
@@ -375,7 +377,7 @@ section('6. Tokens and primitives only');
 const shape = check(conformant({ children: [el('title', {}, [text('t')]), el('rect')] }));
 eq('the result keys are exactly the published shape',
   Object.keys(shape).sort(),
-  ['diagnostics', 'parsed', 'rejections', 'root', 'title', 'valid']);
+  ['diagnostics', 'parsed', 'rejections', 'root', 'sites', 'title', 'valid']);
 // The load-bearing rule of the release, asserted structurally: nothing the
 // validator returns can be inserted anywhere, because none of it is a node.
 eq('no returned value is a node or carries one',
@@ -387,5 +389,51 @@ eq('every emitted rejection is a registered member',
   hostile.rejections.filter(t => !BIMI_SVG_REJECTIONS.includes(t)), []);
 eq('every emitted diagnostic is a registered member',
   diagnosticsOnly.diagnostics.filter(t => !BIMI_SVG_DIAGNOSTICS.includes(t)), []);
+
+/* ── Located material: the composer must not have to reparse the SVG to
+ *    build evidence, so every token records where it came from and what the
+ *    offending construct actually was. ─────────────────────────────────── */
+section('7. Every token records its site');
+
+const located = check(conformant({ children: [
+  el('title', {}, [text('t')]),
+  el('rect', { onload: 'alert(1)' }),
+  el('use', { 'xlink:href': 'https://evil.example/a#x' }),
+] }));
+eq('an event handler names the element and the attribute pair',
+  located.sites.find(s => s.token === 'event-handler'),
+  { token: 'event-handler', element: '<rect>', value: 'onload="alert(1)"' });
+eq('an external reference carries the URL that made it one',
+  located.sites.find(s => s.token === 'external-reference').value,
+  'xlink:href="https://evil.example/a#x"');
+eq('and the offending element is named, not the root',
+  located.sites.find(s => s.token === 'external-reference-element').element, '<use>');
+eq('every site token is a registered member',
+  located.sites.filter(s => !BIMI_SVG_REJECTIONS.includes(s.token) &&
+    !BIMI_SVG_DIAGNOSTICS.includes(s.token)), []);
+
+// The token arrays are the closed algebras and stay deduplicated; `sites` does
+// not, because three external references are three places to fix.
+const repeated = check(conformant({ children: [
+  el('title', {}, [text('t')]),
+  el('image', { href: 'https://a.example/1.png' }),
+  el('image', { href: 'https://b.example/2.png' }),
+] }));
+eq('a repeated rejection is ONE token',
+  repeated.rejections.filter(t => t === 'external-reference-element').length, 1);
+eq('but every occurrence gets its own site',
+  repeated.sites.filter(s => s.token === 'external-reference-element')
+    .map(s => s.value),
+  ['https://a.example/1.png', 'https://b.example/2.png']);
+
+eq('site material is bounded in code points, never split mid-character',
+  (() => {
+    const long = 'y'.repeat(199) + '\u{1F600}';
+    const r = check(conformant({ children: [el('title', {}, [text('t')]),
+      el('rect', { onload: long })] }));
+    const v = r.sites.find(s => s.token === 'event-handler').value;
+    const last = v.charCodeAt(v.length - 1);
+    return last >= 0xD800 && last <= 0xDBFF;
+  })(), false);
 
 report();

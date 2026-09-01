@@ -233,17 +233,30 @@ eq('an input without a terminator reports the declared none state',
 const withBom = validateMtaStsPolicy('\ufeffversion: STSv1\nmode: none\nmax_age: 1');
 eq('a leading BOM is stripped and reported as hygiene',
   [withBom.valid, withBom.warnings, withBom.diagnostics[0]],
-  [true, ['bom-present'], { token: 'bom-present', line: 1 }]);
+  [true, ['bom-present'], { token: 'bom-present', line: 1, text: '\uFEFF' }]);
 
 const blankLine = validateMtaStsPolicy(
   'version: STSv1\n\nmode: bogus\njunk\nmax_age: 1');
 eq('blank and malformed lines do not erase a separate field error',
   blankLine.errors, ['blank-line', 'invalid-mode', 'malformed-line']);
-eq('each diagnostic retains its line', blankLine.diagnostics, [
-  { token: 'blank-line', line: 2 },
-  { token: 'invalid-mode', line: 3 },
-  { token: 'malformed-line', line: 4 },
+// Each diagnostic carries the line AND the offending text, so the composer can
+// build evidence without re-splitting the body and re-deriving line numbers.
+eq('each diagnostic retains its line and the line itself', blankLine.diagnostics, [
+  { token: 'blank-line', line: 2, text: '' },
+  { token: 'invalid-mode', line: 3, text: 'mode: bogus' },
+  { token: 'malformed-line', line: 4, text: 'junk' },
 ]);
+eq('a repeated diagnostic gets one entry per occurrence, in order',
+  validateMtaStsPolicy('version: STSv1\n\n\nmode: none\nmax_age: 1')
+    .diagnostics.filter(d => d.token === 'blank-line').map(d => d.line),
+  [2, 3]);
+eq('diagnostic text is bounded in code points, never split mid-character',
+  (() => {
+    const v = validateMtaStsPolicy('version: STSv1\nmode: ' + 'y'.repeat(195) + '\u{1F600}')
+      .diagnostics.find(d => d.token === 'invalid-mode').text;
+    const last = v.charCodeAt(v.length - 1);
+    return last >= 0xD800 && last <= 0xDBFF;
+  })(), false);
 eq('a second trailing terminator is an invalid blank line',
   validateMtaStsPolicy('version: STSv1\nmode: none\nmax_age: 1\n\n').errors,
   ['blank-line']);

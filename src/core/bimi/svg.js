@@ -105,11 +105,41 @@ function emptyResult() {
     title: '',
     rejections: [],
     diagnostics: [],
+    sites: [],
   };
+}
+
+/** How much of an offending construct travels with its token. */
+const MAX_SITE_TEXT = 200;
+
+function bounded(value) {
+  // Code POINTS, not UTF-16 indexes: slicing through an astral character
+  // leaves a lone surrogate, and the export path treats that as a defect.
+  var points = Array.from(String(value == null ? '' : value));
+  return points.length > MAX_SITE_TEXT
+    ? points.slice(0, MAX_SITE_TEXT).join('') : points.join('');
 }
 
 function add(list, token) {
   if (!list.includes(token)) list.push(token);
+}
+
+/**
+ * Record a token AND where it came from.
+ *
+ * The token vocabularies stay deduplicated, because they are the closed
+ * algebras. `sites` does not: a document with three external references has
+ * three places to fix, and collapsing them to one leaves the operator hunting.
+ * `element` is the enclosing element as written; `value` is the bounded
+ * offending material — an attribute pair, a URL, a text snippet.
+ */
+function site(result, bucket, token, element, value) {
+  add(result[bucket], token);
+  result.sites.push({
+    token: token,
+    element: element ? '<' + element + '>' : '',
+    value: bounded(value),
+  });
 }
 
 function elementChildren(node) {
@@ -160,6 +190,17 @@ function nameOf(node) {
  * one failure mode a conformance check must never have: telling an operator
  * their nonconformant document conforms.
  */
+/** For a security screen, which is deliberately case-insensitive. */
+function attrValueAnyCase(el, name) {
+  var attrs = attributesOf(el);
+  for (var i = 0; i < attrs.length; i++) {
+    if (lower(attrs[i].localName || attrs[i].name) === name) {
+      return String(attrs[i].value == null ? '' : attrs[i].value);
+    }
+  }
+  return '';
+}
+
 function attrValue(el, name) {
   var attrs = attributesOf(el);
   for (var i = 0; i < attrs.length; i++) {
@@ -182,20 +223,26 @@ function screen(root, result) {
   walk(root, function (el) {
     var name = lower(nameOf(el));
 
-    if (name === 'script') add(result.rejections, 'script-element');
-    if (name === 'foreignobject') add(result.rejections, 'foreign-object');
+    var written = nameOf(el);
+    if (name === 'script') site(result, 'rejections', 'script-element', written, textOf(el));
+    if (name === 'foreignobject') site(result, 'rejections', 'foreign-object', written, '');
     if (EXTERNAL_REF_ELEMENTS.indexOf(name) !== -1) {
-      add(result.rejections, 'external-reference-element');
+      site(result, 'rejections', 'external-reference-element', written,
+        attrValueAnyCase(el, 'href'));
     }
-    if (ANIMATION_ELEMENTS.indexOf(name) !== -1) add(result.rejections, 'animation');
+    if (ANIMATION_ELEMENTS.indexOf(name) !== -1) {
+      site(result, 'rejections', 'animation', written, '');
+    }
     // Any `<a>`, not only one carrying a destination. The spec says "`<a>` with
     // any target"; an anchor with no target is inert but has no business in a
     // logo either, and the safer reading is the one that cannot be argued into
     // permitting a link later.
-    if (name === 'a') add(result.rejections, 'link-element');
+    if (name === 'a') {
+      site(result, 'rejections', 'link-element', written, attrValueAnyCase(el, 'href'));
+    }
 
     if (name === 'style' && EXTERNAL_STYLE.test(textOf(el))) {
-      add(result.rejections, 'external-style');
+      site(result, 'rejections', 'external-style', written, textOf(el));
     }
 
     var attrs = attributesOf(el);
@@ -204,32 +251,46 @@ function screen(root, result) {
       var attrLocal = lower(attrs[i].localName || attrs[i].name);
       var value = String(attrs[i].value == null ? '' : attrs[i].value);
 
-      if (/^on/.test(attrName)) add(result.rejections, 'event-handler');
+      if (/^on/.test(attrName)) {
+        site(result, 'rejections', 'event-handler', written, attrs[i].name + '="' + value + '"');
+      }
 
       // `localName` catches `href` and `xlink:href` with one rule — measured:
       // the namespaced spelling reports name `xlink:href`, localName `href`.
       // A same-document fragment is the only permitted destination.
       if (attrLocal === 'href' && value.charAt(0) !== '#') {
-        add(result.rejections, 'external-reference');
+        site(result, 'rejections', 'external-reference', written,
+          attrs[i].name + '="' + value + '"');
       }
-      if (RASTER_DATA_URI.test(value)) add(result.diagnostics, 'raster-data-uri');
+      if (RASTER_DATA_URI.test(value)) {
+        site(result, 'diagnostics', 'raster-data-uri', written,
+          attrs[i].name + '="' + value + '"');
+      }
     }
 
     if (name === 'style' && RASTER_DATA_URI.test(textOf(el))) {
-      add(result.diagnostics, 'raster-data-uri');
+      site(result, 'diagnostics', 'raster-data-uri', written, textOf(el));
     }
   });
 }
 
 /** SVG P/S diagnostics on the root and its direct children. */
 function profile(root, result) {
-  if (root.namespaceURI !== SVG_NS) add(result.diagnostics, 'namespace-not-svg');
-  if (attrValue(root, 'baseProfile') !== 'tiny-ps') {
-    add(result.diagnostics, 'base-profile-not-tiny-ps');
+  var written = nameOf(root);
+  if (root.namespaceURI !== SVG_NS) {
+    site(result, 'diagnostics', 'namespace-not-svg', written, String(root.namespaceURI || ''));
   }
-  if (attrValue(root, 'version') !== '1.2') add(result.diagnostics, 'version-not-1-2');
+  if (attrValue(root, 'baseProfile') !== 'tiny-ps') {
+    site(result, 'diagnostics', 'base-profile-not-tiny-ps', written,
+      String(attrValue(root, 'baseProfile') == null ? '' : attrValue(root, 'baseProfile')));
+  }
+  if (attrValue(root, 'version') !== '1.2') {
+    site(result, 'diagnostics', 'version-not-1-2', written,
+      String(attrValue(root, 'version') == null ? '' : attrValue(root, 'version')));
+  }
   if (attrValue(root, 'x') !== null || attrValue(root, 'y') !== null) {
-    add(result.diagnostics, 'root-has-position');
+    site(result, 'diagnostics', 'root-has-position', written,
+      'x=' + attrValue(root, 'x') + ' y=' + attrValue(root, 'y'));
   }
 
   // Present is a SHOULD NOT; present with the wrong value is a MUST violation.
@@ -238,13 +299,14 @@ function profile(root, result) {
   for (var i = 0; i < names.length; i++) {
     var present = attrValue(root, names[i]);
     if (present !== null && present !== CONSTRAINED_ATTRS[names[i]]) {
-      add(result.diagnostics, 'unsupported-attribute');
+      site(result, 'diagnostics', 'unsupported-attribute', written,
+        names[i] + '="' + present + '"');
     }
   }
 
   var viewBox = attrValue(root, 'viewBox');
   if (viewBox === null) {
-    add(result.diagnostics, 'viewbox-missing');
+    site(result, 'diagnostics', 'viewbox-missing', written, '');
   } else {
     var parts = viewBox.trim().split(/[\s,]+/).map(Number);
     var usable = parts.length === 4 && parts.every(function (n) { return isFinite(n); });
@@ -252,9 +314,9 @@ function profile(root, result) {
     // rendering. Neither is a square logo, and comparing width to height would
     // call `0 0 0 0` and `0 0 -64 -64` square.
     if (!usable || !(parts[2] > 0) || !(parts[3] > 0)) {
-      add(result.diagnostics, 'viewbox-missing');
+      site(result, 'diagnostics', 'viewbox-missing', written, viewBox);
     } else if (parts[2] !== parts[3]) {
-      add(result.diagnostics, 'viewbox-not-square');
+      site(result, 'diagnostics', 'viewbox-not-square', written, viewBox);
     }
   }
 
@@ -262,15 +324,19 @@ function profile(root, result) {
   // inside a group is not the document's title.
   var kids = elementChildren(root);
   var titles = kids.filter(function (el) { return nameOf(el) === 'title'; });
-  if (titles.length > 1) add(result.diagnostics, 'title-not-unique');
+  if (titles.length > 1) {
+    site(result, 'diagnostics', 'title-not-unique', 'title', String(titles.length));
+  }
   if (!titles.length || !textOf(titles[0]).trim()) {
-    add(result.diagnostics, 'title-missing');
+    site(result, 'diagnostics', 'title-missing', written, '');
   } else {
     result.title = textOf(titles[0]).trim().slice(0, 200);
   }
 
   var descs = kids.filter(function (el) { return nameOf(el) === 'desc'; });
-  if (descs.length && !textOf(descs[0]).trim()) add(result.diagnostics, 'desc-empty');
+  if (descs.length && !textOf(descs[0]).trim()) {
+    site(result, 'diagnostics', 'desc-empty', 'desc', '');
+  }
 }
 
 /**
