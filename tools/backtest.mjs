@@ -144,7 +144,7 @@ vm.createContext(sandbox);
 const D = createDnsEngine({
   publicSuffixRules: PUBLIC_SUFFIX_RULES,
   dkimSelectorCatalog: DKIM_SELECTOR_CATALOG,
-  platform: { fetch, crypto, AbortController, URLSearchParams, setTimeout, clearTimeout },
+  platform: { fetch: countingFetch, crypto, AbortController, URLSearchParams, setTimeout, clearTimeout },
 });
 
 const OPTS = { dkim: true, dkimComprehensive: comprehensiveDkim, www: false, advanced: true, wildcard: false, deepChecks };

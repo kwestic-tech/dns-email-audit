@@ -331,7 +331,10 @@
       "와일드카드 CAA 발급자",
       "조회되지 않는 MX",
       "MX 호스트 수",
-      "TLSA 게시 여부"
+      "TLSA 게시 여부",
+      "발견 항목 ID",
+      "발견 항목 심각도",
+      "수정 단계 1"
     ],
     "yes": "예",
     "no": "아니요",
@@ -1174,6 +1177,103 @@
       "dsConfirms": "DS {0}이(가) {1}을(를) 통해 게시된 키와 일치합니다",
       "dsVerdict": "DS {0} {1}",
       "lookupIncomplete": "{0} 조회가 완료되지 않았습니다 ({1})"
+    }
+  },
+  "finding": {
+    "dmarc-enforcement-without-auth": {
+      "msg": "SPF 또는 DKIM 인증이 완전히 갖춰지지 않은 상태에서 DMARC가 강제 적용 중이어서, 자신의 메일이 거부될 수 있습니다.",
+      "what": "DMARC는 메시지가 SPF와 DKIM 양쪽 모두에 실패했을 때에만 작동합니다. 둘 중 하나가 정렬된 상태로 통과하면 그 메시지는 통과합니다. 한 가지 방식이 없으면 나머지 하나가 모든 메시지를 홀로 감당하게 되므로, 그 방식이 포괄하지 못하는 정상 메일(전달된 메시지, 새로운 발신 서비스, 서명되지 않은 경로)은 DMARC에 그대로 실패하여 <code>p=reject</code> 또는 <code>p=quarantine</code> 아래에서 거부되거나 격리됩니다. 강제 적용은 인증 뒤에 따라와야 하며, 결코 앞서서는 안 됩니다.",
+      "fix": "SPF와 DKIM이 모두 정상 발신자에 대해 통과하는지 확인하고 — 아직 갖춰지지 않은 쪽을 게시하여 — 통과할 때까지 DMARC 집계 보고서를 관찰한 뒤에 강제 적용에 의존하십시오.",
+      "fixCode": "; 1단계 — 인증 (Google Workspace 예시)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; 2단계 — 보고서가 깨끗해진 뒤에만 강제 적용\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
+    },
+    "mx-dangling-with-enforcement": {
+      "msg": "DMARC가 강제 적용 중인데 MX 호스트가 확인되지 않습니다: {0}.",
+      "what": "주소를 반환하지 않는 메일 교환기는 메일을 받지 못합니다. DMARC를 강제 적용하는 도메인에는 그 공백을 흡수할 관대한 대체 경로가 없으므로, 해당 호스트로의 전달은 그대로 실패합니다. 이것은 위생 지적이 아니라 장애입니다.",
+      "fix": "A/AAAA 레코드가 없는 호스트를 가리키는 MX 레코드를 수정하거나 제거하고, 남은 모든 MX 호스트가 확인되는지 확인하십시오."
+    },
+    "dkim-weak-with-enforcement": {
+      "msg": "DMARC가 강제 적용 중인데 DKIM이 1024비트 이하의 RSA 키로 서명합니다: {0}.",
+      "what": "1024비트 RSA 키는 RFC 8301 최소값에 미치지 못하며, 자원이 풍부한 공격자에게 소인수분해될 수 있습니다. 그러면 공격자는 강제 적용된 DMARC 정책을 통과하는 서명을 위조할 수 있는데, 이는 바로 강제 적용이 막으려는 결과입니다.",
+      "fix": "해당 셀렉터를 2048비트 RSA 키(또는 Ed25519)로 교체하고, 새 공개 키를 게시한 뒤, 메일이 이전되면 취약한 셀렉터를 폐기하십시오."
+    },
+    "bimi-without-enforcement": {
+      "msg": "BIMI는 게시되어 있지만 DMARC가 강제 적용되지 않아, 어떤 메일박스 제공자도 로고를 표시하지 않습니다.",
+      "what": "BIMI에는 강제 적용된 DMARC 정책(<code>p=quarantine</code> 또는 <code>p=reject</code>)이 필요합니다. <code>p=none</code>이나 테스트 모드가 설정되어 있으면 메일박스 제공자는 BIMI 레코드를 완전히 무시하므로, 로고를 게시한 노력이 아무 성과도 내지 못합니다.",
+      "fix": "먼저 DMARC를 강제 적용으로 전환하십시오. 그러면 BIMI 레코드가 표시 대상이 됩니다."
+    },
+    "bimi-without-authority": {
+      "msg": "BIMI에 VMC 권한(<code>a=</code>)이 없어, 주요 메일박스 제공자는 로고를 표시하지 않습니다.",
+      "what": "Gmail을 비롯한 대형 제공자는 로고를 렌더링하기 전에, BIMI 레코드의 <code>a=</code> 태그가 참조하는 Verified Mark Certificate를 요구합니다. <code>l=</code>만 있는 BIMI 레코드는 유효하지만 VMC가 필수인 곳에서는 표시되지 않습니다.",
+      "fix": "등록 상표에 대한 VMC를 취득하고, 기존 <code>l=</code>과 함께 그 HTTPS URL을 <code>a=</code> 태그로 추가하십시오."
+    },
+    "mta-sts-without-tls-rpt": {
+      "msg": "MTA-STS가 TLS-RPT 없이 게시되어, TLS 강제 실패가 보고되지 않습니다.",
+      "what": "MTA-STS는 발신 서버에 TLS를 요구하라고 지시하지만, TLS-RPT가 없으면 연결을 보호하지 못했을 때 이를 보고할 경로가 없습니다. 정책은 얻더라도 그것이 작동하는지에 대한 가시성은 얻지 못합니다.",
+      "fix": "TLS-RPT 레코드를 게시하여 발신자가 TLS 협상 실패를 매일 보고서로 보내도록 하십시오.",
+      "fixCode": "; TLS 실패를 모니터링하는 메일박스로 보고\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "tls-rpt-without-transport-policy": {
+      "msg": "TLS-RPT는 게시되어 있지만, 보고할 대상인 전송 정책(MTA-STS도, 인증된 DANE도 없음)이 없습니다.",
+      "what": "TLS-RPT는 전송 보안 정책이 얼마나 잘 지켜지는지를 보고합니다. MTA-STS도, DNSSEC로 인증된 TLSA 레코드도 없는 상태에서는 강제할 정책이 없으므로, 보고서는 약속이 아니라 최선의 노력에 그치는 TLS를 나타냅니다.",
+      "fix": "MTA-STS(또는 MX 존이 DNSSEC로 서명된 경우 DANE)를 게시하여 보고가 측정할 정책을 갖도록 하십시오."
+    },
+    "spf-redundant-with-enforcement": {
+      "msg": "DMARC가 강제 적용 중인데 SPF가 큰 주소 블록을 허가합니다: {0}.",
+      "what": "SPF에서 넓은 범위의 주소를 허가한다는 것은, 그 범위 내의 어떤 호스트든 SPF와 강제 적용된 DMARC 정책을 통과하는 메일을 보낼 수 있다는 뜻입니다. 강제 적용하는 도메인에서 그 블록 내 공유 호스트나 침해된 호스트의 파급 범위는 바로 자기 도메인의 평판입니다.",
+      "fix": "SPF 메커니즘을 실제로 사용하는 특정 발신자로 좁히고, 넓은 블록을 개별 include:나 더 좁은 CIDR 범위로 교체하십시오."
+    },
+    "defensive-contradictory": {
+      "msg": "이 도메인은 메일을 받지 않는다고 선언(null MX)하면서도 SPF는 발신자를 허가합니다 — 모순된 설정입니다.",
+      "what": "null MX(<code>0 .</code>)는 그 도메인이 메일을 받지 않음을 선언하는 의도적인 강화 선택입니다. 같은 도메인에서 발신자를 허가하거나 <code>mx</code>를 참조하는 SPF 레코드를 게시하는 것은 의도가 아니라 혼란을 전하며, 대개 설정을 관리하는 사람이 없다는 뜻입니다.",
+      "fix": "그 도메인의 용도를 정하십시오. 아무것도 보내지 않는 파킹 도메인은 <code>v=spf1 -all</code>을 게시하고 관대한 메커니즘을 두지 말아야 하며, 실제로 보내는 도메인은 null MX를 두지 말아야 합니다.",
+      "fixCode": "; 보내지도 받지도 않는 파킹 도메인\n@            TXT    \"v=spf1 -all\"\n@            MX     0 ."
+    },
+    "reporting-blind": {
+      "msg": "보고가 전혀 설정되어 있지 않습니다 — DMARC rua도 TLS-RPT도 없어 — 인증과 전달 실패가 당신에게 보이지 않습니다.",
+      "what": "DMARC <code>rua=</code> 수신지가 없으면 누가 당신의 도메인을 사칭해 메일을 보내는지, 인증이 통과하는지 결코 알 수 없습니다. TLS-RPT가 없으면 TLS 전달 실패를 결코 볼 수 없습니다. 보고는 설정이 옳다고 가정하는 것이 아니라 옳음을 증명하는 방법입니다.",
+      "fix": "DMARC <code>rua=</code> 주소를 추가하고, 전송 정책을 운영한다면 TLS-RPT 레코드도 추가하여, 실패가 모니터링하는 메일박스에 도달하도록 하십시오.",
+      "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    }
+  },
+  "findings": {
+    "viewSeverity": "심각도별",
+    "viewRemediation": "수정 단계별",
+    "step": "{0}단계",
+    "evidence": "근거",
+    "showMore": "{0}개 더 보기",
+    "showLess": "간략히 보기",
+    "blocked": "{0} 대기 중",
+    "unblocks": "{0} 차단 해제",
+    "severity": {
+      "critical": "심각",
+      "high": "높음",
+      "medium": "중간",
+      "low": "낮음",
+      "info": "정보"
+    },
+    "confidence": {
+      "confirmed": "확인됨",
+      "probable": "추정",
+      "unverified": "미검증"
+    },
+    "category": {
+      "authentication": "인증",
+      "policy": "정책",
+      "reporting": "보고",
+      "transport": "전송",
+      "issuance": "발급",
+      "resilience": "복원력",
+      "hygiene": "위생"
+    },
+    "effort": {
+      "trivial": "간단",
+      "moderate": "보통",
+      "involved": "복잡"
+    },
+    "rationale": {
+      "foundation": "이것들을 먼저 수정하십시오 — 나머지 모두가 이것들에 의존합니다.",
+      "afterPrereq": "위의 전제 조건이 갖춰진 뒤에",
+      "cleanup": "의존성 없음 — 아무 때나 처리하십시오"
     }
   }
 }

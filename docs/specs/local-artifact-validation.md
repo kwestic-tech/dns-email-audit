@@ -5,7 +5,7 @@
 | Spec version | 0.2 (Draft, rebased after 0.6.0) |
 | Target release | 0.8.0 |
 | Status | Awaiting review |
-| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](findings-and-remediation.md) for the final `Finding` shape |
+| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](implemented/findings-and-remediation.md) for the final `Finding` shape |
 | Blocks | [report-comparison](report-comparison.md), which must decide whether user-supplied findings enter a DNS report |
 | Slug for open questions | `ART` |
 | Last updated | 2026-08-31 |

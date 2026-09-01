@@ -6,7 +6,7 @@
 | Target release | 0.6.0 |
 | Status | **Released as `v0.6.0` on 2026-08-30.** All six gates are met. Originally **Final.** Approved for implementation after three Codex review rounds. Amended to `1.1` during Phase 2 to correct one incomplete enumeration in §11, to `1.2` to correct an overstated evidence claim about how that enumeration is guarded, to `1.3` to add the last ambient primitive the conversion sweep found, and to `1.4` — during Task 2.7 — to state the oracle's provenance once the supported facade replaces the legacy engine global and reclassify the PSL fixture-identity fingerprint as binding-level, to `1.5` at the Gate 2 audit to correct two claims `1.4` overstated, and to `1.6` at Task 3.6 to replace §3's three-name exception-edge row with two separate inventories. See [Revision history](#revision-history). Linux dependency installation was verified on a native Linux runner at Gate 1. |
 | Depends on | [dnssec-evidence](dnssec-evidence.md), released as 0.5.0 and used as the behavioral baseline |
-| Blocks | [findings-and-remediation](../findings-and-remediation.md), [local-artifact-validation](../local-artifact-validation.md), [report-comparison](../report-comparison.md) — all three are scheduled after it |
+| Blocks | [findings-and-remediation](findings-and-remediation.md), [local-artifact-validation](../local-artifact-validation.md), [report-comparison](../report-comparison.md) — all three are scheduled after it |
 | Slug for open questions | `ARCH` |
 | Last updated | 2026-08-30 |
 | Evidence | [esbuild-legacy-bundle-spike-0.6.0](fixtures/esbuild-legacy-bundle-spike-0.6.0.md) — settles `OQ-ARCH-01`, confirms Phase 1 viability, and demonstrates the fixture-substitution hazard; [gate-0-evidence-0.6.0](fixtures/gate-0-evidence-0.6.0.md) — the Gate 0 conditions, met 2026-08-27; [gate-1-evidence-0.6.0](fixtures/gate-1-evidence-0.6.0.md) — the Gate 1 conditions, including native-Linux `npm ci` and `file://` in a real browser; [gate-2-evidence-0.6.0](fixtures/gate-2-evidence-0.6.0.md) — the Gate 2 conditions, met 2026-08-28, with both compatibility deltas performed and the oracle's two-execution rebuild; [gate-4-evidence-0.6.0](fixtures/gate-4-evidence-0.6.0.md) — every protocol in an owning directory, and the issue-token vocabulary diffed byte-identical against `v0.5.0`; [gate-5-evidence-0.6.0](fixtures/gate-5-evidence-0.6.0.md) — the four Gate 5 conditions, each with the command that produced it, including the runnable `v0.5.0` scoring comparison. Gate 3 has no evidence document; its conditions are carried by the contract suites it created. |
@@ -71,7 +71,7 @@ the shipped behavior is trivially auditable — and this spec must not spend it
 carelessly.
 
 The project is about to add three more releases of protocol surface
-([findings-and-remediation](../findings-and-remediation.md),
+([findings-and-remediation](findings-and-remediation.md),
 [local-artifact-validation](../local-artifact-validation.md),
 [report-comparison](../report-comparison.md)), each of which reads or extends the
 output shapes inside `js/dns.js`. The architectural boundaries are cheaper to

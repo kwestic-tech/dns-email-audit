@@ -48,6 +48,14 @@
       ]
     },
     {
+      "path": "tools/backtest.test.mjs",
+      "assertions": 2,
+      "areas": [
+        "the live backtest passes its counted fetch into the production engine",
+        "the 0.6.0 ambient-fetch regression is a proven negative case"
+      ]
+    },
+    {
       "path": "tools/interpolate.test.mjs",
       "assertions": 17,
       "areas": [
@@ -56,7 +64,7 @@
     },
     {
       "path": "tools/render.test.mjs",
-      "assertions": 329,
+      "assertions": 362,
       "areas": [
         "row rendering and the detail panels",
         "DNS-derived values reach text nodes or allowlisted attributes, never markup",
@@ -65,7 +73,7 @@
     },
     {
       "path": "tools/export.test.mjs",
-      "assertions": 199,
+      "assertions": 204,
       "areas": [
         "CSV column order, quoting and formula neutralization",
         "the exported HTML report's structure and its own security policy",
@@ -74,7 +82,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 89,
+      "assertions": 90,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -273,7 +281,7 @@
     },
     {
       "path": "src/core/transport/tlsa.test.js",
-      "assertions": 79,
+      "assertions": 82,
       "note": "Co-located per spec §9. Phase 4, Task 4.4. The only transport module that takes a resolver, and the only one whose contract needs the RAW response — driven here by a fake transport and the real requireUsable, optionalCheck and cleanAnswerData.",
       "areas": [
         "the seven-token error vocabulary, one record per token",
@@ -395,7 +403,7 @@
     },
     {
       "path": "src/core/spf/spf.test.js",
-      "assertions": 73,
+      "assertions": 81,
       "note": "Co-located per spec §9. Phase 4, Task 4.8 — the last protocol owner. Driven by a fake transport and the real requireUsable/cleanAnswerData.",
       "areas": [
         "permerror outranks the record's contents: two v=spf1 records fail all mail even where -all would have been ok",
@@ -459,6 +467,20 @@
         "suggestions as tips rather than findings",
         "a configured domain is not told to configure itself",
         "the input boundary — record contents are never parsed, while owner facts and evidence including record count are consumed"
+      ]
+    },
+    {
+      "path": "src/audit/findings.test.js",
+      "assertions": 133,
+      "areas": [
+        "the structured Finding shape and its five closed vocabularies (severity, confidence, category, effort, protocol)",
+        "the dependency graph is resolvable and acyclic, with the cycle detector proven able to fire",
+        "every finding resolves to a real issue.* or finding.* locale message and the view vocabulary exists",
+        "FINDING_META is complete against the 106-token audit.issue.key vocabulary",
+        "migrated findings mirror buildIssues 1:1 in order (enrich, not replace), and an unknown legacy key is skipped not thrown on",
+        "the spec behavioural fixtures, including authentication planned before enforcement",
+        "each cross-protocol rule proven NOT to fire against its negative case",
+        "the finding layer is locale-independent: imports only its audit sibling and sorts on tokens"
       ]
     },
     {
@@ -625,6 +647,17 @@
       ]
     },
     {
+      "path": "tests/build/release-compat.test.mjs",
+      "assertions": 7,
+      "areas": [
+        "the v0.5.0 and v0.7.0 baselines cover the same deterministic cases",
+        "the DNS trace remains byte-identical across the release",
+        "legacy result fields remain byte-identical after the two additive fields are removed",
+        "CSV changes only through three appended cells",
+        "negative controls prove each bounded-difference rule fails"
+      ]
+    },
+    {
       "path": "tests/build/equivalence.validate.mjs",
       "assertions": 77,
       "areas": [
@@ -643,10 +676,10 @@
   ],
   "notInNpmTest": [
     {
-      "command": "node tests/build/equivalence.mjs --subject-root=.",
-      "why": "The five-surface comparison against the committed baseline. 38 s for 30 cases, so it runs at every phase gate rather than inside npm test. Framework §3's 'move it to every commit' reading was based on an 8-case corpus and was revised when the corpus was completed.",
+      "command": "node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.7.0.json",
+      "why": "The five-surface comparison against the finished release baseline. Roughly 70 s for 32 cases, so it runs in CI rather than inside npm test; release-compat.test.mjs separately bounds the intentional delta from the reproducible historical v0.5.0 baseline.",
       "areas": [
-        "five-surface equivalence against v0.5.0: result, query trace, CSV, HTML report, DOM"
+        "exact five-surface equivalence against v0.7.0: result, query trace, CSV, HTML report, DOM"
       ]
     },
     {

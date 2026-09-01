@@ -494,8 +494,8 @@ eq('a domain the UI never rendered is caught',
   damaged(audits => { audits[0].domain = 'somewhere.else.test'; }).some(p => /domain sets differ/.test(p)), true);
 eq('a domain the result execution never audited is caught',
   damaged(audits => { audits.pop(); }).some(p => /domain sets differ/.test(p)), true);
-eq('an issue set of a different size is caught',
-  damaged(audits => { audits[0].result.issues = []; }).some(p => /issue count/.test(p)), true);
+eq('a finding set of a different size is caught',
+  damaged(audits => { audits[0].result.findings = []; }).some(p => /finding count/.test(p)), true);
 eq('and a suggestion set of a different size',
   damaged(audits => { audits[0].result.suggestions = [{ key: 'invented' }]; }).some(p => /suggestion count/.test(p)), true);
 // The UI side can be the wrong one too — the binding is symmetric about which

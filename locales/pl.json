@@ -341,7 +341,10 @@
       "Wydawcy CAA dla symboli wieloznacznych",
       "MX bez rozwiązania",
       "Liczba hostów MX",
-      "TLSA opublikowane"
+      "TLSA opublikowane",
+      "Identyfikatory ustaleń",
+      "Poziomy ważności ustaleń",
+      "Krok naprawczy 1"
     ],
     "yes": "Tak",
     "no": "Nie",
@@ -1184,6 +1187,103 @@
       "dsConfirms": "DS {0} pasuje do opublikowanego klucza według {1}",
       "dsVerdict": "DS {0} {1}",
       "lookupIncomplete": "zapytanie {0} nie zostało zakończone ({1})"
+    }
+  },
+  "finding": {
+    "dmarc-enforcement-without-auth": {
+      "msg": "DMARC jest w trybie egzekwowania, podczas gdy uwierzytelnianie SPF lub DKIM nie jest w pełni wdrożone — Twoja własna poczta może zostać odrzucona.",
+      "what": "DMARC działa tylko wtedy, gdy wiadomość nie przejdzie ZARÓWNO SPF, JAK I DKIM — wystarczy, że jedno z nich przejdzie ze zgodnością domen, aby wiadomość została przepuszczona. Gdy brakuje jednej z metod, druga sama dźwiga każdą wiadomość, więc każda prawidłowa poczta, której ta metoda nie obejmuje — przekazana dalej wiadomość, nowa usługa wysyłkowa, niepodpisana ścieżka — od razu nie przechodzi DMARC i zostaje odrzucona lub poddana kwarantannie przy <code>p=reject</code> lub <code>p=quarantine</code>. Egzekwowanie musi następować po uwierzytelnianiu, nigdy go nie wyprzedzać.",
+      "fix": "Potwierdź, że zarówno SPF, jak i DKIM przechodzą dla Twoich prawidłowych nadawców — publikując ten, którego jeszcze nie wdrożono — i obserwuj zbiorcze raporty DMARC, aż zaczną przechodzić, zanim zaczniesz polegać na egzekwowaniu.",
+      "fixCode": "; Krok 1 — uwierzytelnij (przykład dla Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Krok 2 — dopiero gdy raporty są czyste, egzekwuj\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
+    },
+    "mx-dangling-with-enforcement": {
+      "msg": "Host MX nie rozwiązuje się, podczas gdy DMARC egzekwuje: {0}.",
+      "what": "Serwer wymiany poczty, który nie zwraca żadnego adresu, nie przyjmuje żadnej poczty. W domenie egzekwującej DMARC nie ma pobłażliwego mechanizmu awaryjnego, który mógłby zniwelować tę lukę, więc dostarczanie do dotkniętego hosta po prostu zawodzi. To awaria, a nie uwaga dotycząca higieny.",
+      "fix": "Popraw lub usuń rekordy MX wskazujące na host bez rekordu A/AAAA i potwierdź, że każdy pozostały host MX rozwiązuje się."
+    },
+    "dkim-weak-with-enforcement": {
+      "msg": "DKIM podpisuje kluczem RSA o długości 1024 bitów lub mniejszej, podczas gdy DMARC egzekwuje: {0}.",
+      "what": "Klucz RSA o długości 1024 bitów jest poniżej minimum określonego w RFC 8301 i może zostać rozłożony na czynniki przez dysponującego dużymi zasobami atakującego, który mógłby następnie sfałszować podpisy przechodzące Twoją egzekwowaną politykę DMARC — dokładnie ten skutek, któremu egzekwowanie ma zapobiegać.",
+      "fix": "Zmień dotknięte selektory na klucz RSA o długości 2048 bitów (lub Ed25519), opublikuj nowy klucz publiczny i wycofaj słaby selektor, gdy poczta zostanie na niego przeniesiona."
+    },
+    "bimi-without-enforcement": {
+      "msg": "BIMI jest opublikowane, ale DMARC nie jest egzekwowane, więc żaden dostawca skrzynek pocztowych nie wyświetli Twojego logo.",
+      "what": "BIMI wymaga egzekwowanej polityki DMARC (<code>p=quarantine</code> lub <code>p=reject</code>). Przy ustawionym <code>p=none</code> lub trybie testowym dostawcy skrzynek pocztowych całkowicie ignorują rekord BIMI, więc wysiłek włożony w opublikowanie logo nie przynosi nic.",
+      "fix": "Najpierw przełącz DMARC na egzekwowanie; rekord BIMI stanie się wtedy kwalifikowalny do wyświetlania."
+    },
+    "bimi-without-authority": {
+      "msg": "BIMI nie ma autorytetu VMC (<code>a=</code>), więc główni dostawcy skrzynek pocztowych nie wyświetlą logo.",
+      "what": "Gmail i inni więksi dostawcy wymagają certyfikatu Verified Mark Certificate, wskazywanego przez tag <code>a=</code> rekordu BIMI, zanim wyrenderują logo. Rekord BIMI zawierający jedynie <code>l=</code> jest prawidłowy, ale nie zostanie wyświetlony tam, gdzie VMC jest obowiązkowy.",
+      "fix": "Uzyskaj VMC dla swojego zarejestrowanego znaku towarowego i dodaj jego adres URL HTTPS jako tag <code>a=</code> obok istniejącego <code>l=</code>."
+    },
+    "mta-sts-without-tls-rpt": {
+      "msg": "MTA-STS jest opublikowane bez TLS-RPT, więc niepowodzenia egzekwowania TLS pozostają niezgłoszone.",
+      "what": "MTA-STS nakazuje serwerom wysyłającym wymagać TLS, ale bez TLS-RPT nie mają one kanału, którym mogłyby zgłosić, że połączenia nie udało się zabezpieczyć. Masz politykę bez wglądu w to, czy działa.",
+      "fix": "Opublikuj rekord TLS-RPT, aby nadawcy przesyłali Ci codzienny raport o wszelkich niepowodzeniach negocjacji TLS.",
+      "fixCode": "; Zgłaszaj niepowodzenia TLS do monitorowanej skrzynki\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "tls-rpt-without-transport-policy": {
+      "msg": "TLS-RPT jest opublikowane, ale nie ma polityki transportu (brak MTA-STS, brak uwierzytelnionego DANE), o której mogłoby raportować.",
+      "what": "TLS-RPT raportuje, jak dobrze przestrzegana jest polityka bezpieczeństwa transportu. Bez wdrożonego MTA-STS ani rekordu TLSA uwierzytelnionego przez DNSSEC nie ma polityki do egzekwowania, więc raporty opisują TLS w trybie best-effort, a nie zobowiązanie.",
+      "fix": "Opublikuj MTA-STS (lub DANE, jeśli Twoja strefa MX jest podpisana DNSSEC), aby raportowanie miało politykę do mierzenia."
+    },
+    "spf-redundant-with-enforcement": {
+      "msg": "SPF autoryzuje duży blok adresów, podczas gdy DMARC egzekwuje: {0}.",
+      "what": "Autoryzowanie szerokiego zakresu adresów w SPF oznacza, że dowolny host z tego zakresu może wysyłać pocztę przechodzącą SPF i Twoją egzekwowaną politykę DMARC. W domenie egzekwującej zasięg rażenia współdzielonego lub przejętego hosta w tym bloku to reputacja Twojej własnej domeny.",
+      "fix": "Zawęź mechanizm SPF do konkretnych nadawców, z których korzystasz, zastępując szeroki blok pojedynczymi include lub węższymi zakresami CIDR."
+    },
+    "defensive-contradictory": {
+      "msg": "Ta domena deklaruje, że nie przyjmuje żadnej poczty (null MX), a mimo to jej SPF autoryzuje nadawców — sprzeczna konfiguracja.",
+      "what": "Null MX (<code>0 .</code>) oznacza, że domena nie odbiera żadnej poczty, co jest celowym wyborem wzmacniającym bezpieczeństwo. Opublikowanie w tej samej domenie rekordu SPF autoryzującego nadawców — lub odwołującego się do <code>mx</code> — komunikuje zamęt, a nie intencję, i zwykle oznacza, że nikt nie zarządza tą konfiguracją.",
+      "fix": "Zdecyduj, do czego służy domena. Zaparkowana domena, która niczego nie wysyła, powinna publikować <code>v=spf1 -all</code> i żadnego pobłażliwego mechanizmu; domena, która wysyła, nie powinna mieć null MX.",
+      "fixCode": "; Zaparkowana domena, która nic nie wysyła ani nie odbiera\n@            TXT    \"v=spf1 -all\"\n@            MX     0 ."
+    },
+    "reporting-blind": {
+      "msg": "Nie skonfigurowano żadnego raportowania — ani DMARC rua, ani TLS-RPT — więc niepowodzenia uwierzytelniania i dostarczania są dla Ciebie niewidoczne.",
+      "what": "Bez adresu docelowego DMARC <code>rua=</code> nigdy nie zobaczysz, kto wysyła pocztę jako Twoja domena ani czy uwierzytelnianie przechodzi; bez TLS-RPT nigdy nie zobaczysz niepowodzeń dostarczania TLS. Raportowanie to sposób, w jaki konfigurację potwierdza się jako poprawną, zamiast ją zakładać.",
+      "fix": "Dodaj adres DMARC <code>rua=</code> oraz rekord TLS-RPT, jeśli prowadzisz politykę transportu, aby niepowodzenia trafiały do monitorowanej skrzynki.",
+      "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    }
+  },
+  "findings": {
+    "viewSeverity": "Według ważności",
+    "viewRemediation": "Według kroku naprawczego",
+    "step": "Krok {0}",
+    "evidence": "Dowody",
+    "showMore": "Pokaż {0} więcej",
+    "showLess": "Pokaż mniej",
+    "blocked": "Oczekiwanie na {0}",
+    "unblocks": "Odblokowuje {0}",
+    "severity": {
+      "critical": "Krytyczny",
+      "high": "Wysoki",
+      "medium": "Średni",
+      "low": "Niski",
+      "info": "Informacja"
+    },
+    "confidence": {
+      "confirmed": "Potwierdzone",
+      "probable": "Prawdopodobne",
+      "unverified": "Niezweryfikowane"
+    },
+    "category": {
+      "authentication": "Uwierzytelnianie",
+      "policy": "Polityka",
+      "reporting": "Raportowanie",
+      "transport": "Transport",
+      "issuance": "Wydawanie",
+      "resilience": "Odporność",
+      "hygiene": "Higiena"
+    },
+    "effort": {
+      "trivial": "Trywialny",
+      "moderate": "Umiarkowany",
+      "involved": "Złożony"
+    },
+    "rationale": {
+      "foundation": "Napraw je najpierw — wszystko inne od nich zależy",
+      "afterPrereq": "Gdy powyższe wymagania wstępne zostaną spełnione",
+      "cleanup": "Bez zależności — wykonaj je w dowolnej chwili"
     }
   }
 }

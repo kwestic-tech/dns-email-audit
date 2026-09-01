@@ -331,7 +331,10 @@
       "ワイルドカードの CAA 発行者",
       "解決しない MX",
       "MX ホスト数",
-      "TLSA の公開"
+      "TLSA の公開",
+      "検出項目ID",
+      "検出項目の深刻度",
+      "修正ステップ 1"
     ],
     "yes": "はい",
     "no": "いいえ",
@@ -1174,6 +1177,103 @@
       "dsConfirms": "DS {0} は {1} により公開されている鍵と一致します",
       "dsVerdict": "DS {0} {1}",
       "lookupIncomplete": "{0} の問い合わせが完了しませんでした ({1})"
+    }
+  },
+  "finding": {
+    "dmarc-enforcement-without-auth": {
+      "msg": "SPF または DKIM の認証が完全には整っていない状態で DMARC が強制適用されているため、自分のメールが拒否される可能性があります。",
+      "what": "DMARC が作用するのは、メッセージが SPF と DKIM の両方に失敗したときだけです。どちらか一方がアライメントを満たして合格すれば、そのメッセージは合格します。一方の方式が欠けていると、もう一方がすべてのメッセージを単独で支えることになるため、その方式がカバーしない正当なメール（転送されたメッセージ、新しい送信サービス、署名されていない経路など）は DMARC に完全に失敗し、<code>p=reject</code> または <code>p=quarantine</code> の下で拒否または隔離されます。強制適用は認証に続くべきものであり、決して先行させてはなりません。",
+      "fix": "SPF と DKIM の両方が正当な送信元で合格することを確認し、まだ整っていない方を公開したうえで、合格するまで DMARC 集約レポートを監視してから、強制適用に頼ってください。",
+      "fixCode": "; ステップ 1 — 認証する（Google Workspace の例）\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; ステップ 2 — レポートがクリーンになってからはじめて強制適用する\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
+    },
+    "mx-dangling-with-enforcement": {
+      "msg": "DMARC が強制適用されている状態で、MX ホストが解決できません: {0}。",
+      "what": "アドレスを返さないメールエクスチェンジャーはメールを受け付けません。DMARC を強制適用しているドメインには、その隙間を吸収する寛容なフォールバックが存在しないため、該当ホストへの配信は単純に失敗します。これは衛生上の注意ではなく、障害です。",
+      "fix": "A/AAAA レコードを持たないホストを指している MX レコードを修正または削除し、残りのすべての MX ホストが解決することを確認してください。"
+    },
+    "dkim-weak-with-enforcement": {
+      "msg": "DMARC が強制適用されている状態で、DKIM が 1024 ビット以下の RSA 鍵で署名しています: {0}。",
+      "what": "1024 ビットの RSA 鍵は RFC 8301 の最小値を下回っており、潤沢なリソースを持つ攻撃者によって素因数分解される可能性があります。その攻撃者は、強制適用された DMARC ポリシーを通過する署名を偽造できてしまい、これはまさに強制適用が防ごうとしている結果です。",
+      "fix": "該当するセレクタを 2048 ビットの RSA 鍵（または Ed25519）へローテーションし、新しい公開鍵を公開して、メールが移行したら脆弱なセレクタを廃止してください。"
+    },
+    "bimi-without-enforcement": {
+      "msg": "BIMI は公開されていますが DMARC が強制適用されていないため、どのメールボックスプロバイダもロゴを表示しません。",
+      "what": "BIMI には強制適用された DMARC ポリシー（<code>p=quarantine</code> または <code>p=reject</code>）が必要です。<code>p=none</code> やテストモードが設定されていると、メールボックスプロバイダは BIMI レコードを完全に無視するため、ロゴを公開する労力は何も生みません。",
+      "fix": "まず DMARC を強制適用へ移行してください。そうすれば BIMI レコードが表示の対象になります。"
+    },
+    "bimi-without-authority": {
+      "msg": "BIMI に VMC の権威（<code>a=</code>）がないため、主要なメールボックスプロバイダはロゴを表示しません。",
+      "what": "Gmail をはじめとする大手プロバイダは、ロゴを表示する前に、BIMI レコードの <code>a=</code> タグから参照される Verified Mark Certificate を要求します。<code>l=</code> のみの BIMI レコードは有効ですが、VMC が必須の環境では表示されません。",
+      "fix": "登録商標に対する VMC を取得し、その HTTPS URL を既存の <code>l=</code> と並べて <code>a=</code> タグとして追加してください。"
+    },
+    "mta-sts-without-tls-rpt": {
+      "msg": "MTA-STS が TLS-RPT なしで公開されているため、TLS 強制の失敗が報告されません。",
+      "what": "MTA-STS は送信サーバーに TLS を要求するよう指示しますが、TLS-RPT がなければ、接続を保護できなかったときにそれを報告する経路がありません。ポリシーは得られても、それが機能しているかどうかの可視性は得られません。",
+      "fix": "TLS-RPT レコードを公開して、送信側が TLS ネゴシエーションの失敗を毎日レポートとして送ってくれるようにしてください。",
+      "fixCode": "; TLS の失敗を、監視しているメールボックスに報告する\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "tls-rpt-without-transport-policy": {
+      "msg": "TLS-RPT は公開されていますが、報告対象となるトランスポートポリシー（MTA-STS も認証済み DANE もなし）がありません。",
+      "what": "TLS-RPT は、トランスポートセキュリティポリシーがどの程度守られているかを報告します。MTA-STS も DNSSEC で認証された TLSA レコードもない状態では、強制すべきポリシーが存在しないため、レポートはコミットメントではなくベストエフォートの TLS を表すことになります。",
+      "fix": "MTA-STS（または、MX ゾーンが DNSSEC 署名されている場合は DANE）を公開して、レポートが測定するポリシーを持てるようにしてください。"
+    },
+    "spf-redundant-with-enforcement": {
+      "msg": "DMARC が強制適用されている状態で、SPF が大きなアドレスブロックを許可しています: {0}。",
+      "what": "SPF で広い範囲のアドレスを許可するということは、その範囲内のどのホストも、SPF と強制適用された DMARC ポリシーを通過するメールを送信できるということです。強制適用しているドメインでは、そのブロック内の共有ホストや侵害されたホストの影響範囲は、自ドメイン自身の評価に及びます。",
+      "fix": "SPF のメカニズムを実際に使用している特定の送信元に絞り込み、広いブロックを個別の include: やより狭い CIDR 範囲に置き換えてください。"
+    },
+    "defensive-contradictory": {
+      "msg": "このドメインはメールを受け付けないと宣言しています（null MX）が、その SPF は送信元を許可しています。矛盾した設定です。",
+      "what": "null MX（<code>0 .</code>）は、そのドメインがメールを受信しないことを表明する、意図的なハードニングの選択です。同じドメインで送信元を許可する、あるいは <code>mx</code> を参照する SPF レコードを公開することは、意図ではなく混乱を伝え、たいていは設定を管理している人がいないことを意味します。",
+      "fix": "そのドメインの用途を決めてください。何も送信しないパークドメインは <code>v=spf1 -all</code> を公開し、寛容なメカニズムを一切持つべきではありません。実際に送信するドメインは null MX を持つべきではありません。",
+      "fixCode": "; 送信も受信もしないパークドメイン\n@            TXT    \"v=spf1 -all\"\n@            MX     0 ."
+    },
+    "reporting-blind": {
+      "msg": "レポートが一切設定されていません。DMARC rua も TLS-RPT もないため、認証と配信の失敗があなたには見えません。",
+      "what": "DMARC の <code>rua=</code> 宛先がなければ、誰があなたのドメインを名乗ってメールを送っているのか、認証が通っているのかを決して知ることができません。TLS-RPT がなければ、TLS の配信失敗を決して見ることができません。レポートは、設定が正しいと想定するのではなく、正しいと証明するための手段です。",
+      "fix": "DMARC の <code>rua=</code> アドレスを追加し、トランスポートポリシーを運用している場合は TLS-RPT レコードも追加して、失敗が監視しているメールボックスに届くようにしてください。",
+      "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    }
+  },
+  "findings": {
+    "viewSeverity": "深刻度別",
+    "viewRemediation": "修正ステップ別",
+    "step": "ステップ {0}",
+    "evidence": "証拠",
+    "showMore": "さらに {0} 件表示",
+    "showLess": "表示を減らす",
+    "blocked": "{0} を待機中",
+    "unblocks": "{0} のブロックを解除",
+    "severity": {
+      "critical": "重大",
+      "high": "高",
+      "medium": "中",
+      "low": "低",
+      "info": "情報"
+    },
+    "confidence": {
+      "confirmed": "確定",
+      "probable": "推定",
+      "unverified": "未検証"
+    },
+    "category": {
+      "authentication": "認証",
+      "policy": "ポリシー",
+      "reporting": "レポート",
+      "transport": "トランスポート",
+      "issuance": "発行",
+      "resilience": "耐障害性",
+      "hygiene": "衛生"
+    },
+    "effort": {
+      "trivial": "簡単",
+      "moderate": "普通",
+      "involved": "複雑"
+    },
+    "rationale": {
+      "foundation": "まずこれらを修正してください。他のすべてがこれらに依存しています。",
+      "afterPrereq": "上記の前提条件が整ったら",
+      "cleanup": "依存関係はありません。いつでも対応できます。"
     }
   }
 }

@@ -497,7 +497,7 @@ async function runResultExecution(root, testCase, entry, replay) {
  * | domain set | `result.domain` | `tr[data-domain]` |
  * | grade | `result.score.grade` | `tr[data-grade]` |
  * | score | `result.score.pts` | `span.score-total`'s text in the detail panel |
- * | issue count | `result.issues.length` | `div.issue` |
+ * | finding count | `result.findings.length` | `div.finding` |
  * | suggestion count | `result.suggestions.length` | `div.issue.tip` |
  *
  * A grading change moves both sides together and cannot trip this; two
@@ -561,10 +561,20 @@ export function bindExecutions(testCase, audits, ui) {
     if (score.pts !== row.score) problems.push(`${audit.domain}: score ${score.pts} vs UI ${row.score}`);
   }
 
-  const counted = className => ui.dom.filter(line => line.trim() === `<div class="${className}">`).length;
+  // Match the opening div by class, tolerating a following attribute — finding
+  // cards carry `data-finding-id` for the locale-stability render test, so the
+  // exact `<div class="finding">` form no longer covers every one. The trailing
+  // quote after the class name keeps `finding` from matching `finding-group`.
+  const counted = className => ui.dom.filter(line => {
+    const trimmed = line.trim();
+    return trimmed === `<div class="${className}">` || trimmed.startsWith(`<div class="${className}" `);
+  }).length;
   const total = key => audits.reduce((n, a) => n + ((a.result && a.result[key]) || []).length, 0);
-  if (total('issues') !== counted('issue')) {
-    problems.push(`issue count ${total('issues')} vs UI ${counted('issue')}`);
+  // The detail panel renders `result.findings` as `div.finding` (findings spec
+  // §5), not the legacy `result.issues`; the severity view carries every
+  // finding as a card — low/info hidden, not withheld — so the count is exact.
+  if (total('findings') !== counted('finding')) {
+    problems.push(`finding count ${total('findings')} vs UI ${counted('finding')}`);
   }
   if (total('suggestions') !== counted('issue tip')) {
     problems.push(`suggestion count ${total('suggestions')} vs UI ${counted('issue tip')}`);

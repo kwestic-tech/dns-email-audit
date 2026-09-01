@@ -65,13 +65,14 @@ import { summarizeBimi } from '../core/bimi/bimi.js';
 import { summarizeMtaSts } from '../core/transport/mta-sts.js';
 import { summarizeTlsRpt } from '../core/transport/tls-rpt.js';
 import {
-  analyzeSpf, classifySpfSubnets, selectSpfRecords, spfReferencedCatalogKeys,
+  analyzeSpf, classifySpfSubnets, selectSpfRecords, spfReferencedCatalogKeys, spfUsesMechanism,
 } from '../core/spf/spf.js';
 import { analyzeDmarc, emptyDmarcStatus } from '../core/dmarc/record.js';
 import { applyInheritance } from '../core/dmarc/tree-walk.js';
 import { planReportDestinations } from '../core/dmarc/report-auth.js';
 import { calcScore, calcAdvScore } from './scoring.js';
 import { buildIssues, buildSuggestions } from './issues.js';
+import { buildFindings, buildRemediationPlan } from './findings.js';
 import {
   detectDNSProvider, detectEmailProvider, detectHosting, selectVerifications,
 } from '../providers/detectors.js';
@@ -236,6 +237,11 @@ export function createAuditDomain(capabilities) {
     let wildcardApex = false;
     let wildcardDkim = false;
     let wildcardDkimRecords = [];
+    // The synthesized records themselves, not just the boolean. A wildcard
+    // finding's evidence is the record the probe got back; without keeping it the
+    // finding layer could only describe the probe in prose, which the findings
+    // spec §1 forbids as evidence.
+    let wildcardApexRecords = [];
     if (ctx.options.wildcard) {
       const [apexProbe, dkimProbe] = await Promise.all([
         optionalCheck(() => dohQuery(`_wildcardtest99xyz.${d}`, 'TXT', queryOpts), null),
@@ -244,6 +250,7 @@ export function createAuditDomain(capabilities) {
       wildcardApex = apexProbe !== null && apexProbe.length > 0;
       wildcardDkim = dkimProbe !== null && dkimProbe.length > 0;
       wildcardDkimRecords = wildcardDkim ? dkimProbe : [];
+      wildcardApexRecords = wildcardApex ? apexProbe : [];
     }
 
     let dkimStatus = { found: false, selectors: [], testedSelectors: [], confidence: 'not-checked', note: '' };
@@ -260,11 +267,16 @@ export function createAuditDomain(capabilities) {
     }
 
     let hosting = '@dash';
+    // The CNAME chain the walk followed. `dns.hosting-loop`'s evidence is the
+    // chain itself — the hostnames that close the loop — rather than a sentence
+    // saying a loop exists.
+    let websiteChain = [];
     if (ctx.options.www) {
       const website = await optionalCheck(
         () => resolveWebsite(d, queryOpts),
         error => ({ loop: false, chain: [], addresses: [], error: (error && error.kind) || 'dns-error' })
       );
+      websiteChain = website.chain || [];
       hosting = website.error ? '@dns-error'
         : website.loop ? '@cname-loop'
           : detectHosting(website.addresses, website.chain, d);
@@ -344,6 +356,25 @@ export function createAuditDomain(capabilities) {
     const score = calcScore({ emailProvider, spfStatus, dkimStatus, dmarcStatus, advanced });
     const advScore = ctx.options.advanced ? calcAdvScore(advanced) : null;
 
+    // Structured findings and the remediation plan (findings spec §1–§4). Pure
+    // over the completed context — no new query — so the published DNS fan-out
+    // does not move. `spfUsesMx` is the one fact the finding layer cannot parse
+    // for itself (RQ-FIND-09); it is derived here by SPF's owner and passed in.
+    const spfUsesMx = spfUsesMechanism(spfRecord, 'mx');
+    const findings = buildFindings({
+      emailProvider, spfStatus, spfRecords, spfRecord, dkimStatus, dmarcStatus,
+      dmarcDiscovery, dmarcExistence, externalReportDestinations, reportPlan,
+      wildcardApex, wildcardDkim, hosting, advanced, domain: d,
+      // Facts the coordinator already holds, passed so findings can name the
+      // real DNS material as evidence rather than describing it (spec §1, 1.2).
+      // None of these is a new query: `mx`, the address records that activate
+      // implicit MX delivery, the wildcard probes' synthesized records, and the
+      // website CNAME chain.
+      mx, aRec, aaaaRec, wildcardApexRecords, wildcardDkimRecords, websiteChain,
+      dmarcRecord, dmarcAtDomain, spfUsesMx,
+    });
+    const remediationPlan = buildRemediationPlan(findings);
+
     ctx.record({
       ns, mx, txt, aRec, aaaaRec, dnsProvider, emailProvider,
       spfRecord, spfRecords, spfStatus, dmarcRecord, dmarcStatus, dmarcDiscovery, dmarcExistence,
@@ -351,7 +382,7 @@ export function createAuditDomain(capabilities) {
       // so the CSV export and the saved report keep working, then removed.
       dmarcAtDomain, organizationalDomain, dkimStatus,
       wildcardApex, wildcardDkim, hosting, verifications, advanced, advScore,
-      issues, suggestions, score,
+      issues, suggestions, score, findings, remediationPlan,
     });
     return ctx.result();
   }

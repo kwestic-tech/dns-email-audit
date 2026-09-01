@@ -98,6 +98,27 @@ export function parseSpfTerms(spf) {
   });
 }
 
+/**
+ * Whether the record uses a given mechanism by name, e.g. `mx` or `a`.
+ *
+ * A FACT the audit layer composes with a null MX to raise
+ * `defensive.contradictory` (findings spec RQ-FIND-09): a domain that accepts
+ * no mail yet authorizes senders through `mx` is a configuration nobody owns.
+ * Parsing the record is `core/spf`'s to do — the finding layer consumes the
+ * boolean, never the record — which is why this lives here rather than there,
+ * the same reasoning that put `spfReferencedCatalogKeys` here.
+ *
+ * Only mechanisms count, never modifiers: `redirect=` names a domain, not a
+ * mechanism, so `redirect=mx.example.com` is not a use of the `mx` mechanism.
+ */
+export function spfUsesMechanism(spf, name) {
+  if (!spf) return false;
+  var target = String(name || '').toLowerCase();
+  return parseSpfTerms(spf).some(function (term) {
+    return !term.modifier && term.name === target;
+  });
+}
+
 
 /* ── SPF subnet size & redundancy ───────────────────────────────────────
    Two advisory checks over the ip4:/ip6:/a/mx mechanisms written directly

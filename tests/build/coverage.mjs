@@ -64,6 +64,23 @@ const REVIEWED_SUITES = {
     // locales/en.json, which is a stronger statement than any per-token check.
     'audit.issue.key': '*',
   },
+  // The finding vocabularies. The cross-protocol finding ids and the widened
+  // severities (high/low) fire only on synthetic contexts the DoH corpus does
+  // not reach, so corpus coverage is partial; the co-located findings.test.js
+  // asserts every member as a closure — the same review basis audit.issue.key
+  // rests on — so it provides coverage for the whole of each.
+  'src/audit/findings.test.js': {
+    'audit.finding.id': '*',
+    'audit.finding.severity': '*',
+    'audit.finding.confidence': '*',
+    'audit.finding.category': '*',
+    'audit.finding.effort': '*',
+    'audit.finding.protocol': '*',
+    'audit.finding.keyspace': '*',
+    'audit.remediation.rationale': '*',
+    'audit.finding.key': '*',
+    'audit.finding.evidence.kind': '*',
+  },
 };
 
 const registry = JSON.parse(readFileSync(join(REPO, 'tests/state-algebras.json'), 'utf8'));

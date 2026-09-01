@@ -331,7 +331,10 @@
       "CAA-uitgevers voor jokers",
       "MX zonder adres",
       "Aantal MX-hosts",
-      "TLSA gepubliceerd"
+      "TLSA gepubliceerd",
+      "Bevindings-ID's",
+      "Ernst van bevindingen",
+      "Herstelstap 1"
     ],
     "yes": "Ja",
     "no": "Nee",
@@ -1174,6 +1177,103 @@
       "dsConfirms": "DS {0} komt via {1} overeen met een gepubliceerde sleutel",
       "dsVerdict": "DS {0} {1}",
       "lookupIncomplete": "de {0}-opvraging is niet voltooid ({1})"
+    }
+  },
+  "finding": {
+    "dmarc-enforcement-without-auth": {
+      "msg": "DMARC handhaaft een beleid terwijl de SPF- of DKIM-authenticatie niet volledig aanwezig is — uw eigen e-mail kan worden geweigerd.",
+      "what": "DMARC grijpt alleen in wanneer een bericht faalt op ZOWEL SPF ALS DKIM — als één van beide slaagt en uitgelijnd is, is dat genoeg om het bericht te laten slagen. Als één methode ontbreekt, draagt de andere elk bericht alleen, dus elke legitieme mail die zij niet dekt — een doorgestuurd bericht, een nieuwe verzenddienst, een niet-ondertekend pad — faalt regelrecht op DMARC en wordt geweigerd of in quarantaine geplaatst onder <code>p=reject</code> of <code>p=quarantine</code>. Handhaving moet volgen op authenticatie, er nooit aan voorafgaan.",
+      "fix": "Controleer of zowel SPF als DKIM slagen voor uw legitieme afzenders — publiceer wat nog niet aanwezig is — en houd de DMARC-aggregatierapporten in de gaten tot dat zo is, voordat u op handhaving vertrouwt.",
+      "fixCode": "; Stap 1 — authenticeren (voorbeeld voor Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Stap 2 — pas handhaven wanneer de rapporten schoon zijn\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
+    },
+    "mx-dangling-with-enforcement": {
+      "msg": "Een MX-host wordt niet omgezet terwijl DMARC handhaaft: {0}.",
+      "what": "Een mail-exchanger die geen adres teruggeeft, accepteert geen e-mail. Op een domein dat DMARC handhaaft is er geen tolerante terugval die het gat opvangt, dus de bezorging aan de betrokken host mislukt simpelweg. Dit is een storing, geen hygiënekwestie.",
+      "fix": "Corrigeer of verwijder de MX-records die naar een host zonder A/AAAA-record wijzen, en controleer of elke resterende MX-host wordt omgezet."
+    },
+    "dkim-weak-with-enforcement": {
+      "msg": "DKIM ondertekent met een RSA-sleutel van maximaal 1024 bit terwijl DMARC handhaaft: {0}.",
+      "what": "Een RSA-sleutel van 1024 bit ligt onder het minimum van RFC 8301 en kan worden ontbonden door een goed uitgeruste aanvaller, die vervolgens handtekeningen kan vervalsen die door uw gehandhaafde DMARC-beleid komen — precies de uitkomst die handhaving zou moeten voorkomen.",
+      "fix": "Roteer de betrokken selectors naar een RSA-sleutel van 2048 bit (of Ed25519), publiceer de nieuwe openbare sleutel en stel de zwakke selector buiten gebruik zodra de mail ernaartoe is verplaatst."
+    },
+    "bimi-without-enforcement": {
+      "msg": "BIMI is gepubliceerd maar DMARC wordt niet gehandhaafd, dus geen enkele mailboxprovider toont uw logo.",
+      "what": "BIMI vereist een gehandhaafd DMARC-beleid (<code>p=quarantine</code> of <code>p=reject</code>). Bij <code>p=none</code> of ingeschakelde testmodus negeren mailboxproviders het BIMI-record volledig, dus de moeite van het publiceren van een logo levert niets op.",
+      "fix": "Zet DMARC eerst op handhaving; het BIMI-record komt dan in aanmerking voor weergave."
+    },
+    "bimi-without-authority": {
+      "msg": "BIMI heeft geen VMC-autoriteit (<code>a=</code>), dus grote mailboxproviders tonen het logo niet.",
+      "what": "Gmail en andere grote providers vereisen een Verified Mark Certificate, waarnaar de <code>a=</code>-tag van het BIMI-record verwijst, voordat ze een logo weergeven. Een BIMI-record met alleen <code>l=</code> is geldig maar wordt niet weergegeven waar een VMC verplicht is.",
+      "fix": "Verkrijg een VMC voor uw geregistreerde handelsmerk en voeg de HTTPS-URL ervan toe als de <code>a=</code>-tag naast de bestaande <code>l=</code>."
+    },
+    "mta-sts-without-tls-rpt": {
+      "msg": "MTA-STS is gepubliceerd zonder TLS-RPT, dus fouten bij TLS-handhaving blijven ongerapporteerd.",
+      "what": "MTA-STS zegt verzendende servers dat ze TLS moeten vereisen, maar zonder TLS-RPT is er geen kanaal waarmee ze kunnen melden wanneer een verbinding niet kon worden beveiligd. U krijgt het beleid zonder het inzicht of het werkt.",
+      "fix": "Publiceer een TLS-RPT-record zodat afzenders u een dagelijks rapport sturen van eventuele fouten bij de TLS-onderhandeling.",
+      "fixCode": "; Rapporteer TLS-fouten naar een mailbox die u bewaakt\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "tls-rpt-without-transport-policy": {
+      "msg": "TLS-RPT is gepubliceerd, maar er is geen transportbeleid (geen MTA-STS, geen geauthenticeerd DANE) om over te rapporteren.",
+      "what": "TLS-RPT rapporteert hoe goed een transportbeveiligingsbeleid wordt nageleefd. Zonder MTA-STS en zonder een DNSSEC-geauthenticeerd TLSA-record is er geen beleid om te handhaven, dus de rapporten beschrijven best-effort-TLS in plaats van een toezegging.",
+      "fix": "Publiceer MTA-STS (of DANE, als uw MX-zone DNSSEC-ondertekend is) zodat de rapportage een beleid heeft om te meten."
+    },
+    "spf-redundant-with-enforcement": {
+      "msg": "SPF autoriseert een groot adresblok terwijl DMARC handhaaft: {0}.",
+      "what": "Het autoriseren van een breed adresbereik in SPF betekent dat elke host in dat bereik mail kan verzenden die door SPF en uw gehandhaafde DMARC-beleid komt. Op een handhavend domein is de impactstraal van een gedeelde of gecompromitteerde host in dat blok de reputatie van uw eigen domein.",
+      "fix": "Beperk het SPF-mechanisme tot de specifieke afzenders die u gebruikt en vervang een breed blok door afzonderlijke includes of nauwere CIDR-bereiken."
+    },
+    "defensive-contradictory": {
+      "msg": "Dit domein verklaart dat het geen mail accepteert (null MX), maar de SPF ervan autoriseert afzenders — een tegenstrijdige configuratie.",
+      "what": "Een null MX (<code>0 .</code>) geeft aan dat het domein geen mail ontvangt, wat een bewuste hardeningkeuze is. Het publiceren van een SPF-record dat afzenders autoriseert — of naar <code>mx</code> verwijst — op hetzelfde domein communiceert verwarring in plaats van bedoeling, en betekent meestal dat niemand de configuratie beheert.",
+      "fix": "Bepaal waar het domein voor is. Een geparkeerd domein dat niets verzendt, hoort <code>v=spf1 -all</code> te publiceren en geen tolerant mechanisme; een domein dat wél verzendt, hoort geen null MX te hebben.",
+      "fixCode": "; Een geparkeerd domein dat niet verzendt en niet ontvangt\n@            TXT    \"v=spf1 -all\"\n@            MX     0 ."
+    },
+    "reporting-blind": {
+      "msg": "Er is geen rapportage geconfigureerd — noch DMARC rua noch TLS-RPT — dus authenticatie- en bezorgfouten zijn voor u onzichtbaar.",
+      "what": "Zonder een DMARC-<code>rua=</code>-bestemming ziet u nooit wie er mail verzendt namens uw domein of dat de authenticatie slaagt; zonder TLS-RPT ziet u nooit TLS-bezorgfouten. Rapportage is de manier waarop een configuratie correct wordt aangetoond in plaats van aangenomen.",
+      "fix": "Voeg een DMARC-<code>rua=</code>-adres toe, en een TLS-RPT-record als u een transportbeleid voert, zodat fouten een mailbox bereiken die u bewaakt.",
+      "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    }
+  },
+  "findings": {
+    "viewSeverity": "Op ernst",
+    "viewRemediation": "Op herstelstap",
+    "step": "Stap {0}",
+    "evidence": "Bewijs",
+    "showMore": "Toon {0} meer",
+    "showLess": "Toon minder",
+    "blocked": "Wacht op {0}",
+    "unblocks": "Deblokkeert {0}",
+    "severity": {
+      "critical": "Kritiek",
+      "high": "Hoog",
+      "medium": "Middel",
+      "low": "Laag",
+      "info": "Info"
+    },
+    "confidence": {
+      "confirmed": "Bevestigd",
+      "probable": "Waarschijnlijk",
+      "unverified": "Niet-geverifieerd"
+    },
+    "category": {
+      "authentication": "Authenticatie",
+      "policy": "Beleid",
+      "reporting": "Rapportage",
+      "transport": "Transport",
+      "issuance": "Uitgifte",
+      "resilience": "Veerkracht",
+      "hygiene": "Hygiëne"
+    },
+    "effort": {
+      "trivial": "Triviaal",
+      "moderate": "Matig",
+      "involved": "Omvangrijk"
+    },
+    "rationale": {
+      "foundation": "Los deze eerst op — al het andere hangt ervan af",
+      "afterPrereq": "Zodra aan de bovenstaande voorwaarden is voldaan",
+      "cleanup": "Geen afhankelijkheden — doe deze wanneer het uitkomt"
     }
   }
 }

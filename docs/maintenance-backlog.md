@@ -145,7 +145,7 @@ the PSL algorithm correctly and three suites assert it. Is the RFC 9989 walk the
 right substitute in every case, or is the absence of a PSL call site a **latent
 defect** — somewhere the organizational domain should have been computed from
 the public suffix list and instead falls back to discovery? That is a protocol
-question for [findings-and-remediation](specs/findings-and-remediation.md) or
+question for [findings-and-remediation](specs/implemented/findings-and-remediation.md) or
 [report-comparison](specs/report-comparison.md) to answer.
 
 ### What to do

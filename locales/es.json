@@ -331,7 +331,10 @@
       "Emisores CAA de comodines",
       "MX sin resolver",
       "Número de host MX",
-      "TLSA publicado"
+      "TLSA publicado",
+      "ID de los hallazgos",
+      "Severidades de los hallazgos",
+      "Paso de remediación 1"
     ],
     "yes": "Sí",
     "no": "No",
@@ -1174,6 +1177,103 @@
       "dsConfirms": "DS {0} coincide con una clave publicada mediante {1}",
       "dsVerdict": "DS {0} {1}",
       "lookupIncomplete": "la consulta {0} no se completó ({1})"
+    }
+  },
+  "finding": {
+    "dmarc-enforcement-without-auth": {
+      "msg": "DMARC está aplicando su política mientras la autenticación SPF o DKIM no está del todo implementada: su propio correo puede ser rechazado.",
+      "what": "DMARC solo actúa cuando un mensaje no supera NI SPF NI DKIM: basta con que uno de los dos pase, con alineación, para que el mensaje pase. Si falta uno de los métodos, el otro sostiene por sí solo todos los mensajes, de modo que cualquier correo legítimo que este no cubra —un mensaje reenviado, un nuevo servicio de envío, una ruta sin firmar— falla DMARC de plano y es rechazado o puesto en cuarentena con <code>p=reject</code> o <code>p=quarantine</code>. La aplicación debe seguir a la autenticación, nunca precederla.",
+      "fix": "Confirme que tanto SPF como DKIM pasan para sus emisores legítimos —publicando el que aún no esté implementado— y observe los informes agregados de DMARC hasta que lo hagan, antes de confiar en la aplicación.",
+      "fixCode": "; Paso 1 — autenticar (ejemplo para Google Workspace)\n@            TXT    \"v=spf1 include:_spf.google.com -all\"\nselector._domainkey  TXT  \"v=DKIM1; k=rsa; p=...\"\n\n; Paso 2 — solo cuando los informes estén limpios, aplicar\n_dmarc       TXT    \"v=DMARC1; p=reject; rua=mailto:dmarc@yourdomain\""
+    },
+    "mx-dangling-with-enforcement": {
+      "msg": "Un host MX no resuelve mientras DMARC aplica su política: {0}.",
+      "what": "Un servidor de correo que no devuelve ninguna dirección no acepta correo. En un dominio que aplica DMARC no hay ningún mecanismo permisivo de reserva que absorba el fallo, por lo que la entrega al host afectado simplemente falla. Esto es una interrupción del servicio, no una nota de higiene.",
+      "fix": "Corrija o elimine los registros MX que apuntan a un host sin registro A/AAAA, y confirme que todos los hosts MX restantes resuelven."
+    },
+    "dkim-weak-with-enforcement": {
+      "msg": "DKIM firma con una clave RSA de 1024 bits o menos mientras DMARC aplica su política: {0}.",
+      "what": "Una clave RSA de 1024 bits está por debajo del mínimo del RFC 8301 y puede ser factorizada por un atacante con suficientes recursos, que podría entonces falsificar firmas que superen su política DMARC aplicada, justo el resultado que la aplicación pretende evitar.",
+      "fix": "Rote los selectores afectados a una clave RSA de 2048 bits (o Ed25519), publique la nueva clave pública y retire el selector débil una vez que el correo se haya trasladado a él."
+    },
+    "bimi-without-enforcement": {
+      "msg": "BIMI está publicado pero DMARC no se aplica, por lo que ningún proveedor de correo mostrará su logotipo.",
+      "what": "BIMI requiere una política DMARC aplicada (<code>p=quarantine</code> o <code>p=reject</code>). Con <code>p=none</code> o el modo de prueba activado, los proveedores de correo ignoran por completo el registro BIMI, por lo que el esfuerzo de publicar un logotipo no aporta nada.",
+      "fix": "Lleve primero DMARC a modo de aplicación; el registro BIMI pasa entonces a ser apto para mostrarse."
+    },
+    "bimi-without-authority": {
+      "msg": "BIMI no tiene autoridad VMC (<code>a=</code>), por lo que los principales proveedores de correo no mostrarán el logotipo.",
+      "what": "Gmail y otros grandes proveedores exigen un Verified Mark Certificate, referenciado por la etiqueta <code>a=</code> del registro BIMI, antes de mostrar un logotipo. Un registro BIMI que solo tiene <code>l=</code> es válido, pero no se mostrará donde un VMC es obligatorio.",
+      "fix": "Obtenga un VMC para su marca registrada y añada su URL HTTPS como la etiqueta <code>a=</code> junto a la <code>l=</code> existente."
+    },
+    "mta-sts-without-tls-rpt": {
+      "msg": "MTA-STS está publicado sin TLS-RPT, por lo que los fallos de aplicación de TLS no se informan.",
+      "what": "MTA-STS indica a los servidores emisores que exijan TLS, pero sin TLS-RPT no hay ningún canal para que informen cuando una conexión no se ha podido asegurar. Obtiene la política sin visibilidad de si está funcionando.",
+      "fix": "Publique un registro TLS-RPT para que los emisores le envíen un informe diario de cualquier fallo de negociación de TLS.",
+      "fixCode": "; Informar de los fallos de TLS a un buzón que usted supervise\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "tls-rpt-without-transport-policy": {
+      "msg": "TLS-RPT está publicado, pero no hay ninguna política de transporte (ni MTA-STS ni DANE autenticado) sobre la que informar.",
+      "what": "TLS-RPT informa de en qué medida se respeta una política de seguridad de transporte. Sin MTA-STS ni un registro TLSA autenticado por DNSSEC, no hay ninguna política que aplicar, por lo que los informes describen un TLS de mejor esfuerzo en lugar de un compromiso.",
+      "fix": "Publique MTA-STS (o DANE, si su zona MX está firmada con DNSSEC) para que los informes tengan una política que medir."
+    },
+    "spf-redundant-with-enforcement": {
+      "msg": "SPF autoriza un bloque de direcciones amplio mientras DMARC aplica su política: {0}.",
+      "what": "Autorizar un rango amplio de direcciones en SPF significa que cualquier host de ese rango puede enviar correo que pase SPF y su política DMARC aplicada. En un dominio que aplica su política, el radio de impacto de un host compartido o comprometido de ese bloque es la reputación de su propio dominio.",
+      "fix": "Restrinja el mecanismo de SPF a los emisores concretos que utiliza, sustituyendo un bloque amplio por includes individuales o rangos CIDR más ajustados."
+    },
+    "defensive-contradictory": {
+      "msg": "Este dominio declara que no acepta correo (null MX) y, sin embargo, su SPF autoriza emisores: una configuración contradictoria.",
+      "what": "Un null MX (<code>0 .</code>) declara que el dominio no recibe correo, lo cual es una decisión deliberada de fortalecimiento. Publicar un registro SPF que autoriza emisores —o que referencia <code>mx</code>— en el mismo dominio transmite confusión en lugar de intención, y suele significar que nadie es responsable de la configuración.",
+      "fix": "Decida para qué sirve el dominio. Un dominio aparcado que no envía nada debería publicar <code>v=spf1 -all</code> y ningún mecanismo permisivo; un dominio que sí envía no debería llevar un null MX.",
+      "fixCode": "; Un dominio aparcado que ni envía ni recibe\n@            TXT    \"v=spf1 -all\"\n@            MX     0 ."
+    },
+    "reporting-blind": {
+      "msg": "No hay ningún informe configurado —ni DMARC rua ni TLS-RPT—, por lo que los fallos de autenticación y de entrega le resultan invisibles.",
+      "what": "Sin un destino DMARC <code>rua=</code> nunca ve quién envía correo en nombre de su dominio ni si la autenticación pasa; sin TLS-RPT nunca ve los fallos de entrega TLS. Los informes son la forma de demostrar que una configuración es correcta en lugar de darlo por supuesto.",
+      "fix": "Añada una dirección DMARC <code>rua=</code> y un registro TLS-RPT si utiliza una política de transporte, para que los fallos lleguen a un buzón que usted supervise.",
+      "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    }
+  },
+  "findings": {
+    "viewSeverity": "Por severidad",
+    "viewRemediation": "Por paso de remediación",
+    "step": "Paso {0}",
+    "evidence": "Evidencia",
+    "showMore": "Mostrar {0} más",
+    "showLess": "Mostrar menos",
+    "blocked": "A la espera de {0}",
+    "unblocks": "Desbloquea {0}",
+    "severity": {
+      "critical": "Crítica",
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja",
+      "info": "Informativa"
+    },
+    "confidence": {
+      "confirmed": "Confirmado",
+      "probable": "Probable",
+      "unverified": "Sin verificar"
+    },
+    "category": {
+      "authentication": "Autenticación",
+      "policy": "Política",
+      "reporting": "Informes",
+      "transport": "Transporte",
+      "issuance": "Emisión",
+      "resilience": "Resiliencia",
+      "hygiene": "Higiene"
+    },
+    "effort": {
+      "trivial": "Trivial",
+      "moderate": "Moderado",
+      "involved": "Laborioso"
+    },
+    "rationale": {
+      "foundation": "Corrija esto primero: todo lo demás depende de ello",
+      "afterPrereq": "Una vez que los requisitos previos anteriores estén en su lugar",
+      "cleanup": "Sin dependencias: hágalos cuando quiera"
     }
   }
 }
