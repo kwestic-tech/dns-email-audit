@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.3 (Final) |
+| Spec version | 1.4 (Final) |
 | Target release | 0.8.0 |
 | Status | Final; approved for implementation |
 | Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](implemented/findings-and-remediation.md) for the final `Finding` shape |
@@ -210,23 +210,60 @@ Validation rules:
   in `tests/state-matrix.json`. The SVG rejection and diagnostic vocabularies
   receive the same treatment when their validators are added.
 
-Cross-checks against DNS data already held, which is where the value is:
+Cross-checks against DNS data already held, which is where the value is.
+
+**Two preconditions gate the two mismatch classes, and both must hold.** The
+first is about the DNS side, the second about the policy side:
+
+1. `compareMtaStsMx()` returned `compared` — a delivery-candidate fact was
+   established.
+2. `mxComparisonApplies(policy)` is true — the policy is **valid** and its mode
+   is `enforce` or `testing`.
 
 | Check | Precondition and condition |
 | --- | --- |
-| `mta-sts.policy-mx-mismatch` | Only when the DNS MX result is known and is not null MX: an MX host from DNS matches no `mx` pattern in the policy. This breaks mail delivery in `enforce` mode. |
-| `mta-sts.policy-mx-unused` | Only when the DNS MX result is known and is not null MX: an `mx` pattern matches none of the domain's MX hosts. Usually a stale policy after a provider migration. |
-| `mta-sts.policy-on-null-mx` | The domain publishes RFC 7505 null MX while the supplied policy advertises mail handling. This is distinct from an MX mismatch. |
+| `mta-sts.policy-mx-mismatch` | Both preconditions: a delivery candidate matches no `mx` pattern in the policy. This breaks mail delivery in `enforce` mode. |
+| `mta-sts.policy-mx-unused` | Both preconditions: an `mx` pattern matches none of the domain's delivery candidates. Usually a stale policy after a provider migration. |
+| `mta-sts.policy-on-null-mx` | Arrives with the composer. The domain publishes RFC 7505 null MX while the supplied policy advertises mail handling. This is distinct from an MX mismatch. |
 | `mta-sts.mode-testing` | `mode: testing` provides no enforcement. |
 | `mta-sts.mode-none` | `mode: none` actively withdraws a previously published policy. |
 | `mta-sts.max-age-short` | `max_age` under 86400 seconds weakens the protection substantially. |
 
+#### Why the policy-side precondition exists
+
+Without it the comparison produces confident false findings from two policies
+that are not defects at all. Both are executed in `mta-sts.test.js`:
+
+- A **valid `mode: none`** policy legitimately carries no `mx` at all, because
+  it withdraws enforcement. `compareMtaStsMx([], { hosts: ['mail.example.test'] })`
+  reports `unmatchedHosts: ['mail.example.test']` — a `policy-mx-mismatch` on a
+  policy that is deliberately inactive. `mta-sts.mode-none` is the finding that
+  case deserves.
+- An **invalid** policy still exposes whichever `mx` lines happened to parse, so
+  comparing that partial list reports mismatches and unused patterns derived
+  from a document no sender will honour.
+
+The composer therefore emits the parser's own syntax findings first, and runs
+the comparison only when `mxComparisonApplies(policy)` is true.
+
+#### The comparator's contract, now and at the end state
+
 The MX cross-check is the headline feature. A policy whose `mx` patterns do not
-cover the domain's actual MX hosts causes conformant senders in `enforce` mode to
-refuse delivery, and it is invisible to every check the tool currently performs.
-The comparator accepts an MX fact of `{ hosts: string[], unknown, nullMx }`
-and returns a closed state of `compared`, `unknown` or `null-mx`. In either
-non-compared state, both mismatch arrays are empty.
+cover the domain's delivery candidates causes conformant senders in `enforce`
+mode to refuse delivery, and it is invisible to every check the tool currently
+performs. The contract is deliberately different before and after the composer,
+and the transition is atomic rather than gradual:
+
+| | Fact accepted | States returned |
+| --- | --- | --- |
+| **Current protocol commit** | `{ hosts: string[], unknown }` | `compared`, `unknown` |
+| **Composer / end-state commit** | `{ hosts: string[], unknown, nullMx }` | `compared`, `unknown`, `null-mx` |
+
+`nullMx` and the `null-mx` state are added to the constant, both state files and
+this table **in the same commit as `src/audit/artifacts.js`**, which is their
+only producer. Until then a null-MX domain reaches the comparator as an empty
+host list and degrades to `unknown`. In every non-`compared` state, both
+mismatch arrays are empty.
 
 **`src/audit/artifacts.js` builds that fact from the domain's delivery
 candidates, and never from `advanced.mxHealth`.** No such `{ hosts, unknown }`
@@ -603,10 +640,21 @@ was read from `rfc-editor.org`, and the 837-vs-732 key gap was traced to
 | The host guard accepted empty strings | Accepted | `typeof h === 'string'` passed `''` and `'   '`, which normalised away under `filter(Boolean)` into a confident empty comparison — the same stale-policy claim in a different costume. Entries are now validated after normalisation and a single bad entry fails the comparison. |
 | Stale 732-key localisation baseline | Accepted | 837 is what the gate counts. The gap is `flatten()` expanding array values by index; the spec now states the measured figure and why a leaf count disagrees. |
 
+### Review round after 1.3
+
+Both findings were reproduced by executing the two pure functions before the
+spec was amended.
+
+| Finding | Outcome | Reasoning |
+| --- | --- | --- |
+| Two incompatible comparator contracts in one Final spec | Accepted | The 1.3 amendment rewrote the fail-closed block but left the paragraph above it describing `{ hosts, unknown, nullMx }` and a `null-mx` state the same document withdraws 60 lines later. Replaced with an explicit current-vs-end-state table, and the cross-check table and prose moved from "DNS MX hosts" to delivery candidates. |
+| No policy-validity or mode precondition on the composer | Accepted | Reproduced exactly as reported: a valid `mode: none` policy has `mx: []`, and comparing it against a real MX host returns `unmatchedHosts: ['mail.example.test']` — a false `policy-mx-mismatch` on a deliberately inactive policy. An invalid policy's surviving partial `mx` list produces both mismatch classes. Rather than leave the rule as composer prose nothing enforces, `mxComparisonApplies(policy)` is now an exported pure predicate in the protocol owner, because it is a statement about RFC 8461 mode semantics. Its suite pins both counterexamples, not just the predicate. |
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.4 | 2026-09-01 | Amended Final after the second follow-up review. Replaced the contradictory comparator paragraph with an explicit current-commit vs composer-commit contract table and moved the cross-check table and surrounding prose to delivery-candidate terminology. Added the policy-side precondition — both MX mismatch classes now require `mxComparisonApplies(policy)`, a new exported predicate requiring a valid policy in `enforce` or `testing` mode — with both false-finding counterexamples pinned by fixtures. |
 | 1.3 | 2026-09-01 | Amended Final after the follow-up review. Replaced the published-MX-records fact source with a four-case delivery-candidate contract covering the RFC 5321 §5.1 implicit MX and RFC 7505 null MX; removed `null-mx` from the comparison vocabulary and both state files until its composer exists; extended the fail-closed rules to an empty host list and to any entry that is not a valid hostname after normalisation; made a case-variant extension retained and duplicate-checked rather than short-circuited; and corrected the localisation baseline from 732 to the gate-measured 837. |
 | 1.2 | 2026-09-01 | Amended Final after executing the 1.1 implementation. Named the published MX records as the comparator's fact source and forbade `advanced.mxHealth`; made the comparator fail closed to `unknown` on any fact that is not an established list of hostname strings; recorded `null-mx` as having no producer until `src/audit/artifacts.js` lands; moved `wrong-case-field` from `errors` to `warnings` so a conformant case-variant extension stays valid; stated the `diagnostics` line-index rule and the line-less evidence variant; and aligned the `missing-mx` rule with the mode-conditioned reading. |
 | 1.1 | 2026-09-01 | Amended Final after reproducing the first implementation review. Added explicit unknown and null-MX comparison states; registered closed vocabularies; declared `lineEndings: none`; preserved per-line malformed diagnostics; added BOM, blank-line and wrong-case decisions; named the artifact evidence renderer branch, export columns, unverified-policy copy change, browser script and CI job; renamed the browser suite; documented policy extension punctuation; and replaced the low localization estimate with a measured 95–145-key budget. Recorded all accepted and declined review outcomes. |
