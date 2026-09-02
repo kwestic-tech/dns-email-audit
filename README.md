@@ -31,6 +31,9 @@ sent to Cloudflare and are subject to Cloudflare's privacy policy.
 - Stable structured findings with five severity levels, confidence, source-bound
   DNS evidence, and a dependency-ordered remediation view. CSV exports finding
   ids, severities and the first remediation step alongside the legacy columns.
+- Private local validation for a supplied MTA-STS policy or BIMI SVG logo,
+  with strict pre-parse limits, explicit user-supplied provenance, and no
+  upload, persistence, score change, automatic fetch, or logo rendering.
 - Complete UI localization in fourteen languages: English, German, Spanish,
   French, Indonesian, Italian, Japanese, Korean, Dutch, Polish, Brazilian
   Portuguese, Turkish, Simplified Chinese, and Traditional Chinese.
@@ -55,9 +58,9 @@ sent to Cloudflare and are subject to Cloudflare's privacy policy.
 | **DMARC report authorization** | For report destinations outside your organizational domain, checks whether that domain published the `_report._dmarc` record (RFC 9990 §4.3), including the wildcard form. Without it receivers discard those reports silently. |
 | **DNSSEC** | Six states — secure, insecure, signed-but-unanchored, DS/DNSKEY mismatch, bogus and indeterminate — from the resolver's authenticated-data flag, with the child's `DNSKEY` set matched against the parent's `DS` records locally by Web Crypto. Every claim is attributed to the resolver or to local computation. When validation itself causes SERVFAIL, the audit preserves that bogus verdict and uses checking-disabled responses only to render the diagnostic row. |
 | **CAA** | Walks up the domain tree to find the effective certificate-authority restrictions. |
-| **MTA-STS** | Validates discovery-record uniqueness and syntax, including the required `id=` tag. |
+| **MTA-STS** | Validates discovery-record uniqueness and syntax, including the required `id=` tag. A separate local panel validates a supplied policy body, its mode and cache lifetime, and its `mx` patterns against the audited delivery candidates. |
 | **TLS-RPT** | Validates uniqueness, syntax, and the required supported `rua=` destination. |
-| **BIMI** | Validates uniqueness, BIMI syntax, and an HTTPS logo URL. |
+| **BIMI** | Validates uniqueness, BIMI syntax, and an HTTPS logo URL. The local panel screens a supplied SVG for active or external content and reports named SVG Tiny PS profile diagnostics without rendering it. |
 | **Wildcard TXT** | Optionally detects wildcard TXT behavior that can interfere with DKIM and DMARC names. |
 
 Transport errors are not converted into empty DNS answers. Timeouts, HTTP
@@ -86,6 +89,12 @@ Found DKIM selectors display the exact query name, CNAME target when applicable,
 and resolved public-key data. A supplied selector outside the catalog is labeled
 **Uncommon**. A supplied selector without an active key is shown as **No Domain
 Key Found**.
+
+After an audit completes, open **Validate a local MTA-STS policy or BIMI logo**
+below the results. Select one completed domain, paste the policy or SVG source
+or choose its local file, then run the analysis. These findings describe only
+the material you supplied; they appear separately from public-DNS findings and
+are discarded when the page reloads.
 
 ## Confidence and unknown results
 
@@ -289,13 +298,14 @@ JSON files from disk, so translated interfaces require HTTP.
 | `npm ci` | Install exact versions of esbuild and its platform binary; no install scripts run. |
 | `npm start` | Serve the already-built application on port 8080 with the dependency-free development server. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Build the bundle, then run locale validation plus **4,643** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
+| `npm test` | Build the bundle, then run locale validation plus **5,004** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `src/data/locales-en.js` after editing `locales/en.json`. |
 | `npm run build` | Bundle `src/` into `dist/app.min.js`, then build the allowlisted static deployment into `_site/`. |
 | `npm run inventory` | Run every suite and check each one's assertion count against `tests/inventory.json`. |
 | `npm run test:file-url` | Open the built page from `file://` in real Chrome. |
+| `npm run test:local-input-security` | Drive hostile and conformant local artifacts through the production panel in real Chrome while observing network, storage, and DOM insertion. |
 | `npm run update:psl` | Refresh the vendored Mozilla Public Suffix List snapshot. |
 | `npm run update:dkim-selectors` | Normalize or import the DKIM selector catalog. |
 
@@ -435,14 +445,18 @@ UI strings, keeping audit logic independent from translation work.
   need the bytes exactly as published, read the HTML report or the results
   table rather than the CSV.
 - Uploaded domain files are processed locally and limited to 1 MB.
+- Supplied MTA-STS and BIMI artifacts stay in memory, are limited to 64 KiB and
+  32 KiB respectively before parsing, never affect the DNS score, and are
+  discarded on reload.
 - Generated HTML reports are self-contained and contain no executable scripts.
 
 ## Known limitations
 
 - DNS cannot enumerate DKIM selectors; comprehensive mode improves coverage but
   cannot prove that no other selector exists.
-- Browser CORS restrictions prevent reliable HTTPS policy retrieval for most
-  MTA-STS hosts, so policy enforcement remains unverified.
+- Browser CORS restrictions prevent reliable automatic HTTPS policy retrieval
+  for most MTA-STS hosts. The DNS-only result therefore remains unverified;
+  operators can validate a policy they already possess in the local panel.
 - DNS, email-provider, and hosting detection use public records and heuristics;
   unusual or private infrastructure may be labeled custom or unknown.
 - DNSSEC status reflects validation performed by the configured Cloudflare DoH

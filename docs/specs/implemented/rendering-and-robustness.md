@@ -9,7 +9,7 @@
 | Pull request | [#18](https://github.com/kwestic-tech/dns-email-audit/pull/18) |
 | Merge commit | `6bf8bda` (squashed) |
 | Depends on | Nothing. This is the first release after 0.2.2. |
-| Blocks | [dmarcbis-tree-walk](dmarcbis-tree-walk.md) and [local-artifact-validation](../local-artifact-validation.md) directly; every later release extends the rendering path. |
+| Blocks | [dmarcbis-tree-walk](dmarcbis-tree-walk.md) and [local-artifact-validation](local-artifact-validation.md) directly; every later release extends the rendering path. |
 | Slug for open questions | `SEC` |
 | Last updated | 2026-08-24 |
 

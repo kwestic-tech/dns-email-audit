@@ -32,17 +32,16 @@ diverged from.
 ## Planned
 
 `Target release` below is a version-numbering anchor, kept per the naming rule
-in this document. **As of 2026-08-31, the remaining build order is also the
-release order:** 0.8.0 artifacts, 0.9.0 reports, then the 1.0.0
-graduation gate. The earlier parallel artifact proposal was retired after the
-0.6.0 refactor shipped; 0.7.0 now supplies the final finding shape those releases
-consume. See [`HANDOFF.md`](../../HANDOFF.md) for the current operational
+in this document. **As of 2026-09-02, the remaining build order is also the
+release order:** 0.9.0 reports, then the 1.0.0 graduation gate. The earlier
+parallel artifact proposal was retired after the 0.6.0 refactor shipped; 0.7.0
+supplied the final finding shape and 0.8.0 consumed it without widening the
+public-DNS score. See [`HANDOFF.md`](../../HANDOFF.md) for the current operational
 checkpoints. Shipped phase history belongs to the implemented specs rather than
 a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [local-artifact-validation](local-artifact-validation.md) | 0.8.0 | 1.0 | Final; approved for implementation |
 | [report-comparison](report-comparison.md) | 0.9.0 | 0.3 | Draft; awaiting review |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
@@ -122,15 +121,17 @@ precedent, and one spec was superseded outright during implementation.
 | [dnssec-evidence](implemented/dnssec-evidence.md) | 0.5.0 | [#25](https://github.com/kwestic-tech/dns-email-audit/pull/25) | `v0.5.0` | 1.5 (Implemented) |
 | [modular-architecture-and-production-build](implemented/modular-architecture-and-production-build.md) | 0.6.0 | — | `v0.6.0` | 1.8 (Implemented) |
 | [findings-and-remediation](implemented/findings-and-remediation.md) | 0.7.0 | [#29](https://github.com/kwestic-tech/dns-email-audit/pull/29) | `v0.7.0` | 1.7 (Implemented) |
+| [local-artifact-validation](implemented/local-artifact-validation.md) | 0.8.0 | [#30](https://github.com/kwestic-tech/dns-email-audit/pull/30) | `v0.8.0` | 1.9 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in
 [`CHANGELOG.md`](../../CHANGELOG.md) only.
 
-The `modular-architecture-and-production-build` row carries **no PR**, and that
-is accurate rather than an omission: its release commit is the last commit on
-its own branch, cut before the pull request opens, so at release time the PR
-does not exist. It is recorded by release tag alone.
+Rows carrying **no PR** are accurate rather than incomplete: the release commit
+is the last commit on its feature branch and is cut before the pull request
+opens, so its PR number does not yet exist. The release tag is known in advance
+and remains stable after the required squash merge; the PR may be recorded in a
+later documentation pass.
 
 Every spec above was written from an original working specification except
 [resilient-optional-checks](implemented/resilient-optional-checks.md), which had

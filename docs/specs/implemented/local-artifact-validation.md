@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.8 (Final) |
+| Spec version | 1.9 (Implemented) |
 | Target release | 0.8.0 |
-| Status | Final; approved for implementation |
-| Depends on | [rendering-and-robustness](implemented/rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](implemented/findings-and-remediation.md) for the final `Finding` shape |
-| Blocks | [report-comparison](report-comparison.md), which must decide whether user-supplied findings enter a DNS report |
+| Status | Released as `v0.8.0` |
+| Depends on | [rendering-and-robustness](rendering-and-robustness.md), the 0.6.0 module boundaries, and [findings-and-remediation](findings-and-remediation.md) for the final `Finding` shape |
+| Blocks | [report-comparison](../report-comparison.md), which must decide whether user-supplied findings enter a DNS report |
 | Slug for open questions | `ART` |
-| Last updated | 2026-09-01 |
+| Last updated | 2026-09-03 |
 
 ## Problem
 
@@ -19,15 +19,15 @@ exists, and here is its version id". The policy itself, which contains the mode,
 the permitted MX patterns and the max age, lives at
 `https://mta-sts.<domain>/.well-known/mta-sts.txt`. The tool validates the TXT
 record's syntax in `validateMtaStsRecord()` in
-[`src/core/transport/mta-sts.js`](../../src/core/transport/mta-sts.js) and sets
+[`src/core/transport/mta-sts.js`](../../../src/core/transport/mta-sts.js) and sets
 `policyVerified: false` in the DNS-only result. `calcScore()` in
-[`src/audit/scoring.js`](../../src/audit/scoring.js) therefore awards half the MTA-STS pillar,
+[`src/audit/scoring.js`](../../../src/audit/scoring.js) therefore awards half the MTA-STS pillar,
 four points out of eight, to every domain that publishes a syntactically valid
 TXT record. `README.md` states the reason honestly under Known limitations:
 browser CORS restrictions prevent reliable policy retrieval.
 
 BIMI has the same shape. `validateBimiRecord()` in
-[`src/core/bimi/bimi.js`](../../src/core/bimi/bimi.js) confirms the `l=` and
+[`src/core/bimi/bimi.js`](../../../src/core/bimi/bimi.js) confirms the `l=` and
 `a=` values are HTTPS
 URLs and stops there. Whether the SVG at `l=` conforms to the SVG Portable/Secure
 profile, which is what determines whether mailbox providers actually display the
@@ -694,6 +694,52 @@ Mitigation: 0.8.0 explicitly ships no preview and keeps `img-src` unchanged.
 a bulk DNS auditor. This is a single-domain file inspector. Mitigation: the panel
 is collapsed by default and clearly subordinate.
 
+## As implemented
+
+The release follows the final architecture: protocol parsing remains in the
+MTA-STS and BIMI owners, `src/audit/artifacts.js` is the only cross-protocol
+composer, `src/runtime.js` supplies the browser's XML parser, and the UI receives
+one injected analysis callback. Artifact findings remain separate from DNS
+findings and scoring while carrying explicit `user-supplied` provenance into
+the panel, three appended CSV columns, and a separate static-report section.
+
+Implementation and review sharpened seven details beyond the original 1.0 text:
+
+1. The MTA-STS comparator consumes delivery candidates derived from the base MX
+   and address facts, including implicit and null MX behavior. It never consumes
+   the deep-check-only `advanced.mxHealth` objects.
+2. Parser diagnostics retain every occurrence and its bounded supplied source.
+   Missing fields use document-level evidence, and all evidence bounds preserve
+   Unicode code points rather than slicing UTF-16 units.
+3. The BIMI screen rejects DTD/entity, active-content and external-reference
+   paths before profile diagnostics. It parses with the real browser
+   `DOMParser`, never renders the logo, and claims a named screen rather than
+   complete RNC certification or mailbox-provider acceptance.
+4. The collapsed panel is enabled only by a completed DNS audit. Selected files
+   are checked by `File.size` and declared MIME before `FileReader`; pasted text
+   is measured as UTF-8 bytes with `Blob`. Any replacement input, including a
+   rejected file, retires the previous per-domain result so stale findings
+   cannot remain visible or exportable.
+5. The production-browser security suite grew from method wrappers into a
+   behavioral instrument: browser-external storage mutation events, network
+   events and tagged-node observation prove that analysis performs no request,
+   persistence or insertion. Its unsafe fixture and detector-removal runs prove
+   each signal can fail. The same suite drives hostile SVG, policy paste, file
+   size/MIME boundaries and successful file reading through the shipped panel.
+6. The English bundle gained 106 leaf keys and all thirteen other locales ship
+   complete. Token and protocol spellings remain literal; user-facing policy,
+   logo, provenance, error, privacy and remediation prose is translated.
+7. Finding cards explicitly separate live and static-report rendering, so
+   array callback indexes cannot silently open later cards or remove their
+   disclosure controls. File reads use per-artifact generations so an earlier
+   read cannot overwrite a newer selection or paste. A finished 0.8.0
+   five-surface baseline pins the resulting UI and export boundary exactly,
+   while the release-compatibility suite bounds every intentional 0.7.0 delta.
+
+No score, weight, threshold, DNS query path, `connect-src` destination, storage
+contract or public `DnsAudit` facade member changed. The release adds one local,
+session-only input surface and no automatic artifact retrieval.
+
 ## Resolved questions
 
 | Question | Decision | Reasoning |
@@ -826,6 +872,7 @@ Every finding reproduced by execution before the spec was amended.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.9 | 2026-09-03 | Implemented and released as `v0.8.0`. Recorded the delivery-candidate composition, occurrence-preserving evidence, real-browser SVG boundary, separate provenance-aware panel and exports, pre-read byte/MIME limits, stale-result invalidation, latest-input-wins file ordering, live/static finding-card separation, behavioral security instrument, finished five-surface baseline and complete 14-language surface. No score, DNS fan-out, persistence, CSP destination or public facade change. |
 | 1.8 | 2026-09-01 | Amended Final after the evidence-contract review. Required every diagnostic path — document-level, pre-parse, parser and root — to produce located evidence, and defined the `input` variant as an empty value rather than the token. Removed the producer-less failed-lookup input from the delivery-candidate contract. |
 | 1.7 | 2026-09-01 | Amended Final after the composer review. Defined the evidence contract precisely — supplied material rather than the diagnostic token, the offending construct rather than the document, one entry per occurrence, code-point bounds — and required the owner validators to supply the located material so `src/audit/` never reparses. Recorded the twelve-id artifact finding catalog with its severities as a registered closed algebra separate from `audit.finding.id`, including the two outcomes (`policy-mx-unknown`, `bimi.svg-valid`) that earlier tables did not name. |
 | 1.6 | 2026-09-01 | Amended Final after the SVG review. Withdrew the unreachable "single root element" diagnostic; enumerated the six SVG Tiny PS constrained attributes and their permitted values from draft-svg-tiny-ps-abrotman-12 §2.3, redefining `unsupported-attribute` as a value outside that table; required exact XML name matching for profile conformance while keeping the security screen case-insensitive, and stated why the two differ; and required a `viewBox` to have extents greater than zero before it can be square. |

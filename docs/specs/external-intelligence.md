@@ -58,7 +58,7 @@ they are not worth the property they cost.
 
 Two mitigations already exist and are the intended permanent answer.
 
-[local-artifact-validation](local-artifact-validation.md), the 0.8.0 release,
+[local-artifact-validation](implemented/local-artifact-validation.md), the 0.8.0 release,
 lets the user supply the artifact themselves. The person auditing their own
 domain has the file. The person auditing a third party can fetch it by whatever
 means they judge appropriate, from a network position they choose, and paste the

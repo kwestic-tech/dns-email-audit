@@ -16,6 +16,65 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Nothing yet.
 
+## [0.8.0] — 2026-09-03
+
+### Added
+
+- **Private local artifact validation.** A separate collapsed panel accepts an
+  MTA-STS policy body or BIMI SVG by paste or file selection and analyzes it
+  entirely in browser memory. It never fetches a domain-controlled URL,
+  uploads or persists supplied material, renders the logo, or changes the DNS
+  score.
+- **RFC 8461 policy diagnostics and delivery-host comparison.** The policy
+  parser reports line-specific syntax and hygiene findings, mode and cache-age
+  posture, and compares `mx` patterns with the audited domain's real delivery
+  candidates, including implicit and null MX behavior. Missing or incomplete
+  facts produce an explicit unverified result rather than a false mismatch.
+- **A deliberately narrow BIMI SVG screen.** DTDs, entity declarations,
+  scripts, event handlers, foreign content, external references, links and
+  animation are rejected; named SVG Tiny PS profile requirements are reported
+  separately. The positive result states the screen that passed without
+  claiming full RNC-schema certification or mailbox-provider acceptance.
+- **Artifact-aware exports.** CSV appends finding ids, severities and bounded
+  user-supplied evidence after every existing DNS column. The script-free HTML
+  report adds a separate artifact section. Both preserve the provenance line;
+  artifact findings never enter the DNS findings array or remediation score.
+
+### Changed
+
+- The MTA-STS DNS-only finding now says the application did not automatically
+  retrieve the HTTPS policy and points operators to the local panel instead of
+  implying the policy cannot be checked.
+- Added 106 English locale leaves and completed the same interface, diagnostic,
+  evidence, privacy and remediation surface across all thirteen other locales.
+  Protocol, field, profile and element names remain literal.
+- Added a required real-browser security job that drives the shipped panel and
+  real XML parser while observing browser-external network and storage events
+  plus tagged-node insertion. Its unsafe fixture and detector-removal controls
+  prove the instrument can see the prohibited behavior before the complete
+  94-assertion browser suite passes.
+- Pinned the finished 0.8.0 browser boundary across audit results, DNS traces,
+  CSV, HTML reports and rendered DOM. The release-compatibility suite proves
+  results and traces are byte-identical to 0.7.0 and bounds the visible delta
+  to the three artifact columns, one MTA-STS wording update and the artifact
+  styles. Live finding disclosures are separately pinned so static-report mode
+  cannot remove their controls or force them open.
+- The verification inventory reports 265 checks and 5,004 assertions. The
+  `test:file-url` suite passes 22 assertions, the local-input security suite
+  passes 94, the locale gate reports 13/13 at 100%, and the Content Security
+  Policy retains its existing connection destinations.
+
+### Fixed
+
+- **Only the first finding in each severity group had a working "show me"
+  disclosure.** `findingCard` takes a `staticMode` flag as its second argument,
+  and the severity and low-information lists passed it straight to
+  `Array.prototype.map`, which supplies the element index there. Every card
+  after the first therefore rendered in the static form used by the exported
+  report: its explanation was permanently expanded and its toggle button was
+  omitted entirely. Present since 0.8.0's finding cards were introduced in
+  0.7.0, and covered now by a rendering regression test.
+
 ## [0.7.0] — 2026-09-01
 
 ### Added
@@ -1251,7 +1310,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.4.0...v0.5.0
