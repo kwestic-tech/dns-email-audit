@@ -31,6 +31,79 @@
     "desc": "每行一个域名，或上传 .txt 文件。一次最多支持 200 个域名。",
     "placeholder": "example.com\nmycompany.org\nanother-domain.net"
   },
+  "artifact": {
+    "heading": "在本地校验 MTA-STS 策略或 BIMI 徽标",
+    "separation": "上方的 DNS 审计结果来自公共 DNS。本面板中的全部内容仅来自您提供的文件或文本。",
+    "privacy": "您在此处提供的任何内容都不会被抓取、上传、存储，也不会计入您的 DNS 评分。分析在本浏览器中于本地完成，页面重新加载后即被丢弃。请参阅<a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">隐私说明</a>。",
+    "domainLabel": "已审计的域名",
+    "noDomains": "请先运行一次 DNS 审计",
+    "policyHeading": "MTA-STS 策略",
+    "policyHelp": "粘贴 mta-sts.txt 的正文，或选择一个文本文件。最大 64 KiB。",
+    "policyPlaceholder": "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400",
+    "policyFile": "选择 .txt 文件",
+    "svgHeading": "BIMI SVG 徽标",
+    "svgHelp": "粘贴 SVG 源码，或选择一个 SVG 文件。最大 32 KiB。徽标只会被检查，绝不会被显示。",
+    "svgPlaceholder": "粘贴您徽标 SVG 文件的内容",
+    "svgFile": "选择 .svg 文件",
+    "analyze": "分析所提供的内容",
+    "clear": "清除所提供的内容",
+    "schemaNote": "BIMI 检查涵盖安全性拒绝以及列出的 SVG Tiny PS 诊断项；它既不是完整的 RNC 模式认证，也不保证邮箱服务商会显示该徽标。",
+    "reportHeading": "所提供内容的本地分析",
+    "userSupplied": "用户提供",
+    "resultsFor": "{0} 的本地分析",
+    "noFindings": "在所提供的内容中未发现问题。",
+    "complete": {
+      "one": "本地分析完成：{0} 项发现。",
+      "other": "本地分析完成：{0} 项发现。"
+    },
+    "policyLabel": "MTA-STS 策略",
+    "svgLabel": "BIMI SVG",
+    "errorNoDomain": "请先运行 DNS 审计并选择一个已完成的域名。",
+    "errorNoInput": "请至少粘贴或选择一份策略或一个 SVG 文件。",
+    "errorTooLarge": "{0} 超过 {1} KiB 上限，未进行解析。",
+    "errorFileTooLarge": "{0} 超过 {1} KiB 上限，未被读取。",
+    "errorWrongType": "所选文件声明的类型为 {0}；此输入项接受 {1}。",
+    "errorFileRead": "浏览器无法读取 {0}。",
+    "fileLoaded": "已在本地载入 {0}。没有上传任何内容。",
+    "token": {
+      "malformed-line": "该行不是 key: value 形式的字段。",
+      "blank-line": "策略内不允许出现空行。",
+      "invalid-version": "version 必须严格为 STSv1。",
+      "invalid-mode": "mode 必须严格为 enforce、testing 或 none。",
+      "invalid-mx": "mx 必须是有效域名，或仅覆盖最左侧完整标签的通配符。",
+      "invalid-max-age": "max_age 必须是 0 到 31557600 之间的整数。",
+      "missing-version": "策略必须包含 version 字段。",
+      "missing-mode": "策略必须包含 mode 字段。",
+      "missing-max-age": "策略必须包含 max_age 字段。",
+      "missing-mx": "enforce 或 testing 策略必须至少包含一个 mx 字段。",
+      "duplicate-field": "对于重复出现的非 mx 字段，仅使用第一次出现的值。",
+      "bom-present": "已从策略开头移除 UTF-8 字节顺序标记。",
+      "wrong-case-field": "已注册的字段名区分大小写；此拼写将被视为未知扩展。",
+      "doctype-present": "DOCTYPE 声明会在 XML 解析之前被拒绝。",
+      "entity-declaration": "实体声明会在解析之前被拒绝，因为其展开可能耗尽内存。",
+      "malformed-xml": "源码不是格式良好的 XML。",
+      "bad-root": "文档根元素必须是名称严格为 svg 的元素。",
+      "script-element": "BIMI 徽标中不允许出现 script 元素。",
+      "event-handler": "不允许使用 onload 等事件处理器属性。",
+      "foreign-object": "foreignObject 可嵌入非 SVG 内容，因此不被允许。",
+      "external-reference-element": "image 与 use 元素可引用其他资源，因此被拒绝。",
+      "external-reference": "不允许外部或空的 href 引用；仅允许指向同一文档内的片段。",
+      "link-element": "不允许使用可点击的链接元素。",
+      "external-style": "样式不得使用 url() 导入或引用其他资源。",
+      "animation": "动画元素超出所接受的静态徽标配置范围。",
+      "namespace-not-svg": "根 svg 元素必须使用 SVG 命名空间。",
+      "base-profile-not-tiny-ps": "baseProfile 必须严格为 tiny-ps。",
+      "version-not-1-2": "version 必须严格为 1.2。",
+      "title-missing": "根元素必须包含一个非空的直接子 title 元素。",
+      "title-not-unique": "根元素必须且只能包含一个直接子 title 元素。",
+      "desc-empty": "若存在 desc 元素，则其内容不得为空。",
+      "viewbox-missing": "viewBox 必须包含四个数字，且宽度与高度均为正值。",
+      "viewbox-not-square": "viewBox 的宽度与高度必须相等。",
+      "root-has-position": "根 svg 元素不得带有 x 或 y 定位属性。",
+      "raster-data-uri": "位图图像数据超出仅限矢量的配置范围。",
+      "unsupported-attribute": "某个受限的 SVG Tiny PS 属性取值不在该配置允许的范围内。"
+    }
+  },
   "opt": {
     "dkim": "检查 DKIM 选择器",
     "dkimComprehensive": "全面 DKIM 扫描（最多 5 个域名）",
@@ -334,7 +407,10 @@
       "已发布 TLSA",
       "问题 ID",
       "问题严重程度",
-      "修复步骤 1"
+      "修复步骤 1",
+      "所提供内容的发现项 ID",
+      "所提供内容的发现项严重程度",
+      "所提供内容的证据（用户提供）"
     ],
     "yes": "是",
     "no": "否",
@@ -609,7 +685,7 @@
       "msg": "MTA-STS TXT 记录格式错误或缺少必要的 id= 标签。"
     },
     "mta-sts-policy-unverified": {
-      "msg": "MTA-STS TXT 记录有效，但此仅限浏览器的审计无法验证 HTTPS 策略文件，因为大多数策略主机不允许跨源读取 (CORS)。"
+      "msg": "MTA-STS TXT 记录有效，但仅基于 DNS 的审计未抓取其 HTTPS 策略。请在本地面板中提供该策略，即可在不发起任何网络请求的情况下完成校验。"
     },
     "tls-rpt-invalid": {
       "msg": "TLS-RPT 记录格式错误或没有有效的 rua= 目的地。"
@@ -1233,6 +1309,66 @@
       "what": "没有 DMARC <code>rua=</code> 目标地址，你就永远看不到谁在以你的域名发送邮件、身份验证是否通过；没有 TLS-RPT，你就永远看不到 TLS 投递失败。上报是证明一项配置正确、而非想当然认为其正确的方式。",
       "fix": "添加一个 DMARC <code>rua=</code> 地址，如果你运行了传输策略，再添加一条 TLS-RPT 记录，让失败信息送达你监控的邮箱。",
       "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "mta-sts-policy-invalid": {
+      "msg": "所提供的 MTA-STS 策略无效：{0}。",
+      "what": "这些解析标记指出了不符合 RFC 8461 的字段或行。只要仍存在错误，发送方就无法安全地应用该策略。",
+      "fix": "请修正所提供策略中列出的每一处错误，然后在发布该文件之前重新分析。"
+    },
+    "mta-sts-policy-hygiene": {
+      "msg": "所提供的 MTA-STS 策略有效，但需要复核：{0}。",
+      "what": "这些警告不会使策略失效，但通常表明存在编辑器残留、重复字段或具有误导性的字段名大小写。",
+      "fix": "请处理列出的警告，使发布的策略对运维人员和软件都清晰无歧义。"
+    },
+    "mta-sts-policy-mx-mismatch": {
+      "msg": "所提供的 MTA-STS 策略未覆盖以下任何投递主机：{0}。",
+      "what": "在 enforce 模式下，当所选的 MX 主机名与策略中的任何 mx 模式都不匹配时，发送方会拒绝投递。这是一次随时可能发生的邮件投递中断。",
+      "fix": "请为每一个已发布的投递候选主机添加精确主机名，或添加有效的单标签通配符。"
+    },
+    "mta-sts-policy-mx-unused": {
+      "msg": "以下 MTA-STS mx 模式未覆盖任何当前投递主机：{0}。",
+      "what": "未被使用的模式通常是迁移之后遗留下来的旧服务商主机名。它不会破坏当前投递，但仍在授权一台您已不再使用的主机。",
+      "fix": "请确认旧服务商已停用，然后删除每一条未被使用的 mx 行。"
+    },
+    "mta-sts-policy-on-null-mx": {
+      "msg": "为一个明确声明不接收邮件的域名提供了策略。",
+      "what": "空 MX 表示该域名不接受 SMTP 投递。在同一域名上存在邮件处理策略，与这一已发布的意图相矛盾。",
+      "fix": "若该域名处于闲置状态，请保留空 MX 并删除策略；若它应当接收邮件，请恢复真实的 MX 记录。"
+    },
+    "mta-sts-policy-mx-unknown": {
+      "msg": "无法将策略中的 mx 模式与投递主机进行比较。",
+      "what": "审计未能确定完整的投递候选主机集合，因此无论断定匹配还是不匹配，都只是猜测。",
+      "fix": "请解决 DNS 审计失败的问题，或发布可用的 MX 或 A/AAAA 记录，然后重新运行审计与本地比较。"
+    },
+    "mta-sts-mode-testing": {
+      "msg": "所提供的策略使用 mode: testing，因此发送方只会报告失败，而不会强制执行。",
+      "what": "testing 模式属于部署阶段。当 TLS 或主机名校验失败时邮件仍会送达，因此这并不是传输层面的强制执行。",
+      "fix": "请查看 TLS-RPT 报告，修正每一处确实存在的失败，然后将策略改为 mode: enforce。"
+    },
+    "mta-sts-mode-none": {
+      "msg": "所提供的策略使用 mode: none，将撤销 MTA-STS 保护。",
+      "what": "none 模式告知发送方停止执行先前的策略。它适用于 RFC 规定的移除流程期间，而不适合作为受保护域名的最终状态。",
+      "fix": "对于生效中的策略请使用 mode: enforce；若确实打算撤销，请完成文档中记载的分阶段移除流程。"
+    },
+    "mta-sts-max-age-short": {
+      "msg": "所提供策略的 max_age 偏短，仅为 {0} 秒。",
+      "what": "缓存有效期过短会使发送方频繁重新获取策略，并在策略主机发生故障时削弱保护。",
+      "fix": "测试完成后请使用更长的 max_age；本次审计建议的最低阈值为 86400 秒。"
+    },
+    "bimi-svg-rejected": {
+      "msg": "所提供的 BIMI SVG 已被拒绝：{0}。",
+      "what": "所列结构不安全，或超出本地校验刻意收窄的边界。徽标不会被渲染，解析得到的节点也不会插入本页面。",
+      "fix": "请移除每一项所列结构，并导出一个自包含的 SVG Tiny PS 徽标，其中不含脚本、外部引用、DTD 或实体声明。"
+    },
+    "bimi-svg-profile": {
+      "msg": "所提供的 BIMI SVG 存在配置诊断项：{0}。",
+      "what": "该徽标已通过安全性拒绝检查，但所列的 SVG Tiny PS 要求可能导致邮箱服务商不予显示。",
+      "fix": "请修正每一项所列的配置诊断，然后在发布流程中依据完整的 SVG Tiny PS 模式进行校验。"
+    },
+    "bimi-svg-valid": {
+      "msg": "所提供的 BIMI SVG 通过了本次本地安全性与配置检查。",
+      "what": "未发现任何所列的拒绝项或配置诊断项。这不是完整的 RNC 模式认证，也不保证任何邮箱服务商会予以接受。",
+      "fix": "本次检查无需任何修改。请在发布流程中继续执行完整的模式校验和各服务商的专项检查。"
     }
   },
   "findings": {

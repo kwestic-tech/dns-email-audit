@@ -31,6 +31,79 @@
     "desc": "One domain per line, or upload a .txt file. Up to 200 domains at once.",
     "placeholder": "example.com\nmycompany.org\nanother-domain.net"
   },
+  "artifact": {
+    "heading": "Validate a local MTA-STS policy or BIMI logo",
+    "separation": "DNS audit results above came from public DNS. Everything in this panel comes only from files or text you supply.",
+    "privacy": "Nothing supplied here is fetched, uploaded, stored, or added to your DNS score. Analysis happens locally in this browser and is discarded on reload. See <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a>.",
+    "domainLabel": "Audited domain",
+    "noDomains": "Run a DNS audit first",
+    "policyHeading": "MTA-STS policy",
+    "policyHelp": "Paste the body of mta-sts.txt or choose a text file. Maximum 64 KiB.",
+    "policyPlaceholder": "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400",
+    "policyFile": "Choose .txt file",
+    "svgHeading": "BIMI SVG logo",
+    "svgHelp": "Paste the SVG source or choose an SVG file. Maximum 32 KiB. The logo is inspected, never displayed.",
+    "svgPlaceholder": "Paste the contents of your logo SVG file",
+    "svgFile": "Choose .svg file",
+    "analyze": "Analyze supplied material",
+    "clear": "Clear supplied material",
+    "schemaNote": "BIMI checks cover security rejections and named SVG Tiny PS diagnostics; they are not full RNC-schema certification or a guarantee that a mailbox provider will display the logo.",
+    "reportHeading": "Local artifact analysis",
+    "userSupplied": "User supplied",
+    "resultsFor": "Local analysis for {0}",
+    "noFindings": "No issue was found in the supplied material.",
+    "complete": {
+      "one": "Local analysis complete: {0} finding.",
+      "other": "Local analysis complete: {0} findings."
+    },
+    "policyLabel": "MTA-STS policy",
+    "svgLabel": "BIMI SVG",
+    "errorNoDomain": "Run a DNS audit and select a completed domain first.",
+    "errorNoInput": "Paste or choose at least one policy or SVG file.",
+    "errorTooLarge": "{0} is larger than the {1} KiB limit. It was not parsed.",
+    "errorFileTooLarge": "{0} is larger than the {1} KiB limit. It was not read.",
+    "errorWrongType": "The selected file declares type {0}; this input accepts {1}.",
+    "errorFileRead": "The browser could not read {0}.",
+    "fileLoaded": "Loaded {0} locally. Nothing was uploaded.",
+    "token": {
+      "malformed-line": "The line is not a key: value field.",
+      "blank-line": "Blank lines are not permitted inside the policy.",
+      "invalid-version": "version must be exactly STSv1.",
+      "invalid-mode": "mode must be exactly enforce, testing, or none.",
+      "invalid-mx": "mx must be a valid domain or a wildcard covering only the complete left-most label.",
+      "invalid-max-age": "max_age must be an integer from 0 through 31557600.",
+      "missing-version": "The policy must contain a version field.",
+      "missing-mode": "The policy must contain a mode field.",
+      "missing-max-age": "The policy must contain a max_age field.",
+      "missing-mx": "An enforce or testing policy must contain at least one mx field.",
+      "duplicate-field": "Only the first occurrence of a repeated non-mx field is used.",
+      "bom-present": "A UTF-8 byte-order mark was removed from the start of the policy.",
+      "wrong-case-field": "Registered field names are case-sensitive; this spelling is treated as an unknown extension.",
+      "doctype-present": "DOCTYPE declarations are refused before XML parsing.",
+      "entity-declaration": "Entity declarations are refused before parsing because expansion can exhaust memory.",
+      "malformed-xml": "The source is not well-formed XML.",
+      "bad-root": "The document root must be an exactly named svg element.",
+      "script-element": "Script elements are not permitted in a BIMI logo.",
+      "event-handler": "Event-handler attributes such as onload are not permitted.",
+      "foreign-object": "foreignObject can embed non-SVG content and is not permitted.",
+      "external-reference-element": "image and use elements are refused because they can reference other resources.",
+      "external-reference": "External or empty href references are not permitted; only same-document fragments are allowed.",
+      "link-element": "Clickable link elements are not permitted.",
+      "external-style": "Styles may not import or reference another resource with url().",
+      "animation": "Animation elements are outside the accepted static-logo profile.",
+      "namespace-not-svg": "The root svg element must use the SVG namespace.",
+      "base-profile-not-tiny-ps": "baseProfile must be exactly tiny-ps.",
+      "version-not-1-2": "version must be exactly 1.2.",
+      "title-missing": "The root must contain one non-empty direct-child title element.",
+      "title-not-unique": "The root must contain exactly one direct-child title element.",
+      "desc-empty": "A desc element, when present, must not be empty.",
+      "viewbox-missing": "viewBox must contain four numbers with positive width and height.",
+      "viewbox-not-square": "viewBox width and height must be equal.",
+      "root-has-position": "The root svg must not carry x or y positioning attributes.",
+      "raster-data-uri": "Raster image data is outside the vector-only profile.",
+      "unsupported-attribute": "A constrained SVG Tiny PS attribute has a value the profile does not permit."
+    }
+  },
   "opt": {
     "dkim": "Check DKIM selectors",
     "dkimComprehensive": "Comprehensive DKIM scan (max 5 domains)",
@@ -334,7 +407,10 @@
       "TLSA Present",
       "Finding IDs",
       "Finding Severities",
-      "Remediation Step 1"
+      "Remediation Step 1",
+      "Artifact Finding IDs",
+      "Artifact Severities",
+      "Artifact Evidence (User Supplied)"
     ],
     "yes": "Yes",
     "no": "No",
@@ -609,7 +685,7 @@
       "msg": "The MTA-STS TXT record is malformed or missing its required id= tag."
     },
     "mta-sts-policy-unverified": {
-      "msg": "The MTA-STS TXT record is valid, but this browser-only audit cannot verify the HTTPS policy file because most policy hosts do not permit cross-origin reads."
+      "msg": "The MTA-STS TXT record is valid, but the DNS-only audit did not fetch its HTTPS policy. Supply the policy in the local artifact panel to validate it without a network request."
     },
     "tls-rpt-invalid": {
       "msg": "The TLS-RPT record is malformed or has no valid rua= destination."
@@ -1233,6 +1309,66 @@
       "what": "Without a DMARC <code>rua=</code> destination you never see who is sending mail as your domain or whether authentication passes; without TLS-RPT you never see TLS delivery failures. Reporting is how a configuration is proven correct rather than assumed to be.",
       "fix": "Add a DMARC <code>rua=</code> address, and a TLS-RPT record if you run a transport policy, so failures reach a mailbox you monitor.",
       "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "mta-sts-policy-invalid": {
+      "msg": "The supplied MTA-STS policy is invalid: {0}.",
+      "what": "These parser tokens identify fields or lines that do not conform to RFC 8461. A sender cannot safely apply the policy while any error remains.",
+      "fix": "Correct every named error in the supplied policy, then analyze it again before publishing the file."
+    },
+    "mta-sts-policy-hygiene": {
+      "msg": "The supplied MTA-STS policy is valid but needs review: {0}.",
+      "what": "These warnings do not invalidate the policy, but they usually identify editor artifacts, duplicate fields, or misleading field-name case.",
+      "fix": "Clean up the named warnings so the published policy is unambiguous to both operators and software."
+    },
+    "mta-sts-policy-mx-mismatch": {
+      "msg": "The supplied MTA-STS policy covers none of these delivery hosts: {0}.",
+      "what": "In enforce mode, a sender refuses delivery when the selected MX hostname matches no mx pattern in the policy. This is a mail-delivery outage waiting to happen.",
+      "fix": "Add an exact hostname or a valid one-label wildcard for every published delivery candidate."
+    },
+    "mta-sts-policy-mx-unused": {
+      "msg": "These MTA-STS mx patterns cover no current delivery host: {0}.",
+      "what": "An unused pattern is usually a stale provider hostname left behind after migration. It does not break current delivery, but it authorizes a host you no longer use.",
+      "fix": "Confirm the old provider is retired, then remove each unused mx line."
+    },
+    "mta-sts-policy-on-null-mx": {
+      "msg": "A policy was supplied for a domain that explicitly accepts no mail.",
+      "what": "A null MX states that the domain accepts no SMTP delivery. A mail-handling policy on the same domain contradicts that published intent.",
+      "fix": "Keep the null MX and remove the policy if the domain is parked, or restore real MX records if it should receive mail."
+    },
+    "mta-sts-policy-mx-unknown": {
+      "msg": "The policy's mx patterns could not be compared with delivery hosts.",
+      "what": "The audit did not establish a complete set of delivery candidates, so claiming either a match or a mismatch would be guesswork.",
+      "fix": "Resolve the DNS audit failure or publish usable MX or A/AAAA records, then run the audit and local comparison again."
+    },
+    "mta-sts-mode-testing": {
+      "msg": "The supplied policy uses mode: testing, so senders report failures but do not enforce them.",
+      "what": "Testing mode is a deployment stage. Mail still arrives when TLS or hostname validation fails, so it is not transport enforcement.",
+      "fix": "Review TLS-RPT reports, correct every legitimate failure, then change the policy to mode: enforce."
+    },
+    "mta-sts-mode-none": {
+      "msg": "The supplied policy uses mode: none and withdraws MTA-STS protection.",
+      "what": "Mode none tells senders to stop enforcing the previous policy. It is appropriate during the RFC-defined removal process, not as an end state for a protected domain.",
+      "fix": "Use mode: enforce for an active policy, or complete the documented staged removal if withdrawal is intentional."
+    },
+    "mta-sts-max-age-short": {
+      "msg": "The supplied policy has a short max_age of {0} seconds.",
+      "what": "A short cache lifetime makes senders refresh the policy frequently and reduces protection during a policy-host outage.",
+      "fix": "Use a longer max_age after testing is complete; 86400 seconds is the minimum threshold this audit recommends."
+    },
+    "bimi-svg-rejected": {
+      "msg": "The supplied BIMI SVG was rejected: {0}.",
+      "what": "The named constructs are unsafe or outside the deliberately narrow local-validation boundary. The logo is not rendered and no parsed node is inserted into this page.",
+      "fix": "Remove every named construct and export a self-contained SVG Tiny PS logo with no scripts, external references, DTD, or entity declaration."
+    },
+    "bimi-svg-profile": {
+      "msg": "The supplied BIMI SVG has profile diagnostics: {0}.",
+      "what": "The logo passed the security rejection screen, but the named SVG Tiny PS requirements may prevent mailbox providers from displaying it.",
+      "fix": "Correct each named profile diagnostic, then validate against the complete SVG Tiny PS schema in your publishing workflow."
+    },
+    "bimi-svg-valid": {
+      "msg": "The supplied BIMI SVG passed this local security and profile screen.",
+      "what": "No named rejection or profile diagnostic was found. This is not full RNC-schema certification and does not guarantee acceptance by any mailbox provider.",
+      "fix": "No change is required by this screen. Keep full schema validation and provider-specific checks in the publishing workflow."
     }
   },
   "findings": {

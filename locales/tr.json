@@ -31,6 +31,79 @@
     "desc": "Her satıra bir alan adı yazın veya bir .txt dosyası yükleyin. Tek seferde en fazla 200 alan adı.",
     "placeholder": "example.com\nmycompany.org\nanother-domain.net"
   },
+  "artifact": {
+    "heading": "Yerel bir MTA-STS ilkesini veya BIMI logosunu doğrulayın",
+    "separation": "Yukarıdaki DNS denetim sonuçları genel DNS'ten geldi. Bu paneldeki her şey yalnızca sizin sağladığınız dosyalardan veya metinden gelir.",
+    "privacy": "Burada sağladığınız hiçbir şey indirilmez, yüklenmez, saklanmaz veya DNS puanınıza eklenmez. Çözümleme bu tarayıcıda yerel olarak yapılır ve sayfa yeniden yüklendiğinde silinir. Bkz. <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Gizlilik</a>.",
+    "domainLabel": "Denetlenen alan adı",
+    "noDomains": "Önce bir DNS denetimi çalıştırın",
+    "policyHeading": "MTA-STS ilkesi",
+    "policyHelp": "mta-sts.txt içeriğini yapıştırın veya bir metin dosyası seçin. En fazla 64 KiB.",
+    "policyPlaceholder": "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400",
+    "policyFile": ".txt dosyası seç",
+    "svgHeading": "BIMI SVG logosu",
+    "svgHelp": "SVG kaynağını yapıştırın veya bir SVG dosyası seçin. En fazla 32 KiB. Logo incelenir, asla görüntülenmez.",
+    "svgPlaceholder": "Logo SVG dosyanızın içeriğini yapıştırın",
+    "svgFile": ".svg dosyası seç",
+    "analyze": "Sağlanan içeriği çözümle",
+    "clear": "Sağlanan içeriği temizle",
+    "schemaNote": "BIMI denetimleri güvenlik reddi durumlarını ve adı geçen SVG Tiny PS tanılarını kapsar; tam RNC şema sertifikasyonu değildir ve bir posta sağlayıcısının logoyu göstereceğinin güvencesi de değildir.",
+    "reportHeading": "Sağlanan içeriğin yerel çözümlemesi",
+    "userSupplied": "Kullanıcı tarafından sağlandı",
+    "resultsFor": "{0} için yerel çözümleme",
+    "noFindings": "Sağlanan içerikte herhangi bir sorun bulunamadı.",
+    "complete": {
+      "one": "Yerel çözümleme tamamlandı: {0} bulgu.",
+      "other": "Yerel çözümleme tamamlandı: {0} bulgu."
+    },
+    "policyLabel": "MTA-STS ilkesi",
+    "svgLabel": "BIMI SVG",
+    "errorNoDomain": "Bir DNS denetimi çalıştırın ve önce tamamlanmış bir alan adı seçin.",
+    "errorNoInput": "En az bir ilke veya SVG dosyası yapıştırın ya da seçin.",
+    "errorTooLarge": "{0}, {1} KiB sınırını aşıyor. Ayrıştırılmadı.",
+    "errorFileTooLarge": "{0}, {1} KiB sınırını aşıyor. Okunmadı.",
+    "errorWrongType": "Seçilen dosya {0} türünü bildiriyor; bu alan {1} kabul ediyor.",
+    "errorFileRead": "Tarayıcı {0} dosyasını okuyamadı.",
+    "fileLoaded": "{0} yerel olarak yüklendi. Hiçbir şey karşıya gönderilmedi.",
+    "token": {
+      "malformed-line": "Bu satır bir key: value alanı değil.",
+      "blank-line": "İlke içinde boş satırlara izin verilmez.",
+      "invalid-version": "version tam olarak STSv1 olmalıdır.",
+      "invalid-mode": "mode tam olarak enforce, testing veya none olmalıdır.",
+      "invalid-mx": "mx geçerli bir alan adı ya da yalnızca en soldaki etiketin tamamını kapsayan bir joker olmalıdır.",
+      "invalid-max-age": "max_age, 0 ile 31557600 arasında bir tam sayı olmalıdır.",
+      "missing-version": "İlke bir version alanı içermelidir.",
+      "missing-mode": "İlke bir mode alanı içermelidir.",
+      "missing-max-age": "İlke bir max_age alanı içermelidir.",
+      "missing-mx": "enforce veya testing ilkesi en az bir mx alanı içermelidir.",
+      "duplicate-field": "Yinelenen mx dışı bir alanın yalnızca ilk geçtiği yer kullanılır.",
+      "bom-present": "İlkenin başındaki UTF-8 bayt sırası işareti kaldırıldı.",
+      "wrong-case-field": "Kayıtlı alan adları büyük-küçük harfe duyarlıdır; bu yazım bilinmeyen bir uzantı olarak değerlendirilir.",
+      "doctype-present": "DOCTYPE bildirimleri XML ayrıştırmasından önce reddedilir.",
+      "entity-declaration": "Varlık bildirimleri, genişlemeleri belleği tüketebileceği için ayrıştırmadan önce reddedilir.",
+      "malformed-xml": "Kaynak, düzgün biçimli XML değil.",
+      "bad-root": "Belge kökü tam olarak svg adlı bir öğe olmalıdır.",
+      "script-element": "BIMI logosunda script öğelerine izin verilmez.",
+      "event-handler": "onload gibi olay işleyici özniteliklerine izin verilmez.",
+      "foreign-object": "foreignObject, SVG dışı içerik gömebildiği için izin verilmez.",
+      "external-reference-element": "image ve use öğeleri başka kaynaklara başvurabildikleri için reddedilir.",
+      "external-reference": "Dış veya boş href başvurularına izin verilmez; yalnızca aynı belge içindeki parçalar kabul edilir.",
+      "link-element": "Tıklanabilir bağlantı öğelerine izin verilmez.",
+      "external-style": "Stiller url() ile başka bir kaynağı içe aktaramaz veya ona başvuramaz.",
+      "animation": "Animasyon öğeleri, kabul edilen durağan logo profilinin dışındadır.",
+      "namespace-not-svg": "Kök svg öğesi SVG ad alanını kullanmalıdır.",
+      "base-profile-not-tiny-ps": "baseProfile tam olarak tiny-ps olmalıdır.",
+      "version-not-1-2": "version tam olarak 1.2 olmalıdır.",
+      "title-missing": "Kök, boş olmayan tek bir doğrudan alt title öğesi içermelidir.",
+      "title-not-unique": "Kök, tam olarak bir doğrudan alt title öğesi içermelidir.",
+      "desc-empty": "Varsa, desc öğesi boş olmamalıdır.",
+      "viewbox-missing": "viewBox, genişlik ve yüksekliği pozitif olan dört sayı içermelidir.",
+      "viewbox-not-square": "viewBox genişliği ile yüksekliği eşit olmalıdır.",
+      "root-has-position": "Kök svg öğesi x veya y konumlandırma öznitelikleri taşımamalıdır.",
+      "raster-data-uri": "Raster görüntü verisi, yalnızca vektör kabul eden profilin dışındadır.",
+      "unsupported-attribute": "Kısıtlanmış bir SVG Tiny PS özniteliği, profilin izin vermediği bir değer taşıyor."
+    }
+  },
   "opt": {
     "dkim": "DKIM seçicilerini kontrol et",
     "dkimComprehensive": "Kapsamlı DKIM taraması (en fazla 5 alan adı)",
@@ -334,7 +407,10 @@
       "TLSA Yayımlanmış",
       "Bulgu Kimlikleri",
       "Bulgu Önem Dereceleri",
-      "Düzeltme Adımı 1"
+      "Düzeltme Adımı 1",
+      "Sağlanan İçerik Bulgu Kimlikleri",
+      "Sağlanan İçerik Bulgu Önem Dereceleri",
+      "Sağlanan İçerik Kanıtı (Kullanıcı Tarafından Sağlandı)"
     ],
     "yes": "Evet",
     "no": "Hayır",
@@ -609,7 +685,7 @@
       "msg": "MTA-STS TXT kaydı hatalı biçimlendirilmiş veya zorunlu id= etiketi eksik."
     },
     "mta-sts-policy-unverified": {
-      "msg": "MTA-STS TXT kaydı geçerli, ancak çoğu politika sunucusu kaynaklar arası okumaya izin vermediğinden yalnızca tarayıcıda çalışan bu denetim HTTPS politika dosyasını doğrulayamıyor."
+      "msg": "MTA-STS TXT kaydı geçerli, ancak yalnızca DNS'e dayanan denetim onun HTTPS ilkesini indirmedi. İlkeyi yerel panelde sağlayarak hiçbir ağ isteği olmadan doğrulayın."
     },
     "tls-rpt-invalid": {
       "msg": "TLS-RPT kaydı hatalı biçimlendirilmiş veya geçerli bir rua= hedefi yok."
@@ -1233,6 +1309,66 @@
       "what": "Bir DMARC <code>rua=</code> hedefi olmadan, alan adınız olarak kimin posta gönderdiğini veya kimlik doğrulamanın geçip geçmediğini asla göremezsiniz; TLS-RPT olmadan TLS teslimat hatalarını asla göremezsiniz. Raporlama, bir yapılandırmanın doğru olduğunun varsayılması yerine kanıtlanma biçimidir.",
       "fix": "Bir DMARC <code>rua=</code> adresi ve bir taşıma politikası yürütüyorsanız bir TLS-RPT kaydı ekleyin, böylece hatalar izlediğiniz bir posta kutusuna ulaşır.",
       "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "mta-sts-policy-invalid": {
+      "msg": "Sağlanan MTA-STS ilkesi geçersiz: {0}.",
+      "what": "Bu ayrıştırıcı belirteçleri, RFC 8461 ile uyumlu olmayan alanları veya satırları gösterir. Herhangi bir hata sürdüğü sürece bir gönderici ilkeyi güvenle uygulayamaz.",
+      "fix": "Sağlanan ilkedeki adı geçen her hatayı düzeltin, ardından dosyayı yayımlamadan önce yeniden çözümleyin."
+    },
+    "mta-sts-policy-hygiene": {
+      "msg": "Sağlanan MTA-STS ilkesi geçerli, ancak gözden geçirilmeli: {0}.",
+      "what": "Bu uyarılar ilkeyi geçersiz kılmaz, ancak genellikle düzenleyici kalıntılarını, yinelenen alanları veya alan adlarında yanıltıcı büyük-küçük harf kullanımını gösterir.",
+      "fix": "Adı geçen uyarıları giderin; böylece yayımlanan ilke hem yöneticiler hem de yazılımlar için açık olur."
+    },
+    "mta-sts-policy-mx-mismatch": {
+      "msg": "Sağlanan MTA-STS ilkesi şu teslimat sunucularının hiçbirini kapsamıyor: {0}.",
+      "what": "enforce kipinde, seçilen MX sunucu adı ilkedeki hiçbir mx kalıbıyla eşleşmediğinde gönderici teslimatı reddeder. Bu, olmayı bekleyen bir posta teslimat kesintisidir.",
+      "fix": "Yayımlanan her teslimat adayı için tam bir sunucu adı ya da geçerli tek etiketli bir joker ekleyin."
+    },
+    "mta-sts-policy-mx-unused": {
+      "msg": "Bu MTA-STS mx kalıpları mevcut hiçbir teslimat sunucusunu kapsamıyor: {0}.",
+      "what": "Kullanılmayan bir kalıp genellikle geçişten sonra kalan eski bir sağlayıcı sunucu adıdır. Mevcut teslimatı bozmaz, ancak artık kullanmadığınız bir sunucuya yetki verir.",
+      "fix": "Eski sağlayıcının hizmetten kaldırıldığını doğrulayın, ardından kullanılmayan her mx satırını silin."
+    },
+    "mta-sts-policy-on-null-mx": {
+      "msg": "Açıkça posta kabul etmediğini bildiren bir alan adı için ilke sağlandı.",
+      "what": "Boş MX, alan adının SMTP teslimatı kabul etmediğini bildirir. Aynı alan adındaki bir posta işleme ilkesi, yayımlanan bu niyetle çelişir.",
+      "fix": "Alan adı park edilmişse boş MX'i koruyup ilkeyi kaldırın; posta alması gerekiyorsa gerçek MX kayıtlarını geri getirin."
+    },
+    "mta-sts-policy-mx-unknown": {
+      "msg": "İlkenin mx kalıpları teslimat sunucularıyla karşılaştırılamadı.",
+      "what": "Denetim, teslimat adaylarının eksiksiz bir kümesini saptayamadı; bu nedenle eşleşme ya da uyuşmazlık iddia etmek tahmin yürütmek olurdu.",
+      "fix": "DNS denetimindeki hatayı giderin ya da kullanılabilir MX veya A/AAAA kayıtları yayımlayın, sonra denetimi ve yerel karşılaştırmayı yeniden çalıştırın."
+    },
+    "mta-sts-mode-testing": {
+      "msg": "Sağlanan ilke mode: testing kullanıyor; göndericiler hataları bildirir ama zorunlu kılmaz.",
+      "what": "testing kipi bir dağıtım aşamasıdır. TLS veya sunucu adı doğrulaması başarısız olduğunda posta yine ulaşır; dolayısıyla bu, taşıma katmanında bir zorunlu kılma değildir.",
+      "fix": "TLS-RPT raporlarını inceleyin, gerçek olan her hatayı düzeltin, ardından ilkeyi mode: enforce olarak değiştirin."
+    },
+    "mta-sts-mode-none": {
+      "msg": "Sağlanan ilke mode: none kullanıyor ve MTA-STS korumasını geri çekiyor.",
+      "what": "none kipi göndericilere önceki ilkeyi uygulamayı bırakmalarını söyler. RFC'de tanımlanan kaldırma sürecinde uygundur; korunan bir alan adı için son durum olarak değil.",
+      "fix": "Etkin bir ilke için mode: enforce kullanın veya geri çekme kasıtlıysa belgelenmiş aşamalı kaldırmayı tamamlayın."
+    },
+    "mta-sts-max-age-short": {
+      "msg": "Sağlanan ilkenin max_age değeri kısa: {0} saniye.",
+      "what": "Kısa bir önbellek ömrü, göndericilerin ilkeyi sık sık yenilemesine yol açar ve ilke sunucusunun kesintisi sırasında korumayı azaltır.",
+      "fix": "Sınamalar bittikten sonra daha uzun bir max_age kullanın; bu denetimin önerdiği en düşük eşik 86400 saniyedir."
+    },
+    "bimi-svg-rejected": {
+      "msg": "Sağlanan BIMI SVG reddedildi: {0}.",
+      "what": "Adı geçen yapılar güvensizdir ya da bilinçli olarak dar tutulmuş yerel doğrulama sınırının dışındadır. Logo görüntülenmez ve ayrıştırılmış hiçbir düğüm bu sayfaya eklenmez.",
+      "fix": "Adı geçen her yapıyı kaldırın ve betik, dış başvuru, DTD ya da varlık bildirimi içermeyen, kendi kendine yeten bir SVG Tiny PS logosu dışa aktarın."
+    },
+    "bimi-svg-profile": {
+      "msg": "Sağlanan BIMI SVG'de profil tanıları var: {0}.",
+      "what": "Logo güvenlik reddi süzgecinden geçti, ancak adı geçen SVG Tiny PS gereksinimleri posta sağlayıcılarının onu göstermesini engelleyebilir.",
+      "fix": "Adı geçen her profil tanısını düzeltin, ardından dosyayı yayımlama akışınızda tam SVG Tiny PS şemasına karşı doğrulayın."
+    },
+    "bimi-svg-valid": {
+      "msg": "Sağlanan BIMI SVG, bu yerel güvenlik ve profil süzgecinden geçti.",
+      "what": "Adı geçen hiçbir ret ya da profil tanısı bulunamadı. Bu, tam RNC şema sertifikasyonu değildir ve hiçbir posta sağlayıcısının kabul edeceğini garanti etmez.",
+      "fix": "Bu süzgeç herhangi bir değişiklik gerektirmiyor. Yayımlama akışınızda tam şema doğrulamasını ve sağlayıcıya özgü denetimleri sürdürün."
     }
   },
   "findings": {
