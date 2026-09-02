@@ -510,7 +510,7 @@
     },
     {
       "path": "src/audit/artifacts.test.js",
-      "assertions": 73,
+      "assertions": 74,
       "note": "Co-located per spec §9. local-artifact-validation 1.6. The only place the two artifact validators meet, and the only place artifact findings are constructed.",
       "areas": [
         "the three artifact vocabularies, and the assertion that artifact evidence kinds share NO member with the DNS evidence algebra -- an overlap would let pasted text render as a queried DNS name",

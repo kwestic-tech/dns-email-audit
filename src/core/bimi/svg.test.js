@@ -432,21 +432,24 @@ eq('but every occurrence gets its own site',
  * pre-parse rejections collapsed into one blank evidence entry downstream. */
 section('7a. Pre-parse and root rejections record theirs too');
 
-const preParse = validateBimiSvg('<!DOCTYPE x [<!ENTITY a "b">]><svg/>', () => null);
-eq('DOCTYPE and ENTITY each get their own site, carrying the declaration',
+const preParse = validateBimiSvg(
+  '<!DOCTYPE x [<!ENTITY a "b"><!ENTITY c "d > e">]><svg/>', () => null);
+eq('the complete DOCTYPE and every ENTITY get their own sites',
   preParse.sites,
-  [{ token: 'doctype-present', element: '', value: '<!DOCTYPE x [<!ENTITY a "b">' },
-    { token: 'entity-declaration', element: '', value: '<!ENTITY a "b">' }]);
+  [{ token: 'doctype-present', element: '',
+    value: '<!DOCTYPE x [<!ENTITY a "b"><!ENTITY c "d > e">]>' },
+    { token: 'entity-declaration', element: '', value: '<!ENTITY a "b">' },
+    { token: 'entity-declaration', element: '', value: '<!ENTITY c "d > e">' }]);
 eq('a bad root names the root that WAS found',
   check(el('html', {}, [], 'http://www.w3.org/1999/xhtml')).sites,
   [{ token: 'bad-root', element: '<html>', value: 'http://www.w3.org/1999/xhtml' }]);
-eq('a parser that throws records why',
+eq('a parser that throws has no supplied position or material to invent',
   validateBimiSvg(OK_TEXT, () => { throw new TypeError('boom'); }).sites,
-  [{ token: 'malformed-xml', element: '', value: 'TypeError' }]);
-eq('a parser error node carries the engine message',
+  [{ token: 'malformed-xml', element: '', value: '' }]);
+eq('a parser error node and message are generated, not supplied evidence',
   check(el('svg', {}, [el('parsererror', {}, [text('bad xml')],
     'http://www.w3.org/1999/xhtml')])).sites,
-  [{ token: 'malformed-xml', element: '<parsererror>', value: 'bad xml' }]);
+  [{ token: 'malformed-xml', element: '', value: '' }]);
 eq('and an empty document is located without inventing an element',
   validateBimiSvg('   ', parserFor(conformant())).sites,
   [{ token: 'malformed-xml', element: '', value: '' }]);

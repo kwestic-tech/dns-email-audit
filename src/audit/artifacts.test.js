@@ -378,15 +378,24 @@ eq('several missing fields are ONE document-level entry, not one each',
   }).artifactFindings[0].evidence.length, 1);
 
 const preParseSvg = analyzeArtifacts({
-  domain: 'example.com', bimiSvgText: '<!DOCTYPE x [<!ENTITY a "b">]><svg/>',
+  domain: 'example.com',
+  bimiSvgText: '<!DOCTYPE x [<!ENTITY a "b"><!ENTITY c "d > e">]><svg/>',
   parseSvg: () => null,
 }).artifactFindings[0];
-eq('two pre-parse rejections do NOT collapse into one blank entry',
+eq('pre-parse evidence keeps the complete DOCTYPE and every ENTITY occurrence',
   preParseSvg.evidence.map(e => e.value),
-  ['<!DOCTYPE x [<!ENTITY a "b">', '<!ENTITY a "b">']);
+  ['<!DOCTYPE x [<!ENTITY a "b"><!ENTITY c "d > e">]>',
+    '<!ENTITY a "b">', '<!ENTITY c "d > e">']);
 eq('and neither carries its token as the value',
   preParseSvg.evidence.some(e => e.value.includes('doctype-present') ||
     e.value.includes('entity-declaration')), false);
+
+const parserFailure = analyzeArtifacts({
+  domain: 'example.com', bimiSvgText: OK_TEXT,
+  parseSvg: () => { throw new TypeError('boom'); },
+}).artifactFindings[0];
+eq('a parser failure has no supplied material or position to invent',
+  parserFailure.evidence, [{ kind: 'input', location: 'logo', value: '' }]);
 
 const twoBlanks = analyzeArtifacts({
   domain: 'example.com', mx: ['10 mail.example.com'],

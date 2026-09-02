@@ -92,15 +92,44 @@ const CONSTRAINED_ATTRS = Object.freeze({
   timelineBegin: 'onLoad',
 });
 
-const DOCTYPE = /<!DOCTYPE/i;
-const ENTITY_DECL = /<!ENTITY/i;
 const RASTER_DATA_URI = /data:image\/(?!svg\+xml)/i;
 const EXTERNAL_STYLE = /@import|url\s*\(/i;
 
-/** The declaration starting at `index`, bounded, for evidence. */
-function declarationAt(text, index) {
-  var end = text.indexOf('>', index);
-  return end === -1 ? text.slice(index) : text.slice(index, end + 1);
+/**
+ * Every declaration beginning with `marker`, without parsing the DTD.
+ *
+ * This scanner runs before DOMParser by design. It understands only the two
+ * boundaries needed to preserve evidence honestly: quoted `>` characters do
+ * not close a declaration, and a DOCTYPE's internal subset keeps the outer
+ * declaration open until its matching `]` and final `>`. Token arrays remain
+ * deduplicated, but sites are per occurrence, so every ENTITY is returned.
+ */
+function declarations(text, marker, doctype) {
+  var folded = text.toLowerCase();
+  var needle = marker.toLowerCase();
+  var out = [];
+  var from = 0;
+  var start;
+
+  while ((start = folded.indexOf(needle, from)) !== -1) {
+    var quote = '';
+    var brackets = 0;
+    var end = text.length;
+    for (var i = start + needle.length; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (quote) {
+        if (ch === quote) quote = '';
+        continue;
+      }
+      if (ch === '"' || ch === "'") { quote = ch; continue; }
+      if (doctype && ch === '[') { brackets++; continue; }
+      if (doctype && ch === ']' && brackets) { brackets--; continue; }
+      if (ch === '>' && (!doctype || brackets === 0)) { end = i + 1; break; }
+    }
+    out.push(text.slice(start, end));
+    from = end > start ? end : start + needle.length;
+  }
+  return out;
 }
 
 function emptyResult() {
@@ -364,14 +393,12 @@ export function validateBimiSvg(input, parseSvg) {
   // BEFORE the parser. Chrome expands internal entities; see the header.
   // Each records the DECLARATION ITSELF, so an operator is shown the construct
   // that was refused rather than only the name of the rule that refused it.
-  var doctype = DOCTYPE.exec(text);
-  if (doctype) {
-    site(result, 'rejections', 'doctype-present', '', declarationAt(text, doctype.index));
-  }
-  var entity = ENTITY_DECL.exec(text);
-  if (entity) {
-    site(result, 'rejections', 'entity-declaration', '', declarationAt(text, entity.index));
-  }
+  declarations(text, '<!DOCTYPE', true).forEach(function (value) {
+    site(result, 'rejections', 'doctype-present', '', value);
+  });
+  declarations(text, '<!ENTITY', false).forEach(function (value) {
+    site(result, 'rejections', 'entity-declaration', '', value);
+  });
   if (result.rejections.length) return result;
 
   if (typeof parseSvg !== 'function') {
@@ -389,7 +416,10 @@ export function validateBimiSvg(input, parseSvg) {
   try {
     doc = parseSvg(text);
   } catch (e) {
-    site(result, 'rejections', 'malformed-xml', '', String((e && e.name) || 'parse-threw'));
+    // No source position exists. Spec 1.8 assigns that condition the input
+    // variant with an empty value; an exception class is parser-generated
+    // metadata, not supplied artifact material.
+    site(result, 'rejections', 'malformed-xml', '', '');
     return result;
   }
 
@@ -406,9 +436,9 @@ export function validateBimiSvg(input, parseSvg) {
     if (!parserError && lower(nameOf(el)) === 'parsererror') parserError = el;
   });
   if (parserError) {
-    // The engine's own message, which is the most actionable thing available
-    // for a document that would not parse.
-    site(result, 'rejections', 'malformed-xml', nameOf(parserError), textOf(parserError));
+    // DOMParser generated this node and its message; neither is a construct
+    // from the supplied document. Keep the evidence honest and document-level.
+    site(result, 'rejections', 'malformed-xml', '', '');
     return result;
   }
 
