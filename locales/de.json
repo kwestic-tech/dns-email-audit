@@ -43,11 +43,11 @@
     "policyFile": ".txt-Datei auswählen",
     "svgHeading": "BIMI-SVG-Logo",
     "svgHelp": "Fügen Sie den SVG-Quelltext ein oder wählen Sie eine SVG-Datei. Maximal 32 KiB. Das Logo wird geprüft, niemals angezeigt.",
-    "svgPlaceholder": "Paste the contents of your logo SVG file",
+    "svgPlaceholder": "Fügen Sie den Inhalt Ihrer SVG-Logodatei ein",
     "svgFile": ".svg-Datei auswählen",
     "analyze": "Bereitgestelltes Material analysieren",
     "clear": "Bereitgestelltes Material löschen",
-    "schemaNote": "Die BIMI-Prüfungen decken Sicherheitsablehnungen und benannte SVG-Tiny-PS-Diagnosen ab; sie sind weder eine vollständige RNC-Schemazertifizierung noch eine Garantie, dass ein Mailbox-Anbieter das Logo anzeigt.",
+    "schemaNote": "Die BIMI-Prüfungen decken Sicherheitsablehnungen und benannte SVG Tiny PS-Diagnosen ab; sie sind weder eine vollständige RNC-Schemazertifizierung noch eine Garantie, dass ein Mailbox-Anbieter das Logo anzeigt.",
     "reportHeading": "Lokale Artefaktanalyse",
     "userSupplied": "Vom Benutzer bereitgestellt",
     "resultsFor": "Lokale Analyse für {0}",
@@ -101,7 +101,7 @@
       "viewbox-not-square": "Breite und Höhe von viewBox müssen gleich sein.",
       "root-has-position": "Das svg-Wurzelelement darf keine x- oder y-Positionsattribute tragen.",
       "raster-data-uri": "Rasterbilddaten liegen außerhalb des reinen Vektorprofils.",
-      "unsupported-attribute": "Ein eingeschränktes SVG-Tiny-PS-Attribut hat einen Wert, den das Profil nicht zulässt."
+      "unsupported-attribute": "Ein eingeschränktes SVG Tiny PS-Attribut hat einen Wert, den das Profil nicht zulässt."
     }
   },
   "opt": {
@@ -1358,12 +1358,12 @@
     "bimi-svg-rejected": {
       "msg": "Das bereitgestellte BIMI-SVG wurde abgelehnt: {0}.",
       "what": "Die genannten Konstrukte sind unsicher oder liegen außerhalb der bewusst engen Grenze der lokalen Prüfung. Das Logo wird nicht dargestellt und kein geparster Knoten in diese Seite eingefügt.",
-      "fix": "Entfernen Sie jedes genannte Konstrukt und exportieren Sie ein eigenständiges SVG-Tiny-PS-Logo ohne Scripts, externe Verweise, DTD oder Entity-Deklarationen."
+      "fix": "Entfernen Sie jedes genannte Konstrukt und exportieren Sie ein eigenständiges SVG Tiny PS-Logo ohne Scripts, externe Verweise, DTD oder Entity-Deklarationen."
     },
     "bimi-svg-profile": {
       "msg": "Das bereitgestellte BIMI-SVG weist Profildiagnosen auf: {0}.",
-      "what": "Das Logo hat die Sicherheitsprüfung bestanden, aber die genannten SVG-Tiny-PS-Anforderungen können verhindern, dass Mailbox-Anbieter es anzeigen.",
-      "fix": "Korrigieren Sie jede genannte Profildiagnose und prüfen Sie anschließend in Ihrem Veröffentlichungsablauf gegen das vollständige SVG-Tiny-PS-Schema."
+      "what": "Das Logo hat die Sicherheitsprüfung bestanden, aber die genannten SVG Tiny PS-Anforderungen können verhindern, dass Mailbox-Anbieter es anzeigen.",
+      "fix": "Korrigieren Sie jede genannte Profildiagnose und prüfen Sie anschließend in Ihrem Veröffentlichungsablauf gegen das vollständige SVG Tiny PS-Schema."
     },
     "bimi-svg-valid": {
       "msg": "Das bereitgestellte BIMI-SVG hat diese lokale Sicherheits- und Profilprüfung bestanden.",

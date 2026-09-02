@@ -43,7 +43,7 @@
     "policyFile": "Elegir archivo .txt",
     "svgHeading": "Logotipo SVG de BIMI",
     "svgHelp": "Pegue el código SVG o elija un archivo SVG. Máximo: 32 KiB. El logotipo se inspecciona, nunca se muestra.",
-    "svgPlaceholder": "Paste the contents of your logo SVG file",
+    "svgPlaceholder": "Pegue el contenido del archivo SVG de su logotipo",
     "svgFile": "Elegir archivo .svg",
     "analyze": "Analizar el material proporcionado",
     "clear": "Borrar el material proporcionado",
