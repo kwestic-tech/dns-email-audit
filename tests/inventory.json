@@ -632,13 +632,13 @@
     },
     {
       "path": "tests/contract/platform.test.mjs",
-      "assertions": 84,
+      "assertions": 87,
       "areas": [
         "the §11 primitive set is complete, checked against the module's own declaration",
         "a lexical scan rejects a bare read of a KNOWN ambient name outside the platform and adapters — defense in depth against regression, not a completeness proof, and its limits are asserted",
         "language built-ins are required APIs, not injected services",
         "every method keeps its receiver when destructured off the platform, proven against a window that refuses unbound calls",
-        "host objects are passed whole and constructors come from the window",
+        "host objects are passed whole and constructors, including DOMParser, come from the window",
         "a platform is per runtime: two calls share nothing and one window's calls do not reach another",
         "now() and formatDateTime() preserve the v0.5.0 call and are pinnable by the window's clock",
         "src/platform/ imports nothing and never reaches for the ambient window",

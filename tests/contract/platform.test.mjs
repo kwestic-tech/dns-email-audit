@@ -38,7 +38,7 @@ function strictWindow(overrides = {}) {
     Date,
     Intl,
     URL, URLSearchParams, AbortController,
-    Blob: class Blob {}, FileReader: class FileReader {},
+    Blob: class Blob {}, FileReader: class FileReader {}, DOMParser: class DOMParser {},
     document: { name: 'document' },
     navigator: { language: 'en' },
     console: { name: 'console' },
@@ -115,7 +115,7 @@ const platform = createBrowserPlatform(strictWindow());
  */
 const SPEC_11 = ['fetch', 'crypto', 'AbortController', 'URLSearchParams', 'setTimeout',
   'clearTimeout', 'document', 'localStorage', 'navigator', 'open', 'URL', 'Blob',
-  'FileReader', 'Intl', 'console', 'now', 'formatDateTime'];
+  'FileReader', 'DOMParser', 'Intl', 'console', 'now', 'formatDateTime'];
 for (const name of SPEC_11) {
   eq(`§11 names ${name}, and the platform declares it`, PLATFORM_PRIMITIVES.includes(name), true);
   eq(`and provides it`, platform[name] !== undefined, true);
@@ -261,6 +261,7 @@ eq('AbortController comes from the window', hostPlatform.AbortController, strict
 eq('URL comes from the window', hostPlatform.URL, strict.URL);
 eq('Blob comes from the window', hostPlatform.Blob, strict.Blob);
 eq('FileReader comes from the window', hostPlatform.FileReader, strict.FileReader);
+eq('DOMParser comes from the window', hostPlatform.DOMParser, strict.DOMParser);
 
 /* ── 3. Per runtime, never a singleton ────────────────────────────────── */
 section('3. Ownership');
