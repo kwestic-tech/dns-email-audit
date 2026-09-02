@@ -647,12 +647,13 @@
     },
     {
       "path": "tests/contract/runtime.test.mjs",
-      "assertions": 41,
+      "assertions": 46,
       "areas": [
         "importing src/runtime.js performs no DOM, network or global work, asserted in a process with no browser",
         "it constructs nothing at module scope and reads no ambient global",
         "the runtime carries the two supported facade members plus the Phase 2 parts",
         "generated data reaches the engine and the fixture table is the one in force",
+        "the runtime constructs artifact analysis with its injected DOMParser, forces image/svg+xml, prevents caller capability replacement, and passes the callback to UI",
         "ONE runtime holds ONE DoH cache with page lifetime: a sibling audit reuses the walk",
         "two runtimes share nothing, and isolation comes from constructing rather than from cache-busting an import",
         "the facade delegates to the engine, including a core transport failure",
@@ -675,7 +676,7 @@
     },
     {
       "path": "tests/build/artifact.test.mjs",
-      "assertions": 45,
+      "assertions": 46,
       "areas": [
         "the exact top-level _site allowlist, asserted as a set",
         "absence: src, tools, tests, docs, node_modules, js, assets, package files, AGENTS.md",
@@ -683,7 +684,7 @@
         "every script, stylesheet and source-map reference resolves inside _site",
         "co-location safety bound to metafile.inputs and the source map's sources, not to a sentinel",
         "no third-party JavaScript and no cross-origin reference at the delivery boundary",
-        "the allowlist and the pattern scans are each shown to catch an addition",
+        "the top-level allowlist, bundle-input allowlist and pattern scans are each shown to catch an addition",
         "no file under js/ is a bundle input"
       ]
     },

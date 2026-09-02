@@ -7,9 +7,10 @@
  * §12 gives `src/ui/` an edge to `ui/` siblings and `i18n/` only, and says
  * event functions receive audit callbacks as ARGUMENTS. That is exactly the
  * shape here: `analyzeDomain` and `checkConnectivity` — the two supported
- * facade members — arrive as callbacks, and `mount` is the runtime's. This
- * module imports no `audit/`, no `core/`, no `providers/` and no `src/data/`,
- * which `dns-transport.test.mjs` §5 asserts rather than trusts.
+ * facade members — arrive as callbacks; the separate local-artifact analyzer
+ * does too, and `mount` is the runtime's. This module imports no `audit/`, no
+ * `core/`, no `providers/` and no `src/data/`, which
+ * `dns-transport.test.mjs` §5 asserts rather than trusts.
  *
  * Its one import is its sibling `ui/report.js`, which is what retires the
  * transitional `main.js -> ui` edge Task 5.5 had to admit.
@@ -54,9 +55,9 @@ import { createReport, serializeDocument, styleElement } from './report.js';
 export function createUi(capabilities) {
   const {
     platform, i18n, renderer: R,
-    // The supported facade, passed as callbacks. §12: no UI module imports
-    // `audit/`, and these two are the whole of what it needs from it.
-    analyzeDomain, checkConnectivity, mount,
+    // The supported facade and the separate local-artifact capability, passed
+    // as callbacks. §12: no UI module imports `audit/`.
+    analyzeDomain, analyzeArtifacts, checkConnectivity, mount,
     // The English bundle, for the positional `csv.headers` backfill.
     englishBundle,
   } = capabilities;
@@ -1760,6 +1761,11 @@ export function createUi(capabilities) {
    * directly rather than through a live page, and no global carries them.
    */
   return {
+    // Local-artifact analysis is an injected UI capability, not a facade
+    // member and not a protocol import. The panel consumes this callback in
+    // the next UI-bound step; returning it now keeps the composition join
+    // executable and contract-tested rather than source-scanned.
+    analyzeArtifacts,
     appendRow, buildLearnMorePage, buildReportDocument, buildCsvRows, toCsvText,
     neutralizeCsvCell, issueMessage, tDns, rowHygieneValues, scoreBlock,
     advMiniDots, advFullDots, spfMeter, tile, badge, detailItem, log,
