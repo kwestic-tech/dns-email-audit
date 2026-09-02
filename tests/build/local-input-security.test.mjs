@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * The instrument for 0.8.0's local artifact analysis — built and PROVED before
- * the SVG validator it exists to measure.
+ * the SVG validator it exists to measure, then bound to the production panel
+ * once runtime made that validator reachable from the shipped bundle.
  *
  *   node tests/build/local-input-security.test.mjs   (npm run test:local-input-security)
  *
@@ -93,7 +94,6 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname, resolve, sep } from 'node:path';
 
-import { readFileSync } from 'node:fs';
 
 import { createSuite } from '../lib/assert.mjs';
 
@@ -927,33 +927,92 @@ eq('all three detectors report again after the negative runs',
   [restored.network.length > 0, restored.storage.length > 0, restored.insertion.length > 0],
   [true, true, true]);
 
-/* ── 5. The validator, against the parser it will actually meet ────────
+/* ── 5. The production panel, against the parser it actually meets ─────
  *
- * `src/core/bimi/svg.test.js` proves the RULES against a hand-built fixture
- * tree, and says plainly that the tree is not a parser. This is the other
- * half: the same module, driven by the real `DOMParser`, on documents whose
- * behaviour is a property of the engine rather than of the rules.
- *
- * The module is injected as source rather than imported, because nothing in
- * `src/core/bimi/` is in `dist/app.min.js` yet — the composer that will import
- * it does not exist. When it does, this section drives it through the panel
- * instead and the injection goes away. ────────────────────────────────── */
-section('5. The SVG validator against the real DOMParser');
+ * The earlier directory-bound validator commit was injected as source here
+ * because it was intentionally absent from the bundle. Runtime now makes the
+ * analyzer reachable, so source injection would test a second composition and
+ * could stay green while the real panel was broken. This section navigates the
+ * built application, completes one deterministic DNS audit, pastes into the
+ * real controls and clicks the real button. ───────────────────────────── */
+section('5. The production artifact panel against the real DOMParser');
 
-const validatorSource = readFileSync(join(REPO, 'src', 'core', 'bimi', 'svg.js'), 'utf8')
-  .replace(/^export /gm, '');
+// The panel accepts only a domain from a completed audit. Stub DoH before the
+// application captures fetch: connectivity succeeds, while artifact.test is a
+// deterministic NXDOMAIN result requiring no external network.
+await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `
+  (() => {
+    window.fetch = async input => {
+      const url = String(input && input.url || input);
+      // The transport serializes the numeric DNS type, not the mnemonic.
+      const connected = /[?&]name=example\.com(?:&|$)/.test(url) && /[?&]type=1(?:&|$)/.test(url);
+      const body = connected
+        ? { Status: 0, AD: false, Answer: [{ name: 'example.com.', type: 1, TTL: 60, data: '192.0.2.1' }] }
+        : { Status: 3, AD: false, Answer: [] };
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/dns-json' } });
+    };
+  })();
+` });
+await cdp.send('Page.navigate', { url: APP_URL });
+for (let attempt = 0; attempt < 80; attempt++) {
+  const ready = await evaluate('document.readyState === "complete" && !!document.getElementById("artifactAnalyzeBtn")');
+  if (ready === true) break;
+  await new Promise(r => setTimeout(r, 250));
+}
+await evaluate(`
+  document.getElementById('domainInput').value = 'artifact.test';
+  document.getElementById('auditBtn').click();
+`);
+for (let attempt = 0; attempt < 80; attempt++) {
+  const selected = await evaluate('document.getElementById("artifactDomain").value');
+  if (selected === 'artifact.test') break;
+  await new Promise(r => setTimeout(r, 250));
+}
+eq('the panel is bound to a completed audited domain',
+  await evaluate('document.getElementById("artifactDomain").value'), 'artifact.test');
 
 await evaluate(`
-  window.__svg = (() => {
-    ${validatorSource}
-    return { validateBimiSvg, BIMI_SVG_REJECTIONS, BIMI_SVG_DIAGNOSTICS };
-  })();
-  window.__check = text => JSON.stringify(
-    window.__svg.validateBimiSvg(text, t => new DOMParser().parseFromString(t, 'image/svg+xml')));
+  window.__panelParseCount = 0;
+  const nativePanelParse = DOMParser.prototype.parseFromString;
+  DOMParser.prototype.parseFromString = function (...args) {
+    window.__panelParseCount++;
+    return nativePanelParse.apply(this, args);
+  };
+  window.__panelSvg = text => {
+    const policy = document.getElementById('artifactPolicyText');
+    const svg = document.getElementById('artifactSvgText');
+    policy.value = '';
+    svg.value = text;
+    svg.dispatchEvent(new Event('input', { bubbles: true }));
+    document.getElementById('artifactAnalyzeBtn').click();
+    return JSON.stringify({
+      ids: [...document.querySelectorAll('#artifactResults [data-finding-id]')].map(e => e.dataset.findingId),
+      text: document.getElementById('artifactResults').textContent,
+      status: document.getElementById('artifactStatus').textContent,
+      parses: window.__panelParseCount,
+    });
+  };
+  window.__panelPolicy = text => {
+    const policy = document.getElementById('artifactPolicyText');
+    const svg = document.getElementById('artifactSvgText');
+    svg.value = '';
+    policy.value = text;
+    policy.dispatchEvent(new Event('input', { bubbles: true }));
+    document.getElementById('artifactAnalyzeBtn').click();
+    return JSON.stringify({
+      ids: [...document.querySelectorAll('#artifactResults [data-finding-id]')].map(e => e.dataset.findingId),
+      text: document.getElementById('artifactResults').textContent,
+      status: document.getElementById('artifactStatus').textContent,
+    });
+  };
 `);
 
 const checkSvg = async text => {
-  const raw = await evaluate(`window.__check(${JSON.stringify(text)})`);
+  const raw = await evaluate(`window.__panelSvg(${JSON.stringify(text)})`);
+  return typeof raw === 'string' ? JSON.parse(raw) : { error: raw };
+};
+const checkPolicy = async text => {
+  const raw = await evaluate(`window.__panelPolicy(${JSON.stringify(text)})`);
   return typeof raw === 'string' ? JSON.parse(raw) : { error: raw };
 };
 
@@ -971,9 +1030,8 @@ await evaluate('window.__probeArmed()');
 cdp.clearEvents();
 
 const cleanSvg = await checkSvg(conformantSvg);
-eq('a conformant tiny-ps logo passes through the real parser',
-  [cleanSvg.valid, cleanSvg.rejections, cleanSvg.diagnostics, cleanSvg.title],
-  [true, [], [], 'Brand']);
+eq('a conformant tiny-ps logo reaches the panel as its positive finding',
+  cleanSvg.ids, ['bimi.svg-valid']);
 
 section('5a. Hostile fixtures, parsed by the engine that ships');
 
@@ -996,45 +1054,52 @@ const HOSTILE = [
 
 for (const [label, source, token] of HOSTILE) {
   const result = await checkSvg(source);
-  eq(`${label} is rejected as ${token}`, result.rejections.includes(token), true);
-  eq(`  and the document is not valid`, result.valid, false);
+  eq(`${label} is rejected by the production panel`, result.ids, ['bimi.svg-rejected']);
+  eq(`  and the panel names ${token}`, result.text.includes(token), true);
 }
 
 /* The reason the entity rule is ordered before the parser, asserted against
  * the engine that does the expanding. */
-const bomb = await checkSvg('<!DOCTYPE lolz [<!ENTITY lol "lol">]>' + `<svg xmlns="${NS}"/>`);
-eq('an entity-declaring document never reached the parser', bomb.parsed, false);
+await evaluate('window.__panelParseCount = 0');
+await checkSvg('<!DOCTYPE lolz [<!ENTITY lol "lol">]>' + `<svg xmlns="${NS}"/>`);
+eq('an entity-declaring document never reached the parser',
+  await evaluate('window.__panelParseCount'), 0);
 
 section('5b. Wrong-case names, which XML does not fold');
 
 eq('a wrong-case <SVG> root is a bad root in the real parser',
-  (await checkSvg(`<SVG xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewBox="0 0 64 64"><title>t</title></SVG>`)).rejections,
-  ['bad-root']);
+  (await checkSvg(`<SVG xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewBox="0 0 64 64"><title>t</title></SVG>`)).text.includes('bad-root'), true);
 eq('baseprofile does not satisfy baseProfile',
-  (await checkSvg(`<svg xmlns="${NS}" baseprofile="tiny-ps" version="1.2" viewBox="0 0 64 64"><title>t</title></svg>`)).diagnostics,
-  ['base-profile-not-tiny-ps']);
+  (await checkSvg(`<svg xmlns="${NS}" baseprofile="tiny-ps" version="1.2" viewBox="0 0 64 64"><title>t</title></svg>`)).text.includes('base-profile-not-tiny-ps'), true);
 eq('viewbox does not satisfy viewBox',
-  (await checkSvg(`<svg xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewbox="0 0 64 64"><title>t</title></svg>`)).diagnostics,
-  ['viewbox-missing']);
+  (await checkSvg(`<svg xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewbox="0 0 64 64"><title>t</title></svg>`)).text.includes('viewbox-missing'), true);
 eq('a wrong-case <TITLE> does not satisfy the title requirement',
-  (await checkSvg(`<svg xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewBox="0 0 64 64"><TITLE>t</TITLE></svg>`)).diagnostics,
-  ['title-missing']);
+  (await checkSvg(`<svg xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewBox="0 0 64 64"><TITLE>t</TITLE></svg>`)).text.includes('title-missing'), true);
 // The deliberate asymmetry, in the real engine: security screening stays broad.
 eq('but a wrong-case <SCRIPT> is still screened out',
-  (await checkSvg(`<svg xmlns="${NS}"><SCRIPT>alert(1)</SCRIPT><title>t</title></svg>`)).rejections,
-  ['script-element']);
+  (await checkSvg(`<svg xmlns="${NS}"><SCRIPT>alert(1)</SCRIPT><title>t</title></svg>`)).text.includes('script-element'), true);
 
 section('5c. SVG Tiny PS permitted values, in the real parser');
 
 eq('the draft\'s own conformant attribute example raises nothing',
-  (await checkSvg(`<svg xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewBox="0 0 64 64" zoomAndPan="disable" externalResourcesRequired="false"><title>t</title></svg>`)).diagnostics,
-  []);
+  (await checkSvg(`<svg xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewBox="0 0 64 64" zoomAndPan="disable" externalResourcesRequired="false"><title>t</title></svg>`)).ids,
+  ['bimi.svg-valid']);
 eq('but a value outside the permitted table is unsupported',
-  (await checkSvg(`<svg xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewBox="0 0 64 64" zoomAndPan="magnify"><title>t</title></svg>`)).diagnostics,
-  ['unsupported-attribute']);
+  (await checkSvg(`<svg xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewBox="0 0 64 64" zoomAndPan="magnify"><title>t</title></svg>`)).text.includes('unsupported-attribute'), true);
 eq('a zero-area viewBox is unusable rather than square',
-  (await checkSvg(`<svg xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewBox="0 0 0 0"><title>t</title></svg>`)).diagnostics,
-  ['viewbox-missing']);
+  (await checkSvg(`<svg xmlns="${NS}" baseProfile="tiny-ps" version="1.2" viewBox="0 0 0 0"><title>t</title></svg>`)).text.includes('viewbox-missing'), true);
+
+const policyResult = await checkPolicy('version: STSv1\nmode: enforce\nmx: mail.artifact.test\nmax_age: 86400');
+eq('the production panel also drives the MTA-STS composer',
+  policyResult.ids, ['mta-sts.policy-mx-unknown']);
+eq('and labels that result as user supplied', policyResult.text.includes('User supplied'), true);
+
+await evaluate('window.__panelParseCount = 0');
+const oversized = await checkSvg(`<svg xmlns="${NS}">${' '.repeat(33 * 1024)}</svg>`);
+eq('a 33 KiB pasted SVG is rejected before analysis',
+  oversized.status.includes('32 KiB') && oversized.ids.length === 0, true);
+eq('and oversized pasted SVG never reaches DOMParser',
+  await evaluate('window.__panelParseCount'), 0);
 
 section('5d. Analysing all of that caused no violation');
 

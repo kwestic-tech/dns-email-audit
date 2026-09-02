@@ -93,8 +93,22 @@ function createWindow() {
     setTimeout, clearTimeout,
     URL, URLSearchParams, AbortController,
     crypto, Date, Intl,
-    Blob: class Blob { constructor(parts, options) { this.parts = parts; this.type = options && options.type; } },
+    Blob: class Blob {
+      constructor(parts, options) {
+        this.parts = parts;
+        this.type = options && options.type;
+        this.size = (parts || []).reduce((n, part) => n + new TextEncoder().encode(String(part)).length, 0);
+      }
+    },
     FileReader: class FileReader {},
+    DOMParser: class DOMParser {
+      parseFromString() {
+        return {
+          documentElement: { localName: 'parsererror', nodeName: 'parsererror', attributes: [], childNodes: [] },
+          getElementsByTagName: name => name === 'parsererror' ? [{}] : [],
+        };
+      }
+    },
     // Navigation is recorded, never performed. A suite that wants to assert on
     // `openLearnMore()` reads win.opened.
     opened: [],
@@ -183,6 +197,18 @@ function attachAppElements(document) {
   deepChecks.type = 'checkbox';
   deepChecks.checked = true;
   document.body.appendChild(deepChecks);
+
+  const artifactTags = {
+    artifactDomain: 'select', artifactPolicyText: 'textarea', artifactSvgText: 'textarea',
+    artifactPolicyFile: 'input', artifactSvgFile: 'input', artifactStatus: 'div',
+    artifactResults: 'div', artifactAnalyzeBtn: 'button', artifactClearBtn: 'button',
+  };
+  Object.keys(artifactTags).forEach(id => {
+    const el = document.createElement(artifactTags[id]);
+    el.id = id;
+    if (artifactTags[id] === 'input') el.type = 'file';
+    document.body.appendChild(el);
+  });
 }
 
 /**

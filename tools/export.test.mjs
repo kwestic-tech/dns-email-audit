@@ -349,11 +349,11 @@ eq('the protocol-depth columns are appended after the Tree Walk columns',
 eq('no pre-0.4.0 column moved', header.indexOf('Record Hygiene'), hygieneIdx);
 // 0.7.0's three structured-finding columns follow the protocol-depth block, in
 // their own fixed tail — appended after TLSA Present, never inserted.
-eq('the structured-finding columns are appended last',
+eq('the structured-finding columns stay in their original block',
   header.slice(hygieneIdx + 12, hygieneIdx + 15),
   ['Finding IDs', 'Finding Severities', 'Remediation Step 1']);
-eq('and they are the final three columns', header.slice(-3),
-  ['Finding IDs', 'Finding Severities', 'Remediation Step 1']);
+eq('the three local-artifact columns are appended after every DNS column', header.slice(-3),
+  ['Artifact Finding IDs', 'Artifact Severities', 'Artifact Evidence (User Supplied)']);
 // The columns carry stable id and severity tokens, not translated prose, and
 // the remediation column names what to fix first.
 eq('the Finding IDs column joins finding ids',
@@ -362,6 +362,41 @@ eq('the Finding Severities column joins severity tokens',
   data[header.indexOf('Finding Severities')], 'critical | medium');
 eq('the Remediation Step 1 column names the first step\'s findings',
   data[header.indexOf('Remediation Step 1')], 'spf.multiple-records | dmarc.missing');
+eq('a row with no local analysis leaves all artifact columns empty', data.slice(-3), ['', '', '']);
+
+APP.getArtifactSessions()['artifact.example'] = {
+  domain: 'artifact.example',
+  artifactFindings: [{
+    id: 'bimi.svg-rejected', key: 'bimi-svg-rejected', keyspace: 'finding',
+    severity: 'high', confidence: 'confirmed', category: 'issuance',
+    source: 'user-supplied', artifact: 'bimi-svg', args: ['external-reference'],
+    evidence: [{ kind: 'element', location: '<use>', value: '<use href="https://evil.example/logo.svg">' }],
+  }],
+};
+const artifactCsvRow = APP.buildCsvRows([Object.assign({}, row, { domain: 'artifact.example' })])[1];
+eq('artifact ids stay out of the DNS Finding IDs column',
+  artifactCsvRow[header.indexOf('Finding IDs')], 'spf.multiple-records | dmarc.missing');
+eq('the artifact id has its own column',
+  artifactCsvRow[header.indexOf('Artifact Finding IDs')], 'bimi.svg-rejected');
+eq('the artifact severity has its own column',
+  artifactCsvRow[header.indexOf('Artifact Severities')], 'high');
+const artifactEvidenceCell = artifactCsvRow[header.indexOf('Artifact Evidence (User Supplied)')];
+eq('artifact evidence preserves user-supplied provenance',
+  artifactEvidenceCell.includes('user-supplied'), true);
+eq('artifact evidence preserves its kind and location',
+  artifactEvidenceCell.includes('element :: <use>'), true);
+eq('artifact evidence preserves the supplied value',
+  artifactEvidenceCell.includes('https://evil.example/logo.svg'), true);
+const artifactReport = APP.buildArtifactReportContent();
+eq('the static artifact section is present when this session has analysis', !!artifactReport, true);
+eq('the static artifact section names the domain and provenance',
+  textOf(artifactReport).includes('artifact.example') && textOf(artifactReport).includes(t('artifact.userSupplied')), true);
+eq('the static artifact section carries the evidence as text',
+  textOf(artifactReport).includes('<use href="https://evil.example/logo.svg">'), true);
+eq('the supplied use element never becomes a use node in the report',
+  elements(artifactReport).some(el => el.localName === 'use'), false);
+eq('the static artifact section contains no interactive control',
+  elements(artifactReport).some(el => el.localName === 'button' || el.localName === 'input' || el.localName === 'textarea'), false);
 eq('the first data column is still the domain', header[0], 'Domain');
 eq('the data column keeps the published bytes exactly',
   data[7], FIXTURES.bidiOverride);
