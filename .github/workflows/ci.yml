@@ -123,7 +123,7 @@ jobs:
   # ────────────────────────────────────────────────────────────────────────
   # Five-surface equivalence against the finished release baseline. The
   # historical v0.5.0 baseline remains independently reproducible below, and
-  # release-compat.test.mjs bounds the intentional v0.5.0 -> current changes.
+  # release-compat.test.mjs bounds the intentional changes between baselines.
   #
   # Pinned to the Node the baseline was captured with. That is not fussiness:
   # the baseline binds Node, ICU and Unicode, because `toLocaleString` output
@@ -145,12 +145,12 @@ jobs:
       - run: npm run build:bundle
 
       - name: Against the working tree
-        run: node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.7.0.json
+        run: node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.8.0.json
 
       - name: Against the deployable artifact
         run: |
           npm run build
-          node tests/build/equivalence.mjs --subject-root=_site --baseline=tests/fixtures/equivalence/baseline-v0.7.0.json
+          node tests/build/equivalence.mjs --subject-root=_site --baseline=tests/fixtures/equivalence/baseline-v0.8.0.json
 
       # The baseline is committed, so CI must be able to reproduce it rather
       # than take it on trust. Spec Design §8.

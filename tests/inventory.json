@@ -691,13 +691,14 @@
     },
     {
       "path": "tests/build/release-compat.test.mjs",
-      "assertions": 7,
+      "assertions": 15,
       "areas": [
-        "the v0.5.0 and v0.7.0 baselines cover the same deterministic cases",
-        "the DNS trace remains byte-identical across the release",
-        "legacy result fields remain byte-identical after the two additive fields are removed",
-        "CSV changes only through three appended cells",
-        "negative controls prove each bounded-difference rule fails"
+        "the v0.5.0, v0.7.0 and v0.8.0 baselines cover the same deterministic cases",
+        "audit results and DNS traces remain byte-identical from v0.7.0 to v0.8.0",
+        "v0.8.0 CSV changes only through three appended artifact cells and one exact MTA-STS wording replacement",
+        "v0.8.0 DOM changes only through the exact MTA-STS wording replacement",
+        "v0.8.0 report changes are bounded to the named artifact CSS block and the same wording replacement",
+        "negative controls prove every v0.8.0 bounded-difference rule fails"
       ]
     },
     {
@@ -719,10 +720,10 @@
   ],
   "notInNpmTest": [
     {
-      "command": "node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.7.0.json",
-      "why": "The five-surface comparison against the finished release baseline. Roughly 70 s for 32 cases, so it runs in CI rather than inside npm test; release-compat.test.mjs separately bounds the intentional delta from the reproducible historical v0.5.0 baseline.",
+      "command": "node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.8.0.json",
+      "why": "The five-surface comparison against the finished release baseline. Roughly 70 s for 32 cases, so it runs in CI rather than inside npm test; release-compat.test.mjs separately bounds the intentional v0.5.0 to v0.7.0 and v0.7.0 to v0.8.0 deltas.",
       "areas": [
-        "exact five-surface equivalence against v0.7.0: result, query trace, CSV, HTML report, DOM"
+        "exact five-surface equivalence against v0.8.0: result, query trace, CSV, HTML report, DOM"
       ]
     },
     {
