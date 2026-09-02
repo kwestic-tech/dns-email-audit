@@ -395,7 +395,7 @@ export function createUi(capabilities) {
       if (!byTier[s].length) return;
       groups.push(R.el('div', { className: 'finding-group' }, [
         R.el('div', { className: 'finding-group-label finding-sev-' + s }, t('findings.severity.' + s)),
-        R.frag(byTier[s].map(findingCard)),
+        R.frag(byTier[s].map(function (finding) { return findingCard(finding, false); })),
       ]));
     });
 
@@ -408,7 +408,8 @@ export function createUi(capabilities) {
           className: 'showme-btn', type: 'button',
           dataset: { openLabel: t('findings.showMore', lowInfo.length), closeLabel: t('findings.showLess') },
         }, t('findings.showMore', lowInfo.length)),
-        R.el('div', { className: 'showme-content finding-collapsed' }, lowInfo.map(findingCard)),
+        R.el('div', { className: 'showme-content finding-collapsed' },
+          lowInfo.map(function (finding) { return findingCard(finding, false); })),
       ])
       : null;
 

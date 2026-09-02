@@ -915,7 +915,9 @@ const findingsRow = {
     mkFinding('dmarc.enforcement-without-auth', 'dmarc-enforcement-without-auth', 'critical', { keyspace: 'finding', dependsOn: ['dkim.weak-with-enforcement'] }),
     mkFinding('dkim.weak-with-enforcement', 'dkim-weak-with-enforcement', 'high', { keyspace: 'finding', blocks: ['dmarc.enforcement-without-auth'] }),
     mkFinding('dkim.mixed-key-strength', 'dkim-key-mixed', 'low'),
-    mkFinding('dmarc.no-rua', 'dmarc-no-rua', 'info', { confidence: 'unverified' }),
+    // A second low-tier card is intentional: it proves renderer callbacks do
+    // not mistake Array#map's index argument for static-report mode.
+    mkFinding('dmarc.no-rua', 'dkim-weak-with-enforcement', 'low', { keyspace: 'finding', confidence: 'unverified' }),
   ],
   remediationPlan: [
     { step: 1, findings: ['dkim.weak-with-enforcement', 'dkim.mixed-key-strength'], rationale: 'foundation', unblocks: ['dmarc.enforcement-without-auth'] },
@@ -964,6 +966,18 @@ eq('a confirmed finding shows no confidence marker',
   fEls.some(e => e.classList.contains('finding-conf-confirmed')), false);
 // Evidence renders under a finding.
 eq('evidence renders under a finding', fEls.some(e => e.classList.contains('finding-evidence')), true);
+// `Array#map` passes an index as its second callback argument. When
+// findingCard gained a `staticMode` second parameter for HTML reports, passing
+// it directly to map made every card after index zero look static in the live
+// UI: its disclosure button vanished and its content opened. Pin the live-card
+// contract at both observable points.
+const findingExplainers = fEls.filter(e => e.classList.contains('showme-wrap'));
+eq('every live finding explainer keeps its disclosure button',
+  fEls.filter(e => e.classList.contains('showme-btn') && e.parentNode && e.parentNode.classList.contains('showme-wrap')).length,
+  findingExplainers.length);
+eq('no live finding explainer is forced open by static-report mode',
+  fEls.filter(e => e.classList.contains('showme-content') && (e.getAttribute('style') || '').includes('display:block')).length,
+  0);
 // A domain with no findings renders no findings block — proven able to be empty.
 fb.id = '';
 const emptyBody = document.createElement('tbody');
