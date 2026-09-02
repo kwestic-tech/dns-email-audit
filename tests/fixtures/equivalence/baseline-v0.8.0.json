@@ -2,8 +2,8 @@
   "schema": 1,
   "subject": {
     "commit": {
-      "commit": "434fcfba2f6f6dfc9426aae07fd71aab8757c648",
-      "described": "v0.7.0-39-g434fcfb-dirty"
+      "commit": "0badc817e282f57ea94dcff6b4a4f25fc2110ca4",
+      "described": "v0.7.0-41-g0badc81-dirty"
     },
     "root": ".",
     "entry": "classic",
@@ -22,8 +22,8 @@
       },
       {
         "path": "dist/app.min.js",
-        "bytes": 505166,
-        "sha256": "ed302b8dd8c5fe1cd9bc544f221388207e473095c59ee63d2c56072bacc786c3"
+        "bytes": 505529,
+        "sha256": "5a0a9b8592fb14cb12706aabef71f70be52f05c7a701b3d7c4b61fce9be745cb"
       },
       {
         "path": "css/style.css",

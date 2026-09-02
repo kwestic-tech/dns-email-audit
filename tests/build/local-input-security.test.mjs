@@ -944,10 +944,28 @@ await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `
   (() => {
     const NativeFileReader = window.FileReader;
     window.__panelFileReads = 0;
+    window.__pendingPanelReads = [];
+    window.__completePanelRead = async name => {
+      const index = window.__pendingPanelReads.findIndex(item => item.file.name === name);
+      if (index < 0) throw new Error('no pending panel read for ' + name);
+      const item = window.__pendingPanelReads.splice(index, 1)[0];
+      const result = await item.file.text();
+      if (typeof item.reader.onload === 'function') item.reader.onload({ target: { result } });
+    };
+    window.__failPanelRead = name => {
+      const index = window.__pendingPanelReads.findIndex(item => item.file.name === name);
+      if (index < 0) throw new Error('no pending panel read for ' + name);
+      const item = window.__pendingPanelReads.splice(index, 1)[0];
+      if (typeof item.reader.onerror === 'function') item.reader.onerror(new Event('error'));
+    };
     window.FileReader = class InstrumentedFileReader extends NativeFileReader {
-      readAsText(...args) {
+      readAsText(file, ...args) {
         window.__panelFileReads++;
-        return super.readAsText(...args);
+        if (file && file.name.startsWith('delayed-')) {
+          window.__pendingPanelReads.push({ reader: this, file });
+          return;
+        }
+        return super.readAsText(file, ...args);
       }
     };
     window.__panelParseCount = 0;
@@ -1187,6 +1205,72 @@ const acceptedFileResult = JSON.parse(await evaluate(`(() => {
 })()`));
 eq('the accepted file is read exactly once', acceptedFileResult.reads, 1);
 eq('and its text reaches the production analyzer', acceptedFileResult.ids, ['bimi.svg-valid']);
+
+const typedDuringRead = JSON.parse(await evaluate(`(async () => {
+  const textarea = document.getElementById('artifactSvgText');
+  const input = document.getElementById('artifactSvgFile');
+  const transfer = new DataTransfer();
+  transfer.items.add(new File(['<svg><title>stale file</title></svg>'], 'delayed-stale.svg', { type: 'image/svg+xml' }));
+  input.files = transfer.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  textarea.value = '<svg><title>new pasted text</title></svg>';
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  await window.__completePanelRead('delayed-stale.svg');
+  return JSON.stringify({ value: textarea.value, status: document.getElementById('artifactStatus').textContent });
+})()`));
+eq('a slow file read cannot overwrite newer pasted text', typedDuringRead,
+  { value: '<svg><title>new pasted text</title></svg>', status: '' });
+
+const supersededRead = JSON.parse(await evaluate(`(async () => {
+  const input = document.getElementById('artifactSvgFile');
+  const select = (name, title) => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File(['<svg><title>' + title + '</title></svg>'], name, { type: 'image/svg+xml' }));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  select('delayed-first.svg', 'first');
+  select('delayed-second.svg', 'second');
+  await window.__completePanelRead('delayed-second.svg');
+  await window.__completePanelRead('delayed-first.svg');
+  return JSON.stringify({
+    value: document.getElementById('artifactSvgText').value,
+    status: document.getElementById('artifactStatus').textContent,
+  });
+})()`));
+eq('a superseded file read cannot overwrite the latest selection',
+  supersededRead.value, '<svg><title>second</title></svg>');
+
+const staleReadError = JSON.parse(await evaluate(`(() => {
+  const textarea = document.getElementById('artifactSvgText');
+  const input = document.getElementById('artifactSvgFile');
+  const transfer = new DataTransfer();
+  transfer.items.add(new File(['x'], 'delayed-error.svg', { type: 'image/svg+xml' }));
+  input.files = transfer.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  textarea.value = '<svg><title>newer</title></svg>';
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  window.__failPanelRead('delayed-error.svg');
+  return JSON.stringify({ value: textarea.value, status: document.getElementById('artifactStatus').textContent });
+})()`));
+eq('a superseded read error cannot replace the newer input status', staleReadError,
+  { value: '<svg><title>newer</title></svg>', status: '' });
+
+const clearedDuringRead = JSON.parse(await evaluate(`(async () => {
+  const input = document.getElementById('artifactSvgFile');
+  const transfer = new DataTransfer();
+  transfer.items.add(new File(['<svg><title>stale</title></svg>'], 'delayed-clear.svg', { type: 'image/svg+xml' }));
+  input.files = transfer.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  document.getElementById('artifactClearBtn').click();
+  await window.__completePanelRead('delayed-clear.svg');
+  return JSON.stringify({
+    value: document.getElementById('artifactSvgText').value,
+    status: document.getElementById('artifactStatus').textContent,
+  });
+})()`));
+eq('clearing the panel invalidates an in-flight file read', clearedDuringRead,
+  { value: '', status: '' });
 
 section('5d. Analysing all of that caused no violation');
 

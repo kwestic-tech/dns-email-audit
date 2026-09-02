@@ -116,6 +116,7 @@ export function createUi(capabilities) {
   var auditController = null;
   var MAX_UPLOAD_BYTES = 1024 * 1024;
   var artifactSessions = Object.create(null);
+  var artifactReadGenerations = { 'mta-sts-policy': 0, 'bimi-svg': 0 };
   var ARTIFACT_INPUTS = Object.freeze({
     'mta-sts-policy': Object.freeze({
       maxBytes: 64 * 1024, mime: 'text/plain', textarea: 'artifactPolicyText',
@@ -1874,7 +1875,9 @@ export function createUi(capabilities) {
     // result even when it is rejected before reading. Keeping that result
     // would make an error banner sit above stale findings that are still
     // eligible for export.
-    invalidateArtifactAnalysis();
+    invalidateArtifactAnalysis(kind);
+    var generation = artifactReadGenerations[kind];
+    var domain = $('artifactDomain').value;
     var problem = artifactInputProblem(kind, '', file);
     if (problem) {
       var key = problem.token === 'wrong-type' ? 'artifact.errorWrongType' : 'artifact.errorFileTooLarge';
@@ -1887,22 +1890,44 @@ export function createUi(capabilities) {
     }
     var reader = new FileReader();
     reader.onload = function (ev) {
+      // FileReader has no useful replacement ordering guarantee. An earlier
+      // read can finish after a later file selection, a paste, a domain
+      // switch, a clear, or a new audit. Only the latest read for this kind
+      // and domain may cross into the controls.
+      if (artifactReadGenerations[kind] !== generation || $('artifactDomain').value !== domain) return;
       $(config.textarea).value = String(ev.target.result || '');
-      invalidateArtifactAnalysis();
+      retireArtifactAnalysis();
       setArtifactStatus('artifact.fileLoaded', [file.name], false);
     };
-    reader.onerror = function () { setArtifactStatus('artifact.errorFileRead', [file.name], true); };
+    reader.onerror = function () {
+      if (artifactReadGenerations[kind] !== generation || $('artifactDomain').value !== domain) return;
+      setArtifactStatus('artifact.errorFileRead', [file.name], true);
+    };
     reader.readAsText(file);
   }
 
-  function invalidateArtifactAnalysis() {
+  function cancelArtifactReads(kind) {
+    if (Object.prototype.hasOwnProperty.call(artifactReadGenerations, kind)) {
+      artifactReadGenerations[kind]++;
+      return;
+    }
+    Object.keys(artifactReadGenerations).forEach(function (key) { artifactReadGenerations[key]++; });
+  }
+
+  function retireArtifactAnalysis() {
     var domain = $('artifactDomain').value;
     if (domain) delete artifactSessions[domain];
     renderArtifactAnalysis(null);
     setArtifactStatus('', [], false);
   }
 
+  function invalidateArtifactAnalysis(kind) {
+    cancelArtifactReads(kind);
+    retireArtifactAnalysis();
+  }
+
   function switchArtifactDomain() {
+    cancelArtifactReads();
     ['artifactPolicyText', 'artifactSvgText', 'artifactPolicyFile', 'artifactSvgFile'].forEach(function (id) {
       $(id).value = '';
     });
@@ -1911,6 +1936,7 @@ export function createUi(capabilities) {
   }
 
   function clearArtifacts() {
+    cancelArtifactReads();
     artifactSessions = Object.create(null);
     ['artifactPolicyText', 'artifactSvgText', 'artifactPolicyFile', 'artifactSvgFile'].forEach(function (id) {
       $(id).value = '';
@@ -1978,8 +2004,8 @@ export function createUi(capabilities) {
     $('artifactSvgFile').addEventListener('change', function (event) { loadArtifactFile('bimi-svg', event); });
     $('artifactAnalyzeBtn').addEventListener('click', runArtifactAnalysis);
     $('artifactClearBtn').addEventListener('click', clearArtifacts);
-    $('artifactPolicyText').addEventListener('input', invalidateArtifactAnalysis);
-    $('artifactSvgText').addEventListener('input', invalidateArtifactAnalysis);
+    $('artifactPolicyText').addEventListener('input', function () { invalidateArtifactAnalysis('mta-sts-policy'); });
+    $('artifactSvgText').addEventListener('input', function () { invalidateArtifactAnalysis('bimi-svg'); });
     $('artifactDomain').addEventListener('change', switchArtifactDomain);
     $('artifactResults').addEventListener('click', function (event) {
       var show = event.target.closest('.showme-btn');

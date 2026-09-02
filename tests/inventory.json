@@ -740,7 +740,7 @@
         "a collector that errors fails the gate instead of defaulting to an empty result",
         "writes INSIDE containers that already existed when the phase opened: a record put into or deleted from an existing object store with no version change, and a response body replaced for an already-cached URL",
         "representation-level changes a snapshot can collapse: replaced Blob and File records, a changed leaf below the encoder depth cap, a replaced typed-array record, cached bytes that decode to the same text, and changed response headers with an identical body",
-        "the production local-artifact panel driven through a completed deterministic audit and the real DOMParser: thirteen hostile fixtures, wrong-case names XML does not fold, the Tiny PS permitted values, MTA-STS composition, pre-parse size rejection, and the proof that analysing all of them caused no request, no storage write and no insertion"
+        "the production local-artifact panel driven through a completed deterministic audit and the real DOMParser: thirteen hostile fixtures, wrong-case names XML does not fold, the Tiny PS permitted values, MTA-STS composition, pre-parse size rejection, latest-input-wins file-read ordering, and the proof that analysing all of them caused no request, no storage write and no insertion"
       ]
     },
     {
