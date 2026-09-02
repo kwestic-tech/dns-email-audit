@@ -942,6 +942,20 @@ section('5. The production artifact panel against the real DOMParser');
 // deterministic NXDOMAIN result requiring no external network.
 await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `
   (() => {
+    const NativeFileReader = window.FileReader;
+    window.__panelFileReads = 0;
+    window.FileReader = class InstrumentedFileReader extends NativeFileReader {
+      readAsText(...args) {
+        window.__panelFileReads++;
+        return super.readAsText(...args);
+      }
+    };
+    window.__panelParseCount = 0;
+    const nativePanelParse = DOMParser.prototype.parseFromString;
+    DOMParser.prototype.parseFromString = function (...args) {
+      window.__panelParseCount++;
+      return nativePanelParse.apply(this, args);
+    };
     window.fetch = async input => {
       const url = String(input && input.url || input);
       // The transport serializes the numeric DNS type, not the mnemonic.
@@ -959,6 +973,18 @@ for (let attempt = 0; attempt < 80; attempt++) {
   if (ready === true) break;
   await new Promise(r => setTimeout(r, 250));
 }
+const beforeAudit = JSON.parse(await evaluate(`(() => {
+  document.getElementById('artifactSvgText').value = '<svg xmlns="http://www.w3.org/2000/svg"/>';
+  document.getElementById('artifactAnalyzeBtn').click();
+  return JSON.stringify({
+    parses: window.__panelParseCount,
+    status: document.getElementById('artifactStatus').textContent,
+    disabled: document.getElementById('artifactDomain').disabled,
+  });
+})()`));
+eq('the panel starts disabled without a completed audit', beforeAudit.disabled, true);
+eq('and an attempted analysis cannot cross that boundary',
+  beforeAudit.parses === 0 && beforeAudit.status.length > 0, true);
 await evaluate(`
   document.getElementById('domainInput').value = 'artifact.test';
   document.getElementById('auditBtn').click();
@@ -972,12 +998,6 @@ eq('the panel is bound to a completed audited domain',
   await evaluate('document.getElementById("artifactDomain").value'), 'artifact.test');
 
 await evaluate(`
-  window.__panelParseCount = 0;
-  const nativePanelParse = DOMParser.prototype.parseFromString;
-  DOMParser.prototype.parseFromString = function (...args) {
-    window.__panelParseCount++;
-    return nativePanelParse.apply(this, args);
-  };
   window.__panelSvg = text => {
     const policy = document.getElementById('artifactPolicyText');
     const svg = document.getElementById('artifactSvgText');
@@ -1100,6 +1120,73 @@ eq('a 33 KiB pasted SVG is rejected before analysis',
   oversized.status.includes('32 KiB') && oversized.ids.length === 0, true);
 eq('and oversized pasted SVG never reaches DOMParser',
   await evaluate('window.__panelParseCount'), 0);
+
+// File selection has a distinct boundary: File.size and the declared MIME
+// must be checked before FileReader, and rejecting a new input must retire a
+// previously successful analysis rather than leave stale findings exportable.
+await checkSvg(conformantSvg);
+const oversizedFile = await evaluate(`(() => {
+  const transfer = new DataTransfer();
+  transfer.items.add(new File(['x'.repeat(33 * 1024)], 'oversized.svg', { type: 'image/svg+xml' }));
+  const input = document.getElementById('artifactSvgFile');
+  input.files = transfer.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  return JSON.stringify({
+    reads: window.__panelFileReads,
+    ids: [...document.querySelectorAll('#artifactResults [data-finding-id]')].map(e => e.dataset.findingId),
+    status: document.getElementById('artifactStatus').textContent,
+  });
+})()`);
+const oversizedFileResult = JSON.parse(oversizedFile);
+eq('an oversized selected file is rejected before FileReader',
+  oversizedFileResult.reads, 0);
+eq('and its rejection retires the previous analysis',
+  oversizedFileResult.status.includes('32 KiB') && oversizedFileResult.ids.length === 0, true);
+
+await checkSvg(conformantSvg);
+const wrongTypeFile = await evaluate(`(() => {
+  const transfer = new DataTransfer();
+  transfer.items.add(new File(['<svg/>'], 'not-svg.html', { type: 'text/html' }));
+  const input = document.getElementById('artifactSvgFile');
+  input.files = transfer.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  return JSON.stringify({
+    reads: window.__panelFileReads,
+    ids: [...document.querySelectorAll('#artifactResults [data-finding-id]')].map(e => e.dataset.findingId),
+    status: document.getElementById('artifactStatus').textContent,
+  });
+})()`);
+const wrongTypeFileResult = JSON.parse(wrongTypeFile);
+eq('a selected file with the wrong MIME type is rejected before FileReader',
+  wrongTypeFileResult.reads, 0);
+eq('and its rejection also retires the previous analysis',
+  wrongTypeFileResult.status.includes('text/html') && wrongTypeFileResult.ids.length === 0, true);
+
+const acceptedFile = await evaluate(`(() => {
+  const textarea = document.getElementById('artifactSvgText');
+  textarea.value = '';
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  const transfer = new DataTransfer();
+  transfer.items.add(new File([${JSON.stringify(conformantSvg)}], 'logo.svg', { type: '' }));
+  const input = document.getElementById('artifactSvgFile');
+  input.files = transfer.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+})()`);
+eq('a selected file with omitted advisory MIME is accepted', acceptedFile, true);
+for (let attempt = 0; attempt < 40; attempt++) {
+  if (await evaluate('document.getElementById("artifactSvgText").value.length > 0')) break;
+  await new Promise(r => setTimeout(r, 50));
+}
+const acceptedFileResult = JSON.parse(await evaluate(`(() => {
+  document.getElementById('artifactAnalyzeBtn').click();
+  return JSON.stringify({
+    reads: window.__panelFileReads,
+    ids: [...document.querySelectorAll('#artifactResults [data-finding-id]')].map(e => e.dataset.findingId),
+  });
+})()`));
+eq('the accepted file is read exactly once', acceptedFileResult.reads, 1);
+eq('and its text reaches the production analyzer', acceptedFileResult.ids, ['bimi.svg-valid']);
 
 section('5d. Analysing all of that caused no violation');
 

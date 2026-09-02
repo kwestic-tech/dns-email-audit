@@ -1869,6 +1869,11 @@ export function createUi(capabilities) {
     var input = event.target;
     var file = input.files && input.files[0];
     if (!file) return;
+    // A new selection supersedes the material that produced the visible
+    // result even when it is rejected before reading. Keeping that result
+    // would make an error banner sit above stale findings that are still
+    // eligible for export.
+    invalidateArtifactAnalysis();
     var problem = artifactInputProblem(kind, '', file);
     if (problem) {
       var key = problem.token === 'wrong-type' ? 'artifact.errorWrongType' : 'artifact.errorFileTooLarge';
