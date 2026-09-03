@@ -1,6 +1,6 @@
 /**
  * The 0.9.0 report schema, its importer and the comparison.
- * Spec: report-comparison 1.4 (Final), sections 1, 4 and 5.
+ * Spec: report-comparison 1.6 (Final), sections 1, 4 and 5.
  *
  * -- Pure, and deliberately so ------------------------------------------
  *

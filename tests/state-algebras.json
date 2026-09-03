@@ -2148,7 +2148,7 @@
     "unregistered",
     "error"
    ],
-   "note": "The exported report's per-domain state (report-comparison 1.4 section 1). An unregistered or errored domain carries only its name and this token: there is no observation to export.",
+   "note": "The exported report's per-domain state (report-comparison 1.6 section 1). An unregistered or errored domain carries only its name and this token: there is no observation to export.",
    "resultPaths": [
     "domains[].state"
    ]
@@ -2168,7 +2168,7 @@
     "unchanged",
     "incomparable"
    ],
-   "note": "The comparison verdict per domain (report-comparison 1.4 section 5), decided in a fixed precedence: presence, then comparability, then generator semantics, then highest-severity finding movement, then score, then bare change.",
+   "note": "The comparison verdict per domain (report-comparison 1.6 section 5), decided in a fixed precedence: presence, then comparability, then generator semantics, then highest-severity finding movement, then score, then bare change.",
    "resultPaths": [
     "comparison.domains[].status"
    ]

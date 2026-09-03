@@ -30,22 +30,31 @@ the sequence above.
 ## Start here: implement 0.9.0 stateless report comparison
 
 Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md),
-**`1.4 (Final, amended)`, approved for implementation**. The review resolved all
+**`1.6 (Final, amended)`, approved for implementation**. The review resolved all
 seven `OQ-CMP-*` questions as `RQ-CMP-01`–`07`, reconciled the schema against
 what `v0.8.1` actually produces, and raised and resolved one more —
 `RQ-CMP-08`, per-protocol comparability. The 1.1 amendment corrects the
 implementable contract without reopening those product decisions.
 
-Build it in the six directory-bound commits the spec's §0 lists, in that
-order. Two of them can move a published surface, so they do not share a commit
-with the UI work:
+Build it in the nine owner-bound commits the spec's §0 lists, in that order.
+Each leaves the browser working, and the order is load-bearing in two places:
 
 1. `src/audit/` — `ANALYSIS_VERSION` and the observability projection.
 2. `src/runtime.js` — `APP_VERSION` and injected version metadata.
 3. `src/ui/report-data.js` — pure schema, validation and comparison.
-4. `src/ui/report.js` — `exportJSON()`.
-5. `src/ui/events.js` — import controls, comparison mode, filters.
-6. `locales/en.json` and all thirteen translations.
+4. `src/platform/browser.js` — `nowIso()`, the report's UTC instant.
+5. `src/runtime.js` — the resolver URL as a capability.
+6. `src/ui/events.js` — the run context the export reads, and the composed
+   selector predicate replacing an inlined copy of the grammar.
+7. `src/ui/report.js` — `exportJSON()`.
+8. `locales/en.json` and all thirteen translations.
+9. `src/ui/events.js` — import controls, comparison mode, filters.
+
+**The locale commit precedes the UI wiring, and that is not a preference.**
+Step 7 calls `t('toast.jsonExported')`, and `t()` returns the key itself when it
+is missing, so a control wired before step 8 would ship a browser whose export
+toast reads `toast.jsonExported`. Nothing invokes that call until a control
+exists, which is what makes step 7 sound on its own.
 
 The review findings are implementation prerequisites rather than design notes,
 and these are the easiest to miss:
@@ -86,7 +95,7 @@ The 0.8.0 release established the inputs 0.9.0 must respect:
 | --- | --- | --- | --- |
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
-| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec Final, amended at `1.4` | Versioned JSON schema, import validation and stateless comparison |
+| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec Final, amended at `1.6` | Versioned JSON schema, import validation and stateless comparison |
 | 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary

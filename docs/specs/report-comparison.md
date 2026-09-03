@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.4 (Final, amended) |
+| Spec version | 1.6 (Final, amended) |
 | Target release | 0.9.0 |
 | Status | Approved for implementation |
 | Depends on | [findings-and-remediation](implemented/findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
@@ -114,9 +114,40 @@ each is a different owner and two of them can move a published surface:
 2. `src/runtime.js` — `APP_VERSION`, pinned to `package.json`, and injection of
    both version values into the UI. No UI behavior change.
 3. `src/ui/report-data.js` — pure schema, validation and comparison. No DOM.
-4. `src/ui/report.js` — `exportJSON()` beside the existing two exports.
-5. `src/ui/events.js` — import controls, comparison mode, rendering, filters.
-6. `locales/en.json` and all thirteen translations.
+4. `src/platform/browser.js` — `nowIso()`. The report's `generatedAt` is a
+   machine-read UTC instant; `now()` returns milliseconds and
+   `formatDateTime()` returns localized text, so neither can supply it, and the
+   alternative is an ambient `Date` read in `src/ui/`.
+5. `src/runtime.js` — the resolver URL as a capability. `src/ui/` may not
+   import `core/dns/`, and the report records the resolver as provenance.
+6. `src/ui/events.js` — the run context the export reads: the options in force
+   and the instant the run completed, stamped once. Also replaces the inlined
+   copy of the DKIM selector grammar with the composed predicate, per section
+   0's rule above.
+7. `src/ui/report.js` — `exportJSON()` beside the existing two exports.
+8. `locales/en.json` and all thirteen translations.
+9. `src/ui/events.js` — import controls, comparison mode, rendering, filters.
+
+Steps 4 through 6 are preparation for the export and were absent from the 1.0
+plan, which named only `src/ui/report.js`. They are listed rather than folded
+into it because each has a different owner, and a commit spanning
+`src/platform/`, `src/runtime.js`, `src/ui/events.js` and `src/ui/report.js`
+would be a cross-owner change wearing a directory-bound label. Each leaves the
+browser working: a platform primitive nobody calls yet, a capability the UI
+ignores until it needs it, and run state nothing reads until the export exists.
+`src/ui/events.js` appears twice because its two concerns are separable and
+land a release-critical distance apart — the run context is provenance the
+export needs, while the import controls are the comparison interface.
+
+The locale commit precedes the UI wiring, and the order is load-bearing
+rather than a preference. `AGENTS.md` requires the browser to work at every
+commit and requires an English key and all thirteen translations to land in
+the same change. Commit 4 already calls `t('toast.jsonExported')`, and `t()`
+returns the key itself when it is missing, so wiring a button before the
+strings exist would ship a commit whose export toast reads
+`toast.jsonExported`. Nothing invokes that call until a control exists, so
+commit 4 is sound on its own; commit 5 supplies the words and commit 6 the
+control that speaks them.
 
 ### 1. The report schema
 
@@ -335,8 +366,23 @@ edges; it does not invent a root module absent from the architecture matrix.
 `results` array and downloads it through the existing download capability
 already passed into `src/ui/report.js`.
 
-The exported filename includes a UTC date so two exports do not collide in a
-downloads folder: `dns-email-audit-2026-08-20.json`.
+The exported filename carries the run's own UTC date:
+`dns-email-audit-2026-08-20.json`. It is derived from `generatedAt` rather
+than from a second clock read, so a file's name and its contents cannot
+disagree.
+
+It is deliberately **not** a unique name. Two exports of one run, or of two
+runs on the same UTC date, request the same filename and the browser
+disambiguates in the downloads folder.
+
+Two earlier statements of this were wrong and are recorded so the reasoning is
+not reconstructed incorrectly a third time. The first claimed the date
+*prevented* collisions, which it does not. The second said a name carrying a
+time would differ between two exports of one run — also false, because such a
+time would come from the same stable `generatedAt` the date does, and would be
+identical across both exports. The actual reasons are ordinary: a date is
+readable in a downloads folder, a second-precision timestamp is more identity
+than the file needs, and the browser already handles the rare repeat.
 
 Conservative size bound, from
 [`fixtures/report-size-measurement-0.9.0.md`](fixtures/report-size-measurement-0.9.0.md):
@@ -811,6 +857,8 @@ rather than reverse-engineering it from score pillars and finding confidence.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.6 | 2026-09-03 | **Final, amended during implementation of commit 4.** Two corrections. **(a) The published commit plan did not describe the work.** Section 0 promised directory-bound commits and named `src/ui/report.js` alone for the export, but the export needs a platform primitive, a runtime capability and run state in `src/ui/events.js` first. Rather than commit a cross-owner change under a directory-bound label, those three are now listed as their own steps, each leaving the browser working. **(b) The filename rationale was wrong a second time.** 1.5 replaced a false non-collision claim with a false justification — a timestamped name derived from the run's stable `generatedAt` would NOT differ between two exports of one run. The real reasons are recorded instead. No product decision reopened. Found by Codex review of the commit-4 working tree (I18, I19). |
+| 1.5 | 2026-09-03 | **Final, amended during implementation of commit 4.** Two corrections, both found by review of the working tree. **(a) The commit order was unbuildable.** Commit 4 calls `t('toast.jsonExported')`; the prescribed order wired the button at 5 and added the strings at 6, so that intermediate commit would have shipped a browser whose export toast read `toast.jsonExported` — against `AGENTS.md`, which requires the browser to work at every commit and requires an English key and thirteen translations in one change. Locales now land at 5 and the UI wiring at 6. **(b) The filename's stated rationale was false.** A date-only name does not prevent collisions: every run on one UTC date requests the same name. The claim is corrected rather than the name changed, and the rejected alternative is recorded — a name carrying a time would differ between two exports of one run, which is the property acceptance criterion 4 protects. No product decision reopened. Found by Codex review of the commit-4 working tree (I16, I18). |
 | 1.4 | 2026-09-03 | **Final, amended during implementation of commit 3.** Publishes the parser and producer interfaces the implementation actually has, and makes the composition of the DKIM selector grammar normative. 1.3 specified `parseReport(text)` and said nothing about how a rule owned by `src/core/dkim/` reaches a module in `src/ui/`, which may not import it. That silence is not cosmetic: it is what allowed a local duplicate of the grammar to pass review, wrong in both directions, and then allowed a factory destructuring to shadow the owner import with `undefined` so the production path skipped every selector check while the schema suite stayed green. Section 0 now names the owner and the injection path, and fixes three properties: the rule is never restated under `src/ui/`, the producer filters with the same predicate the importer validates with, and a missing capability raises rather than being read as permission. Section 4 carries both signatures. No product decision reopened. Found by Codex review of the commit-3 working tree (I14). |
 | 1.3 | 2026-09-03 | **Final, amended during implementation of commit 3.** Resolves a contradiction the 1.0 draft introduced and 1.1/1.2 carried: section 1 required `domain` to be a normalized ASCII domain string while the testing table required an `<img src=x onerror=alert(1)>` domain to be accepted and rendered. Both cannot conform. Identity and metadata fields are now stated as grammar-bounded and rejected when malformed; record and evidence values remain unbounded and carry the rendering-safety guarantee, which is where hostile bytes legitimately arrive. Section 5 step 3 now names score and grade movement as well as finding and record movement, because two releases can share an `analysisVersion` while differing in `generator.version`, and the written algorithm would otherwise reach the score rule and claim `improved` across unequal finding semantics. The outright-incomparable rule now states that "every observed change" means every one, so a blocked record move beside a comparable score delta is not incomparable. No product decision reopened. Found by Codex review of the commit-3 working tree (I1, I2, I6) and reproduced before the amendment. |
 | 1.2 | 2026-09-03 | **Final, amended during implementation of commit 1.** §5's option-to-protocol mapping was incomplete: it named only the five dedicated advanced protocols, but `advanced` also gates `spfLookups`, `spfSubnets` and `reportAuth`, which nine finding ids depend on — eight on `protocol: 'spf'` and `dmarc.external-unverifiable`. Under 1.1 a comparison across an `advanced` mismatch would have reported all eight SPF findings as `resolved`, the exact `RQ-CMP-08` harm, in the protocol carrying the most findings. The mapping now covers `spf`, `dmarc` and `reporting`; both are `unproven` rather than `not-run` with `advanced` off, since their records are still retrieved. No product decision reopened. Found by Codex review of the commit-1 working tree and reproduced against `src/audit/audit-domain.js` before the amendment. |

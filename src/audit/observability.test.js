@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Per-protocol observability. Spec: report-comparison 1.4 (Final), §1 and §5.
+ * Per-protocol observability. Spec: report-comparison 1.6 (Final), §1 and §5.
  *
  * Section 4 is the reason this module exists. The two cases there are the ones
  * that made the 1.0 draft's derivation — `score.unproven` plus the protocol of

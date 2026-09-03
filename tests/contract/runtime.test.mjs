@@ -111,7 +111,7 @@ eq('checkConnectivity is a function', typeof runtime.checkConnectivity, 'functio
 eq('mount is a function', typeof runtime.mount, 'function');
 
 /* ── The version metadata 0.9.0's report carries ──────────────────────── */
-section('Version metadata (report-comparison 1.4 §2)');
+section('Version metadata (report-comparison 1.6 §2)');
 
 const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'));
 
