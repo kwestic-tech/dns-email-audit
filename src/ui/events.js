@@ -1203,17 +1203,39 @@ export function createUi(capabilities) {
    * would tell an operator to go and check their DNS.
    */
   function appendRowIsolated(r) {
+    var domain = String(r && r.domain || '');
+    var id = 'row-' + domain.replace(/\W/g, '-');
+    var detId = 'det-' + domain.replace(/\W/g, '-');
     try {
       appendRow(r);
     } catch (e) {
       var tb = $('tableBody');
-      var id = 'row-' + String(r && r.domain || '').replace(/\W/g, '-');
+      // Undo the partial row before drawing the replacement.
+      //
+      // `appendRow()` appends the main `<tr>` and THEN builds the detail row,
+      // which is where every per-protocol renderer runs and therefore where a
+      // failure is most likely. A throw between the two leaves a half-drawn
+      // row in the table, and appending the fallback beside it would produce
+      // two rows carrying the same id — which breaks `toggleDetail()`,
+      // `filterTable()` and the sort, all of which address rows by id.
+      //
+      // A walk over the table's own children, not `getElementById`. The id
+      // lookup answers for one node, and a partial row plus the fallback would
+      // be two; it also cannot be used to iterate, since a detached node is
+      // still findable by id in some implementations and the loop would not
+      // terminate. The children of `#tableBody` are the rows, so this is both
+      // the smaller search and the exact one.
+      // `Array.from`, because `childNodes` is a live NodeList in a browser and
+      // removing while iterating it skips entries.
+      Array.from(tb.childNodes).forEach(function (node) {
+        if (node.id === id || node.id === detId) tb.removeChild(node);
+      });
       tb.appendChild(R.el('tr', {
         id: id,
-        dataset: { domain: String(r && r.domain || ''), overall: 'error' },
+        dataset: { domain: domain, overall: 'error' },
       }, [
         R.el('td'),
-        R.el('td', { className: 'domain-cell' }, R.host(String(r && r.domain || ''))),
+        R.el('td', { className: 'domain-cell' }, R.host(domain)),
         R.el('td', { colspan: '8' }, [
           badge(t('badge.renderError'), 'crit'),
           R.el('span', { style: 'margin-left:8px;color:var(--ink3);font-size:12px' },

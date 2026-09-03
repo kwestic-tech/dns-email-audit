@@ -1181,6 +1181,34 @@ const before = elements(document.getElementById('tableBody')).length;
 let isolatedThrew = null;
 try { APP.appendRowIsolated(failingRow); } catch (e) { isolatedThrew = e.message; }
 eq('the failure is contained', isolatedThrew, null);
+
+// A row that fails PART WAY through is the realistic case, not one that fails
+// on its first statement: `appendRow()` appends the main <tr> and then builds
+// the detail row, which is where every per-protocol renderer runs. Without
+// removing the partial row the fallback lands beside it and two rows carry the
+// same id, which breaks `toggleDetail()`, `filterTable()` and the sort — all
+// of which address rows by id.
+const rowsWithId = (rowId) => Array.from(document.getElementById('tableBody').childNodes)
+  .filter(node => node.id === rowId).length;
+
+// `verifications` is read only while building the detail row, which
+// `appendRow()` does AFTER it has appended the main row — so this throw leaves
+// a real partial row behind, which a throw on the first statement would not.
+const partialRow = { ...result, domain: 'partial.example' };
+Object.defineProperty(partialRow, 'verifications', {
+  get() { throw new Error('forced detail-row failure'); },
+  enumerable: true,
+});
+APP.appendRowIsolated(partialRow);
+eq('exactly one row carries the failed domain\'s id',
+  rowsWithId('row-partial-example'), 1);
+eq('and no detail row was left behind',
+  rowsWithId('det-partial-example'), 0);
+eq('the surviving row is the display-failure row',
+  Array.from(document.getElementById('tableBody').childNodes)
+    .filter(node => node.id === 'row-partial-example')
+    .map(node => textOf(node).includes(t('badge.renderError'))),
+  [true]);
 eq('the unguarded call really does throw',
   (() => { try { APP.appendRow(failingRow); return null; }
     catch (e) { return e.message; } })(), 'forced render failure');
