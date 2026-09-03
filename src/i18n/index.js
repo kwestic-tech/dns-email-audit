@@ -62,13 +62,27 @@ export function createI18n({ englishBundle, platform } = {}) {
 
   /* ── Key resolution ─────────────────────────────────────────────────── */
 
+  var hasOwn = Object.prototype.hasOwnProperty;
+
   // 'issue.spf-missing.what' → walks the bundle object. Array indices work
   // too ('learnMore.bimi.sections.0.h').
+  //
+  // Each step is an OWN-property read. A plain `node[part]` walk resolves
+  // 'constructor', '__proto__', 'toString' and every other Object.prototype
+  // member against the prototype chain, so a key nobody wrote returns a
+  // function or an object instead of undefined. That is not hypothetical here:
+  // callers build keys from data. `findingCard()` looks up
+  // 'artifact.token.' + token where the token can be a hostname or pattern the
+  // user pasted, so `mx: constructor` in a supplied MTA-STS policy rendered
+  // the source text of `Object`. The same mechanism reaches the renderer as a
+  // non-string and throws. Own-property reads make an unwritten key undefined,
+  // which is what every caller already handles.
   function resolve(bundle, key) {
     var parts = String(key).split('.');
     var node = bundle;
     for (var i = 0; i < parts.length; i++) {
       if (node === null || typeof node !== 'object') return undefined;
+      if (!hasOwn.call(node, parts[i])) return undefined;
       node = node[parts[i]];
     }
     return node;

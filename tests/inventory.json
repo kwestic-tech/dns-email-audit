@@ -57,9 +57,10 @@
     },
     {
       "path": "tools/interpolate.test.mjs",
-      "assertions": 17,
+      "assertions": 35,
       "areas": [
-        "message interpolation and plural selection in the i18n layer"
+        "message interpolation and plural selection in the i18n layer",
+        "key resolution reads own properties only, so no Object.prototype member resolves"
       ]
     },
     {

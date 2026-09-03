@@ -16,7 +16,7 @@ import { loadLayers } from './lib/browser-harness.mjs';
 // bundle rather than evaluating a script, and this suite needs no entry point,
 // no DOM and no engine — only the interpolation the i18n layer performs.
 const win = await loadLayers({ render: false, engine: false });
-const { t, tp } = win;
+const { t, tp, tRaw } = win;
 
 let pass = 0, fail = 0;
 const eq = (label, actual, expected) => {
@@ -105,6 +105,36 @@ eq('plural one', tp('__test__.plural', 1, 'X'), '1 thing with X');
 eq('plural other', tp('__test__.plural', 5, 'X'), '5 things with X');
 eq('a count that looks like a placeholder cannot inject',
   tp('__test__.plural', 5, '{0}'), '5 things with {0}');
+
+/* ── 6. Key resolution reads own properties only ─────────────────────── */
+section('6. Key resolution reads own properties only');
+
+// `resolve()` walks the bundle one dotted segment at a time. A plain
+// `node[part]` read resolves every Object.prototype member against the
+// prototype chain, so a key nobody wrote comes back as a function or an
+// object. Callers build keys from data — `findingCard()` looks up
+// 'artifact.token.' + token, and for the MX-mismatch findings that token is a
+// hostname or pattern the user pasted into the artifact panel — so this is
+// reachable from supplied text, not only from a mistyped constant.
+//
+// Every case below returned a truthy non-string before the own-property guard.
+for (const name of ['constructor', '__proto__', 'toString', 'valueOf',
+  'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString']) {
+  // `typeof`, not the value: an unguarded walk returns a function, and
+  // JSON.stringify prints a function as `undefined`, so comparing values
+  // directly makes the negative control's output read as if it passed.
+  eq(`tRaw('artifact.token.${name}') is undefined`,
+    typeof tRaw('artifact.token.' + name), 'undefined');
+  eq(`tRaw('${name}') is undefined at the bundle root`,
+    typeof tRaw(name), 'undefined');
+}
+
+// The guard must not break a legitimate walk. Array indices are own properties
+// of the array, and the shipped learn-more content depends on that.
+eq('an array index still resolves',
+  typeof tRaw('learnMore.bimi.sections.0.h'), 'string');
+eq('an ordinary nested key still resolves',
+  typeof tRaw('score.unproven'), 'string');
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);
