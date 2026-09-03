@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.1 (Final, amended) |
+| Spec version | 1.2 (Final, amended) |
 | Target release | 0.9.0 |
 | Status | Approved for implementation |
 | Depends on | [findings-and-remediation](implemented/findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
@@ -455,9 +455,29 @@ score comparison.
 Options remain recorded as provenance, but mismatch is applied through a closed
 mapping rather than blanking the domain: `dkim`, `dkimComprehensive` and
 `selectors` affect `dkim`; `deepChecks` affects `mx` and `dane`; `wildcard`
-affects `dns` and `dkim`; `www` affects `dns`; and `advanced` affects every
-advanced protocol. Selector arrays are sorted and deduplicated before export and
-compare as sets.
+affects `dns` and `dkim`; `www` affects `dns`; and `advanced` affects the five
+dedicated advanced protocols — `dnssec`, `caa`, `mta-sts`, `tls-rpt` and
+`bimi` — **and also `spf`, `dmarc` and `reporting`**. Selector arrays are sorted
+and deduplicated before export and compare as sets.
+
+That last clause is the 1.2 correction, and it is not a tidy-up. `advanced`
+gates sub-audits on two protocols whose records are core queries:
+`audit-domain.js` defaults `spfLookups`, `spfSubnets` and `reportAuth` to `null`
+and populates them only inside `if (ctx.options.advanced)`. Nine finding ids
+depend on those three facts — eight on `protocol: 'spf'` (`spf.over-limit`,
+`spf.near-limit`, `spf.cycle`, `spf.large-subnet`, `spf.medium-subnet`,
+`spf.redundant-mechanism`, `spf.partial-coverage`, `spf.indeterminate`) and
+`dmarc.external-unverifiable`. Treating `spf` as observed with `advanced` off
+would let a comparison across an `advanced` mismatch report all eight SPF
+findings as `resolved`, which is the precise harm `RQ-CMP-08` exists to prevent,
+in the protocol that carries the most findings.
+
+`spf` and `dmarc` are still never `not-run`: their records are always retrieved.
+With `advanced` off they are `unproven` — partially observed, which is exactly
+what they are. And the distinction stays about whether a check RAN: an external
+authorization result that ran and came back uncertain leaves `dmarc` `observed`,
+because `dmarc.external-unverifiable` reporting uncertainty is not the same as
+the check not happening.
 
 A domain is `incomparable` outright when its state differs, no protocol remains
 comparable, or every observed change belongs to an incomparable protocol. Global
@@ -548,6 +568,8 @@ Comparison fixtures:
 | Different `analysisVersion` | `scoreDelta` null, finding diff still produced |
 | Different `generator.version`, same DNS | raw id diff shown as baseline/current-only; status `changed`, never improved/regressed |
 | `deepChecks` differs | MX and DANE incomparable; other protocol diffs intact |
+| `advanced` differs | SPF, DMARC and the five advanced protocols incomparable; the eight advanced-gated SPF ids report `unknown`, never `resolved` |
+| `advanced` on, external authorization uncertain | DMARC still `observed`; the policy diff runs |
 | DKIM unproven in the current report | DKIM findings `unknown`, DMARC diff intact, domain not blanked |
 | DKIM unproven in the baseline | Same, `side: 'baseline'` |
 | Every protocol unproven on one side | Domain `incomparable` |
@@ -565,7 +587,7 @@ Hostile import fixtures, each asserting rejection or safe rendering:
 | `{"__proto__": {"polluted": true}}` | Rejected; `({}).polluted` is undefined |
 | `constructor`/`prototype` as object keys | Rejected |
 | A finding id of `__proto__` | Looked up on a null-prototype map, no resolution |
-| 20 MB file | Rejected before `JSON.parse` |
+| 20 MiB file | Rejected before `JSON.parse` |
 | 100,000 domains | Rejected on array length |
 | 201 domains | Rejected on array length |
 | 50-level nesting | Rejected on depth |
@@ -734,6 +756,7 @@ rather than reverse-engineering it from score pillars and finding confidence.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.2 | 2026-09-03 | **Final, amended during implementation of commit 1.** §5's option-to-protocol mapping was incomplete: it named only the five dedicated advanced protocols, but `advanced` also gates `spfLookups`, `spfSubnets` and `reportAuth`, which nine finding ids depend on — eight on `protocol: 'spf'` and `dmarc.external-unverifiable`. Under 1.1 a comparison across an `advanced` mismatch would have reported all eight SPF findings as `resolved`, the exact `RQ-CMP-08` harm, in the protocol carrying the most findings. The mapping now covers `spf`, `dmarc` and `reporting`; both are `unproven` rather than `not-run` with `advanced` off, since their records are still retrieved. No product decision reopened. Found by Codex review of the commit-1 working tree and reproduced against `src/audit/audit-domain.js` before the amendment. |
 | 1.1 | 2026-09-03 | **Final, amended after Codex review.** Kept the eight product decisions but corrected their implementable contract. Moved `APP_VERSION` to the permitted `src/runtime.js` composition owner and split it from the audit commit; added the omitted `deepChecks` option and a closed option-to-protocol mapping; replaced the lossy `score.unproven`/finding-confidence inference with an explicit total `observability` map that represents unscored MX and DANE failures; qualified cross-generator finding movement as baseline/current-only with domain status `changed`; made the normalized record path, scalar type, nullability, enum and canonical-order contracts plus their bidirectional whitelist test normative; added `incomparableReasons` and a deterministic severity/count/score status order; removed the producer-incompatible 4096-character string ceiling and the unnecessary privacy-policy implication; and removed incorrect SARIF and CycloneDX precedent claims. Findings and their reproductions are recorded in `CODEX Review - docs-report-comparison-spec-review.md`. |
 | 1.0 | 2026-09-03 | **Final.** Resolved every open question and reconciled the schema against what `v0.8.1` actually produces. The schema is now a named projection with an explicit exclusion table, rather than the result object: `score` uses the real `pts`/`breakdown.pillars` shape, the invented `records` block is replaced by the real result fields, findings carry their real nine comparable fields, and display state, locale routing, the Tree Walk query trace and the unrelated `txt`/`verifications` material are excluded by decision. `rubricVersion` becomes `analysisVersion` gating the score delta only (`RQ-CMP-06`); the import domain cap becomes `MAX_DOMAINS` = 200 and the size questions are settled by measurement (`RQ-CMP-01`, `RQ-CMP-02`); no integrity field ships (`RQ-CMP-03`); comparison overlays the results table (`RQ-CMP-04`); two reports only (`RQ-CMP-05`); artifact findings are excluded with no reserved field (`RQ-CMP-07`). Added `RQ-CMP-08`, per-protocol comparability, so an unobserved protocol is never reported as fixed. Corrected acceptance criterion 4, which was untestable while `generatedAt` was export time, and criterion 6, which contradicted `PRIVACY.md`. Recorded that `generator.version` has no runtime source today. |
 | 0.3 | 2026-09-01 | Recorded the settled 0.8.0 provenance boundary: user-supplied artifact findings are excluded from the versioned JSON comparison report. `OQ-CMP-07` now carries that upstream decision into this draft rather than presenting it as open. No other report question was resolved. |

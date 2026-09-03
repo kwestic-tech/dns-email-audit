@@ -59,7 +59,7 @@ console.log(mb(full), mb(cur), mb(noEv), mb(noRec));
 ## What the numbers settle
 
 **The 0.3 draft cannot import its own export.** Exporting the whole result
-object at the draft's own 1000-domain array limit produces 8.62 MB, and the
+object at the draft's own 1000-domain array limit produces 8.62 MiB, and the
 draft's own byte limit before `JSON.parse` is 8 MiB. A tool that emits files it
 then rejects is a defect, not a tuning question, and it is only invisible
 because nobody has built the exporter yet.
