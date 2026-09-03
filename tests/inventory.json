@@ -65,7 +65,7 @@
     },
     {
       "path": "tools/render.test.mjs",
-      "assertions": 400,
+      "assertions": 404,
       "areas": [
         "row rendering and the detail panels",
         "values derived from DNS records reach object-keyed lookups without resolving through Object.prototype",

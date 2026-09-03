@@ -1123,9 +1123,28 @@ for (const name of ['__proto__', 'constructor', 'toString', 'valueOf',
   eq(`an NS label of ${name} renders a row instead of throwing`, threw, null);
 }
 
+// The provider badge is DNS-derived text too. Through 0.8.0 it was the one
+// such string that reached the display without a sentinel substitution, and
+// because the badge is not an `.rv` element the `unicode-bidi: isolate` rule
+// did not contain it either — the same NS record reordered in the badge and
+// was sentinelised in the nameserver list two rows below.
+const bidiNs = 'ns1.\u202Elive.net';
+eq('the override reaches the derived label unsentinelised',
+  detectDNSProvider([bidiNs], 'derived.example').includes('\u202E'), true);
+APP.appendRow(derivedRow(bidiNs));
+
 // Re-read the table: section 16 re-renders under fourteen locales, so the
 // reference captured in section 9 is not necessarily the live element.
 const derivedBody = textOf(document.getElementById('tableBody'));
+
+eq('no raw override survives into the provider badge',
+  derivedBody.includes('\u202E'), false);
+eq('the provider badge is sentinelled instead',
+  derivedBody.includes('\u2039RLO\u203A'), true);
+// A '@'-prefixed token resolves to a translator's string, which is trusted.
+// Substituting into it would be a defect, not a warning.
+eq('a translated provider name is not sentinelled',
+  t('provider.unknown').includes('\u2039'), false);
 
 // The label reaches the badge, so the row is not merely surviving by dropping
 // it. `__proto__` is not a token, so it is displayed as the proper name it

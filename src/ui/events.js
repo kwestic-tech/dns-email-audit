@@ -155,9 +155,24 @@ export function createUi(capabilities) {
     '@dash': 'labels.dash',
   });
 
+  // Two branches, and only one of them is DNS-derived. A '@'-prefixed token
+  // resolves to a translator's string, which is trusted and must not be
+  // sentinelised — `‹RLO›` in the middle of a translated provider name would
+  // be a defect, not a warning. Everything else is a substring of the first NS
+  // record: `detectDNSProvider()` returns it verbatim, and through 0.8.0 it was
+  // the one DNS-derived string that reached the display without passing
+  // `R.value()` or `R.sentinelText()`. The badge is not an `.rv` element, so
+  // the `unicode-bidi: isolate` rule did not contain it either, and the same
+  // record was shown two ways: reordering in the badge, sentinelised in the
+  // nameserver list two rows below.
+  //
+  // Substituting here rather than in `badge()` is deliberate — badges also
+  // carry trusted translated text, and `badge()` cannot tell which it was
+  // handed.
   function label(value) {
     if (typeof value !== 'string') return '';
-    return TOKEN_KEYS[value] ? t(TOKEN_KEYS[value]) : value;
+    var key = TOKEN_KEYS[value];
+    return key ? t(key) : R.sentinelText(value);
   }
 
   function spfLabel(spfStatus) {
