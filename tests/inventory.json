@@ -693,7 +693,7 @@
   },
   {
    "path": "tests/contract/platform.test.mjs",
-   "assertions": 87,
+   "assertions": 92,
    "areas": [
     "the §11 primitive set is complete, checked against the module's own declaration",
     "a lexical scan rejects a bare read of a KNOWN ambient name outside the platform and adapters — defense in depth against regression, not a completeness proof, and its limits are asserted",

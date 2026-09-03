@@ -106,6 +106,11 @@ const platform = createBrowserPlatform(strictWindow());
  * is NOT evidence that the scan below is exhaustive: the scan could not have
  * found it either.
  *
+ * `nowIso` is here as of spec `1.9`, added for 0.9.0's report timestamp. The
+ * alternative was an ambient `Date` read in `src/ui/` -- a breach this catalog
+ * does not name and so could not have caught, which is the third instance of
+ * the limit recorded at `1.2`.
+ *
  * `navigator` is here as of spec `1.1`. Version 1.0 omitted it while claiming
  * the list named every ambient primitive the moved code uses, which was false:
  * `detectLang()` reads `navigator.languages` and `navigator.language`. The
@@ -115,11 +120,26 @@ const platform = createBrowserPlatform(strictWindow());
  */
 const SPEC_11 = ['fetch', 'crypto', 'AbortController', 'URLSearchParams', 'setTimeout',
   'clearTimeout', 'document', 'localStorage', 'navigator', 'open', 'URL', 'Blob',
-  'FileReader', 'DOMParser', 'Intl', 'console', 'now', 'formatDateTime'];
+  'FileReader', 'DOMParser', 'Intl', 'console', 'now', 'formatDateTime', 'nowIso'];
 for (const name of SPEC_11) {
   eq(`§11 names ${name}, and the platform declares it`, PLATFORM_PRIMITIVES.includes(name), true);
   eq(`and provides it`, platform[name] !== undefined, true);
 }
+/**
+ * `nowIso()` asserted by VALUE, not only by presence.
+ *
+ * Declaring a name and returning a real instant are different claims, and the
+ * bidirectional list check above only makes the first. A stub returning
+ * `'not-a-timestamp'` satisfies every other assertion in this file.
+ */
+eq('nowIso returns a canonical UTC timestamp',
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(platform.nowIso()), true);
+eq('and it is the same clock now() reads',
+  Math.abs(Date.parse(platform.nowIso()) - platform.now()) < 2000, true);
+// Proven able to fail: the regex is what rejects a stub.
+eq('a non-timestamp would not pass that check',
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test('not-a-timestamp'), false);
+
 eq('the platform provides every name it declares',
   PLATFORM_PRIMITIVES.filter(name => platform[name] === undefined), []);
 // Both directions: the declaration must not quietly grow past the spec either.
