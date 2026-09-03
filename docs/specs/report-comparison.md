@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.2 (Final, amended) |
+| Spec version | 1.4 (Final, amended) |
 | Target release | 0.9.0 |
 | Status | Approved for implementation |
 | Depends on | [findings-and-remediation](implemented/findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
@@ -74,10 +74,37 @@ from UI back into the audit engine:
 | Import controls, comparison mode and rendering | `src/ui/events.js` |
 | `ANALYSIS_VERSION` | `src/audit/scoring.js`, carried in audit output or injected capabilities |
 | `APP_VERSION` | `src/runtime.js`, injected into the UI with the other runtime capabilities |
+| The DKIM selector grammar | `src/core/dkim/`, re-exposed by `src/audit/create-audit.js` and injected into the UI by `src/runtime.js` |
 
 Both new UI modules remain within the existing `ui/` sibling edge. The UI must
 not import `src/audit/scoring.js`; the composition boundary passes version
 metadata with completed audit facts.
+
+One protocol rule has to reach this pure UI module, and how it does is part of
+the contract rather than an implementation detail. A DKIM selector is valid or
+not by `validDkimSelector()` in `src/core/dkim/`, which `src/ui/` may not
+import. The predicate therefore travels as a CAPABILITY: its owner exports it,
+`src/audit/create-audit.js` re-exposes it, `src/runtime.js` injects it beside
+the version metadata, and the schema functions receive it.
+
+Three properties of that arrangement are normative, and each of them is a
+defect this spec has already produced by leaving them unsaid:
+
+1. **The rule is never restated under `src/ui/`.** A local copy drifts. The
+   first implementation aliased selectors to a domain-name grammar, which
+   forbids the underscore the owner allows and permits the dot the owner
+   forbids -- wrong in both directions.
+2. **The producer filters with the same predicate the importer validates
+   with.** Otherwise user input the audit would never query is exported and
+   then refused by the same build, which is the self-rejection defect the size
+   measurement was written to prevent, one field over.
+3. **A missing capability is a loud failure, not permission.** Treating an
+   absent predicate as "skip the check" makes a forgotten wiring call
+   indistinguishable from a working one. It hid exactly that: a factory
+   destructuring shadowed the owner import with `undefined`, the production
+   path skipped every selector check, and the schema suite stayed green
+   because it imported the predicate directly. The composition is therefore
+   asserted at the runtime, not only where the schema is exercised.
 
 Implementation is split into directory-bound commits, in this order, because
 each is a different owner and two of them can move a published surface:
@@ -173,7 +200,7 @@ The rest of the scalar contract is closed too:
 | `resolver` | HTTPS URL string |
 | `options.dkim`, `dkimComprehensive`, `www`, `wildcard`, `advanced`, `deepChecks` | Booleans |
 | `options.selectors` | Array of syntactically valid selector strings, sorted and deduplicated |
-| `domain`, `organizationalDomain` | Normalized ASCII domain strings |
+| `domain`, `organizationalDomain` | Normalized ASCII domain strings: LDH labels, at most 253 characters. **Rejected, not carried, when malformed** |
 | `state` | `audited`, `unregistered`, `error` |
 | `observability.*` | `observed`, `unproven`, `not-run` |
 | `score.pts`, `score.max`, `score.pillars[].pts`, `score.pillars[].max` | Finite non-negative numbers |
@@ -194,6 +221,15 @@ The rest of the scalar contract is closed too:
 | `findings[].evidence[]` | `{ kind, queryName: string, value: string }`, where `kind` is `txt`, `absent`, `selector`, `host`, `mx`, `address`, `cname`, `caa`, `dnssec`, `tlsa`, `mechanism` or `info` |
 | `remediationPlan[].step` | Positive integer, unique and contiguous from 1 |
 | `remediationPlan[].rationale` | `foundation`, `afterPrereq`, `cleanup` |
+
+Two kinds of string appear in this schema and they are validated differently,
+which the 1.0 draft conflated. **Identity and metadata fields are
+grammar-bounded**: a domain name, a selector, a release string, a timestamp, a
+resolver URL. A malformed one means the file was not written by this tool, so it
+is rejected. **Record and evidence values are unbounded** by design -- they carry
+whatever the resolver returned, hostile bytes included -- and are bounded only by
+the file and collection limits. The rendering-safety guarantee belongs to the
+second kind; a hostile `domain` is a rejected file, not a rendering problem.
 
 All arrays not otherwise qualified are required and may be empty. All object
 members shown in the example or table are required for an audited domain; no
@@ -318,8 +354,15 @@ attacker-supplied by construction: a hostile report could be handed to someone a
 "last month's audit".
 
 ```js
-function parseReport(text) → { ok: true, report } | { ok: false, errors: [] }
+function projectReport({ results, options, resolver, versions, generatedAt, validSelector })
+  → report
+function parseReport(text, { validSelector })
+  → { ok: true, report } | { ok: false, errors: [] }
 ```
+
+`validSelector` is required on both. Passing neither is a wiring error and
+raises rather than returning a validation result: a build defect must not look
+like a bad file.
 
 Enforced in order, each failing closed:
 
@@ -410,8 +453,12 @@ Status is deterministic, in this order:
 1. A domain present on only one side is `added` or `removed`.
 2. A state mismatch, no comparable protocol, or only incomparable movement is
    `incomparable`, with every cause in `incomparableReasons`.
-3. Different generator versions with any finding or record movement are
-   `changed`; the raw diff remains visible but makes no causal claim.
+3. Different generator versions with any finding, record, score or grade
+   movement are `changed`; the raw diff remains visible but makes no causal
+   claim. Score movement is named here deliberately: two releases can share an
+   `analysisVersion` while differing in `generator.version`, so without this
+   clause a score-only move would fall through to step 5 and be reported as
+   `improved` on the strength of a detector nobody established was the same.
 4. With matching generator versions, compare the highest-severity changed
    finding. At that severity, more resolved than new is `improved`, more new than
    resolved is `regressed`; a tie proceeds to the next severity. A severity
@@ -480,7 +527,10 @@ because `dmarc.external-unverifiable` reporting uncertainty is not the same as
 the check not happening.
 
 A domain is `incomparable` outright when its state differs, no protocol remains
-comparable, or every observed change belongs to an incomparable protocol. Global
+comparable, or every observed change belongs to an incomparable protocol. That
+last condition means EVERY change: a blocked record move alongside a comparable
+score delta is not a wholly incomparable domain, and reporting it as one would
+discard a verdict both reports support. Global
 analysis and option differences are also exposed in `meta`; per-domain causes
 are carried in `incomparableReasons` rather than implied by `status` alone.
 
@@ -591,13 +641,18 @@ Hostile import fixtures, each asserting rejection or safe rendering:
 | 100,000 domains | Rejected on array length |
 | 201 domains | Rejected on array length |
 | 50-level nesting | Rejected on depth |
-| `<img src=x onerror=alert(1)>` as a domain name | Rendered as text, no execution |
+| `<img src=x onerror=alert(1)>` as a domain name | **Rejected**: `domain` is a grammar-bounded identity |
+| `<img src=x onerror=alert(1)>` as a record or evidence value | Rendered as text, no execution |
 | A bidirectional override in a record value | Rendered under the 0.2.3 hygiene rules |
 | `"schema": "something-else"` | Rejected with a specific message |
 | `"schemaVersion": 99` | Rejected as too new |
 | Valid JSON, wrong shape | Rejected, no partial state |
 | Truncated JSON | Rejected, no partial state |
 | HTML file renamed `.json` | Rejected |
+| A selector the owner rejects, in user input | Filtered by the producer, never exported |
+| A selector the owner rejects, in an imported file | Rejected on import |
+| `projectReport` or `parseReport` with no `validSelector` | Raises; it is a wiring error, not a bad file |
+| The composed predicate, checked at the runtime | Is the owner’s own function, not a copy or `undefined` |
 
 Persistence assertion: after an import and a comparison, `localStorage` contains
 no key other than `dns-email-audit-lang`, and `indexedDB.databases()` is empty.
@@ -756,6 +811,8 @@ rather than reverse-engineering it from score pillars and finding confidence.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.4 | 2026-09-03 | **Final, amended during implementation of commit 3.** Publishes the parser and producer interfaces the implementation actually has, and makes the composition of the DKIM selector grammar normative. 1.3 specified `parseReport(text)` and said nothing about how a rule owned by `src/core/dkim/` reaches a module in `src/ui/`, which may not import it. That silence is not cosmetic: it is what allowed a local duplicate of the grammar to pass review, wrong in both directions, and then allowed a factory destructuring to shadow the owner import with `undefined` so the production path skipped every selector check while the schema suite stayed green. Section 0 now names the owner and the injection path, and fixes three properties: the rule is never restated under `src/ui/`, the producer filters with the same predicate the importer validates with, and a missing capability raises rather than being read as permission. Section 4 carries both signatures. No product decision reopened. Found by Codex review of the commit-3 working tree (I14). |
+| 1.3 | 2026-09-03 | **Final, amended during implementation of commit 3.** Resolves a contradiction the 1.0 draft introduced and 1.1/1.2 carried: section 1 required `domain` to be a normalized ASCII domain string while the testing table required an `<img src=x onerror=alert(1)>` domain to be accepted and rendered. Both cannot conform. Identity and metadata fields are now stated as grammar-bounded and rejected when malformed; record and evidence values remain unbounded and carry the rendering-safety guarantee, which is where hostile bytes legitimately arrive. Section 5 step 3 now names score and grade movement as well as finding and record movement, because two releases can share an `analysisVersion` while differing in `generator.version`, and the written algorithm would otherwise reach the score rule and claim `improved` across unequal finding semantics. The outright-incomparable rule now states that "every observed change" means every one, so a blocked record move beside a comparable score delta is not incomparable. No product decision reopened. Found by Codex review of the commit-3 working tree (I1, I2, I6) and reproduced before the amendment. |
 | 1.2 | 2026-09-03 | **Final, amended during implementation of commit 1.** §5's option-to-protocol mapping was incomplete: it named only the five dedicated advanced protocols, but `advanced` also gates `spfLookups`, `spfSubnets` and `reportAuth`, which nine finding ids depend on — eight on `protocol: 'spf'` and `dmarc.external-unverifiable`. Under 1.1 a comparison across an `advanced` mismatch would have reported all eight SPF findings as `resolved`, the exact `RQ-CMP-08` harm, in the protocol carrying the most findings. The mapping now covers `spf`, `dmarc` and `reporting`; both are `unproven` rather than `not-run` with `advanced` off, since their records are still retrieved. No product decision reopened. Found by Codex review of the commit-1 working tree and reproduced against `src/audit/audit-domain.js` before the amendment. |
 | 1.1 | 2026-09-03 | **Final, amended after Codex review.** Kept the eight product decisions but corrected their implementable contract. Moved `APP_VERSION` to the permitted `src/runtime.js` composition owner and split it from the audit commit; added the omitted `deepChecks` option and a closed option-to-protocol mapping; replaced the lossy `score.unproven`/finding-confidence inference with an explicit total `observability` map that represents unscored MX and DANE failures; qualified cross-generator finding movement as baseline/current-only with domain status `changed`; made the normalized record path, scalar type, nullability, enum and canonical-order contracts plus their bidirectional whitelist test normative; added `incomparableReasons` and a deterministic severity/count/score status order; removed the producer-incompatible 4096-character string ceiling and the unnecessary privacy-policy implication; and removed incorrect SARIF and CycloneDX precedent claims. Findings and their reproductions are recorded in `CODEX Review - docs-report-comparison-spec-review.md`. |
 | 1.0 | 2026-09-03 | **Final.** Resolved every open question and reconciled the schema against what `v0.8.1` actually produces. The schema is now a named projection with an explicit exclusion table, rather than the result object: `score` uses the real `pts`/`breakdown.pillars` shape, the invented `records` block is replaced by the real result fields, findings carry their real nine comparable fields, and display state, locale routing, the Tree Walk query trace and the unrelated `txt`/`verifications` material are excluded by decision. `rubricVersion` becomes `analysisVersion` gating the score delta only (`RQ-CMP-06`); the import domain cap becomes `MAX_DOMAINS` = 200 and the size questions are settled by measurement (`RQ-CMP-01`, `RQ-CMP-02`); no integrity field ships (`RQ-CMP-03`); comparison overlays the results table (`RQ-CMP-04`); two reports only (`RQ-CMP-05`); artifact findings are excluded with no reserved field (`RQ-CMP-07`). Added `RQ-CMP-08`, per-protocol comparability, so an unobserved protocol is never reported as fixed. Corrected acceptance criterion 4, which was untestable while `generatedAt` was export time, and criterion 6, which contradicted `PRIVACY.md`. Recorded that `generator.version` has no runtime source today. |

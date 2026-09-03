@@ -42,7 +42,7 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [report-comparison](report-comparison.md) | 0.9.0 | 1.2 | **Final, amended; approved for implementation** |
+| [report-comparison](report-comparison.md) | 0.9.0 | 1.4 | **Final, amended; approved for implementation** |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 
