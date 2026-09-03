@@ -93,7 +93,68 @@ const CONSTRAINED_ATTRS = Object.freeze({
 });
 
 const RASTER_DATA_URI = /data:image\/(?!svg\+xml)/i;
-const EXTERNAL_STYLE = /@import|url\s*\(/i;
+
+/**
+ * A `url()` whose argument is not a same-document fragment.
+ *
+ * One matcher, used in two positions, because through spec 1.9 there were two
+ * rules and each was wrong in the opposite direction.
+ *
+ * `<style>` text was screened by `/@import|url\s*\(/i`, which rejects EVERY
+ * `url(` — including a purely local one. A logo that defines a gradient and
+ * paints with it, which is ordinary conformant SVG, was refused as
+ * `external-style`.
+ *
+ * Attribute values were screened only for `href` and `xlink:href`. SVG lets a
+ * paint server, filter, mask, clip path or marker be named with `url()` in a
+ * presentation attribute or inside `style`, and that argument may address
+ * another document — so `fill="url(https://evil.example/p.svg#g)"` and
+ * `style="filter:url(https://evil.example/f.svg#blur)"` reached a valid
+ * verdict. Nothing is fetched, because the parsed document never enters the
+ * page and this file returns tokens rather than nodes; what was wrong is the
+ * verdict, on a construct SVG Tiny PS forbids and a mail client would beacon
+ * from.
+ *
+ * Widening the old regex to every attribute — the obvious reading of "screen
+ * attributes too" — would have propagated the false positive across the whole
+ * element tree instead of fixing anything.
+ *
+ * Written as an extract-then-test rather than one clever regex, for the same
+ * reason `attrValue()` in `src/i18n/index.js` parses instead of scanning: a
+ * single pattern with optional quoting and optional whitespace backtracks, and
+ * the first version of this one passed `url( #local )` — a local reference with
+ * a space — as external, because `\s*` matched nothing and the lookahead then
+ * saw the space instead of the `#`. Pulling the argument out and trimming it
+ * has no such reading.
+ *
+ * An empty `url()` is external. It addresses nothing, it is not a fragment,
+ * and this screen fails closed.
+ *
+ * `data:` is the one argument that is neither a fragment nor external. It
+ * carries its own bytes, so it addresses no other document and cannot beacon,
+ * which is the property this rule is about. It is already reported where it
+ * matters: a raster `data:` URI in any position is the `raster-data-uri`
+ * DIAGNOSTIC, because an SVG Tiny PS logo should not embed a bitmap — that is
+ * a profile complaint, not a security one, and folding it into
+ * `external-reference` would turn a shipped diagnostic into an invalid verdict
+ * for a self-contained file.
+ */
+const URL_REF = /url\s*\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*))/gi;
+const IMPORT_RULE = /@import/i;
+
+function hasExternalUrlRef(value) {
+  var re = new RegExp(URL_REF.source, 'gi');
+  var m;
+  while ((m = re.exec(String(value == null ? '' : value)))) {
+    var arg = (m[1] !== undefined ? m[1]
+      : m[2] !== undefined ? m[2]
+        : m[3] || '').trim();
+    if (arg.charAt(0) === '#') continue;
+    if (/^data:/i.test(arg)) continue;
+    return true;
+  }
+  return false;
+}
 
 /**
  * Every declaration beginning with `marker`, without parsing the DTD.
@@ -276,7 +337,8 @@ function screen(root, result) {
       site(result, 'rejections', 'link-element', written, attrValueAnyCase(el, 'href'));
     }
 
-    if (name === 'style' && EXTERNAL_STYLE.test(textOf(el))) {
+    if (name === 'style'
+      && (IMPORT_RULE.test(textOf(el)) || hasExternalUrlRef(textOf(el)))) {
       site(result, 'rejections', 'external-style', written, textOf(el));
     }
 
@@ -294,6 +356,15 @@ function screen(root, result) {
       // the namespaced spelling reports name `xlink:href`, localName `href`.
       // A same-document fragment is the only permitted destination.
       if (attrLocal === 'href' && value.charAt(0) !== '#') {
+        site(result, 'rejections', 'external-reference', written,
+          attrs[i].name + '="' + value + '"');
+      }
+      // Every attribute, not a list of the ones that take paint. `style` is
+      // the obvious one and `fill` the obvious second, but SVG accepts a
+      // `url()` in `stroke`, `filter`, `mask`, `clip-path`, `marker-*` and
+      // more, and an allowlist of attribute names would have to be revisited
+      // for every one of them. The value is what decides.
+      if (hasExternalUrlRef(value)) {
         site(result, 'rejections', 'external-reference', written,
           attrs[i].name + '="' + value + '"');
       }

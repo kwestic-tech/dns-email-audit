@@ -183,12 +183,60 @@ const REJECTIONS = [
   ['an animateMotion element', el('animateMotion'), 'animation'],
   ['a style with @import', el('style', {}, [text('@import url(x.css);')]), 'external-style'],
   ['a style with url()', el('style', {}, [text('.a{fill:url(https://e.example/x)}')]), 'external-style'],
+  // Spec 1.10. Attributes were screened for `href` only, so SVG's other ways
+  // of naming a document — a paint server, a filter, a mask — reached a valid
+  // verdict. Nothing is fetched here, but the tool told an operator that a
+  // logo which would beacon from a mail client had passed.
+  ['a fill naming another document',
+    el('rect', { fill: 'url(https://evil.example/p.svg#g)' }), 'external-reference'],
+  ['a style attribute naming another document',
+    el('rect', { style: 'fill:url(https://evil.example/p.svg#g)' }), 'external-reference'],
+  ['a filter naming another document',
+    el('rect', { style: 'filter:url(https://evil.example/f.svg#blur)' }), 'external-reference'],
+  ['a stroke naming another document',
+    el('rect', { stroke: 'url(//evil.example/p.svg#g)' }), 'external-reference'],
+  ['an empty url()', el('rect', { fill: 'url()' }), 'external-reference'],
+  ['a local reference beside an external one',
+    el('rect', { style: 'fill:url(#a);stroke:url(https://evil.example/b#c)' }), 'external-reference'],
+  ['a style element naming another document in a paint server',
+    el('style', {}, [text('.a{fill:url("https://evil.example/p.svg#g")}')]), 'external-style'],
 ];
 
 REJECTIONS.forEach(([label, child, token]) => {
   const result = check(conformant({ children: [el('title', {}, [text('t')]), child] }));
   eq(`${label} is refused as ${token}`, result.rejections.includes(token), true);
   eq(`  and the document is not valid`, result.valid, false);
+});
+
+/* The other half of spec 1.10, and the half a fix will silently skip.
+ *
+ * The 1.9 `<style>` matcher was `/@import|url\s*\(/i`, which rejects EVERY
+ * `url(` — so a logo that defines a gradient and paints with it, ordinary
+ * conformant SVG, was refused as `external-style`. Widening that regex to
+ * every attribute would have spread the false positive across the element
+ * tree rather than fixing anything.
+ *
+ * Every case below must stay VALID. Without them a fix that rejects too much
+ * passes the hostile fixtures above and ships a screen that fails good logos.
+ */
+const LOCAL_REFERENCES = [
+  ['a fill naming a local paint server', el('rect', { fill: 'url(#grad)' })],
+  ['a style attribute naming a local paint server',
+    el('rect', { style: 'fill:url(#grad)' })],
+  ['a quoted local reference', el('rect', { fill: 'url("#grad")' })],
+  ['a single-quoted local reference', el('rect', { fill: "url('#grad')" })],
+  ['a local reference with whitespace', el('rect', { fill: 'url( #grad )' })],
+  ['two local references in one value',
+    el('rect', { style: 'fill:url(#a);stroke:url(#b)' })],
+  ['a style element naming a local paint server',
+    el('style', {}, [text('.a{fill:url(#localGradient)}')])],
+  ['a style element with two local references',
+    el('style', {}, [text('.a{fill:url(#a)}.b{stroke:url( #b )}')])],
+];
+
+LOCAL_REFERENCES.forEach(([label, child]) => {
+  const result = check(conformant({ children: [el('title', {}, [text('t')]), child] }));
+  eq(`${label} stays valid`, [result.valid, result.rejections], [true, []]);
 });
 
 section('4b. External references');
