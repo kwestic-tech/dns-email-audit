@@ -101,6 +101,7 @@
       "viewbox-not-square": "La anchura y la altura de viewBox deben ser iguales.",
       "root-has-position": "El svg raíz no debe incluir atributos de posición x o y.",
       "raster-data-uri": "Los datos de imagen ráster quedan fuera del perfil exclusivamente vectorial.",
+      "data-uri-reference": "Una referencia url() nombra un URI data:; el perfil solo permite referencias de pintura a fragmentos locales.",
       "unsupported-attribute": "Un atributo restringido de SVG Tiny PS tiene un valor que el perfil no permite."
     }
   },
@@ -201,7 +202,8 @@
       "loneSurrogate": "UTF-8 no válido, mostrado como U+FFFD",
       "punycode": "Nombre Punycode (xn--), mostrado exactamente como se publicó",
       "formulaLeading": "Empieza por un carácter que una hoja de cálculo ejecuta como fórmula; neutralizado en la exportación CSV"
-    }
+    },
+    "rowFailed": "No se pudo mostrar este resultado. Los demás resultados no se ven afectados."
   },
   "showme": {
     "open": "Mostrar ▾",
@@ -222,7 +224,8 @@
     "dkimUncommon": "⚠ Poco común ({0})",
     "notChecked": "No comprobado",
     "auditError": "Auditoría indeterminada",
-    "cancelled": "Cancelado"
+    "cancelled": "Cancelado",
+    "renderError": "Error de visualización"
   },
   "provider": {
     "unknown": "Desconocido",

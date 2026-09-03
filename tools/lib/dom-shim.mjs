@@ -229,6 +229,15 @@ class ShimNode {
     return this.dispatchEvent(event);
   }
 
+  /**
+   * A no-op, because scrolling is a viewport behaviour and this shim has no
+   * viewport. It is present because `startAudit()` calls it on the offline
+   * banner, so a suite that boots the application and drives a failed
+   * connectivity probe reaches it. Throwing here would report a missing shim
+   * method as an application defect.
+   */
+  scrollIntoView() {}
+
   /** Depth-first walk over every descendant, this node excluded. */
   * walk() {
     for (const child of this.childNodes) {

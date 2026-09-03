@@ -101,6 +101,7 @@
       "viewbox-not-square": "De breedte en hoogte van viewBox moeten gelijk zijn.",
       "root-has-position": "Het svg-wortelelement mag geen x- of y-positieattributen hebben.",
       "raster-data-uri": "Rasterafbeeldingsgegevens vallen buiten het uitsluitend vectoriële profiel.",
+      "data-uri-reference": "Een url()-verwijzing noemt een data:-URI; het profiel staat verfverwijzingen alleen naar lokale fragmenten toe.",
       "unsupported-attribute": "Een beperkt SVG Tiny PS-attribuut heeft een waarde die het profiel niet toestaat."
     }
   },
@@ -201,7 +202,8 @@
       "loneSurrogate": "Ongeldige UTF-8, weergegeven als U+FFFD",
       "punycode": "Punycode-naam (xn--), precies weergegeven zoals gepubliceerd",
       "formulaLeading": "Begint met een teken dat een spreadsheet als formule uitvoert; geneutraliseerd in de CSV-export"
-    }
+    },
+    "rowFailed": "Dit resultaat kon niet worden weergegeven. De overige resultaten zijn niet beïnvloed."
   },
   "showme": {
     "open": "Toon mij ▾",
@@ -222,7 +224,8 @@
     "dkimUncommon": "⚠ Ongebruikelijk ({0})",
     "notChecked": "Niet gecontroleerd",
     "auditError": "Audit onbeslist",
-    "cancelled": "Geannuleerd"
+    "cancelled": "Geannuleerd",
+    "renderError": "Weergavefout"
   },
   "provider": {
     "unknown": "Onbekend",

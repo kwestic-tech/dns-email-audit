@@ -62,13 +62,27 @@ export function createI18n({ englishBundle, platform } = {}) {
 
   /* ── Key resolution ─────────────────────────────────────────────────── */
 
+  var hasOwn = Object.prototype.hasOwnProperty;
+
   // 'issue.spf-missing.what' → walks the bundle object. Array indices work
   // too ('learnMore.bimi.sections.0.h').
+  //
+  // Each step is an OWN-property read. A plain `node[part]` walk resolves
+  // 'constructor', '__proto__', 'toString' and every other Object.prototype
+  // member against the prototype chain, so a key nobody wrote returns a
+  // function or an object instead of undefined. That is not hypothetical here:
+  // callers build keys from data. `findingCard()` looks up
+  // 'artifact.token.' + token where the token can be a hostname or pattern the
+  // user pasted, so `mx: constructor` in a supplied MTA-STS policy rendered
+  // the source text of `Object`. The same mechanism reaches the renderer as a
+  // non-string and throws. Own-property reads make an unwritten key undefined,
+  // which is what every caller already handles.
   function resolve(bundle, key) {
     var parts = String(key).split('.');
     var node = bundle;
     for (var i = 0; i < parts.length; i++) {
       if (node === null || typeof node !== 'object') return undefined;
+      if (!hasOwn.call(node, parts[i])) return undefined;
       node = node[parts[i]];
     }
     return node;
@@ -171,9 +185,25 @@ export function createI18n({ englishBundle, platform } = {}) {
     return null;
   }
 
-  var NAMED_ENTITIES = {
-    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
-  };
+  // Prototype-free, for the same reason `resolve()` reads own properties only.
+  // The entity body is matched by `[a-zA-Z]+`, so `&constructor;` in a locale
+  // string reaches this lookup, and against an object literal it resolves to
+  // `Object` — which `String.prototype.replace` then stringifies into the page
+  // as `function Object() { [native code] }`. A null-prototype table makes
+  // every name nobody wrote undefined, which is the branch that leaves the
+  // entity as literal text.
+  //
+  // `bull` is here because the shipped locale files use `&bull;` as the footer
+  // and about-panel separator in all fourteen languages — 69 occurrences — and
+  // an entity this table does not know is left as literal text, so the footer
+  // read "Cloudflare &bull; No data sent…". The alternative, a literal U+2022
+  // in every locale file, would churn 69 translation units in the XLIFF
+  // pipeline to change nothing a reader sees. The character is inert; the
+  // allowlist bounds what a locale file can express, and it can already
+  // express this with `&#8226;`.
+  var NAMED_ENTITIES = Object.assign(Object.create(null), {
+    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', bull: '•',
+  });
 
   function decodeEntities(str) {
     return String(str).replace(/&(#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g, function (match, body) {

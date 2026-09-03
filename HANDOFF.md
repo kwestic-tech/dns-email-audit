@@ -2,10 +2,19 @@
 
 ## Current state
 
-Released through `v0.8.0`. Private local MTA-STS policy and BIMI SVG validators
+Released through `v0.8.1`. Private local MTA-STS policy and BIMI SVG validators
 now consume 0.7.0's structured-finding boundary without changing legacy
 issues, suggestions, scores or grades. Supplied artifacts remain in memory,
 produce no network request, and are never rendered as active markup.
+
+`v0.8.1` is a patch release with no new capability: it fixes five defects found
+by an external review of `v0.8.0` — a hostile NS label that discarded a whole
+run, a double click that started two audits, an unsentinelised provider badge,
+prototype-chain resolution in the i18n and entity lookups, and a BIMI `url()`
+screen that was wrong in both directions — plus a footer entity that rendered
+as literal text, and the documentation drift the review catalogued. The
+`local-artifact-validation` spec is amended to 1.11 to record the corrected
+`url()` rule and the new `data-uri-reference` diagnostic.
 
 The remaining release sequence is:
 

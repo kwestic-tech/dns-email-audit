@@ -15,6 +15,7 @@ import {
   loadUi, MarkupSinkError, elements, attributes, locate, hasNoEventHandlers, textOf,
 } from './lib/browser-harness.mjs';
 import { RICH_TAG_ALLOWLIST, disallowedTags, LOCALE_CODES, loadLocale } from './lib/locale-utils.mjs';
+import { detectDNSProvider } from '../src/providers/detectors.js';
 
 // Task 6.2: a direct ESM path. This used to reach the renderer's internals
 // through `window.__APP_TEST__`, a marked adapter that existed for this suite
@@ -260,6 +261,28 @@ eq('a decoded entity stays in a text node',
 eq('a numeric entity decodes', textOf(rich('&#65;&#x42;')), 'AB');
 eq('a surrogate entity becomes U+FFFD', textOf(rich('&#xD800;')), '�');
 eq('nesting works', textOf(rich('<p>a <em>b <code>c</code></em></p>')), 'a b c');
+
+// The footer and about panel separate their clauses with `&bull;` in all
+// fourteen locales. An entity the table does not know is left as literal text,
+// so before this was allowlisted the footer read "Cloudflare &bull; No data
+// sent to Kwestic…" on the live site.
+eq('the bullet entity decodes', textOf(rich('a &bull; b')), 'a \u2022 b');
+eq('the bullet decodes in the shipped footer string',
+  [textOf(rich(tRaw('footer.text'))).includes('\u2022'),
+    textOf(rich(tRaw('footer.text'))).includes('&bull;')], [true, false]);
+eq('an entity outside the allowlist is still literal text',
+  textOf(rich('a &dagger; b')), 'a &dagger; b');
+
+// The entity body is matched by `[a-zA-Z]+`, so every Object.prototype member
+// name reaches the named-entity lookup. Against an object literal
+// `&constructor;` resolved to `Object` and `replace()` stringified it into the
+// page. An unknown entity is left as literal text, which is the whole
+// requirement.
+for (const name of ['constructor', 'toString', 'valueOf', 'hasOwnProperty',
+  'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString']) {
+  eq(`&${name}; is left as text, not resolved through the prototype`,
+    textOf(rich(`&${name};`)), `&${name};`);
+}
 
 // The author-time check in tools/check-locales.mjs and the runtime tokenizer
 // must agree, or the build would pass a tag the interface then renders as
@@ -1072,6 +1095,208 @@ eq('the scrambled control really differs from the real sequence',
 eq('and a reordered sequence would be caught',
   JSON.stringify(await findingIdSequence(loadLocale('de'))) === JSON.stringify(scrambled), false);
 eq('the fourteen-locale set is complete', LOCALE_CODES.length + 1, 14);
+
+/* ── 17. Derived labels and object-keyed lookups ─────────────────────── */
+section('17. Derived labels and object-keyed lookups');
+
+// The suite above feeds hostile bytes into record VALUES. This section feeds
+// them into a value the tool DERIVES from a record and then uses as an object
+// key. `detectDNSProvider()` falls back to one DNS label of the first NS
+// record, capitalised; underscores are legal in owner names and resolvers
+// return them verbatim, so the audited domain's operator chooses this string.
+//
+// Every Object.prototype member name, because guarding the one that was
+// reported would leave the class open. `constructor` survives capitalisation
+// as `Constructor` and was never the bug; `__proto__` does not, and was.
+const derivedRow = (ns) => ({
+  ...result,
+  domain: 'derived.example',
+  ns: [ns],
+  dnsProvider: detectDNSProvider([ns], 'derived.example'),
+});
+
+for (const name of ['__proto__', 'constructor', 'toString', 'valueOf',
+  'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString']) {
+  const ns = `ns1.${name}.net`;
+  let threw = null;
+  try { APP.appendRow(derivedRow(ns)); } catch (e) { threw = e.message; }
+  eq(`an NS label of ${name} renders a row instead of throwing`, threw, null);
+}
+
+// The provider badge is DNS-derived text too. Through 0.8.0 it was the one
+// such string that reached the display without a sentinel substitution, and
+// because the badge is not an `.rv` element the `unicode-bidi: isolate` rule
+// did not contain it either — the same NS record reordered in the badge and
+// was sentinelised in the nameserver list two rows below.
+const bidiNs = 'ns1.\u202Elive.net';
+eq('the override reaches the derived label unsentinelised',
+  detectDNSProvider([bidiNs], 'derived.example').includes('\u202E'), true);
+APP.appendRow(derivedRow(bidiNs));
+
+// Re-read the table: section 16 re-renders under fourteen locales, so the
+// reference captured in section 9 is not necessarily the live element.
+const derivedBody = textOf(document.getElementById('tableBody'));
+
+eq('no raw override survives into the provider badge',
+  derivedBody.includes('\u202E'), false);
+eq('the provider badge is sentinelled instead',
+  derivedBody.includes('\u2039RLO\u203A'), true);
+// A '@'-prefixed token resolves to a translator's string, which is trusted.
+// Substituting into it would be a defect, not a warning.
+eq('a translated provider name is not sentinelled',
+  t('provider.unknown').includes('\u2039'), false);
+
+// The label reaches the badge, so the row is not merely surviving by dropping
+// it. `__proto__` is not a token, so it is displayed as the proper name it
+// looks like.
+eq('the derived label is displayed, not swallowed',
+  derivedBody.includes('__proto__'), true);
+
+// A real token still resolves to its translation rather than to the literal.
+eq('a genuine token still resolves through the table',
+  t('provider.unknown') !== '@unknown' && derivedBody.includes(t('provider.unknown')),
+  true);
+
+/* ── 18. One row that fails does not take the run with it ────────────── */
+section('18. One row that fails does not take the run with it');
+
+// `appendRow()` runs in a plain loop over every result. An exception inside it
+// escaped the async caller, so the summary, the results section and the
+// toolbar were never shown and every domain in the batch was lost — with the
+// Run Audit button already re-enabled, so the page looked as though nothing
+// had happened. The trigger found in review was a value derived from another
+// party's DNS data, which is why the containment is here and not only at the
+// site that produced it.
+//
+// The failure is forced with a throwing accessor rather than by reproducing a
+// particular defect: the guard has to hold for a render failure this suite has
+// not thought of, which is the entire point of it.
+const failingRow = { ...result, domain: 'fails.example' };
+Object.defineProperty(failingRow, 'ns', {
+  get() { throw new Error('forced render failure'); },
+  enumerable: true,
+});
+
+// The unguarded control uses a SEPARATE object whose throwing property is read
+// BEFORE the main row is appended — `r.score.unproven` is needed to build the
+// `<tr>` itself. Reusing the post-append `failingRow` here would leave a
+// partial `row-fails-example` in the shared table for every later section to
+// trip over, since nothing cleans up after a call that was never guarded.
+const earlyFailingRow = { ...result, domain: 'early-fails.example' };
+Object.defineProperty(earlyFailingRow, 'score', {
+  get() { throw new Error('forced pre-append failure'); },
+  enumerable: true,
+});
+eq('the unguarded call really does throw',
+  (() => { try { APP.appendRow(earlyFailingRow); return null; }
+    catch (e) { return e.message; } })(), 'forced pre-append failure');
+eq('and it appended nothing, so the control leaves no partial row',
+  Array.from(document.getElementById('tableBody').childNodes)
+    .filter(node => node.id === 'row-early-fails-example').length, 0);
+
+const before = elements(document.getElementById('tableBody')).length;
+let isolatedThrew = null;
+try { APP.appendRowIsolated(failingRow); } catch (e) { isolatedThrew = e.message; }
+eq('the failure is contained', isolatedThrew, null);
+
+// `failingRow` throws on `r.ns`, which is read while building the detail
+// content after the main row is appended — so the wrapper had a partial row to
+// clean up here too, not only in the `verifications` case below.
+eq('exactly one row carries the contained failure\'s id',
+  Array.from(document.getElementById('tableBody').childNodes)
+    .filter(node => node.id === 'row-fails-example').length, 1);
+eq('and no detail row survived it',
+  Array.from(document.getElementById('tableBody').childNodes)
+    .filter(node => node.id === 'det-fails-example').length, 0);
+
+// A row that fails PART WAY through is the realistic case, not one that fails
+// on its first statement: `appendRow()` appends the main <tr> and then builds
+// the detail row, which is where every per-protocol renderer runs. Without
+// removing the partial row the fallback lands beside it and two rows carry the
+// same id, which breaks `toggleDetail()`, `filterTable()` and the sort — all
+// of which address rows by id.
+const rowsWithId = (rowId) => Array.from(document.getElementById('tableBody').childNodes)
+  .filter(node => node.id === rowId).length;
+
+// `verifications` is read only while building the detail row, which
+// `appendRow()` does AFTER it has appended the main row — so this throw leaves
+// a real partial row behind, which a throw on the first statement would not.
+const partialRow = { ...result, domain: 'partial.example' };
+Object.defineProperty(partialRow, 'verifications', {
+  get() { throw new Error('forced detail-row failure'); },
+  enumerable: true,
+});
+APP.appendRowIsolated(partialRow);
+eq('exactly one row carries the failed domain\'s id',
+  rowsWithId('row-partial-example'), 1);
+eq('and no detail row was left behind',
+  rowsWithId('det-partial-example'), 0);
+eq('the surviving row is the display-failure row',
+  Array.from(document.getElementById('tableBody').childNodes)
+    .filter(node => node.id === 'row-partial-example')
+    .map(node => textOf(node).includes(t('badge.renderError'))),
+  [true]);
+// A later row still renders: the loop is not left in a broken state.
+APP.appendRowIsolated({ ...result, domain: 'after-failure.example' });
+const afterBody = document.getElementById('tableBody');
+eq('a row appended after the failure still renders',
+  textOf(afterBody).includes('after-failure.example'), true);
+eq('the run gained rows rather than losing them',
+  elements(afterBody).length > before, true);
+
+// The failure row is not the audit-error row. An audit error means the lookup
+// produced no answer; this means the answer exists and could not be drawn, and
+// telling an operator the first would send them to check their DNS.
+eq('the failure row names a display failure',
+  textOf(afterBody).includes(t('badge.renderError')), true);
+eq('and says the other results are unaffected',
+  textOf(afterBody).includes(t('render.rowFailed')), true);
+eq('it is not labelled as an audit error',
+  t('badge.renderError') === t('badge.auditError'), false);
+
+// A failure must not delete a DIFFERENT domain's result.
+//
+// Row ids come from `domain.replace(/\W/g, '-')`, which is not injective:
+// `a-b.com` and `a.b-com` both map to `row-a-b-com`. A cleanup that removed
+// the failed row by id would sweep away the other domain's already-rendered
+// row — the exact harm this wrapper exists to prevent, done while the new row
+// tells the operator the other results are unaffected. The wrapper therefore
+// removes what THIS call appended, by position.
+eq('the two domains really do collide under the id mapping',
+  'a-b.com'.replace(/\W/g, '-') === 'a.b-com'.replace(/\W/g, '-'), true);
+
+APP.appendRowIsolated({ ...result, domain: 'a-b.com' });
+const collidingBody = () => Array.from(document.getElementById('tableBody').childNodes);
+const firstRow = collidingBody().filter(node => node.dataset && node.dataset.domain === 'a-b.com');
+eq('the first domain rendered', firstRow.length > 0, true);
+
+const collidingFailure = { ...result, domain: 'a.b-com' };
+Object.defineProperty(collidingFailure, 'verifications', {
+  get() { throw new Error('forced detail-row failure'); },
+  enumerable: true,
+});
+APP.appendRowIsolated(collidingFailure);
+
+eq('the first domain survives the second domain\'s failure',
+  collidingBody().filter(node => node.dataset && node.dataset.domain === 'a-b.com').length,
+  firstRow.length);
+eq('and the failing domain got its own display-failure row',
+  collidingBody()
+    .filter(node => node.dataset && node.dataset.domain === 'a.b-com')
+    .map(node => textOf(node).includes(t('badge.renderError'))),
+  [true]);
+
+// The language-change re-render filtered out `r.error` while the run's own
+// loop did not, so a run reporting four failed lookups reported none after the
+// user switched language. Both now call this path, and it draws them.
+//
+// The listener itself reads the module-level `results` array, which only a
+// real run populates, so what is executable here is the row, not the listener.
+APP.appendRowIsolated({ domain: 'lookup-failed.example', error: true, message: 'SERVFAIL' });
+eq('an audit-error result still renders a row',
+  textOf(document.getElementById('tableBody')).includes('lookup-failed.example'), true);
+eq('and it is labelled as an audit error, not a display failure',
+  textOf(document.getElementById('tableBody')).includes(t('badge.auditError')), true);
 
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);

@@ -101,6 +101,7 @@
       "viewbox-not-square": "viewBox 的寬度與高度必須相等。",
       "root-has-position": "根 svg 元素不得帶有 x 或 y 定位屬性。",
       "raster-data-uri": "點陣圖影像資料超出僅限向量的設定範圍。",
+      "data-uri-reference": "url() 參照指定了 data: URI；該設定檔僅允許繪製參照指向本機片段。",
       "unsupported-attribute": "某個受限的 SVG Tiny PS 屬性其值不在該設定允許的範圍內。"
     }
   },
@@ -201,7 +202,8 @@
       "loneSurrogate": "無效的 UTF-8，顯示為 U+FFFD",
       "punycode": "Punycode (xn--) 名稱，按發布原樣顯示",
       "formulaLeading": "以試算表會當作公式執行的字元開頭；已在 CSV 匯出中中和"
-    }
+    },
+    "rowFailed": "無法顯示此結果。其他結果不受影響。"
   },
   "showme": {
     "open": "顯示細節 ▾",
@@ -222,7 +224,8 @@
     "dkimUncommon": "⚠ 不常見 ({0})",
     "notChecked": "未檢查",
     "auditError": "稽核結果不確定",
-    "cancelled": "已取消"
+    "cancelled": "已取消",
+    "renderError": "顯示錯誤"
   },
   "provider": {
     "unknown": "未知",

@@ -298,7 +298,7 @@ JSON files from disk, so translated interfaces require HTTP.
 | `npm ci` | Install exact versions of esbuild and its platform binary; no install scripts run. |
 | `npm start` | Serve the already-built application on port 8080 with the dependency-free development server. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Build the bundle, then run locale validation plus **5,004** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
+| `npm test` | Build the bundle, then run locale validation plus **5,100** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `src/data/locales-en.js` after editing `locales/en.json`. |
@@ -434,8 +434,11 @@ UI strings, keeping audit logic independent from translation work.
   tab/newline is executed as a formula when a CSV is opened in Excel or Google
   Sheets — RFC 4180 quoting does not prevent this, because the quotes are
   stripped before the cell is evaluated. Any such cell is prefixed with an
-  apostrophe, which spreadsheets treat as literal text and do not display, and
-  the row is marked `formula-leading` in the `Record Hygiene` column.
+  apostrophe, which makes the spreadsheet treat the cell as text rather than a
+  formula, and the row is marked `formula-leading` in the `Record Hygiene`
+  column. On CSV import the apostrophe is visible in the cell — it is hidden
+  only when one is typed into a cell directly — so the neutralisation is
+  disclosed twice: in the data and in the hygiene column.
 
   This is the only place the CSV departs from the published bytes; every other
   character, including invisible ones, is exported exactly as received. The

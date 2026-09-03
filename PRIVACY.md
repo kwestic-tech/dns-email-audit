@@ -186,8 +186,9 @@ Every claim above is checkable in code, at
   (`localStorage.setItem` / `getItem` on `dns-email-audit-lang`), and the
   same-origin fetch of `locales/*.json` — including the `locales/index.json`
   read at page load.
-- `src/main.js` fetches `css/style.css` from the same origin when building an
-  exported report, so the export is self-contained.
+- `src/ui/report.js` fetches `css/style.css` from the same origin when building
+  an exported report, so the export is self-contained. The fetch has lived
+  there since 0.6.0; this file named `src/main.js` until 0.8.1.
 - The `Content-Security-Policy` in `index.html` enforces this at the browser
   level: `connect-src` permits only `'self'` and `https://cloudflare-dns.com`,
   so the app cannot send data anywhere else even if it tried.

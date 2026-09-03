@@ -101,6 +101,7 @@
       "viewbox-not-square": "viewBox の幅と高さは等しくなければなりません。",
       "root-has-position": "ルートの svg 要素に x や y の位置属性を付けることはできません。",
       "raster-data-uri": "ラスター画像データは、ベクターのみのプロファイル外です。",
+      "data-uri-reference": "url() 参照が data: URI を指定しています。プロファイルは描画参照をローカルフラグメントにのみ許可します。",
       "unsupported-attribute": "制約のある SVG Tiny PS 属性に、プロファイルが許可しない値が指定されています。"
     }
   },
@@ -201,7 +202,8 @@
       "loneSurrogate": "不正な UTF-8。U+FFFD として表示されます",
       "punycode": "Punycode (xn--) 名。公開されているとおりに表示されます",
       "formulaLeading": "表計算ソフトが数式として実行する文字で始まります。CSV エクスポートでは無効化されます"
-    }
+    },
+    "rowFailed": "この結果は表示できませんでした。他の結果には影響ありません。"
   },
   "showme": {
     "open": "詳細を表示 ▾",
@@ -222,7 +224,8 @@
     "dkimUncommon": "⚠ 一般的でない設定 ({0})",
     "notChecked": "未チェック",
     "auditError": "判定不能",
-    "cancelled": "キャンセル済み"
+    "cancelled": "キャンセル済み",
+    "renderError": "表示エラー"
   },
   "provider": {
     "unknown": "不明",

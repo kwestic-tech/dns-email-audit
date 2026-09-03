@@ -68,7 +68,7 @@ export const BIMI_SVG_DIAGNOSTICS = Object.freeze([
   'namespace-not-svg', 'base-profile-not-tiny-ps', 'version-not-1-2',
   'title-missing', 'title-not-unique', 'desc-empty',
   'viewbox-missing', 'viewbox-not-square', 'root-has-position',
-  'raster-data-uri', 'unsupported-attribute',
+  'raster-data-uri', 'data-uri-reference', 'unsupported-attribute',
 ]);
 
 const ANIMATION_ELEMENTS = ['animate', 'animatetransform', 'set', 'animatemotion'];
@@ -93,7 +93,90 @@ const CONSTRAINED_ATTRS = Object.freeze({
 });
 
 const RASTER_DATA_URI = /data:image\/(?!svg\+xml)/i;
-const EXTERNAL_STYLE = /@import|url\s*\(/i;
+
+/**
+ * A `url()` whose argument is not a same-document fragment.
+ *
+ * One matcher, used in two positions, because through spec 1.9 there were two
+ * rules and each was wrong in the opposite direction.
+ *
+ * `<style>` text was screened by `/@import|url\s*\(/i`, which rejects EVERY
+ * `url(` — including a purely local one. A logo that defines a gradient and
+ * paints with it, which is ordinary conformant SVG, was refused as
+ * `external-style`.
+ *
+ * Attribute values were screened only for `href` and `xlink:href`. SVG lets a
+ * paint server, filter, mask, clip path or marker be named with `url()` in a
+ * presentation attribute or inside `style`, and that argument may address
+ * another document — so `fill="url(https://evil.example/p.svg#g)"` and
+ * `style="filter:url(https://evil.example/f.svg#blur)"` reached a valid
+ * verdict. Nothing is fetched, because the parsed document never enters the
+ * page and this file returns tokens rather than nodes; what was wrong is the
+ * verdict, on a construct SVG Tiny PS forbids and a mail client would beacon
+ * from.
+ *
+ * Widening the old regex to every attribute — the obvious reading of "screen
+ * attributes too" — would have propagated the false positive across the whole
+ * element tree instead of fixing anything.
+ *
+ * Written as an extract-then-test rather than one clever regex, for the same
+ * reason `attrValue()` in `src/i18n/index.js` parses instead of scanning: a
+ * single pattern with optional quoting and optional whitespace backtracks, and
+ * the first version of this one passed `url( #local )` — a local reference with
+ * a space — as external, because `\s*` matched nothing and the lookahead then
+ * saw the space instead of the `#`. Pulling the argument out and trimming it
+ * has no such reading.
+ *
+ * An empty `url()` is external. It addresses nothing, it is not a fragment,
+ * and this screen fails closed.
+ *
+ * `data:` is the one argument that is neither a fragment nor external, and it
+ * is reported on the other side of this file's split rather than let through.
+ *
+ * SVG Tiny 1.2's reference-restrictions table permits `fill` and `stroke` to
+ * name only a category A local fragment; a `data:` IRI is category E and is
+ * not allowed there. So a `url(data:…)` paint reference IS a profile
+ * violation, and until 0.8.1 the vector case reached `bimi.svg-valid` with no
+ * signal at all — the raster case at least raised `raster-data-uri`.
+ *
+ * It is not a SECURITY rejection, and putting it in that vocabulary would
+ * break what the two vocabularies mean here. `BIMI_SVG_REJECTIONS` is the set
+ * that refuses a document outright, and `valid` is bounded to security refusal
+ * rather than profile conformance — spec 1.0 says so explicitly, which is why
+ * `base-profile-not-tiny-ps`, `version-not-1-2`, `viewbox-not-square` and
+ * `raster-data-uri` are all diagnostics on documents that stay valid. A
+ * `data:` URI carries its own bytes: it requires no network fetch and cannot
+ * beacon, so there is no refusal to make. (It does still resolve to a document
+ * distinct from the owner document — SVG Tiny 1.2 says so, and that is exactly
+ * why the profile forbids it here. What it does not do is reach the network,
+ * which is what this file's refusals are for.)
+ *
+ * `data-uri-reference` is therefore the answer, beside `raster-data-uri` and
+ * for the same reason: the profile forbids it, a mailbox provider may refuse
+ * to display it, and the operator is told so.
+ */
+const URL_REF = /url\s*\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*))/gi;
+const IMPORT_RULE = /@import/i;
+
+/**
+ * `{ external, dataUri }` for one value or one `<style>` text. Two answers
+ * rather than a boolean, because the two land in different vocabularies: an
+ * external reference refuses the document, a `data:` reference diagnoses it.
+ */
+function urlRefKinds(value) {
+  var found = { external: false, dataUri: false };
+  var re = new RegExp(URL_REF.source, 'gi');
+  var m;
+  while ((m = re.exec(String(value == null ? '' : value)))) {
+    var arg = (m[1] !== undefined ? m[1]
+      : m[2] !== undefined ? m[2]
+        : m[3] || '').trim();
+    if (arg.charAt(0) === '#') continue;
+    if (/^data:/i.test(arg)) { found.dataUri = true; continue; }
+    found.external = true;
+  }
+  return found;
+}
 
 /**
  * Every declaration beginning with `marker`, without parsing the DTD.
@@ -276,8 +359,14 @@ function screen(root, result) {
       site(result, 'rejections', 'link-element', written, attrValueAnyCase(el, 'href'));
     }
 
-    if (name === 'style' && EXTERNAL_STYLE.test(textOf(el))) {
-      site(result, 'rejections', 'external-style', written, textOf(el));
+    if (name === 'style') {
+      var styleRefs = urlRefKinds(textOf(el));
+      if (IMPORT_RULE.test(textOf(el)) || styleRefs.external) {
+        site(result, 'rejections', 'external-style', written, textOf(el));
+      }
+      if (styleRefs.dataUri) {
+        site(result, 'diagnostics', 'data-uri-reference', written, textOf(el));
+      }
     }
 
     var attrs = attributesOf(el);
@@ -295,6 +384,24 @@ function screen(root, result) {
       // A same-document fragment is the only permitted destination.
       if (attrLocal === 'href' && value.charAt(0) !== '#') {
         site(result, 'rejections', 'external-reference', written,
+          attrs[i].name + '="' + value + '"');
+      }
+      // Every attribute, not a list of the ones that take paint. `style` is
+      // the obvious one and `fill` the obvious second, but SVG accepts a
+      // `url()` in `stroke`, `filter`, `mask`, `clip-path`, `marker-*` and
+      // more, and an allowlist of attribute names would have to be revisited
+      // for every one of them. The value is what decides.
+      var refs = urlRefKinds(value);
+      if (refs.external) {
+        site(result, 'rejections', 'external-reference', written,
+          attrs[i].name + '="' + value + '"');
+      }
+      // SVG Tiny 1.2's reference-restrictions table permits a fill or stroke
+      // to name a category A local fragment only; `data:` is category E and is
+      // not allowed. A profile complaint, so a diagnostic — see the comment on
+      // `urlRefKinds()` for why it is not a refusal.
+      if (refs.dataUri) {
+        site(result, 'diagnostics', 'data-uri-reference', written,
           attrs[i].name + '="' + value + '"');
       }
       if (RASTER_DATA_URI.test(value)) {

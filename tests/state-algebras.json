@@ -1235,6 +1235,7 @@
         "viewbox-not-square",
         "root-has-position",
         "raster-data-uri",
+        "data-uri-reference",
         "unsupported-attribute"
       ],
       "note": "SVG P/S profile diagnostics: why a mailbox provider may not display the logo. Never a refusal -- a document carrying only these is still valid. The spec's \"single root element\" row is deliberately NOT a member: XML makes a second root a parse error (measured), so it arrives as malformed-xml and a diagnostic for it would be unreachable. unsupported-attribute covers the six attributes the spec constrains to \"permitted inert values\" without enumerating them, so presence alone is the diagnostic until the spec decides.",

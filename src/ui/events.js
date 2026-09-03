@@ -130,7 +130,16 @@ export function createUi(capabilities) {
 
   // js/dns.js returns '@'-prefixed tokens for anything a translator owns.
   // Proper nouns ('Cloudflare', 'Google Workspace') come back verbatim.
-  var TOKEN_KEYS = {
+  // Null-prototype, because the value handed to `label()` is not always one of
+  // these tokens. `detectDNSProvider()` derives its fallback from the audited
+  // domain's first NS record — one DNS label, capitalised — and underscores are
+  // legal in owner names, so a nameserver of `ns1.__proto__.net` produces the
+  // string `__proto__`. Against an object literal that lookup resolves to
+  // `Object.prototype`, which is truthy, so `t()` is handed an object, returns
+  // it unchanged, and the renderer refuses a non-node child by throwing.
+  // Capitalisation is what saves `constructor` and what does not save
+  // `__proto__`, which is why guarding one name would not have been a fix.
+  var TOKEN_KEYS = Object.assign(Object.create(null), {
     '@unknown': 'provider.unknown',
     '@custom': 'provider.custom',
     '@custom-unknown': 'provider.customUnknown',
@@ -144,11 +153,26 @@ export function createUi(capabilities) {
     '@cloudflare-proxied': 'provider.cloudflareProxied',
     '@porkbun-forwarding': 'provider.porkbunForwarding',
     '@dash': 'labels.dash',
-  };
+  });
 
+  // Two branches, and only one of them is DNS-derived. A '@'-prefixed token
+  // resolves to a translator's string, which is trusted and must not be
+  // sentinelised — `‹RLO›` in the middle of a translated provider name would
+  // be a defect, not a warning. Everything else is a substring of the first NS
+  // record: `detectDNSProvider()` returns it verbatim, and through 0.8.0 it was
+  // the one DNS-derived string that reached the display without passing
+  // `R.value()` or `R.sentinelText()`. The badge is not an `.rv` element, so
+  // the `unicode-bidi: isolate` rule did not contain it either, and the same
+  // record was shown two ways: reordering in the badge, sentinelised in the
+  // nameserver list two rows below.
+  //
+  // Substituting here rather than in `badge()` is deliberate — badges also
+  // carry trusted translated text, and `badge()` cannot tell which it was
+  // handed.
   function label(value) {
     if (typeof value !== 'string') return '';
-    return TOKEN_KEYS[value] ? t(TOKEN_KEYS[value]) : value;
+    var key = TOKEN_KEYS[value];
+    return key ? t(key) : R.sentinelText(value);
   }
 
   function spfLabel(spfStatus) {
@@ -1158,6 +1182,77 @@ export function createUi(capabilities) {
     return values.filter(function (v) { return typeof v === 'string' && v; });
   }
 
+  /**
+   * Render one row, and contain a failure to that row.
+   *
+   * `appendRow()` is called from a plain loop over every result. Before this
+   * guard, one row that threw took the whole run with it: the exception escaped
+   * the async caller, so the summary, the results section and the toolbar were
+   * never shown and the completion toast never fired. Every domain in the batch
+   * was lost, not only the one that failed, and because the Run Audit button
+   * had already been re-enabled the page looked as though nothing had happened.
+   *
+   * The reachable case was a hostile value derived from another party's DNS
+   * data, which is why containment belongs here rather than only at the site
+   * that produced it: the audited domain's operator chooses what this function
+   * is handed, and the person harmed is whoever is auditing them.
+   *
+   * The failure row is deliberately NOT the audit-error row. An audit error
+   * means the lookup did not produce an answer; this means the answer exists
+   * and the interface could not draw it. Presenting the second as the first
+   * would tell an operator to go and check their DNS.
+   */
+  function appendRowIsolated(r) {
+    var domain = String(r && r.domain || '');
+    var id = 'row-' + domain.replace(/\W/g, '-');
+    var tb = $('tableBody');
+
+    // What this call appended, identified by POSITION rather than by id.
+    //
+    // `appendRow()` appends the main `<tr>` and THEN builds the detail row,
+    // which is where every per-protocol renderer runs and therefore where a
+    // failure is most likely. A throw between the two leaves a half-drawn row
+    // in the table, and appending the fallback beside it would produce two
+    // rows carrying the same id — which breaks `toggleDetail()`,
+    // `filterTable()` and the sort, all of which address rows by id.
+    //
+    // Removing by id was the obvious cleanup, and it is wrong.
+    // `domain.replace(/\W/g, '-')` is not injective: `a-b.com` and `a.b-com`
+    // both produce `row-a-b-com`. An id sweep would then delete a DIFFERENT
+    // domain's already-rendered result — precisely the harm this wrapper
+    // exists to prevent, and it would do it while telling the operator that
+    // the other results were unaffected.
+    //
+    // (The lossy id mapping is older than this wrapper and worth fixing on its
+    // own. Changing it rewrites every row id in the DOM equivalence surface,
+    // so it is not a patch-release change.)
+    //
+    // Everything `appendRow()` adds goes on the end of this one element, so
+    // the child count taken before the call marks exactly what it added —
+    // however many nodes that turns out to be, and whatever their ids collide
+    // with.
+    var mark = tb.childNodes.length;
+    try {
+      appendRow(r);
+    } catch (e) {
+      while (tb.childNodes.length > mark) {
+        tb.removeChild(tb.childNodes[tb.childNodes.length - 1]);
+      }
+      tb.appendChild(R.el('tr', {
+        id: id,
+        dataset: { domain: domain, overall: 'error' },
+      }, [
+        R.el('td'),
+        R.el('td', { className: 'domain-cell' }, R.host(domain)),
+        R.el('td', { colspan: '8' }, [
+          badge(t('badge.renderError'), 'crit'),
+          R.el('span', { style: 'margin-left:8px;color:var(--ink3);font-size:12px' },
+            t('render.rowFailed')),
+        ]),
+      ]));
+    }
+  }
+
   function appendRow(r) {
     var tbody = $('tableBody');
     var rowId = 'row-' + r.domain.replace(/\W/g, '-');
@@ -1581,12 +1676,30 @@ export function createUi(capabilities) {
   /* ── Audit run ──────────────────────────────────────────────────────── */
 
   async function startAudit() {
+    // The guard and the state it guards, in the same synchronous step.
+    //
+    // Before this, the read was here and the matching write was thirty lines
+    // below, after `await checkConnectivity()`. A second click inside that
+    // probe window passed the guard and started a second run: both replaced
+    // `results`, both reset the progress log and the table, and whichever
+    // finished first set `auditController` back to null and re-enabled the
+    // button while the other was still querying — so Cancel could no longer
+    // reach it. Measured at two runs and 111 DoH queries for one double click
+    // on two domains, against a published fan-out of one probe per run.
+    //
+    // Assigning the controller rather than a bare flag keeps one object per
+    // run, which is what `opts.signal` and `cancelAudit()` already expect.
+    // Every early return below has to hand it back, or the button never
+    // recovers.
     if (auditController) return;
+    auditController = new AbortController();
+
     var domains = parseDomains($('domainInput').value);
-    if (!domains.length) { showToast(t('toast.noDomains')); return; }
-    if (domains.length > MAX_DOMAINS) { showToast(t('toast.tooMany')); return; }
+    if (!domains.length) { showToast(t('toast.noDomains')); auditController = null; return; }
+    if (domains.length > MAX_DOMAINS) { showToast(t('toast.tooMany')); auditController = null; return; }
     if ($('optDKIM').checked && $('optDKIMComprehensive').checked && domains.length > MAX_COMPREHENSIVE_DKIM_DOMAINS) {
       showToast(t('toast.tooManyComprehensiveDkim', MAX_COMPREHENSIVE_DKIM_DOMAINS));
+      auditController = null;
       return;
     }
 
@@ -1604,6 +1717,10 @@ export function createUi(capabilities) {
     if (!online) {
       $('netBanner').style.display = 'block';
       $('netBanner').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Without this the interface stays locked out of every later run: the
+      // button was never disabled, so nothing looks wrong, and every
+      // subsequent click returns at the guard above in silence.
+      auditController = null;
       return;
     }
     $('netBanner').style.display = 'none';
@@ -1623,7 +1740,6 @@ export function createUi(capabilities) {
       selectors: $('dkimSelectors').value.split(/[\s,]+/).map(function (s) { return s.trim().toLowerCase(); })
         .filter(function (s) { return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(s); }),
     };
-    auditController = new AbortController();
     opts.signal = auditController.signal;
 
     results = new Array(domains.length);
@@ -1671,7 +1787,7 @@ export function createUi(capabilities) {
     setTimeout(function () { $('progressSection').style.display = 'none'; }, 1200);
 
     $('tableBody').replaceChildren();
-    results.filter(Boolean).forEach(appendRow);
+    results.filter(Boolean).forEach(appendRowIsolated);
     renderSummary();
     $('summarySection').style.display = 'block';
     $('resultsSection').style.display = 'block';
@@ -1989,7 +2105,11 @@ export function createUi(capabilities) {
       return;
     }
     $('tableBody').replaceChildren();
-    results.filter(function (r) { return !r.error; }).forEach(appendRow);
+    // `filter(Boolean)`, matching the run's own loop. Filtering out `r.error`
+    // here made every audit-error row disappear on a language change, so a run
+    // that reported four failures reported none after the user switched
+    // language — and `appendRow()` already has a branch that draws them.
+    results.filter(Boolean).forEach(appendRowIsolated);
     renderSummary();
     filterTable();
     syncArtifactDomains();
@@ -2062,7 +2182,8 @@ export function createUi(capabilities) {
     artifactInputProblem, runArtifactAnalysis, renderArtifactAnalysis,
     syncArtifactDomains, clearArtifacts, buildArtifactReportContent,
     getArtifactSessions: function () { return artifactSessions; },
-    appendRow, buildLearnMorePage, buildReportDocument, buildCsvRows, toCsvText,
+    appendRow, appendRowIsolated,
+    buildLearnMorePage, buildReportDocument, buildCsvRows, toCsvText,
     neutralizeCsvCell, issueMessage, tDns, rowHygieneValues, scoreBlock,
     advMiniDots, advFullDots, spfMeter, tile, badge, detailItem, log,
     applyDeepCheckLimit, rememberDeepCheckChoice,

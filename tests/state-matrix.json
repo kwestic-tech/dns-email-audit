@@ -3204,6 +3204,12 @@
     },
     {
       "algebra": "bimi.svg.diagnostics",
+      "member": "data-uri-reference",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
       "member": "unsupported-attribute",
       "suites": ["src/core/bimi/svg.test.js"],
       "fixtures": []
