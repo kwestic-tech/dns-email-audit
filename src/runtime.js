@@ -44,7 +44,7 @@ import { createAudit } from './audit/create-audit.js';
 import { ANALYSIS_VERSION } from './audit/scoring.js';
 import { analyzeArtifacts } from './audit/artifacts.js';
 import { createDohCache } from './core/dns/cache.js';
-import { createDohTransport } from './core/dns/doh.js';
+import { createDohTransport, DOH_ENDPOINT } from './core/dns/doh.js';
 import { createResolver } from './core/dns/resolver.js';
 import { createExistence, existenceFromResponse } from './core/dns/existence.js';
 import { optionalCheck } from './core/dns/optional.js';
@@ -52,7 +52,7 @@ import { dnsError, dnsTypeNum } from './core/dns/errors.js';
 
 /**
  * The application's released version, as a value the running page can read.
- * Spec: report-comparison 1.4 (Final), §2.
+ * Spec: report-comparison 1.6 (Final), §2.
  *
  * It lives HERE because it has nowhere else to go. `AGENTS.md`'s import matrix
  * has rows for `src/main.js` and `src/runtime.js` and no others at the root, so
@@ -193,6 +193,10 @@ export function createAuditRuntime({
     // `core/dkim/`, and the report schema must not restate a protocol rule, so
     // the predicate crosses the composition boundary as a capability.
     validSelector: audit.validDkimSelector,
+    // The one resolver this application talks to, from the module that owns
+    // the constant. The exported report records it as provenance, and `ui/`
+    // may not import `core/dns/`.
+    resolver: DOH_ENDPOINT,
   });
 
   return {
