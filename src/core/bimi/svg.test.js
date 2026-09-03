@@ -241,9 +241,12 @@ LOCAL_REFERENCES.forEach(([label, child]) => {
 
 /* `data:` is the third case, and it is neither `#fragment` nor external.
  *
- * The rule this screen enforces is "does this address another document",
- * because that is what a mail client would fetch and what SVG Tiny PS forbids.
- * A `data:` URI carries its own bytes: it addresses nothing and cannot beacon.
+ * SVG Tiny 1.2 permits a `fill` or `stroke` to name a local fragment only, so
+ * a `data:` paint reference IS non-conformant — and the URI does resolve to a
+ * document distinct from the owner document. What it does not do is reach the
+ * network: it carries its own bytes, so it requires no fetch and cannot
+ * beacon. That is the distinction this file's two vocabularies are built on,
+ * and it is why the profile complaint does not become a refusal.
  *
  * It is not unreported. A RASTER `data:` URI in any position is the
  * `raster-data-uri` DIAGNOSTIC — an SVG Tiny PS logo should not embed a

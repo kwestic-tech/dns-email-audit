@@ -394,9 +394,9 @@ Rejection rules, each producing a distinct error token:
 | `<foreignObject>` | `foreign-object` |
 | `<image>` or `<use>` | `external-reference-element` |
 | `href` or `xlink:href` whose value is not a same-document fragment | `external-reference` |
-| Any attribute value containing a `url(` whose argument is not a same-document fragment | `external-reference` |
+| Any attribute value containing a `url(` whose argument is neither a same-document fragment nor a `data:` URI | `external-reference` |
 | `<a>` with any target | `link-element` |
-| `<style>` text containing `@import`, or a `url(` whose argument is not a same-document fragment | `external-style` |
+| `<style>` text containing `@import`, or a `url(` whose argument is neither a same-document fragment nor a `data:` URI | `external-style` |
 | `<animate>`, `<animateTransform>`, `<set>`, `<animateMotion>` | `animation` |
 | A parser error node | `malformed-xml` |
 | Anything other than `<svg>` as the root | `bad-root` |
@@ -439,17 +439,23 @@ Widening that matcher to every attribute, which is what the review first
 proposed, would have propagated the false positive across the whole element
 tree rather than fixing anything.
 
-**The corrected rule.** One matcher: a `url(` whose argument, after optional
-whitespace and optional quoting, does not begin with `#` is an external
-reference. `@import` remains an unconditional rejection in `<style>` text. The
+**The corrected rule.** One matcher, three outcomes: a `url(` whose argument,
+after optional whitespace and optional quoting, begins with `#` is local and
+permitted; one that begins with `data:` is the `data-uri-reference`
+**diagnostic** and enters neither security-rejection vocabulary (amendment
+1.11, reasoned below); anything else is an external reference.
+`@import` remains an unconditional rejection in `<style>` text. The
 matcher is applied to `<style>` text and to every attribute value — every
 attribute, not a list of the ones that take paint, because SVG accepts a
 `url()` in `fill`, `stroke`, `filter`, `mask`, `clip-path`, `marker-*` and
 `style`, and an attribute allowlist would need revisiting for each of them.
-The `<style>` position keeps its `external-style` token and the attribute
-position takes `external-reference`, because those tokens are already
-registered in the closed vocabulary and an operator reading a rejection needs
-to know which construct was refused, not only that a `url()` was.
+For the external outcome the `<style>` position keeps its `external-style`
+token and the attribute position takes `external-reference`, because those
+tokens are already registered in the closed vocabulary and an operator reading
+a rejection needs to know which construct was refused, not only that a `url()`
+was. The `data-uri-reference` diagnostic is raised in both positions under the
+one token, because it names the reference category rather than the syntax that
+carried it.
 
 Two arguments are neither an ordinary fragment nor an ordinary external
 reference, and the rule names both:
@@ -991,7 +997,7 @@ Every finding reproduced by execution before the spec was amended.
 
 | Version | Date | Change |
 | --- | --- | --- |
-| 1.11 | 2026-09-03 | Amended after review checked the primary standard. SVG Tiny 1.2's reference-restrictions table permits `fill` and `stroke` to name a category A local fragment only, and a `data:` IRI is category E — so 1.10 was wrong to let a `data:` paint reference pass with no report, and the vector case reached `bimi.svg-valid` with no signal at all. Added `data-uri-reference` to the frozen `BIMI_SVG_DIAGNOSTICS` vocabulary, registered in both state files, raised in every reference position, and independent of `raster-data-uri` so a raster `data:` fill now raises both. Kept it out of `BIMI_SVG_REJECTIONS`: `valid` is bounded by spec 1.0 to security refusal rather than profile conformance, a `data:` URI requires no network fetch, and the four profile violations beside it already leave a document valid. The URI does resolve to a distinct document, which is why the profile forbids it and why the diagnostic exists; it is not a refusal because nothing is fetched. One new locale key, translated into all thirteen. |
+| 1.11 | 2026-09-03 | Amended after review checked the primary standard. SVG Tiny 1.2's reference-restrictions table permits `fill` and `stroke` to name a category A local fragment only, and a `data:` IRI is category E — so 1.10 was wrong to let a `data:` paint reference pass with no report, and the vector case reached `bimi.svg-valid` with no signal at all. Added `data-uri-reference` to the frozen `BIMI_SVG_DIAGNOSTICS` vocabulary, registered in both state files, raised in every reference position, and independent of `raster-data-uri` so a raster `data:` fill now raises both. Kept it out of `BIMI_SVG_REJECTIONS`: `valid` is bounded by spec 1.0 to security refusal rather than profile conformance, a `data:` URI requires no network fetch, and the four profile violations beside it already leave a document valid. The URI does resolve to a distinct document, which is why the profile forbids it and why the diagnostic exists; it is not a refusal because nothing is fetched. One new locale key, translated into all thirteen. Follow-up review found the rejection table and the corrected-rule prose above still stating the absolute "not a fragment, therefore external" rule, which contradicted this amendment; both now name the `data:` outcome explicitly, so the summary and the reasoning agree. |
 | 1.10 | 2026-09-03 | Amended after the Fable 5.1 review of `v0.8.0`, which found the `url()` screen wrong in **both** directions. Attributes were under-screened: the rule tested `href` and `xlink:href` only, so `fill="url(https://…)"`, `style="fill:url(https://…)"` and `style="filter:url(https://…)"` all reached `bimi.svg-valid`. `<style>` was over-screened: the `/@import|url\s*\(/i` matcher rejected a conformant local paint server, so `<style>.a{fill:url(#localGradient)}</style>` was refused as `external-style`. Both reproduced against the shipped validator. Replaced the two rules with one matcher — a `url(` whose argument does not begin with `#` — applied to `<style>` text and to every attribute value, keeping `external-style` in the first position and `external-reference` in the second, and required a `url(#fragment)` control in each so a fix cannot close the under-screening while preserving the false positive. Named the two arguments that are neither a fragment nor external: an empty `url()` fails closed as `external-reference`, and a `data:` URI is self-contained and keeps its existing `raster-data-uri` diagnostic rather than becoming a rejection. Specified the matcher as extract-then-test rather than one pattern, after a backtracking version passed `url( #local )` as external. No token was added to or removed from the closed rejection vocabulary. |
 | 1.9 | 2026-09-03 | Implemented and released as `v0.8.0`. Recorded the delivery-candidate composition, occurrence-preserving evidence, real-browser SVG boundary, separate provenance-aware panel and exports, pre-read byte/MIME limits, stale-result invalidation, latest-input-wins file ordering, live/static finding-card separation, behavioral security instrument, finished five-surface baseline and complete 14-language surface. No score, DNS fan-out, persistence, CSP destination or public facade change. |
 | 1.8 | 2026-09-01 | Amended Final after the evidence-contract review. Required every diagnostic path — document-level, pre-parse, parser and root — to produce located evidence, and defined the `input` variant as an empty value rather than the token. Removed the producer-less failed-lookup input from the delivery-candidate contract. |
