@@ -30,33 +30,44 @@ the sequence above.
 ## Start here: implement 0.9.0 stateless report comparison
 
 Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md),
-**`1.0 (Final)`, approved for implementation**. The review resolved all seven
-`OQ-CMP-*` questions as `RQ-CMP-01`–`07`, reconciled the schema against what
-`v0.8.1` actually produces, and raised and resolved one more — `RQ-CMP-08`,
-per-protocol comparability.
+**`1.1 (Final, amended)`, approved for implementation**. The review resolved all
+seven `OQ-CMP-*` questions as `RQ-CMP-01`–`07`, reconciled the schema against
+what `v0.8.1` actually produces, and raised and resolved one more —
+`RQ-CMP-08`, per-protocol comparability. The 1.1 amendment corrects the
+implementable contract without reopening those product decisions.
 
-Build it in the five directory-bound commits the spec's §0 lists, in that
+Build it in the six directory-bound commits the spec's §0 lists, in that
 order. Two of them can move a published surface, so they do not share a commit
 with the UI work:
 
-1. `src/version.js` and `ANALYSIS_VERSION` in `src/audit/scoring.js`.
-2. `src/ui/report-data.js` — pure schema, validation and comparison.
-3. `src/ui/report.js` — `exportJSON()`.
-4. `src/ui/events.js` — import controls, comparison mode, filters.
-5. `locales/en.json` and all thirteen translations.
+1. `src/audit/` — `ANALYSIS_VERSION` and the observability projection.
+2. `src/runtime.js` — `APP_VERSION` and injected version metadata.
+3. `src/ui/report-data.js` — pure schema, validation and comparison.
+4. `src/ui/report.js` — `exportJSON()`.
+5. `src/ui/events.js` — import controls, comparison mode, filters.
+6. `locales/en.json` and all thirteen translations.
 
-Three review findings are implementation prerequisites rather than design
-notes, and each is easy to miss:
+The review findings are implementation prerequisites rather than design notes,
+and these are the easiest to miss:
 
 - **`generator.version` has no runtime source.** The package version reaches
-  only the bundle's comment banner in `tools/build-bundle.mjs`. Commit 1 adds
-  `src/version.js` and the test that pins it to `package.json`.
+  only the bundle's comment banner in `tools/build-bundle.mjs`. Commit 2 adds
+  `APP_VERSION` to the existing `src/runtime.js` composition owner and pins it
+  to `package.json`; `src/version.js` is not permitted by the import matrix.
 - **`generatedAt` is the moment the audit run completed**, captured once in
   `src/ui/events.js` run state and reused by every export of that run. As
   export time, acceptance criterion 4 is untestable.
 - **The schema is a projection, not a dump.** The exclusion table in §1 is the
-  specification; a test asserts the excluded fields are absent, because a test
-  that only checks the wanted fields would pass on a dump.
+  specification; its normalized record paths are asserted in both directions,
+  because a test that only checks the wanted fields would pass on a dump or a
+  dead whitelist member.
+- **`deepChecks` is part of report provenance.** Its mismatch makes MX and DANE
+  incomparable without blanking unrelated protocols.
+- **Observability is an audit fact.** Do not infer it from finding confidence:
+  that loses unscored MX/DANE failures and overstates partial DMARC failures.
+- **Cross-generator finding movement is qualified.** Keep the raw id diff, but
+  use `changed` and baseline/current-only labels rather than claiming domain
+  improvement or regression.
 
 The 0.8.0 release established the inputs 0.9.0 must respect:
 
@@ -75,7 +86,7 @@ The 0.8.0 release established the inputs 0.9.0 must respect:
 | --- | --- | --- | --- |
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
-| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec Final at `1.0` | Versioned JSON schema, import validation and stateless comparison |
+| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec Final, amended at `1.1` | Versioned JSON schema, import validation and stateless comparison |
 | 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary
@@ -90,11 +101,13 @@ uses the real browser parser and must prove its own detectors fail.
 
 Pure report schema and comparison work stays within `src/ui/` siblings.
 `ANALYSIS_VERSION` remains owned by `src/audit/scoring.js` and crosses the
-existing composition boundary; the UI never imports scoring. `RQ-CMP-06`
-settled the field: one `analysisVersion`, bumped by anything that can move a
-score — discovery as well as the rubric — gating the score delta and never the
-finding diff. `RQ-CMP-07` excludes artifact findings with no reserved field,
-and the export asserts it against `artifactFindingCatalogIds()`.
+existing composition boundary; the UI never imports scoring. `APP_VERSION`
+lives in `src/runtime.js`, not a new unowned root module. `RQ-CMP-06` keeps one
+`analysisVersion`, bumped by anything that can move a score, while 1.1
+qualifies finding movement whenever generator versions differ. The closed
+observability map, including unscored MX and DANE, prevents a failed or skipped
+check from reading as fixed. `RQ-CMP-07` excludes artifact findings with no
+reserved field, asserted against `artifactFindingCatalogIds()`.
 
 ### 1.0.0 boundary
 

@@ -13,7 +13,10 @@ committed, byte-stable and reviewable by anyone re-running this.
 ## Method
 
 Serialized length of `JSON.stringify()` over three candidate report bodies,
-averaged per domain result and projected linearly.
+averaged per domain result and projected linearly. The “curated” body below is
+the broad 1.0 review candidate, not the normative 1.1 schema: it deliberately
+keeps whole `dkimStatus` and `advanced` objects and therefore supplies a
+conservative upper bound for 1.1's normalized record projection.
 
 ```bash
 node -e "
@@ -48,16 +51,16 @@ console.log(mb(full), mb(cur), mb(noEv), mb(noRec));
 
 | Body | Bytes per domain | 200 domains (`MAX_DOMAINS`) | 1000 domains (draft import cap) |
 | --- | --- | --- | --- |
-| Whole `result` object, unfiltered | 9,035 | 1.72 MB | **8.62 MB** |
-| Curated schema, full evidence | 6,103 | 1.16 MB | 5.82 MB |
-| Curated schema, no evidence | 5,368 | 1.02 MB | 5.12 MB |
-| Findings and score only, no records | 3,096 | 0.59 MB | 2.95 MB |
+| Whole `result` object, unfiltered | 9,035 | 1.72 MiB | **8.62 MiB** |
+| Broad 1.0 candidate, full evidence | 6,103 | 1.16 MiB | 5.82 MiB |
+| Broad 1.0 candidate, no evidence | 5,368 | 1.02 MiB | 5.12 MiB |
+| Findings and score only, no records | 3,096 | 0.59 MiB | 2.95 MiB |
 
 ## What the numbers settle
 
 **The 0.3 draft cannot import its own export.** Exporting the whole result
 object at the draft's own 1000-domain array limit produces 8.62 MB, and the
-draft's own byte limit before `JSON.parse` is 8 MB. A tool that emits files it
+draft's own byte limit before `JSON.parse` is 8 MiB. A tool that emits files it
 then rejects is a defect, not a tuning question, and it is only invisible
 because nobody has built the exporter yet.
 

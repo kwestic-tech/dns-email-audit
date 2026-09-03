@@ -81,7 +81,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 4 | DKIM, MX, CAA and DANE depth | **Done.** 0.4.0 decodes DKIM public keys to algorithm and modulus size, parses CAA into a policy with wildcard semantics, resolves every MX target to find dangling and CNAME hosts, and adds TLSA lookup, reported per host as DNSSEC-authenticated or not on the strength of the resolver's AD bit for that host's own name. 0.5.0 reviewed and **retired** the `qualified` flag rather than completing it: a TLSA record lives in the MX host's zone, which the audited domain's chain evidence says nothing about, and local DS-to-DNSKEY matching never validates RRSIGs and so cannot exceed the resolver's per-host verdict (`OQ-SEC9-07`). Every observation is advisory: zero grade movement. | [0.4.0](docs/specs/implemented/dns-protocol-depth.md), released |
 | 5 | DNSSEC depth | **Done.** 0.5.0 queries the child `DNSKEY` set and the parent `DS` set, matches the digests locally with Web Crypto, and replaces the four-state model with six — separating a signed-but-unanchored zone and a DS/DNSKEY mismatch from a zone that was never signed. The resolver's AD flag remains the validation signal, and every claim is attributed to it or to local computation. | [0.5.0](docs/specs/implemented/dnssec-evidence.md), released |
 | 6 | Local MTA-STS and BIMI validation | **Done.** 0.8.0 adds a separate in-memory panel for supplied MTA-STS policy and BIMI SVG material, with strict pre-parse limits, source-bound findings and no network, storage, scoring or logo-rendering path. 0.8.1 hardens output handling and amends the SVG `url()` rule without changing that boundary. | [0.8.0 and 0.8.1](docs/specs/implemented/local-artifact-validation.md), released |
-| 7 | Local report comparison | Not started; **spec Final at `1.0`.** Exports are CSV and static HTML; nothing can be read back. The review settled all seven open questions, replaced the draft's result-object dump with a named projection, and added per-protocol comparability so an unobserved protocol is never reported as fixed. | [0.9.0](docs/specs/report-comparison.md) |
+| 7 | Local report comparison | Not started; **spec Final, amended at `1.1`.** Exports are CSV and static HTML; nothing can be read back. The review settled all seven open questions, replaced the draft's result-object dump with a named projection, and added explicit per-protocol observability so an unobserved protocol is never reported as fixed. | [0.9.0](docs/specs/report-comparison.md) |
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
 | 9 | Modular architecture and production build | **Done.** Released as 0.6.0; all six gates met. Spec `1.8`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with thirteen owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md), released |
 | 10 | 1.0 product contract and release readiness | Not started. The compatibility surface, supported environments, accessibility evidence and graduation gate are now explicit rather than inferred from completing 0.9.0. | [1.0.0](docs/specs/one-zero-readiness.md) |
@@ -244,7 +244,7 @@ query traces, CSV, HTML and DOM. Released as `v0.8.1`.
 
 ### 0.9.0: Stateless report comparison
 
-Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md) — `1.0 (Final)`
+Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md) — `1.1 (Final, amended)`
 
 Defines a versioned JSON report schema, exports normalized evidence with an
 `analysisVersion`, and compares two reports entirely in memory to show new,
@@ -253,18 +253,19 @@ resolved, regressed, and unchanged findings. History is never persisted.
 The schema is a named projection of the result object rather than a dump of it.
 That was the review's largest correction and it was settled by measurement, not
 argument: the draft exported the whole result at a 1000-domain import cap, which
-is 8.62 MB against its own 8 MB pre-parse limit — a tool emitting files it would
+is 8.62 MiB against its own 8 MiB pre-parse limit — a tool emitting files it would
 then reject. The projection also keeps two things out of a file people email to
 each other: display state, and the apex TXT records that carry a domain's
 third-party vendor verification tokens. The import cap becomes `MAX_DOMAINS`,
 200, because the application cannot produce a larger report.
 
-`analysisVersion` gates the score delta and nothing else. A version that gated
-the whole comparison would fail the feature's commonest case — audit in March,
-audit again in September, two releases later — where the finding diff on 0.7.0's
-stable ids is exactly what the user wants and is still correct. It is bumped by
-anything that can move a score, discovery included, because 0.3.0 is the
-confirmed instance of scores moving with the rubric untouched.
+`analysisVersion` gates the score delta and nothing else. Finding ids and record
+observations are still diffed across releases, but different generator versions
+are labelled as `changed` with baseline/current-only findings rather than the
+causal claims improved/regressed and new/resolved. Stable ids establish identity,
+not unchanged detector semantics. `analysisVersion` is bumped by anything that
+can move a score, discovery included, because 0.3.0 is the confirmed instance of
+scores moving with the rubric untouched.
 
 Exit condition: reloading the page discards imported reports, hostile strings
 inside imported JSON render as text only, a protocol that was unobserved on
