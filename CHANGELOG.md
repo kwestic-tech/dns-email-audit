@@ -16,6 +16,91 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Nothing yet.
 
+## [0.8.1] — 2026-09-03
+
+A patch release. Five defects found by an external review of `v0.8.0`, one
+reported by a user, and the documentation drift the review catalogued. No
+scoring, DNS fan-out, cache scope, persistence, CSP destination or public
+facade change; the deterministic corpus replays across 32 cases and five
+surfaces with zero differences.
+
+### Fixed
+
+- **One hostile nameserver label no longer discards the whole run.** A DNS
+  label of `__proto__` in an audited domain's NS record produced the provider
+  string `__proto__`, which resolved through `Object.prototype` in the token
+  table, handed the renderer an object, and threw inside the per-row loop —
+  losing every domain in the batch, not only the hostile one, with the Run
+  Audit button already re-enabled so the page looked as though nothing had
+  happened. Underscores are legal in owner names, so any domain in a list
+  could do this to whoever was auditing it. The token table is prototype-free,
+  and a row that fails to render is now contained to that row: its partial
+  markup is removed and replaced with a row that names a *display* failure,
+  distinct from an audit error, in all fourteen languages. The cleanup removes
+  what that render call appended, by position: row ids come from a lossy
+  `\W`-to-dash mapping under which `a-b.com` and `a.b-com` collide, so removing
+  by id would have deleted a different domain's finished result while claiming
+  the others were unaffected.
+- **Two clicks on Run Audit no longer start two audits.** The re-entry guard
+  was read before `await checkConnectivity()` and not set until after it, so a
+  second click inside the probe window started a second run: both replaced the
+  results, both reset the progress log, and whichever finished first re-enabled
+  the button while the other was still querying, so Cancel could not reach it.
+  Measured at two runs and 111 DoH queries for one double click on two domains,
+  against a published fan-out of one probe per run. The guard is now claimed in
+  the same synchronous step it is read, and every early return releases it.
+- **The DNS-provider badge is sentinelised.** It was the one DNS-derived string
+  reaching the display without passing `R.value()` or `R.sentinelText()`, so a
+  bidirectional override inside a nameserver name reordered the table cell —
+  while the nameserver list two rows below showed the same record with its
+  `‹RLO›` marker. Substitution happens on the derived branch of `label()`, so
+  translated provider names are untouched.
+- **i18n keys and named entities resolve through own properties only.** The
+  bundle walk and the entity table both reached `Object.prototype`, so
+  `artifact.token.constructor` returned a function and `&constructor;` in a
+  locale string rendered `function Object() { [native code] }` into the page.
+  0.8.0 already routed user-supplied text into the first of these through the
+  MTA-STS artifact panel.
+- **The BIMI SVG screen's `url()` rule was wrong in both directions.**
+  Attributes were screened for `href` only, so `fill="url(https://…)"`,
+  `style="fill:url(https://…)"` and `style="filter:url(https://…)"` reached
+  `bimi.svg-valid`. `<style>` was screened by a matcher that rejected *every*
+  `url(`, so a conformant logo painting with a local gradient was refused as
+  `external-style`. One matcher now runs in both positions, and a `data:` URI
+  in a reference position raises the new `data-uri-reference` **diagnostic**:
+  SVG Tiny 1.2 permits paint references to local fragments only, but a `data:`
+  URI needs no network fetch, so it is a profile complaint rather than a
+  refusal. The vector case previously passed with no signal at all.
+- **The footer separators render.** All fourteen locales write `&bull;` in the
+  footer and about text, which the rich-text tokenizer left as literal text
+  because the entity was not in its allowlist — the footer read
+  "Cloudflare &bull; No data sent to Kwestic". 69 occurrences.
+
+### Changed
+
+- `PRIVACY.md` attributed the stylesheet fetch to `src/main.js`; it has been
+  `src/ui/report.js` since 0.6.0. `SECURITY.md`'s scope named `js/` paths
+  deleted in the same release. `index.html` declared two languages in its
+  structured data and one Open Graph alternate while fourteen locales ship.
+  `src/audit/context.js` documented a `BigInt` in the audit result that is not
+  there and never was — the committed equivalence baseline serialises the full
+  result for all 32 cases, which could not exist if one were. `README.md` and
+  `src/ui/report.js` said a leading apostrophe "is not displayed by the
+  spreadsheet"; on CSV import it is visible, which is why the change is also
+  named by the `formula-leading` token.
+
+### Notes
+
+- The verification inventory reports 270 checks and 5,100 assertions, up from
+  265 and 5,004. `dist/app.min.js` is 507,030 bytes raw; gzip is about 150.5 KB
+  and varies by a few bytes with the zlib build, so only the raw figure is
+  quoted exactly.
+- `npm run equivalence` reports zero differences against the `v0.8.0` baseline
+  across result, query trace, CSV, HTML and DOM.
+- One new locale key pair for the display-failure row and one for the new SVG
+  diagnostic, translated into all thirteen languages; the gate passes 13/13
+  strict.
+
 ## [0.8.0] — 2026-09-03
 
 ### Added
@@ -1310,7 +1395,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.5.0...v0.6.0

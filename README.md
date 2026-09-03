@@ -298,7 +298,7 @@ JSON files from disk, so translated interfaces require HTTP.
 | `npm ci` | Install exact versions of esbuild and its platform binary; no install scripts run. |
 | `npm start` | Serve the already-built application on port 8080 with the dependency-free development server. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Build the bundle, then run locale validation plus **5,004** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
+| `npm test` | Build the bundle, then run locale validation plus **5,100** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `src/data/locales-en.js` after editing `locales/en.json`. |
