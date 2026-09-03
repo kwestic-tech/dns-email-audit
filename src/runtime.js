@@ -41,6 +41,7 @@ import { createI18n } from './i18n/index.js';
 import { createRenderer } from './ui/render.js';
 import { createUi } from './ui/events.js';
 import { createAudit } from './audit/create-audit.js';
+import { ANALYSIS_VERSION } from './audit/scoring.js';
 import { analyzeArtifacts } from './audit/artifacts.js';
 import { createDohCache } from './core/dns/cache.js';
 import { createDohTransport } from './core/dns/doh.js';
@@ -48,6 +49,29 @@ import { createResolver } from './core/dns/resolver.js';
 import { createExistence, existenceFromResponse } from './core/dns/existence.js';
 import { optionalCheck } from './core/dns/optional.js';
 import { dnsError, dnsTypeNum } from './core/dns/errors.js';
+
+/**
+ * The application's released version, as a value the running page can read.
+ * Spec: report-comparison 1.2 (Final), §2.
+ *
+ * It lives HERE because it has nowhere else to go. `AGENTS.md`'s import matrix
+ * has rows for `src/main.js` and `src/runtime.js` and no others at the root, so
+ * a `src/version.js` would be a module nothing is permitted to import. This
+ * file is the composition owner, and a version is composition metadata.
+ *
+ * It is a literal rather than a read of `package.json`, because a browser has
+ * no filesystem and the bundle carries the version only as a comment banner in
+ * `tools/build-bundle.mjs`. `runtime.test.mjs` pins the literal to
+ * `package.json`, so the release commit bumps both together or the suite fails
+ * — which is the coupling this needs, given the release commit already touches
+ * the version, the changelog and the doc status flips on its own.
+ *
+ * It carries NO comparison semantics. 0.9.0 uses it for human context and for
+ * `findingSemanticsMatch`, which turns a cross-version finding diff into
+ * baseline-only/current-only labels rather than a claim about improvement.
+ * `ANALYSIS_VERSION` is the field that gates the score delta.
+ */
+const APP_VERSION = '0.8.1';
 
 /**
  * Build one audit runtime.
@@ -116,6 +140,12 @@ export function createAuditRuntime({
   const mount = () => i18n.init();
 
   /**
+   * The two version values 0.9.0's report schema carries, frozen so a consumer
+   * cannot edit the runtime's own metadata through the object it was handed.
+   */
+  const versions = Object.freeze({ app: APP_VERSION, analysis: ANALYSIS_VERSION });
+
+  /**
    * User-supplied artifacts cross the same composition root, but never the
    * supported DNS facade. The runtime owns the parser capability: input can
    * supply text and audited DNS facts, not executable behavior. Keeping
@@ -155,6 +185,10 @@ export function createAuditRuntime({
     checkConnectivity: () => checkConnectivity(),
     mount,
     englishBundle,
+    // Version metadata crosses the composition boundary as data, so the UI
+    // never imports `audit/scoring.js` to read it — §0's rule, and the reason
+    // the export lives in `audit/` while the injection lives here.
+    versions,
   });
 
   return {
@@ -183,6 +217,14 @@ export function createAuditRuntime({
      */
     i18n,
     renderer,
+
+    /**
+     * The application and analysis versions, for the report export. Not facade
+     * members — `src/facade.expected.json` names those two — and exposed here
+     * rather than as a module export because `runtime.test.mjs` asserts this
+     * file exports exactly one thing.
+     */
+    versions,
     /**
      * The audit's constructed parts and the DNS layer beneath them, for the
      * contract tests that exercise a protocol owner over a real transport.
