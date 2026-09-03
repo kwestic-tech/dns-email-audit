@@ -3,14 +3,15 @@
 Required by spec [§12](../../../docs/specs/implemented/modular-architecture-and-production-build.md#12-module-apis-and-the-allowed-edge-matrix):
 each owning directory checks in `API.md` in the same commit that creates it.
 
-**Responsibility.** Mail **transport** security as DNS publishes it: MTA-STS
-(RFC 8461), TLS-RPT (RFC 8460) and TLSA/DANE (RFC 6698, RFC 7671). This
-directory emits no finding, severity, score or locale key.
+**Responsibility.** Mail **transport** security as DNS publishes it, plus pure
+inspection of an MTA-STS policy body the user supplies: MTA-STS (RFC 8461),
+TLS-RPT (RFC 8460) and TLSA/DANE (RFC 6698, RFC 7671). This directory emits no
+finding, severity, score or locale key.
 
 **Nothing here connects to port 25.** Nothing fetches the MTA-STS policy file
-and nothing compares a TLSA record against a certificate, so what is reported
-is what is published. `advanced.mtaSts.policyVerified` stays false in this
-release for exactly that reason.
+and nothing compares a TLSA record against a certificate. The DNS-derived
+`advanced.mtaSts.policyVerified` stays false; local policy analysis is a
+separate user-supplied result and never upgrades that public observation.
 
 BIMI is **not** here. Brand indicators are not mail transport security; see
 [`../bimi/API.md`](../bimi/API.md).
@@ -23,12 +24,13 @@ BIMI is **not** here. Brand indicators are not mail transport security; see
 
 ## Split by record, and only one takes a resolver
 
-Spec §3's tree names three files, and the split is by record responsibility —
+The split is by protocol artifact responsibility —
 not by layer, and not by whether a module happens to need injection.
 
 | Module | Does a lookup? | Shape |
 | --- | --- | --- |
 | `mta-sts.js` | no | pure validator |
+| `mta-sts-policy.js` | no | pure policy validator and MX comparator |
 | `tls-rpt.js` | no | pure validator |
 | `tlsa.js` | **yes** | factory + pure parser |
 | `ext-value.js` | no | one internal constant |
@@ -50,6 +52,65 @@ be symmetry standing in for structure.
 
 `STS_ID` — `sts-id = 1*32(ALPHA / DIGIT)` — is **private to this module**. It
 is one protocol's field grammar and belongs nowhere else.
+
+### `mta-sts-policy.js`
+
+| Export | Kind | Contract |
+| --- | --- | --- |
+| `validateMtaStsPolicy(text)` | pure | Parses an already size-bounded user-supplied RFC 8461 §3.2 policy body. LF and CRLF are valid, the version need not be first, `max_age` may be zero, later duplicate non-`mx` fields are ignored, and unknown extensions are retained for diagnostics. A BOM is reported and removed; blank, malformed and wrong-case lines retain their line numbers. Policy extension values may contain `=` and `;` under their policy-specific ABNF. Returns tokens and primitives only. |
+| `compareMtaStsMx(patterns, { hosts, unknown })` | pure | Returns the closed state `compared` or `unknown`, plus unmatched delivery hosts and unused policy patterns only when comparison is possible. Matching is case-insensitive, ignores a DNS presentation dot, and a wildcard matches exactly one left-most label. **Fails closed to `unknown`** on an absent fact, a missing, non-array or EMPTY `hosts`, or any entry that is not a valid hostname after normalisation — a single bad entry fails the whole comparison. `null-mx` is not a member until its composer exists. |
+| `mxComparisonApplies(policyResult)` | pure | One row of `policyFindingScope()`, kept named because the two MX mismatch findings are its most consequential consumer; it delegates rather than re-deriving. Whether comparing this policy's `mx` patterns against DNS means anything: true only when the policy is **valid** and its mode is `enforce` or `testing`. `src/audit/artifacts.js` MUST gate both MX mismatch findings on it. A valid `mode: none` policy legitimately has no `mx`, and an invalid policy still exposes the `mx` lines that parsed — comparing either produces a confident false finding. |
+| `policyFindingScope(policyResult)` | pure | Which SEMANTIC findings this policy state may produce: `{ state, modeFinding, maxAgeFinding, nullMxConflict, mxComparison }`, frozen. `state` is the closed algebra `transport.mtaStsPolicy.findingScope`. **Fails closed to the `invalid` scope** on anything that is not `valid === true` with a defined mode — `enforce` is the widest scope, so it is never the fall-through. `src/audit/artifacts.js` READS these flags and does not re-derive them. |
+
+The caller measures the UTF-8 byte limit before invoking the parser. This
+module imports no platform capability and performs no I/O.
+
+`validateMtaStsPolicy().diagnostics` is a line index, not a mirror of
+`errors` + `warnings`: the four `missing-*` errors are raised against the
+document rather than a line and therefore appear in `errors` only.
+
+#### Which findings a policy state may produce
+
+| Policy state | Semantic findings allowed |
+| --- | --- |
+| `invalid` | Parser and profile diagnostics only. No mode, max-age, null-MX or mismatch interpretation: they would be built from the fields that happened to parse. |
+| `withdrawal` (valid `mode: none`) | `mta-sts.mode-none` only. RFC 8461 §8.3's removal procedure is "publish a new policy with 'mode' equal to 'none' and a small 'max_age' (e.g., one day)", so `max-age-short` here advises working against the protocol. A withdrawn policy also advertises no mail handling, so it cannot conflict with a null MX. |
+| `testing` | `mta-sts.mode-testing`, max-age-short when applicable, and either the null-MX conflict or the gated MX comparison. |
+| `enforce` | Max-age-short when applicable, and either the null-MX conflict or the gated MX comparison. No mode finding — `enforce` is the intended state. |
+
+A result that is not `valid === true`, or whose mode is not one of the three
+RFC 8461 values, takes the `invalid` scope. Today's validator cannot produce
+such a shape — which is the reason to write the rule down rather than rely on
+it: `enforce` enables every semantic class at once, so a drifted or hand-built
+result must not reach it by falling through.
+
+`maxAgeFinding`, `nullMxConflict` and `mxComparison` are currently true under
+exactly the same condition (valid, and mode is `enforce` or `testing`); only
+`modeFinding` is independent. They are kept as separate flags because they are
+separate finding classes that may diverge, and collapsing them would make any
+future divergence a re-derivation rather than an edit.
+
+#### Where the MX fact comes from, and where it must not
+
+`compareMtaStsMx` takes `{ hosts: string[], unknown }` built by
+`src/audit/artifacts.js` from the domain's **delivery candidates** — the
+explicit MX exchanges, or the RFC 5321 §5.1 implicit MX (the domain itself)
+when no MX is published and an address record is usable. Published MX records
+alone are not enough: a domain with no MX still accepts mail at itself, and a
+policy naming it is correct rather than stale. It must not be handed
+`advanced.mxHealth`:
+
+| | `advanced.mxHealth` | What this comparator needs |
+| --- | --- | --- |
+| `hosts` | audit objects; `audit-domain.js` writes `mxHealth.hosts.map(h => h.host)` to get names out | hostname strings |
+| Availability | `null` whenever deep checks are off — the interface disables them above 50 domains — or the domain has no MX, or publishes a null MX | every audited domain |
+| Meaning | whether each exchange resolves | where a conformant sender would deliver |
+
+An empty or silently-filtered host list compares as "every pattern is unused",
+so an absent fact that reads as an empty one turns a healthy policy into a
+stale-policy claim. That is why the guard fails closed rather than defaulting
+`hosts` to `[]` or dropping entries with `filter(Boolean)`, and why every guard
+ships with a negative run proving it fails when removed.
 
 ### `tls-rpt.js`
 
@@ -150,7 +211,8 @@ record and threw away the first destination as evidence.
 
 ## Moved, not redesigned
 
-`js/dns.js`'s TLSA, MTA-STS and TLS-RPT blocks, unchanged apart from the
+Except for the new `mta-sts-policy.js`, `js/dns.js`'s TLSA, MTA-STS and TLS-RPT
+blocks are unchanged apart from the
 two-space dedent, the `export` keywords, `checkTlsa` becoming the body of a
 factory that names its four resolver capabilities, and the three published
 state constants. No parsing rule, no lookup and no result shape moved with

@@ -915,7 +915,9 @@ const findingsRow = {
     mkFinding('dmarc.enforcement-without-auth', 'dmarc-enforcement-without-auth', 'critical', { keyspace: 'finding', dependsOn: ['dkim.weak-with-enforcement'] }),
     mkFinding('dkim.weak-with-enforcement', 'dkim-weak-with-enforcement', 'high', { keyspace: 'finding', blocks: ['dmarc.enforcement-without-auth'] }),
     mkFinding('dkim.mixed-key-strength', 'dkim-key-mixed', 'low'),
-    mkFinding('dmarc.no-rua', 'dmarc-no-rua', 'info', { confidence: 'unverified' }),
+    // A second low-tier card is intentional: it proves renderer callbacks do
+    // not mistake Array#map's index argument for static-report mode.
+    mkFinding('dmarc.no-rua', 'dkim-weak-with-enforcement', 'low', { keyspace: 'finding', confidence: 'unverified' }),
   ],
   remediationPlan: [
     { step: 1, findings: ['dkim.weak-with-enforcement', 'dkim.mixed-key-strength'], rationale: 'foundation', unblocks: ['dmarc.enforcement-without-auth'] },
@@ -964,6 +966,18 @@ eq('a confirmed finding shows no confidence marker',
   fEls.some(e => e.classList.contains('finding-conf-confirmed')), false);
 // Evidence renders under a finding.
 eq('evidence renders under a finding', fEls.some(e => e.classList.contains('finding-evidence')), true);
+// `Array#map` passes an index as its second callback argument. When
+// findingCard gained a `staticMode` second parameter for HTML reports, passing
+// it directly to map made every card after index zero look static in the live
+// UI: its disclosure button vanished and its content opened. Pin the live-card
+// contract at both observable points.
+const findingExplainers = fEls.filter(e => e.classList.contains('showme-wrap'));
+eq('every live finding explainer keeps its disclosure button',
+  fEls.filter(e => e.classList.contains('showme-btn') && e.parentNode && e.parentNode.classList.contains('showme-wrap')).length,
+  findingExplainers.length);
+eq('no live finding explainer is forced open by static-report mode',
+  fEls.filter(e => e.classList.contains('showme-content') && (e.getAttribute('style') || '').includes('display:block')).length,
+  0);
 // A domain with no findings renders no findings block — proven able to be empty.
 fb.id = '';
 const emptyBody = document.createElement('tbody');
@@ -973,8 +987,59 @@ APP.appendRow(Object.assign({}, findingsRow, { domain: 'clean.example', findings
 eq('a clean domain renders no div.finding',
   elements(emptyBody).filter(e => e.className === 'finding').length, 0);
 
-/* ── 15. The finding-id sequence is byte-identical across all locales ─── */
-section('15. Finding order is identical under every one of the fourteen locales');
+/* ── 15. Local artifact limits and evidence are their own branch ─────── */
+section('15. Local artifact limits and evidence');
+
+eq('a policy of exactly 64 KiB is accepted before parsing',
+  APP.artifactInputProblem('mta-sts-policy', 'a'.repeat(64 * 1024), null), null);
+eq('one byte over the policy limit is refused',
+  APP.artifactInputProblem('mta-sts-policy', 'a'.repeat(64 * 1024 + 1), null).token, 'too-large');
+eq('the paste limit counts UTF-8 bytes rather than UTF-16 units',
+  APP.artifactInputProblem('mta-sts-policy', 'é'.repeat(32 * 1024 + 1), null).token, 'too-large');
+eq('a file at the SVG limit is accepted before FileReader',
+  APP.artifactInputProblem('bimi-svg', '', { size: 32 * 1024, type: 'image/svg+xml' }), null);
+eq('a file over the SVG limit is refused before FileReader',
+  APP.artifactInputProblem('bimi-svg', '', { size: 32 * 1024 + 1, type: 'image/svg+xml' }).token, 'too-large');
+eq('an omitted MIME declaration is advisory and accepted',
+  APP.artifactInputProblem('bimi-svg', '', { size: 1, type: '' }), null);
+eq('a declared wrong MIME type is refused',
+  APP.artifactInputProblem('bimi-svg', '', { size: 1, type: 'text/html' }).token, 'wrong-type');
+eq('an unknown artifact kind fails closed',
+  APP.artifactInputProblem('vmc', '', null).token, 'unknown-kind');
+
+const suppliedValue = '<use href="https://evil.example/x">';
+APP.renderArtifactAnalysis({
+  domain: 'artifact.example',
+  artifactFindings: [{
+    id: 'bimi.svg-rejected', key: 'bimi-svg-rejected', keyspace: 'finding',
+    severity: 'high', confidence: 'confirmed', category: 'issuance',
+    source: 'user-supplied', args: ['external-reference-element', 'external-reference'],
+    evidence: [{ kind: 'element', location: '<use>', value: suppliedValue,
+      queryName: 'must-not-be-treated-as-dns.example' }],
+  }],
+});
+const artifactTree = document.getElementById('artifactResults');
+const artifactText = textOf(artifactTree);
+eq('the aggregate artifact message includes every token',
+  artifactText.includes('external-reference-element') && artifactText.includes('external-reference'), true);
+eq('each known parser token is rendered with its actionable requirement',
+  artifactText.includes(t('artifact.token.external-reference-element')) &&
+    artifactText.includes(t('artifact.token.external-reference')), true);
+eq('every artifact card renders its user-supplied provenance',
+  elements(artifactTree).filter(e => e.classList.contains('artifact-source')).length, 1);
+eq('artifact evidence renders its location as text', locate(artifactTree, '<use>'), 'text');
+eq('artifact evidence renders the supplied value as text', locate(artifactTree, suppliedValue), 'text');
+eq('the artifact branch ignores DNS queryName even if one is smuggled in',
+  textOf(artifactTree).includes('must-not-be-treated-as-dns.example'), false);
+
+APP.renderArtifactAnalysis({ domain: 'clean.example', artifactFindings: [] });
+eq('a clean supplied policy still produces a visible answer',
+  textOf(artifactTree).includes(t('artifact.noFindings')), true);
+eq('and the clean answer still names its provenance',
+  elements(artifactTree).some(e => e.classList.contains('artifact-source')), true);
+
+/* ── 16. The finding-id sequence is byte-identical across all locales ─── */
+section('16. Finding order is identical under every one of the fourteen locales');
 
 // A direct render test (findings spec §6, testing amendment 1.1): render the
 // same fixture under each locale by composing a UI whose active bundle IS that

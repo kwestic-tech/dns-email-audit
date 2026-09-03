@@ -64,16 +64,17 @@
     },
     {
       "path": "tools/render.test.mjs",
-      "assertions": 362,
+      "assertions": 380,
       "areas": [
         "row rendering and the detail panels",
         "DNS-derived values reach text nodes or allowlisted attributes, never markup",
-        "the record-hygiene sentinels"
+        "the record-hygiene sentinels",
+        "local artifact byte and MIME limits plus the separate provenance/evidence renderer branch"
       ]
     },
     {
       "path": "tools/export.test.mjs",
-      "assertions": 204,
+      "assertions": 216,
       "areas": [
         "CSV column order, quoting and formula neutralization",
         "the exported HTML report's structure and its own security policy",
@@ -82,7 +83,7 @@
     },
     {
       "path": "tools/csp.test.mjs",
-      "assertions": 90,
+      "assertions": 93,
       "areas": [
         "every Content-Security-Policy directive in index.html",
         "the JSON-LD hash",
@@ -92,7 +93,7 @@
         "the exported report declares its own policy",
         "the markup-sink allowlist is empty and src/ is the only source tree left to scan"
       ],
-      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. 58 before Task 4.0; +4 core/shared, +1 core/caa, +1 core/mx, +1 core/bimi, +4 core/transport."
+      "note": "The markup-sink scan is per file, so the count moves with the number of modules under js/ and src/. 58 before Task 4.0; +4 core/shared, +1 core/caa, +1 core/mx, +1 core/bimi, +4 core/transport, +1 local MTA-STS policy module, +1 BIMI SVG module, +1 artifact composer."
     },
     {
       "path": "src/core/dns/doh.test.js",
@@ -210,6 +211,22 @@
       ]
     },
     {
+      "path": "src/core/bimi/svg.test.js",
+      "assertions": 126,
+      "note": "Co-located per spec §9. local-artifact-validation 1.6. Pure screening over an INJECTED parser: the fixture tree exercises the rules, and tests/build/local-input-security.test.mjs drives the real DOMParser. Neither half is evidence for the other.",
+      "areas": [
+        "the two frozen vocabularies, and why multiple-roots is not among the diagnostics: XML makes a second root a parse error",
+        "DOCTYPE and ENTITY refused by a source-text scan with the parser INVOCATION COUNTED, not inferred -- Chrome expands internal entities, so reaching the parser is the failure",
+        "root identity: HTML in a .svg file parses cleanly and is caught only by name, while a wrong namespace on an svg root is a diagnostic rather than a refusal",
+        "every security refusal: script, event handlers, foreignObject, image/use, external href in both the plain and xlink spellings, anchors, animation elements and external styles",
+        "every profile diagnostic, including a title that must be a direct child and a viewBox that must be square",
+        "XML case sensitivity: baseprofile/viewbox/VERSION/<SVG>/<TITLE> do not satisfy the exact names a conformance check requires, while the SECURITY screen stays deliberately case-insensitive so <SCRIPT> is still caught",
+        "the six SVG Tiny PS constrained attributes against the value each MUST carry when present, per draft-svg-tiny-ps-abrotman-12 2.3, including the draft's own conformant example",
+        "a viewBox with zero or negative extent is unusable rather than square",
+        "diagnostics never make a document invalid, and the result carries tokens and primitives only -- never a node"
+      ]
+    },
+    {
       "path": "src/core/caa/caa.test.js",
       "assertions": 86,
       "note": "Co-located per spec §9. Phase 4, Task 4.1 — the first protocol owner, and the one that proves the pattern: the resolver is passed, so the tree walk is driven by a fake transport with core/dns/ nowhere in the graph.",
@@ -255,15 +272,24 @@
     },
     {
       "path": "src/core/transport/mta-sts.test.js",
-      "assertions": 45,
-      "note": "Co-located per spec §9. Phase 4, Task 4.4. Pure validator, no resolver.",
+      "assertions": 156,
+      "note": "Co-located per spec §9. Phase 4, Task 4.4 and local-artifact-validation 1.5. Pure validators, no resolver.",
       "areas": [
         "the published error vocabulary, one member, emitted and only that",
         "the version field is first and case-sensitive — the two readings that suppressed mta-sts-invalid",
         "sts-id = 1*32(ALPHA/DIGIT), with the bad id still reported so the operator can see what they published",
         "RFC 8461 §3.1 duplicate handling: a duplicated field is CONFORMANT, the FIRST wins, and the first copy still has to parse",
         "an = in an extension value is refused here and accepted in BIMI — the executable half of why RECORD_EXT_VALUE is not shared",
-        "the whole MTA-STS answer, including the policy file this tool never claims to have verified"
+        "the whole MTA-STS answer, including the policy file this tool never claims to have verified",
+        "RFC 8461 policy bodies: LF and CRLF, non-first version, zero max_age, first-wins duplicates, extensions and mode-dependent mx",
+        "MTA-STS MX comparison: case and presentation-dot normalization, with wildcards matching exactly one left-most label",
+        "the four frozen policy vocabularies, with wrong-case-field a WARNING so a conformant case-variant extension stays valid",
+        "the MX comparator fails closed to unknown on an absent fact, a non-array hosts, or the raw mxHealth audit shape whose entries are objects — each proven not to return the every-pattern-is-stale answer",
+        "an empty host list, an empty or whitespace-only hostname, a bare presentation dot and one bad entry beside a good one all fail closed rather than filtering away into a confident empty comparison",
+        "a case-variant registered name is a legal extension: warned about, retained in unknownKeys, and subject to the ordinary non-mx duplicate rule",
+        "the MX comparison precondition, with both false-finding counterexamples pinned: a valid mode:none policy has no mx and an invalid policy exposes the mx lines that parsed, and comparing either is shown to produce the wrong answer the predicate refuses",
+        "the semantic-finding scope matrix: all four states reachable from real parser results, an invalid policy limited to parser diagnostics, and RFC 8461 8.3's withdrawal document proven not to raise max-age-short while the same max_age under enforce does",
+        "the scope fails closed on shapes the validator cannot produce: no mode, an undefined mode, a case-variant mode and a non-boolean truthy valid all take the invalid scope rather than falling through to enforce, the widest one"
       ]
     },
     {
@@ -484,6 +510,22 @@
       ]
     },
     {
+      "path": "src/audit/artifacts.test.js",
+      "assertions": 74,
+      "note": "Co-located per spec §9. local-artifact-validation 1.6. The only place the two artifact validators meet, and the only place artifact findings are constructed.",
+      "areas": [
+        "the three artifact vocabularies, and the assertion that artifact evidence kinds share NO member with the DNS evidence algebra -- an overlap would let pasted text render as a queried DNS name",
+        "deliveryCandidates over the shapes the audit really holds: explicit MX presentation strings, RFC 7505 null MX, the RFC 5321 5.1 implicit MX when no MX exists but an address record does, and fail-closed unknown when one record will not parse",
+        "the finding-scope matrix applied: an invalid policy yields only the parser diagnostic, and RFC 8461 8.3's withdrawal document raises its mode finding without max-age-short or an MX comparison",
+        "line-located diagnostics versus document-level errors that take the `input` evidence variant rather than inventing a line number",
+        "a security rejection outranks profile diagnostics for an SVG, and an entity-declaring document never reaches the parser through the composer",
+        "the PUBLIC entry point derives the fact from mx/aRec/aaaaRec, which is what audit-domain.js holds -- an earlier version took a ready-made mxFact nothing produces, so deliveryCandidates and the composer were both green while their join reported policy-mx-unknown for a perfectly matching domain",
+        "evidence carries the offending LINE or ELEMENT and the supplied material that caused it, one entry per occurrence, with the token left in args where it belongs -- including document-level policy errors and pre-parse SVG rejections, which take the input variant with an empty or declaration value rather than repeating the token",
+        "the twelve artifact finding ids are pinned EXACTLY and in both directions -- catalog against the exported constant, constant against the registry file, and disjoint from audit.finding.id -- with behavioural reachability asserted separately",
+        "the boundaries, asserted structurally: one separate array with no `findings` key to merge by habit, provenance on every finding, no queryName on any evidence entry, and severity/confidence/category/effort all drawn from the 0.7.0 vocabularies so the existing renderer can present them"
+      ]
+    },
+    {
       "path": "src/audit/audit-domain.test.js",
       "assertions": 59,
       "areas": [
@@ -591,13 +633,13 @@
     },
     {
       "path": "tests/contract/platform.test.mjs",
-      "assertions": 84,
+      "assertions": 87,
       "areas": [
         "the §11 primitive set is complete, checked against the module's own declaration",
         "a lexical scan rejects a bare read of a KNOWN ambient name outside the platform and adapters — defense in depth against regression, not a completeness proof, and its limits are asserted",
         "language built-ins are required APIs, not injected services",
         "every method keeps its receiver when destructured off the platform, proven against a window that refuses unbound calls",
-        "host objects are passed whole and constructors come from the window",
+        "host objects are passed whole and constructors, including DOMParser, come from the window",
         "a platform is per runtime: two calls share nothing and one window's calls do not reach another",
         "now() and formatDateTime() preserve the v0.5.0 call and are pinnable by the window's clock",
         "src/platform/ imports nothing and never reaches for the ambient window",
@@ -606,12 +648,13 @@
     },
     {
       "path": "tests/contract/runtime.test.mjs",
-      "assertions": 41,
+      "assertions": 46,
       "areas": [
         "importing src/runtime.js performs no DOM, network or global work, asserted in a process with no browser",
         "it constructs nothing at module scope and reads no ambient global",
         "the runtime carries the two supported facade members plus the Phase 2 parts",
         "generated data reaches the engine and the fixture table is the one in force",
+        "the runtime constructs artifact analysis with its injected DOMParser, forces image/svg+xml, prevents caller capability replacement, and passes the callback to UI",
         "ONE runtime holds ONE DoH cache with page lifetime: a sibling audit reuses the walk",
         "two runtimes share nothing, and isolation comes from constructing rather than from cache-busting an import",
         "the facade delegates to the engine, including a core transport failure",
@@ -634,7 +677,7 @@
     },
     {
       "path": "tests/build/artifact.test.mjs",
-      "assertions": 45,
+      "assertions": 46,
       "areas": [
         "the exact top-level _site allowlist, asserted as a set",
         "absence: src, tools, tests, docs, node_modules, js, assets, package files, AGENTS.md",
@@ -642,19 +685,20 @@
         "every script, stylesheet and source-map reference resolves inside _site",
         "co-location safety bound to metafile.inputs and the source map's sources, not to a sentinel",
         "no third-party JavaScript and no cross-origin reference at the delivery boundary",
-        "the allowlist and the pattern scans are each shown to catch an addition",
+        "the top-level allowlist, bundle-input allowlist and pattern scans are each shown to catch an addition",
         "no file under js/ is a bundle input"
       ]
     },
     {
       "path": "tests/build/release-compat.test.mjs",
-      "assertions": 7,
+      "assertions": 15,
       "areas": [
-        "the v0.5.0 and v0.7.0 baselines cover the same deterministic cases",
-        "the DNS trace remains byte-identical across the release",
-        "legacy result fields remain byte-identical after the two additive fields are removed",
-        "CSV changes only through three appended cells",
-        "negative controls prove each bounded-difference rule fails"
+        "the v0.5.0, v0.7.0 and v0.8.0 baselines cover the same deterministic cases",
+        "audit results and DNS traces remain byte-identical from v0.7.0 to v0.8.0",
+        "v0.8.0 CSV changes only through three appended artifact cells and one exact MTA-STS wording replacement",
+        "v0.8.0 DOM changes only through the exact MTA-STS wording replacement",
+        "v0.8.0 report changes are bounded to the named artifact CSS block and the same wording replacement",
+        "negative controls prove every v0.8.0 bounded-difference rule fails"
       ]
     },
     {
@@ -676,10 +720,27 @@
   ],
   "notInNpmTest": [
     {
-      "command": "node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.7.0.json",
-      "why": "The five-surface comparison against the finished release baseline. Roughly 70 s for 32 cases, so it runs in CI rather than inside npm test; release-compat.test.mjs separately bounds the intentional delta from the reproducible historical v0.5.0 baseline.",
+      "command": "node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.8.0.json",
+      "why": "The five-surface comparison against the finished release baseline. Roughly 70 s for 32 cases, so it runs in CI rather than inside npm test; release-compat.test.mjs separately bounds the intentional v0.5.0 to v0.7.0 and v0.7.0 to v0.8.0 deltas.",
       "areas": [
-        "exact five-surface equivalence against v0.7.0: result, query trace, CSV, HTML report, DOM"
+        "exact five-surface equivalence against v0.8.0: result, query trace, CSV, HTML report, DOM"
+      ]
+    },
+    {
+      "command": "node tests/build/local-input-security.test.mjs  (npm run test:local-input-security)",
+      "why": "The instrument 0.8.0's hostile-SVG analysis depends on, and since local-artifact-validation 1.6 the real-DOMParser half of the SVG validator's proof. Drives the production bundle in a real headless browser over an http origin -- file:// blocks the same-origin fetch the network detector must be shown catching -- and installs three behavioral detectors: CDP network and storage-mutation events outside the page, content snapshots as storage corroboration, and a MutationObserver over tagged parser output. Kept out of npm test for the same reason as file-url, so a missing browser reads as one clearly named failure, but it REFUSES to skip. CI runs it as the required `Local input security (real browser)` job.",
+      "areas": [
+        "a clean load attributes no request, storage write or foreign-node insertion to the analysis phase",
+        "boot writes nothing beyond the one localStorage key PRIVACY.md documents",
+        "a deliberately unsafe fixture commits one network request, one storage write and one foreign-document insertion, and all three are caught",
+        "the negative control is mechanical rather than a manual source edit: each detector removed in turn stops seeing its own violation while the other two still report, and all three report again once restored",
+        "detection is BEHAVIOURAL, not API enumeration: a MutationObserver over tagged parser output catches Range.insertNode and clones, and a storage state comparison catches a named-property write -- both of which walked past the first version's method wrappers",
+        "CDP content-mutation events outside the page are authoritative for IndexedDB and Cache Storage writes; the deep content snapshot is independent corroboration, not a claim that a custom encoder can represent every structured-clone value injectively",
+        "the validator-phase network gate exempts nothing: a same-origin request during analysis fails it, since connect-src 'self' still permits exfiltration",
+        "a collector that errors fails the gate instead of defaulting to an empty result",
+        "writes INSIDE containers that already existed when the phase opened: a record put into or deleted from an existing object store with no version change, and a response body replaced for an already-cached URL",
+        "representation-level changes a snapshot can collapse: replaced Blob and File records, a changed leaf below the encoder depth cap, a replaced typed-array record, cached bytes that decode to the same text, and changed response headers with an identical body",
+        "the production local-artifact panel driven through a completed deterministic audit and the real DOMParser: thirteen hostile fixtures, wrong-case names XML does not fold, the Tiny PS permitted values, MTA-STS composition, pre-parse size rejection, latest-input-wins file-read ordering, and the proof that analysing all of them caused no request, no storage write and no insertion"
       ]
     },
     {

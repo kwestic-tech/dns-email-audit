@@ -82,6 +82,7 @@ export function createBrowserPlatform(win) {
     URLSearchParams: win.URLSearchParams,
     Blob: win.Blob,
     FileReader: win.FileReader,
+    DOMParser: win.DOMParser,
 
     // ── Host objects, passed whole so their methods keep their receivers ──
     document: win.document,
@@ -130,5 +131,5 @@ export function createBrowserPlatform(win) {
 export const PLATFORM_PRIMITIVES = [
   'fetch', 'crypto', 'AbortController', 'URLSearchParams', 'setTimeout',
   'clearTimeout', 'document', 'localStorage', 'navigator', 'open', 'URL', 'Blob',
-  'FileReader', 'Intl', 'console', 'now', 'formatDateTime',
+  'FileReader', 'DOMParser', 'Intl', 'console', 'now', 'formatDateTime',
 ];

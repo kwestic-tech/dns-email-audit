@@ -31,6 +31,79 @@
     "desc": "한 줄에 하나씩 입력하거나 .txt 파일을 업로드하세요. 한 번에 최대 200개 도메인까지 가능합니다.",
     "placeholder": "example.com\nmycompany.org\nanother-domain.net"
   },
+  "artifact": {
+    "heading": "MTA-STS 정책 또는 BIMI 로고를 로컬에서 검증합니다",
+    "separation": "위의 DNS 감사 결과는 공개 DNS에서 가져온 것입니다. 이 패널의 모든 내용은 사용자가 제공한 파일 또는 텍스트에서만 나옵니다.",
+    "privacy": "여기에 제공한 내용은 내려받거나 업로드하거나 저장하지 않으며 DNS 점수에도 반영하지 않습니다. 분석은 이 브라우저 안에서 로컬로 이루어지고 새로 고치면 폐기됩니다. <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">개인정보 보호</a>를 참조하십시오.",
+    "domainLabel": "감사한 도메인",
+    "noDomains": "먼저 DNS 감사를 실행하십시오",
+    "policyHeading": "MTA-STS 정책",
+    "policyHelp": "mta-sts.txt의 본문을 붙여 넣거나 텍스트 파일을 선택하십시오. 최대 64 KiB입니다.",
+    "policyPlaceholder": "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400",
+    "policyFile": ".txt 파일 선택",
+    "svgHeading": "BIMI SVG 로고",
+    "svgHelp": "SVG 소스를 붙여 넣거나 SVG 파일을 선택하십시오. 최대 32 KiB입니다. 로고는 검사만 하며 표시하지 않습니다.",
+    "svgPlaceholder": "로고 SVG 파일의 내용을 붙여 넣으십시오",
+    "svgFile": ".svg 파일 선택",
+    "analyze": "제공한 자료 분석",
+    "clear": "제공한 자료 지우기",
+    "schemaNote": "BIMI 검사는 보안상의 거부와 명시된 SVG Tiny PS 진단 항목을 다룹니다. RNC 스키마 전체에 대한 인증이 아니며, 메일 제공업체가 로고를 표시한다는 보장도 아닙니다.",
+    "reportHeading": "제공한 자료의 로컬 분석",
+    "userSupplied": "사용자 제공",
+    "resultsFor": "{0}에 대한 로컬 분석",
+    "noFindings": "제공한 자료에서 문제를 찾지 못했습니다.",
+    "complete": {
+      "one": "로컬 분석 완료: 발견 사항 {0}건.",
+      "other": "로컬 분석 완료: 발견 사항 {0}건."
+    },
+    "policyLabel": "MTA-STS 정책",
+    "svgLabel": "BIMI SVG",
+    "errorNoDomain": "DNS 감사를 실행하고 먼저 완료된 도메인을 선택하십시오.",
+    "errorNoInput": "정책 또는 SVG 파일을 하나 이상 붙여 넣거나 선택하십시오.",
+    "errorTooLarge": "{0}이(가) {1} KiB 한도를 초과했습니다. 구문 분석하지 않았습니다.",
+    "errorFileTooLarge": "{0}이(가) {1} KiB 한도를 초과했습니다. 읽지 않았습니다.",
+    "errorWrongType": "선택한 파일은 형식 {0}을(를) 선언합니다. 이 입력란은 {1}을(를) 허용합니다.",
+    "errorFileRead": "브라우저가 {0}을(를) 읽지 못했습니다.",
+    "fileLoaded": "{0}을(를) 로컬에서 불러왔습니다. 업로드된 것은 없습니다.",
+    "token": {
+      "malformed-line": "이 줄은 key: value 형식의 필드가 아닙니다.",
+      "blank-line": "정책 안에는 빈 줄을 넣을 수 없습니다.",
+      "invalid-version": "version은 정확히 STSv1이어야 합니다.",
+      "invalid-mode": "mode는 정확히 enforce, testing, none 중 하나여야 합니다.",
+      "invalid-mx": "mx는 유효한 도메인이거나, 가장 왼쪽 레이블 전체만 포함하는 와일드카드여야 합니다.",
+      "invalid-max-age": "max_age는 0 이상 31557600 이하의 정수여야 합니다.",
+      "missing-version": "정책에는 version 필드가 있어야 합니다.",
+      "missing-mode": "정책에는 mode 필드가 있어야 합니다.",
+      "missing-max-age": "정책에는 max_age 필드가 있어야 합니다.",
+      "missing-mx": "enforce 또는 testing 정책에는 mx 필드가 최소 하나 있어야 합니다.",
+      "duplicate-field": "mx가 아닌 필드가 반복되면 첫 번째 항목만 사용합니다.",
+      "bom-present": "정책 앞부분의 UTF-8 바이트 순서 표시를 제거했습니다.",
+      "wrong-case-field": "등록된 필드 이름은 대소문자를 구분합니다. 이 표기는 알 수 없는 확장으로 처리됩니다.",
+      "doctype-present": "DOCTYPE 선언은 XML 구문 분석 전에 거부됩니다.",
+      "entity-declaration": "엔터티 선언은 확장 과정에서 메모리를 소진할 수 있으므로 구문 분석 전에 거부됩니다.",
+      "malformed-xml": "소스가 올바른 형식의 XML이 아닙니다.",
+      "bad-root": "문서 루트는 이름이 정확히 svg인 요소여야 합니다.",
+      "script-element": "BIMI 로고에는 script 요소를 넣을 수 없습니다.",
+      "event-handler": "onload 같은 이벤트 처리기 속성은 허용되지 않습니다.",
+      "foreign-object": "foreignObject는 SVG가 아닌 콘텐츠를 포함할 수 있으므로 허용되지 않습니다.",
+      "external-reference-element": "image와 use 요소는 다른 리소스를 참조할 수 있으므로 거부됩니다.",
+      "external-reference": "외부 또는 빈 href 참조는 허용되지 않습니다. 같은 문서 안의 조각만 허용됩니다.",
+      "link-element": "클릭할 수 있는 링크 요소는 허용되지 않습니다.",
+      "external-style": "스타일에서 url()로 다른 리소스를 가져오거나 참조할 수 없습니다.",
+      "animation": "애니메이션 요소는 허용된 정적 로고 프로필의 범위를 벗어납니다.",
+      "namespace-not-svg": "루트 svg 요소는 SVG 네임스페이스를 사용해야 합니다.",
+      "base-profile-not-tiny-ps": "baseProfile은 정확히 tiny-ps여야 합니다.",
+      "version-not-1-2": "version은 정확히 1.2여야 합니다.",
+      "title-missing": "루트에는 비어 있지 않은 직계 자식 title 요소가 하나 있어야 합니다.",
+      "title-not-unique": "루트에는 직계 자식 title 요소가 정확히 하나만 있어야 합니다.",
+      "desc-empty": "desc 요소가 있는 경우 비어 있어서는 안 됩니다.",
+      "viewbox-missing": "viewBox에는 네 개의 숫자가 있어야 하며 너비와 높이는 양수여야 합니다.",
+      "viewbox-not-square": "viewBox의 너비와 높이는 같아야 합니다.",
+      "root-has-position": "루트 svg 요소에는 x 또는 y 위치 속성을 넣을 수 없습니다.",
+      "raster-data-uri": "래스터 이미지 데이터는 벡터 전용 프로필의 범위를 벗어납니다.",
+      "unsupported-attribute": "제한된 SVG Tiny PS 속성에 프로필이 허용하지 않는 값이 있습니다."
+    }
+  },
   "opt": {
     "dkim": "DKIM 셀렉터 검사",
     "dkimComprehensive": "정밀 DKIM 스캔 (최대 5개 도메인)",
@@ -334,7 +407,10 @@
       "TLSA 게시 여부",
       "발견 항목 ID",
       "발견 항목 심각도",
-      "수정 단계 1"
+      "수정 단계 1",
+      "제공 자료 발견 사항 ID",
+      "제공 자료 발견 사항 심각도",
+      "제공 자료 근거(사용자 제공)"
     ],
     "yes": "예",
     "no": "아니요",
@@ -609,7 +685,7 @@
       "msg": "MTA-STS TXT 레코드 형식이 잘못되었거나 필수 id= 태그가 누락되었습니다."
     },
     "mta-sts-policy-unverified": {
-      "msg": "MTA-STS TXT 레코드는 유효하지만 대부분의 정책 호스트가 교차 출처 읽기(CORS)를 허용하지 않아, 브라우저 전용 진단 특성상 HTTPS 정책 파일을 검증할 수 없습니다."
+      "msg": "MTA-STS TXT 레코드는 유효하지만, DNS만으로 수행한 감사는 해당 HTTPS 정책을 가져오지 않았습니다. 네트워크 요청 없이 검증하려면 로컬 패널에 정책을 제공하십시오."
     },
     "tls-rpt-invalid": {
       "msg": "TLS-RPT 레코드 형식이 잘못되었거나 유효한 rua= 수신처가 없습니다."
@@ -1233,6 +1309,66 @@
       "what": "DMARC <code>rua=</code> 수신지가 없으면 누가 당신의 도메인을 사칭해 메일을 보내는지, 인증이 통과하는지 결코 알 수 없습니다. TLS-RPT가 없으면 TLS 전달 실패를 결코 볼 수 없습니다. 보고는 설정이 옳다고 가정하는 것이 아니라 옳음을 증명하는 방법입니다.",
       "fix": "DMARC <code>rua=</code> 주소를 추가하고, 전송 정책을 운영한다면 TLS-RPT 레코드도 추가하여, 실패가 모니터링하는 메일박스에 도달하도록 하십시오.",
       "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "mta-sts-policy-invalid": {
+      "msg": "제공한 MTA-STS 정책이 유효하지 않습니다: {0}.",
+      "what": "이 구문 분석 토큰은 RFC 8461을 따르지 않는 필드나 줄을 가리킵니다. 오류가 남아 있는 동안 발신자는 정책을 안전하게 적용할 수 없습니다.",
+      "fix": "제공한 정책에서 지적된 오류를 모두 수정한 뒤, 파일을 게시하기 전에 다시 분석하십시오."
+    },
+    "mta-sts-policy-hygiene": {
+      "msg": "제공한 MTA-STS 정책은 유효하지만 검토가 필요합니다: {0}.",
+      "what": "이 경고는 정책을 무효로 만들지는 않지만, 대개 편집기가 남긴 흔적, 중복된 필드, 혼동을 주는 필드 이름의 대소문자를 나타냅니다.",
+      "fix": "지적된 경고를 정리하여, 게시하는 정책이 운영자와 소프트웨어 모두에게 명확하도록 하십시오."
+    },
+    "mta-sts-policy-mx-mismatch": {
+      "msg": "제공한 MTA-STS 정책이 다음 배달 호스트를 하나도 포함하지 않습니다: {0}.",
+      "what": "enforce 모드에서는 선택된 MX 호스트 이름이 정책의 어떤 mx 패턴과도 일치하지 않으면 발신자가 배달을 거부합니다. 이는 곧 발생할 메일 배달 장애입니다.",
+      "fix": "게시된 배달 후보마다 정확한 호스트 이름이나 유효한 한 레이블짜리 와일드카드를 추가하십시오."
+    },
+    "mta-sts-policy-mx-unused": {
+      "msg": "다음 MTA-STS mx 패턴은 현재 배달 호스트를 하나도 포함하지 않습니다: {0}.",
+      "what": "사용되지 않는 패턴은 대개 이전에 사용하던 제공업체의 호스트 이름이 마이그레이션 후에 남은 것입니다. 현재 배달을 방해하지는 않지만, 더 이상 사용하지 않는 호스트를 계속 허용합니다.",
+      "fix": "이전 제공업체가 폐기되었는지 확인한 뒤, 사용하지 않는 mx 줄을 모두 삭제하십시오."
+    },
+    "mta-sts-policy-on-null-mx": {
+      "msg": "메일을 받지 않는다고 명시한 도메인에 대해 정책이 제공되었습니다.",
+      "what": "널 MX는 해당 도메인이 SMTP 배달을 받지 않는다는 뜻입니다. 같은 도메인에 메일 처리 정책이 있다면 게시된 그 의도와 모순됩니다.",
+      "fix": "도메인을 사용하지 않는다면 널 MX를 유지하고 정책을 삭제하고, 메일을 받아야 한다면 실제 MX 레코드를 복원하십시오."
+    },
+    "mta-sts-policy-mx-unknown": {
+      "msg": "정책의 mx 패턴을 배달 호스트와 비교할 수 없었습니다.",
+      "what": "감사가 배달 후보의 완전한 목록을 확정하지 못했으므로, 일치 여부를 단정하는 것은 추측이 됩니다.",
+      "fix": "DNS 감사 실패를 해결하거나 사용할 수 있는 MX 또는 A/AAAA 레코드를 게시한 뒤, 감사와 로컬 비교를 다시 실행하십시오."
+    },
+    "mta-sts-mode-testing": {
+      "msg": "제공한 정책은 mode: testing을 사용하므로 발신자는 실패를 보고하되 강제하지는 않습니다.",
+      "what": "testing 모드는 배포 단계입니다. TLS나 호스트 이름 검증이 실패해도 메일은 도착하므로, 전송 계층에서의 강제가 아닙니다.",
+      "fix": "TLS-RPT 보고서를 검토하고 정당한 실패를 모두 수정한 뒤, 정책을 mode: enforce로 변경하십시오."
+    },
+    "mta-sts-mode-none": {
+      "msg": "제공한 정책은 mode: none을 사용하며 MTA-STS 보호를 철회합니다.",
+      "what": "none 모드는 이전 정책의 적용을 중단하라고 발신자에게 알립니다. RFC가 정한 제거 절차 중에는 적절하지만, 보호 중인 도메인의 최종 상태로는 적절하지 않습니다.",
+      "fix": "운영 중인 정책에는 mode: enforce를 사용하고, 철회가 의도적이라면 문서화된 단계적 제거 절차를 마무리하십시오."
+    },
+    "mta-sts-max-age-short": {
+      "msg": "제공한 정책의 max_age가 {0}초로 짧습니다.",
+      "what": "캐시 수명이 짧으면 발신자가 정책을 자주 다시 가져오게 되고, 정책 호스트에 장애가 있을 때 보호가 약해집니다.",
+      "fix": "테스트를 마친 뒤에는 더 긴 max_age를 사용하십시오. 이 감사가 권장하는 최소 기준은 86400초입니다."
+    },
+    "bimi-svg-rejected": {
+      "msg": "제공한 BIMI SVG가 거부되었습니다: {0}.",
+      "what": "지적된 구성 요소는 안전하지 않거나, 의도적으로 좁게 설정한 로컬 검증 범위를 벗어납니다. 로고는 그려지지 않으며, 구문 분석된 노드가 이 페이지에 삽입되지도 않습니다.",
+      "fix": "지적된 구성 요소를 모두 제거하고, 스크립트·외부 참조·DTD·엔터티 선언이 없는 자체 완결형 SVG Tiny PS 로고로 내보내십시오."
+    },
+    "bimi-svg-profile": {
+      "msg": "제공한 BIMI SVG에 프로필 진단이 있습니다: {0}.",
+      "what": "로고는 보안 거부 검사를 통과했지만, 지적된 SVG Tiny PS 요구 사항 때문에 메일 제공업체가 표시하지 않을 수 있습니다.",
+      "fix": "지적된 프로필 진단을 모두 수정한 뒤, 게시 절차에서 전체 SVG Tiny PS 스키마로 검증하십시오."
+    },
+    "bimi-svg-valid": {
+      "msg": "제공한 BIMI SVG가 이 로컬 보안 및 프로필 검사를 통과했습니다.",
+      "what": "해당하는 거부나 프로필 진단을 찾지 못했습니다. 이는 RNC 스키마 전체에 대한 인증이 아니며, 어떤 메일 제공업체의 수용도 보장하지 않습니다.",
+      "fix": "이 검사에서는 변경할 것이 없습니다. 게시 절차에서 전체 스키마 검증과 제공업체별 확인을 계속 수행하십시오."
     }
   },
   "findings": {

@@ -7,9 +7,10 @@
  * §12 gives `src/ui/` an edge to `ui/` siblings and `i18n/` only, and says
  * event functions receive audit callbacks as ARGUMENTS. That is exactly the
  * shape here: `analyzeDomain` and `checkConnectivity` — the two supported
- * facade members — arrive as callbacks, and `mount` is the runtime's. This
- * module imports no `audit/`, no `core/`, no `providers/` and no `src/data/`,
- * which `dns-transport.test.mjs` §5 asserts rather than trusts.
+ * facade members — arrive as callbacks; the separate local-artifact analyzer
+ * does too, and `mount` is the runtime's. This module imports no `audit/`, no
+ * `core/`, no `providers/` and no `src/data/`, which
+ * `dns-transport.test.mjs` §5 asserts rather than trusts.
  *
  * Its one import is its sibling `ui/report.js`, which is what retires the
  * transitional `main.js -> ui` edge Task 5.5 had to admit.
@@ -54,9 +55,9 @@ import { createReport, serializeDocument, styleElement } from './report.js';
 export function createUi(capabilities) {
   const {
     platform, i18n, renderer: R,
-    // The supported facade, passed as callbacks. §12: no UI module imports
-    // `audit/`, and these two are the whole of what it needs from it.
-    analyzeDomain, checkConnectivity, mount,
+    // The supported facade and the separate local-artifact capability, passed
+    // as callbacks. §12: no UI module imports `audit/`.
+    analyzeDomain, analyzeArtifacts, checkConnectivity, mount,
     // The English bundle, for the positional `csv.headers` backfill.
     englishBundle,
   } = capabilities;
@@ -114,6 +115,16 @@ export function createUi(capabilities) {
   var sortDir = 1;
   var auditController = null;
   var MAX_UPLOAD_BYTES = 1024 * 1024;
+  var artifactSessions = Object.create(null);
+  var artifactReadGenerations = { 'mta-sts-policy': 0, 'bimi-svg': 0 };
+  var ARTIFACT_INPUTS = Object.freeze({
+    'mta-sts-policy': Object.freeze({
+      maxBytes: 64 * 1024, mime: 'text/plain', textarea: 'artifactPolicyText',
+    }),
+    'bimi-svg': Object.freeze({
+      maxBytes: 32 * 1024, mime: 'image/svg+xml', textarea: 'artifactSvgText',
+    }),
+  });
 
   /* ── Token → label ──────────────────────────────────────────────────── */
 
@@ -279,22 +290,28 @@ export function createUi(capabilities) {
   function findingMessage(f, sentinel) {
     var ns = f.keyspace === 'issue' ? 'issue.' : 'finding.';
     var safe = sentinel === false ? function (x) { return x || []; } : dnsArgs;
-    var args = f.args ? safe(f.args.slice()) : [];
+    // Artifact findings aggregate a token/hostname set into one finding. Their
+    // one message placeholder receives the complete set rather than silently
+    // showing only the first item; the individual values remain available in
+    // evidence below.
+    var rawArgs = f.source === 'user-supplied' && f.args
+      ? [f.args.join(', ')] : (f.args ? f.args.slice() : []);
+    var args = safe(rawArgs);
     if (f.noteKey) {
       args = [t.apply(null, ['dkim.' + f.noteKey].concat(safe(f.noteArgs || [])))];
     }
     return t.apply(null, [ns + f.key + '.msg'].concat(args));
   }
 
-  function findingCard(f) {
+  function findingCard(f, staticMode) {
     var ns = f.keyspace === 'issue' ? 'issue.' : 'finding.';
     var what = tRaw(ns + f.key + '.what');
     var fix = tRaw(ns + f.key + '.fix');
     var fixCode = tRaw(ns + f.key + '.fixCode');
-    var showMe = what
-      ? R.el('div', { className: 'showme-wrap' }, [
-        R.el('button', { className: 'showme-btn', type: 'button' }, t('showme.open')),
-        R.el('div', { className: 'showme-content' }, [
+    var showMeContent = what
+      ? R.el('div', staticMode
+        ? { className: 'showme-content', style: 'display:block' }
+        : { className: 'showme-content' }, [
           R.el('div', { className: 'showme-lbl' }, t('showme.whatItIs')),
           R.el('div', { className: 'showme-text' }, R.rich(what)),
           R.el('div', { className: 'showme-lbl' }, t('showme.whatItNeeds')),
@@ -302,9 +319,13 @@ export function createUi(capabilities) {
             R.rich(fix || ''),
             fixCode ? R.el('div', { className: 'showme-code' }, fixCode) : null,
           ]),
-        ]),
-      ])
+        ])
       : null;
+    var showMe = showMeContent
+      ? R.el('div', { className: 'showme-wrap' }, [
+        staticMode ? null : R.el('button', { className: 'showme-btn', type: 'button' }, t('showme.open')),
+        showMeContent,
+      ]) : null;
 
     var metaBits = [
       R.el('span', { className: 'finding-sev finding-sev-' + f.severity }, t('findings.severity.' + f.severity)),
@@ -317,9 +338,30 @@ export function createUi(capabilities) {
       metaBits.push(R.el('span', { className: 'finding-conf finding-conf-' + f.confidence }, t('findings.confidence.' + f.confidence)));
     }
 
-    // Evidence renders through R.value/R.host so DNS-derived material stays a
-    // text node with display caps and sentinel substitution applied.
-    var evNodes = (f.evidence || []).filter(function (e) { return e && (e.value || e.queryName); }).map(function (e) {
+    if (f.source === 'user-supplied') {
+      metaBits.push(R.el('span', { className: 'artifact-source' }, t('artifact.userSupplied')));
+    }
+
+    var tokenNotes = f.source === 'user-supplied' ? (f.args || []).map(function (token) {
+      var explanation = tRaw('artifact.token.' + token);
+      return explanation ? R.el('li', null, [
+        R.el('code', null, token), R.text(' — '), R.rich(explanation),
+      ]) : null;
+    }).filter(Boolean) : [];
+
+    // Artifact evidence has its own contract. `location` is supplied text,
+    // never a DNS hostname and never mapped into `queryName`, so R.host() is
+    // deliberately absent from this branch. Both halves still go through the
+    // bounded value renderer and can become only text nodes.
+    var evNodes = (f.evidence || []).filter(function (e) {
+      return e && (f.source === 'user-supplied' ? (e.location || e.value) : (e.value || e.queryName));
+    }).map(function (e) {
+      if (f.source === 'user-supplied') {
+        return R.el('div', { className: 'finding-evidence-item' }, [
+          e.location ? R.el('code', null, R.value(e.location)) : null,
+          e.value ? R.frag([R.text(' — '), R.el('span', null, R.value(e.value))]) : null,
+        ]);
+      }
       return R.el('div', { className: 'finding-evidence-item' }, [
         e.queryName ? R.el('code', null, R.host(e.queryName)) : null,
         e.value ? R.frag([R.text(' — '), R.el('span', null, R.value(e.value))]) : null,
@@ -331,6 +373,7 @@ export function createUi(capabilities) {
       R.el('div', { className: 'finding-body' }, [
         R.el('span', { className: 'msg' }, findingMessage(f)),
         R.el('div', { className: 'finding-meta' }, metaBits),
+        tokenNotes.length ? R.el('ul', { className: 'artifact-token-list' }, tokenNotes) : null,
         evNodes.length
           ? R.el('div', { className: 'finding-evidence' }, [
             R.el('div', { className: 'showme-lbl' }, t('findings.evidence')),
@@ -353,7 +396,7 @@ export function createUi(capabilities) {
       if (!byTier[s].length) return;
       groups.push(R.el('div', { className: 'finding-group' }, [
         R.el('div', { className: 'finding-group-label finding-sev-' + s }, t('findings.severity.' + s)),
-        R.frag(byTier[s].map(findingCard)),
+        R.frag(byTier[s].map(function (finding) { return findingCard(finding, false); })),
       ]));
     });
 
@@ -366,7 +409,8 @@ export function createUi(capabilities) {
           className: 'showme-btn', type: 'button',
           dataset: { openLabel: t('findings.showMore', lowInfo.length), closeLabel: t('findings.showLess') },
         }, t('findings.showMore', lowInfo.length)),
-        R.el('div', { className: 'showme-content finding-collapsed' }, lowInfo.map(findingCard)),
+        R.el('div', { className: 'showme-content finding-collapsed' },
+          lowInfo.map(function (finding) { return findingCard(finding, false); })),
       ])
       : null;
 
@@ -1564,6 +1608,11 @@ export function createUi(capabilities) {
     }
     $('netBanner').style.display = 'none';
 
+    // A new DNS run replaces the facts the local comparison depends on. Even
+    // when the domain spelling is the same, an old artifact result must not be
+    // presented or exported against the new audit silently.
+    clearArtifacts();
+
     var opts = {
       dkim: $('optDKIM').checked,
       dkimComprehensive: $('optDKIMComprehensive').checked,
@@ -1627,6 +1676,7 @@ export function createUi(capabilities) {
     $('summarySection').style.display = 'block';
     $('resultsSection').style.display = 'block';
     $('resultsToolbar').style.display = 'flex';
+    syncArtifactDomains();
     updateRowCount();
     var completed = results.filter(function (r) { return r && !r.error; }).length;
     showToast(completed ? tp('toast.auditDone', completed) : t('toast.auditCancelled'));
@@ -1654,6 +1704,8 @@ export function createUi(capabilities) {
       englishBundle: englishBundle,
       label, issueMessage, spfRecordCell, dkimKeyBitsCell, rowHygieneValues,
       showToast, $, getResults: function () { return results; },
+      getArtifactSessions: function () { return artifactSessions; },
+      buildArtifactReportContent,
     });
 
   /* ── Input helpers ──────────────────────────────────────────────────── */
@@ -1670,6 +1722,229 @@ export function createUi(capabilities) {
     reader.readAsText(f);
   }
 
+  /* ── Local artifact input ───────────────────────────────────────────── */
+
+  /**
+   * Validate an artifact input before a protocol parser can see it.
+   *
+   * A selected file is checked from File.size before FileReader runs. Pasted
+   * text is measured by Blob, which is the browser's UTF-8 byte calculation;
+   * String.length is UTF-16 code units and is not a byte boundary. Empty MIME
+   * is allowed because browsers routinely omit it, but a MIME type they do
+   * declare must be the one this input accepts.
+   */
+  function artifactInputProblem(kind, text, file) {
+    var config = ARTIFACT_INPUTS[kind];
+    if (!config) return { token: 'unknown-kind' };
+    if (file) {
+      if (file.size > config.maxBytes) {
+        return { token: 'too-large', maxBytes: config.maxBytes };
+      }
+      var declared = String(file.type || '').toLowerCase();
+      if (declared && declared !== config.mime) {
+        return { token: 'wrong-type', expected: config.mime, actual: declared };
+      }
+      return null;
+    }
+    var bytes = new Blob([String(text == null ? '' : text)]).size;
+    return bytes > config.maxBytes ? { token: 'too-large', maxBytes: config.maxBytes } : null;
+  }
+
+  function setArtifactStatus(key, args, error) {
+    var status = $('artifactStatus');
+    status.textContent = key ? t.apply(null, [key].concat(args || [])) : '';
+    status.classList.toggle('is-error', !!error);
+  }
+
+  function setArtifactStatusText(message, error) {
+    var status = $('artifactStatus');
+    status.textContent = message || '';
+    status.classList.toggle('is-error', !!error);
+  }
+
+  function syncArtifactDomains() {
+    var select = $('artifactDomain');
+    var previous = select.value;
+    var completed = results.filter(function (r) { return r && !r.error; });
+    select.replaceChildren();
+    if (!completed.length) {
+      select.appendChild(R.el('option', { value: '' }, t('artifact.noDomains')));
+      select.disabled = true;
+      return;
+    }
+    completed.forEach(function (r) {
+      select.appendChild(R.el('option', { value: r.domain }, R.host(r.domain)));
+    });
+    select.disabled = false;
+    select.value = completed.some(function (r) { return r.domain === previous; })
+      ? previous : completed[0].domain;
+    renderArtifactAnalysis(artifactSessions[select.value] || null);
+  }
+
+  function selectedArtifactDomain() {
+    var domain = $('artifactDomain').value;
+    return results.find(function (r) { return r && !r.error && r.domain === domain; }) || null;
+  }
+
+  function renderArtifactAnalysis(analysis) {
+    var target = $('artifactResults');
+    target.replaceChildren();
+    if (!analysis) return;
+    target.appendChild(R.el('div', { className: 'artifact-results-heading' },
+      t('artifact.resultsFor', analysis.domain)));
+    if (!analysis.artifactFindings.length) {
+      target.appendChild(R.el('div', { className: 'finding' }, [
+        R.el('span', { className: 'icon' }, '✓'),
+        R.el('div', { className: 'finding-body' }, [
+          R.el('span', { className: 'msg' }, t('artifact.noFindings')),
+          R.el('div', { className: 'finding-meta' }, [
+            R.el('span', { className: 'artifact-source' }, t('artifact.userSupplied')),
+          ]),
+        ]),
+      ]));
+      return;
+    }
+    target.appendChild(severityView(analysis.artifactFindings));
+  }
+
+  /** A script-free, control-free source tree for the standalone report. */
+  function buildArtifactReportContent() {
+    var sessions = Object.values(artifactSessions);
+    if (!sessions.length) return null;
+    return R.el('section', { className: 'artifact-report-section' }, [
+      R.el('h2', null, t('artifact.reportHeading')),
+      R.frag(sessions.map(function (analysis) {
+        var findings = analysis.artifactFindings || [];
+        return R.el('section', { className: 'artifact-report-domain' }, [
+          R.el('h3', null, R.host(analysis.domain)),
+          R.el('div', { className: 'finding-meta' }, [
+            R.el('span', { className: 'artifact-source' }, t('artifact.userSupplied')),
+          ]),
+          findings.length ? R.frag(findings.map(function (f) { return findingCard(f, true); }))
+            : R.el('p', null, t('artifact.noFindings')),
+        ]);
+      })),
+    ]);
+  }
+
+  function runArtifactAnalysis() {
+    var audited = selectedArtifactDomain();
+    if (!audited) { setArtifactStatus('artifact.errorNoDomain', [], true); return null; }
+    var policyText = $('artifactPolicyText').value;
+    var svgText = $('artifactSvgText').value;
+    if (!policyText && !svgText) {
+      delete artifactSessions[audited.domain];
+      renderArtifactAnalysis(null);
+      setArtifactStatus('artifact.errorNoInput', [], true);
+      return null;
+    }
+
+    var policyProblem = artifactInputProblem('mta-sts-policy', policyText, null);
+    var svgProblem = artifactInputProblem('bimi-svg', svgText, null);
+    var problem = policyText && policyProblem
+      ? { kind: 'policy', detail: policyProblem }
+      : svgText && svgProblem ? { kind: 'svg', detail: svgProblem } : null;
+    if (problem) {
+      delete artifactSessions[audited.domain];
+      renderArtifactAnalysis(null);
+      setArtifactStatus('artifact.errorTooLarge', [t('artifact.' + problem.kind + 'Label'),
+        Math.floor(problem.detail.maxBytes / 1024)], true);
+      return null;
+    }
+
+    var analysis = analyzeArtifacts({
+      domain: audited.domain,
+      mx: audited.mx,
+      aRec: audited.aRec,
+      aaaaRec: audited.aaaaRec,
+      mtaStsPolicyText: policyText,
+      bimiSvgText: svgText,
+    });
+    artifactSessions[audited.domain] = analysis;
+    renderArtifactAnalysis(analysis);
+    setArtifactStatusText(tp('artifact.complete', analysis.artifactFindings.length), false);
+    return analysis;
+  }
+
+  function loadArtifactFile(kind, event) {
+    var config = ARTIFACT_INPUTS[kind];
+    var input = event.target;
+    var file = input.files && input.files[0];
+    if (!file) return;
+    // A new selection supersedes the material that produced the visible
+    // result even when it is rejected before reading. Keeping that result
+    // would make an error banner sit above stale findings that are still
+    // eligible for export.
+    invalidateArtifactAnalysis(kind);
+    var generation = artifactReadGenerations[kind];
+    var domain = $('artifactDomain').value;
+    var problem = artifactInputProblem(kind, '', file);
+    if (problem) {
+      var key = problem.token === 'wrong-type' ? 'artifact.errorWrongType' : 'artifact.errorFileTooLarge';
+      var args = problem.token === 'wrong-type'
+        ? [problem.actual, problem.expected]
+        : [file.name, Math.floor(problem.maxBytes / 1024)];
+      setArtifactStatus(key, args, true);
+      input.value = '';
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      // FileReader has no useful replacement ordering guarantee. An earlier
+      // read can finish after a later file selection, a paste, a domain
+      // switch, a clear, or a new audit. Only the latest read for this kind
+      // and domain may cross into the controls.
+      if (artifactReadGenerations[kind] !== generation || $('artifactDomain').value !== domain) return;
+      $(config.textarea).value = String(ev.target.result || '');
+      retireArtifactAnalysis();
+      setArtifactStatus('artifact.fileLoaded', [file.name], false);
+    };
+    reader.onerror = function () {
+      if (artifactReadGenerations[kind] !== generation || $('artifactDomain').value !== domain) return;
+      setArtifactStatus('artifact.errorFileRead', [file.name], true);
+    };
+    reader.readAsText(file);
+  }
+
+  function cancelArtifactReads(kind) {
+    if (Object.prototype.hasOwnProperty.call(artifactReadGenerations, kind)) {
+      artifactReadGenerations[kind]++;
+      return;
+    }
+    Object.keys(artifactReadGenerations).forEach(function (key) { artifactReadGenerations[key]++; });
+  }
+
+  function retireArtifactAnalysis() {
+    var domain = $('artifactDomain').value;
+    if (domain) delete artifactSessions[domain];
+    renderArtifactAnalysis(null);
+    setArtifactStatus('', [], false);
+  }
+
+  function invalidateArtifactAnalysis(kind) {
+    cancelArtifactReads(kind);
+    retireArtifactAnalysis();
+  }
+
+  function switchArtifactDomain() {
+    cancelArtifactReads();
+    ['artifactPolicyText', 'artifactSvgText', 'artifactPolicyFile', 'artifactSvgFile'].forEach(function (id) {
+      $(id).value = '';
+    });
+    setArtifactStatus('', [], false);
+    renderArtifactAnalysis(artifactSessions[$('artifactDomain').value] || null);
+  }
+
+  function clearArtifacts() {
+    cancelArtifactReads();
+    artifactSessions = Object.create(null);
+    ['artifactPolicyText', 'artifactSvgText', 'artifactPolicyFile', 'artifactSvgFile'].forEach(function (id) {
+      $(id).value = '';
+    });
+    $('artifactResults').replaceChildren();
+    setArtifactStatus('', [], false);
+  }
+
   function loadExample() {
     $('domainInput').value = [
       'google.com', 'microsoft.com', 'apple.com', 'github.com', 'cloudflare.com',
@@ -1680,12 +1955,14 @@ export function createUi(capabilities) {
 
   function clearAll() {
     results = [];
+    clearArtifacts();
     $('domainInput').value = '';
     $('tableBody').replaceChildren();
     ['summarySection', 'resultsSection', 'emptyState'].forEach(function (id) { $(id).style.display = 'none'; });
     $('resultsToolbar').style.display = 'none';
     ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = 'none'; });
     $('searchBox').value = '';
+    syncArtifactDomains();
   }
 
   function showHelp() {
@@ -1707,11 +1984,15 @@ export function createUi(capabilities) {
 
   // Re-render results in the new language whenever it changes.
   i18n.onChange(function () {
-    if (!results.length) return;
+    if (!results.length) {
+      syncArtifactDomains();
+      return;
+    }
     $('tableBody').replaceChildren();
     results.filter(function (r) { return !r.error; }).forEach(appendRow);
     renderSummary();
     filterTable();
+    syncArtifactDomains();
     showToast(t('toast.langChanged'));
   });
 
@@ -1719,6 +2000,19 @@ export function createUi(capabilities) {
     $('auditBtn').addEventListener('click', startAudit);
     $('cancelBtn').addEventListener('click', cancelAudit);
     $('fileInput').addEventListener('change', loadFile);
+    $('artifactPolicyFile').addEventListener('change', function (event) { loadArtifactFile('mta-sts-policy', event); });
+    $('artifactSvgFile').addEventListener('change', function (event) { loadArtifactFile('bimi-svg', event); });
+    $('artifactAnalyzeBtn').addEventListener('click', runArtifactAnalysis);
+    $('artifactClearBtn').addEventListener('click', clearArtifacts);
+    $('artifactPolicyText').addEventListener('input', function () { invalidateArtifactAnalysis('mta-sts-policy'); });
+    $('artifactSvgText').addEventListener('input', function () { invalidateArtifactAnalysis('bimi-svg'); });
+    $('artifactDomain').addEventListener('change', switchArtifactDomain);
+    $('artifactResults').addEventListener('click', function (event) {
+      var show = event.target.closest('.showme-btn');
+      if (show) toggleShowMe(show);
+      var more = event.target.closest('.rv-more');
+      if (more) toggleValueRest(more);
+    });
     $('optDeepChecks').addEventListener('change', function () { rememberDeepCheckChoice(this.checked); });
     $('examplesBtn').addEventListener('click', loadExample);
     $('clearBtn').addEventListener('click', clearAll);
@@ -1760,6 +2054,14 @@ export function createUi(capabilities) {
    * directly rather than through a live page, and no global carries them.
    */
   return {
+    // Local-artifact analysis is an injected UI capability, not a facade
+    // member and not a protocol import. The panel consumes this callback in
+    // the next UI-bound step; returning it now keeps the composition join
+    // executable and contract-tested rather than source-scanned.
+    analyzeArtifacts,
+    artifactInputProblem, runArtifactAnalysis, renderArtifactAnalysis,
+    syncArtifactDomains, clearArtifacts, buildArtifactReportContent,
+    getArtifactSessions: function () { return artifactSessions; },
     appendRow, buildLearnMorePage, buildReportDocument, buildCsvRows, toCsvText,
     neutralizeCsvCell, issueMessage, tDns, rowHygieneValues, scoreBlock,
     advMiniDots, advFullDots, spfMeter, tile, badge, detailItem, log,

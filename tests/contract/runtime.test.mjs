@@ -72,7 +72,7 @@ section('2. What a runtime is');
 
 const ENGLISH = { meta: { code: 'en', name: 'English', nativeName: 'English', dir: 'ltr' }, doc: { title: 'T' } };
 
-function makeRuntime(fetchImpl) {
+function makeRuntime(fetchImpl, DOMParserImpl = class DOMParser {}) {
   const document = createDocument();
   const platform = {
     fetch: fetchImpl,
@@ -81,7 +81,7 @@ function makeRuntime(fetchImpl) {
     clearTimeout: (...args) => clearTimeout(...args),
     document,
     localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
-    URL, Blob: class Blob {}, FileReader: class FileReader {},
+    URL, Blob: class Blob {}, FileReader: class FileReader {}, DOMParser: DOMParserImpl,
     Intl, console, navigator: { language: 'en', languages: ['en'] },
     now: () => 0,
     formatDateTime: (d, l) => new Date(d ?? 0).toLocaleString(l),
@@ -113,6 +113,36 @@ assertFixtureIdentity([probePublicSuffixRules(runtime.engine.getOrganizationalDo
 eq('the fixture public suffix list is the one in force',
   runtime.engine.getOrganizationalDomain('foo.blogspot.com'), 'blogspot.com');
 eq('and the English bundle reached i18n', runtime.i18n.t('doc.title'), 'T');
+
+/* ── 2a. User-supplied artifacts enter through one injected parser ────── */
+section('2a. The runtime owns artifact-analysis composition');
+
+const parsed = [];
+class RecordingDOMParser {
+  parseFromString(text, type) {
+    parsed.push({ text, type });
+    return {
+      documentElement: { localName: 'html', nodeName: 'html', attributes: [], childNodes: [] },
+      getElementsByTagName: () => [],
+    };
+  }
+}
+const artifactRuntime = makeRuntime(dohFixture({}), RecordingDOMParser);
+const callerParser = () => { throw new Error('caller parser must not run'); };
+const artifactInput = {
+  domain: 'example.test',
+  bimiSvgText: '<html></html>',
+  // The runtime owns this capability. Supplied data must not replace it.
+  parseSvg: callerParser,
+};
+eq('the UI receives one artifact-analysis callback',
+  typeof artifactRuntime.ui.analyzeArtifacts, 'function');
+const artifactResult = artifactRuntime.ui.analyzeArtifacts(artifactInput);
+eq('it drives the BIMI validator through the composed callback',
+  artifactResult.artifactFindings[0].args, ['bad-root']);
+eq('the supplied text reaches the platform parser unchanged', parsed[0].text, '<html></html>');
+eq('the parser is forced to the SVG XML MIME type', parsed[0].type, 'image/svg+xml');
+eq('composition does not mutate the caller input', artifactInput.parseSvg, callerParser);
 
 /* ── 2b. One boot, one connectivity probe ─────────────────────────────── */
 section('2b. There is exactly one mount path');

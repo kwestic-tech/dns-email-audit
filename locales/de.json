@@ -31,6 +31,79 @@
     "desc": "Eine Domain pro Zeile oder laden Sie eine .txt-Datei hoch. Bis zu 200 Domains gleichzeitig.",
     "placeholder": "example.com\nmycompany.org\nanother-domain.net"
   },
+  "artifact": {
+    "heading": "Lokale MTA-STS-Richtlinie oder BIMI-Logo prüfen",
+    "separation": "Die obigen DNS-Prüfergebnisse stammen aus dem öffentlichen DNS. Alles in diesem Bereich stammt ausschließlich aus Dateien oder Texten, die Sie bereitstellen.",
+    "privacy": "Nichts, was Sie hier bereitstellen, wird abgerufen, hochgeladen, gespeichert oder Ihrer DNS-Bewertung hinzugefügt. Die Analyse erfolgt lokal in diesem Browser und wird beim Neuladen verworfen. Siehe <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Datenschutz</a>.",
+    "domainLabel": "Geprüfte Domain",
+    "noDomains": "Führen Sie zuerst eine DNS-Prüfung aus",
+    "policyHeading": "MTA-STS-Richtlinie",
+    "policyHelp": "Fügen Sie den Inhalt von mta-sts.txt ein oder wählen Sie eine Textdatei. Maximal 64 KiB.",
+    "policyPlaceholder": "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400",
+    "policyFile": ".txt-Datei auswählen",
+    "svgHeading": "BIMI-SVG-Logo",
+    "svgHelp": "Fügen Sie den SVG-Quelltext ein oder wählen Sie eine SVG-Datei. Maximal 32 KiB. Das Logo wird geprüft, niemals angezeigt.",
+    "svgPlaceholder": "Fügen Sie den Inhalt Ihrer SVG-Logodatei ein",
+    "svgFile": ".svg-Datei auswählen",
+    "analyze": "Bereitgestelltes Material analysieren",
+    "clear": "Bereitgestelltes Material löschen",
+    "schemaNote": "Die BIMI-Prüfungen decken Sicherheitsablehnungen und benannte SVG Tiny PS-Diagnosen ab; sie sind weder eine vollständige RNC-Schemazertifizierung noch eine Garantie, dass ein Mailbox-Anbieter das Logo anzeigt.",
+    "reportHeading": "Lokale Artefaktanalyse",
+    "userSupplied": "Vom Benutzer bereitgestellt",
+    "resultsFor": "Lokale Analyse für {0}",
+    "noFindings": "Im bereitgestellten Material wurde kein Problem gefunden.",
+    "complete": {
+      "one": "Lokale Analyse abgeschlossen: {0} Befund.",
+      "other": "Lokale Analyse abgeschlossen: {0} Befunde."
+    },
+    "policyLabel": "MTA-STS-Richtlinie",
+    "svgLabel": "BIMI-SVG",
+    "errorNoDomain": "Führen Sie zuerst eine DNS-Prüfung aus und wählen Sie eine abgeschlossene Domain aus.",
+    "errorNoInput": "Fügen Sie mindestens eine Richtlinie oder SVG-Datei ein oder wählen Sie sie aus.",
+    "errorTooLarge": "{0} überschreitet die Grenze von {1} KiB. Es wurde nicht geparst.",
+    "errorFileTooLarge": "{0} überschreitet die Grenze von {1} KiB. Die Datei wurde nicht gelesen.",
+    "errorWrongType": "Die ausgewählte Datei deklariert den Typ {0}; diese Eingabe akzeptiert {1}.",
+    "errorFileRead": "Der Browser konnte {0} nicht lesen.",
+    "fileLoaded": "{0} wurde lokal geladen. Es wurde nichts hochgeladen.",
+    "token": {
+      "malformed-line": "Die Zeile ist kein Feld im Format Schlüssel: Wert.",
+      "blank-line": "Leerzeilen sind innerhalb der Richtlinie nicht zulässig.",
+      "invalid-version": "version muss genau STSv1 sein.",
+      "invalid-mode": "mode muss genau enforce, testing oder none sein.",
+      "invalid-mx": "mx muss eine gültige Domain oder ein Platzhalter sein, der nur die vollständige linke Bezeichnung abdeckt.",
+      "invalid-max-age": "max_age muss eine Ganzzahl von 0 bis 31557600 sein.",
+      "missing-version": "Die Richtlinie muss ein version-Feld enthalten.",
+      "missing-mode": "Die Richtlinie muss ein mode-Feld enthalten.",
+      "missing-max-age": "Die Richtlinie muss ein max_age-Feld enthalten.",
+      "missing-mx": "Eine enforce- oder testing-Richtlinie muss mindestens ein mx-Feld enthalten.",
+      "duplicate-field": "Bei einem wiederholten Feld außer mx wird nur das erste Vorkommen verwendet.",
+      "bom-present": "Eine UTF-8-Bytereihenfolgemarkierung wurde am Anfang der Richtlinie entfernt.",
+      "wrong-case-field": "Bei registrierten Feldnamen wird die Groß-/Kleinschreibung beachtet; diese Schreibweise wird als unbekannte Erweiterung behandelt.",
+      "doctype-present": "DOCTYPE-Deklarationen werden vor dem XML-Parsing abgelehnt.",
+      "entity-declaration": "Entity-Deklarationen werden vor dem Parsing abgelehnt, da ihre Erweiterung den Speicher erschöpfen kann.",
+      "malformed-xml": "Der Quelltext ist kein wohlgeformtes XML.",
+      "bad-root": "Das Dokumentwurzelelement muss ein exakt benanntes svg-Element sein.",
+      "script-element": "Script-Elemente sind in einem BIMI-Logo nicht zulässig.",
+      "event-handler": "Ereignishandler-Attribute wie onload sind nicht zulässig.",
+      "foreign-object": "foreignObject kann Nicht-SVG-Inhalte einbetten und ist nicht zulässig.",
+      "external-reference-element": "image- und use-Elemente werden abgelehnt, da sie auf andere Ressourcen verweisen können.",
+      "external-reference": "Externe oder leere href-Verweise sind nicht zulässig; erlaubt sind nur Fragmente im selben Dokument.",
+      "link-element": "Anklickbare Link-Elemente sind nicht zulässig.",
+      "external-style": "Styles dürfen mit url() keine andere Ressource importieren oder referenzieren.",
+      "animation": "Animationselemente liegen außerhalb des akzeptierten Profils für statische Logos.",
+      "namespace-not-svg": "Das svg-Wurzelelement muss den SVG-Namensraum verwenden.",
+      "base-profile-not-tiny-ps": "baseProfile muss genau tiny-ps sein.",
+      "version-not-1-2": "version muss genau 1.2 sein.",
+      "title-missing": "Das Wurzelelement muss genau ein nicht leeres title-Element als direktes Kind enthalten.",
+      "title-not-unique": "Das Wurzelelement muss genau ein title-Element als direktes Kind enthalten.",
+      "desc-empty": "Ein vorhandenes desc-Element darf nicht leer sein.",
+      "viewbox-missing": "viewBox muss vier Zahlen mit positiver Breite und Höhe enthalten.",
+      "viewbox-not-square": "Breite und Höhe von viewBox müssen gleich sein.",
+      "root-has-position": "Das svg-Wurzelelement darf keine x- oder y-Positionsattribute tragen.",
+      "raster-data-uri": "Rasterbilddaten liegen außerhalb des reinen Vektorprofils.",
+      "unsupported-attribute": "Ein eingeschränktes SVG Tiny PS-Attribut hat einen Wert, den das Profil nicht zulässt."
+    }
+  },
   "opt": {
     "dkim": "DKIM-Selektoren prüfen",
     "dkimComprehensive": "Umfassender DKIM-Scan (max. 5 Domains)",
@@ -334,7 +407,10 @@
       "TLSA vorhanden",
       "Befund-IDs",
       "Befund-Schweregrade",
-      "Behebungsschritt 1"
+      "Behebungsschritt 1",
+      "Artefakt-Befund-IDs",
+      "Artefakt-Schweregrade",
+      "Artefaktnachweise (vom Benutzer bereitgestellt)"
     ],
     "yes": "Ja",
     "no": "Nein",
@@ -609,7 +685,7 @@
       "msg": "Der MTA-STS-TXT-Record ist fehlerhaft oder es fehlt der erforderliche id=-Tag."
     },
     "mta-sts-policy-unverified": {
-      "msg": "Der MTA-STS-TXT-Record ist gültig, aber dieser reine Browser-Audit kann die HTTPS-Richtliniendatei nicht überprüfen, da die meisten Richtlinien-Hosts keine herkunftsübergreifenden Lesezugriffe (CORS) zulassen."
+      "msg": "Der MTA-STS-TXT-Record ist gültig, aber die reine DNS-Prüfung hat seine HTTPS-Richtlinie nicht abgerufen. Stellen Sie die Richtlinie im Bereich für lokale Artefakte bereit, um sie ohne Netzwerkanfrage zu prüfen."
     },
     "tls-rpt-invalid": {
       "msg": "Der TLS-RPT-Record ist fehlerhaft oder enthält kein gültiges rua=-Ziel."
@@ -1233,6 +1309,66 @@
       "what": "Ohne ein DMARC-<code>rua=</code>-Ziel sehen Sie nie, wer als Ihre Domain E-Mail sendet oder ob die Authentifizierung besteht; ohne TLS-RPT sehen Sie nie TLS-Zustellungsfehler. Berichterstattung ist der Weg, mit dem eine Konfiguration als korrekt nachgewiesen statt nur angenommen wird.",
       "fix": "Fügen Sie eine DMARC-<code>rua=</code>-Adresse hinzu, und einen TLS-RPT-Eintrag, wenn Sie eine Transportrichtlinie betreiben, damit Fehler ein von Ihnen überwachtes Postfach erreichen.",
       "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "mta-sts-policy-invalid": {
+      "msg": "Die bereitgestellte MTA-STS-Richtlinie ist ungültig: {0}.",
+      "what": "Diese Parser-Token kennzeichnen Felder oder Zeilen, die RFC 8461 nicht entsprechen. Solange ein Fehler besteht, kann ein Absender die Richtlinie nicht sicher anwenden.",
+      "fix": "Korrigieren Sie jeden genannten Fehler in der bereitgestellten Richtlinie und analysieren Sie sie erneut, bevor Sie die Datei veröffentlichen."
+    },
+    "mta-sts-policy-hygiene": {
+      "msg": "Die bereitgestellte MTA-STS-Richtlinie ist gültig, muss aber geprüft werden: {0}.",
+      "what": "Diese Warnungen machen die Richtlinie nicht ungültig, weisen aber meist auf Editorartefakte, doppelte Felder oder irreführende Groß-/Kleinschreibung bei Feldnamen hin.",
+      "fix": "Bereinigen Sie die genannten Warnungen, damit die veröffentlichte Richtlinie für Betreiber und Software eindeutig ist."
+    },
+    "mta-sts-policy-mx-mismatch": {
+      "msg": "Die bereitgestellte MTA-STS-Richtlinie deckt keinen dieser Zustellhosts ab: {0}.",
+      "what": "Im Modus enforce verweigert ein Absender die Zustellung, wenn der ausgewählte MX-Hostname keinem mx-Muster der Richtlinie entspricht. Dies kann zu einem Ausfall der E-Mail-Zustellung führen.",
+      "fix": "Fügen Sie für jeden veröffentlichten Zustellkandidaten einen exakten Hostnamen oder einen gültigen Platzhalter für genau eine Bezeichnung hinzu."
+    },
+    "mta-sts-policy-mx-unused": {
+      "msg": "Diese MTA-STS-mx-Muster decken keinen aktuellen Zustellhost ab: {0}.",
+      "what": "Ein ungenutztes Muster ist meist ein veralteter Anbieterhostname nach einer Migration. Es beeinträchtigt die aktuelle Zustellung nicht, autorisiert aber einen Host, den Sie nicht mehr verwenden.",
+      "fix": "Bestätigen Sie, dass der alte Anbieter außer Betrieb ist, und entfernen Sie anschließend jede ungenutzte mx-Zeile."
+    },
+    "mta-sts-policy-on-null-mx": {
+      "msg": "Für eine Domain, die ausdrücklich keine E-Mails annimmt, wurde eine Richtlinie bereitgestellt.",
+      "what": "Ein Null-MX erklärt, dass die Domain keine SMTP-Zustellung annimmt. Eine Richtlinie zur E-Mail-Verarbeitung auf derselben Domain widerspricht dieser veröffentlichten Absicht.",
+      "fix": "Behalten Sie den Null-MX bei und entfernen Sie die Richtlinie, wenn die Domain geparkt ist, oder stellen Sie echte MX-Records wieder her, wenn sie E-Mails empfangen soll."
+    },
+    "mta-sts-policy-mx-unknown": {
+      "msg": "Die mx-Muster der Richtlinie konnten nicht mit den Zustellhosts verglichen werden.",
+      "what": "Die Prüfung konnte keine vollständige Menge von Zustellkandidaten ermitteln. Eine Übereinstimmung oder Abweichung zu behaupten, wäre daher Spekulation.",
+      "fix": "Beheben Sie den Fehler der DNS-Prüfung oder veröffentlichen Sie verwendbare MX- bzw. A/AAAA-Records. Führen Sie danach die Prüfung und den lokalen Vergleich erneut aus."
+    },
+    "mta-sts-mode-testing": {
+      "msg": "Die bereitgestellte Richtlinie verwendet mode: testing; Absender melden Fehler, setzen die Richtlinie aber nicht durch.",
+      "what": "Der Testmodus ist eine Bereitstellungsphase. E-Mails werden auch bei fehlgeschlagener TLS- oder Hostnamenprüfung zugestellt; dies ist daher keine Transportdurchsetzung.",
+      "fix": "Prüfen Sie die TLS-RPT-Berichte, korrigieren Sie jeden legitimen Fehler und ändern Sie die Richtlinie anschließend in mode: enforce."
+    },
+    "mta-sts-mode-none": {
+      "msg": "Die bereitgestellte Richtlinie verwendet mode: none und hebt den MTA-STS-Schutz auf.",
+      "what": "Mode none weist Absender an, die vorherige Richtlinie nicht mehr durchzusetzen. Dies ist während des im RFC festgelegten Entfernungsprozesses angemessen, aber kein Endzustand für eine geschützte Domain.",
+      "fix": "Verwenden Sie mode: enforce für eine aktive Richtlinie oder schließen Sie die dokumentierte stufenweise Entfernung ab, wenn die Aufhebung beabsichtigt ist."
+    },
+    "mta-sts-max-age-short": {
+      "msg": "Die bereitgestellte Richtlinie hat mit {0} Sekunden eine kurze max_age.",
+      "what": "Eine kurze Cache-Lebensdauer zwingt Absender zu häufigen Aktualisierungen und verringert den Schutz während eines Ausfalls des Richtlinienhosts.",
+      "fix": "Verwenden Sie nach Abschluss der Tests eine längere max_age; 86400 Sekunden sind der von dieser Prüfung empfohlene Mindestwert."
+    },
+    "bimi-svg-rejected": {
+      "msg": "Das bereitgestellte BIMI-SVG wurde abgelehnt: {0}.",
+      "what": "Die genannten Konstrukte sind unsicher oder liegen außerhalb der bewusst engen Grenze der lokalen Prüfung. Das Logo wird nicht dargestellt und kein geparster Knoten in diese Seite eingefügt.",
+      "fix": "Entfernen Sie jedes genannte Konstrukt und exportieren Sie ein eigenständiges SVG Tiny PS-Logo ohne Scripts, externe Verweise, DTD oder Entity-Deklarationen."
+    },
+    "bimi-svg-profile": {
+      "msg": "Das bereitgestellte BIMI-SVG weist Profildiagnosen auf: {0}.",
+      "what": "Das Logo hat die Sicherheitsprüfung bestanden, aber die genannten SVG Tiny PS-Anforderungen können verhindern, dass Mailbox-Anbieter es anzeigen.",
+      "fix": "Korrigieren Sie jede genannte Profildiagnose und prüfen Sie anschließend in Ihrem Veröffentlichungsablauf gegen das vollständige SVG Tiny PS-Schema."
+    },
+    "bimi-svg-valid": {
+      "msg": "Das bereitgestellte BIMI-SVG hat diese lokale Sicherheits- und Profilprüfung bestanden.",
+      "what": "Es wurde keine benannte Ablehnung oder Profildiagnose gefunden. Dies ist keine vollständige RNC-Schemazertifizierung und garantiert nicht die Annahme durch einen Mailbox-Anbieter.",
+      "fix": "Diese Prüfung erfordert keine Änderung. Behalten Sie die vollständige Schemaprüfung und anbieterspezifische Kontrollen in Ihrem Veröffentlichungsablauf bei."
     }
   },
   "findings": {

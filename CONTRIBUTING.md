@@ -236,7 +236,11 @@ npm start            # then click through: run an audit, expand a row,
 **When cutting a release** — which happens on the feature branch, as its last
 commit — read the assertion count out of the `npm test` run and update the
 figure in `README.md`'s command table from that output rather than typing it
-from memory. It drifted from 174 to 489 unnoticed once already.
+from memory. It drifted from 174 to 489 unnoticed once already. Also add the
+release to `ROADMAP.md`'s **Shipped releases and their specs** table, and verify
+that the immediately preceding release is present there. The package version,
+roadmap row and implemented-spec link must describe the same release before the
+release commit is made.
 
 **Write these three from the finished state, once, before the PR opens.** They
 are what a human reads afterwards, not a log of what happened on the branch, and
@@ -249,6 +253,7 @@ round:
 | `CHANGELOG.md` | The `## [Unreleased]` section is written once and then forgotten. Later commits on the same branch — review fixes especially — change what the release actually does. Describe the release as it finally is, not the route it took. |
 | The PR description | GitHub keeps the body you opened the PR with. If a review makes you reverse a decision, the body still argues the old one. |
 | `README.md` | The assertion count moves whenever tests are added, and behaviour statements go stale when a review changes behaviour. Read the count out of a real `npm test` run. |
+| `ROADMAP.md` | A release can be marked complete in its workstream while still being omitted from the shipped-releases table. Match the table's newest row and implemented-spec link to `package.json`, and confirm the preceding release is present. |
 
 The failure mode is not hypothetical. On PR #18 the body stated that CSV formula
 injection was *"not addressed here"* while a later commit on the same branch

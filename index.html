@@ -176,6 +176,42 @@
     <div class="empty-state"><div class="es-icon">🔍</div><p data-i18n="empty.text">No domains match your filter.</p></div>
   </div>
 
+  <details class="artifact-panel" id="artifactPanel">
+    <summary data-i18n="artifact.heading">Validate a local MTA-STS policy or BIMI logo</summary>
+    <div class="artifact-panel-body">
+      <p class="artifact-separation" data-i18n="artifact.separation">DNS audit results above came from public DNS. Everything in this panel comes only from files or text you supply.</p>
+      <p class="artifact-privacy" data-i18n="artifact.privacy">Nothing supplied here is fetched, uploaded, stored, or added to your DNS score. Analysis happens locally in this browser and is discarded on reload. See <a href="https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy</a>.</p>
+
+      <label class="artifact-domain-label" for="artifactDomain" data-i18n="artifact.domainLabel">Audited domain</label>
+      <select class="artifact-domain" id="artifactDomain" disabled>
+        <option value="" data-i18n="artifact.noDomains">Run a DNS audit first</option>
+      </select>
+
+      <div class="artifact-input-grid">
+        <section class="artifact-input">
+          <h3 data-i18n="artifact.policyHeading">MTA-STS policy</h3>
+          <p data-i18n="artifact.policyHelp">Paste the body of mta-sts.txt or choose a text file. Maximum 64 KiB.</p>
+          <textarea id="artifactPolicyText" data-i18n-placeholder="artifact.policyPlaceholder" placeholder="version: STSv1&#10;mode: enforce&#10;mx: mail.example.com&#10;max_age: 86400"></textarea>
+          <label class="file-upload-label" for="artifactPolicyFile"><span data-i18n="artifact.policyFile">Choose .txt file</span><input type="file" id="artifactPolicyFile" accept=".txt,text/plain"></label>
+        </section>
+        <section class="artifact-input">
+          <h3 data-i18n="artifact.svgHeading">BIMI SVG logo</h3>
+          <p data-i18n="artifact.svgHelp">Paste the SVG source or choose an SVG file. Maximum 32 KiB. The logo is inspected, never displayed.</p>
+          <textarea id="artifactSvgText" data-i18n-placeholder="artifact.svgPlaceholder" placeholder="Paste the contents of your logo SVG file"></textarea>
+          <label class="file-upload-label" for="artifactSvgFile"><span data-i18n="artifact.svgFile">Choose .svg file</span><input type="file" id="artifactSvgFile" accept=".svg,image/svg+xml"></label>
+        </section>
+      </div>
+
+      <div class="artifact-actions">
+        <button class="btn btn-primary" id="artifactAnalyzeBtn" data-i18n="artifact.analyze">Analyze supplied material</button>
+        <button class="btn btn-outline" id="artifactClearBtn" data-i18n="artifact.clear">Clear supplied material</button>
+      </div>
+      <div class="artifact-status" id="artifactStatus" role="status" aria-live="polite"></div>
+      <div class="artifact-results" id="artifactResults"></div>
+      <p class="artifact-schema-note" data-i18n="artifact.schemaNote">BIMI checks cover security rejections and named SVG Tiny PS diagnostics; they are not full RNC-schema certification or a guarantee that a mailbox provider will display the logo.</p>
+    </div>
+  </details>
+
   <div class="app-footer" data-i18n="footer.text"></div>
 </div>
 

@@ -1124,6 +1124,125 @@
       ]
     },
     {
+      "id": "audit.artifact.finding.id",
+      "owner": "audit",
+      "field": "artifactFindings[].id",
+      "closed": true,
+      "site": "src/audit/artifacts.js",
+      "members": [
+        "mta-sts.policy-invalid",
+        "mta-sts.policy-hygiene",
+        "mta-sts.policy-mx-mismatch",
+        "mta-sts.policy-mx-unused",
+        "mta-sts.policy-on-null-mx",
+        "mta-sts.policy-mx-unknown",
+        "mta-sts.mode-testing",
+        "mta-sts.mode-none",
+        "mta-sts.max-age-short",
+        "bimi.svg-rejected",
+        "bimi.svg-profile",
+        "bimi.svg-valid"
+      ],
+      "note": "Artifact finding identity. Deliberately SEPARATE from audit.finding.id, which stays the DNS contract: an artifact finding is not a DNS finding with a flag on it. The private catalog in artifacts.js constructs every published id and the co-located suite pins it against this list, so a thirteenth identity cannot appear without the registry moving with it.",
+      "resultPaths": [
+        "artifact.finding.id"
+      ]
+    },
+    {
+      "id": "audit.artifact.kind",
+      "owner": "audit",
+      "field": "artifactFindings[].artifact",
+      "closed": true,
+      "site": "src/audit/artifacts.js",
+      "members": [
+        "mta-sts-policy",
+        "bimi-svg"
+      ],
+      "note": "Which supplied artifact a finding came from. VMC is deliberately absent: OQ-ART-04 dropped it, because structural PEM details without chain validation do not answer whether a mailbox provider would accept the certificate.",
+      "resultPaths": [
+        "artifact.finding.artifact"
+      ]
+    },
+    {
+      "id": "audit.artifact.source",
+      "owner": "audit",
+      "field": "artifactFindings[].source",
+      "closed": true,
+      "site": "src/audit/artifacts.js",
+      "members": [
+        "user-supplied"
+      ],
+      "note": "Provenance. One member, and still a closed vocabulary rather than a boolean: the reason these findings are separated from DNS findings is that somebody supplied them, and a report handed to a third party has to be able to name that reason.",
+      "resultPaths": [
+        "artifact.finding.source"
+      ]
+    },
+    {
+      "id": "audit.artifact.evidence.kind",
+      "owner": "audit",
+      "field": "artifactFindings[].evidence[].kind",
+      "closed": true,
+      "site": "src/audit/artifacts.js",
+      "members": [
+        "line",
+        "element",
+        "input"
+      ],
+      "note": "DELIBERATELY DISJOINT from audit.finding.evidence.kind, and the co-located suite asserts the two share no member. A line of pasted text was not queried from DNS, and the DNS renderer presents an evidence location as a queried name -- so an overlap would let supplied material render as though it had been observed in public DNS. `input` locates a document-level condition, such as a missing field, that has no line.",
+      "resultPaths": [
+        "artifact.finding.evidence.kind"
+      ]
+    },
+    {
+      "id": "bimi.svg.rejections",
+      "owner": "core/bimi",
+      "field": "validateBimiSvg().rejections[] tokens",
+      "closed": true,
+      "site": "src/core/bimi/svg.js",
+      "members": [
+        "doctype-present",
+        "entity-declaration",
+        "malformed-xml",
+        "bad-root",
+        "script-element",
+        "event-handler",
+        "foreign-object",
+        "external-reference-element",
+        "external-reference",
+        "link-element",
+        "external-style",
+        "animation"
+      ],
+      "note": "Security refusals over a user-supplied indicator SVG. doctype-present and entity-declaration are raised by a scan of the SOURCE TEXT before the parser is invoked, because Chrome expands internal general entities -- measured: a nine-level billion-laughs document produced 59,049 characters of text -- so a post-parse check would run after the cost was already paid. bad-root is its own member because HTML in a .svg file parses cleanly with no parser error, so nothing but an explicit root-name check catches it.",
+      "resultPaths": [
+        "artifact.bimiSvg.rejections[]"
+      ]
+    },
+    {
+      "id": "bimi.svg.diagnostics",
+      "owner": "core/bimi",
+      "field": "validateBimiSvg().diagnostics[] tokens",
+      "closed": true,
+      "site": "src/core/bimi/svg.js",
+      "members": [
+        "namespace-not-svg",
+        "base-profile-not-tiny-ps",
+        "version-not-1-2",
+        "title-missing",
+        "title-not-unique",
+        "desc-empty",
+        "viewbox-missing",
+        "viewbox-not-square",
+        "root-has-position",
+        "raster-data-uri",
+        "unsupported-attribute"
+      ],
+      "note": "SVG P/S profile diagnostics: why a mailbox provider may not display the logo. Never a refusal -- a document carrying only these is still valid. The spec's \"single root element\" row is deliberately NOT a member: XML makes a second root a parse error (measured), so it arrives as malformed-xml and a diagnostic for it would be unreachable. unsupported-attribute covers the six attributes the spec constrains to \"permitted inert values\" without enumerating them, so presence alone is the diagnostic until the spec decides.",
+      "resultPaths": [
+        "artifact.bimiSvg.diagnostics[]"
+      ]
+    },
+    {
       "id": "bimi.errors",
       "owner": "core/bimi",
       "field": "validateBimiRecord().errors[] tokens",
@@ -1148,6 +1267,93 @@
       ],
       "resultPaths": [
         "advanced.mtaSts.validation.errors[]"
+      ]
+    },
+    {
+      "id": "transport.mtaStsPolicy.errors",
+      "owner": "core/transport",
+      "field": "validateMtaStsPolicy().errors[] tokens",
+      "closed": true,
+      "site": "src/core/transport/mta-sts-policy.js",
+      "members": [
+        "malformed-line",
+        "blank-line",
+        "invalid-version",
+        "invalid-mode",
+        "invalid-mx",
+        "invalid-max-age",
+        "missing-version",
+        "missing-mode",
+        "missing-max-age",
+        "missing-mx"
+      ],
+      "resultPaths": [
+        "artifact.mtaStsPolicy.errors[]"
+      ]
+    },
+    {
+      "id": "transport.mtaStsPolicy.warnings",
+      "owner": "core/transport",
+      "field": "validateMtaStsPolicy().warnings[] tokens",
+      "closed": true,
+      "site": "src/core/transport/mta-sts-policy.js",
+      "members": [
+        "duplicate-field",
+        "bom-present",
+        "wrong-case-field"
+      ],
+      "note": "wrong-case-field is a WARNING. sts-policy-ext-name permits `Mode`, and RFC 8461 3.2 says unknown fields SHALL be ignored, so a conformant policy may carry a case-variant name and must not be called invalid. When the operator did mean the registered field, the missing-* error already carries the invalidity.",
+      "resultPaths": [
+        "artifact.mtaStsPolicy.warnings[]"
+      ]
+    },
+    {
+      "id": "transport.mtaStsPolicy.lineEndings",
+      "owner": "core/transport",
+      "field": "validateMtaStsPolicy().lineEndings",
+      "closed": true,
+      "site": "src/core/transport/mta-sts-policy.js",
+      "members": [
+        "crlf",
+        "lf",
+        "mixed",
+        "none"
+      ],
+      "resultPaths": [
+        "artifact.mtaStsPolicy.lineEndings"
+      ]
+    },
+    {
+      "id": "transport.mtaStsPolicy.findingScope",
+      "owner": "core/transport",
+      "field": "policyFindingScope().state",
+      "closed": true,
+      "site": "src/core/transport/mta-sts-policy.js",
+      "members": [
+        "invalid",
+        "withdrawal",
+        "testing",
+        "enforce"
+      ],
+      "note": "Which SEMANTIC findings a policy in this state may produce. Parsing says what a document contains, not which readings of it are honest. `invalid` allows parser diagnostics only, because any mode/max-age/null-MX/mismatch claim built from the fields that happened to parse describes a document no sender will honour. `withdrawal` (mode: none) allows only its own mode finding: RFC 8461 8.3 tells an operator to publish mode:none with a small max_age (e.g. one day), so max-age-short there would advise working against the protocol's removal procedure, and a withdrawn policy cannot conflict with a null MX. Every member is reachable from a real validateMtaStsPolicy() result and the co-located suite proves it.",
+      "resultPaths": [
+        "artifact.mtaStsPolicy.findingScope.state"
+      ]
+    },
+    {
+      "id": "transport.mtaStsPolicy.mxComparisonState",
+      "owner": "core/transport",
+      "field": "compareMtaStsMx().state",
+      "closed": true,
+      "site": "src/core/transport/mta-sts-policy.js",
+      "members": [
+        "compared",
+        "unknown",
+        "null-mx"
+      ],
+      "note": "The fact is { hosts: string[], unknown, nullMx }, derived by src/audit/artifacts.js from the domain's DELIVERY CANDIDATES -- explicit MX exchanges, or the RFC 5321 5.1 implicit MX when no MX is published -- never from advanced.mxHealth, whose hosts are audit objects and which is null whenever deep checks are off. The comparator fails closed to `unknown` on an absent fact, an empty list, or any entry that is not a valid hostname, because a silently filtered list compares as every-pattern-unused. `null-mx` was held out of this vocabulary until deliveryCandidates() existed to produce it, and joined in the same commit as that producer.",
+      "resultPaths": [
+        "artifact.mtaStsPolicy.mxComparison.state"
       ]
     },
     {

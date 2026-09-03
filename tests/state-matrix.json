@@ -2963,6 +2963,252 @@
       ]
     },
     {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-invalid",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-hygiene",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-mx-mismatch",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-mx-unused",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-on-null-mx",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.policy-mx-unknown",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.mode-testing",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.mode-none",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "mta-sts.max-age-short",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "bimi.svg-rejected",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "bimi.svg-profile",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.finding.id",
+      "member": "bimi.svg-valid",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.kind",
+      "member": "mta-sts-policy",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.kind",
+      "member": "bimi-svg",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.source",
+      "member": "user-supplied",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.evidence.kind",
+      "member": "line",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.evidence.kind",
+      "member": "element",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "audit.artifact.evidence.kind",
+      "member": "input",
+      "suites": ["src/audit/artifacts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "doctype-present",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "entity-declaration",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "malformed-xml",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "bad-root",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "script-element",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "event-handler",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "foreign-object",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "external-reference-element",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "external-reference",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "link-element",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "external-style",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.rejections",
+      "member": "animation",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "namespace-not-svg",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "base-profile-not-tiny-ps",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "version-not-1-2",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "title-missing",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "title-not-unique",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "desc-empty",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "viewbox-missing",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "viewbox-not-square",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "root-has-position",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "raster-data-uri",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "bimi.svg.diagnostics",
+      "member": "unsupported-attribute",
+      "suites": ["src/core/bimi/svg.test.js"],
+      "fixtures": []
+    },
+    {
       "algebra": "bimi.errors",
       "member": "invalid-syntax",
       "suites": [],
@@ -3042,6 +3288,150 @@
         "dmarc-report-auth-absent",
         "spf-lookup-query-error"
       ]
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "malformed-line",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "blank-line",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "invalid-version",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "invalid-mode",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "invalid-mx",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "invalid-max-age",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "missing-version",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "missing-mode",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "missing-max-age",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.errors",
+      "member": "missing-mx",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.warnings",
+      "member": "duplicate-field",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.warnings",
+      "member": "bom-present",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.warnings",
+      "member": "wrong-case-field",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.lineEndings",
+      "member": "crlf",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.lineEndings",
+      "member": "lf",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.lineEndings",
+      "member": "mixed",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.lineEndings",
+      "member": "none",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.findingScope",
+      "member": "invalid",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.findingScope",
+      "member": "withdrawal",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.findingScope",
+      "member": "testing",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.findingScope",
+      "member": "enforce",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.mxComparisonState",
+      "member": "compared",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.mxComparisonState",
+      "member": "unknown",
+      "suites": ["src/core/transport/mta-sts.test.js"],
+      "fixtures": []
+    },
+    {
+      "algebra": "transport.mtaStsPolicy.mxComparisonState",
+      "member": "null-mx",
+      "suites": ["src/core/transport/mta-sts.test.js", "src/audit/artifacts.test.js"],
+      "fixtures": []
     },
     {
       "algebra": "transport.tlsRpt.errors",

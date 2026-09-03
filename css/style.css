@@ -64,6 +64,38 @@ textarea#domainInput::placeholder { color: var(--ink3); }
 .file-upload-label:hover { background: var(--surface2); color: var(--ink); }
 input[type="file"] { display: none; }
 
+/* ── Local artifact validation ── */
+.artifact-panel { margin-top: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.artifact-panel > summary { cursor: pointer; padding: 16px 20px; font-weight: 700; font-size: 14px; }
+.artifact-panel[open] > summary { border-bottom: 1px solid var(--border); }
+.artifact-panel-body { padding: 20px; }
+.artifact-separation { font-weight: 650; color: var(--ink); margin-bottom: 6px; }
+.artifact-privacy, .artifact-schema-note { color: var(--ink2); font-size: 12.5px; }
+.artifact-privacy { margin-bottom: 18px; }
+.artifact-privacy a { color: var(--accent); }
+.artifact-domain-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink3); margin-bottom: 5px; }
+.artifact-domain { width: min(100%, 420px); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; background: var(--surface); color: var(--ink); margin-bottom: 18px; }
+.artifact-input-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.artifact-input { border: 1px solid var(--border); border-radius: 8px; padding: 16px; background: var(--surface2); }
+.artifact-input h3 { font-size: 14px; margin-bottom: 3px; }
+.artifact-input p { color: var(--ink2); font-size: 12px; margin-bottom: 10px; }
+.artifact-input textarea { width: 100%; min-height: 180px; resize: vertical; border: 1px solid var(--border); border-radius: 7px; padding: 10px; margin-bottom: 10px; background: var(--surface); color: var(--ink); font: 12px/1.55 'SF Mono','Fira Code',monospace; }
+.artifact-input textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-color: var(--accent); }
+.artifact-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.artifact-status { min-height: 22px; margin-top: 10px; color: var(--ink2); font-size: 12.5px; }
+.artifact-status.is-error { color: var(--crit); font-weight: 600; }
+.artifact-results { margin-top: 8px; }
+.artifact-results-heading { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.artifact-source { color: var(--tip); font-weight: 700; }
+.artifact-token-list { margin: 8px 0 0 18px; color: var(--ink2); font-size: 12px; }
+.artifact-token-list li { margin-bottom: 3px; }
+.artifact-schema-note { margin-top: 16px; }
+.artifact-report-section { margin-top: 28px; padding-top: 22px; border-top: 2px solid var(--border); }
+.artifact-report-section > h2 { font-size: 17px; margin-bottom: 12px; }
+.artifact-report-domain { margin-top: 16px; }
+.artifact-report-domain > h3 { font-size: 14px; margin-bottom: 4px; }
+@media (max-width: 768px) { .artifact-input-grid { grid-template-columns: 1fr; } }
+
 /* ── Options ── */
 .options-row { display: flex; align-items: center; gap: 20px; margin-top: 14px; flex-wrap: wrap; }
 .checkbox-group { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink2); cursor: pointer; }

@@ -64,6 +64,8 @@ and an unverifiable result is marked rather than hidden.
 | 0.4.0 | DKIM, CAA, MX and DNS-published DANE depth | [dns-protocol-depth](docs/specs/implemented/dns-protocol-depth.md) |
 | 0.5.0 | DNSSEC chain evidence: six states, local DS-to-DNSKEY matching, attributed claims | [dnssec-evidence](docs/specs/implemented/dnssec-evidence.md) |
 | 0.6.0 | ES modules under `src/` bundled to one artifact; a two-member browser API; no behaviour change | [modular-architecture-and-production-build](docs/specs/implemented/modular-architecture-and-production-build.md) |
+| 0.7.0 | Stable finding identity, source-bound evidence and dependency-ordered remediation | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) |
+| 0.8.0 | Private local MTA-STS policy and BIMI SVG validation with user-supplied provenance | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) |
 
 `0.1.0` and the work merged as PRs #1 through #7 predate the spec process and are
 documented in [`CHANGELOG.md`](CHANGELOG.md) only.
@@ -77,7 +79,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 3 | Anomaly and remediation engine | **Done.** 0.7.0 adds stable finding identity, five-level severity, confidence, source-bound evidence and dependency-ordered remediation while preserving the legacy issue and scoring surfaces. | [0.7.0](docs/specs/implemented/findings-and-remediation.md), released |
 | 4 | DKIM, MX, CAA and DANE depth | **Done.** 0.4.0 decodes DKIM public keys to algorithm and modulus size, parses CAA into a policy with wildcard semantics, resolves every MX target to find dangling and CNAME hosts, and adds TLSA lookup, reported per host as DNSSEC-authenticated or not on the strength of the resolver's AD bit for that host's own name. 0.5.0 reviewed and **retired** the `qualified` flag rather than completing it: a TLSA record lives in the MX host's zone, which the audited domain's chain evidence says nothing about, and local DS-to-DNSKEY matching never validates RRSIGs and so cannot exceed the resolver's per-host verdict (`OQ-SEC9-07`). Every observation is advisory: zero grade movement. | [0.4.0](docs/specs/implemented/dns-protocol-depth.md), released |
 | 5 | DNSSEC depth | **Done.** 0.5.0 queries the child `DNSKEY` set and the parent `DS` set, matches the digests locally with Web Crypto, and replaces the four-state model with six — separating a signed-but-unanchored zone and a DS/DNSKEY mismatch from a zone that was never signed. The resolver's AD flag remains the validation signal, and every claim is attributed to it or to local computation. | [0.5.0](docs/specs/implemented/dnssec-evidence.md), released |
-| 6 | Local MTA-STS and BIMI validation | Not started. Both are validated at the TXT record level only. | [0.8.0](docs/specs/local-artifact-validation.md) |
+| 6 | Local MTA-STS and BIMI validation | **Done.** 0.8.0 adds a separate in-memory panel for supplied MTA-STS policy and BIMI SVG material, with strict pre-parse limits, source-bound findings and no network, storage, scoring or logo-rendering path. | [0.8.0](docs/specs/implemented/local-artifact-validation.md), released |
 | 7 | Local report comparison | Not started. Exports are CSV and static HTML; nothing can be read back. | [0.9.0](docs/specs/report-comparison.md) |
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
 | 9 | Modular architecture and production build | **Done.** Released as 0.6.0; all six gates met. Spec `1.8`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with thirteen owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md), released |
@@ -207,17 +209,19 @@ Exit condition met: every recommendation points at source-bound evidence and
 prerequisites, and finding/remediation order is identical across all fourteen
 locales. Released as `v0.7.0`.
 
-### 0.8.0: Private local artifact validators
+### 0.8.0: Private local artifact validators — released
 
-Spec: [`docs/specs/local-artifact-validation.md`](docs/specs/local-artifact-validation.md)
+Spec: [`docs/specs/implemented/local-artifact-validation.md`](docs/specs/implemented/local-artifact-validation.md)
 
 Adds a visually separate panel accepting pasted or selected MTA-STS policy text
-and BIMI SVG material, validated strictly in memory. No MTA-STS, BIMI, or VMC URL
+and BIMI SVG material, inspected strictly in memory. No MTA-STS, BIMI, or VMC URL
 is ever fetched automatically, and user-supplied SVG is never injected into the
 application DOM.
 
-Exit condition: artifact analysis produces no new network requests, no
-persistence, and no active markup.
+Exit condition met: the production-browser instrument observes no analysis
+request, persistence or foreign-node insertion; selected and pasted input is
+bounded before parsing, and artifact findings remain outside scoring. Released
+as `v0.8.0`.
 
 ### 0.9.0: Stateless report comparison
 
@@ -277,11 +281,11 @@ old optimization would now create avoidable contract churn.
 The remaining work is intentionally sequential:
 
 ```text
-0.8.0 artifacts → 0.9.0 reports → 1.0.0 graduation
+0.9.0 reports → 1.0.0 graduation
 ```
 
-`0.7.0` froze finding identity and provenance. `0.8.0` consumes that final
-shape rather than inventing a stub. `0.9.0` then freezes the public report
+`0.7.0` froze finding identity and provenance. `0.8.0` consumed that final
+shape rather than inventing a stub. `0.9.0` now freezes the public report
 schema around both DNS and user-supplied provenance decisions. `1.0.0` verifies
 and documents the compatibility promises made by those releases. The decision
 document for external intelligence can be reviewed alongside the feature specs,

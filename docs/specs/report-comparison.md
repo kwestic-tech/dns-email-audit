@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.2 (Draft, rebased after 0.6.0) |
+| Spec version | 0.3 (Draft) |
 | Target release | 0.9.0 |
 | Status | Awaiting review |
 | Depends on | [findings-and-remediation](implemented/findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
 | Blocks | Nothing |
 | Slug for open questions | `CMP` |
-| Last updated | 2026-08-31 |
+| Last updated | 2026-09-01 |
 
 ## Problem
 
@@ -394,14 +394,15 @@ the noise and document it. This draft leans toward a single
 schema is frozen, because this field cannot be repurposed later.
 
 **OQ-CMP-07: Do artifact findings from 0.8.0 appear in the report?**
-Cross-referenced from `OQ-ART-07`. This draft excludes them, since a
-user-supplied finding is not reproducible from DNS and a diff of two of them
-compares two different kinds of claim. Confirm, because the schema must reserve
-or omit the field now.
+`OQ-ART-07` resolved this upstream: exclude them. A user-supplied finding is not
+reproducible from DNS and a diff of two of them compares two different kinds of
+claim. The 0.9.0 review must carry that settled boundary into the schema rather
+than reserve a field for artifact findings.
 
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 0.3 | 2026-09-01 | Recorded the settled 0.8.0 provenance boundary: user-supplied artifact findings are excluded from the versioned JSON comparison report. `OQ-CMP-07` now carries that upstream decision into this draft rather than presenting it as open. No other report question was resolved. |
 | 0.2 | 2026-08-31 | Renumbered the target to 0.9.0 and rebased the implementation on `src/ui/report.js`, `src/ui/events.js` and the shipped injection boundary. Assigned pure schema and comparison work to a UI sibling, kept scoring-version ownership in `src/audit/`, prohibited a reverse UI-to-audit import, updated finding stability to begin at 0.7.0, and made the 0.8.0 artifact provenance decision an explicit dependency. No open question was resolved. |
 | 0.1 | 2026-08-20 | Initial draft. |

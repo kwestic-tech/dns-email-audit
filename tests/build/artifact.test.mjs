@@ -97,19 +97,13 @@ eq('no test path is an input', inputs.filter(p => /\.test\.(js|mjs)$/.test(p)), 
 eq('no path under tests/ is an input', inputs.filter(p => p.startsWith('tests/')), []);
 eq('no path under tools/ is an input', inputs.filter(p => p.startsWith('tools/')), []);
 eq('no node_modules path is an input', inputs.filter(p => p.includes('node_modules')), []);
-// Exactly the files that should be there, named rather than counted: the entry,
-// the generated-data adapter, the three generated modules, the converted layers
-// and the one file still under `js/`. This list shrinks on the `js/` side every
-// Phase 2 commit, and a file appearing here that nobody added is what it exists
-// to catch. Task 2.6 removed three at once — `js/app.js` became `src/main.js`,
-// which absorbed `src/entry-legacy.js` and `src/legacy-bridge.js`.
-// `js/dns.js` LEFT this list at Task 6.1, when `src/audit/create-audit.js`
-// took the protocol composition and `src/runtime.js` took the DNS layer. The
-// delivery boundary no longer contains a single file from `js/`.
-eq('the inputs are exactly the modules the entry point reaches', inputs.sort(),
-  ['src/audit/audit-domain.js', 'src/audit/context.js',
+// Exactly the files that should be there, named rather than counted. The three
+// local-artifact modules joined only when runtime made the analyzer reachable;
+// their earlier directory-bound commits deliberately did not ship dead code.
+// A file appearing here that nobody reviewed is what this list exists to catch.
+const EXPECTED_INPUTS = ['src/audit/artifacts.js', 'src/audit/audit-domain.js', 'src/audit/context.js',
     'src/audit/create-audit.js', 'src/audit/findings.js', 'src/audit/issues.js', 'src/audit/scoring.js',
-    'src/core/bimi/bimi.js', 'src/core/caa/caa.js', 'src/core/dkim/dkim.js',
+    'src/core/bimi/bimi.js', 'src/core/bimi/svg.js', 'src/core/caa/caa.js', 'src/core/dkim/dkim.js',
     'src/core/dmarc/org-domain.js', 'src/core/dmarc/record.js',
     'src/core/dmarc/report-auth.js', 'src/core/dmarc/tree-walk.js',
     'src/core/dns/cache.js', 'src/core/dns/doh.js', 'src/core/dns/errors.js', 'src/core/dns/existence.js',
@@ -121,14 +115,15 @@ eq('the inputs are exactly the modules the entry point reaches', inputs.sort(),
     'src/core/shared/record-fields.js', 'src/core/shared/record-selection.js',
     'src/core/shared/uri.js',
     'src/core/spf/spf.js',
-    'src/core/transport/ext-value.js', 'src/core/transport/mta-sts.js',
+    'src/core/transport/ext-value.js', 'src/core/transport/mta-sts-policy.js', 'src/core/transport/mta-sts.js',
     'src/core/transport/tls-rpt.js', 'src/core/transport/tlsa.js',
     'src/data/dkim-selectors.js', 'src/data/locales-en.js',
     'src/data/public-suffixes.js',
     'src/i18n/index.js', 'src/main.js',
     'src/platform/browser.js', 'src/providers/detectors.js',
     'src/runtime.js', 'src/ui/events.js', 'src/ui/render.js',
-    'src/ui/report.js']);
+    'src/ui/report.js'];
+eq('the inputs are exactly the modules the entry point reaches', inputs.sort(), EXPECTED_INPUTS);
 eq('and no file under js/ is an input any more', inputs.filter(p => p.startsWith('js/')), []);
 // Co-located unit tests are the reason this list is asserted rather than
 // counted: `src/core/dns/doh.test.js` sits beside the module above and must
@@ -148,7 +143,7 @@ eq('no path under tests/ appears in the source map',
 // code-bearing as of Task 2.6, which retired the two import-only adapters.
 eq('every mapped source is one of the bundle inputs',
   sourceMap.sources.map(p => p.replace(/^(\.\.\/)+/, '')).filter(p => !inputs.includes(p)), []);
-eq('every code-bearing input is mapped', sourceMap.sources.length, 44);
+eq('every code-bearing input is mapped', sourceMap.sources.length, 47);
 
 // Defence in depth, carrying no acceptance criterion of its own: a string that
 // appears in every cross-cutting suite must appear nowhere in the artifact.
@@ -175,5 +170,7 @@ eq('the test-file scan would catch one',
   [...everyFile, join('dist', 'thing.test.js')].filter(f => /\.test\.(js|mjs)$/.test(f)).length, 1);
 eq('the source-map scan would catch one',
   [...sourceMap.sources, 'src/x.test.js'].filter(p => /\.test\.(js|mjs)$/.test(p)).length, 1);
+eq('the bundle-input allowlist would catch an unreviewed production module',
+  JSON.stringify([...EXPECTED_INPUTS, 'src/unreviewed.js'].sort()) === JSON.stringify(EXPECTED_INPUTS), false);
 
 report();

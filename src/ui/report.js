@@ -84,7 +84,7 @@ export function createReport(capabilities) {
     // Row formatters, still owned by the table renderer in `src/main.js`.
     label, issueMessage, spfRecordCell, dkimKeyBitsCell, rowHygieneValues,
     // Page feedback, and the accessor that keeps `results` fresh.
-    showToast, $, getResults,
+    showToast, $, getResults, getArtifactSessions, buildArtifactReportContent,
   } = capabilities;
   const t = i18n.t;
   const tRaw = i18n.tRaw;
@@ -120,10 +120,13 @@ export function createReport(capabilities) {
     var localeCols = tRaw('csv.headers') || [];
     var cols = (enCols.length ? enCols : localeCols).map(function (h, i) { return localeCols[i] || h; });
 
+    var sessions = typeof getArtifactSessions === 'function' ? getArtifactSessions() : {};
     var data = rows.filter(function (r) { return !r.error; }).map(function (r) {
       if (r.unregistered) {
         return [r.domain, no].concat(new Array(cols.length - 2).fill(''));
       }
+      var artifactFindings = sessions && sessions[r.domain]
+        ? (sessions[r.domain].artifactFindings || []) : [];
       return [
         r.domain, yes,
         r.score.grade, r.score.pts,
@@ -186,6 +189,16 @@ export function createReport(capabilities) {
         (r.findings || []).map(function (f) { return f.id; }).join(' | '),
         (r.findings || []).map(function (f) { return f.severity; }).join(' | '),
         (r.remediationPlan && r.remediationPlan[0] ? r.remediationPlan[0].findings : []).join(' | '),
+        // 0.8.0 local artifacts. Three distinct columns, appended after every
+        // DNS column: merging these ids into the DNS finding cell would erase
+        // the provenance boundary the UI and result model preserve.
+        artifactFindings.map(function (f) { return f.id; }).join(' | '),
+        artifactFindings.map(function (f) { return f.severity; }).join(' | '),
+        artifactFindings.flatMap(function (f) {
+          return (f.evidence || []).map(function (e) {
+            return [f.source, f.artifact, e.kind, e.location, e.value].join(' :: ');
+          });
+        }).join(' || '),
       ];
     });
 
@@ -319,6 +332,15 @@ export function createReport(capabilities) {
 
     var content = document.createDocumentFragment();
     Array.from(table.childNodes).forEach(function (n) { content.appendChild(n); });
+
+    var artifactContent = typeof buildArtifactReportContent === 'function'
+      ? buildArtifactReportContent() : null;
+    if (artifactContent) {
+      artifactContent.querySelectorAll('.showme-btn, .rv-more').forEach(function (el) { el.remove(); });
+      artifactContent.querySelectorAll('.showme-content').forEach(function (el) { el.style.display = 'block'; });
+      artifactContent.querySelectorAll('.rv-rest').forEach(function (el) { el.style.display = 'inline'; });
+      content.appendChild(artifactContent);
+    }
 
     var stats = document.createDocumentFragment();
     Array.from($('statsGrid').cloneNode(true).childNodes).forEach(function (n) { stats.appendChild(n); });

@@ -2,77 +2,57 @@
 
 ## Current state
 
-Released through `v0.7.0`. Structured findings and ordered remediation are now
-the stable result boundary consumed by the remaining feature releases. Legacy
-issues, suggestions, scores and grades remain unchanged.
+Released through `v0.8.0`. Private local MTA-STS policy and BIMI SVG validators
+now consume 0.7.0's structured-finding boundary without changing legacy
+issues, suggestions, scores or grades. Supplied artifacts remain in memory,
+produce no network request, and are never rendered as active markup.
 
 The remaining release sequence is:
 
 ```text
-0.8.0 artifacts → 0.9.0 reports → 1.0.0 readiness
+0.9.0 reports → 1.0.0 readiness
 ```
 
-Each remaining spec must be reviewed to `1.0 (Final)` before its implementation
+Each remaining spec must be reviewed to Final before its implementation
 begins. Do not treat the sequence above as approval of the individual design
 choices still recorded as `OQ-*` questions.
 
-## Start here: 0.8.0 private local artifact validation
+## Start here: review the 0.9.0 stateless report-comparison spec
 
-Spec: [`docs/specs/local-artifact-validation.md`](docs/specs/local-artifact-validation.md),
-version `0.2`, awaiting review.
+Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md),
+currently a draft and **not approved for implementation**.
 
-This is the next design phase. It consumes 0.7.0's final Finding shape for
-user-supplied MTA-STS, BIMI SVG and optional VMC material without fetching any
-domain-controlled URL or persisting supplied content.
+The next task is review, not code. Resolve every `OQ-CMP-*` decision, reconcile
+the schema with what 0.8.0 actually exports, and promote the spec to Final
+before creating an implementation branch.
 
-Before writing implementation code:
+The 0.8.0 release established the inputs 0.9.0 must respect:
 
-1. Review every `OQ-ART-*` question and record each answer with reasoning.
-2. Resolve `OQ-ART-08` before implementation: the hostile-SVG parser needs a
-   dependency-free test strategy that has been proved to fail.
-3. Keep `connect-src` unchanged and verify the feature makes no network request;
-   supplied material remains memory-only and is never injected into the DOM.
-4. Decide whether VMC material is in scope and whether artifact findings enter
-   0.9.0 reports before freezing either shape.
-5. Amend and re-version the spec for every accepted review finding. Stop if a
-   proposed solution needs an architecture-matrix or CSP change without written
-   justification.
-
-The implementation boundary is already decided: MTA-STS policy rules belong to
-`src/core/transport/`; BIMI SVG and optional VMC rules belong to `src/core/bimi/`;
-`src/audit/` composes artifact findings; `src/runtime.js` injects the capability
-into `src/ui/`. Do not add a UI-to-audit import or a temporary artifact monolith.
-
-### Decisions that require deliberate review
-
-- Whether MTA-STS accepts a saved HTTP response or policy body only (`OQ-ART-01`).
-- Which DOMParser MIME type is used and whether supplied SVG is ever displayed
-  (`OQ-ART-02`, `OQ-ART-03`).
-- Whether VMC is in scope and whether verification can affect scoring
-  (`OQ-ART-04`, `OQ-ART-05`).
-- Single versus multiple-file input and the 0.9.0 report boundary
-  (`OQ-ART-06`, `OQ-ART-07`).
-- The dependency-free hostile-SVG test strategy (`OQ-ART-08`).
-
-The 0.9.0 schema will freeze the result of several of these decisions. Do not
-default them silently during implementation.
+1. Artifact findings are explicitly `user-supplied` and separate from DNS
+   findings, scores and reproducible public observations.
+2. CSV and static HTML present the current session's artifact findings, but the
+   0.8.0 decision excludes them from 0.9.0's versioned comparison JSON.
+3. Reload discards supplied material. The comparison release must preserve the
+   same zero-persistence boundary for imported reports.
+4. Existing CSV columns keep their positions; new report formats need an
+   explicit compatibility and versioning rule before they ship.
 
 ## What follows
 
 | Release | Spec | Start condition | Contract it establishes |
 | --- | --- | --- | --- |
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
-| 0.8.0 | [local-artifact-validation](docs/specs/local-artifact-validation.md) | 0.7.0 released; spec reviewed to Final | User-supplied provenance and local MTA-STS/BIMI artifact results |
-| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec reviewed to Final | Versioned JSON schema, import validation and stateless comparison |
+| 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
+| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec must be reviewed to Final | Versioned JSON schema, import validation and stateless comparison |
 | 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary
 
-MTA-STS policy rules belong to `src/core/transport/`; BIMI SVG and optional VMC
-rules belong to `src/core/bimi/`; `src/audit/` composes artifact findings;
+MTA-STS policy rules belong to `src/core/transport/`; BIMI SVG rules belong to
+`src/core/bimi/`; `src/audit/` composes artifact findings;
 `src/runtime.js` injects the capability into `src/ui/`. There is no temporary
-finding stub and no replacement `artifact.js` monolith. `OQ-ART-08`, the
-hostile-SVG testing strategy, is a real stop before implementation.
+finding stub and no replacement `artifact.js` monolith. The hostile-SVG suite
+uses the real browser parser and must prove its own detectors fail.
 
 ### 0.9.0 boundary
 
@@ -93,8 +73,8 @@ dedicated release is `OQ-ONE-01` and must be resolved during spec review.
 ## Product-boundary decision alongside the feature work
 
 [`docs/specs/external-intelligence.md`](docs/specs/external-intelligence.md) has
-no implementation phase. Review it as a decision document while 0.8.0–0.9.0
-progress. The 1.0 readiness draft currently requires it to be Final before
+no implementation phase. Review it as a decision document while 0.9.0
+progresses. The 1.0 readiness draft currently requires it to be Final before
 1.0.0, subject to `OQ-ONE-05`.
 
 ## Standing rules

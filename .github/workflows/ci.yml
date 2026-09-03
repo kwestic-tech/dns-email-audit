@@ -123,7 +123,7 @@ jobs:
   # ────────────────────────────────────────────────────────────────────────
   # Five-surface equivalence against the finished release baseline. The
   # historical v0.5.0 baseline remains independently reproducible below, and
-  # release-compat.test.mjs bounds the intentional v0.5.0 -> current changes.
+  # release-compat.test.mjs bounds the intentional changes between baselines.
   #
   # Pinned to the Node the baseline was captured with. That is not fussiness:
   # the baseline binds Node, ICU and Unicode, because `toLocaleString` output
@@ -145,12 +145,12 @@ jobs:
       - run: npm run build:bundle
 
       - name: Against the working tree
-        run: node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.7.0.json
+        run: node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.8.0.json
 
       - name: Against the deployable artifact
         run: |
           npm run build
-          node tests/build/equivalence.mjs --subject-root=_site --baseline=tests/fixtures/equivalence/baseline-v0.7.0.json
+          node tests/build/equivalence.mjs --subject-root=_site --baseline=tests/fixtures/equivalence/baseline-v0.8.0.json
 
       # The baseline is committed, so CI must be able to reproduce it rather
       # than take it on trust. Spec Design §8.
@@ -201,6 +201,47 @@ jobs:
 
       - name: Open index.html from disk
         run: node tests/build/file-url.test.mjs
+
+  # ────────────────────────────────────────────────────────────────────────
+  # The instrument 0.8.0's local artifact analysis depends on.
+  #
+  # Local artifact validation parses hostile SVG a stranger supplied, and the
+  # whole safety argument is that no parsed node reaches the application
+  # document. This job builds and PROVES that instrument: a deliberately
+  # unsafe fixture commits one network request, one storage write and one
+  # foreign-document insertion, and each detector is then removed in turn to
+  # show it stops seeing its own violation. Kept out of `npm test` for the
+  # same reason as file-url — a missing browser must read as one clearly named
+  # failure — and it refuses to skip.
+  # ────────────────────────────────────────────────────────────────────────
+  local-input-security:
+    name: Local input security (real browser)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          # Needs a global WebSocket to speak the DevTools Protocol without
+          # adding a dependency, and the release ships exactly one devDependency.
+          node-version: '26.7.0'
+      - run: npm ci
+      - run: npm run build:bundle
+
+      - name: Locate a browser
+        run: |
+          for candidate in \
+            /usr/bin/google-chrome /usr/bin/google-chrome-stable \
+            /usr/bin/chromium /usr/bin/chromium-browser; do
+            if [ -x "$candidate" ]; then
+              echo "CHROME_PATH=$candidate" >> "$GITHUB_ENV"
+              echo "found $candidate"; "$candidate" --version
+              exit 0
+            fi
+          done
+          echo "no Chromium-family browser on the runner"; exit 1
+
+      - name: Prove the detectors, then run them
+        run: node tests/build/local-input-security.test.mjs
 
   # ────────────────────────────────────────────────────────────────────────
   # The supported floor.

@@ -31,6 +31,79 @@
     "desc": "Satu domain per baris, atau unggah berkas .txt. Hingga 200 domain sekaligus.",
     "placeholder": "example.com\nmycompany.org\nanother-domain.net"
   },
+  "artifact": {
+    "heading": "Validasi kebijakan MTA-STS atau logo BIMI secara lokal",
+    "separation": "Hasil audit DNS di atas berasal dari DNS publik. Semua yang ada di panel ini hanya berasal dari berkas atau teks yang Anda berikan.",
+    "privacy": "Tidak ada yang Anda berikan di sini diambil, diunggah, disimpan, atau ditambahkan ke skor DNS Anda. Analisis berlangsung secara lokal di peramban ini dan dibuang saat halaman dimuat ulang. Lihat <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privasi</a>.",
+    "domainLabel": "Domain yang diaudit",
+    "noDomains": "Jalankan audit DNS terlebih dahulu",
+    "policyHeading": "Kebijakan MTA-STS",
+    "policyHelp": "Tempelkan isi mta-sts.txt atau pilih berkas teks. Maksimum 64 KiB.",
+    "policyPlaceholder": "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400",
+    "policyFile": "Pilih berkas .txt",
+    "svgHeading": "Logo SVG BIMI",
+    "svgHelp": "Tempelkan sumber SVG atau pilih berkas SVG. Maksimum 32 KiB. Logo diperiksa, tidak pernah ditampilkan.",
+    "svgPlaceholder": "Tempelkan isi berkas SVG logo Anda",
+    "svgFile": "Pilih berkas .svg",
+    "analyze": "Analisis materi yang diberikan",
+    "clear": "Hapus materi yang diberikan",
+    "schemaNote": "Pemeriksaan BIMI mencakup penolakan keamanan dan diagnostik SVG Tiny PS tertentu; ini bukan sertifikasi skema RNC secara penuh maupun jaminan bahwa penyedia surel akan menampilkan logo tersebut.",
+    "reportHeading": "Analisis lokal materi yang diberikan",
+    "userSupplied": "Diberikan pengguna",
+    "resultsFor": "Analisis lokal untuk {0}",
+    "noFindings": "Tidak ditemukan masalah pada materi yang diberikan.",
+    "complete": {
+      "one": "Analisis lokal selesai: {0} temuan.",
+      "other": "Analisis lokal selesai: {0} temuan."
+    },
+    "policyLabel": "Kebijakan MTA-STS",
+    "svgLabel": "SVG BIMI",
+    "errorNoDomain": "Jalankan audit DNS dan pilih domain yang sudah selesai terlebih dahulu.",
+    "errorNoInput": "Tempelkan atau pilih setidaknya satu kebijakan atau berkas SVG.",
+    "errorTooLarge": "{0} melebihi batas {1} KiB. Isinya tidak diurai.",
+    "errorFileTooLarge": "{0} melebihi batas {1} KiB. Berkas tidak dibaca.",
+    "errorWrongType": "Berkas yang dipilih menyatakan tipe {0}; masukan ini menerima {1}.",
+    "errorFileRead": "Peramban tidak dapat membaca {0}.",
+    "fileLoaded": "{0} dimuat secara lokal. Tidak ada yang diunggah.",
+    "token": {
+      "malformed-line": "Baris ini bukan bidang key: value.",
+      "blank-line": "Baris kosong tidak diizinkan di dalam kebijakan.",
+      "invalid-version": "version harus tepat STSv1.",
+      "invalid-mode": "mode harus tepat enforce, testing, atau none.",
+      "invalid-mx": "mx harus berupa domain yang valid atau wildcard yang hanya mencakup label paling kiri secara utuh.",
+      "invalid-max-age": "max_age harus berupa bilangan bulat dari 0 sampai 31557600.",
+      "missing-version": "Kebijakan harus memuat bidang version.",
+      "missing-mode": "Kebijakan harus memuat bidang mode.",
+      "missing-max-age": "Kebijakan harus memuat bidang max_age.",
+      "missing-mx": "Kebijakan enforce atau testing harus memuat setidaknya satu bidang mx.",
+      "duplicate-field": "Hanya kemunculan pertama dari bidang non-mx yang berulang yang digunakan.",
+      "bom-present": "Penanda urutan bita UTF-8 dihapus dari awal kebijakan.",
+      "wrong-case-field": "Nama bidang terdaftar membedakan huruf besar dan kecil; ejaan ini diperlakukan sebagai ekstensi yang tidak dikenal.",
+      "doctype-present": "Deklarasi DOCTYPE ditolak sebelum penguraian XML.",
+      "entity-declaration": "Deklarasi entitas ditolak sebelum penguraian karena ekspansinya dapat menghabiskan memori.",
+      "malformed-xml": "Sumbernya bukan XML yang berbentuk baik.",
+      "bad-root": "Akar dokumen harus berupa elemen svg dengan nama persis seperti itu.",
+      "script-element": "Elemen script tidak diizinkan dalam logo BIMI.",
+      "event-handler": "Atribut penangan peristiwa seperti onload tidak diizinkan.",
+      "foreign-object": "foreignObject dapat menyematkan konten non-SVG dan tidak diizinkan.",
+      "external-reference-element": "Elemen image dan use ditolak karena dapat merujuk sumber daya lain.",
+      "external-reference": "Rujukan href eksternal atau kosong tidak diizinkan; hanya fragmen dalam dokumen yang sama yang diperbolehkan.",
+      "link-element": "Elemen tautan yang dapat diklik tidak diizinkan.",
+      "external-style": "Gaya tidak boleh mengimpor atau merujuk sumber daya lain dengan url().",
+      "animation": "Elemen animasi berada di luar profil logo statis yang diterima.",
+      "namespace-not-svg": "Elemen akar svg harus menggunakan namespace SVG.",
+      "base-profile-not-tiny-ps": "baseProfile harus tepat tiny-ps.",
+      "version-not-1-2": "version harus tepat 1.2.",
+      "title-missing": "Akar harus memuat satu elemen title anak langsung yang tidak kosong.",
+      "title-not-unique": "Akar harus memuat tepat satu elemen title anak langsung.",
+      "desc-empty": "Elemen desc, bila ada, tidak boleh kosong.",
+      "viewbox-missing": "viewBox harus memuat empat angka, dengan lebar dan tinggi positif.",
+      "viewbox-not-square": "Lebar dan tinggi viewBox harus sama.",
+      "root-has-position": "Elemen akar svg tidak boleh membawa atribut posisi x atau y.",
+      "raster-data-uri": "Data gambar raster berada di luar profil yang hanya menerima vektor.",
+      "unsupported-attribute": "Sebuah atribut SVG Tiny PS yang dibatasi memiliki nilai yang tidak diizinkan profil ini."
+    }
+  },
   "opt": {
     "dkim": "Periksa selektor DKIM",
     "dkimComprehensive": "Pemindaian DKIM menyeluruh (maks. 5 domain)",
@@ -334,7 +407,10 @@
       "TLSA Diterbitkan",
       "ID Temuan",
       "Tingkat Keparahan Temuan",
-      "Langkah Remediasi 1"
+      "Langkah Remediasi 1",
+      "ID Temuan Materi yang Diberikan",
+      "Tingkat Keparahan Temuan Materi yang Diberikan",
+      "Bukti Materi yang Diberikan (Diberikan Pengguna)"
     ],
     "yes": "Ya",
     "no": "Tidak",
@@ -609,7 +685,7 @@
       "msg": "Data TXT MTA-STS salah format atau tidak memuat tag id= yang wajib."
     },
     "mta-sts-policy-unverified": {
-      "msg": "Data TXT MTA-STS valid, tetapi audit yang hanya berjalan di peramban ini tidak dapat memverifikasi berkas kebijakan HTTPS karena sebagian besar host kebijakan tidak mengizinkan pembacaan lintas asal."
+      "msg": "Rekaman TXT MTA-STS valid, tetapi audit berbasis DNS saja tidak mengambil kebijakan HTTPS-nya. Berikan kebijakan tersebut di panel lokal untuk memvalidasinya tanpa permintaan jaringan."
     },
     "tls-rpt-invalid": {
       "msg": "Data TLS-RPT salah format atau tidak punya tujuan rua= yang valid."
@@ -1233,6 +1309,66 @@
       "what": "Tanpa tujuan DMARC <code>rua=</code>, Anda tidak pernah melihat siapa yang mengirim email atas nama domain Anda atau apakah autentikasi lolos; tanpa TLS-RPT, Anda tidak pernah melihat kegagalan pengiriman TLS. Pelaporan adalah cara sebuah konfigurasi dibuktikan benar alih-alih diasumsikan benar.",
       "fix": "Tambahkan alamat DMARC <code>rua=</code>, dan rekaman TLS-RPT jika Anda menjalankan kebijakan transport, agar kegagalan sampai ke kotak surat yang Anda pantau.",
       "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "mta-sts-policy-invalid": {
+      "msg": "Kebijakan MTA-STS yang diberikan tidak valid: {0}.",
+      "what": "Token pengurai ini menunjukkan bidang atau baris yang tidak sesuai RFC 8461. Pengirim tidak dapat menerapkan kebijakan dengan aman selama masih ada galat.",
+      "fix": "Perbaiki setiap galat yang disebutkan pada kebijakan yang diberikan, lalu analisis kembali sebelum menerbitkan berkasnya."
+    },
+    "mta-sts-policy-hygiene": {
+      "msg": "Kebijakan MTA-STS yang diberikan valid tetapi perlu ditinjau: {0}.",
+      "what": "Peringatan ini tidak membatalkan kebijakan, tetapi biasanya menunjukkan artefak penyunting, bidang ganda, atau penggunaan huruf besar-kecil yang menyesatkan pada nama bidang.",
+      "fix": "Bereskan peringatan yang disebutkan agar kebijakan yang diterbitkan tidak ambigu, baik bagi operator maupun perangkat lunak."
+    },
+    "mta-sts-policy-mx-mismatch": {
+      "msg": "Kebijakan MTA-STS yang diberikan tidak mencakup satu pun host pengiriman berikut: {0}.",
+      "what": "Dalam mode enforce, pengirim menolak pengiriman ketika nama host MX yang dipilih tidak cocok dengan pola mx mana pun dalam kebijakan. Ini adalah gangguan pengiriman surel yang tinggal menunggu waktu.",
+      "fix": "Tambahkan nama host yang tepat atau wildcard satu label yang valid untuk setiap kandidat pengiriman yang diterbitkan."
+    },
+    "mta-sts-policy-mx-unused": {
+      "msg": "Pola mx MTA-STS berikut tidak mencakup host pengiriman mana pun saat ini: {0}.",
+      "what": "Pola yang tidak terpakai biasanya adalah nama host penyedia lama yang tertinggal setelah migrasi. Pola itu tidak merusak pengiriman saat ini, tetapi mengizinkan host yang tidak lagi Anda gunakan.",
+      "fix": "Pastikan penyedia lama sudah dinonaktifkan, lalu hapus setiap baris mx yang tidak terpakai."
+    },
+    "mta-sts-policy-on-null-mx": {
+      "msg": "Sebuah kebijakan diberikan untuk domain yang secara eksplisit tidak menerima surel.",
+      "what": "MX nol menyatakan bahwa domain tidak menerima pengiriman SMTP. Kebijakan penanganan surel pada domain yang sama bertentangan dengan maksud yang diterbitkan itu.",
+      "fix": "Pertahankan MX nol dan hapus kebijakannya jika domain diparkir, atau pulihkan rekaman MX yang sebenarnya jika domain harus menerima surel."
+    },
+    "mta-sts-policy-mx-unknown": {
+      "msg": "Pola mx pada kebijakan tidak dapat dibandingkan dengan host pengiriman.",
+      "what": "Audit tidak menetapkan kumpulan kandidat pengiriman yang lengkap, sehingga menyatakan cocok atau tidak cocok hanyalah dugaan.",
+      "fix": "Atasi kegagalan audit DNS atau terbitkan rekaman MX atau A/AAAA yang dapat dipakai, lalu jalankan kembali audit dan perbandingan lokalnya."
+    },
+    "mta-sts-mode-testing": {
+      "msg": "Kebijakan yang diberikan memakai mode: testing, sehingga pengirim melaporkan kegagalan tetapi tidak menegakkannya.",
+      "what": "Mode testing adalah tahap penerapan. Surel tetap sampai ketika validasi TLS atau nama host gagal, jadi ini bukan penegakan di lapisan transport.",
+      "fix": "Tinjau laporan TLS-RPT, perbaiki setiap kegagalan yang sah, lalu ubah kebijakan menjadi mode: enforce."
+    },
+    "mta-sts-mode-none": {
+      "msg": "Kebijakan yang diberikan memakai mode: none dan menarik perlindungan MTA-STS.",
+      "what": "Mode none memberi tahu pengirim untuk berhenti menegakkan kebijakan sebelumnya. Mode ini sesuai selama proses penghapusan yang ditetapkan RFC, bukan sebagai keadaan akhir domain yang dilindungi.",
+      "fix": "Gunakan mode: enforce untuk kebijakan aktif, atau selesaikan penghapusan bertahap yang terdokumentasi jika penarikan memang disengaja."
+    },
+    "mta-sts-max-age-short": {
+      "msg": "Kebijakan yang diberikan memiliki max_age singkat, yaitu {0} detik.",
+      "what": "Masa cache yang singkat membuat pengirim sering menyegarkan kebijakan dan mengurangi perlindungan saat host kebijakan mengalami gangguan.",
+      "fix": "Gunakan max_age yang lebih panjang setelah pengujian selesai; 86400 detik adalah ambang minimum yang direkomendasikan audit ini."
+    },
+    "bimi-svg-rejected": {
+      "msg": "SVG BIMI yang diberikan ditolak: {0}.",
+      "what": "Konstruksi yang disebutkan tidak aman atau berada di luar batas validasi lokal yang memang sengaja dipersempit. Logo tidak dirender dan tidak ada simpul hasil penguraian yang disisipkan ke halaman ini.",
+      "fix": "Hapus setiap konstruksi yang disebutkan dan ekspor logo SVG Tiny PS yang mandiri, tanpa skrip, rujukan eksternal, DTD, atau deklarasi entitas."
+    },
+    "bimi-svg-profile": {
+      "msg": "SVG BIMI yang diberikan memiliki diagnostik profil: {0}.",
+      "what": "Logo lolos penyaringan penolakan keamanan, tetapi persyaratan SVG Tiny PS yang disebutkan dapat membuat penyedia surel tidak menampilkannya.",
+      "fix": "Perbaiki setiap diagnostik profil yang disebutkan, lalu validasikan berkas terhadap skema SVG Tiny PS lengkap dalam alur penerbitan Anda."
+    },
+    "bimi-svg-valid": {
+      "msg": "SVG BIMI yang diberikan lolos penyaringan keamanan dan profil lokal ini.",
+      "what": "Tidak ditemukan penolakan atau diagnostik profil. Ini bukan sertifikasi skema RNC secara penuh dan tidak menjamin penerimaan oleh penyedia surel mana pun.",
+      "fix": "Penyaringan ini tidak menuntut perubahan. Pertahankan validasi skema lengkap dan pemeriksaan khusus penyedia dalam alur penerbitan."
     }
   },
   "findings": {

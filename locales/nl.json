@@ -31,6 +31,79 @@
     "desc": "Eén domein per regel, of upload een .txt-bestand. Maximaal 200 domeinen tegelijk.",
     "placeholder": "example.com\nmycompany.org\nanother-domain.net"
   },
+  "artifact": {
+    "heading": "Een MTA-STS-beleid of BIMI-logo lokaal valideren",
+    "separation": "De DNS-auditresultaten hierboven komen uit het publieke DNS. Alles in dit paneel komt uitsluitend uit bestanden of tekst die u aanlevert.",
+    "privacy": "Niets van wat u hier aanlevert wordt opgehaald, geüpload, opgeslagen of aan uw DNS-score toegevoegd. De analyse gebeurt lokaal in deze browser en wordt bij het herladen verwijderd. Zie <a href=\"https://github.com/kwestic-tech/dns-email-audit/blob/main/PRIVACY.md\" target=\"_blank\" rel=\"noopener\">Privacy</a>.",
+    "domainLabel": "Gecontroleerd domein",
+    "noDomains": "Voer eerst een DNS-audit uit",
+    "policyHeading": "MTA-STS-beleid",
+    "policyHelp": "Plak de inhoud van mta-sts.txt of kies een tekstbestand. Maximaal 64 KiB.",
+    "policyPlaceholder": "version: STSv1\nmode: enforce\nmx: mail.example.com\nmax_age: 86400",
+    "policyFile": "Kies een .txt-bestand",
+    "svgHeading": "BIMI-SVG-logo",
+    "svgHelp": "Plak de SVG-broncode of kies een SVG-bestand. Maximaal 32 KiB. Het logo wordt geïnspecteerd, nooit weergegeven.",
+    "svgPlaceholder": "Plak de inhoud van uw SVG-logobestand",
+    "svgFile": "Kies een .svg-bestand",
+    "analyze": "Aangeleverd materiaal analyseren",
+    "clear": "Aangeleverd materiaal wissen",
+    "schemaNote": "De BIMI-controles dekken beveiligingsafwijzingen en met name genoemde SVG Tiny PS-diagnoses; ze vormen geen volledige RNC-schemacertificering en geen garantie dat een mailprovider het logo toont.",
+    "reportHeading": "Lokale analyse van aangeleverd materiaal",
+    "userSupplied": "Door gebruiker aangeleverd",
+    "resultsFor": "Lokale analyse voor {0}",
+    "noFindings": "Er is geen probleem gevonden in het aangeleverde materiaal.",
+    "complete": {
+      "one": "Lokale analyse voltooid: {0} bevinding.",
+      "other": "Lokale analyse voltooid: {0} bevindingen."
+    },
+    "policyLabel": "MTA-STS-beleid",
+    "svgLabel": "BIMI-SVG",
+    "errorNoDomain": "Voer een DNS-audit uit en selecteer eerst een voltooid domein.",
+    "errorNoInput": "Plak of kies ten minste één beleid of SVG-bestand.",
+    "errorTooLarge": "{0} is groter dan de limiet van {1} KiB. Het is niet verwerkt.",
+    "errorFileTooLarge": "{0} is groter dan de limiet van {1} KiB. Het is niet gelezen.",
+    "errorWrongType": "Het gekozen bestand geeft type {0} op; dit veld accepteert {1}.",
+    "errorFileRead": "De browser kon {0} niet lezen.",
+    "fileLoaded": "{0} lokaal geladen. Er is niets geüpload.",
+    "token": {
+      "malformed-line": "De regel is geen key: value-veld.",
+      "blank-line": "Lege regels zijn niet toegestaan binnen het beleid.",
+      "invalid-version": "version moet exact STSv1 zijn.",
+      "invalid-mode": "mode moet exact enforce, testing of none zijn.",
+      "invalid-mx": "mx moet een geldig domein zijn of een jokerteken dat alleen het volledige meest linkse label dekt.",
+      "invalid-max-age": "max_age moet een geheel getal van 0 tot en met 31557600 zijn.",
+      "missing-version": "Het beleid moet een version-veld bevatten.",
+      "missing-mode": "Het beleid moet een mode-veld bevatten.",
+      "missing-max-age": "Het beleid moet een max_age-veld bevatten.",
+      "missing-mx": "Een enforce- of testing-beleid moet ten minste één mx-veld bevatten.",
+      "duplicate-field": "Alleen het eerste voorkomen van een herhaald niet-mx-veld wordt gebruikt.",
+      "bom-present": "Een UTF-8-byteordemarkering is aan het begin van het beleid verwijderd.",
+      "wrong-case-field": "Geregistreerde veldnamen zijn hoofdlettergevoelig; deze schrijfwijze wordt als een onbekende extensie behandeld.",
+      "doctype-present": "DOCTYPE-declaraties worden vóór het XML-parsen geweigerd.",
+      "entity-declaration": "Entiteitsdeclaraties worden vóór het parsen geweigerd, omdat expansie het geheugen kan uitputten.",
+      "malformed-xml": "De broncode is geen welgevormde XML.",
+      "bad-root": "De documentwortel moet een exact zo genoemd svg-element zijn.",
+      "script-element": "script-elementen zijn niet toegestaan in een BIMI-logo.",
+      "event-handler": "Event-handler-attributen zoals onload zijn niet toegestaan.",
+      "foreign-object": "foreignObject kan niet-SVG-inhoud insluiten en is niet toegestaan.",
+      "external-reference-element": "image- en use-elementen worden geweigerd omdat ze naar andere bronnen kunnen verwijzen.",
+      "external-reference": "Externe of lege href-verwijzingen zijn niet toegestaan; alleen fragmenten binnen hetzelfde document zijn toegestaan.",
+      "link-element": "Klikbare linkelementen zijn niet toegestaan.",
+      "external-style": "Stijlen mogen geen andere bron importeren of ernaar verwijzen met url().",
+      "animation": "Animatie-elementen vallen buiten het geaccepteerde profiel voor een statisch logo.",
+      "namespace-not-svg": "Het svg-wortelelement moet de SVG-naamruimte gebruiken.",
+      "base-profile-not-tiny-ps": "baseProfile moet exact tiny-ps zijn.",
+      "version-not-1-2": "version moet exact 1.2 zijn.",
+      "title-missing": "De wortel moet één niet-leeg title-element als direct kind bevatten.",
+      "title-not-unique": "De wortel moet precies één title-element als direct kind bevatten.",
+      "desc-empty": "Een desc-element mag, indien aanwezig, niet leeg zijn.",
+      "viewbox-missing": "viewBox moet vier getallen bevatten, met een positieve breedte en hoogte.",
+      "viewbox-not-square": "De breedte en hoogte van viewBox moeten gelijk zijn.",
+      "root-has-position": "Het svg-wortelelement mag geen x- of y-positieattributen hebben.",
+      "raster-data-uri": "Rasterafbeeldingsgegevens vallen buiten het uitsluitend vectoriële profiel.",
+      "unsupported-attribute": "Een beperkt SVG Tiny PS-attribuut heeft een waarde die het profiel niet toestaat."
+    }
+  },
   "opt": {
     "dkim": "DKIM-selectors controleren",
     "dkimComprehensive": "Uitgebreide DKIM-scan (max. 5 domeinen)",
@@ -334,7 +407,10 @@
       "TLSA gepubliceerd",
       "Bevindings-ID's",
       "Ernst van bevindingen",
-      "Herstelstap 1"
+      "Herstelstap 1",
+      "Bevinding-ID's aangeleverd materiaal",
+      "Ernst bevindingen aangeleverd materiaal",
+      "Bewijs aangeleverd materiaal (door gebruiker aangeleverd)"
     ],
     "yes": "Ja",
     "no": "Nee",
@@ -609,7 +685,7 @@
       "msg": "Het MTA-STS TXT-record is onjuist opgemaakt of mist de verplichte id=-tag."
     },
     "mta-sts-policy-unverified": {
-      "msg": "Het MTA-STS TXT-record is geldig, maar deze audit die alleen in de browser draait kan het HTTPS-beleidsbestand niet verifiëren omdat de meeste beleidshosts geen cross-origin leesacties toestaan."
+      "msg": "Het MTA-STS TXT-record is geldig, maar de audit op alleen DNS heeft het bijbehorende HTTPS-beleid niet opgehaald. Lever het beleid aan in het lokale paneel om het zonder netwerkverzoek te valideren."
     },
     "tls-rpt-invalid": {
       "msg": "Het TLS-RPT-record is onjuist opgemaakt of heeft geen geldige rua=-bestemming."
@@ -1233,6 +1309,66 @@
       "what": "Zonder een DMARC-<code>rua=</code>-bestemming ziet u nooit wie er mail verzendt namens uw domein of dat de authenticatie slaagt; zonder TLS-RPT ziet u nooit TLS-bezorgfouten. Rapportage is de manier waarop een configuratie correct wordt aangetoond in plaats van aangenomen.",
       "fix": "Voeg een DMARC-<code>rua=</code>-adres toe, en een TLS-RPT-record als u een transportbeleid voert, zodat fouten een mailbox bereiken die u bewaakt.",
       "fixCode": "_dmarc       TXT    \"v=DMARC1; p=none; rua=mailto:dmarc@yourdomain\"\n_smtp._tls   TXT    \"v=TLSRPTv1; rua=mailto:tlsrpt@yourdomain\""
+    },
+    "mta-sts-policy-invalid": {
+      "msg": "Het aangeleverde MTA-STS-beleid is ongeldig: {0}.",
+      "what": "Deze parsertokens wijzen velden of regels aan die niet aan RFC 8461 voldoen. Een verzender kan het beleid niet veilig toepassen zolang er een fout overblijft.",
+      "fix": "Corrigeer elke genoemde fout in het aangeleverde beleid en analyseer het opnieuw voordat u het bestand publiceert."
+    },
+    "mta-sts-policy-hygiene": {
+      "msg": "Het aangeleverde MTA-STS-beleid is geldig maar vraagt aandacht: {0}.",
+      "what": "Deze waarschuwingen maken het beleid niet ongeldig, maar wijzen doorgaans op editorartefacten, dubbele velden of misleidend hoofdlettergebruik in een veldnaam.",
+      "fix": "Ruim de genoemde waarschuwingen op, zodat het gepubliceerde beleid ondubbelzinnig is voor zowel beheerders als software."
+    },
+    "mta-sts-policy-mx-mismatch": {
+      "msg": "Het aangeleverde MTA-STS-beleid dekt geen van deze afleverhosts: {0}.",
+      "what": "In enforce-modus weigert een verzender de aflevering wanneer de gekozen MX-hostnaam met geen enkel mx-patroon in het beleid overeenkomt. Dit is een mailstoring die staat te gebeuren.",
+      "fix": "Voeg voor elke gepubliceerde afleverkandidaat een exacte hostnaam of een geldig jokerteken van één label toe."
+    },
+    "mta-sts-policy-mx-unused": {
+      "msg": "Deze MTA-STS mx-patronen dekken geen enkele huidige afleverhost: {0}.",
+      "what": "Een ongebruikt patroon is meestal een verouderde providerhostnaam die na een migratie is blijven staan. Het breekt de huidige aflevering niet, maar autoriseert wel een host die u niet meer gebruikt.",
+      "fix": "Bevestig dat de oude provider is uitgefaseerd en verwijder daarna elke ongebruikte mx-regel."
+    },
+    "mta-sts-policy-on-null-mx": {
+      "msg": "Er is een beleid aangeleverd voor een domein dat uitdrukkelijk geen mail accepteert.",
+      "what": "Een null-MX geeft aan dat het domein geen SMTP-aflevering accepteert. Een mailbeleid op datzelfde domein spreekt die gepubliceerde bedoeling tegen.",
+      "fix": "Behoud de null-MX en verwijder het beleid als het domein geparkeerd is, of herstel echte MX-records als het mail moet ontvangen."
+    },
+    "mta-sts-policy-mx-unknown": {
+      "msg": "De mx-patronen van het beleid konden niet met afleverhosts worden vergeleken.",
+      "what": "De audit heeft geen volledige set afleverkandidaten vastgesteld, dus een overeenkomst of afwijking claimen zou giswerk zijn.",
+      "fix": "Los de fout in de DNS-audit op of publiceer bruikbare MX- of A/AAAA-records en voer daarna de audit en de lokale vergelijking opnieuw uit."
+    },
+    "mta-sts-mode-testing": {
+      "msg": "Het aangeleverde beleid gebruikt mode: testing, dus verzenders rapporteren fouten maar dwingen ze niet af.",
+      "what": "Testing-modus is een uitrolfase. Mail komt nog steeds aan wanneer TLS- of hostnaamvalidatie mislukt, dus het is geen afdwinging op transportniveau.",
+      "fix": "Bekijk de TLS-RPT-rapporten, corrigeer elke terechte fout en zet het beleid daarna op mode: enforce."
+    },
+    "mta-sts-mode-none": {
+      "msg": "Het aangeleverde beleid gebruikt mode: none en trekt de MTA-STS-bescherming in.",
+      "what": "Modus none vertelt verzenders het vorige beleid niet meer af te dwingen. Dat past tijdens de in de RFC beschreven verwijderprocedure, niet als eindtoestand van een beschermd domein.",
+      "fix": "Gebruik mode: enforce voor een actief beleid, of rond de gedocumenteerde gefaseerde verwijdering af als de intrekking bedoeld is."
+    },
+    "mta-sts-max-age-short": {
+      "msg": "Het aangeleverde beleid heeft een korte max_age van {0} seconden.",
+      "what": "Een korte cacheduur laat verzenders het beleid vaak vernieuwen en vermindert de bescherming tijdens een storing van de beleidshost.",
+      "fix": "Gebruik een langere max_age zodra het testen klaar is; 86400 seconden is de minimumdrempel die deze audit aanbeveelt."
+    },
+    "bimi-svg-rejected": {
+      "msg": "De aangeleverde BIMI-SVG is afgewezen: {0}.",
+      "what": "De genoemde constructies zijn onveilig of vallen buiten de bewust smalle grens van de lokale validatie. Het logo wordt niet weergegeven en er wordt geen geparseerde node in deze pagina ingevoegd.",
+      "fix": "Verwijder elke genoemde constructie en exporteer een op zichzelf staand SVG Tiny PS-logo zonder scripts, externe verwijzingen, DTD of entiteitsdeclaratie."
+    },
+    "bimi-svg-profile": {
+      "msg": "De aangeleverde BIMI-SVG heeft profieldiagnoses: {0}.",
+      "what": "Het logo is door de beveiligingsafwijzing gekomen, maar de genoemde SVG Tiny PS-eisen kunnen verhinderen dat mailproviders het tonen.",
+      "fix": "Corrigeer elke genoemde profieldiagnose en valideer het bestand daarna tegen het volledige SVG Tiny PS-schema in uw publicatieproces."
+    },
+    "bimi-svg-valid": {
+      "msg": "De aangeleverde BIMI-SVG is door deze lokale beveiligings- en profielcontrole gekomen.",
+      "what": "Er is geen genoemde afwijzing of profieldiagnose gevonden. Dit is geen volledige RNC-schemacertificering en garandeert geen acceptatie door welke mailprovider dan ook.",
+      "fix": "Deze controle vraagt geen wijziging. Behoud volledige schemavalidatie en providerspecifieke controles in het publicatieproces."
     }
   },
   "findings": {

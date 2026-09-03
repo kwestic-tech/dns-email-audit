@@ -41,6 +41,7 @@ import { createI18n } from './i18n/index.js';
 import { createRenderer } from './ui/render.js';
 import { createUi } from './ui/events.js';
 import { createAudit } from './audit/create-audit.js';
+import { analyzeArtifacts } from './audit/artifacts.js';
 import { createDohCache } from './core/dns/cache.js';
 import { createDohTransport } from './core/dns/doh.js';
 import { createResolver } from './core/dns/resolver.js';
@@ -115,6 +116,21 @@ export function createAuditRuntime({
   const mount = () => i18n.init();
 
   /**
+   * User-supplied artifacts cross the same composition root, but never the
+   * supported DNS facade. The runtime owns the parser capability: input can
+   * supply text and audited DNS facts, not executable behavior. Keeping
+   * `parseSvg` here also prevents the BIMI protocol owner from reaching for an
+   * ambient DOMParser or importing the platform.
+   */
+  const parseSvg = text => new platform.DOMParser().parseFromString(text, 'image/svg+xml');
+  const analyzeLocalArtifacts = input => analyzeArtifacts({
+    ...(input || {}),
+    // Last on purpose: a caller cannot replace the runtime-owned parser by
+    // smuggling a `parseSvg` property into otherwise inert supplied data.
+    parseSvg,
+  });
+
+  /**
    * The page. Task 5.6, and the moment the docstring on `mount` above
    * described from Task 2.5 onward.
    *
@@ -123,8 +139,8 @@ export function createAuditRuntime({
    * layer whose job wiring is, and the entry point composes a runtime and
    * nothing else. `mount()` owns the whole mount, exactly as promised.
    *
-   * The two supported facade members reach the UI as CALLBACKS — §12: no UI
-   * module imports `audit/`, and these two are all it needs from the audit.
+   * The two supported facade members and the separate local-artifact analyzer
+   * reach the UI as CALLBACKS — §12: no UI module imports `audit/`.
    * Constructing the UI registers ONE `DOMContentLoaded` listener; that
    * listener wires every control, calls `mount()` and probes connectivity
    * once. There is no second boot path, which is a privacy figure and not
@@ -135,6 +151,7 @@ export function createAuditRuntime({
     i18n,
     renderer,
     analyzeDomain: (domain, options) => audit.analyzeDomain(domain, options),
+    analyzeArtifacts: analyzeLocalArtifacts,
     checkConnectivity: () => checkConnectivity(),
     mount,
     englishBundle,
