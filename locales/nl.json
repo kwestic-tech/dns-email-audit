@@ -201,7 +201,8 @@
       "loneSurrogate": "Ongeldige UTF-8, weergegeven als U+FFFD",
       "punycode": "Punycode-naam (xn--), precies weergegeven zoals gepubliceerd",
       "formulaLeading": "Begint met een teken dat een spreadsheet als formule uitvoert; geneutraliseerd in de CSV-export"
-    }
+    },
+    "rowFailed": "Dit resultaat kon niet worden weergegeven. De overige resultaten zijn niet beïnvloed."
   },
   "showme": {
     "open": "Toon mij ▾",
@@ -222,7 +223,8 @@
     "dkimUncommon": "⚠ Ongebruikelijk ({0})",
     "notChecked": "Niet gecontroleerd",
     "auditError": "Audit onbeslist",
-    "cancelled": "Geannuleerd"
+    "cancelled": "Geannuleerd",
+    "renderError": "Weergavefout"
   },
   "provider": {
     "unknown": "Onbekend",

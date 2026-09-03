@@ -201,7 +201,8 @@
       "loneSurrogate": "잘못된 UTF-8, U+FFFD로 표시됨",
       "punycode": "Punycode (xn--) 이름, 게시된 그대로 표시됨",
       "formulaLeading": "스프레드시트가 수식으로 실행하는 문자로 시작합니다. CSV 내보내기에서 무력화됨"
-    }
+    },
+    "rowFailed": "이 결과를 표시할 수 없습니다. 다른 결과는 영향을 받지 않습니다."
   },
   "showme": {
     "open": "상세 보기 ▾",
@@ -222,7 +223,8 @@
     "dkimUncommon": "⚠ 비표준 설정 ({0})",
     "notChecked": "검사 안 함",
     "auditError": "진단 불능",
-    "cancelled": "취소됨"
+    "cancelled": "취소됨",
+    "renderError": "표시 오류"
   },
   "provider": {
     "unknown": "알 수 없음",

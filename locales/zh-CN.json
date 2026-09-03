@@ -201,7 +201,8 @@
       "loneSurrogate": "无效的 UTF-8，显示为 U+FFFD",
       "punycode": "Punycode (xn--) 名称，按发布原样显示",
       "formulaLeading": "以电子表格会作为公式执行的字符开头；已在 CSV 导出中中和"
-    }
+    },
+    "rowFailed": "无法显示此结果。其他结果不受影响。"
   },
   "showme": {
     "open": "显示详情 ▾",
@@ -222,7 +223,8 @@
     "dkimUncommon": "⚠ 不常见 ({0})",
     "notChecked": "未检查",
     "auditError": "审计结果不确定",
-    "cancelled": "已取消"
+    "cancelled": "已取消",
+    "renderError": "显示错误"
   },
   "provider": {
     "unknown": "未知",

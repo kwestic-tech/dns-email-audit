@@ -201,7 +201,8 @@
       "loneSurrogate": "Geçersiz UTF-8, U+FFFD olarak gösteriliyor",
       "punycode": "Punycode (xn--) adı, yayımlandığı biçimde gösteriliyor",
       "formulaLeading": "Hesap tablosunun formül olarak çalıştırdığı bir karakterle başlıyor; CSV dışa aktarımında etkisiz hâle getirildi"
-    }
+    },
+    "rowFailed": "Bu sonuç görüntülenemedi. Diğer sonuçlar bundan etkilenmedi."
   },
   "showme": {
     "open": "Göster ▾",
@@ -222,7 +223,8 @@
     "dkimUncommon": "⚠ Alışılmadık ({0})",
     "notChecked": "Kontrol edilmedi",
     "auditError": "Denetim sonuçsuz",
-    "cancelled": "İptal edildi"
+    "cancelled": "İptal edildi",
+    "renderError": "Görüntüleme hatası"
   },
   "provider": {
     "unknown": "Bilinmiyor",

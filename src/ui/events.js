@@ -1182,6 +1182,47 @@ export function createUi(capabilities) {
     return values.filter(function (v) { return typeof v === 'string' && v; });
   }
 
+  /**
+   * Render one row, and contain a failure to that row.
+   *
+   * `appendRow()` is called from a plain loop over every result. Before this
+   * guard, one row that threw took the whole run with it: the exception escaped
+   * the async caller, so the summary, the results section and the toolbar were
+   * never shown and the completion toast never fired. Every domain in the batch
+   * was lost, not only the one that failed, and because the Run Audit button
+   * had already been re-enabled the page looked as though nothing had happened.
+   *
+   * The reachable case was a hostile value derived from another party's DNS
+   * data, which is why containment belongs here rather than only at the site
+   * that produced it: the audited domain's operator chooses what this function
+   * is handed, and the person harmed is whoever is auditing them.
+   *
+   * The failure row is deliberately NOT the audit-error row. An audit error
+   * means the lookup did not produce an answer; this means the answer exists
+   * and the interface could not draw it. Presenting the second as the first
+   * would tell an operator to go and check their DNS.
+   */
+  function appendRowIsolated(r) {
+    try {
+      appendRow(r);
+    } catch (e) {
+      var tb = $('tableBody');
+      var id = 'row-' + String(r && r.domain || '').replace(/\W/g, '-');
+      tb.appendChild(R.el('tr', {
+        id: id,
+        dataset: { domain: String(r && r.domain || ''), overall: 'error' },
+      }, [
+        R.el('td'),
+        R.el('td', { className: 'domain-cell' }, R.host(String(r && r.domain || ''))),
+        R.el('td', { colspan: '8' }, [
+          badge(t('badge.renderError'), 'crit'),
+          R.el('span', { style: 'margin-left:8px;color:var(--ink3);font-size:12px' },
+            t('render.rowFailed')),
+        ]),
+      ]));
+    }
+  }
+
   function appendRow(r) {
     var tbody = $('tableBody');
     var rowId = 'row-' + r.domain.replace(/\W/g, '-');
@@ -1695,7 +1736,7 @@ export function createUi(capabilities) {
     setTimeout(function () { $('progressSection').style.display = 'none'; }, 1200);
 
     $('tableBody').replaceChildren();
-    results.filter(Boolean).forEach(appendRow);
+    results.filter(Boolean).forEach(appendRowIsolated);
     renderSummary();
     $('summarySection').style.display = 'block';
     $('resultsSection').style.display = 'block';
@@ -2013,7 +2054,11 @@ export function createUi(capabilities) {
       return;
     }
     $('tableBody').replaceChildren();
-    results.filter(function (r) { return !r.error; }).forEach(appendRow);
+    // `filter(Boolean)`, matching the run's own loop. Filtering out `r.error`
+    // here made every audit-error row disappear on a language change, so a run
+    // that reported four failures reported none after the user switched
+    // language — and `appendRow()` already has a branch that draws them.
+    results.filter(Boolean).forEach(appendRowIsolated);
     renderSummary();
     filterTable();
     syncArtifactDomains();
@@ -2086,7 +2131,8 @@ export function createUi(capabilities) {
     artifactInputProblem, runArtifactAnalysis, renderArtifactAnalysis,
     syncArtifactDomains, clearArtifacts, buildArtifactReportContent,
     getArtifactSessions: function () { return artifactSessions; },
-    appendRow, buildLearnMorePage, buildReportDocument, buildCsvRows, toCsvText,
+    appendRow, appendRowIsolated,
+    buildLearnMorePage, buildReportDocument, buildCsvRows, toCsvText,
     neutralizeCsvCell, issueMessage, tDns, rowHygieneValues, scoreBlock,
     advMiniDots, advFullDots, spfMeter, tile, badge, detailItem, log,
     applyDeepCheckLimit, rememberDeepCheckChoice,

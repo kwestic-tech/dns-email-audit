@@ -203,7 +203,8 @@
       "loneSurrogate": "Nieprawidłowy UTF-8, wyświetlany jako U+FFFD",
       "punycode": "Nazwa Punycode (xn--), wyświetlana dokładnie tak, jak opublikowano",
       "formulaLeading": "Zaczyna się znakiem, który arkusz kalkulacyjny wykonuje jako formułę; zneutralizowany w eksporcie CSV"
-    }
+    },
+    "rowFailed": "Nie można wyświetlić tego wyniku. Pozostałe wyniki pozostają bez zmian."
   },
   "showme": {
     "open": "Pokaż ▾",
@@ -224,7 +225,8 @@
     "dkimUncommon": "⚠ Nietypowy ({0})",
     "notChecked": "Nie sprawdzono",
     "auditError": "Audyt nierozstrzygnięty",
-    "cancelled": "Anulowano"
+    "cancelled": "Anulowano",
+    "renderError": "Błąd wyświetlania"
   },
   "provider": {
     "unknown": "Nieznany",

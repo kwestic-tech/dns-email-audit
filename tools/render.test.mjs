@@ -1157,6 +1157,64 @@ eq('a genuine token still resolves through the table',
   t('provider.unknown') !== '@unknown' && derivedBody.includes(t('provider.unknown')),
   true);
 
+/* ── 18. One row that fails does not take the run with it ────────────── */
+section('18. One row that fails does not take the run with it');
+
+// `appendRow()` runs in a plain loop over every result. An exception inside it
+// escaped the async caller, so the summary, the results section and the
+// toolbar were never shown and every domain in the batch was lost — with the
+// Run Audit button already re-enabled, so the page looked as though nothing
+// had happened. The trigger found in review was a value derived from another
+// party's DNS data, which is why the containment is here and not only at the
+// site that produced it.
+//
+// The failure is forced with a throwing accessor rather than by reproducing a
+// particular defect: the guard has to hold for a render failure this suite has
+// not thought of, which is the entire point of it.
+const failingRow = { ...result, domain: 'fails.example' };
+Object.defineProperty(failingRow, 'ns', {
+  get() { throw new Error('forced render failure'); },
+  enumerable: true,
+});
+
+const before = elements(document.getElementById('tableBody')).length;
+let isolatedThrew = null;
+try { APP.appendRowIsolated(failingRow); } catch (e) { isolatedThrew = e.message; }
+eq('the failure is contained', isolatedThrew, null);
+eq('the unguarded call really does throw',
+  (() => { try { APP.appendRow(failingRow); return null; }
+    catch (e) { return e.message; } })(), 'forced render failure');
+
+// A later row still renders: the loop is not left in a broken state.
+APP.appendRowIsolated({ ...result, domain: 'after-failure.example' });
+const afterBody = document.getElementById('tableBody');
+eq('a row appended after the failure still renders',
+  textOf(afterBody).includes('after-failure.example'), true);
+eq('the run gained rows rather than losing them',
+  elements(afterBody).length > before, true);
+
+// The failure row is not the audit-error row. An audit error means the lookup
+// produced no answer; this means the answer exists and could not be drawn, and
+// telling an operator the first would send them to check their DNS.
+eq('the failure row names a display failure',
+  textOf(afterBody).includes(t('badge.renderError')), true);
+eq('and says the other results are unaffected',
+  textOf(afterBody).includes(t('render.rowFailed')), true);
+eq('it is not labelled as an audit error',
+  t('badge.renderError') === t('badge.auditError'), false);
+
+// The language-change re-render filtered out `r.error` while the run's own
+// loop did not, so a run reporting four failed lookups reported none after the
+// user switched language. Both now call this path, and it draws them.
+//
+// The listener itself reads the module-level `results` array, which only a
+// real run populates, so what is executable here is the row, not the listener.
+APP.appendRowIsolated({ domain: 'lookup-failed.example', error: true, message: 'SERVFAIL' });
+eq('an audit-error result still renders a row',
+  textOf(document.getElementById('tableBody')).includes('lookup-failed.example'), true);
+eq('and it is labelled as an audit error, not a display failure',
+  textOf(document.getElementById('tableBody')).includes(t('badge.auditError')), true);
+
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -201,7 +201,8 @@
       "loneSurrogate": "無效的 UTF-8，顯示為 U+FFFD",
       "punycode": "Punycode (xn--) 名稱，按發布原樣顯示",
       "formulaLeading": "以試算表會當作公式執行的字元開頭；已在 CSV 匯出中中和"
-    }
+    },
+    "rowFailed": "無法顯示此結果。其他結果不受影響。"
   },
   "showme": {
     "open": "顯示細節 ▾",
@@ -222,7 +223,8 @@
     "dkimUncommon": "⚠ 不常見 ({0})",
     "notChecked": "未檢查",
     "auditError": "稽核結果不確定",
-    "cancelled": "已取消"
+    "cancelled": "已取消",
+    "renderError": "顯示錯誤"
   },
   "provider": {
     "unknown": "未知",

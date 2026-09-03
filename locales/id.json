@@ -201,7 +201,8 @@
       "loneSurrogate": "UTF-8 tidak valid, ditampilkan sebagai U+FFFD",
       "punycode": "Nama Punycode (xn--), ditampilkan persis seperti yang dipublikasikan",
       "formulaLeading": "Diawali karakter yang dijalankan lembar sebar sebagai rumus; dinetralkan pada ekspor CSV"
-    }
+    },
+    "rowFailed": "Hasil ini tidak dapat ditampilkan. Hasil lainnya tidak terpengaruh."
   },
   "showme": {
     "open": "Tampilkan ▾",
@@ -222,7 +223,8 @@
     "dkimUncommon": "⚠ Tidak lazim ({0})",
     "notChecked": "Tidak diperiksa",
     "auditError": "Audit tidak konklusif",
-    "cancelled": "Dibatalkan"
+    "cancelled": "Dibatalkan",
+    "renderError": "Kesalahan tampilan"
   },
   "provider": {
     "unknown": "Tidak diketahui",

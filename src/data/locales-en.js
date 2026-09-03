@@ -209,7 +209,8 @@ export const LOCALE_EN = {
       "loneSurrogate": "Invalid UTF-8, shown as U+FFFD",
       "punycode": "Punycode (xn--) name, shown exactly as published",
       "formulaLeading": "Begins with a character a spreadsheet runs as a formula; neutralized in the CSV export"
-    }
+    },
+    "rowFailed": "This result could not be displayed. The other results are unaffected."
   },
   "showme": {
     "open": "Show me ▾",
@@ -230,7 +231,8 @@ export const LOCALE_EN = {
     "dkimUncommon": "⚠ Uncommon ({0})",
     "notChecked": "Not checked",
     "auditError": "Audit indeterminate",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "renderError": "Display error"
   },
   "provider": {
     "unknown": "Unknown",

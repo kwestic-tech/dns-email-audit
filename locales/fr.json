@@ -201,7 +201,8 @@
       "loneSurrogate": "UTF-8 non valide, affiché sous la forme U+FFFD",
       "punycode": "Nom Punycode (xn--), affiché exactement tel qu'il est publié",
       "formulaLeading": "Commence par un caractère qu'un tableur exécute comme une formule ; neutralisé dans l'export CSV"
-    }
+    },
+    "rowFailed": "Ce résultat n'a pas pu être affiché. Les autres résultats ne sont pas affectés."
   },
   "showme": {
     "open": "Afficher ▾",
@@ -222,7 +223,8 @@
     "dkimUncommon": "⚠ Inhabituel ({0})",
     "notChecked": "Non vérifié",
     "auditError": "Audit indéterminé",
-    "cancelled": "Annulé"
+    "cancelled": "Annulé",
+    "renderError": "Erreur d'affichage"
   },
   "provider": {
     "unknown": "Inconnu",
