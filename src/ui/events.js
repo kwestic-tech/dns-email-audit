@@ -1205,31 +1205,39 @@ export function createUi(capabilities) {
   function appendRowIsolated(r) {
     var domain = String(r && r.domain || '');
     var id = 'row-' + domain.replace(/\W/g, '-');
-    var detId = 'det-' + domain.replace(/\W/g, '-');
+    var tb = $('tableBody');
+
+    // What this call appended, identified by POSITION rather than by id.
+    //
+    // `appendRow()` appends the main `<tr>` and THEN builds the detail row,
+    // which is where every per-protocol renderer runs and therefore where a
+    // failure is most likely. A throw between the two leaves a half-drawn row
+    // in the table, and appending the fallback beside it would produce two
+    // rows carrying the same id — which breaks `toggleDetail()`,
+    // `filterTable()` and the sort, all of which address rows by id.
+    //
+    // Removing by id was the obvious cleanup, and it is wrong.
+    // `domain.replace(/\W/g, '-')` is not injective: `a-b.com` and `a.b-com`
+    // both produce `row-a-b-com`. An id sweep would then delete a DIFFERENT
+    // domain's already-rendered result — precisely the harm this wrapper
+    // exists to prevent, and it would do it while telling the operator that
+    // the other results were unaffected.
+    //
+    // (The lossy id mapping is older than this wrapper and worth fixing on its
+    // own. Changing it rewrites every row id in the DOM equivalence surface,
+    // so it is not a patch-release change.)
+    //
+    // Everything `appendRow()` adds goes on the end of this one element, so
+    // the child count taken before the call marks exactly what it added —
+    // however many nodes that turns out to be, and whatever their ids collide
+    // with.
+    var mark = tb.childNodes.length;
     try {
       appendRow(r);
     } catch (e) {
-      var tb = $('tableBody');
-      // Undo the partial row before drawing the replacement.
-      //
-      // `appendRow()` appends the main `<tr>` and THEN builds the detail row,
-      // which is where every per-protocol renderer runs and therefore where a
-      // failure is most likely. A throw between the two leaves a half-drawn
-      // row in the table, and appending the fallback beside it would produce
-      // two rows carrying the same id — which breaks `toggleDetail()`,
-      // `filterTable()` and the sort, all of which address rows by id.
-      //
-      // A walk over the table's own children, not `getElementById`. The id
-      // lookup answers for one node, and a partial row plus the fallback would
-      // be two; it also cannot be used to iterate, since a detached node is
-      // still findable by id in some implementations and the loop would not
-      // terminate. The children of `#tableBody` are the rows, so this is both
-      // the smaller search and the exact one.
-      // `Array.from`, because `childNodes` is a live NodeList in a browser and
-      // removing while iterating it skips entries.
-      Array.from(tb.childNodes).forEach(function (node) {
-        if (node.id === id || node.id === detId) tb.removeChild(node);
-      });
+      while (tb.childNodes.length > mark) {
+        tb.removeChild(tb.childNodes[tb.childNodes.length - 1]);
+      }
       tb.appendChild(R.el('tr', {
         id: id,
         dataset: { domain: domain, overall: 'error' },

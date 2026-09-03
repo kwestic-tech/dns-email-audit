@@ -1254,6 +1254,38 @@ eq('and says the other results are unaffected',
 eq('it is not labelled as an audit error',
   t('badge.renderError') === t('badge.auditError'), false);
 
+// A failure must not delete a DIFFERENT domain's result.
+//
+// Row ids come from `domain.replace(/\W/g, '-')`, which is not injective:
+// `a-b.com` and `a.b-com` both map to `row-a-b-com`. A cleanup that removed
+// the failed row by id would sweep away the other domain's already-rendered
+// row — the exact harm this wrapper exists to prevent, done while the new row
+// tells the operator the other results are unaffected. The wrapper therefore
+// removes what THIS call appended, by position.
+eq('the two domains really do collide under the id mapping',
+  'a-b.com'.replace(/\W/g, '-') === 'a.b-com'.replace(/\W/g, '-'), true);
+
+APP.appendRowIsolated({ ...result, domain: 'a-b.com' });
+const collidingBody = () => Array.from(document.getElementById('tableBody').childNodes);
+const firstRow = collidingBody().filter(node => node.dataset && node.dataset.domain === 'a-b.com');
+eq('the first domain rendered', firstRow.length > 0, true);
+
+const collidingFailure = { ...result, domain: 'a.b-com' };
+Object.defineProperty(collidingFailure, 'verifications', {
+  get() { throw new Error('forced detail-row failure'); },
+  enumerable: true,
+});
+APP.appendRowIsolated(collidingFailure);
+
+eq('the first domain survives the second domain\'s failure',
+  collidingBody().filter(node => node.dataset && node.dataset.domain === 'a-b.com').length,
+  firstRow.length);
+eq('and the failing domain got its own display-failure row',
+  collidingBody()
+    .filter(node => node.dataset && node.dataset.domain === 'a.b-com')
+    .map(node => textOf(node).includes(t('badge.renderError'))),
+  [true]);
+
 // The language-change re-render filtered out `r.error` while the run's own
 // loop did not, so a run reporting four failed lookups reported none after the
 // user switched language. Both now call this path, and it draws them.
