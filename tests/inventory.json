@@ -484,7 +484,7 @@
   },
   {
    "path": "src/audit/scoring.test.js",
-   "assertions": 55,
+   "assertions": 73,
    "areas": [
     "the weights, parked weights and grade tiers — serialized values and ordering matching v0.5.0, and exported as plain unfrozen data",
     "DNSSEC gating the A tier and DMARC as the largest pillar",
@@ -492,7 +492,10 @@
     "calcSpfScore: the -all / ~all / present bands, and the two warnings that make an ok record worthless",
     "the input boundary — scoring reads protocol facts, and a record attached to the same facts changes nothing",
     "the parked rubric and its four pillars",
-    "calcAdvScore: an unverifiable check leaves the denominator"
+    "calcAdvScore: an unverifiable check leaves the denominator",
+    "ANALYSIS_VERSION: a positive integer, pinned at 1 for 0.9.0 (report-comparison 1.2 §2)",
+    "the rubric drift fingerprint, and the negative controls it ships with: a weight change, a threshold change, and a function-body change with every constant byte-identical each move it",
+    "the comment and whitespace normalizer that keeps a remark from firing the guard, its string-literal handling, and its regex blind spot proven absent from the four hashed functions"
    ]
   },
   {
