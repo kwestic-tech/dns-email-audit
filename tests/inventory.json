@@ -76,6 +76,14 @@
       ]
     },
     {
+      "path": "tools/audit-run.test.mjs",
+      "assertions": 7,
+      "areas": [
+        "the audit run loop, booted from index.html and driven through its own controls",
+        "one double click starts one run, and every early return releases the run guard"
+      ]
+    },
+    {
       "path": "tools/export.test.mjs",
       "assertions": 216,
       "areas": [

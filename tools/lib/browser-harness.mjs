@@ -67,6 +67,7 @@ import { createRenderer } from '../../src/ui/render.js';
 import { createDnsEngine } from './legacy-engine.mjs';
 import { createBrowserPlatform } from '../../src/platform/browser.js';
 import { createAuditRuntime } from '../../src/runtime.js';
+import { buildPageSkeleton } from '../../tests/lib/subject.mjs';
 
 /** Set once the entry point has been imported. See "One application per process". */
 
@@ -77,7 +78,7 @@ import { createAuditRuntime } from '../../src/runtime.js';
  * `createBrowserPlatform()` binds each method to its owner, so a missing one
  * throws at construction rather than degrading quietly on a path no test takes.
  */
-function createWindow() {
+function createWindow(extra = {}) {
   const document = createDocument();
   const win = {
     document,
@@ -112,6 +113,8 @@ function createWindow() {
     // Navigation is recorded, never performed. A suite that wants to assert on
     // `openLearnMore()` reads win.opened.
     opened: [],
+    // Last, so a caller's substitution wins. Only `loadUi({ fetch })` uses it.
+    ...extra,
   };
   win.open = (...args) => { win.opened.push(args); return null; };
   win.window = win;
@@ -226,7 +229,17 @@ function attachAppElements(document) {
  * real one. `createAuditRuntime()` is the production path; this uses it.
  */
 export async function loadUi(opts = {}) {
-  const win = createWindow();
+  // `opts.fetch` is spread into the window BEFORE `createBrowserPlatform()`
+  // binds it, which is the only point at which it can be substituted: the
+  // platform does `win.fetch.bind(win)`, so a later assignment to `win.fetch`
+  // would not be seen. A suite that drives a real run needs this; the default
+  // stays the refusing stub, so nothing that does not ask for it changes.
+  //
+  // `opts.page` builds the full element skeleton from the supplied
+  // `index.html` text instead of the handful of ids `attachAppElements()`
+  // creates, for suites that boot the application rather than calling one
+  // renderer.
+  const win = createWindow(opts.fetch ? { fetch: opts.fetch } : {});
   const platform = createBrowserPlatform(win);
   const runtime = createAuditRuntime({
     publicSuffixRules: PUBLIC_SUFFIX_RULES,
@@ -235,7 +248,8 @@ export async function loadUi(opts = {}) {
     ...(opts.data || {}),
     platform,
   });
-  attachAppElements(win.document);
+  if (opts.page) buildPageSkeleton(win.document, opts.page);
+  else attachAppElements(win.document);
   return {
     win,
     document: win.document,

@@ -1646,12 +1646,30 @@ export function createUi(capabilities) {
   /* ── Audit run ──────────────────────────────────────────────────────── */
 
   async function startAudit() {
+    // The guard and the state it guards, in the same synchronous step.
+    //
+    // Before this, the read was here and the matching write was thirty lines
+    // below, after `await checkConnectivity()`. A second click inside that
+    // probe window passed the guard and started a second run: both replaced
+    // `results`, both reset the progress log and the table, and whichever
+    // finished first set `auditController` back to null and re-enabled the
+    // button while the other was still querying — so Cancel could no longer
+    // reach it. Measured at two runs and 111 DoH queries for one double click
+    // on two domains, against a published fan-out of one probe per run.
+    //
+    // Assigning the controller rather than a bare flag keeps one object per
+    // run, which is what `opts.signal` and `cancelAudit()` already expect.
+    // Every early return below has to hand it back, or the button never
+    // recovers.
     if (auditController) return;
+    auditController = new AbortController();
+
     var domains = parseDomains($('domainInput').value);
-    if (!domains.length) { showToast(t('toast.noDomains')); return; }
-    if (domains.length > MAX_DOMAINS) { showToast(t('toast.tooMany')); return; }
+    if (!domains.length) { showToast(t('toast.noDomains')); auditController = null; return; }
+    if (domains.length > MAX_DOMAINS) { showToast(t('toast.tooMany')); auditController = null; return; }
     if ($('optDKIM').checked && $('optDKIMComprehensive').checked && domains.length > MAX_COMPREHENSIVE_DKIM_DOMAINS) {
       showToast(t('toast.tooManyComprehensiveDkim', MAX_COMPREHENSIVE_DKIM_DOMAINS));
+      auditController = null;
       return;
     }
 
@@ -1669,6 +1687,10 @@ export function createUi(capabilities) {
     if (!online) {
       $('netBanner').style.display = 'block';
       $('netBanner').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Without this the interface stays locked out of every later run: the
+      // button was never disabled, so nothing looks wrong, and every
+      // subsequent click returns at the guard above in silence.
+      auditController = null;
       return;
     }
     $('netBanner').style.display = 'none';
@@ -1688,7 +1710,6 @@ export function createUi(capabilities) {
       selectors: $('dkimSelectors').value.split(/[\s,]+/).map(function (s) { return s.trim().toLowerCase(); })
         .filter(function (s) { return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(s); }),
     };
-    auditController = new AbortController();
     opts.signal = auditController.signal;
 
     results = new Array(domains.length);
