@@ -18,7 +18,9 @@
 
 import { createSuite } from '../../tests/lib/assert.mjs';
 import { POLICY_RANK } from '../core/dmarc/record.js';
+import { createHash } from 'node:crypto';
 import {
+  ANALYSIS_VERSION,
   WEIGHTS, PARKED_WEIGHTS, GRADE_THRESHOLDS,
   calcScore, calcDmarcScore, calcSpfScore, gradeFor, calcAdvScore,
 } from './scoring.js';
@@ -213,5 +215,47 @@ eq('an indeterminate DNSSEC chain counts as unknown too',
 // because the policy file itself is never fetched.
 eq('MTA-STS counts as done only when its policy is verified',
   calcAdvScore({ bimi: {}, mtaSts: { present: true }, tlsRpt: {}, caa: {}, dnssec: {} }).done, 0);
+
+/* ── The analysis version and its drift guard ─────────────────────────── */
+section('The analysis version (report-comparison 1.1 §2)');
+
+eq('ANALYSIS_VERSION is a positive integer', [
+  Number.isInteger(ANALYSIS_VERSION), ANALYSIS_VERSION > 0,
+], [true, true]);
+eq('and 0.9.0 ships version 1', ANALYSIS_VERSION, 1);
+
+/**
+ * The rubric drift guard.
+ *
+ * Hashes the rubric's own source — the three constants as data, the four
+ * scoring functions as text — so a changed weight, threshold or branch fails
+ * here with an instruction rather than silently making every previously
+ * exported report's score delta a lie.
+ *
+ * **What this cannot catch, stated rather than left to be discovered:** a
+ * DISCOVERY change outside this file. 0.3.0 replaced the Public Suffix List
+ * with the RFC 9989 Tree Walk and moved scores with all three constants
+ * untouched; a hash of `scoring.js` sees nothing. That half is caught by the
+ * standing backtest rule in `AGENTS.md` — a backtest showing grade or score
+ * movement requires a bump in the same release. This guard is the mechanical
+ * half of a two-part rule, not the whole of it.
+ *
+ * Functions are hashed via `toString()` rather than by reading the file, so
+ * the guard travels with the module instead of with a path.
+ */
+const rubricSource = [
+  JSON.stringify(WEIGHTS),
+  JSON.stringify(PARKED_WEIGHTS),
+  JSON.stringify(GRADE_THRESHOLDS),
+  calcDmarcScore.toString(),
+  calcSpfScore.toString(),
+  calcAdvScore.toString(),
+  calcScore.toString(),
+].join('\n');
+const RUBRIC_HASH = createHash('sha256').update(rubricSource).digest('hex');
+
+eq('the rubric is unchanged — if this fails, bump ANALYSIS_VERSION in scoring.js '
+  + 'and record the score movement in the release notes',
+RUBRIC_HASH, 'bb0b955fea0ae860ba1318cb9caa7d0e235219f9b388e50bfbe61457dd3c8cb9');
 
 report();

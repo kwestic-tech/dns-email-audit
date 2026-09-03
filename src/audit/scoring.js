@@ -57,6 +57,40 @@ import { POLICY_RANK } from '../core/dmarc/record.js';
       every record above it can be spoofed, so it is not merely additive.
    ───────────────────────────────────────────────────────────────────────── */
 
+/**
+ * The analysis version, frozen into every exported 0.9.0 report.
+ * Spec: report-comparison 1.1 (Final), §2.
+ *
+ * It gates the SCORE DELTA of a comparison and nothing else. The finding diff
+ * always runs, on 0.7.0's stable ids, because a version that blocked the whole
+ * comparison would fail the feature's commonest case — audit in March, audit
+ * again in September after two releases.
+ *
+ * That diff is not thereby a claim about improvement. Spec §5 qualifies it:
+ * when `generator.version` differs, `findingSemanticsMatch` is false, the id
+ * diff is labelled "baseline only"/"current only" and the domain status is
+ * `changed` — never `improved` or `regressed`. Stable ids establish IDENTITY,
+ * not that the detector behaved the same; 0.4.0 added twenty-one advisory
+ * findings with zero score movement, so a clean domain can gain findings by
+ * the tool getting more thorough.
+ *
+ * **Bump it in the same commit as anything that can move a score.** That is
+ * broader than the rubric below, and the broadness is the point:
+ *
+ *  - `WEIGHTS`, `PARKED_WEIGHTS`, `GRADE_THRESHOLDS`, `calcDmarcScore()`,
+ *    `calcSpfScore()`, `calcAdvScore()`, `calcScore()`; and
+ *  - any DISCOVERY change that moves a score without touching those. 0.3.0 is
+ *    the confirmed instance: replacing the Public Suffix List with the RFC 9989
+ *    Tree Walk moved scores with all three constants untouched.
+ *
+ * `scoring.test.js` hashes the rubric and fails when it changes without a bump.
+ * That guard catches only the first bullet — a hash of this file cannot see a
+ * Tree Walk landing in `src/core/dmarc/`. The second bullet is caught by the
+ * standing backtest rule in `AGENTS.md`: a backtest that shows grade or score
+ * movement requires a bump here in the same release.
+ */
+export const ANALYSIS_VERSION = 1;
+
 export const WEIGHTS = {
   dmarc: 30, spf: 15, dkim: 15, dnssec: 15,
   caa: 10, mtaSts: 8, bimi: 4, tlsRpt: 3,

@@ -1,3217 +1,3233 @@
 {
-  "$comment": [
-    "Reviewed pre-refactor state and result-shape registry. Spec §12.1, Task 0.6.",
-    "Derived by READING js/dns.js and js/app.js at v0.5.0, not by static extraction.",
-    "A static literal scan found 103 issue tokens; three more are emitted through a",
-    "computed pushKeyFinding(key, ...) call at js/dns.js:5155. That gap is why this",
-    "file is hand-reviewed and why the spec forbids representing an extractor as a proof.",
-    "Every member carries the site where it is constructed. `closed:false` means the",
-    "vocabulary is open by construction and the listed members are the sentinels or",
-    "representative values that must still be covered.",
-    "`resultPaths` says where an algebra's members appear in an analyzeDomain() result, so corpus coverage is EXTRACTED from real runs rather than assigned by hand. An empty list means the algebra is not observable in the result and is covered by a suite.",
-    "§6 decision, 2026-08-27: dkim.key.cryptoValidated:false and dkim.key.errors:key-structure-invalid are covered through an explicit, deterministic platform profile rather than by native Node Web Crypto, which cannot produce them. See the note on dkim.key.cryptoValidated.",
-    "A shape's `fixtures` is REVIEWED, not measured: a shape is a set of axes and an axis is not a value a path reader can observe. The enum matrix is measured; these are named by hand and the contract checks the case exists."
-  ],
-  "version": 1,
-  "baseline": "v0.5.0",
-  "sources": [
-    "js/dns.js",
-    "js/app.js"
-  ],
-  "algebras": [
-    {
-      "id": "dns.transport.kind",
-      "owner": "core/dns",
-      "field": "dohFetch() result.kind",
-      "closed": true,
-      "members": [
-        "success",
-        "nodata",
-        "nxdomain",
-        "servfail",
-        "refused",
-        "dns-error",
-        "http-error",
-        "cancelled",
-        "timeout",
-        "network-error"
-      ],
-      "memberSites": {
-        "success": "js/dns.js:163",
-        "nodata": "js/dns.js:163",
-        "nxdomain": "js/dns.js:164",
-        "servfail": "js/dns.js:165",
-        "refused": "js/dns.js:166",
-        "dns-error": "js/dns.js:167",
-        "http-error": "js/dns.js:189",
-        "cancelled": "js/dns.js:195",
-        "timeout": "js/dns.js:196",
-        "network-error": "js/dns.js:196"
-      },
-      "note": "Closed and byte-compatible with v0.5.0. DnsTypeError is thrown at js/dns.js:121 and is NOT a kind. resultPaths was EMPTY until spec 1.6, which asserted the algebra is not observable in an audit result; it is, on the eleven typed paths listed, derived from result construction and then checked against the baseline. The DMARC walk kind copied into the dmarc-unverified issue arguments is a DERIVED PRESENTATION MIRROR and is deliberately absent: a bare issues[].args[] pattern would let an unrelated argument equal to a kind earn transport coverage. The thrown audit error.kind is a thrown path under spec 12.1, not a result path.",
-      "resultPaths": [
-        "dmarcDiscovery.steps[].kind",
-        "dmarcDiscovery.error",
-        "advanced.dnssec.lookups.ns.kind",
-        "advanced.dnssec.lookups.ds.kind",
-        "advanced.dnssec.lookups.dnskey.kind",
-        "advanced.dnssec.chain[].detail.kind",
-        "advanced.dnssec.error",
-        "advanced.reportAuth[].error",
-        "advanced.reportAuth[].exactKind",
-        "advanced.caa.error",
-        "advanced.spfLookups.queryError"
-      ]
-    },
-    {
-      "id": "dns.retryTerminal",
-      "owner": "core/dns",
-      "field": "dohFetch() retry loop break set",
-      "closed": true,
-      "site": "js/dns.js:216",
-      "members": [
-        "success",
-        "nodata",
-        "nxdomain",
-        "cancelled"
-      ],
-      "note": "Superset of dns.cacheable. `cancelled` is terminal and never cached.",
-      "resultPaths": []
-    },
-    {
-      "id": "dns.cacheable",
-      "owner": "core/dns",
-      "field": "dohCacheSet() admission set",
-      "closed": true,
-      "site": "js/dns.js:219",
-      "members": [
-        "success",
-        "nodata",
-        "nxdomain"
-      ],
-      "note": "Cacheable is a strict subset of retry-terminal. A transport failure is never remembered as an answer.",
-      "resultPaths": []
-    },
-    {
-      "id": "dns.usable",
-      "owner": "core/dns",
-      "field": "requireUsable() pass set",
-      "closed": true,
-      "site": "js/dns.js:256",
-      "members": [
-        "success",
-        "nodata",
-        "nxdomain"
-      ],
-      "note": "The other seven kinds throw dnsError(kind, name, type).",
-      "resultPaths": []
-    },
-    {
-      "id": "dns.thrown",
-      "owner": "core/dns",
-      "field": "error.name on thrown paths",
-      "closed": true,
-      "members": [
-        "DnsTypeError",
-        "AbortError",
-        "DnsQueryError"
-      ],
-      "memberSites": {
-        "DnsTypeError": "js/dns.js:121",
-        "AbortError": "js/dns.js:129 (dnsError with kind 'cancelled')",
-        "DnsQueryError": "js/dns.js:129 (dnsError with any other kind)"
-      },
-      "note": "Thrown, never returned. dnsError() renames the 'cancelled' kind to AbortError so optionalCheck() re-throws it.",
-      "resultPaths": []
-    },
-    {
-      "id": "dns.optionalCheck.rethrow",
-      "owner": "core/dns",
-      "field": "optionalCheck() re-thrown error names",
-      "closed": true,
-      "site": "js/dns.js:250",
-      "members": [
-        "AbortError",
-        "DnsTypeError"
-      ],
-      "note": "Everything else degrades to the caller's declared unknown.",
-      "resultPaths": []
-    },
-    {
-      "id": "dns.existence",
-      "owner": "core/dns",
-      "field": "domainExists() / existenceFromResponse()",
-      "closed": true,
-      "site": "js/dns.js:2201-2206",
-      "members": [
-        "yes",
-        "no",
-        "unknown"
-      ],
-      "note": "nxdomain -> 'no'; success/nodata -> 'yes'; every other kind -> 'unknown'. Never 'no' from a transient failure.",
-      "resultPaths": [
-        "dmarcExistence",
-        "advanced.mxHealth.hosts[].resolves"
-      ]
-    },
-    {
-      "id": "spf.status",
-      "owner": "core/spf",
-      "field": "analyzeSpf().status",
-      "closed": true,
-      "site": "js/dns.js:434-446",
-      "members": [
-        "permerror",
-        "missing",
-        "warn",
-        "ok",
-        "softfail",
-        "present"
-      ],
-      "resultPaths": [
-        "spfStatus.status"
-      ]
-    },
-    {
-      "id": "spf.cls",
-      "owner": "core/spf",
-      "field": "analyzeSpf().cls",
-      "closed": true,
-      "site": "js/dns.js:434-446",
-      "members": [
-        "crit",
-        "warn",
-        "ok"
-      ],
-      "resultPaths": [
-        "spfStatus.cls"
-      ]
-    },
-    {
-      "id": "spf.warnings",
-      "owner": "core/spf",
-      "field": "analyzeSpf().warnings[] tokens",
-      "closed": true,
-      "site": "js/dns.js:434-445",
-      "members": [
-        "spf-multiple-records",
-        "spf-missing-google",
-        "spf-missing-icloud",
-        "spf-missing-microsoft",
-        "spf-all-permit",
-        "spf-neutral",
-        "spf-softfail"
-      ],
-      "note": "Forwarded verbatim into issue keys by buildIssues (js/dns.js:4637).",
-      "resultPaths": [
-        "spfStatus.warnings[]"
-      ]
-    },
-    {
-      "id": "spf.subnet.severity",
-      "owner": "core/spf",
-      "field": "classifySpfSubnet() / finding.severity",
-      "closed": true,
-      "site": "js/dns.js:4315-4325",
-      "members": [
-        "LOW",
-        "MEDIUM",
-        "HIGH"
-      ],
-      "resultPaths": [
-        "advanced.spfSubnets.subnets[].severity",
-        "advanced.spfSubnets.redundancy[].severity"
-      ]
-    },
-    {
-      "id": "spf.finding.type",
-      "owner": "core/spf",
-      "field": "subnet/redundancy finding.type",
-      "closed": true,
-      "members": [
-        "SPF_LARGE_SUBNET",
-        "SPF_REDUNDANCY"
-      ],
-      "memberSites": {
-        "SPF_LARGE_SUBNET": "js/dns.js:4361",
-        "SPF_REDUNDANCY": "js/dns.js:4448"
-      },
-      "note": "Not enumerated in spec §12.1; found by reading. SPF_REDUNDANCY severity is always LOW.",
-      "resultPaths": [
-        "advanced.spfSubnets.subnets[].type",
-        "advanced.spfSubnets.redundancy[].type"
-      ]
-    },
-    {
-      "id": "ip.family",
-      "owner": "core/shared",
-      "field": "address family discriminant",
-      "closed": true,
-      "site": "js/dns.js:4351, js/dns.js:2571",
-      "members": [
-        "ipv4",
-        "ipv6"
-      ],
-      "note": "Shared by SPF subnet classification and MX prefix grouping.",
-      "resultPaths": [
-        "advanced.spfSubnets.subnets[].family"
-      ]
-    },
-    {
-      "id": "dkim.confidence",
-      "owner": "core/dkim",
-      "field": "checkDKIM().confidence",
-      "closed": true,
-      "site": "js/dns.js:1250-1253, js/dns.js:5470",
-      "members": [
-        "not-checked",
-        "sampled",
-        "observed"
-      ],
-      "note": "'not-checked' is set by analyzeDomain's default status when opts.dkim is off or mail is impossible.",
-      "resultPaths": [
-        "dkimStatus.confidence"
-      ]
-    },
-    {
-      "id": "dkim.scanMode",
-      "owner": "core/dkim",
-      "field": "checkDKIM().scanMode",
-      "closed": false,
-      "site": "js/dns.js:1250-1253",
-      "members": [
-        "provider-aware",
-        "comprehensive"
-      ],
-      "note": "ABSENT when DKIM is not checked — the default dkimStatus at js/dns.js:5470 has no scanMode property at all. Absence is a distinct third state and is compared as absence, not as undefined.",
-      "resultPaths": [
-        "dkimStatus.scanMode"
-      ]
-    },
-    {
-      "id": "dkim.selector.type",
-      "owner": "core/dkim",
-      "field": "checkDKIM().selectors[].type",
-      "closed": true,
-      "site": "js/dns.js:1228",
-      "members": [
-        "key",
-        "cname"
-      ],
-      "resultPaths": [
-        "dkimStatus.selectors[].type"
-      ]
-    },
-    {
-      "id": "dkim.note",
-      "owner": "core/dkim",
-      "field": "checkDKIM().note",
-      "closed": true,
-      "site": "js/dns.js:1250-1253, js/dns.js:5470",
-      "members": [
-        "",
-        "noteWildcard",
-        "noteNotFoundWithErrors",
-        "noteNotFound"
-      ],
-      "note": "Not enumerated in spec §12.1; found by reading. Empty string when a key was found.",
-      "resultPaths": [
-        "dkimStatus.note"
-      ]
-    },
-    {
-      "id": "dkim.key.keyType",
-      "owner": "core/dkim",
-      "field": "analyzeDkimKey().keyType",
-      "closed": true,
-      "site": "js/dns.js:916-922",
-      "members": [
-        "rsa",
-        "ed25519",
-        "unknown"
-      ],
-      "note": "Defaults to 'rsa' when k= is absent (RFC 6376 §3.6.1).",
-      "resultPaths": [
-        "dkimStatus.selectors[].key.keyType",
-        "dkimStatus.revokedSelectors[].key.keyType",
-        "dkimStatus.unusableSelectors[].key.keyType",
-        "dkimStatus.malformedSelectors[].key.keyType"
-      ]
-    },
-    {
-      "id": "dkim.key.keyEncoding",
-      "owner": "core/dkim",
-      "field": "analyzeDkimKey().keyEncoding",
-      "closed": true,
-      "site": "js/dns.js:868, js/dns.js:886, js/dns.js:938",
-      "members": [
-        "null",
-        "pkcs1",
-        "spki"
-      ],
-      "note": "null means no RSA envelope was read — absent p=, revoked, ed25519, or unparseable.",
-      "resultPaths": [
-        "dkimStatus.selectors[].key.keyEncoding",
-        "dkimStatus.unusableSelectors[].key.keyEncoding",
-        "dkimStatus.revokedSelectors[].key.keyEncoding",
-        "dkimStatus.malformedSelectors[].key.keyEncoding"
-      ]
-    },
-    {
-      "id": "dkim.key.version",
-      "owner": "core/dkim",
-      "field": "analyzeDkimKey().version",
-      "closed": true,
-      "site": "js/dns.js:903-908",
-      "members": [
-        "null",
-        "DKIM1"
-      ],
-      "resultPaths": [
-        "dkimStatus.selectors[].key.version",
-        "dkimStatus.unusableSelectors[].key.version",
-        "dkimStatus.revokedSelectors[].key.version",
-        "dkimStatus.malformedSelectors[].key.version"
-      ]
-    },
-    {
-      "id": "dkim.key.cryptoValidated",
-      "owner": "core/dkim",
-      "field": "analyzeDkimKey().cryptoValidated",
-      "closed": true,
-      "site": "js/dns.js:1013, js/dns.js:1066, js/dns.js:1069",
-      "members": [
-        "null",
-        "true",
-        "false"
-      ],
-      "note": "null is 'not attempted' and is the only value analyzeDkimKey() itself ever sets. false never on its own makes a key invalid, but it does push key-structure-invalid and set valid=false at js/dns.js:1070. PLATFORM-DEPENDENT, and recorded as a §6 decision of 2026-08-27. `false` is set only when the injected crypto.subtle.importKey REJECTS a key derReadRsaPublicKey() (js/dns.js:801) has already accepted: odd modulus, odd exponent >= 3 and strictly below it, minimally encoded, no trailing content. Native Node Web Crypto cannot currently produce that state — measured on v26.7.0, every probe inside that window imported successfully (16-bit through 2048-bit moduli, e=3 and e=65537), and the keys Node might refuse (e=1, even exponent, even modulus) are rejected by the DER walk first and never reach the import. A stricter browser does reject keys in this window, which is why the production branch exists. Coverage therefore DEPENDS ON the explicit `crypto-import-rejects` platform profile (tests/lib/platform.mjs), which is recorded in the equivalence manifest for every case, paired with a `crypto-import-accepts` control that isolates the refusal. This is NOT native-Node corpus coverage and must not be described as such. Nothing is fabricated: production code constructs the state when the injected importKey rejects, and no result object is assembled by hand anywhere. Because the state is operator-visible, spec §12.1's equivalence-fixture requirement is met by corpus cases dkim-crypto-import-rejects and dkim-crypto-import-accepts, with focused assertions in tests/contract/legacy-shapes.test.mjs §5b.",
-      "resultPaths": [
-        "dkimStatus.selectors[].key.cryptoValidated"
-      ]
-    },
-    {
-      "id": "dkim.key.errors",
-      "owner": "core/dkim",
-      "field": "analyzeDkimKey().errors[] tokens",
-      "closed": true,
-      "members": [
-        "invalid-tag-list",
-        "duplicate-tags",
-        "bad-version",
-        "version-not-first",
-        "invalid-key-type",
-        "missing-p",
-        "unparseable-key",
-        "bad-ed25519-length",
-        "invalid-notes",
-        "key-structure-invalid"
-      ],
-      "memberSites": {
-        "invalid-tag-list": "js/dns.js:551,562,566,569,574,577 and js/dns.js:962,977,985",
-        "duplicate-tags": "js/dns.js:578",
-        "bad-version": "js/dns.js:906",
-        "version-not-first": "js/dns.js:907",
-        "invalid-key-type": "js/dns.js:918",
-        "missing-p": "js/dns.js:932",
-        "unparseable-key": "js/dns.js:941, js/dns.js:951",
-        "bad-ed25519-length": "js/dns.js:947",
-        "invalid-notes": "js/dns.js:990",
-        "key-structure-invalid": "js/dns.js:1068"
-      },
-      "note": "Parser error-token array. Spec §12.1 requires these snapshotted separately from a generic status scan. `key-structure-invalid` is platform-dependent on the same terms as dkim.key.cryptoValidated — see that algebra's note for the §6 decision.",
-      "resultPaths": [
-        "dkimStatus.selectors[].key.errors[]",
-        "dkimStatus.unusableSelectors[].key.errors[]",
-        "dkimStatus.revokedSelectors[].key.errors[]",
-        "dkimStatus.malformedSelectors[].key.errors[]"
-      ]
-    },
-    {
-      "id": "dkim.key.restrictions",
-      "owner": "core/dkim",
-      "field": "analyzeDkimKey().restrictions[] tokens",
-      "closed": true,
-      "members": [
-        "unsupported-key-type",
-        "no-supported-hash",
-        "service-not-email"
-      ],
-      "memberSites": {
-        "unsupported-key-type": "js/dns.js:923",
-        "no-supported-hash": "js/dns.js:967",
-        "service-not-email": "js/dns.js:979"
-      },
-      "note": "Deliberately separate from errors: a restriction is a conformant record that does not apply to this domain's email. appliesToEmail = !revoked && restrictions.length === 0.",
-      "resultPaths": [
-        "dkimStatus.selectors[].key.restrictions[]",
-        "dkimStatus.unusableSelectors[].key.restrictions[]",
-        "dkimStatus.malformedSelectors[].key.restrictions[]"
-      ]
-    },
-    {
-      "id": "dmarc.status",
-      "owner": "core/dmarc",
-      "field": "analyzeDmarc().status / emptyDmarcStatus()",
-      "closed": true,
-      "members": [
-        "ok",
-        "warn",
-        "present",
-        "missing",
-        "unknown",
-        "permerror"
-      ],
-      "memberSites": {
-        "ok": "js/dns.js:1512",
-        "warn": "js/dns.js:1513",
-        "present": "js/dns.js:1511",
-        "missing": "js/dns.js:1405",
-        "unknown": "js/dns.js:5427 (emptyDmarcStatus('unknown'))",
-        "permerror": "js/dns.js:1404 — legacy direct call only; unreachable from analyzeDomain()"
-      },
-      "note": "applyInheritance() can re-derive ok/warn at js/dns.js:2245. `permerror` is unreachable through analyzeDomain(): the tree walk never passes `multiple`, because RFC 9989 §4.10 step 2 discards duplicates and continues. js/dns.js:1397 says so in its own comment. Asserted by direct call.",
-      "resultPaths": [
-        "dmarcStatus.status"
-      ]
-    },
-    {
-      "id": "dmarc.cls",
-      "owner": "core/dmarc",
-      "field": "dmarcStatus.cls",
-      "closed": true,
-      "site": "js/dns.js:1517, js/dns.js:1550",
-      "members": [
-        "ok",
-        "warn",
-        "crit"
-      ],
-      "note": "emptyDmarcStatus gives 'unknown' status a 'warn' class deliberately, so an unexamined control never wears the same red as an absent one.",
-      "resultPaths": [
-        "dmarcStatus.cls"
-      ]
-    },
-    {
-      "id": "dmarc.tagState",
-      "owner": "core/dmarc",
-      "field": "spState / npState",
-      "closed": true,
-      "site": "js/dns.js:1424-1426",
-      "members": [
-        "absent",
-        "valid",
-        "invalid"
-      ],
-      "resultPaths": [
-        "dmarcStatus.spState",
-        "dmarcStatus.npState"
-      ]
-    },
-    {
-      "id": "dmarc.alignmentState",
-      "owner": "core/dmarc",
-      "field": "adkimState / aspfState",
-      "closed": true,
-      "site": "js/dns.js:1478-1482",
-      "members": [
-        "absent",
-        "r",
-        "s",
-        "invalid"
-      ],
-      "resultPaths": [
-        "dmarcStatus.adkimState",
-        "dmarcStatus.aspfState"
-      ]
-    },
-    {
-      "id": "dmarc.alignment",
-      "owner": "core/dmarc",
-      "field": "adkim / aspf",
-      "closed": true,
-      "site": "js/dns.js:1487-1488",
-      "members": [
-        "r",
-        "s"
-      ],
-      "note": "Receiver behaviour: anything not 's' resolves to 'r'. The divergence is reported through adkimState/aspfState.",
-      "resultPaths": [
-        "dmarcStatus.adkim",
-        "dmarcStatus.aspf"
-      ]
-    },
-    {
-      "id": "dmarc.policy",
-      "owner": "core/dmarc",
-      "field": "policy / effectivePolicy / sp / np / effectiveSp / effectiveNp",
-      "closed": true,
-      "site": "js/dns.js:1319 (POLICY_RANK), js/dns.js:1329-1333",
-      "members": [
-        "none",
-        "quarantine",
-        "reject",
-        "null",
-        ""
-      ],
-      "note": "null for an absent sp/np; '' only from emptyDmarcStatus (js/dns.js:1546). testMode collapses effectivePolicy to 'none' at js/dns.js:1505.",
-      "resultPaths": [
-        "dmarcStatus.policy",
-        "dmarcStatus.effectivePolicy",
-        "dmarcStatus.sp",
-        "dmarcStatus.np",
-        "dmarcStatus.effectiveSp",
-        "dmarcStatus.effectiveNp"
-      ]
-    },
-    {
-      "id": "dmarc.version.reason",
-      "owner": "core/dmarc",
-      "field": "validateDmarcVersion().reason",
-      "closed": true,
-      "site": "js/dns.js:1343-1347",
-      "members": [
-        "null",
-        "absent",
-        "not-first",
-        "bad-value"
-      ],
-      "note": "null when valid. Distinct from dmarc.diagnosis and from dmarc.reportAuth.record.reason. `bad-value` is unreachable through analyzeDomain(): a record whose v= is not exactly DMARC1 fails isDmarcPolicyRecord() and is never collected, so analyzeDmarc receives '' and reports 'absent'. Asserted by direct call.",
-      "resultPaths": [
-        "dmarcStatus.version.reason"
-      ]
-    },
-    {
-      "id": "dmarc.diagnosis",
-      "owner": "core/dmarc",
-      "field": "diagnoseDmarcRecord() return",
-      "closed": true,
-      "site": "js/dns.js:1936-1956",
-      "members": [
-        "null",
-        "version-bad-case",
-        "version-not-first",
-        "version-absent"
-      ],
-      "note": "null means 'not a DMARC record at all' and produces no observation.",
-      "resultPaths": []
-    },
-    {
-      "id": "dmarc.walk.terminated",
-      "owner": "core/dmarc",
-      "field": "discoverDmarc().terminated",
-      "closed": true,
-      "site": "js/dns.js:1994, js/dns.js:2023, js/dns.js:2062-2063",
-      "members": [
-        "root",
-        "error",
-        "psd-y",
-        "psd-n"
-      ],
-      "note": "There is deliberately no 'query-limit' member — §4.10's shortcut makes exhaustion unreachable.",
-      "resultPaths": [
-        "dmarcDiscovery.terminated"
-      ]
-    },
-    {
-      "id": "dmarc.observation.why",
-      "owner": "core/dmarc",
-      "field": "discoverDmarc().observed[].why",
-      "closed": true,
-      "members": [
-        "at-apex-not-underscore",
-        "multiple-at-step",
-        "version-bad-case",
-        "version-not-first",
-        "version-absent"
-      ],
-      "memberSites": {
-        "at-apex-not-underscore": "js/dns.js:2000",
-        "multiple-at-step": "js/dns.js:2039",
-        "version-bad-case": "js/dns.js:1944,1951 via diagnoseDmarcRecord",
-        "version-not-first": "js/dns.js:1945 via diagnoseDmarcRecord",
-        "version-absent": "js/dns.js:1955 via diagnoseDmarcRecord"
-      },
-      "resultPaths": [
-        "dmarcDiscovery.observed[].why"
-      ]
-    },
-    {
-      "id": "dmarc.appliedBranch",
-      "owner": "core/dmarc",
-      "field": "applyInheritance() appliedBranch",
-      "closed": false,
-      "site": "js/dns.js:2247",
-      "members": [
-        "np",
-        "sp",
-        "weakest"
-      ],
-      "note": "ABSENT unless the applied record is inherited. Not enumerated in spec §12.1; found by reading. Chosen by dmarcExistence: 'no' -> np, 'yes' -> sp, 'unknown' -> weakest. `np` and `weakest` are UNREACHABLE through analyzeDomain(): an NXDOMAIN NS probe returns the unregistered shape at js/dns.js:5370 before any DMARC work happens, so existenceFromResponse() has already answered 'yes' by the time applyInheritance() runs. Both are asserted by direct call in legacy-shapes.test.mjs §5c.",
-      "resultPaths": [
-        "dmarcStatus.appliedBranch"
-      ]
-    },
-    {
-      "id": "dmarc.psd",
-      "owner": "core/dmarc",
-      "field": "dmarcStatus.psd and walk step psd",
-      "closed": false,
-      "site": "js/dns.js:1448-1449, js/dns.js:2054-2055",
-      "members": [
-        "u",
-        "y",
-        "n"
-      ],
-      "note": "OPEN by construction: psd is String(rawPsd || 'u').trim().toLowerCase(), so any tag value survives verbatim while psdValid records whether it is one of y/n/u. Only 'y' and 'n' terminate the walk.",
-      "resultPaths": [
-        "dmarcStatus.psd"
-      ]
-    },
-    {
-      "id": "dmarc.fo",
-      "owner": "core/dmarc",
-      "field": "dmarcStatus.fo",
-      "closed": false,
-      "site": "js/dns.js:1455-1459",
-      "members": [
-        "0",
-        "1",
-        "d",
-        "s"
-      ],
-      "note": "OPEN by construction: fo is the raw colon-separated value lowercased; foValid records conformance against DMARC_FO_VALUES (js/dns.js:1305).",
-      "resultPaths": [
-        "dmarcStatus.fo"
-      ]
-    },
-    {
-      "id": "dmarc.reportAuth.state",
-      "owner": "core/dmarc",
-      "field": "checkExternalReportAuth()[].state",
-      "closed": true,
-      "members": [
-        "authorized",
-        "unauthorized",
-        "unverifiable",
-        "override-mismatch"
-      ],
-      "memberSites": {
-        "authorized": "js/dns.js:1834",
-        "unauthorized": "js/dns.js:1848",
-        "unverifiable": "js/dns.js:1776 (name too long) and js/dns.js:1854 (caught failure)",
-        "override-mismatch": "js/dns.js:1834"
-      },
-      "resultPaths": [
-        "advanced.reportAuth[].state"
-      ]
-    },
-    {
-      "id": "dmarc.reportAuth.exactKind",
-      "owner": "core/dmarc",
-      "field": "checkExternalReportAuth()[].exactKind",
-      "closed": true,
-      "members": [
-        "success",
-        "nodata",
-        "nxdomain"
-      ],
-      "memberSites": {
-        "success": "js/dns.js:1667 (authorized/override-mismatch) and js/dns.js:1679 (unauthorized)",
-        "nodata": "js/dns.js:1679 — a destination publishing no TXT at the exact name",
-        "nxdomain": "js/dns.js:1679 — the inline usability gate accepts nxdomain, so an absent name reaches the unauthorized branch carrying its kind"
-      },
-      "note": "ADDED IN SPEC 1.6. The field had no owning algebra at all; the Gate-0 inventory recorded 74 algebras and 427 members without it. Absent on unverifiable results, which carry `error` instead, and on the name-too-long case, which never queries. THREE members, not the two the corpus had been observed to produce: nxdomain is source-reachable through requireUsable()'s inline equivalent at js/dns.js:1636, which admits success, nodata and nxdomain alike. Defining a two-member algebra from corpus observation would be the same mistake as an empty resultPaths list — describing what was measured as though it were what is reachable.",
-      "resultPaths": [
-        "advanced.reportAuth[].exactKind"
-      ]
-    },
-    {
-      "id": "dmarc.reportAuth.via",
-      "owner": "core/dmarc",
-      "field": "checkExternalReportAuth()[].via",
-      "closed": true,
-      "site": "js/dns.js:1776, js/dns.js:1835, js/dns.js:1848, js/dns.js:1854",
-      "members": [
-        "null",
-        "exact"
-      ],
-      "resultPaths": [
-        "advanced.reportAuth[].via"
-      ]
-    },
-    {
-      "id": "dmarc.reportAuth.error",
-      "owner": "core/dmarc",
-      "field": "checkExternalReportAuth()[].error",
-      "closed": true,
-      "site": "js/dns.js:1778, js/dns.js:1854",
-      "members": [
-        "absent",
-        "name-too-long",
-        "servfail",
-        "refused",
-        "dns-error",
-        "http-error",
-        "timeout",
-        "network-error"
-      ],
-      "note": "ABSENT on authorized/unauthorized results. 'undefined' is a real reachable value: js/dns.js:1854 reads e.kind, and a non-DnsError throw carries none. `cancelled` is deliberately NOT a member. checkExternalReportAuth() converts a cancelled response to dnsError('cancelled', ...) (js/dns.js:1815), which dnsError names AbortError, and the catch at js/dns.js:1853 rethrows AbortError rather than recording it — so the audit throws instead of the destination carrying an error. Verified by aborting mid-flight, not by reading. `undefined` is not a member either. Every throw inside the try block goes through dnsError(), which always sets .kind, and a raw fetch rejection is turned into kind 'network-error' by dohFetch before it ever reaches this catch. Verified by throwing a plain Error from fetch: the destination reported error 'network-error'.",
-      "resultPaths": [
-        "advanced.reportAuth[].error"
-      ]
-    },
-    {
-      "id": "dmarc.reportAuth.record.reason",
-      "owner": "core/dmarc",
-      "field": "parseReportAuthRecord().reason",
-      "closed": true,
-      "site": "js/dns.js:1712-1723",
-      "members": [
-        "null",
-        "version",
-        "syntax"
-      ],
-      "resultPaths": []
-    },
-    {
-      "id": "dmarc.reportAuth.overrideReason",
-      "owner": "core/dmarc",
-      "field": "parseReportAuthRecord().overrideReason",
-      "closed": true,
-      "site": "js/dns.js:1750-1755",
-      "members": [
-        "null",
-        "cross-host",
-        "malformed"
-      ],
-      "note": "cross-host escalates the whole arrangement to override-mismatch; malformed does not.",
-      "resultPaths": [
-        "advanced.reportAuth[].overrideReason"
-      ]
-    },
-    {
-      "id": "dnssec.state",
-      "owner": "core/dnssec",
-      "field": "checkDNSSEC().state",
-      "closed": true,
-      "members": [
-        "secure",
-        "insecure",
-        "bogus",
-        "unanchored",
-        "mismatch",
-        "indeterminate"
-      ],
-      "memberSites": {
-        "bogus": "js/dns.js:4024",
-        "indeterminate": "js/dns.js:4032",
-        "secure": "js/dns.js:4038",
-        "unanchored": "js/dns.js:4051",
-        "mismatch": "js/dns.js:4058",
-        "insecure": "js/dns.js:4061"
-      },
-      "note": "signed === (state === 'secure'), asserted at js/dns.js:4114.",
-      "resultPaths": [
-        "advanced.dnssec.state"
-      ]
-    },
-    {
-      "id": "dnssec.chain.claim",
-      "owner": "core/dnssec",
-      "field": "checkDNSSEC().chain[].claim",
-      "closed": true,
-      "members": [
-        "resolver-bogus",
-        "resolver-unreachable",
-        "resolver-ad",
-        "link-checked",
-        "ds-confirms-dnskey",
-        "ds-no-matching-key",
-        "ds-digest-mismatch",
-        "ds-unverifiable",
-        "lookup-incomplete"
-      ],
-      "memberSites": {
-        "resolver-bogus": "js/dns.js:4025",
-        "resolver-unreachable": "js/dns.js:4033",
-        "resolver-ad": "js/dns.js:4036",
-        "link-checked": "js/dns.js:4070",
-        "ds-confirms-dnskey": "js/dns.js:4075",
-        "ds-no-matching-key": "js/dns.js:4080 — COMPUTED as 'ds-' + record.match",
-        "ds-digest-mismatch": "js/dns.js:4080 — COMPUTED as 'ds-' + record.match",
-        "ds-unverifiable": "js/dns.js:4083",
-        "lookup-incomplete": "js/dns.js:4094"
-      },
-      "note": "NINE claims, not seven. Two are computed by string concatenation and are invisible to a literal scan. This is the worked example spec §12.1 names.",
-      "resultPaths": [
-        "advanced.dnssec.chain[].claim"
-      ]
-    },
-    {
-      "id": "dnssec.chain.source",
-      "owner": "core/dnssec",
-      "field": "checkDNSSEC().chain[].source",
-      "closed": true,
-      "site": "js/dns.js:4025-4094",
-      "members": [
-        "resolver",
-        "local"
-      ],
-      "resultPaths": [
-        "advanced.dnssec.chain[].source"
-      ]
-    },
-    {
-      "id": "dnssec.ds.match",
-      "owner": "core/dnssec",
-      "field": "matchDsToDnskeys().match",
-      "closed": true,
-      "members": [
-        "unverifiable",
-        "unverifiable-digest-type",
-        "no-matching-key",
-        "confirmed",
-        "digest-mismatch"
-      ],
-      "memberSites": {
-        "unverifiable": "js/dns.js:3812 (initial) — retained on invalid-ds/invalid-owner/runtime-unavailable/unbuildable-key",
-        "no-matching-key": "js/dns.js:3849",
-        "unverifiable-digest-type": "js/dns.js:3856",
-        "confirmed": "js/dns.js:3879",
-        "digest-mismatch": "js/dns.js:3902"
-      },
-      "note": "Only 'confirmed' and 'digest-mismatch' are claims about the operator's zone. Every failure path lands on 'unverifiable'.",
-      "resultPaths": [
-        "advanced.dnssec.ds[].match"
-      ]
-    },
-    {
-      "id": "dnssec.ds.unverifiableReason",
-      "owner": "core/dnssec",
-      "field": "matchDsToDnskeys().unverifiableReason",
-      "closed": true,
-      "members": [
-        "null",
-        "invalid-ds",
-        "invalid-owner",
-        "runtime-unavailable",
-        "unbuildable-key"
-      ],
-      "memberSites": {
-        "invalid-ds": "js/dns.js:3828",
-        "invalid-owner": "js/dns.js:3834",
-        "runtime-unavailable": "js/dns.js:3894",
-        "unbuildable-key": "js/dns.js:3898"
-      },
-      "note": "Not enumerated in spec §12.1; found by reading. Four distinct failures that shared one token before 0.5.0. `unbuildable-key` is DEAD CODE in the current implementation and is not reached by any suite or case. matchDsToDnskeys() selects candidates with key.valid === true (js/dns.js:3841) and every valid key has decodable base64, so dnskeyRdata() always builds; digestsComputed can only be zero when there were no candidates (returns no-matching-key earlier) or every computation failed (returns runtime-unavailable first). legacy-shapes.test.mjs §5d asserts the PROPERTY that makes it unreachable rather than pretending to exercise it, so a change that made a valid key unbuildable fails there before the branch goes live. `invalid-owner` is unreachable through analyzeDomain() because js/app.js's parseDomains() rejects a label over 63 octets before startAudit() queues it — measured, by watching the corpus case produce no result. `runtime-unavailable` is covered by the crypto-digest-unavailable platform profile on the same terms as the §6 decision: native Node computes SHA-256 without complaint, so this is not native-Node coverage.",
-      "resultPaths": [
-        "advanced.dnssec.ds[].unverifiableReason"
-      ]
-    },
-    {
-      "id": "dnssec.algorithmEligibility",
-      "owner": "core/dnssec",
-      "field": "dnssecAlgorithmEligibility()",
-      "closed": true,
-      "site": "js/dns.js:3305-3308",
-      "members": [
-        "eligible",
-        "ineligible",
-        "unknown"
-      ],
-      "resultPaths": [
-        "advanced.dnssec.ds[].algorithmEligibility",
-        "advanced.dnssec.keys[].algorithmEligibility"
-      ]
-    },
-    {
-      "id": "dnssec.digestEligibility",
-      "owner": "core/dnssec",
-      "field": "dnssecDigestEligibility()",
-      "closed": true,
-      "site": "js/dns.js:3358-3361",
-      "members": [
-        "eligible",
-        "ineligible",
-        "unknown"
-      ],
-      "resultPaths": [
-        "advanced.dnssec.ds[].digestEligibility"
-      ]
-    },
-    {
-      "id": "dnssec.keyStructure",
-      "owner": "core/dnssec",
-      "field": "dnskeyStructure()",
-      "closed": true,
-      "site": "js/dns.js:3429-3466",
-      "members": [
-        "valid",
-        "invalid",
-        "unknown"
-      ],
-      "note": "Only 'invalid' disqualifies a key. 'unknown' is honest about an algorithm grammar this build cannot parse.",
-      "resultPaths": [
-        "advanced.dnssec.keys[].keyStructure",
-        "advanced.dnssec.ds[].matchedKeyStructure"
-      ]
-    },
-    {
-      "id": "dnssec.digestName",
-      "owner": "core/dnssec",
-      "field": "dnssecDigestName()",
-      "closed": true,
-      "site": "js/dns.js:3369-3374",
-      "members": [
-        "null",
-        "RESERVED",
-        "SHA-1",
-        "SHA-256",
-        "GOST-R-34.11-94",
-        "SHA-384",
-        "GOST-R-34.11-2012",
-        "SM3",
-        "PRIVATE-USE"
-      ],
-      "note": "'RESERVED' is reachable twice — digest type 0, and the 128-252 range.",
-      "resultPaths": [
-        "advanced.dnssec.ds[].digestName"
-      ]
-    },
-    {
-      "id": "dnssec.evidence",
-      "owner": "core/dnssec",
-      "field": "checkDNSSEC().evidence",
-      "closed": true,
-      "site": "js/dns.js:4109-4110",
-      "members": [
-        "complete",
-        "partial",
-        "none"
-      ],
-      "resultPaths": [
-        "advanced.dnssec.evidence"
-      ]
-    },
-    {
-      "id": "dnssec.error",
-      "owner": "core/dnssec",
-      "field": "checkDNSSEC().error",
-      "closed": true,
-      "site": "js/dns.js:4128",
-      "members": [
-        "undefined",
-        "nxdomain",
-        "servfail",
-        "refused",
-        "dns-error",
-        "http-error",
-        "cancelled",
-        "timeout",
-        "network-error"
-      ],
-      "note": "The property is SET to `undefined` when state !== 'indeterminate' (js/dns.js:4128) — present with an undefined value, not omitted. The canonicalizer must distinguish the two and this row is why. `nxdomain` was missing from the first draft of this row and is reachable: dnssecLookupStatus() (js/dns.js:3956) counts only success and nodata as completed, so an NXDOMAIN NS probe yields state 'indeterminate' with error 'nxdomain'. Verified by running checkDNSSEC against an empty fixture, not by reading.",
-      "resultPaths": [
-        "advanced.dnssec.error"
-      ]
-    },
-    {
-      "id": "dnssec.dnskey.errors",
-      "owner": "core/dnssec",
-      "field": "parseDnskey().errors[] tokens",
-      "closed": true,
-      "site": "js/dns.js:3593-3617",
-      "members": [
-        "unparseable-record",
-        "unbalanced-parentheses",
-        "bad-flags",
-        "bad-protocol",
-        "bad-algorithm",
-        "empty-key",
-        "bad-key-encoding"
-      ],
-      "resultPaths": [
-        "advanced.dnssec.keys[].errors[]"
-      ]
-    },
-    {
-      "id": "dnssec.ds.errors",
-      "owner": "core/dnssec",
-      "field": "parseDs().errors[] tokens",
-      "closed": true,
-      "site": "js/dns.js:3649-3683",
-      "members": [
-        "unparseable-record",
-        "unbalanced-parentheses",
-        "bad-key-tag",
-        "bad-algorithm",
-        "bad-digest-type",
-        "empty-digest",
-        "bad-digest",
-        "bad-digest-length"
-      ],
-      "resultPaths": [
-        "advanced.dnssec.ds[].errors[]"
-      ]
-    },
-    {
-      "id": "mx.host.resolves",
-      "owner": "core/mx",
-      "field": "auditMxHosts().hosts[].resolves",
-      "closed": true,
-      "site": "js/dns.js:2549",
-      "members": [
-        "yes",
-        "no",
-        "unknown"
-      ],
-      "note": "'no' is claimed only when BOTH address lookups returned. One failed lookup plus one empty answer is 'unknown'.",
-      "resultPaths": [
-        "advanced.mxHealth.hosts[].resolves"
-      ]
-    },
-    {
-      "id": "mx.ipv6Coverage",
-      "owner": "core/mx",
-      "field": "auditMxHosts().ipv6Coverage",
-      "closed": true,
-      "site": "js/dns.js:2506, js/dns.js:2592-2594",
-      "members": [
-        "none",
-        "some",
-        "all"
-      ],
-      "note": "'none' is also the value on the no-MX early return and on the optionalCheck fallback at js/dns.js:5583.",
-      "resultPaths": [
-        "advanced.mxHealth.ipv6Coverage"
-      ]
-    },
-    {
-      "id": "caa.errors",
-      "owner": "core/caa",
-      "field": "parseCaaRecord().errors[] tokens",
-      "closed": true,
-      "site": "js/dns.js:2346-2400",
-      "members": [
-        "unparseable-record",
-        "bad-flags",
-        "bad-tag",
-        "unquoted-value",
-        "bad-issue-value",
-        "bad-iodef-url"
-      ],
-      "resultPaths": [
-        "advanced.caa.parsed[].errors[]"
-      ]
-    },
-    {
-      "id": "caa.knownTags",
-      "owner": "core/caa",
-      "field": "CAA_KNOWN_TAGS",
-      "closed": true,
-      "site": "js/dns.js:2274",
-      "members": [
-        "issue",
-        "issuewild",
-        "iodef",
-        "issuemail",
-        "contactemail",
-        "contactphone"
-      ],
-      "note": "CAA_ISSUER_TAGS (js/dns.js:2277) is the subset issue/issuewild/issuemail whose value is an issuer-domain-name.",
-      "resultPaths": [
-        "advanced.caa.parsed[].tag"
-      ]
-    },
-    {
-      "id": "audit.artifact.finding.id",
-      "owner": "audit",
-      "field": "artifactFindings[].id",
-      "closed": true,
-      "site": "src/audit/artifacts.js",
-      "members": [
-        "mta-sts.policy-invalid",
-        "mta-sts.policy-hygiene",
-        "mta-sts.policy-mx-mismatch",
-        "mta-sts.policy-mx-unused",
-        "mta-sts.policy-on-null-mx",
-        "mta-sts.policy-mx-unknown",
-        "mta-sts.mode-testing",
-        "mta-sts.mode-none",
-        "mta-sts.max-age-short",
-        "bimi.svg-rejected",
-        "bimi.svg-profile",
-        "bimi.svg-valid"
-      ],
-      "note": "Artifact finding identity. Deliberately SEPARATE from audit.finding.id, which stays the DNS contract: an artifact finding is not a DNS finding with a flag on it. The private catalog in artifacts.js constructs every published id and the co-located suite pins it against this list, so a thirteenth identity cannot appear without the registry moving with it.",
-      "resultPaths": [
-        "artifact.finding.id"
-      ]
-    },
-    {
-      "id": "audit.artifact.kind",
-      "owner": "audit",
-      "field": "artifactFindings[].artifact",
-      "closed": true,
-      "site": "src/audit/artifacts.js",
-      "members": [
-        "mta-sts-policy",
-        "bimi-svg"
-      ],
-      "note": "Which supplied artifact a finding came from. VMC is deliberately absent: OQ-ART-04 dropped it, because structural PEM details without chain validation do not answer whether a mailbox provider would accept the certificate.",
-      "resultPaths": [
-        "artifact.finding.artifact"
-      ]
-    },
-    {
-      "id": "audit.artifact.source",
-      "owner": "audit",
-      "field": "artifactFindings[].source",
-      "closed": true,
-      "site": "src/audit/artifacts.js",
-      "members": [
-        "user-supplied"
-      ],
-      "note": "Provenance. One member, and still a closed vocabulary rather than a boolean: the reason these findings are separated from DNS findings is that somebody supplied them, and a report handed to a third party has to be able to name that reason.",
-      "resultPaths": [
-        "artifact.finding.source"
-      ]
-    },
-    {
-      "id": "audit.artifact.evidence.kind",
-      "owner": "audit",
-      "field": "artifactFindings[].evidence[].kind",
-      "closed": true,
-      "site": "src/audit/artifacts.js",
-      "members": [
-        "line",
-        "element",
-        "input"
-      ],
-      "note": "DELIBERATELY DISJOINT from audit.finding.evidence.kind, and the co-located suite asserts the two share no member. A line of pasted text was not queried from DNS, and the DNS renderer presents an evidence location as a queried name -- so an overlap would let supplied material render as though it had been observed in public DNS. `input` locates a document-level condition, such as a missing field, that has no line.",
-      "resultPaths": [
-        "artifact.finding.evidence.kind"
-      ]
-    },
-    {
-      "id": "bimi.svg.rejections",
-      "owner": "core/bimi",
-      "field": "validateBimiSvg().rejections[] tokens",
-      "closed": true,
-      "site": "src/core/bimi/svg.js",
-      "members": [
-        "doctype-present",
-        "entity-declaration",
-        "malformed-xml",
-        "bad-root",
-        "script-element",
-        "event-handler",
-        "foreign-object",
-        "external-reference-element",
-        "external-reference",
-        "link-element",
-        "external-style",
-        "animation"
-      ],
-      "note": "Security refusals over a user-supplied indicator SVG. doctype-present and entity-declaration are raised by a scan of the SOURCE TEXT before the parser is invoked, because Chrome expands internal general entities -- measured: a nine-level billion-laughs document produced 59,049 characters of text -- so a post-parse check would run after the cost was already paid. bad-root is its own member because HTML in a .svg file parses cleanly with no parser error, so nothing but an explicit root-name check catches it.",
-      "resultPaths": [
-        "artifact.bimiSvg.rejections[]"
-      ]
-    },
-    {
-      "id": "bimi.svg.diagnostics",
-      "owner": "core/bimi",
-      "field": "validateBimiSvg().diagnostics[] tokens",
-      "closed": true,
-      "site": "src/core/bimi/svg.js",
-      "members": [
-        "namespace-not-svg",
-        "base-profile-not-tiny-ps",
-        "version-not-1-2",
-        "title-missing",
-        "title-not-unique",
-        "desc-empty",
-        "viewbox-missing",
-        "viewbox-not-square",
-        "root-has-position",
-        "raster-data-uri",
-        "data-uri-reference",
-        "unsupported-attribute"
-      ],
-      "note": "SVG P/S profile diagnostics: why a mailbox provider may not display the logo. Never a refusal -- a document carrying only these is still valid. The spec's \"single root element\" row is deliberately NOT a member: XML makes a second root a parse error (measured), so it arrives as malformed-xml and a diagnostic for it would be unreachable. unsupported-attribute covers the six attributes the spec constrains to \"permitted inert values\" without enumerating them, so presence alone is the diagnostic until the spec decides.",
-      "resultPaths": [
-        "artifact.bimiSvg.diagnostics[]"
-      ]
-    },
-    {
-      "id": "bimi.errors",
-      "owner": "core/bimi",
-      "field": "validateBimiRecord().errors[] tokens",
-      "closed": true,
-      "site": "js/dns.js:3184-3222",
-      "members": [
-        "invalid-syntax",
-        "duplicate-tags"
-      ],
-      "resultPaths": [
-        "advanced.bimi.validation.errors[]"
-      ]
-    },
-    {
-      "id": "transport.mtaSts.errors",
-      "owner": "core/transport",
-      "field": "validateMtaStsRecord().errors[] tokens",
-      "closed": true,
-      "site": "js/dns.js:3094-3116",
-      "members": [
-        "invalid-syntax"
-      ],
-      "resultPaths": [
-        "advanced.mtaSts.validation.errors[]"
-      ]
-    },
-    {
-      "id": "transport.mtaStsPolicy.errors",
-      "owner": "core/transport",
-      "field": "validateMtaStsPolicy().errors[] tokens",
-      "closed": true,
-      "site": "src/core/transport/mta-sts-policy.js",
-      "members": [
-        "malformed-line",
-        "blank-line",
-        "invalid-version",
-        "invalid-mode",
-        "invalid-mx",
-        "invalid-max-age",
-        "missing-version",
-        "missing-mode",
-        "missing-max-age",
-        "missing-mx"
-      ],
-      "resultPaths": [
-        "artifact.mtaStsPolicy.errors[]"
-      ]
-    },
-    {
-      "id": "transport.mtaStsPolicy.warnings",
-      "owner": "core/transport",
-      "field": "validateMtaStsPolicy().warnings[] tokens",
-      "closed": true,
-      "site": "src/core/transport/mta-sts-policy.js",
-      "members": [
-        "duplicate-field",
-        "bom-present",
-        "wrong-case-field"
-      ],
-      "note": "wrong-case-field is a WARNING. sts-policy-ext-name permits `Mode`, and RFC 8461 3.2 says unknown fields SHALL be ignored, so a conformant policy may carry a case-variant name and must not be called invalid. When the operator did mean the registered field, the missing-* error already carries the invalidity.",
-      "resultPaths": [
-        "artifact.mtaStsPolicy.warnings[]"
-      ]
-    },
-    {
-      "id": "transport.mtaStsPolicy.lineEndings",
-      "owner": "core/transport",
-      "field": "validateMtaStsPolicy().lineEndings",
-      "closed": true,
-      "site": "src/core/transport/mta-sts-policy.js",
-      "members": [
-        "crlf",
-        "lf",
-        "mixed",
-        "none"
-      ],
-      "resultPaths": [
-        "artifact.mtaStsPolicy.lineEndings"
-      ]
-    },
-    {
-      "id": "transport.mtaStsPolicy.findingScope",
-      "owner": "core/transport",
-      "field": "policyFindingScope().state",
-      "closed": true,
-      "site": "src/core/transport/mta-sts-policy.js",
-      "members": [
-        "invalid",
-        "withdrawal",
-        "testing",
-        "enforce"
-      ],
-      "note": "Which SEMANTIC findings a policy in this state may produce. Parsing says what a document contains, not which readings of it are honest. `invalid` allows parser diagnostics only, because any mode/max-age/null-MX/mismatch claim built from the fields that happened to parse describes a document no sender will honour. `withdrawal` (mode: none) allows only its own mode finding: RFC 8461 8.3 tells an operator to publish mode:none with a small max_age (e.g. one day), so max-age-short there would advise working against the protocol's removal procedure, and a withdrawn policy cannot conflict with a null MX. Every member is reachable from a real validateMtaStsPolicy() result and the co-located suite proves it.",
-      "resultPaths": [
-        "artifact.mtaStsPolicy.findingScope.state"
-      ]
-    },
-    {
-      "id": "transport.mtaStsPolicy.mxComparisonState",
-      "owner": "core/transport",
-      "field": "compareMtaStsMx().state",
-      "closed": true,
-      "site": "src/core/transport/mta-sts-policy.js",
-      "members": [
-        "compared",
-        "unknown",
-        "null-mx"
-      ],
-      "note": "The fact is { hosts: string[], unknown, nullMx }, derived by src/audit/artifacts.js from the domain's DELIVERY CANDIDATES -- explicit MX exchanges, or the RFC 5321 5.1 implicit MX when no MX is published -- never from advanced.mxHealth, whose hosts are audit objects and which is null whenever deep checks are off. The comparator fails closed to `unknown` on an absent fact, an empty list, or any entry that is not a valid hostname, because a silently filtered list compares as every-pattern-unused. `null-mx` was held out of this vocabulary until deliveryCandidates() existed to produce it, and joined in the same commit as that producer.",
-      "resultPaths": [
-        "artifact.mtaStsPolicy.mxComparison.state"
-      ]
-    },
-    {
-      "id": "transport.tlsRpt.errors",
-      "owner": "core/transport",
-      "field": "validateTlsRptRecord().errors[] tokens",
-      "closed": true,
-      "site": "js/dns.js:3127-3162",
-      "members": [
-        "invalid-syntax"
-      ],
-      "resultPaths": [
-        "advanced.tlsRpt.validation.errors[]"
-      ]
-    },
-    {
-      "id": "transport.tlsa.errors",
-      "owner": "core/transport",
-      "field": "parseTlsaRecord().errors[] tokens",
-      "closed": true,
-      "site": "js/dns.js:2643-2688",
-      "members": [
-        "unparseable-record",
-        "unbalanced-parentheses",
-        "bad-usage",
-        "bad-selector",
-        "bad-matching-type",
-        "bad-association-data",
-        "bad-digest-length"
-      ],
-      "resultPaths": [
-        "advanced.tlsa.hosts[].records[].errors[]"
-      ]
-    },
-    {
-      "id": "providers.dns.sentinel",
-      "owner": "providers",
-      "field": "detectDNSProvider() @-prefixed returns",
-      "closed": true,
-      "site": "js/dns.js:337-369",
-      "members": [
-        "@unknown",
-        "@self-hosted",
-        "@custom"
-      ],
-      "note": "Every other return is an OPEN provider label — a catalog name or cap(parts[idx]) derived from the nameserver hostname.",
-      "resultPaths": [
-        "dnsProvider"
-      ]
-    },
-    {
-      "id": "providers.email.sentinel",
-      "owner": "providers",
-      "field": "detectEmailProvider() @-prefixed returns",
-      "closed": true,
-      "site": "js/dns.js:377-401",
-      "members": [
-        "@null-mx",
-        "@implicit-mx",
-        "@none",
-        "@porkbun-forwarding",
-        "@self-hosted",
-        "@custom-unknown"
-      ],
-      "note": "@null-mx selects PARKED_WEIGHTS at js/dns.js:5279. @none/@null-mx/@porkbun-forwarding gate DKIM findings and suggestions.",
-      "resultPaths": [
-        "emailProvider"
-      ]
-    },
-    {
-      "id": "providers.hosting.sentinel",
-      "owner": "providers",
-      "field": "hosting value in the audit result",
-      "closed": true,
-      "members": [
-        "@dash",
-        "@cloudflare-proxied",
-        "@no-web",
-        "@custom",
-        "@cname-loop",
-        "@dns-error"
-      ],
-      "memberSites": {
-        "@dash": "js/dns.js:415 and js/dns.js:5474 (the default when opts.www is off)",
-        "@cloudflare-proxied": "js/dns.js:416",
-        "@no-web": "js/dns.js:419",
-        "@custom": "js/dns.js:420",
-        "@cname-loop": "js/dns.js:5481",
-        "@dns-error": "js/dns.js:5480"
-      },
-      "note": "@cname-loop and @dns-error are produced by analyzeDomain, NOT by detectHosting — a scan of detectHosting alone misses both.",
-      "resultPaths": [
-        "hosting"
-      ]
-    },
-    {
-      "id": "audit.grade",
-      "owner": "audit",
-      "field": "score.grade",
-      "closed": true,
-      "site": "js/dns.js:4494-4502",
-      "members": [
-        "A++",
-        "A+",
-        "A",
-        "B",
-        "C",
-        "D",
-        "F"
-      ],
-      "note": "A++/A+/A require dnssecSigned. gradeFor() falls through to F at js/dns.js:4578.",
-      "resultPaths": [
-        "score.grade"
-      ]
-    },
-    {
-      "id": "audit.gradeCls",
-      "owner": "audit",
-      "field": "score.cls",
-      "closed": true,
-      "site": "js/dns.js:4494-4502",
-      "members": [
-        "score-aplusplus",
-        "score-aplus",
-        "score-a",
-        "score-b",
-        "score-c",
-        "score-d",
-        "score-f"
-      ],
-      "resultPaths": [
-        "score.cls"
-      ]
-    },
-    {
-      "id": "audit.pillar",
-      "owner": "audit",
-      "field": "score.breakdown.pillars[].key — active-mail rubric",
-      "closed": true,
-      "site": "js/dns.js:5322-5331",
-      "members": [
-        "dmarc",
-        "spf",
-        "dkim",
-        "dnssec",
-        "caa",
-        "mtaSts",
-        "bimi",
-        "tlsRpt"
-      ],
-      "note": "Order is asserted as-is: the pillars array is semantically ordered and canonicalization preserves array order.",
-      "resultPaths": [
-        "score.breakdown.pillars[].key"
-      ]
-    },
-    {
-      "id": "audit.parkedPillar",
-      "owner": "audit",
-      "field": "score.breakdown.pillars[].key — parked rubric",
-      "closed": true,
-      "site": "js/dns.js:5294-5299",
-      "members": [
-        "spf",
-        "dmarc",
-        "dnssec",
-        "caa"
-      ],
-      "note": "Selected by emailProvider === '@null-mx'. score.parked distinguishes the two rubrics.",
-      "resultPaths": [
-        "score.breakdown.pillars[].key"
-      ]
-    },
-    {
-      "id": "audit.unproven",
-      "owner": "audit",
-      "field": "score.unproven[]",
-      "closed": true,
-      "site": "js/dns.js:5252-5266",
-      "members": [
-        "dmarc",
-        "dkim",
-        "dnssec",
-        "caa",
-        "mtaSts",
-        "bimi",
-        "tlsRpt"
-      ],
-      "note": "SPF is deliberately absent — an unknown lookup count does not zero the SPF pillar. On the parked rubric the list is filtered to parked pillar keys at js/dns.js:5305.",
-      "resultPaths": [
-        "score.unproven[]"
-      ]
-    },
-    {
-      "id": "audit.issue.sev",
-      "owner": "audit",
-      "field": "issues[].sev",
-      "closed": true,
-      "site": "js/dns.js:4607-5194",
-      "members": [
-        "crit",
-        "warn",
-        "info"
-      ],
-      "resultPaths": [
-        "issues[].sev"
-      ]
-    },
-    {
-      "id": "audit.suggestion.guide",
-      "owner": "audit",
-      "field": "suggestions[].guide",
-      "closed": true,
-      "site": "js/dns.js:5206-5238",
-      "members": [
-        "dmarc-rfc9989",
-        "bimi",
-        "mta-sts",
-        "tls-rpt",
-        "caa",
-        "dnssec"
-      ],
-      "resultPaths": [
-        "suggestions[].guide"
-      ]
-    },
-    {
-      "id": "audit.suggestion.key",
-      "owner": "audit",
-      "field": "suggestions[].key",
-      "closed": true,
-      "site": "js/dns.js:5206-5238",
-      "members": [
-        "dmarc-pct-obsolete",
-        "bimiEligible",
-        "bimiPrereq",
-        "mta-sts",
-        "tls-rpt",
-        "caa",
-        "dnssec"
-      ],
-      "note": "Rendered through locale key suggestion.<key>. All seven exist in locales/en.json.",
-      "resultPaths": [
-        "suggestions[].key"
-      ]
-    },
-    {
-      "id": "audit.issue.key",
-      "owner": "audit",
-      "field": "issues[].key",
-      "closed": true,
-      "site": "js/dns.js:4607-5194",
-      "members": [
-        "bimi-invalid",
-        "bimi-multiple-records",
-        "caa-blocks-all-issuance",
-        "caa-malformed",
-        "caa-no-iodef",
-        "caa-single-issuer",
-        "caa-unknown-critical-tag",
-        "checks-unverified",
-        "dkim-key-1024",
-        "dkim-key-malformed",
-        "dkim-key-mixed",
-        "dkim-key-not-email",
-        "dkim-key-revoked",
-        "dkim-key-sha1",
-        "dkim-key-testing",
-        "dkim-key-unparseable",
-        "dkim-key-weak",
-        "dkim-missing",
-        "dkim-multiple-records",
-        "dkim-not-checked",
-        "dkim-unverified",
-        "dmarc-at-apex",
-        "dmarc-at-apex-ignored",
-        "dmarc-bad-adkim",
-        "dmarc-bad-aspf",
-        "dmarc-bad-fo",
-        "dmarc-bad-np",
-        "dmarc-bad-pct",
-        "dmarc-bad-psd",
-        "dmarc-bad-sp",
-        "dmarc-bad-t",
-        "dmarc-duplicate-tags",
-        "dmarc-external-override-mismatch",
-        "dmarc-external-reporting",
-        "dmarc-external-unauthorized",
-        "dmarc-external-unverifiable",
-        "dmarc-fo-without-ruf",
-        "dmarc-invalid-policy",
-        "dmarc-missing",
-        "dmarc-multiple-records",
-        "dmarc-multiple-records-inherited",
-        "dmarc-no-rua",
-        "dmarc-none",
-        "dmarc-np-not-applied",
-        "dmarc-partial-pct",
-        "dmarc-quarantine",
-        "dmarc-removed-tags",
-        "dmarc-report-destinations-truncated",
-        "dmarc-rua-invalid",
-        "dmarc-ruf-invalid",
-        "dmarc-test-mode",
-        "dmarc-unknown-tags",
-        "dmarc-unverified",
-        "dmarc-version-bad-value",
-        "dmarc-version-missing",
-        "dmarc-version-not-first",
-        "dmarc-weak-np",
-        "dmarc-weak-sp",
-        "dns-loop",
-        "dnssec-bogus",
-        "dnssec-deprecated-algorithm",
-        "dnssec-deprecated-digest",
-        "dnssec-ds-orphan",
-        "dnssec-indeterminate",
-        "dnssec-key-algorithm-ineligible",
-        "dnssec-key-malformed",
-        "dnssec-key-not-zone-key",
-        "dnssec-mismatch",
-        "dnssec-revoke-flag",
-        "dnssec-unanchored",
-        "implicit-mx",
-        "mta-sts-invalid",
-        "mta-sts-multiple-records",
-        "mta-sts-policy-unverified",
-        "mx-cname-target",
-        "mx-dangling",
-        "mx-duplicate-preference",
-        "mx-no-ipv6",
-        "mx-same-prefix",
-        "mx-single-host",
-        "no-mx",
-        "porkbun-forward",
-        "spf-all-permit",
-        "spf-cycle",
-        "spf-indeterminate",
-        "spf-large-subnet",
-        "spf-medium-subnet",
-        "spf-missing",
-        "spf-missing-google",
-        "spf-missing-icloud",
-        "spf-missing-microsoft",
-        "spf-multiple-records",
-        "spf-near-limit",
-        "spf-neutral",
-        "spf-over-limit",
-        "spf-partial-coverage",
-        "spf-redundant-mechanism",
-        "spf-redundant-mechanism-nocount",
-        "spf-softfail",
-        "tls-rpt-invalid",
-        "tls-rpt-multiple-records",
-        "tlsa-malformed",
-        "tlsa-partial-coverage",
-        "tlsa-published-unsigned",
-        "wildcard-txt-apex",
-        "wildcard-txt-dkim"
-      ],
-      "note": "106 tokens. Three — dnssec-key-algorithm-ineligible, dnssec-key-not-zone-key, dnssec-key-malformed — are emitted through the computed pushKeyFinding(key, ...) helper at js/dns.js:5155 and are invisible to a `key: '...'` literal scan. Three more — dmarc-version-not-first, dmarc-version-bad-value, dmarc-version-missing — arrive through the DIAGNOSIS_KEYS map at js/dns.js:4702. Seven more are forwarded from spf.warnings at js/dns.js:4637 and two more chosen by ternary at js/dns.js:4648. This set is exactly the key set of `issue` in locales/en.json, which is the independent check on it.",
-      "resultPaths": [
-        "issues[].key"
-      ]
-    },
-    {
-      "id": "audit.finding.id",
-      "owner": "audit",
-      "field": "findings[].id",
-      "closed": true,
-      "site": "src/audit/findings.js",
-      "members": [
-        "bimi.invalid",
-        "bimi.multiple-records",
-        "bimi.without-authority",
-        "bimi.without-enforcement",
-        "caa.blocks-all-issuance",
-        "caa.malformed",
-        "caa.no-iodef",
-        "caa.single-issuer",
-        "caa.unknown-critical-tag",
-        "dane.malformed",
-        "dane.partial-coverage",
-        "dane.published-unsigned",
-        "defensive.contradictory",
-        "dkim.key-1024",
-        "dkim.key-malformed",
-        "dkim.key-not-email",
-        "dkim.key-revoked",
-        "dkim.key-sha1",
-        "dkim.key-testing",
-        "dkim.key-unparseable",
-        "dkim.key-weak",
-        "dkim.mixed-key-strength",
-        "dkim.multiple-records",
-        "dkim.none-found",
-        "dkim.not-checked",
-        "dkim.weak-with-enforcement",
-        "dmarc.at-apex",
-        "dmarc.at-apex-ignored",
-        "dmarc.bad-adkim",
-        "dmarc.bad-aspf",
-        "dmarc.bad-fo",
-        "dmarc.bad-np",
-        "dmarc.bad-pct",
-        "dmarc.bad-psd",
-        "dmarc.bad-sp",
-        "dmarc.bad-t",
-        "dmarc.duplicate-tags",
-        "dmarc.enforcement-without-auth",
-        "dmarc.external-override-mismatch",
-        "dmarc.external-report-unauthorized",
-        "dmarc.external-reporting",
-        "dmarc.external-unverifiable",
-        "dmarc.fo-without-ruf",
-        "dmarc.invalid-policy",
-        "dmarc.missing",
-        "dmarc.multiple-inherited",
-        "dmarc.multiple-records",
-        "dmarc.no-rua",
-        "dmarc.np-not-applied",
-        "dmarc.partial-pct",
-        "dmarc.policy-none",
-        "dmarc.quarantine",
-        "dmarc.removed-tags",
-        "dmarc.report-truncated",
-        "dmarc.rua-invalid",
-        "dmarc.ruf-invalid",
-        "dmarc.test-mode",
-        "dmarc.unknown-tags",
-        "dmarc.unverified",
-        "dmarc.version-bad-value",
-        "dmarc.version-missing",
-        "dmarc.version-not-first",
-        "dmarc.weak-np",
-        "dmarc.weak-sp",
-        "dns.checks-unverified",
-        "dns.hosting-loop",
-        "dns.wildcard-apex",
-        "dns.wildcard-dkim",
-        "dnssec.bogus",
-        "dnssec.deprecated-algorithm",
-        "dnssec.deprecated-digest",
-        "dnssec.ds-orphan",
-        "dnssec.indeterminate",
-        "dnssec.key-algorithm-ineligible",
-        "dnssec.key-malformed",
-        "dnssec.key-not-zone-key",
-        "dnssec.mismatch",
-        "dnssec.revoke-flag",
-        "dnssec.unanchored",
-        "mta-sts.invalid",
-        "mta-sts.multiple-records",
-        "mta-sts.policy-unverified",
-        "mta-sts.without-tls-rpt",
-        "mx.cname-target",
-        "mx.dangling",
-        "mx.dangling-with-enforcement",
-        "mx.duplicate-preference",
-        "mx.implicit",
-        "mx.no-ipv6",
-        "mx.none",
-        "mx.porkbun-forwarding",
-        "mx.same-prefix",
-        "mx.single-host",
-        "reporting.blind",
-        "spf.all-permit",
-        "spf.cycle",
-        "spf.indeterminate",
-        "spf.large-subnet",
-        "spf.medium-subnet",
-        "spf.missing",
-        "spf.missing-google",
-        "spf.missing-icloud",
-        "spf.missing-microsoft",
-        "spf.multiple-records",
-        "spf.near-limit",
-        "spf.neutral",
-        "spf.over-limit",
-        "spf.partial-coverage",
-        "spf.redundant-mechanism",
-        "spf.redundant-mechanism-nocount",
-        "spf.redundant-with-enforcement",
-        "spf.softfail",
-        "tls-rpt.invalid",
-        "tls-rpt.multiple-records",
-        "tls-rpt.without-transport-policy"
-      ],
-      "resultPaths": [
-        "findings[].id"
-      ],
-      "note": "115 distinct finding ids: 105 migrated (dkim.none-found shared by dkim-missing/dkim-unverified) plus 10 cross-protocol. Cross-protocol ids fire only on synthetic contexts, so corpus coverage is partial; findings.test.js covers the whole set as a closure and pins these members against FINDING_META + CROSS_PROTOCOL_RULES."
-    },
-    {
-      "id": "audit.finding.severity",
-      "owner": "audit",
-      "field": "findings[].severity",
-      "closed": true,
-      "site": "src/audit/findings.js",
-      "members": [
-        "critical",
-        "high",
-        "medium",
-        "low",
-        "info"
-      ],
-      "resultPaths": [
-        "findings[].severity"
-      ]
-    },
-    {
-      "id": "audit.finding.confidence",
-      "owner": "audit",
-      "field": "findings[].confidence",
-      "closed": true,
-      "site": "src/audit/findings.js",
-      "members": [
-        "confirmed",
-        "probable",
-        "unverified"
-      ],
-      "resultPaths": [
-        "findings[].confidence"
-      ]
-    },
-    {
-      "id": "audit.finding.category",
-      "owner": "audit",
-      "field": "findings[].category",
-      "closed": true,
-      "site": "src/audit/findings.js",
-      "members": [
-        "authentication",
-        "policy",
-        "reporting",
-        "transport",
-        "issuance",
-        "resilience",
-        "hygiene"
-      ],
-      "resultPaths": [
-        "findings[].category"
-      ]
-    },
-    {
-      "id": "audit.finding.effort",
-      "owner": "audit",
-      "field": "findings[].effort",
-      "closed": true,
-      "site": "src/audit/findings.js",
-      "members": [
-        "trivial",
-        "moderate",
-        "involved"
-      ],
-      "resultPaths": [
-        "findings[].effort"
-      ]
-    },
-    {
-      "id": "audit.finding.protocol",
-      "owner": "audit",
-      "field": "findings[].protocol",
-      "closed": true,
-      "site": "src/audit/findings.js",
-      "members": [
-        "spf",
-        "dkim",
-        "dmarc",
-        "dnssec",
-        "caa",
-        "mta-sts",
-        "tls-rpt",
-        "bimi",
-        "mx",
-        "dane",
-        "dns",
-        "defensive",
-        "reporting"
-      ],
-      "resultPaths": [
-        "findings[].protocol"
-      ]
-    },
-    {
-      "id": "audit.finding.keyspace",
-      "owner": "audit",
-      "field": "findings[].keyspace",
-      "closed": true,
-      "site": "src/audit/findings.js",
-      "members": [
-        "issue",
-        "finding"
-      ],
-      "resultPaths": [
-        "findings[].keyspace"
-      ]
-    },
-    {
-      "id": "audit.remediation.rationale",
-      "owner": "audit",
-      "field": "remediationPlan[].rationale",
-      "closed": true,
-      "site": "src/audit/findings.js",
-      "members": [
-        "foundation",
-        "afterPrereq",
-        "cleanup"
-      ],
-      "resultPaths": [
-        "remediationPlan[].rationale"
-      ]
-    },
-    {
-      "id": "audit.finding.key",
-      "owner": "audit",
-      "field": "findings[].key",
-      "closed": true,
-      "site": "src/audit/findings.js",
-      "members": [
-        "bimi-invalid",
-        "bimi-multiple-records",
-        "bimi-without-authority",
-        "bimi-without-enforcement",
-        "caa-blocks-all-issuance",
-        "caa-malformed",
-        "caa-no-iodef",
-        "caa-single-issuer",
-        "caa-unknown-critical-tag",
-        "checks-unverified",
-        "defensive-contradictory",
-        "dkim-key-1024",
-        "dkim-key-malformed",
-        "dkim-key-mixed",
-        "dkim-key-not-email",
-        "dkim-key-revoked",
-        "dkim-key-sha1",
-        "dkim-key-testing",
-        "dkim-key-unparseable",
-        "dkim-key-weak",
-        "dkim-missing",
-        "dkim-multiple-records",
-        "dkim-not-checked",
-        "dkim-unverified",
-        "dkim-weak-with-enforcement",
-        "dmarc-at-apex",
-        "dmarc-at-apex-ignored",
-        "dmarc-bad-adkim",
-        "dmarc-bad-aspf",
-        "dmarc-bad-fo",
-        "dmarc-bad-np",
-        "dmarc-bad-pct",
-        "dmarc-bad-psd",
-        "dmarc-bad-sp",
-        "dmarc-bad-t",
-        "dmarc-duplicate-tags",
-        "dmarc-enforcement-without-auth",
-        "dmarc-external-override-mismatch",
-        "dmarc-external-reporting",
-        "dmarc-external-unauthorized",
-        "dmarc-external-unverifiable",
-        "dmarc-fo-without-ruf",
-        "dmarc-invalid-policy",
-        "dmarc-missing",
-        "dmarc-multiple-records",
-        "dmarc-multiple-records-inherited",
-        "dmarc-no-rua",
-        "dmarc-none",
-        "dmarc-np-not-applied",
-        "dmarc-partial-pct",
-        "dmarc-quarantine",
-        "dmarc-removed-tags",
-        "dmarc-report-destinations-truncated",
-        "dmarc-rua-invalid",
-        "dmarc-ruf-invalid",
-        "dmarc-test-mode",
-        "dmarc-unknown-tags",
-        "dmarc-unverified",
-        "dmarc-version-bad-value",
-        "dmarc-version-missing",
-        "dmarc-version-not-first",
-        "dmarc-weak-np",
-        "dmarc-weak-sp",
-        "dns-loop",
-        "dnssec-bogus",
-        "dnssec-deprecated-algorithm",
-        "dnssec-deprecated-digest",
-        "dnssec-ds-orphan",
-        "dnssec-indeterminate",
-        "dnssec-key-algorithm-ineligible",
-        "dnssec-key-malformed",
-        "dnssec-key-not-zone-key",
-        "dnssec-mismatch",
-        "dnssec-revoke-flag",
-        "dnssec-unanchored",
-        "implicit-mx",
-        "mta-sts-invalid",
-        "mta-sts-multiple-records",
-        "mta-sts-policy-unverified",
-        "mta-sts-without-tls-rpt",
-        "mx-cname-target",
-        "mx-dangling",
-        "mx-dangling-with-enforcement",
-        "mx-duplicate-preference",
-        "mx-no-ipv6",
-        "mx-same-prefix",
-        "mx-single-host",
-        "no-mx",
-        "porkbun-forward",
-        "reporting-blind",
-        "spf-all-permit",
-        "spf-cycle",
-        "spf-indeterminate",
-        "spf-large-subnet",
-        "spf-medium-subnet",
-        "spf-missing",
-        "spf-missing-google",
-        "spf-missing-icloud",
-        "spf-missing-microsoft",
-        "spf-multiple-records",
-        "spf-near-limit",
-        "spf-neutral",
-        "spf-over-limit",
-        "spf-partial-coverage",
-        "spf-redundant-mechanism",
-        "spf-redundant-mechanism-nocount",
-        "spf-redundant-with-enforcement",
-        "spf-softfail",
-        "tls-rpt-invalid",
-        "tls-rpt-multiple-records",
-        "tls-rpt-without-transport-policy",
-        "tlsa-malformed",
-        "tlsa-partial-coverage",
-        "tlsa-published-unsigned",
-        "wildcard-txt-apex",
-        "wildcard-txt-dkim"
-      ],
-      "resultPaths": [
-        "findings[].key"
-      ],
-      "note": "116 locale-key slugs: the 106 migrated issue keys plus the 10 cross-protocol finding keys. Closed exactly as audit.issue.key and audit.suggestion.key are; keyspace says which namespace resolves it."
-    },
-    {
-      "id": "audit.finding.evidence.kind",
-      "owner": "audit",
-      "field": "findings[].evidence[].kind",
-      "closed": true,
-      "site": "src/audit/findings.js",
-      "members": [
-        "txt",
-        "absent",
-        "selector",
-        "host",
-        "mx",
-        "address",
-        "cname",
-        "caa",
-        "dnssec",
-        "tlsa",
-        "mechanism",
-        "info"
-      ],
-      "resultPaths": [
-        "findings[].evidence[].kind"
-      ],
-      "note": "Closed by construction: every evidence entry is built by the two local helpers in findings.js. `absent` is the honest form of an absence and carries an empty value by design; `info` carries a finding’s own protocol-token arguments. All others are published DNS material."
+ "$comment": [
+  "Reviewed pre-refactor state and result-shape registry. Spec §12.1, Task 0.6.",
+  "Derived by READING js/dns.js and js/app.js at v0.5.0, not by static extraction.",
+  "A static literal scan found 103 issue tokens; three more are emitted through a",
+  "computed pushKeyFinding(key, ...) call at js/dns.js:5155. That gap is why this",
+  "file is hand-reviewed and why the spec forbids representing an extractor as a proof.",
+  "Every member carries the site where it is constructed. `closed:false` means the",
+  "vocabulary is open by construction and the listed members are the sentinels or",
+  "representative values that must still be covered.",
+  "`resultPaths` says where an algebra's members appear in an analyzeDomain() result, so corpus coverage is EXTRACTED from real runs rather than assigned by hand. An empty list means the algebra is not observable in the result and is covered by a suite.",
+  "§6 decision, 2026-08-27: dkim.key.cryptoValidated:false and dkim.key.errors:key-structure-invalid are covered through an explicit, deterministic platform profile rather than by native Node Web Crypto, which cannot produce them. See the note on dkim.key.cryptoValidated.",
+  "A shape's `fixtures` is REVIEWED, not measured: a shape is a set of axes and an axis is not a value a path reader can observe. The enum matrix is measured; these are named by hand and the contract checks the case exists."
+ ],
+ "version": 1,
+ "baseline": "v0.5.0",
+ "sources": [
+  "js/dns.js",
+  "js/app.js"
+ ],
+ "algebras": [
+  {
+   "id": "dns.transport.kind",
+   "owner": "core/dns",
+   "field": "dohFetch() result.kind",
+   "closed": true,
+   "members": [
+    "success",
+    "nodata",
+    "nxdomain",
+    "servfail",
+    "refused",
+    "dns-error",
+    "http-error",
+    "cancelled",
+    "timeout",
+    "network-error"
+   ],
+   "memberSites": {
+    "success": "js/dns.js:163",
+    "nodata": "js/dns.js:163",
+    "nxdomain": "js/dns.js:164",
+    "servfail": "js/dns.js:165",
+    "refused": "js/dns.js:166",
+    "dns-error": "js/dns.js:167",
+    "http-error": "js/dns.js:189",
+    "cancelled": "js/dns.js:195",
+    "timeout": "js/dns.js:196",
+    "network-error": "js/dns.js:196"
+   },
+   "note": "Closed and byte-compatible with v0.5.0. DnsTypeError is thrown at js/dns.js:121 and is NOT a kind. resultPaths was EMPTY until spec 1.6, which asserted the algebra is not observable in an audit result; it is, on the eleven typed paths listed, derived from result construction and then checked against the baseline. The DMARC walk kind copied into the dmarc-unverified issue arguments is a DERIVED PRESENTATION MIRROR and is deliberately absent: a bare issues[].args[] pattern would let an unrelated argument equal to a kind earn transport coverage. The thrown audit error.kind is a thrown path under spec 12.1, not a result path.",
+   "resultPaths": [
+    "dmarcDiscovery.steps[].kind",
+    "dmarcDiscovery.error",
+    "advanced.dnssec.lookups.ns.kind",
+    "advanced.dnssec.lookups.ds.kind",
+    "advanced.dnssec.lookups.dnskey.kind",
+    "advanced.dnssec.chain[].detail.kind",
+    "advanced.dnssec.error",
+    "advanced.reportAuth[].error",
+    "advanced.reportAuth[].exactKind",
+    "advanced.caa.error",
+    "advanced.spfLookups.queryError"
+   ]
+  },
+  {
+   "id": "dns.retryTerminal",
+   "owner": "core/dns",
+   "field": "dohFetch() retry loop break set",
+   "closed": true,
+   "site": "js/dns.js:216",
+   "members": [
+    "success",
+    "nodata",
+    "nxdomain",
+    "cancelled"
+   ],
+   "note": "Superset of dns.cacheable. `cancelled` is terminal and never cached.",
+   "resultPaths": []
+  },
+  {
+   "id": "dns.cacheable",
+   "owner": "core/dns",
+   "field": "dohCacheSet() admission set",
+   "closed": true,
+   "site": "js/dns.js:219",
+   "members": [
+    "success",
+    "nodata",
+    "nxdomain"
+   ],
+   "note": "Cacheable is a strict subset of retry-terminal. A transport failure is never remembered as an answer.",
+   "resultPaths": []
+  },
+  {
+   "id": "dns.usable",
+   "owner": "core/dns",
+   "field": "requireUsable() pass set",
+   "closed": true,
+   "site": "js/dns.js:256",
+   "members": [
+    "success",
+    "nodata",
+    "nxdomain"
+   ],
+   "note": "The other seven kinds throw dnsError(kind, name, type).",
+   "resultPaths": []
+  },
+  {
+   "id": "dns.thrown",
+   "owner": "core/dns",
+   "field": "error.name on thrown paths",
+   "closed": true,
+   "members": [
+    "DnsTypeError",
+    "AbortError",
+    "DnsQueryError"
+   ],
+   "memberSites": {
+    "DnsTypeError": "js/dns.js:121",
+    "AbortError": "js/dns.js:129 (dnsError with kind 'cancelled')",
+    "DnsQueryError": "js/dns.js:129 (dnsError with any other kind)"
+   },
+   "note": "Thrown, never returned. dnsError() renames the 'cancelled' kind to AbortError so optionalCheck() re-throws it.",
+   "resultPaths": []
+  },
+  {
+   "id": "dns.optionalCheck.rethrow",
+   "owner": "core/dns",
+   "field": "optionalCheck() re-thrown error names",
+   "closed": true,
+   "site": "js/dns.js:250",
+   "members": [
+    "AbortError",
+    "DnsTypeError"
+   ],
+   "note": "Everything else degrades to the caller's declared unknown.",
+   "resultPaths": []
+  },
+  {
+   "id": "dns.existence",
+   "owner": "core/dns",
+   "field": "domainExists() / existenceFromResponse()",
+   "closed": true,
+   "site": "js/dns.js:2201-2206",
+   "members": [
+    "yes",
+    "no",
+    "unknown"
+   ],
+   "note": "nxdomain -> 'no'; success/nodata -> 'yes'; every other kind -> 'unknown'. Never 'no' from a transient failure.",
+   "resultPaths": [
+    "dmarcExistence",
+    "advanced.mxHealth.hosts[].resolves"
+   ]
+  },
+  {
+   "id": "spf.status",
+   "owner": "core/spf",
+   "field": "analyzeSpf().status",
+   "closed": true,
+   "site": "js/dns.js:434-446",
+   "members": [
+    "permerror",
+    "missing",
+    "warn",
+    "ok",
+    "softfail",
+    "present"
+   ],
+   "resultPaths": [
+    "spfStatus.status"
+   ]
+  },
+  {
+   "id": "spf.cls",
+   "owner": "core/spf",
+   "field": "analyzeSpf().cls",
+   "closed": true,
+   "site": "js/dns.js:434-446",
+   "members": [
+    "crit",
+    "warn",
+    "ok"
+   ],
+   "resultPaths": [
+    "spfStatus.cls"
+   ]
+  },
+  {
+   "id": "spf.warnings",
+   "owner": "core/spf",
+   "field": "analyzeSpf().warnings[] tokens",
+   "closed": true,
+   "site": "js/dns.js:434-445",
+   "members": [
+    "spf-multiple-records",
+    "spf-missing-google",
+    "spf-missing-icloud",
+    "spf-missing-microsoft",
+    "spf-all-permit",
+    "spf-neutral",
+    "spf-softfail"
+   ],
+   "note": "Forwarded verbatim into issue keys by buildIssues (js/dns.js:4637).",
+   "resultPaths": [
+    "spfStatus.warnings[]"
+   ]
+  },
+  {
+   "id": "spf.subnet.severity",
+   "owner": "core/spf",
+   "field": "classifySpfSubnet() / finding.severity",
+   "closed": true,
+   "site": "js/dns.js:4315-4325",
+   "members": [
+    "LOW",
+    "MEDIUM",
+    "HIGH"
+   ],
+   "resultPaths": [
+    "advanced.spfSubnets.subnets[].severity",
+    "advanced.spfSubnets.redundancy[].severity"
+   ]
+  },
+  {
+   "id": "spf.finding.type",
+   "owner": "core/spf",
+   "field": "subnet/redundancy finding.type",
+   "closed": true,
+   "members": [
+    "SPF_LARGE_SUBNET",
+    "SPF_REDUNDANCY"
+   ],
+   "memberSites": {
+    "SPF_LARGE_SUBNET": "js/dns.js:4361",
+    "SPF_REDUNDANCY": "js/dns.js:4448"
+   },
+   "note": "Not enumerated in spec §12.1; found by reading. SPF_REDUNDANCY severity is always LOW.",
+   "resultPaths": [
+    "advanced.spfSubnets.subnets[].type",
+    "advanced.spfSubnets.redundancy[].type"
+   ]
+  },
+  {
+   "id": "ip.family",
+   "owner": "core/shared",
+   "field": "address family discriminant",
+   "closed": true,
+   "site": "js/dns.js:4351, js/dns.js:2571",
+   "members": [
+    "ipv4",
+    "ipv6"
+   ],
+   "note": "Shared by SPF subnet classification and MX prefix grouping.",
+   "resultPaths": [
+    "advanced.spfSubnets.subnets[].family"
+   ]
+  },
+  {
+   "id": "dkim.confidence",
+   "owner": "core/dkim",
+   "field": "checkDKIM().confidence",
+   "closed": true,
+   "site": "js/dns.js:1250-1253, js/dns.js:5470",
+   "members": [
+    "not-checked",
+    "sampled",
+    "observed"
+   ],
+   "note": "'not-checked' is set by analyzeDomain's default status when opts.dkim is off or mail is impossible.",
+   "resultPaths": [
+    "dkimStatus.confidence"
+   ]
+  },
+  {
+   "id": "dkim.scanMode",
+   "owner": "core/dkim",
+   "field": "checkDKIM().scanMode",
+   "closed": false,
+   "site": "js/dns.js:1250-1253",
+   "members": [
+    "provider-aware",
+    "comprehensive"
+   ],
+   "note": "ABSENT when DKIM is not checked — the default dkimStatus at js/dns.js:5470 has no scanMode property at all. Absence is a distinct third state and is compared as absence, not as undefined.",
+   "resultPaths": [
+    "dkimStatus.scanMode"
+   ]
+  },
+  {
+   "id": "dkim.selector.type",
+   "owner": "core/dkim",
+   "field": "checkDKIM().selectors[].type",
+   "closed": true,
+   "site": "js/dns.js:1228",
+   "members": [
+    "key",
+    "cname"
+   ],
+   "resultPaths": [
+    "dkimStatus.selectors[].type"
+   ]
+  },
+  {
+   "id": "dkim.note",
+   "owner": "core/dkim",
+   "field": "checkDKIM().note",
+   "closed": true,
+   "site": "js/dns.js:1250-1253, js/dns.js:5470",
+   "members": [
+    "",
+    "noteWildcard",
+    "noteNotFoundWithErrors",
+    "noteNotFound"
+   ],
+   "note": "Not enumerated in spec §12.1; found by reading. Empty string when a key was found.",
+   "resultPaths": [
+    "dkimStatus.note"
+   ]
+  },
+  {
+   "id": "dkim.key.keyType",
+   "owner": "core/dkim",
+   "field": "analyzeDkimKey().keyType",
+   "closed": true,
+   "site": "js/dns.js:916-922",
+   "members": [
+    "rsa",
+    "ed25519",
+    "unknown"
+   ],
+   "note": "Defaults to 'rsa' when k= is absent (RFC 6376 §3.6.1).",
+   "resultPaths": [
+    "dkimStatus.selectors[].key.keyType",
+    "dkimStatus.revokedSelectors[].key.keyType",
+    "dkimStatus.unusableSelectors[].key.keyType",
+    "dkimStatus.malformedSelectors[].key.keyType"
+   ]
+  },
+  {
+   "id": "dkim.key.keyEncoding",
+   "owner": "core/dkim",
+   "field": "analyzeDkimKey().keyEncoding",
+   "closed": true,
+   "site": "js/dns.js:868, js/dns.js:886, js/dns.js:938",
+   "members": [
+    "null",
+    "pkcs1",
+    "spki"
+   ],
+   "note": "null means no RSA envelope was read — absent p=, revoked, ed25519, or unparseable.",
+   "resultPaths": [
+    "dkimStatus.selectors[].key.keyEncoding",
+    "dkimStatus.unusableSelectors[].key.keyEncoding",
+    "dkimStatus.revokedSelectors[].key.keyEncoding",
+    "dkimStatus.malformedSelectors[].key.keyEncoding"
+   ]
+  },
+  {
+   "id": "dkim.key.version",
+   "owner": "core/dkim",
+   "field": "analyzeDkimKey().version",
+   "closed": true,
+   "site": "js/dns.js:903-908",
+   "members": [
+    "null",
+    "DKIM1"
+   ],
+   "resultPaths": [
+    "dkimStatus.selectors[].key.version",
+    "dkimStatus.unusableSelectors[].key.version",
+    "dkimStatus.revokedSelectors[].key.version",
+    "dkimStatus.malformedSelectors[].key.version"
+   ]
+  },
+  {
+   "id": "dkim.key.cryptoValidated",
+   "owner": "core/dkim",
+   "field": "analyzeDkimKey().cryptoValidated",
+   "closed": true,
+   "site": "js/dns.js:1013, js/dns.js:1066, js/dns.js:1069",
+   "members": [
+    "null",
+    "true",
+    "false"
+   ],
+   "note": "null is 'not attempted' and is the only value analyzeDkimKey() itself ever sets. false never on its own makes a key invalid, but it does push key-structure-invalid and set valid=false at js/dns.js:1070. PLATFORM-DEPENDENT, and recorded as a §6 decision of 2026-08-27. `false` is set only when the injected crypto.subtle.importKey REJECTS a key derReadRsaPublicKey() (js/dns.js:801) has already accepted: odd modulus, odd exponent >= 3 and strictly below it, minimally encoded, no trailing content. Native Node Web Crypto cannot currently produce that state — measured on v26.7.0, every probe inside that window imported successfully (16-bit through 2048-bit moduli, e=3 and e=65537), and the keys Node might refuse (e=1, even exponent, even modulus) are rejected by the DER walk first and never reach the import. A stricter browser does reject keys in this window, which is why the production branch exists. Coverage therefore DEPENDS ON the explicit `crypto-import-rejects` platform profile (tests/lib/platform.mjs), which is recorded in the equivalence manifest for every case, paired with a `crypto-import-accepts` control that isolates the refusal. This is NOT native-Node corpus coverage and must not be described as such. Nothing is fabricated: production code constructs the state when the injected importKey rejects, and no result object is assembled by hand anywhere. Because the state is operator-visible, spec §12.1's equivalence-fixture requirement is met by corpus cases dkim-crypto-import-rejects and dkim-crypto-import-accepts, with focused assertions in tests/contract/legacy-shapes.test.mjs §5b.",
+   "resultPaths": [
+    "dkimStatus.selectors[].key.cryptoValidated"
+   ]
+  },
+  {
+   "id": "dkim.key.errors",
+   "owner": "core/dkim",
+   "field": "analyzeDkimKey().errors[] tokens",
+   "closed": true,
+   "members": [
+    "invalid-tag-list",
+    "duplicate-tags",
+    "bad-version",
+    "version-not-first",
+    "invalid-key-type",
+    "missing-p",
+    "unparseable-key",
+    "bad-ed25519-length",
+    "invalid-notes",
+    "key-structure-invalid"
+   ],
+   "memberSites": {
+    "invalid-tag-list": "js/dns.js:551,562,566,569,574,577 and js/dns.js:962,977,985",
+    "duplicate-tags": "js/dns.js:578",
+    "bad-version": "js/dns.js:906",
+    "version-not-first": "js/dns.js:907",
+    "invalid-key-type": "js/dns.js:918",
+    "missing-p": "js/dns.js:932",
+    "unparseable-key": "js/dns.js:941, js/dns.js:951",
+    "bad-ed25519-length": "js/dns.js:947",
+    "invalid-notes": "js/dns.js:990",
+    "key-structure-invalid": "js/dns.js:1068"
+   },
+   "note": "Parser error-token array. Spec §12.1 requires these snapshotted separately from a generic status scan. `key-structure-invalid` is platform-dependent on the same terms as dkim.key.cryptoValidated — see that algebra's note for the §6 decision.",
+   "resultPaths": [
+    "dkimStatus.selectors[].key.errors[]",
+    "dkimStatus.unusableSelectors[].key.errors[]",
+    "dkimStatus.revokedSelectors[].key.errors[]",
+    "dkimStatus.malformedSelectors[].key.errors[]"
+   ]
+  },
+  {
+   "id": "dkim.key.restrictions",
+   "owner": "core/dkim",
+   "field": "analyzeDkimKey().restrictions[] tokens",
+   "closed": true,
+   "members": [
+    "unsupported-key-type",
+    "no-supported-hash",
+    "service-not-email"
+   ],
+   "memberSites": {
+    "unsupported-key-type": "js/dns.js:923",
+    "no-supported-hash": "js/dns.js:967",
+    "service-not-email": "js/dns.js:979"
+   },
+   "note": "Deliberately separate from errors: a restriction is a conformant record that does not apply to this domain's email. appliesToEmail = !revoked && restrictions.length === 0.",
+   "resultPaths": [
+    "dkimStatus.selectors[].key.restrictions[]",
+    "dkimStatus.unusableSelectors[].key.restrictions[]",
+    "dkimStatus.malformedSelectors[].key.restrictions[]"
+   ]
+  },
+  {
+   "id": "dmarc.status",
+   "owner": "core/dmarc",
+   "field": "analyzeDmarc().status / emptyDmarcStatus()",
+   "closed": true,
+   "members": [
+    "ok",
+    "warn",
+    "present",
+    "missing",
+    "unknown",
+    "permerror"
+   ],
+   "memberSites": {
+    "ok": "js/dns.js:1512",
+    "warn": "js/dns.js:1513",
+    "present": "js/dns.js:1511",
+    "missing": "js/dns.js:1405",
+    "unknown": "js/dns.js:5427 (emptyDmarcStatus('unknown'))",
+    "permerror": "js/dns.js:1404 — legacy direct call only; unreachable from analyzeDomain()"
+   },
+   "note": "applyInheritance() can re-derive ok/warn at js/dns.js:2245. `permerror` is unreachable through analyzeDomain(): the tree walk never passes `multiple`, because RFC 9989 §4.10 step 2 discards duplicates and continues. js/dns.js:1397 says so in its own comment. Asserted by direct call.",
+   "resultPaths": [
+    "dmarcStatus.status"
+   ]
+  },
+  {
+   "id": "dmarc.cls",
+   "owner": "core/dmarc",
+   "field": "dmarcStatus.cls",
+   "closed": true,
+   "site": "js/dns.js:1517, js/dns.js:1550",
+   "members": [
+    "ok",
+    "warn",
+    "crit"
+   ],
+   "note": "emptyDmarcStatus gives 'unknown' status a 'warn' class deliberately, so an unexamined control never wears the same red as an absent one.",
+   "resultPaths": [
+    "dmarcStatus.cls"
+   ]
+  },
+  {
+   "id": "dmarc.tagState",
+   "owner": "core/dmarc",
+   "field": "spState / npState",
+   "closed": true,
+   "site": "js/dns.js:1424-1426",
+   "members": [
+    "absent",
+    "valid",
+    "invalid"
+   ],
+   "resultPaths": [
+    "dmarcStatus.spState",
+    "dmarcStatus.npState"
+   ]
+  },
+  {
+   "id": "dmarc.alignmentState",
+   "owner": "core/dmarc",
+   "field": "adkimState / aspfState",
+   "closed": true,
+   "site": "js/dns.js:1478-1482",
+   "members": [
+    "absent",
+    "r",
+    "s",
+    "invalid"
+   ],
+   "resultPaths": [
+    "dmarcStatus.adkimState",
+    "dmarcStatus.aspfState"
+   ]
+  },
+  {
+   "id": "dmarc.alignment",
+   "owner": "core/dmarc",
+   "field": "adkim / aspf",
+   "closed": true,
+   "site": "js/dns.js:1487-1488",
+   "members": [
+    "r",
+    "s"
+   ],
+   "note": "Receiver behaviour: anything not 's' resolves to 'r'. The divergence is reported through adkimState/aspfState.",
+   "resultPaths": [
+    "dmarcStatus.adkim",
+    "dmarcStatus.aspf"
+   ]
+  },
+  {
+   "id": "dmarc.policy",
+   "owner": "core/dmarc",
+   "field": "policy / effectivePolicy / sp / np / effectiveSp / effectiveNp",
+   "closed": true,
+   "site": "js/dns.js:1319 (POLICY_RANK), js/dns.js:1329-1333",
+   "members": [
+    "none",
+    "quarantine",
+    "reject",
+    "null",
+    ""
+   ],
+   "note": "null for an absent sp/np; '' only from emptyDmarcStatus (js/dns.js:1546). testMode collapses effectivePolicy to 'none' at js/dns.js:1505.",
+   "resultPaths": [
+    "dmarcStatus.policy",
+    "dmarcStatus.effectivePolicy",
+    "dmarcStatus.sp",
+    "dmarcStatus.np",
+    "dmarcStatus.effectiveSp",
+    "dmarcStatus.effectiveNp"
+   ]
+  },
+  {
+   "id": "dmarc.version.reason",
+   "owner": "core/dmarc",
+   "field": "validateDmarcVersion().reason",
+   "closed": true,
+   "site": "js/dns.js:1343-1347",
+   "members": [
+    "null",
+    "absent",
+    "not-first",
+    "bad-value"
+   ],
+   "note": "null when valid. Distinct from dmarc.diagnosis and from dmarc.reportAuth.record.reason. `bad-value` is unreachable through analyzeDomain(): a record whose v= is not exactly DMARC1 fails isDmarcPolicyRecord() and is never collected, so analyzeDmarc receives '' and reports 'absent'. Asserted by direct call.",
+   "resultPaths": [
+    "dmarcStatus.version.reason"
+   ]
+  },
+  {
+   "id": "dmarc.diagnosis",
+   "owner": "core/dmarc",
+   "field": "diagnoseDmarcRecord() return",
+   "closed": true,
+   "site": "js/dns.js:1936-1956",
+   "members": [
+    "null",
+    "version-bad-case",
+    "version-not-first",
+    "version-absent"
+   ],
+   "note": "null means 'not a DMARC record at all' and produces no observation.",
+   "resultPaths": []
+  },
+  {
+   "id": "dmarc.walk.terminated",
+   "owner": "core/dmarc",
+   "field": "discoverDmarc().terminated",
+   "closed": true,
+   "site": "js/dns.js:1994, js/dns.js:2023, js/dns.js:2062-2063",
+   "members": [
+    "root",
+    "error",
+    "psd-y",
+    "psd-n"
+   ],
+   "note": "There is deliberately no 'query-limit' member — §4.10's shortcut makes exhaustion unreachable.",
+   "resultPaths": [
+    "dmarcDiscovery.terminated"
+   ]
+  },
+  {
+   "id": "dmarc.observation.why",
+   "owner": "core/dmarc",
+   "field": "discoverDmarc().observed[].why",
+   "closed": true,
+   "members": [
+    "at-apex-not-underscore",
+    "multiple-at-step",
+    "version-bad-case",
+    "version-not-first",
+    "version-absent"
+   ],
+   "memberSites": {
+    "at-apex-not-underscore": "js/dns.js:2000",
+    "multiple-at-step": "js/dns.js:2039",
+    "version-bad-case": "js/dns.js:1944,1951 via diagnoseDmarcRecord",
+    "version-not-first": "js/dns.js:1945 via diagnoseDmarcRecord",
+    "version-absent": "js/dns.js:1955 via diagnoseDmarcRecord"
+   },
+   "resultPaths": [
+    "dmarcDiscovery.observed[].why"
+   ]
+  },
+  {
+   "id": "dmarc.appliedBranch",
+   "owner": "core/dmarc",
+   "field": "applyInheritance() appliedBranch",
+   "closed": false,
+   "site": "js/dns.js:2247",
+   "members": [
+    "np",
+    "sp",
+    "weakest"
+   ],
+   "note": "ABSENT unless the applied record is inherited. Not enumerated in spec §12.1; found by reading. Chosen by dmarcExistence: 'no' -> np, 'yes' -> sp, 'unknown' -> weakest. `np` and `weakest` are UNREACHABLE through analyzeDomain(): an NXDOMAIN NS probe returns the unregistered shape at js/dns.js:5370 before any DMARC work happens, so existenceFromResponse() has already answered 'yes' by the time applyInheritance() runs. Both are asserted by direct call in legacy-shapes.test.mjs §5c.",
+   "resultPaths": [
+    "dmarcStatus.appliedBranch"
+   ]
+  },
+  {
+   "id": "dmarc.psd",
+   "owner": "core/dmarc",
+   "field": "dmarcStatus.psd and walk step psd",
+   "closed": false,
+   "site": "js/dns.js:1448-1449, js/dns.js:2054-2055",
+   "members": [
+    "u",
+    "y",
+    "n"
+   ],
+   "note": "OPEN by construction: psd is String(rawPsd || 'u').trim().toLowerCase(), so any tag value survives verbatim while psdValid records whether it is one of y/n/u. Only 'y' and 'n' terminate the walk.",
+   "resultPaths": [
+    "dmarcStatus.psd"
+   ]
+  },
+  {
+   "id": "dmarc.fo",
+   "owner": "core/dmarc",
+   "field": "dmarcStatus.fo",
+   "closed": false,
+   "site": "js/dns.js:1455-1459",
+   "members": [
+    "0",
+    "1",
+    "d",
+    "s"
+   ],
+   "note": "OPEN by construction: fo is the raw colon-separated value lowercased; foValid records conformance against DMARC_FO_VALUES (js/dns.js:1305).",
+   "resultPaths": [
+    "dmarcStatus.fo"
+   ]
+  },
+  {
+   "id": "dmarc.reportAuth.state",
+   "owner": "core/dmarc",
+   "field": "checkExternalReportAuth()[].state",
+   "closed": true,
+   "members": [
+    "authorized",
+    "unauthorized",
+    "unverifiable",
+    "override-mismatch"
+   ],
+   "memberSites": {
+    "authorized": "js/dns.js:1834",
+    "unauthorized": "js/dns.js:1848",
+    "unverifiable": "js/dns.js:1776 (name too long) and js/dns.js:1854 (caught failure)",
+    "override-mismatch": "js/dns.js:1834"
+   },
+   "resultPaths": [
+    "advanced.reportAuth[].state"
+   ]
+  },
+  {
+   "id": "dmarc.reportAuth.exactKind",
+   "owner": "core/dmarc",
+   "field": "checkExternalReportAuth()[].exactKind",
+   "closed": true,
+   "members": [
+    "success",
+    "nodata",
+    "nxdomain"
+   ],
+   "memberSites": {
+    "success": "js/dns.js:1667 (authorized/override-mismatch) and js/dns.js:1679 (unauthorized)",
+    "nodata": "js/dns.js:1679 — a destination publishing no TXT at the exact name",
+    "nxdomain": "js/dns.js:1679 — the inline usability gate accepts nxdomain, so an absent name reaches the unauthorized branch carrying its kind"
+   },
+   "note": "ADDED IN SPEC 1.6. The field had no owning algebra at all; the Gate-0 inventory recorded 74 algebras and 427 members without it. Absent on unverifiable results, which carry `error` instead, and on the name-too-long case, which never queries. THREE members, not the two the corpus had been observed to produce: nxdomain is source-reachable through requireUsable()'s inline equivalent at js/dns.js:1636, which admits success, nodata and nxdomain alike. Defining a two-member algebra from corpus observation would be the same mistake as an empty resultPaths list — describing what was measured as though it were what is reachable.",
+   "resultPaths": [
+    "advanced.reportAuth[].exactKind"
+   ]
+  },
+  {
+   "id": "dmarc.reportAuth.via",
+   "owner": "core/dmarc",
+   "field": "checkExternalReportAuth()[].via",
+   "closed": true,
+   "site": "js/dns.js:1776, js/dns.js:1835, js/dns.js:1848, js/dns.js:1854",
+   "members": [
+    "null",
+    "exact"
+   ],
+   "resultPaths": [
+    "advanced.reportAuth[].via"
+   ]
+  },
+  {
+   "id": "dmarc.reportAuth.error",
+   "owner": "core/dmarc",
+   "field": "checkExternalReportAuth()[].error",
+   "closed": true,
+   "site": "js/dns.js:1778, js/dns.js:1854",
+   "members": [
+    "absent",
+    "name-too-long",
+    "servfail",
+    "refused",
+    "dns-error",
+    "http-error",
+    "timeout",
+    "network-error"
+   ],
+   "note": "ABSENT on authorized/unauthorized results. 'undefined' is a real reachable value: js/dns.js:1854 reads e.kind, and a non-DnsError throw carries none. `cancelled` is deliberately NOT a member. checkExternalReportAuth() converts a cancelled response to dnsError('cancelled', ...) (js/dns.js:1815), which dnsError names AbortError, and the catch at js/dns.js:1853 rethrows AbortError rather than recording it — so the audit throws instead of the destination carrying an error. Verified by aborting mid-flight, not by reading. `undefined` is not a member either. Every throw inside the try block goes through dnsError(), which always sets .kind, and a raw fetch rejection is turned into kind 'network-error' by dohFetch before it ever reaches this catch. Verified by throwing a plain Error from fetch: the destination reported error 'network-error'.",
+   "resultPaths": [
+    "advanced.reportAuth[].error"
+   ]
+  },
+  {
+   "id": "dmarc.reportAuth.record.reason",
+   "owner": "core/dmarc",
+   "field": "parseReportAuthRecord().reason",
+   "closed": true,
+   "site": "js/dns.js:1712-1723",
+   "members": [
+    "null",
+    "version",
+    "syntax"
+   ],
+   "resultPaths": []
+  },
+  {
+   "id": "dmarc.reportAuth.overrideReason",
+   "owner": "core/dmarc",
+   "field": "parseReportAuthRecord().overrideReason",
+   "closed": true,
+   "site": "js/dns.js:1750-1755",
+   "members": [
+    "null",
+    "cross-host",
+    "malformed"
+   ],
+   "note": "cross-host escalates the whole arrangement to override-mismatch; malformed does not.",
+   "resultPaths": [
+    "advanced.reportAuth[].overrideReason"
+   ]
+  },
+  {
+   "id": "dnssec.state",
+   "owner": "core/dnssec",
+   "field": "checkDNSSEC().state",
+   "closed": true,
+   "members": [
+    "secure",
+    "insecure",
+    "bogus",
+    "unanchored",
+    "mismatch",
+    "indeterminate"
+   ],
+   "memberSites": {
+    "bogus": "js/dns.js:4024",
+    "indeterminate": "js/dns.js:4032",
+    "secure": "js/dns.js:4038",
+    "unanchored": "js/dns.js:4051",
+    "mismatch": "js/dns.js:4058",
+    "insecure": "js/dns.js:4061"
+   },
+   "note": "signed === (state === 'secure'), asserted at js/dns.js:4114.",
+   "resultPaths": [
+    "advanced.dnssec.state"
+   ]
+  },
+  {
+   "id": "dnssec.chain.claim",
+   "owner": "core/dnssec",
+   "field": "checkDNSSEC().chain[].claim",
+   "closed": true,
+   "members": [
+    "resolver-bogus",
+    "resolver-unreachable",
+    "resolver-ad",
+    "link-checked",
+    "ds-confirms-dnskey",
+    "ds-no-matching-key",
+    "ds-digest-mismatch",
+    "ds-unverifiable",
+    "lookup-incomplete"
+   ],
+   "memberSites": {
+    "resolver-bogus": "js/dns.js:4025",
+    "resolver-unreachable": "js/dns.js:4033",
+    "resolver-ad": "js/dns.js:4036",
+    "link-checked": "js/dns.js:4070",
+    "ds-confirms-dnskey": "js/dns.js:4075",
+    "ds-no-matching-key": "js/dns.js:4080 — COMPUTED as 'ds-' + record.match",
+    "ds-digest-mismatch": "js/dns.js:4080 — COMPUTED as 'ds-' + record.match",
+    "ds-unverifiable": "js/dns.js:4083",
+    "lookup-incomplete": "js/dns.js:4094"
+   },
+   "note": "NINE claims, not seven. Two are computed by string concatenation and are invisible to a literal scan. This is the worked example spec §12.1 names.",
+   "resultPaths": [
+    "advanced.dnssec.chain[].claim"
+   ]
+  },
+  {
+   "id": "dnssec.chain.source",
+   "owner": "core/dnssec",
+   "field": "checkDNSSEC().chain[].source",
+   "closed": true,
+   "site": "js/dns.js:4025-4094",
+   "members": [
+    "resolver",
+    "local"
+   ],
+   "resultPaths": [
+    "advanced.dnssec.chain[].source"
+   ]
+  },
+  {
+   "id": "dnssec.ds.match",
+   "owner": "core/dnssec",
+   "field": "matchDsToDnskeys().match",
+   "closed": true,
+   "members": [
+    "unverifiable",
+    "unverifiable-digest-type",
+    "no-matching-key",
+    "confirmed",
+    "digest-mismatch"
+   ],
+   "memberSites": {
+    "unverifiable": "js/dns.js:3812 (initial) — retained on invalid-ds/invalid-owner/runtime-unavailable/unbuildable-key",
+    "no-matching-key": "js/dns.js:3849",
+    "unverifiable-digest-type": "js/dns.js:3856",
+    "confirmed": "js/dns.js:3879",
+    "digest-mismatch": "js/dns.js:3902"
+   },
+   "note": "Only 'confirmed' and 'digest-mismatch' are claims about the operator's zone. Every failure path lands on 'unverifiable'.",
+   "resultPaths": [
+    "advanced.dnssec.ds[].match"
+   ]
+  },
+  {
+   "id": "dnssec.ds.unverifiableReason",
+   "owner": "core/dnssec",
+   "field": "matchDsToDnskeys().unverifiableReason",
+   "closed": true,
+   "members": [
+    "null",
+    "invalid-ds",
+    "invalid-owner",
+    "runtime-unavailable",
+    "unbuildable-key"
+   ],
+   "memberSites": {
+    "invalid-ds": "js/dns.js:3828",
+    "invalid-owner": "js/dns.js:3834",
+    "runtime-unavailable": "js/dns.js:3894",
+    "unbuildable-key": "js/dns.js:3898"
+   },
+   "note": "Not enumerated in spec §12.1; found by reading. Four distinct failures that shared one token before 0.5.0. `unbuildable-key` is DEAD CODE in the current implementation and is not reached by any suite or case. matchDsToDnskeys() selects candidates with key.valid === true (js/dns.js:3841) and every valid key has decodable base64, so dnskeyRdata() always builds; digestsComputed can only be zero when there were no candidates (returns no-matching-key earlier) or every computation failed (returns runtime-unavailable first). legacy-shapes.test.mjs §5d asserts the PROPERTY that makes it unreachable rather than pretending to exercise it, so a change that made a valid key unbuildable fails there before the branch goes live. `invalid-owner` is unreachable through analyzeDomain() because js/app.js's parseDomains() rejects a label over 63 octets before startAudit() queues it — measured, by watching the corpus case produce no result. `runtime-unavailable` is covered by the crypto-digest-unavailable platform profile on the same terms as the §6 decision: native Node computes SHA-256 without complaint, so this is not native-Node coverage.",
+   "resultPaths": [
+    "advanced.dnssec.ds[].unverifiableReason"
+   ]
+  },
+  {
+   "id": "dnssec.algorithmEligibility",
+   "owner": "core/dnssec",
+   "field": "dnssecAlgorithmEligibility()",
+   "closed": true,
+   "site": "js/dns.js:3305-3308",
+   "members": [
+    "eligible",
+    "ineligible",
+    "unknown"
+   ],
+   "resultPaths": [
+    "advanced.dnssec.ds[].algorithmEligibility",
+    "advanced.dnssec.keys[].algorithmEligibility"
+   ]
+  },
+  {
+   "id": "dnssec.digestEligibility",
+   "owner": "core/dnssec",
+   "field": "dnssecDigestEligibility()",
+   "closed": true,
+   "site": "js/dns.js:3358-3361",
+   "members": [
+    "eligible",
+    "ineligible",
+    "unknown"
+   ],
+   "resultPaths": [
+    "advanced.dnssec.ds[].digestEligibility"
+   ]
+  },
+  {
+   "id": "dnssec.keyStructure",
+   "owner": "core/dnssec",
+   "field": "dnskeyStructure()",
+   "closed": true,
+   "site": "js/dns.js:3429-3466",
+   "members": [
+    "valid",
+    "invalid",
+    "unknown"
+   ],
+   "note": "Only 'invalid' disqualifies a key. 'unknown' is honest about an algorithm grammar this build cannot parse.",
+   "resultPaths": [
+    "advanced.dnssec.keys[].keyStructure",
+    "advanced.dnssec.ds[].matchedKeyStructure"
+   ]
+  },
+  {
+   "id": "dnssec.digestName",
+   "owner": "core/dnssec",
+   "field": "dnssecDigestName()",
+   "closed": true,
+   "site": "js/dns.js:3369-3374",
+   "members": [
+    "null",
+    "RESERVED",
+    "SHA-1",
+    "SHA-256",
+    "GOST-R-34.11-94",
+    "SHA-384",
+    "GOST-R-34.11-2012",
+    "SM3",
+    "PRIVATE-USE"
+   ],
+   "note": "'RESERVED' is reachable twice — digest type 0, and the 128-252 range.",
+   "resultPaths": [
+    "advanced.dnssec.ds[].digestName"
+   ]
+  },
+  {
+   "id": "dnssec.evidence",
+   "owner": "core/dnssec",
+   "field": "checkDNSSEC().evidence",
+   "closed": true,
+   "site": "js/dns.js:4109-4110",
+   "members": [
+    "complete",
+    "partial",
+    "none"
+   ],
+   "resultPaths": [
+    "advanced.dnssec.evidence"
+   ]
+  },
+  {
+   "id": "dnssec.error",
+   "owner": "core/dnssec",
+   "field": "checkDNSSEC().error",
+   "closed": true,
+   "site": "js/dns.js:4128",
+   "members": [
+    "undefined",
+    "nxdomain",
+    "servfail",
+    "refused",
+    "dns-error",
+    "http-error",
+    "cancelled",
+    "timeout",
+    "network-error"
+   ],
+   "note": "The property is SET to `undefined` when state !== 'indeterminate' (js/dns.js:4128) — present with an undefined value, not omitted. The canonicalizer must distinguish the two and this row is why. `nxdomain` was missing from the first draft of this row and is reachable: dnssecLookupStatus() (js/dns.js:3956) counts only success and nodata as completed, so an NXDOMAIN NS probe yields state 'indeterminate' with error 'nxdomain'. Verified by running checkDNSSEC against an empty fixture, not by reading.",
+   "resultPaths": [
+    "advanced.dnssec.error"
+   ]
+  },
+  {
+   "id": "dnssec.dnskey.errors",
+   "owner": "core/dnssec",
+   "field": "parseDnskey().errors[] tokens",
+   "closed": true,
+   "site": "js/dns.js:3593-3617",
+   "members": [
+    "unparseable-record",
+    "unbalanced-parentheses",
+    "bad-flags",
+    "bad-protocol",
+    "bad-algorithm",
+    "empty-key",
+    "bad-key-encoding"
+   ],
+   "resultPaths": [
+    "advanced.dnssec.keys[].errors[]"
+   ]
+  },
+  {
+   "id": "dnssec.ds.errors",
+   "owner": "core/dnssec",
+   "field": "parseDs().errors[] tokens",
+   "closed": true,
+   "site": "js/dns.js:3649-3683",
+   "members": [
+    "unparseable-record",
+    "unbalanced-parentheses",
+    "bad-key-tag",
+    "bad-algorithm",
+    "bad-digest-type",
+    "empty-digest",
+    "bad-digest",
+    "bad-digest-length"
+   ],
+   "resultPaths": [
+    "advanced.dnssec.ds[].errors[]"
+   ]
+  },
+  {
+   "id": "mx.host.resolves",
+   "owner": "core/mx",
+   "field": "auditMxHosts().hosts[].resolves",
+   "closed": true,
+   "site": "js/dns.js:2549",
+   "members": [
+    "yes",
+    "no",
+    "unknown"
+   ],
+   "note": "'no' is claimed only when BOTH address lookups returned. One failed lookup plus one empty answer is 'unknown'.",
+   "resultPaths": [
+    "advanced.mxHealth.hosts[].resolves"
+   ]
+  },
+  {
+   "id": "mx.ipv6Coverage",
+   "owner": "core/mx",
+   "field": "auditMxHosts().ipv6Coverage",
+   "closed": true,
+   "site": "js/dns.js:2506, js/dns.js:2592-2594",
+   "members": [
+    "none",
+    "some",
+    "all"
+   ],
+   "note": "'none' is also the value on the no-MX early return and on the optionalCheck fallback at js/dns.js:5583.",
+   "resultPaths": [
+    "advanced.mxHealth.ipv6Coverage"
+   ]
+  },
+  {
+   "id": "caa.errors",
+   "owner": "core/caa",
+   "field": "parseCaaRecord().errors[] tokens",
+   "closed": true,
+   "site": "js/dns.js:2346-2400",
+   "members": [
+    "unparseable-record",
+    "bad-flags",
+    "bad-tag",
+    "unquoted-value",
+    "bad-issue-value",
+    "bad-iodef-url"
+   ],
+   "resultPaths": [
+    "advanced.caa.parsed[].errors[]"
+   ]
+  },
+  {
+   "id": "caa.knownTags",
+   "owner": "core/caa",
+   "field": "CAA_KNOWN_TAGS",
+   "closed": true,
+   "site": "js/dns.js:2274",
+   "members": [
+    "issue",
+    "issuewild",
+    "iodef",
+    "issuemail",
+    "contactemail",
+    "contactphone"
+   ],
+   "note": "CAA_ISSUER_TAGS (js/dns.js:2277) is the subset issue/issuewild/issuemail whose value is an issuer-domain-name.",
+   "resultPaths": [
+    "advanced.caa.parsed[].tag"
+   ]
+  },
+  {
+   "id": "audit.artifact.finding.id",
+   "owner": "audit",
+   "field": "artifactFindings[].id",
+   "closed": true,
+   "site": "src/audit/artifacts.js",
+   "members": [
+    "mta-sts.policy-invalid",
+    "mta-sts.policy-hygiene",
+    "mta-sts.policy-mx-mismatch",
+    "mta-sts.policy-mx-unused",
+    "mta-sts.policy-on-null-mx",
+    "mta-sts.policy-mx-unknown",
+    "mta-sts.mode-testing",
+    "mta-sts.mode-none",
+    "mta-sts.max-age-short",
+    "bimi.svg-rejected",
+    "bimi.svg-profile",
+    "bimi.svg-valid"
+   ],
+   "note": "Artifact finding identity. Deliberately SEPARATE from audit.finding.id, which stays the DNS contract: an artifact finding is not a DNS finding with a flag on it. The private catalog in artifacts.js constructs every published id and the co-located suite pins it against this list, so a thirteenth identity cannot appear without the registry moving with it.",
+   "resultPaths": [
+    "artifact.finding.id"
+   ]
+  },
+  {
+   "id": "audit.artifact.kind",
+   "owner": "audit",
+   "field": "artifactFindings[].artifact",
+   "closed": true,
+   "site": "src/audit/artifacts.js",
+   "members": [
+    "mta-sts-policy",
+    "bimi-svg"
+   ],
+   "note": "Which supplied artifact a finding came from. VMC is deliberately absent: OQ-ART-04 dropped it, because structural PEM details without chain validation do not answer whether a mailbox provider would accept the certificate.",
+   "resultPaths": [
+    "artifact.finding.artifact"
+   ]
+  },
+  {
+   "id": "audit.artifact.source",
+   "owner": "audit",
+   "field": "artifactFindings[].source",
+   "closed": true,
+   "site": "src/audit/artifacts.js",
+   "members": [
+    "user-supplied"
+   ],
+   "note": "Provenance. One member, and still a closed vocabulary rather than a boolean: the reason these findings are separated from DNS findings is that somebody supplied them, and a report handed to a third party has to be able to name that reason.",
+   "resultPaths": [
+    "artifact.finding.source"
+   ]
+  },
+  {
+   "id": "audit.artifact.evidence.kind",
+   "owner": "audit",
+   "field": "artifactFindings[].evidence[].kind",
+   "closed": true,
+   "site": "src/audit/artifacts.js",
+   "members": [
+    "line",
+    "element",
+    "input"
+   ],
+   "note": "DELIBERATELY DISJOINT from audit.finding.evidence.kind, and the co-located suite asserts the two share no member. A line of pasted text was not queried from DNS, and the DNS renderer presents an evidence location as a queried name -- so an overlap would let supplied material render as though it had been observed in public DNS. `input` locates a document-level condition, such as a missing field, that has no line.",
+   "resultPaths": [
+    "artifact.finding.evidence.kind"
+   ]
+  },
+  {
+   "id": "bimi.svg.rejections",
+   "owner": "core/bimi",
+   "field": "validateBimiSvg().rejections[] tokens",
+   "closed": true,
+   "site": "src/core/bimi/svg.js",
+   "members": [
+    "doctype-present",
+    "entity-declaration",
+    "malformed-xml",
+    "bad-root",
+    "script-element",
+    "event-handler",
+    "foreign-object",
+    "external-reference-element",
+    "external-reference",
+    "link-element",
+    "external-style",
+    "animation"
+   ],
+   "note": "Security refusals over a user-supplied indicator SVG. doctype-present and entity-declaration are raised by a scan of the SOURCE TEXT before the parser is invoked, because Chrome expands internal general entities -- measured: a nine-level billion-laughs document produced 59,049 characters of text -- so a post-parse check would run after the cost was already paid. bad-root is its own member because HTML in a .svg file parses cleanly with no parser error, so nothing but an explicit root-name check catches it.",
+   "resultPaths": [
+    "artifact.bimiSvg.rejections[]"
+   ]
+  },
+  {
+   "id": "bimi.svg.diagnostics",
+   "owner": "core/bimi",
+   "field": "validateBimiSvg().diagnostics[] tokens",
+   "closed": true,
+   "site": "src/core/bimi/svg.js",
+   "members": [
+    "namespace-not-svg",
+    "base-profile-not-tiny-ps",
+    "version-not-1-2",
+    "title-missing",
+    "title-not-unique",
+    "desc-empty",
+    "viewbox-missing",
+    "viewbox-not-square",
+    "root-has-position",
+    "raster-data-uri",
+    "data-uri-reference",
+    "unsupported-attribute"
+   ],
+   "note": "SVG P/S profile diagnostics: why a mailbox provider may not display the logo. Never a refusal -- a document carrying only these is still valid. The spec's \"single root element\" row is deliberately NOT a member: XML makes a second root a parse error (measured), so it arrives as malformed-xml and a diagnostic for it would be unreachable. unsupported-attribute covers the six attributes the spec constrains to \"permitted inert values\" without enumerating them, so presence alone is the diagnostic until the spec decides.",
+   "resultPaths": [
+    "artifact.bimiSvg.diagnostics[]"
+   ]
+  },
+  {
+   "id": "bimi.errors",
+   "owner": "core/bimi",
+   "field": "validateBimiRecord().errors[] tokens",
+   "closed": true,
+   "site": "js/dns.js:3184-3222",
+   "members": [
+    "invalid-syntax",
+    "duplicate-tags"
+   ],
+   "resultPaths": [
+    "advanced.bimi.validation.errors[]"
+   ]
+  },
+  {
+   "id": "transport.mtaSts.errors",
+   "owner": "core/transport",
+   "field": "validateMtaStsRecord().errors[] tokens",
+   "closed": true,
+   "site": "js/dns.js:3094-3116",
+   "members": [
+    "invalid-syntax"
+   ],
+   "resultPaths": [
+    "advanced.mtaSts.validation.errors[]"
+   ]
+  },
+  {
+   "id": "transport.mtaStsPolicy.errors",
+   "owner": "core/transport",
+   "field": "validateMtaStsPolicy().errors[] tokens",
+   "closed": true,
+   "site": "src/core/transport/mta-sts-policy.js",
+   "members": [
+    "malformed-line",
+    "blank-line",
+    "invalid-version",
+    "invalid-mode",
+    "invalid-mx",
+    "invalid-max-age",
+    "missing-version",
+    "missing-mode",
+    "missing-max-age",
+    "missing-mx"
+   ],
+   "resultPaths": [
+    "artifact.mtaStsPolicy.errors[]"
+   ]
+  },
+  {
+   "id": "transport.mtaStsPolicy.warnings",
+   "owner": "core/transport",
+   "field": "validateMtaStsPolicy().warnings[] tokens",
+   "closed": true,
+   "site": "src/core/transport/mta-sts-policy.js",
+   "members": [
+    "duplicate-field",
+    "bom-present",
+    "wrong-case-field"
+   ],
+   "note": "wrong-case-field is a WARNING. sts-policy-ext-name permits `Mode`, and RFC 8461 3.2 says unknown fields SHALL be ignored, so a conformant policy may carry a case-variant name and must not be called invalid. When the operator did mean the registered field, the missing-* error already carries the invalidity.",
+   "resultPaths": [
+    "artifact.mtaStsPolicy.warnings[]"
+   ]
+  },
+  {
+   "id": "transport.mtaStsPolicy.lineEndings",
+   "owner": "core/transport",
+   "field": "validateMtaStsPolicy().lineEndings",
+   "closed": true,
+   "site": "src/core/transport/mta-sts-policy.js",
+   "members": [
+    "crlf",
+    "lf",
+    "mixed",
+    "none"
+   ],
+   "resultPaths": [
+    "artifact.mtaStsPolicy.lineEndings"
+   ]
+  },
+  {
+   "id": "transport.mtaStsPolicy.findingScope",
+   "owner": "core/transport",
+   "field": "policyFindingScope().state",
+   "closed": true,
+   "site": "src/core/transport/mta-sts-policy.js",
+   "members": [
+    "invalid",
+    "withdrawal",
+    "testing",
+    "enforce"
+   ],
+   "note": "Which SEMANTIC findings a policy in this state may produce. Parsing says what a document contains, not which readings of it are honest. `invalid` allows parser diagnostics only, because any mode/max-age/null-MX/mismatch claim built from the fields that happened to parse describes a document no sender will honour. `withdrawal` (mode: none) allows only its own mode finding: RFC 8461 8.3 tells an operator to publish mode:none with a small max_age (e.g. one day), so max-age-short there would advise working against the protocol's removal procedure, and a withdrawn policy cannot conflict with a null MX. Every member is reachable from a real validateMtaStsPolicy() result and the co-located suite proves it.",
+   "resultPaths": [
+    "artifact.mtaStsPolicy.findingScope.state"
+   ]
+  },
+  {
+   "id": "transport.mtaStsPolicy.mxComparisonState",
+   "owner": "core/transport",
+   "field": "compareMtaStsMx().state",
+   "closed": true,
+   "site": "src/core/transport/mta-sts-policy.js",
+   "members": [
+    "compared",
+    "unknown",
+    "null-mx"
+   ],
+   "note": "The fact is { hosts: string[], unknown, nullMx }, derived by src/audit/artifacts.js from the domain's DELIVERY CANDIDATES -- explicit MX exchanges, or the RFC 5321 5.1 implicit MX when no MX is published -- never from advanced.mxHealth, whose hosts are audit objects and which is null whenever deep checks are off. The comparator fails closed to `unknown` on an absent fact, an empty list, or any entry that is not a valid hostname, because a silently filtered list compares as every-pattern-unused. `null-mx` was held out of this vocabulary until deliveryCandidates() existed to produce it, and joined in the same commit as that producer.",
+   "resultPaths": [
+    "artifact.mtaStsPolicy.mxComparison.state"
+   ]
+  },
+  {
+   "id": "transport.tlsRpt.errors",
+   "owner": "core/transport",
+   "field": "validateTlsRptRecord().errors[] tokens",
+   "closed": true,
+   "site": "js/dns.js:3127-3162",
+   "members": [
+    "invalid-syntax"
+   ],
+   "resultPaths": [
+    "advanced.tlsRpt.validation.errors[]"
+   ]
+  },
+  {
+   "id": "transport.tlsa.errors",
+   "owner": "core/transport",
+   "field": "parseTlsaRecord().errors[] tokens",
+   "closed": true,
+   "site": "js/dns.js:2643-2688",
+   "members": [
+    "unparseable-record",
+    "unbalanced-parentheses",
+    "bad-usage",
+    "bad-selector",
+    "bad-matching-type",
+    "bad-association-data",
+    "bad-digest-length"
+   ],
+   "resultPaths": [
+    "advanced.tlsa.hosts[].records[].errors[]"
+   ]
+  },
+  {
+   "id": "providers.dns.sentinel",
+   "owner": "providers",
+   "field": "detectDNSProvider() @-prefixed returns",
+   "closed": true,
+   "site": "js/dns.js:337-369",
+   "members": [
+    "@unknown",
+    "@self-hosted",
+    "@custom"
+   ],
+   "note": "Every other return is an OPEN provider label — a catalog name or cap(parts[idx]) derived from the nameserver hostname.",
+   "resultPaths": [
+    "dnsProvider"
+   ]
+  },
+  {
+   "id": "providers.email.sentinel",
+   "owner": "providers",
+   "field": "detectEmailProvider() @-prefixed returns",
+   "closed": true,
+   "site": "js/dns.js:377-401",
+   "members": [
+    "@null-mx",
+    "@implicit-mx",
+    "@none",
+    "@porkbun-forwarding",
+    "@self-hosted",
+    "@custom-unknown"
+   ],
+   "note": "@null-mx selects PARKED_WEIGHTS at js/dns.js:5279. @none/@null-mx/@porkbun-forwarding gate DKIM findings and suggestions.",
+   "resultPaths": [
+    "emailProvider"
+   ]
+  },
+  {
+   "id": "providers.hosting.sentinel",
+   "owner": "providers",
+   "field": "hosting value in the audit result",
+   "closed": true,
+   "members": [
+    "@dash",
+    "@cloudflare-proxied",
+    "@no-web",
+    "@custom",
+    "@cname-loop",
+    "@dns-error"
+   ],
+   "memberSites": {
+    "@dash": "js/dns.js:415 and js/dns.js:5474 (the default when opts.www is off)",
+    "@cloudflare-proxied": "js/dns.js:416",
+    "@no-web": "js/dns.js:419",
+    "@custom": "js/dns.js:420",
+    "@cname-loop": "js/dns.js:5481",
+    "@dns-error": "js/dns.js:5480"
+   },
+   "note": "@cname-loop and @dns-error are produced by analyzeDomain, NOT by detectHosting — a scan of detectHosting alone misses both.",
+   "resultPaths": [
+    "hosting"
+   ]
+  },
+  {
+   "id": "audit.grade",
+   "owner": "audit",
+   "field": "score.grade",
+   "closed": true,
+   "site": "js/dns.js:4494-4502",
+   "members": [
+    "A++",
+    "A+",
+    "A",
+    "B",
+    "C",
+    "D",
+    "F"
+   ],
+   "note": "A++/A+/A require dnssecSigned. gradeFor() falls through to F at js/dns.js:4578.",
+   "resultPaths": [
+    "score.grade"
+   ]
+  },
+  {
+   "id": "audit.gradeCls",
+   "owner": "audit",
+   "field": "score.cls",
+   "closed": true,
+   "site": "js/dns.js:4494-4502",
+   "members": [
+    "score-aplusplus",
+    "score-aplus",
+    "score-a",
+    "score-b",
+    "score-c",
+    "score-d",
+    "score-f"
+   ],
+   "resultPaths": [
+    "score.cls"
+   ]
+  },
+  {
+   "id": "audit.pillar",
+   "owner": "audit",
+   "field": "score.breakdown.pillars[].key — active-mail rubric",
+   "closed": true,
+   "site": "js/dns.js:5322-5331",
+   "members": [
+    "dmarc",
+    "spf",
+    "dkim",
+    "dnssec",
+    "caa",
+    "mtaSts",
+    "bimi",
+    "tlsRpt"
+   ],
+   "note": "Order is asserted as-is: the pillars array is semantically ordered and canonicalization preserves array order.",
+   "resultPaths": [
+    "score.breakdown.pillars[].key"
+   ]
+  },
+  {
+   "id": "audit.parkedPillar",
+   "owner": "audit",
+   "field": "score.breakdown.pillars[].key — parked rubric",
+   "closed": true,
+   "site": "js/dns.js:5294-5299",
+   "members": [
+    "spf",
+    "dmarc",
+    "dnssec",
+    "caa"
+   ],
+   "note": "Selected by emailProvider === '@null-mx'. score.parked distinguishes the two rubrics.",
+   "resultPaths": [
+    "score.breakdown.pillars[].key"
+   ]
+  },
+  {
+   "id": "audit.unproven",
+   "owner": "audit",
+   "field": "score.unproven[]",
+   "closed": true,
+   "site": "js/dns.js:5252-5266",
+   "members": [
+    "dmarc",
+    "dkim",
+    "dnssec",
+    "caa",
+    "mtaSts",
+    "bimi",
+    "tlsRpt"
+   ],
+   "note": "SPF is deliberately absent — an unknown lookup count does not zero the SPF pillar. On the parked rubric the list is filtered to parked pillar keys at js/dns.js:5305.",
+   "resultPaths": [
+    "score.unproven[]"
+   ]
+  },
+  {
+   "id": "audit.issue.sev",
+   "owner": "audit",
+   "field": "issues[].sev",
+   "closed": true,
+   "site": "js/dns.js:4607-5194",
+   "members": [
+    "crit",
+    "warn",
+    "info"
+   ],
+   "resultPaths": [
+    "issues[].sev"
+   ]
+  },
+  {
+   "id": "audit.suggestion.guide",
+   "owner": "audit",
+   "field": "suggestions[].guide",
+   "closed": true,
+   "site": "js/dns.js:5206-5238",
+   "members": [
+    "dmarc-rfc9989",
+    "bimi",
+    "mta-sts",
+    "tls-rpt",
+    "caa",
+    "dnssec"
+   ],
+   "resultPaths": [
+    "suggestions[].guide"
+   ]
+  },
+  {
+   "id": "audit.suggestion.key",
+   "owner": "audit",
+   "field": "suggestions[].key",
+   "closed": true,
+   "site": "js/dns.js:5206-5238",
+   "members": [
+    "dmarc-pct-obsolete",
+    "bimiEligible",
+    "bimiPrereq",
+    "mta-sts",
+    "tls-rpt",
+    "caa",
+    "dnssec"
+   ],
+   "note": "Rendered through locale key suggestion.<key>. All seven exist in locales/en.json.",
+   "resultPaths": [
+    "suggestions[].key"
+   ]
+  },
+  {
+   "id": "audit.issue.key",
+   "owner": "audit",
+   "field": "issues[].key",
+   "closed": true,
+   "site": "js/dns.js:4607-5194",
+   "members": [
+    "bimi-invalid",
+    "bimi-multiple-records",
+    "caa-blocks-all-issuance",
+    "caa-malformed",
+    "caa-no-iodef",
+    "caa-single-issuer",
+    "caa-unknown-critical-tag",
+    "checks-unverified",
+    "dkim-key-1024",
+    "dkim-key-malformed",
+    "dkim-key-mixed",
+    "dkim-key-not-email",
+    "dkim-key-revoked",
+    "dkim-key-sha1",
+    "dkim-key-testing",
+    "dkim-key-unparseable",
+    "dkim-key-weak",
+    "dkim-missing",
+    "dkim-multiple-records",
+    "dkim-not-checked",
+    "dkim-unverified",
+    "dmarc-at-apex",
+    "dmarc-at-apex-ignored",
+    "dmarc-bad-adkim",
+    "dmarc-bad-aspf",
+    "dmarc-bad-fo",
+    "dmarc-bad-np",
+    "dmarc-bad-pct",
+    "dmarc-bad-psd",
+    "dmarc-bad-sp",
+    "dmarc-bad-t",
+    "dmarc-duplicate-tags",
+    "dmarc-external-override-mismatch",
+    "dmarc-external-reporting",
+    "dmarc-external-unauthorized",
+    "dmarc-external-unverifiable",
+    "dmarc-fo-without-ruf",
+    "dmarc-invalid-policy",
+    "dmarc-missing",
+    "dmarc-multiple-records",
+    "dmarc-multiple-records-inherited",
+    "dmarc-no-rua",
+    "dmarc-none",
+    "dmarc-np-not-applied",
+    "dmarc-partial-pct",
+    "dmarc-quarantine",
+    "dmarc-removed-tags",
+    "dmarc-report-destinations-truncated",
+    "dmarc-rua-invalid",
+    "dmarc-ruf-invalid",
+    "dmarc-test-mode",
+    "dmarc-unknown-tags",
+    "dmarc-unverified",
+    "dmarc-version-bad-value",
+    "dmarc-version-missing",
+    "dmarc-version-not-first",
+    "dmarc-weak-np",
+    "dmarc-weak-sp",
+    "dns-loop",
+    "dnssec-bogus",
+    "dnssec-deprecated-algorithm",
+    "dnssec-deprecated-digest",
+    "dnssec-ds-orphan",
+    "dnssec-indeterminate",
+    "dnssec-key-algorithm-ineligible",
+    "dnssec-key-malformed",
+    "dnssec-key-not-zone-key",
+    "dnssec-mismatch",
+    "dnssec-revoke-flag",
+    "dnssec-unanchored",
+    "implicit-mx",
+    "mta-sts-invalid",
+    "mta-sts-multiple-records",
+    "mta-sts-policy-unverified",
+    "mx-cname-target",
+    "mx-dangling",
+    "mx-duplicate-preference",
+    "mx-no-ipv6",
+    "mx-same-prefix",
+    "mx-single-host",
+    "no-mx",
+    "porkbun-forward",
+    "spf-all-permit",
+    "spf-cycle",
+    "spf-indeterminate",
+    "spf-large-subnet",
+    "spf-medium-subnet",
+    "spf-missing",
+    "spf-missing-google",
+    "spf-missing-icloud",
+    "spf-missing-microsoft",
+    "spf-multiple-records",
+    "spf-near-limit",
+    "spf-neutral",
+    "spf-over-limit",
+    "spf-partial-coverage",
+    "spf-redundant-mechanism",
+    "spf-redundant-mechanism-nocount",
+    "spf-softfail",
+    "tls-rpt-invalid",
+    "tls-rpt-multiple-records",
+    "tlsa-malformed",
+    "tlsa-partial-coverage",
+    "tlsa-published-unsigned",
+    "wildcard-txt-apex",
+    "wildcard-txt-dkim"
+   ],
+   "note": "106 tokens. Three — dnssec-key-algorithm-ineligible, dnssec-key-not-zone-key, dnssec-key-malformed — are emitted through the computed pushKeyFinding(key, ...) helper at js/dns.js:5155 and are invisible to a `key: '...'` literal scan. Three more — dmarc-version-not-first, dmarc-version-bad-value, dmarc-version-missing — arrive through the DIAGNOSIS_KEYS map at js/dns.js:4702. Seven more are forwarded from spf.warnings at js/dns.js:4637 and two more chosen by ternary at js/dns.js:4648. This set is exactly the key set of `issue` in locales/en.json, which is the independent check on it.",
+   "resultPaths": [
+    "issues[].key"
+   ]
+  },
+  {
+   "id": "audit.finding.id",
+   "owner": "audit",
+   "field": "findings[].id",
+   "closed": true,
+   "site": "src/audit/findings.js",
+   "members": [
+    "bimi.invalid",
+    "bimi.multiple-records",
+    "bimi.without-authority",
+    "bimi.without-enforcement",
+    "caa.blocks-all-issuance",
+    "caa.malformed",
+    "caa.no-iodef",
+    "caa.single-issuer",
+    "caa.unknown-critical-tag",
+    "dane.malformed",
+    "dane.partial-coverage",
+    "dane.published-unsigned",
+    "defensive.contradictory",
+    "dkim.key-1024",
+    "dkim.key-malformed",
+    "dkim.key-not-email",
+    "dkim.key-revoked",
+    "dkim.key-sha1",
+    "dkim.key-testing",
+    "dkim.key-unparseable",
+    "dkim.key-weak",
+    "dkim.mixed-key-strength",
+    "dkim.multiple-records",
+    "dkim.none-found",
+    "dkim.not-checked",
+    "dkim.weak-with-enforcement",
+    "dmarc.at-apex",
+    "dmarc.at-apex-ignored",
+    "dmarc.bad-adkim",
+    "dmarc.bad-aspf",
+    "dmarc.bad-fo",
+    "dmarc.bad-np",
+    "dmarc.bad-pct",
+    "dmarc.bad-psd",
+    "dmarc.bad-sp",
+    "dmarc.bad-t",
+    "dmarc.duplicate-tags",
+    "dmarc.enforcement-without-auth",
+    "dmarc.external-override-mismatch",
+    "dmarc.external-report-unauthorized",
+    "dmarc.external-reporting",
+    "dmarc.external-unverifiable",
+    "dmarc.fo-without-ruf",
+    "dmarc.invalid-policy",
+    "dmarc.missing",
+    "dmarc.multiple-inherited",
+    "dmarc.multiple-records",
+    "dmarc.no-rua",
+    "dmarc.np-not-applied",
+    "dmarc.partial-pct",
+    "dmarc.policy-none",
+    "dmarc.quarantine",
+    "dmarc.removed-tags",
+    "dmarc.report-truncated",
+    "dmarc.rua-invalid",
+    "dmarc.ruf-invalid",
+    "dmarc.test-mode",
+    "dmarc.unknown-tags",
+    "dmarc.unverified",
+    "dmarc.version-bad-value",
+    "dmarc.version-missing",
+    "dmarc.version-not-first",
+    "dmarc.weak-np",
+    "dmarc.weak-sp",
+    "dns.checks-unverified",
+    "dns.hosting-loop",
+    "dns.wildcard-apex",
+    "dns.wildcard-dkim",
+    "dnssec.bogus",
+    "dnssec.deprecated-algorithm",
+    "dnssec.deprecated-digest",
+    "dnssec.ds-orphan",
+    "dnssec.indeterminate",
+    "dnssec.key-algorithm-ineligible",
+    "dnssec.key-malformed",
+    "dnssec.key-not-zone-key",
+    "dnssec.mismatch",
+    "dnssec.revoke-flag",
+    "dnssec.unanchored",
+    "mta-sts.invalid",
+    "mta-sts.multiple-records",
+    "mta-sts.policy-unverified",
+    "mta-sts.without-tls-rpt",
+    "mx.cname-target",
+    "mx.dangling",
+    "mx.dangling-with-enforcement",
+    "mx.duplicate-preference",
+    "mx.implicit",
+    "mx.no-ipv6",
+    "mx.none",
+    "mx.porkbun-forwarding",
+    "mx.same-prefix",
+    "mx.single-host",
+    "reporting.blind",
+    "spf.all-permit",
+    "spf.cycle",
+    "spf.indeterminate",
+    "spf.large-subnet",
+    "spf.medium-subnet",
+    "spf.missing",
+    "spf.missing-google",
+    "spf.missing-icloud",
+    "spf.missing-microsoft",
+    "spf.multiple-records",
+    "spf.near-limit",
+    "spf.neutral",
+    "spf.over-limit",
+    "spf.partial-coverage",
+    "spf.redundant-mechanism",
+    "spf.redundant-mechanism-nocount",
+    "spf.redundant-with-enforcement",
+    "spf.softfail",
+    "tls-rpt.invalid",
+    "tls-rpt.multiple-records",
+    "tls-rpt.without-transport-policy"
+   ],
+   "resultPaths": [
+    "findings[].id"
+   ],
+   "note": "115 distinct finding ids: 105 migrated (dkim.none-found shared by dkim-missing/dkim-unverified) plus 10 cross-protocol. Cross-protocol ids fire only on synthetic contexts, so corpus coverage is partial; findings.test.js covers the whole set as a closure and pins these members against FINDING_META + CROSS_PROTOCOL_RULES."
+  },
+  {
+   "id": "audit.finding.severity",
+   "owner": "audit",
+   "field": "findings[].severity",
+   "closed": true,
+   "site": "src/audit/findings.js",
+   "members": [
+    "critical",
+    "high",
+    "medium",
+    "low",
+    "info"
+   ],
+   "resultPaths": [
+    "findings[].severity"
+   ]
+  },
+  {
+   "id": "audit.finding.confidence",
+   "owner": "audit",
+   "field": "findings[].confidence",
+   "closed": true,
+   "site": "src/audit/findings.js",
+   "members": [
+    "confirmed",
+    "probable",
+    "unverified"
+   ],
+   "resultPaths": [
+    "findings[].confidence"
+   ]
+  },
+  {
+   "id": "audit.finding.category",
+   "owner": "audit",
+   "field": "findings[].category",
+   "closed": true,
+   "site": "src/audit/findings.js",
+   "members": [
+    "authentication",
+    "policy",
+    "reporting",
+    "transport",
+    "issuance",
+    "resilience",
+    "hygiene"
+   ],
+   "resultPaths": [
+    "findings[].category"
+   ]
+  },
+  {
+   "id": "audit.finding.effort",
+   "owner": "audit",
+   "field": "findings[].effort",
+   "closed": true,
+   "site": "src/audit/findings.js",
+   "members": [
+    "trivial",
+    "moderate",
+    "involved"
+   ],
+   "resultPaths": [
+    "findings[].effort"
+   ]
+  },
+  {
+   "id": "audit.finding.protocol",
+   "owner": "audit",
+   "field": "findings[].protocol",
+   "closed": true,
+   "site": "src/audit/findings.js",
+   "members": [
+    "spf",
+    "dkim",
+    "dmarc",
+    "dnssec",
+    "caa",
+    "mta-sts",
+    "tls-rpt",
+    "bimi",
+    "mx",
+    "dane",
+    "dns",
+    "defensive",
+    "reporting"
+   ],
+   "resultPaths": [
+    "findings[].protocol"
+   ]
+  },
+  {
+   "id": "audit.finding.keyspace",
+   "owner": "audit",
+   "field": "findings[].keyspace",
+   "closed": true,
+   "site": "src/audit/findings.js",
+   "members": [
+    "issue",
+    "finding"
+   ],
+   "resultPaths": [
+    "findings[].keyspace"
+   ]
+  },
+  {
+   "id": "audit.remediation.rationale",
+   "owner": "audit",
+   "field": "remediationPlan[].rationale",
+   "closed": true,
+   "site": "src/audit/findings.js",
+   "members": [
+    "foundation",
+    "afterPrereq",
+    "cleanup"
+   ],
+   "resultPaths": [
+    "remediationPlan[].rationale"
+   ]
+  },
+  {
+   "id": "audit.finding.key",
+   "owner": "audit",
+   "field": "findings[].key",
+   "closed": true,
+   "site": "src/audit/findings.js",
+   "members": [
+    "bimi-invalid",
+    "bimi-multiple-records",
+    "bimi-without-authority",
+    "bimi-without-enforcement",
+    "caa-blocks-all-issuance",
+    "caa-malformed",
+    "caa-no-iodef",
+    "caa-single-issuer",
+    "caa-unknown-critical-tag",
+    "checks-unverified",
+    "defensive-contradictory",
+    "dkim-key-1024",
+    "dkim-key-malformed",
+    "dkim-key-mixed",
+    "dkim-key-not-email",
+    "dkim-key-revoked",
+    "dkim-key-sha1",
+    "dkim-key-testing",
+    "dkim-key-unparseable",
+    "dkim-key-weak",
+    "dkim-missing",
+    "dkim-multiple-records",
+    "dkim-not-checked",
+    "dkim-unverified",
+    "dkim-weak-with-enforcement",
+    "dmarc-at-apex",
+    "dmarc-at-apex-ignored",
+    "dmarc-bad-adkim",
+    "dmarc-bad-aspf",
+    "dmarc-bad-fo",
+    "dmarc-bad-np",
+    "dmarc-bad-pct",
+    "dmarc-bad-psd",
+    "dmarc-bad-sp",
+    "dmarc-bad-t",
+    "dmarc-duplicate-tags",
+    "dmarc-enforcement-without-auth",
+    "dmarc-external-override-mismatch",
+    "dmarc-external-reporting",
+    "dmarc-external-unauthorized",
+    "dmarc-external-unverifiable",
+    "dmarc-fo-without-ruf",
+    "dmarc-invalid-policy",
+    "dmarc-missing",
+    "dmarc-multiple-records",
+    "dmarc-multiple-records-inherited",
+    "dmarc-no-rua",
+    "dmarc-none",
+    "dmarc-np-not-applied",
+    "dmarc-partial-pct",
+    "dmarc-quarantine",
+    "dmarc-removed-tags",
+    "dmarc-report-destinations-truncated",
+    "dmarc-rua-invalid",
+    "dmarc-ruf-invalid",
+    "dmarc-test-mode",
+    "dmarc-unknown-tags",
+    "dmarc-unverified",
+    "dmarc-version-bad-value",
+    "dmarc-version-missing",
+    "dmarc-version-not-first",
+    "dmarc-weak-np",
+    "dmarc-weak-sp",
+    "dns-loop",
+    "dnssec-bogus",
+    "dnssec-deprecated-algorithm",
+    "dnssec-deprecated-digest",
+    "dnssec-ds-orphan",
+    "dnssec-indeterminate",
+    "dnssec-key-algorithm-ineligible",
+    "dnssec-key-malformed",
+    "dnssec-key-not-zone-key",
+    "dnssec-mismatch",
+    "dnssec-revoke-flag",
+    "dnssec-unanchored",
+    "implicit-mx",
+    "mta-sts-invalid",
+    "mta-sts-multiple-records",
+    "mta-sts-policy-unverified",
+    "mta-sts-without-tls-rpt",
+    "mx-cname-target",
+    "mx-dangling",
+    "mx-dangling-with-enforcement",
+    "mx-duplicate-preference",
+    "mx-no-ipv6",
+    "mx-same-prefix",
+    "mx-single-host",
+    "no-mx",
+    "porkbun-forward",
+    "reporting-blind",
+    "spf-all-permit",
+    "spf-cycle",
+    "spf-indeterminate",
+    "spf-large-subnet",
+    "spf-medium-subnet",
+    "spf-missing",
+    "spf-missing-google",
+    "spf-missing-icloud",
+    "spf-missing-microsoft",
+    "spf-multiple-records",
+    "spf-near-limit",
+    "spf-neutral",
+    "spf-over-limit",
+    "spf-partial-coverage",
+    "spf-redundant-mechanism",
+    "spf-redundant-mechanism-nocount",
+    "spf-redundant-with-enforcement",
+    "spf-softfail",
+    "tls-rpt-invalid",
+    "tls-rpt-multiple-records",
+    "tls-rpt-without-transport-policy",
+    "tlsa-malformed",
+    "tlsa-partial-coverage",
+    "tlsa-published-unsigned",
+    "wildcard-txt-apex",
+    "wildcard-txt-dkim"
+   ],
+   "resultPaths": [
+    "findings[].key"
+   ],
+   "note": "116 locale-key slugs: the 106 migrated issue keys plus the 10 cross-protocol finding keys. Closed exactly as audit.issue.key and audit.suggestion.key are; keyspace says which namespace resolves it."
+  },
+  {
+   "id": "audit.finding.evidence.kind",
+   "owner": "audit",
+   "field": "findings[].evidence[].kind",
+   "closed": true,
+   "site": "src/audit/findings.js",
+   "members": [
+    "txt",
+    "absent",
+    "selector",
+    "host",
+    "mx",
+    "address",
+    "cname",
+    "caa",
+    "dnssec",
+    "tlsa",
+    "mechanism",
+    "info"
+   ],
+   "resultPaths": [
+    "findings[].evidence[].kind"
+   ],
+   "note": "Closed by construction: every evidence entry is built by the two local helpers in findings.js. `absent` is the honest form of an absence and carries an empty value by design; `info` carries a finding’s own protocol-token arguments. All others are published DNS material."
+  },
+  {
+   "id": "audit.observability.state",
+   "owner": "audit",
+   "field": "buildObservability() values",
+   "closed": true,
+   "site": "src/audit/observability.js",
+   "members": [
+    "observed",
+    "unproven",
+    "not-run"
+   ],
+   "note": "Total map over PROTOCOLS, one value per protocol. Projected from the options in force and the finished facts (report-comparison 1.1 §1); never inferred from finding confidence, which names the wrong control for dns.checks-unverified and overstates failure for dmarc.external-unverifiable.",
+   "resultPaths": [
+    "observability.*"
+   ]
+  }
+ ],
+ "shapes": [
+  {
+   "id": "spf.lookups.shape",
+   "owner": "core/spf",
+   "site": "js/dns.js:4188-4195, fallback js/dns.js:5541",
+   "axes": [
+    {
+     "axis": "count",
+     "values": [
+      "0",
+      "1..7",
+      "8..10 (warning)",
+      ">10 (error)"
+     ],
+     "note": "warning is count>=8 && count<=10; error is count>10 || voidLookups>2"
+    },
+    {
+     "axis": "warning",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "error",
+     "values": [
+      "true",
+      "false"
+     ],
+     "note": "error true zeroes the SPF pillar at js/dns.js:4561"
+    },
+    {
+     "axis": "voidLookups",
+     "values": [
+      "0",
+      "1..2",
+      "3+"
+     ]
+    },
+    {
+     "axis": "cycles",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "indeterminate",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "unknown",
+     "values": [
+      "absent",
+      "true"
+     ],
+     "note": "ABSENT on the success path; present only on the optionalCheck fallback"
+    },
+    {
+     "axis": "queryError",
+     "values": [
+      "absent",
+      "dns.transport.kind member",
+      "dns-error"
+     ],
+     "note": "fallback only; defaults to 'dns-error' when the caught error carries no kind"
     }
-  ],
-  "shapes": [
+   ],
+   "fixtures": [
+    "spf-subnets-and-lookups"
+   ]
+  },
+  {
+   "id": "spf.subnets.shape",
+   "owner": "core/spf",
+   "site": "js/dns.js:4463-4466, fallback js/dns.js:5548",
+   "axes": [
     {
-      "id": "spf.lookups.shape",
-      "owner": "core/spf",
-      "site": "js/dns.js:4188-4195, fallback js/dns.js:5541",
-      "axes": [
-        {
-          "axis": "count",
-          "values": [
-            "0",
-            "1..7",
-            "8..10 (warning)",
-            ">10 (error)"
-          ],
-          "note": "warning is count>=8 && count<=10; error is count>10 || voidLookups>2"
-        },
-        {
-          "axis": "warning",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "error",
-          "values": [
-            "true",
-            "false"
-          ],
-          "note": "error true zeroes the SPF pillar at js/dns.js:4561"
-        },
-        {
-          "axis": "voidLookups",
-          "values": [
-            "0",
-            "1..2",
-            "3+"
-          ]
-        },
-        {
-          "axis": "cycles",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "indeterminate",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "unknown",
-          "values": [
-            "absent",
-            "true"
-          ],
-          "note": "ABSENT on the success path; present only on the optionalCheck fallback"
-        },
-        {
-          "axis": "queryError",
-          "values": [
-            "absent",
-            "dns.transport.kind member",
-            "dns-error"
-          ],
-          "note": "fallback only; defaults to 'dns-error' when the caught error carries no kind"
-        }
-      ],
-      "fixtures": [
-        "spf-subnets-and-lookups"
-      ]
+     "axis": "subnets",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
     },
     {
-      "id": "spf.subnets.shape",
-      "owner": "core/spf",
-      "site": "js/dns.js:4463-4466, fallback js/dns.js:5548",
-      "axes": [
-        {
-          "axis": "subnets",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "redundancy",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "redundancy[].full",
-          "values": [
-            "true",
-            "false"
-          ],
-          "note": "covered === resolved.length — the dual-stack rule"
-        },
-        {
-          "axis": "unknown",
-          "values": [
-            "false",
-            "true"
-          ],
-          "note": "true keeps the size findings and drops redundancy"
-        }
-      ],
-      "fixtures": [
-        "spf-subnets-and-lookups"
-      ]
+     "axis": "redundancy",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
     },
     {
-      "id": "dkim.check.shape",
-      "owner": "core/dkim",
-      "site": "js/dns.js:1250-1253, default js/dns.js:5470",
-      "axes": [
-        {
-          "axis": "checked",
-          "values": [
-            "not checked (default shape, 5 properties)",
-            "checked (13 properties)"
-          ],
-          "note": "the default shape has no missingSelectors, failedSelectors, duplicated, revokedSelectors, unusableSelectors, malformedSelectors, keyProfile or scanMode at all"
-        },
-        {
-          "axis": "found",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "missingSelectors",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "failedSelectors",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "duplicated",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "revokedSelectors",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "unusableSelectors",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "malformedSelectors",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "keyProfile.minBits",
-          "values": [
-            "null",
-            "number"
-          ]
-        },
-        {
-          "axis": "keyProfile.maxBits",
-          "values": [
-            "null",
-            "number"
-          ]
-        },
-        {
-          "axis": "keyProfile.mixed",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "selectors[].key.appliesToEmail",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "selectors[].key.revoked",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "selectors[].key.valid",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "selectors[].uncommon",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "selectors[].viaSpf",
-          "values": [
-            "''",
-            "catalog key"
-          ]
-        }
-      ],
-      "fixtures": [
-        "dkim-key-shapes",
-        "dkim-discovery-notes"
-      ]
+     "axis": "redundancy[].full",
+     "values": [
+      "true",
+      "false"
+     ],
+     "note": "covered === resolved.length — the dual-stack rule"
     },
     {
-      "id": "dmarc.discovery.shape",
-      "owner": "core/dmarc",
-      "site": "js/dns.js:2065-2075",
-      "axes": [
-        {
-          "axis": "applied",
-          "values": [
-            "null",
-            "object"
-          ],
-          "note": "null when no record was collected, or when terminated==='error' and the subject published none of its own"
-        },
-        {
-          "axis": "applied.inherited",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "applied.labelsUp",
-          "values": [
-            "0",
-            "1+"
-          ]
-        },
-        {
-          "axis": "policyDomain",
-          "values": [
-            "null",
-            "name"
-          ]
-        },
-        {
-          "axis": "psdBoundary",
-          "values": [
-            "null",
-            "name"
-          ]
-        },
-        {
-          "axis": "steps",
-          "values": [
-            "1",
-            "2..8"
-          ],
-          "note": "the walk budget is eight by construction (js/dns.js:1889)"
-        },
-        {
-          "axis": "observed",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "error",
-          "values": [
-            "null",
-            "dns.transport.kind member"
-          ],
-          "note": "non-null only when terminated==='error'"
-        },
-        {
-          "axis": "walk error position",
-          "values": [
-            "before an own record",
-            "after an own record"
-          ],
-          "note": "an own record survives a later error; a record collected higher up does not"
-        }
-      ],
-      "fixtures": [
-        "dmarc-tree-walk"
-      ]
-    },
-    {
-      "id": "dmarc.reportPlan.shape",
-      "owner": "core/dmarc",
-      "site": "js/dns.js:1599-1607",
-      "axes": [
-        {
-          "axis": "total",
-          "values": [
-            "0",
-            "1..10",
-            ">10"
-          ]
-        },
-        {
-          "axis": "omitted",
-          "values": [
-            "[]",
-            "non-empty"
-          ],
-          "note": "MAX_REPORT_DESTINATIONS = 10, js/dns.js:1651"
-        },
-        {
-          "axis": "external",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "ruaUris.valid",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "ruaUris.invalid",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        }
-      ],
-      "fixtures": [
-        "dmarc-report-authorization",
-        "dmarc-report-unverifiable"
-      ]
-    },
-    {
-      "id": "caa.shape",
-      "owner": "core/caa",
-      "site": "js/dns.js:2453-2456, fallback js/dns.js:5538",
-      "axes": [
-        {
-          "axis": "found",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "unknown",
-          "values": [
-            "absent",
-            "true"
-          ],
-          "note": "ABSENT on the success path; the fallback shape adds unknown and error"
-        },
-        {
-          "axis": "atDomain",
-          "values": [
-            "null",
-            "name"
-          ],
-          "note": "a name above the audited domain proves inheritance"
-        },
-        {
-          "axis": "issuanceBlocked",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "wildcardBlocked",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "unknownCritical",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "malformed",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "iodef",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        }
-      ],
-      "fixtures": [
-        "caa-policy",
-        "unverified-controls"
-      ]
-    },
-    {
-      "id": "mx.shape",
-      "owner": "core/mx",
-      "site": "js/dns.js:2586-2599",
-      "axes": [
-        {
-          "axis": "records",
-          "values": [
-            "no MX",
-            "null MX",
-            "one target",
-            "many targets"
-          ]
-        },
-        {
-          "axis": "hosts",
-          "values": [
-            "[]",
-            "1",
-            "2+"
-          ]
-        },
-        {
-          "axis": "danglingHosts",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "cnameHosts",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "duplicatePreferences",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "sharedPrefixes",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "singleHost",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "hosts[].cnameUnknown",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "unknown",
-          "values": [
-            "true",
-            "false"
-          ]
-        }
-      ],
-      "fixtures": [
-        "mx-health-and-tlsa",
-        "parked-null-mx"
-      ]
-    },
-    {
-      "id": "bimi.shape",
-      "owner": "core/bimi",
-      "site": "js/dns.js:5573",
-      "axes": [
-        {
-          "axis": "present",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "declined",
-          "values": [
-            "true",
-            "false"
-          ],
-          "note": "a valid record with an empty l= — conformant, and not a configured indicator"
-        },
-        {
-          "axis": "advertised",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "multiple",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "unknown",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "validation.valid",
-          "values": [
-            "true",
-            "false"
-          ]
-        }
-      ],
-      "fixtures": [
-        "bimi-duplicate-tags",
-        "enforcing-signed",
-        "unverified-controls"
-      ]
-    },
-    {
-      "id": "transport.mtaSts.shape",
-      "owner": "core/transport",
-      "site": "js/dns.js:5574",
-      "axes": [
-        {
-          "axis": "present",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "advertised",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "multiple",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "unknown",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "policyVerified",
-          "values": [
-            "false"
-          ],
-          "note": "literal false in this release — js/dns.js:5574. calcScore halves the pillar when present && policyVerified === false."
-        },
-        {
-          "axis": "validation.valid",
-          "values": [
-            "true",
-            "false"
-          ]
-        }
-      ],
-      "fixtures": [
-        "enforcing-signed",
-        "unverified-controls"
-      ]
-    },
-    {
-      "id": "transport.tlsRpt.shape",
-      "owner": "core/transport",
-      "site": "js/dns.js:5575",
-      "axes": [
-        {
-          "axis": "present",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "advertised",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "multiple",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "unknown",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "validation.valid",
-          "values": [
-            "true",
-            "false"
-          ]
-        }
-      ],
-      "fixtures": [
-        "enforcing-signed",
-        "unverified-controls"
-      ]
-    },
-    {
-      "id": "transport.tlsa.shape",
-      "owner": "core/transport",
-      "site": "js/dns.js:2727-2738, fallback js/dns.js:5586",
-      "axes": [
-        {
-          "axis": "hosts[].present",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "hosts[].unknown",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "hosts[].authenticated",
-          "values": [
-            "null",
-            "true",
-            "false"
-          ],
-          "note": "null only on the per-host unknown path"
-        },
-        {
-          "axis": "anyPresent",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "allAuthenticated",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "unauthenticatedHosts",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "unknown",
-          "values": [
-            "true",
-            "false"
-          ]
-        }
-      ],
-      "fixtures": [
-        "mx-health-and-tlsa"
-      ]
-    },
-    {
-      "id": "dnssec.shape",
-      "owner": "core/dnssec",
-      "site": "js/dns.js:4112-4129",
-      "axes": [
-        {
-          "axis": "lookups.ns.completed",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "lookups.ds.completed",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "lookups.dnskey.completed",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "ds",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "keys",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "anchorConfirmed",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "orphanDs",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "resolverValidated",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "signed",
-          "values": [
-            "true",
-            "false"
-          ],
-          "note": "true only for state==='secure'"
-        },
-        {
-          "axis": "deprecatedAlgorithms",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "deprecatedDigests",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "keys[].hasRevokeFlag",
-          "values": [
-            "true",
-            "false"
-          ]
-        },
-        {
-          "axis": "ds[].matchedKeyIndex",
-          "values": [
-            "null",
-            "index"
-          ]
-        }
-      ],
-      "fixtures": [
-        "dnssec-chain-states",
-        "dnssec-evidence-missing"
-      ]
-    },
-    {
-      "id": "audit.shape",
-      "owner": "audit",
-      "site": "js/dns.js:5345-5599",
-      "axes": [
-        {
-          "axis": "registration",
-          "values": [
-            "registered",
-            "unregistered"
-          ],
-          "note": "unregistered returns a 3-property object and nothing else"
-        },
-        {
-          "axis": "opts.advanced",
-          "values": [
-            "off — advanced is 10 null properties",
-            "on"
-          ]
-        },
-        {
-          "axis": "opts.deepChecks",
-          "values": [
-            "off — mxHealth and tlsa stay null",
-            "on"
-          ]
-        },
-        {
-          "axis": "opts.dkim",
-          "values": [
-            "off — the not-checked dkimStatus shape",
-            "on"
-          ]
-        },
-        {
-          "axis": "opts.www",
-          "values": [
-            "off — hosting is '@dash'",
-            "on"
-          ]
-        },
-        {
-          "axis": "opts.wildcard",
-          "values": [
-            "off — both wildcard flags false",
-            "on"
-          ]
-        },
-        {
-          "axis": "advScore",
-          "values": [
-            "null",
-            "{done,total,unknown}"
-          ],
-          "note": "null when opts.advanced is off"
-        },
-        {
-          "axis": "scoring rubric",
-          "values": [
-            "active mail",
-            "parked (@null-mx)"
-          ]
-        },
-        {
-          "axis": "termination",
-          "values": [
-            "normal result",
-            "thrown cancellation (AbortError)",
-            "thrown core transport error from requireUsable on the NS probe"
-          ]
-        },
-        {
-          "axis": "servfail preflight",
-          "values": [
-            "not taken",
-            "taken and bogus (cd=1 re-query)",
-            "taken and not bogus"
-          ],
-          "note": "js/dns.js:5360-5366 — the only place queryOpts gains checkingDisabled"
-        },
-        {
-          "axis": "spfRecords",
-          "values": [
-            "0",
-            "1",
-            "2+"
-          ]
-        },
-        {
-          "axis": "wildcardApex/wildcardDkim",
-          "values": [
-            "false/false",
-            "true/false",
-            "true/true"
-          ],
-          "note": "measured at two depths; a failed probe stays false"
-        }
-      ],
-      "fixtures": [
-        "enforcing-signed",
-        "unregistered",
-        "website-probe-off",
-        "parked-null-mx",
-        "dnssec-bogus"
-      ]
-    },
-    {
-      "id": "dnssec.lookups.shape",
-      "owner": "core/dnssec",
-      "site": "js/dns.js:3956-3961",
-      "axes": [
-        {
-          "axis": "lookups.ns",
-          "values": [
-            "completed",
-            "not completed"
-          ]
-        },
-        {
-          "axis": "lookups.ds",
-          "values": [
-            "completed",
-            "not completed"
-          ]
-        },
-        {
-          "axis": "lookups.dnskey",
-          "values": [
-            "completed",
-            "not completed"
-          ]
-        },
-        {
-          "axis": "lookups.*.kind",
-          "values": [
-            "any dns.transport.kind member"
-          ]
-        }
-      ],
-      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
-      "fixtures": [
-        "dnssec-evidence-missing"
-      ]
-    },
-    {
-      "id": "audit.returnShape",
-      "owner": "audit",
-      "site": "js/dns.js:5370 — { domain, unregistered: true, error: false } and nothing else",
-      "axes": [
-        {
-          "axis": "unregistered",
-          "values": [
-            "a 3-property object: domain, unregistered:true, error:false"
-          ],
-          "note": "js/dns.js:5370 — every other property of the full shape is ABSENT, not undefined"
-        },
-        {
-          "axis": "full",
-          "values": [
-            "24 properties"
-          ],
-          "note": "js/dns.js:5591"
-        }
-      ],
-      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
-      "fixtures": [
-        "unregistered",
-        "enforcing-signed"
-      ]
-    },
-    {
-      "id": "dkim.recordSet.shape",
-      "owner": "core/dkim",
-      "site": "js/dns.js:481-517",
-      "axes": [
-        {
-          "axis": "keys",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "revoked",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "unusable",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        },
-        {
-          "axis": "malformed",
-          "values": [
-            "[]",
-            "non-empty"
-          ]
-        }
-      ],
-      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
-      "fixtures": [
-        "dkim-key-shapes"
-      ]
-    },
-    {
-      "id": "audit.dmarcScore.shape",
-      "owner": "audit",
-      "site": "js/dns.js:4515",
-      "axes": [
-        {
-          "axis": "policy",
-          "values": [
-            "0",
-            "non-zero"
-          ]
-        },
-        {
-          "axis": "subdomain",
-          "values": [
-            "0",
-            "non-zero"
-          ]
-        },
-        {
-          "axis": "rua",
-          "values": [
-            "0",
-            "non-zero"
-          ]
-        },
-        {
-          "axis": "alignment",
-          "values": [
-            "0",
-            "non-zero"
-          ]
-        },
-        {
-          "axis": "ruf",
-          "values": [
-            "0",
-            "non-zero"
-          ]
-        },
-        {
-          "axis": "uris",
-          "values": [
-            "0",
-            "non-zero"
-          ]
-        }
-      ],
-      "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
-      "fixtures": [
-        "enforcing-signed",
-        "bare-registered"
-      ]
+     "axis": "unknown",
+     "values": [
+      "false",
+      "true"
+     ],
+     "note": "true keeps the size findings and drops redundancy"
     }
-  ]
+   ],
+   "fixtures": [
+    "spf-subnets-and-lookups"
+   ]
+  },
+  {
+   "id": "dkim.check.shape",
+   "owner": "core/dkim",
+   "site": "js/dns.js:1250-1253, default js/dns.js:5470",
+   "axes": [
+    {
+     "axis": "checked",
+     "values": [
+      "not checked (default shape, 5 properties)",
+      "checked (13 properties)"
+     ],
+     "note": "the default shape has no missingSelectors, failedSelectors, duplicated, revokedSelectors, unusableSelectors, malformedSelectors, keyProfile or scanMode at all"
+    },
+    {
+     "axis": "found",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "missingSelectors",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "failedSelectors",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "duplicated",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "revokedSelectors",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "unusableSelectors",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "malformedSelectors",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "keyProfile.minBits",
+     "values": [
+      "null",
+      "number"
+     ]
+    },
+    {
+     "axis": "keyProfile.maxBits",
+     "values": [
+      "null",
+      "number"
+     ]
+    },
+    {
+     "axis": "keyProfile.mixed",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "selectors[].key.appliesToEmail",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "selectors[].key.revoked",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "selectors[].key.valid",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "selectors[].uncommon",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "selectors[].viaSpf",
+     "values": [
+      "''",
+      "catalog key"
+     ]
+    }
+   ],
+   "fixtures": [
+    "dkim-key-shapes",
+    "dkim-discovery-notes"
+   ]
+  },
+  {
+   "id": "dmarc.discovery.shape",
+   "owner": "core/dmarc",
+   "site": "js/dns.js:2065-2075",
+   "axes": [
+    {
+     "axis": "applied",
+     "values": [
+      "null",
+      "object"
+     ],
+     "note": "null when no record was collected, or when terminated==='error' and the subject published none of its own"
+    },
+    {
+     "axis": "applied.inherited",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "applied.labelsUp",
+     "values": [
+      "0",
+      "1+"
+     ]
+    },
+    {
+     "axis": "policyDomain",
+     "values": [
+      "null",
+      "name"
+     ]
+    },
+    {
+     "axis": "psdBoundary",
+     "values": [
+      "null",
+      "name"
+     ]
+    },
+    {
+     "axis": "steps",
+     "values": [
+      "1",
+      "2..8"
+     ],
+     "note": "the walk budget is eight by construction (js/dns.js:1889)"
+    },
+    {
+     "axis": "observed",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "error",
+     "values": [
+      "null",
+      "dns.transport.kind member"
+     ],
+     "note": "non-null only when terminated==='error'"
+    },
+    {
+     "axis": "walk error position",
+     "values": [
+      "before an own record",
+      "after an own record"
+     ],
+     "note": "an own record survives a later error; a record collected higher up does not"
+    }
+   ],
+   "fixtures": [
+    "dmarc-tree-walk"
+   ]
+  },
+  {
+   "id": "dmarc.reportPlan.shape",
+   "owner": "core/dmarc",
+   "site": "js/dns.js:1599-1607",
+   "axes": [
+    {
+     "axis": "total",
+     "values": [
+      "0",
+      "1..10",
+      ">10"
+     ]
+    },
+    {
+     "axis": "omitted",
+     "values": [
+      "[]",
+      "non-empty"
+     ],
+     "note": "MAX_REPORT_DESTINATIONS = 10, js/dns.js:1651"
+    },
+    {
+     "axis": "external",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "ruaUris.valid",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "ruaUris.invalid",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    }
+   ],
+   "fixtures": [
+    "dmarc-report-authorization",
+    "dmarc-report-unverifiable"
+   ]
+  },
+  {
+   "id": "caa.shape",
+   "owner": "core/caa",
+   "site": "js/dns.js:2453-2456, fallback js/dns.js:5538",
+   "axes": [
+    {
+     "axis": "found",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "unknown",
+     "values": [
+      "absent",
+      "true"
+     ],
+     "note": "ABSENT on the success path; the fallback shape adds unknown and error"
+    },
+    {
+     "axis": "atDomain",
+     "values": [
+      "null",
+      "name"
+     ],
+     "note": "a name above the audited domain proves inheritance"
+    },
+    {
+     "axis": "issuanceBlocked",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "wildcardBlocked",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "unknownCritical",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "malformed",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "iodef",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    }
+   ],
+   "fixtures": [
+    "caa-policy",
+    "unverified-controls"
+   ]
+  },
+  {
+   "id": "mx.shape",
+   "owner": "core/mx",
+   "site": "js/dns.js:2586-2599",
+   "axes": [
+    {
+     "axis": "records",
+     "values": [
+      "no MX",
+      "null MX",
+      "one target",
+      "many targets"
+     ]
+    },
+    {
+     "axis": "hosts",
+     "values": [
+      "[]",
+      "1",
+      "2+"
+     ]
+    },
+    {
+     "axis": "danglingHosts",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "cnameHosts",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "duplicatePreferences",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "sharedPrefixes",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "singleHost",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "hosts[].cnameUnknown",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "unknown",
+     "values": [
+      "true",
+      "false"
+     ]
+    }
+   ],
+   "fixtures": [
+    "mx-health-and-tlsa",
+    "parked-null-mx"
+   ]
+  },
+  {
+   "id": "bimi.shape",
+   "owner": "core/bimi",
+   "site": "js/dns.js:5573",
+   "axes": [
+    {
+     "axis": "present",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "declined",
+     "values": [
+      "true",
+      "false"
+     ],
+     "note": "a valid record with an empty l= — conformant, and not a configured indicator"
+    },
+    {
+     "axis": "advertised",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "multiple",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "unknown",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "validation.valid",
+     "values": [
+      "true",
+      "false"
+     ]
+    }
+   ],
+   "fixtures": [
+    "bimi-duplicate-tags",
+    "enforcing-signed",
+    "unverified-controls"
+   ]
+  },
+  {
+   "id": "transport.mtaSts.shape",
+   "owner": "core/transport",
+   "site": "js/dns.js:5574",
+   "axes": [
+    {
+     "axis": "present",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "advertised",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "multiple",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "unknown",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "policyVerified",
+     "values": [
+      "false"
+     ],
+     "note": "literal false in this release — js/dns.js:5574. calcScore halves the pillar when present && policyVerified === false."
+    },
+    {
+     "axis": "validation.valid",
+     "values": [
+      "true",
+      "false"
+     ]
+    }
+   ],
+   "fixtures": [
+    "enforcing-signed",
+    "unverified-controls"
+   ]
+  },
+  {
+   "id": "transport.tlsRpt.shape",
+   "owner": "core/transport",
+   "site": "js/dns.js:5575",
+   "axes": [
+    {
+     "axis": "present",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "advertised",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "multiple",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "unknown",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "validation.valid",
+     "values": [
+      "true",
+      "false"
+     ]
+    }
+   ],
+   "fixtures": [
+    "enforcing-signed",
+    "unverified-controls"
+   ]
+  },
+  {
+   "id": "transport.tlsa.shape",
+   "owner": "core/transport",
+   "site": "js/dns.js:2727-2738, fallback js/dns.js:5586",
+   "axes": [
+    {
+     "axis": "hosts[].present",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "hosts[].unknown",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "hosts[].authenticated",
+     "values": [
+      "null",
+      "true",
+      "false"
+     ],
+     "note": "null only on the per-host unknown path"
+    },
+    {
+     "axis": "anyPresent",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "allAuthenticated",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "unauthenticatedHosts",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "unknown",
+     "values": [
+      "true",
+      "false"
+     ]
+    }
+   ],
+   "fixtures": [
+    "mx-health-and-tlsa"
+   ]
+  },
+  {
+   "id": "dnssec.shape",
+   "owner": "core/dnssec",
+   "site": "js/dns.js:4112-4129",
+   "axes": [
+    {
+     "axis": "lookups.ns.completed",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "lookups.ds.completed",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "lookups.dnskey.completed",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "ds",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "keys",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "anchorConfirmed",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "orphanDs",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "resolverValidated",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "signed",
+     "values": [
+      "true",
+      "false"
+     ],
+     "note": "true only for state==='secure'"
+    },
+    {
+     "axis": "deprecatedAlgorithms",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "deprecatedDigests",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "keys[].hasRevokeFlag",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
+     "axis": "ds[].matchedKeyIndex",
+     "values": [
+      "null",
+      "index"
+     ]
+    }
+   ],
+   "fixtures": [
+    "dnssec-chain-states",
+    "dnssec-evidence-missing"
+   ]
+  },
+  {
+   "id": "audit.shape",
+   "owner": "audit",
+   "site": "js/dns.js:5345-5599",
+   "axes": [
+    {
+     "axis": "registration",
+     "values": [
+      "registered",
+      "unregistered"
+     ],
+     "note": "unregistered returns a 3-property object and nothing else"
+    },
+    {
+     "axis": "opts.advanced",
+     "values": [
+      "off — advanced is 10 null properties",
+      "on"
+     ]
+    },
+    {
+     "axis": "opts.deepChecks",
+     "values": [
+      "off — mxHealth and tlsa stay null",
+      "on"
+     ]
+    },
+    {
+     "axis": "opts.dkim",
+     "values": [
+      "off — the not-checked dkimStatus shape",
+      "on"
+     ]
+    },
+    {
+     "axis": "opts.www",
+     "values": [
+      "off — hosting is '@dash'",
+      "on"
+     ]
+    },
+    {
+     "axis": "opts.wildcard",
+     "values": [
+      "off — both wildcard flags false",
+      "on"
+     ]
+    },
+    {
+     "axis": "advScore",
+     "values": [
+      "null",
+      "{done,total,unknown}"
+     ],
+     "note": "null when opts.advanced is off"
+    },
+    {
+     "axis": "scoring rubric",
+     "values": [
+      "active mail",
+      "parked (@null-mx)"
+     ]
+    },
+    {
+     "axis": "termination",
+     "values": [
+      "normal result",
+      "thrown cancellation (AbortError)",
+      "thrown core transport error from requireUsable on the NS probe"
+     ]
+    },
+    {
+     "axis": "servfail preflight",
+     "values": [
+      "not taken",
+      "taken and bogus (cd=1 re-query)",
+      "taken and not bogus"
+     ],
+     "note": "js/dns.js:5360-5366 — the only place queryOpts gains checkingDisabled"
+    },
+    {
+     "axis": "spfRecords",
+     "values": [
+      "0",
+      "1",
+      "2+"
+     ]
+    },
+    {
+     "axis": "wildcardApex/wildcardDkim",
+     "values": [
+      "false/false",
+      "true/false",
+      "true/true"
+     ],
+     "note": "measured at two depths; a failed probe stays false"
+    }
+   ],
+   "fixtures": [
+    "enforcing-signed",
+    "unregistered",
+    "website-probe-off",
+    "parked-null-mx",
+    "dnssec-bogus"
+   ]
+  },
+  {
+   "id": "dnssec.lookups.shape",
+   "owner": "core/dnssec",
+   "site": "js/dns.js:3956-3961",
+   "axes": [
+    {
+     "axis": "lookups.ns",
+     "values": [
+      "completed",
+      "not completed"
+     ]
+    },
+    {
+     "axis": "lookups.ds",
+     "values": [
+      "completed",
+      "not completed"
+     ]
+    },
+    {
+     "axis": "lookups.dnskey",
+     "values": [
+      "completed",
+      "not completed"
+     ]
+    },
+    {
+     "axis": "lookups.*.kind",
+     "values": [
+      "any dns.transport.kind member"
+     ]
+    }
+   ],
+   "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
+   "fixtures": [
+    "dnssec-evidence-missing"
+   ]
+  },
+  {
+   "id": "audit.returnShape",
+   "owner": "audit",
+   "site": "js/dns.js:5370 — { domain, unregistered: true, error: false } and nothing else",
+   "axes": [
+    {
+     "axis": "unregistered",
+     "values": [
+      "a 3-property object: domain, unregistered:true, error:false"
+     ],
+     "note": "js/dns.js:5370 — every other property of the full shape is ABSENT, not undefined"
+    },
+    {
+     "axis": "full",
+     "values": [
+      "24 properties"
+     ],
+     "note": "js/dns.js:5591"
+    }
+   ],
+   "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
+   "fixtures": [
+    "unregistered",
+    "enforcing-signed"
+   ]
+  },
+  {
+   "id": "dkim.recordSet.shape",
+   "owner": "core/dkim",
+   "site": "js/dns.js:481-517",
+   "axes": [
+    {
+     "axis": "keys",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "revoked",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "unusable",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    },
+    {
+     "axis": "malformed",
+     "values": [
+      "[]",
+      "non-empty"
+     ]
+    }
+   ],
+   "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
+   "fixtures": [
+    "dkim-key-shapes"
+   ]
+  },
+  {
+   "id": "audit.dmarcScore.shape",
+   "owner": "audit",
+   "site": "js/dns.js:4515",
+   "axes": [
+    {
+     "axis": "policy",
+     "values": [
+      "0",
+      "non-zero"
+     ]
+    },
+    {
+     "axis": "subdomain",
+     "values": [
+      "0",
+      "non-zero"
+     ]
+    },
+    {
+     "axis": "rua",
+     "values": [
+      "0",
+      "non-zero"
+     ]
+    },
+    {
+     "axis": "alignment",
+     "values": [
+      "0",
+      "non-zero"
+     ]
+    },
+    {
+     "axis": "ruf",
+     "values": [
+      "0",
+      "non-zero"
+     ]
+    },
+    {
+     "axis": "uris",
+     "values": [
+      "0",
+      "non-zero"
+     ]
+    }
+   ],
+   "note": "Was an enum row until Task 0.4.a: its members are keys and shapes, not values, and a literal scan gave them coverage credit for appearing incidentally in a suite.",
+   "fixtures": [
+    "enforcing-signed",
+    "bare-registered"
+   ]
+  }
+ ]
 }
