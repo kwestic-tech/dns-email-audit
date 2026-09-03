@@ -12,6 +12,8 @@ import {
   loadUi, elements, attributes, textOf,
 } from './lib/browser-harness.mjs';
 import { LOCALE_EN } from '../src/data/locales-en.js';
+import { createReport } from '../src/ui/report.js';
+import { validDkimSelector } from '../src/core/dkim/dkim.js';
 
 // Task 6.2: a direct ESM path, replacing `window.__APP_TEST__`. See
 // `loadUi()`'s own note — the adapter existed for this suite and
@@ -688,6 +690,138 @@ const astralReport = APP.buildReportDocument({
 eq('the emoji survives serialization', astralReport.includes('\u{1F600}'), true);
 eq('no replacement character was introduced', astralReport.includes('�'), false);
 assertInert('a report containing an astral boundary value', astralReport);
+
+/* ── The JSON export (report-comparison 1.6 §3) ──────────────────────── */
+section('The JSON export');
+
+/**
+ * Two harnesses, and a limit worth stating.
+ *
+ * The composed UI below proves that three capabilities ARRIVE -- `versions`
+ * and `resolver` from the composition root, `validSelector` from
+ * `src/core/dkim/`. It proves nothing about the fourth: no audit has run here,
+ * so `getRunContext()` is `null` and `generatedAt` is empty. An earlier version
+ * of this comment claimed otherwise, and the timestamp path was consequently
+ * untested -- stubbing `nowIso()` left this suite green.
+ *
+ * **The production timestamp path is covered in `tools/audit-run.test.mjs` §4**,
+ * which drives a completed run through the click path with a pinned clock. That
+ * is where it belongs: `runContext` is run-loop state.
+ *
+ * The captured-download harness then drives the bytes with a supplied run
+ * context, because `dl()` is the only part that needs a document. It formats;
+ * it does not establish where the instant came from.
+ */
+const composed = (await loadUi()).ui.buildReportJson();
+eq('the composed UI produces a schema-identified report',
+  [composed.schema, composed.schemaVersion], ['dns-email-audit/report', 1]);
+eq('the resolver reached the export from its owner',
+  composed.resolver, 'https://cloudflare-dns.com/dns-query');
+eq('and so did a real release version, not a placeholder',
+  /^\d+\.\d+\.\d+$/.test(composed.generator.version), true);
+eq('and a positive analysis version',
+  Number.isInteger(composed.generator.analysisVersion) && composed.generator.analysisVersion > 0, true);
+// The capability that has already been undefined once in this release: if it
+// were missing, `projectReport` would throw rather than reach this line.
+eq('the selector capability was composed, or this would have thrown',
+  Array.isArray(composed.options.selectors), true);
+// Stated rather than left to be inferred: with no run, there is no stamp.
+eq('and with no run there is no timestamp to prove here',
+  composed.generatedAt, '');
+
+const RUN_AT = '2026-09-03T12:34:56.789Z';
+const captured = [];
+function reportWithRun(runAt, results, sessions) {
+  const anchors = [];
+  const fakePlatform = {
+    Blob: function (parts) { this.parts = parts; },
+    URL: { createObjectURL(blob) { captured.push(blob); return 'blob:' + captured.length; },
+      revokeObjectURL() {} },
+    setTimeout() {}, fetch() { return Promise.reject(new Error('no network')); },
+    formatDateTime() { return ''; },
+  };
+  // `dl()` sets `download` and `href` on the anchor before clicking, so the
+  // name and the body are both observable without a real DOM.
+  const fakeDocument = { createElement() {
+    const a = {
+      set download(v) { a._name = v; }, get download() { return a._name; },
+      set href(v) { a._href = v; }, get href() { return a._href; },
+      click() { anchors.push({ name: a._name, blob: captured[captured.length - 1] }); },
+    };
+    return a;
+  } };
+  const api = createReport({
+    document: fakeDocument, platform: fakePlatform, i18n, renderer: R,
+    englishBundle: LOCALE_EN,
+    label: x => String(x), issueMessage: () => '', spfRecordCell: () => '',
+    dkimKeyBitsCell: () => '', rowHygieneValues: () => [],
+    showToast() {}, $: () => null,
+    getResults: () => results,
+    getArtifactSessions: () => sessions || {},
+    buildArtifactReportContent: () => null,
+    versions: { app: '0.9.0', analysis: 1 },
+    resolver: 'https://cloudflare-dns.com/dns-query',
+    validSelector: validDkimSelector,
+    getRunContext: () => ({
+      options: { dkim: true, dkimComprehensive: false, www: true, wildcard: true,
+        advanced: true, deepChecks: true, selectors: ['selector1'] },
+      generatedAt: runAt,
+    }),
+  });
+  api.exportJSON();
+  const last = anchors[anchors.length - 1];
+  return { api, name: last.name, text: last.blob.parts[0] };
+}
+
+const jsonRun = reportWithRun(RUN_AT, [row]);
+
+// The filename is DERIVED, proven by changing the input rather than by
+// restating the expected string.
+eq('the download name carries the run date', jsonRun.name, 'dns-email-audit-2026-09-03.json');
+eq('and it moves with the run, not with a second clock read',
+  reportWithRun('2024-01-02T00:00:00.000Z', [row]).name, 'dns-email-audit-2024-01-02.json');
+
+const jsonBody = JSON.parse(jsonRun.text);
+eq('the downloaded bytes are the report', jsonBody.generatedAt, RUN_AT);
+eq('the audited domain is present', jsonBody.domains.map(d => d.domain), ['evil.example']);
+
+// Acceptance criterion 4 reduces to this: `generatedAt` comes from the RUN, so
+// two exports of one audit cannot differ however far apart they are taken.
+eq('two exports of one run are byte-identical',
+  reportWithRun(RUN_AT, [row]).text, jsonRun.text);
+
+/**
+ * The provenance boundary 0.8.0 established, asserted in BOTH directions.
+ *
+ * The CSV carries artifact findings in three dedicated columns; the JSON must
+ * carry none (RQ-CMP-07). Asserting only the absence would pass on a fixture
+ * that never had one, so the same session is shown reaching the CSV.
+ */
+const artifactSession = {
+  'evil.example': { artifactFindings: [{
+    id: 'artifact.mta-sts.mode-testing', severity: 'medium', source: 'user-supplied',
+    artifact: 'mta-sts', evidence: [{ kind: 'policy', location: 'mode', value: 'testing' }],
+  }] },
+};
+const withArtifacts = reportWithRun(RUN_AT, [row], artifactSession);
+eq('no user-supplied provenance reaches the JSON export',
+  withArtifacts.text.includes('user-supplied'), false);
+eq('and no artifact finding id does either',
+  withArtifacts.text.includes('artifact.mta-sts.mode-testing'), false);
+eq('while the same session does reach the CSV, which is the boundary', (() => {
+  const csvRow = withArtifacts.api.buildCsvRows([row])[1];
+  return csvRow.some(cell => String(cell).includes('artifact.mta-sts.mode-testing'));
+})(), true);
+
+// The vendor tokens section 1 excludes. The fixture row carries `verifications`,
+// so this is an assertion about the projection rather than about the input.
+eq('the fixture really does carry a vendor token', (() => {
+  const withToken = Object.assign({}, row, { verifications: ['google-site-verification=SECRET'] });
+  return withToken.verifications.length;
+})(), 1);
+eq('and it does not reach the exported JSON',
+  reportWithRun(RUN_AT, [Object.assign({}, row,
+    { verifications: ['google-site-verification=SECRET'] })]).text.includes('SECRET'), false);
 
 /* ── Summary ─────────────────────────────────────────────────────────── */
 console.log(`\n${'='.repeat(60)}`);

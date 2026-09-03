@@ -51,6 +51,8 @@
  * rather than twice.
  */
 
+import { projectReport } from './report-data.js';
+
 export function serializeDocument(doc) {
   return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
 }
@@ -85,6 +87,12 @@ export function createReport(capabilities) {
     label, issueMessage, spfRecordCell, dkimKeyBitsCell, rowHygieneValues,
     // Page feedback, and the accessor that keeps `results` fresh.
     showToast, $, getResults, getArtifactSessions, buildArtifactReportContent,
+    // 0.9.0's JSON export (report-comparison 1.6 section 3). Each of these is
+    // a capability rather than an import because `src/ui/` may reach only
+    // `ui/` siblings and `i18n/`: `versions` and `resolver` come from the
+    // composition root, and `validSelector` is a protocol rule owned by
+    // `src/core/dkim/` that the schema must not restate.
+    versions, resolver, validSelector, getRunContext,
   } = capabilities;
   const t = i18n.t;
   const tRaw = i18n.tRaw;
@@ -246,6 +254,54 @@ export function createReport(capabilities) {
     showToast(t('toast.csvExported'));
   }
 
+  /**
+   * Build the 0.9.0 report body from the current run.
+   *
+   * Split from `exportJSON()` so the export tests can assert the bytes without
+   * a DOM or a download, exactly as `buildCsvRows` is.
+   *
+   * `generatedAt` is the moment the RUN completed, taken from the run context
+   * rather than read from a clock here. That is what makes acceptance criterion
+   * 4 testable: two exports of one audit, taken in two languages or ten minutes
+   * apart, are byte-identical. A fresh timestamp per export would differ.
+   */
+  function buildReportJson() {
+    var run = typeof getRunContext === 'function' ? getRunContext() : null;
+    return projectReport({
+      results: getResults(),
+      options: (run && run.options) || {},
+      generatedAt: (run && run.generatedAt) || '',
+      resolver: resolver,
+      versions: versions,
+      validSelector: validSelector,
+    });
+  }
+
+  /**
+   * Download the report as JSON.
+   *
+   * The filename carries the run's own UTC date, derived from `generatedAt`
+   * rather than from a second clock read, so a file's name and its contents
+   * cannot disagree.
+   *
+   * It is deliberately not UNIQUE. Two exports of one run, or of two runs on
+   * the same UTC date, request the same name and the browser disambiguates.
+   * A date is readable in a downloads folder, a second-precision timestamp is
+   * more identity than the file needs, and the repeat case is rare.
+   *
+   * Artifact findings are absent by construction: nothing on this path reads
+   * `getArtifactSessions()`, so there is no route by which a `user-supplied`
+   * finding reaches the file (RQ-CMP-07). The CSV and HTML exports above do
+   * carry them, which is the provenance boundary 0.8.0 established.
+   */
+  function exportJSON() {
+    var report = buildReportJson();
+    var day = String(report.generatedAt).slice(0, 10) || 'report';
+    dl('dns-email-audit-' + day + '.json', 'application/json',
+      JSON.stringify(report, null, 2));
+    showToast(t('toast.jsonExported'));
+  }
+
   // The app is no longer a single file, so the old
   // `document.documentElement.outerHTML` trick would export a report with
   // dead <link>/<script> references. Instead we build a self-contained,
@@ -363,11 +419,12 @@ export function createReport(capabilities) {
   }
 
   return {
-    exportCSV, exportHTML,
+    exportCSV, exportHTML, exportJSON,
     // Reached by `tools/export.test.mjs` through the UI object `createUi()`
     // returns — `loadUi()` composes a runtime and hands it back — so these are
     // driven directly rather than through a live page, and by import rather
     // than through any published name.
     buildCsvRows, toCsvText, neutralizeCsvCell, buildReportDocument,
+    buildReportJson,
   };
 }

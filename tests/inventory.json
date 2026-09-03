@@ -78,7 +78,7 @@
   },
   {
    "path": "tools/audit-run.test.mjs",
-   "assertions": 7,
+   "assertions": 12,
    "areas": [
     "the audit run loop, booted from index.html and driven through its own controls",
     "one double click starts one run, and every early return releases the run guard",
@@ -87,7 +87,7 @@
   },
   {
    "path": "tools/export.test.mjs",
-   "assertions": 216,
+   "assertions": 232,
    "areas": [
     "CSV column order, quoting and formula neutralization",
     "the exported HTML report's structure and its own security policy",
@@ -96,7 +96,9 @@
     "the download name derived from the run's own timestamp, proven by changing the run rather than restating the string",
     "two exports of one run byte-identical, because generatedAt comes from the run and not a second clock read",
     "the 0.8.0 provenance boundary in both directions: artifact findings reach the CSV and never the JSON",
-    "the limit of the composed-UI harness stated rather than assumed: with no run there is no timestamp for it to prove"
+    "the limit of the composed-UI harness stated rather than assumed: with no run there is no timestamp for it to prove",
+    "the JSON export driven through the composed UI, proving the resolver, versions and selector capabilities arrive, and stating what it cannot prove without a run",
+    "the download name derived from the run's timestamp, proven by changing the run rather than restating the string"
    ]
   },
   {

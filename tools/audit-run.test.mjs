@@ -39,6 +39,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { loadUi } from './lib/browser-harness.mjs';
+import { parseReport } from '../src/ui/report-data.js';
+import { validDkimSelector } from '../src/core/dkim/dkim.js';
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
 const INDEX_HTML = readFileSync(join(repo, 'index.html'), 'utf8');
@@ -149,6 +151,86 @@ section('3. An input the run refuses also releases the guard');
   click(btn);
   await settle();
   eq('and the next real run still starts', calls.probe, 1);
+}
+
+/* ── 4. A completed run stamps the report it can export ──────────────── */
+section('4. A completed run stamps the report it can export');
+
+/**
+ * The production timestamp path, driven end to end.
+ *
+ * This section exists because the first attempt at covering it did not. The
+ * export suite called the composed UI before any audit had run, so
+ * `getRunContext()` was `null` and the timestamp assertions proved nothing;
+ * the byte assertions then built `createReport()` by hand and supplied their
+ * own run context, bypassing `events.js` and `platform.nowIso()` entirely.
+ * Both mutations below left every suite green.
+ *
+ * `runContext` is run-loop state -- set once when a run finishes -- so it is
+ * tested here, where a run is actually driven through the click path, rather
+ * than in the suite that formats the bytes.
+ */
+{
+  const FIXED = '2026-09-03T12:34:56.789Z';
+  const FIXED_MS = Date.parse(FIXED);
+  const booted = await boot();
+  const { document, win } = booted;
+
+  // The clock is a capability the runtime holds and `nowIso()` reads it
+  // lazily, so pinning the window's `Date` pins the stamp -- the same lever
+  // the equivalence runner uses.
+  const RealDate = win.Date;
+  class PinnedDate extends RealDate {
+    constructor(...args) { super(...(args.length ? args : [FIXED_MS])); }
+    static now() { return FIXED_MS; }
+  }
+  win.Date = PinnedDate;
+
+  // Capture the download without a real browser: `dl()` sets `download` and
+  // `href` on an anchor and clicks it.
+  const downloads = [];
+  const realCreate = document.createElement.bind(document);
+  document.createElement = function (tag) {
+    const node = realCreate(tag);
+    if (tag === 'a') {
+      const original = node.click ? node.click.bind(node) : function () {};
+      node.click = function () { downloads.push({ name: node.download }); original(); };
+    }
+    return node;
+  };
+  // The shim's `Blob` is not the platform's, and this section asserts the
+  // NAME rather than the bytes, so the object URL is stubbed outright.
+  const realCreateObjectUrl = win.URL.createObjectURL;
+  win.URL.createObjectURL = function () { return 'blob:export-test'; };
+
+  document.getElementById('domainInput').value = 'a.example';
+  document.getElementById('optDeepChecks').checked = false;
+  click(document.getElementById('auditBtn'));
+  await settle();
+
+  const report = booted.ui.buildReportJson();
+
+  // Fails if `nowIso()` returns anything but a real instant, and fails if the
+  // completed run stops assigning the context.
+  eq('the finished run stamped the pinned instant', report.generatedAt, FIXED);
+  eq('and the report carries the options that run used',
+    [report.options.deepChecks, report.options.advanced], [false, true]);
+  eq('the run produced a domain to report on', report.domains.map(d => d.domain), ['a.example']);
+
+  booted.ui.exportJSON();
+  eq('the download name is derived from that instant',
+    downloads.map(d => d.name), ['dns-email-audit-2026-09-03.json']);
+
+  // The strongest oracle available: the importer requires a canonical UTC
+  // instant that is also a real calendar date, so a stubbed `nowIso()` cannot
+  // survive this even if it returned something ISO-shaped.
+  const reimported = parseReport(JSON.stringify(report), { validSelector: validDkimSelector });
+  eq('and the exported report re-imports through the same build',
+    [reimported.ok, reimported.ok ? reimported.report.generatedAt : reimported.errors],
+    [true, FIXED]);
+
+  win.Date = RealDate;
+  win.URL.createObjectURL = realCreateObjectUrl;
 }
 
 console.log(`\n${'='.repeat(60)}`);
