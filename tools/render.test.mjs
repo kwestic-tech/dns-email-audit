@@ -261,6 +261,17 @@ eq('a numeric entity decodes', textOf(rich('&#65;&#x42;')), 'AB');
 eq('a surrogate entity becomes U+FFFD', textOf(rich('&#xD800;')), '�');
 eq('nesting works', textOf(rich('<p>a <em>b <code>c</code></em></p>')), 'a b c');
 
+// The entity body is matched by `[a-zA-Z]+`, so every Object.prototype member
+// name reaches the named-entity lookup. Against an object literal
+// `&constructor;` resolved to `Object` and `replace()` stringified it into the
+// page. An unknown entity is left as literal text, which is the whole
+// requirement.
+for (const name of ['constructor', 'toString', 'valueOf', 'hasOwnProperty',
+  'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString']) {
+  eq(`&${name}; is left as text, not resolved through the prototype`,
+    textOf(rich(`&${name};`)), `&${name};`);
+}
+
 // The author-time check in tools/check-locales.mjs and the runtime tokenizer
 // must agree, or the build would pass a tag the interface then renders as
 // literal angle brackets. Assert they cannot drift apart.

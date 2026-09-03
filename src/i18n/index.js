@@ -185,9 +185,16 @@ export function createI18n({ englishBundle, platform } = {}) {
     return null;
   }
 
-  var NAMED_ENTITIES = {
+  // Prototype-free, for the same reason `resolve()` reads own properties only.
+  // The entity body is matched by `[a-zA-Z]+`, so `&constructor;` in a locale
+  // string reaches this lookup, and against an object literal it resolves to
+  // `Object` — which `String.prototype.replace` then stringifies into the page
+  // as `function Object() { [native code] }`. A null-prototype table makes
+  // every name nobody wrote undefined, which is the branch that leaves the
+  // entity as literal text.
+  var NAMED_ENTITIES = Object.assign(Object.create(null), {
     amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
-  };
+  });
 
   function decodeEntities(str) {
     return String(str).replace(/&(#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g, function (match, body) {
