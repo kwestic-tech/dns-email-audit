@@ -44,7 +44,7 @@
  */
 import { createReport, serializeDocument, styleElement } from './report.js';
 // The run cap and the importer's domain cap are ONE constant, per
-// report-comparison 1.4 section 4: an importer that accepted more would
+// report-comparison 1.6 section 4: an importer that accepted more would
 // accept a file this application could not have written.
 import { MAX_DOMAINS } from './report-data.js';
 
@@ -88,6 +88,7 @@ export function createUi(capabilities) {
   const {
     document, fetch, setTimeout, open, URL, Blob, FileReader, AbortController, Intl,
   } = platform;
+  const { versions, resolver, validSelector } = capabilities;
   'use strict';
 
   var CONCURRENCY = 6;
@@ -114,6 +115,15 @@ export function createUi(capabilities) {
   var deepChecksReEnabled = false;
 
   var results = [];
+  /**
+   * The finished run's provenance, for the 0.9.0 JSON export.
+   *
+   * `generatedAt` is captured ONCE when the run completes and reused by every
+   * export of it, so two exports of one audit are byte-identical -- reading a
+   * clock at export time would make acceptance criterion 4 untestable. Cleared
+   * with the results, and gone on reload like everything else.
+   */
+  var runContext = null;
   var sortCol = null;
   var sortDir = 1;
   var auditController = null;
@@ -1740,12 +1750,23 @@ export function createUi(capabilities) {
       advanced: true,
       wildcard: $('optWildcard').checked,
       deepChecks: $('optDeepChecks').checked,
+      // The grammar is `src/core/dkim/`'s and arrives as a capability. It used
+      // to be inlined here as an identical regex; spec 1.6 section 0 forbids
+      // restating a protocol rule under `src/ui/`, because a copy drifts.
       selectors: $('dkimSelectors').value.split(/[\s,]+/).map(function (s) { return s.trim().toLowerCase(); })
-        .filter(function (s) { return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(s); }),
+        .filter(validSelector),
     };
     opts.signal = auditController.signal;
 
     results = new Array(domains.length);
+    // `signal` is an AbortController, not provenance, so the report's copy of
+    // the options is taken before it is attached.
+    var runOptions = {
+      dkim: opts.dkim, dkimComprehensive: opts.dkimComprehensive, www: opts.www,
+      wildcard: opts.wildcard, advanced: opts.advanced, deepChecks: opts.deepChecks,
+      selectors: opts.selectors.slice(),
+    };
+    runContext = null;
     $('auditBtn').disabled = true;
     $('cancelBtn').style.display = '';
     $('auditBtn').replaceChildren(R.frag([
@@ -1783,6 +1804,9 @@ export function createUi(capabilities) {
     }));
 
     auditController = null;
+    // The run is over: stamp it once, here, and let every export of it read
+    // the same instant.
+    runContext = { options: runOptions, generatedAt: platform.nowIso() };
     $('auditBtn').disabled = false;
     $('cancelBtn').style.display = 'none';
     $('auditBtn').textContent = t('btn.runAudit');
@@ -1817,7 +1841,10 @@ export function createUi(capabilities) {
    * and `i18n/` only, so everything else here is supplied rather than reached
    * for.
    */
-  const { exportCSV, exportHTML, buildCsvRows, toCsvText, neutralizeCsvCell, buildReportDocument } =
+  const {
+    exportCSV, exportHTML, exportJSON, buildCsvRows, toCsvText, neutralizeCsvCell,
+    buildReportDocument, buildReportJson,
+  } =
     createReport({
       document, platform, i18n, renderer: R,
       englishBundle: englishBundle,
@@ -1825,6 +1852,10 @@ export function createUi(capabilities) {
       showToast, $, getResults: function () { return results; },
       getArtifactSessions: function () { return artifactSessions; },
       buildArtifactReportContent,
+      // Forwarded, not reached for: `report.js` is a sibling and these three
+      // come from the composition root.
+      versions, resolver, validSelector,
+      getRunContext: function () { return runContext; },
     });
 
   /* ── Input helpers ──────────────────────────────────────────────────── */
@@ -2186,6 +2217,7 @@ export function createUi(capabilities) {
     syncArtifactDomains, clearArtifacts, buildArtifactReportContent,
     getArtifactSessions: function () { return artifactSessions; },
     appendRow, appendRowIsolated,
+    exportJSON, buildReportJson, getRunContext: function () { return runContext; },
     buildLearnMorePage, buildReportDocument, buildCsvRows, toCsvText,
     neutralizeCsvCell, issueMessage, tDns, rowHygieneValues, scoreBlock,
     advMiniDots, advFullDots, spfMeter, tile, badge, detailItem, log,
