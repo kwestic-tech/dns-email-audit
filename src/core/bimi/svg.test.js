@@ -239,6 +239,49 @@ LOCAL_REFERENCES.forEach(([label, child]) => {
   eq(`${label} stays valid`, [result.valid, result.rejections], [true, []]);
 });
 
+/* `data:` is the third case, and it is neither `#fragment` nor external.
+ *
+ * The rule this screen enforces is "does this address another document",
+ * because that is what a mail client would fetch and what SVG Tiny PS forbids.
+ * A `data:` URI carries its own bytes: it addresses nothing and cannot beacon.
+ *
+ * It is not unreported. A RASTER `data:` URI in any position is the
+ * `raster-data-uri` DIAGNOSTIC — an SVG Tiny PS logo should not embed a
+ * bitmap — which is a profile complaint rather than a security one. Making it
+ * an `external-reference` instead would turn a shipped diagnostic into an
+ * invalid verdict for a self-contained file. Section 5 already pins that for a
+ * `fill`; these pin the rule itself, in both positions and for the vector
+ * case, which section 5 does not cover.
+ */
+const dataUri = (child) =>
+  check(conformant({ children: [el('title', {}, [text('t')]), child] }));
+
+{
+  const raster = dataUri(el('rect', { fill: 'url(data:image/png;base64,iVBOR)' }));
+  eq('a raster data URI in a fill is a diagnostic, not a rejection',
+    [raster.valid, raster.rejections, raster.diagnostics],
+    [true, [], ['raster-data-uri']]);
+
+  const inStyleAttr = dataUri(el('rect', { style: 'fill:url(data:image/png;base64,iVBOR)' }));
+  eq('and the same in a style attribute',
+    [inStyleAttr.valid, inStyleAttr.rejections], [true, []]);
+
+  const inStyleEl = dataUri(el('style', {}, [text('.a{fill:url(data:image/png;base64,iVBOR)}')]));
+  eq('and inside a style element, which the 1.9 rule refused',
+    [inStyleEl.valid, inStyleEl.rejections], [true, []]);
+
+  // Vector, so `RASTER_DATA_URI` does not fire. Still self-contained, still
+  // not an external reference — this is the case with no diagnostic at all.
+  const vector = dataUri(el('rect', { fill: 'url(data:image/svg+xml,%3Csvg/%3E)' }));
+  eq('a vector data URI is neither a rejection nor a raster diagnostic',
+    [vector.valid, vector.rejections, vector.diagnostics], [true, [], []]);
+
+  // The boundary: `data` as a HOST is an ordinary external reference.
+  const host = dataUri(el('rect', { fill: 'url(https://data.example/p.svg#g)' }));
+  eq('a host called data is still external',
+    [host.valid, host.rejections], [false, ['external-reference']]);
+}
+
 section('4b. External references');
 
 const href = (attrs) => check(conformant({

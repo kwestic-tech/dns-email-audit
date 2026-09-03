@@ -1177,10 +1177,37 @@ Object.defineProperty(failingRow, 'ns', {
   enumerable: true,
 });
 
+// The unguarded control uses a SEPARATE object whose throwing property is read
+// BEFORE the main row is appended — `r.score.unproven` is needed to build the
+// `<tr>` itself. Reusing the post-append `failingRow` here would leave a
+// partial `row-fails-example` in the shared table for every later section to
+// trip over, since nothing cleans up after a call that was never guarded.
+const earlyFailingRow = { ...result, domain: 'early-fails.example' };
+Object.defineProperty(earlyFailingRow, 'score', {
+  get() { throw new Error('forced pre-append failure'); },
+  enumerable: true,
+});
+eq('the unguarded call really does throw',
+  (() => { try { APP.appendRow(earlyFailingRow); return null; }
+    catch (e) { return e.message; } })(), 'forced pre-append failure');
+eq('and it appended nothing, so the control leaves no partial row',
+  Array.from(document.getElementById('tableBody').childNodes)
+    .filter(node => node.id === 'row-early-fails-example').length, 0);
+
 const before = elements(document.getElementById('tableBody')).length;
 let isolatedThrew = null;
 try { APP.appendRowIsolated(failingRow); } catch (e) { isolatedThrew = e.message; }
 eq('the failure is contained', isolatedThrew, null);
+
+// `failingRow` throws on `r.ns`, which is read while building the detail
+// content after the main row is appended — so the wrapper had a partial row to
+// clean up here too, not only in the `verifications` case below.
+eq('exactly one row carries the contained failure\'s id',
+  Array.from(document.getElementById('tableBody').childNodes)
+    .filter(node => node.id === 'row-fails-example').length, 1);
+eq('and no detail row survived it',
+  Array.from(document.getElementById('tableBody').childNodes)
+    .filter(node => node.id === 'det-fails-example').length, 0);
 
 // A row that fails PART WAY through is the realistic case, not one that fails
 // on its first statement: `appendRow()` appends the main <tr> and then builds
@@ -1209,10 +1236,6 @@ eq('the surviving row is the display-failure row',
     .filter(node => node.id === 'row-partial-example')
     .map(node => textOf(node).includes(t('badge.renderError'))),
   [true]);
-eq('the unguarded call really does throw',
-  (() => { try { APP.appendRow(failingRow); return null; }
-    catch (e) { return e.message; } })(), 'forced render failure');
-
 // A later row still renders: the loop is not left in a broken state.
 APP.appendRowIsolated({ ...result, domain: 'after-failure.example' });
 const afterBody = document.getElementById('tableBody');
