@@ -192,8 +192,17 @@ export function createI18n({ englishBundle, platform } = {}) {
   // as `function Object() { [native code] }`. A null-prototype table makes
   // every name nobody wrote undefined, which is the branch that leaves the
   // entity as literal text.
+  //
+  // `bull` is here because the shipped locale files use `&bull;` as the footer
+  // and about-panel separator in all fourteen languages — 69 occurrences — and
+  // an entity this table does not know is left as literal text, so the footer
+  // read "Cloudflare &bull; No data sent…". The alternative, a literal U+2022
+  // in every locale file, would churn 69 translation units in the XLIFF
+  // pipeline to change nothing a reader sees. The character is inert; the
+  // allowlist bounds what a locale file can express, and it can already
+  // express this with `&#8226;`.
   var NAMED_ENTITIES = Object.assign(Object.create(null), {
-    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', bull: '•',
   });
 
   function decodeEntities(str) {

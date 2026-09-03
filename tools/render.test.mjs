@@ -261,6 +261,17 @@ eq('a numeric entity decodes', textOf(rich('&#65;&#x42;')), 'AB');
 eq('a surrogate entity becomes U+FFFD', textOf(rich('&#xD800;')), '�');
 eq('nesting works', textOf(rich('<p>a <em>b <code>c</code></em></p>')), 'a b c');
 
+// The footer and about panel separate their clauses with `&bull;` in all
+// fourteen locales. An entity the table does not know is left as literal text,
+// so before this was allowlisted the footer read "Cloudflare &bull; No data
+// sent to Kwestic…" on the live site.
+eq('the bullet entity decodes', textOf(rich('a &bull; b')), 'a \u2022 b');
+eq('the bullet decodes in the shipped footer string',
+  [textOf(rich(tRaw('footer.text'))).includes('\u2022'),
+    textOf(rich(tRaw('footer.text'))).includes('&bull;')], [true, false]);
+eq('an entity outside the allowlist is still literal text',
+  textOf(rich('a &dagger; b')), 'a &dagger; b');
+
 // The entity body is matched by `[a-zA-Z]+`, so every Object.prototype member
 // name reaches the named-entity lookup. Against an object literal
 // `&constructor;` resolved to `Object` and `replace()` stringified it into the
