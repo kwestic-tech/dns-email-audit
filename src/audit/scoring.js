@@ -59,7 +59,7 @@ import { POLICY_RANK } from '../core/dmarc/record.js';
 
 /**
  * The analysis version, frozen into every exported 0.9.0 report.
- * Spec: report-comparison 1.6 (Final), §2.
+ * Spec: report-comparison 1.7 (Final), §2.
  *
  * It gates the SCORE DELTA of a comparison and nothing else. The finding diff
  * always runs, on 0.7.0's stable ids, because a version that blocked the whole

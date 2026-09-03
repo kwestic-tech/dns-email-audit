@@ -87,7 +87,7 @@ export function createReport(capabilities) {
     label, issueMessage, spfRecordCell, dkimKeyBitsCell, rowHygieneValues,
     // Page feedback, and the accessor that keeps `results` fresh.
     showToast, $, getResults, getArtifactSessions, buildArtifactReportContent,
-    // 0.9.0's JSON export (report-comparison 1.6 section 3). Each of these is
+    // 0.9.0's JSON export (report-comparison 1.7 section 3). Each of these is
     // a capability rather than an import because `src/ui/` may reach only
     // `ui/` siblings and `i18n/`: `versions` and `resolver` come from the
     // composition root, and `validSelector` is a protocol rule owned by

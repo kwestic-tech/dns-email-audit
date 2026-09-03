@@ -479,7 +479,7 @@
   },
   {
    "path": "src/ui/report-data.test.js",
-   "assertions": 177,
+   "assertions": 188,
    "areas": [
     "the closed report path set, proven in both directions: every emitted path registered, every registered path reached by a fixture",
     "section 1's exclusions asserted as paths, including the txt/verifications vendor tokens the projection must not carry",
@@ -487,7 +487,7 @@
     "canonical record ordering: dedupe by the full per-kind tuple, so resolver answer order cannot fabricate a change",
     "hostile input: banned object keys, byte, domain, finding, evidence and depth limits, foreign schema, newer version, duplicate domains and finding ids",
     "strict shape: a malformed known field is rejected rather than coerced to a default",
-    "the spec 1.6 option-to-protocol mapping, including advanced reaching spf, dmarc and reporting",
+    "the spec 1.7 option-to-protocol mapping, including advanced reaching spf, dmarc and reporting",
     "per-protocol comparability: an unobserved protocol yields unknown, never resolved, without blanking the others",
     "status precedence: presence, comparability, generator semantics, highest-severity finding movement, score, bare change",
     "the module reaches no ambient storage or DOM primitive, checked over comment-stripped source",
@@ -499,7 +499,8 @@
     "the DKIM selector grammar judged by its owner through a composed predicate, with the producer filtering what the importer would reject",
     "dmarcDiscovery domain identities validated as domain names, three of them nullable",
     "the resolver URL's port range, where a five-digit shape check is not a port check",
-    "the selector capability is required, so a forgotten wiring call throws rather than silently skipping validation"
+    "the selector capability is required, so a forgotten wiring call throws rather than silently skipping validation",
+    "the closed rejection-code set, with schema paths preserved verbatim as technical data and a runtime's own JSON.parse text kept as diagnostic detail only"
    ]
   },
   {
@@ -526,7 +527,7 @@
     "the input boundary — scoring reads protocol facts, and a record attached to the same facts changes nothing",
     "the parked rubric and its four pillars",
     "calcAdvScore: an unverifiable check leaves the denominator",
-    "ANALYSIS_VERSION: a positive integer, pinned at 1 for 0.9.0 (report-comparison 1.6 §2)",
+    "ANALYSIS_VERSION: a positive integer, pinned at 1 for 0.9.0 (report-comparison 1.7 §2)",
     "the rubric drift fingerprint, and the negative controls it ships with: a weight change, a threshold change, and a function-body change with every constant byte-identical each move it",
     "the comment and whitespace normalizer that keeps a remark from firing the guard, its string-literal handling, and its regex blind spot proven absent from the four hashed functions"
    ]

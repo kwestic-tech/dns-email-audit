@@ -1,6 +1,6 @@
 /**
  * The 0.9.0 report schema, its importer and the comparison.
- * Spec: report-comparison 1.6 (Final), sections 1, 4 and 5.
+ * Spec: report-comparison 1.7 (Final), sections 1, 4 and 5.
  *
  * -- Pure, and deliberately so ------------------------------------------
  *
@@ -100,6 +100,24 @@ const RECORD_PROTOCOL = {
   caa: 'caa', mtaSts: 'mta-sts', tlsRpt: 'tls-rpt', tlsa: 'dane',
   dnskey: 'dnssec', ds: 'dnssec',
 };
+
+/**
+ * The closed set of rejection codes (report-comparison 1.7 section 4).
+ *
+ * ONLY the code is localized. `path` is a schema path and `detail` is the
+ * clause that failed; both stay literal technical data, for the same reason a
+ * schema field name is never translated -- they identify a location in a
+ * document rather than address a reader.
+ *
+ * The first implementation returned English prose from eighty call sites, which
+ * the interface could not translate at all. Translating each clause instead
+ * would have added roughly fifty keys in thirteen languages to describe fields
+ * a report written by this tool cannot contain.
+ */
+export const ERROR_CODES = ['invalid-json', 'not-report', 'newer-version',
+  'too-large', 'too-many-domains', 'malformed'];
+
+const reject = (code, extra) => [Object.assign({ code }, extra || {})];
 
 /** Section 4's limits, each failing closed and enforced in order. */
 export const LIMITS = {
@@ -493,8 +511,15 @@ function depthOf(value, depth) {
  * still dropped silently is an UNKNOWN member -- which is the forward
  * compatibility section 4 does ask for.
  */
-function fail(errors, where, what) {
-  errors.push(where + ': ' + what);
+/**
+ * Record one malformed field and stop.
+ *
+ * `path` is the schema location and `detail` the clause it failed, both kept
+ * verbatim: the interface frames them with a localized message rather than
+ * translating them.
+ */
+function fail(errors, path, detail) {
+  errors.push({ code: 'malformed', path: path, detail: detail });
   return false;
 }
 
@@ -676,7 +701,7 @@ function pickDiscovery(raw, errors, where) {
 function pickFindings(raw, errors, where) {
   if (!Array.isArray(raw)) { fail(errors, where, 'findings is not an array'); return null; }
   if (raw.length > LIMITS.findings) {
-    fail(errors, where, 'more than ' + LIMITS.findings + ' findings'); return null;
+    fail(errors, where + '.findings', 'has more than ' + LIMITS.findings + ' entries'); return null;
   }
   const seen = emptyMap();
   const out = [];
@@ -705,7 +730,7 @@ function pickFindings(raw, errors, where) {
     }
     if (!Array.isArray(f.evidence)) { fail(errors, at, 'evidence is not an array'); return null; }
     if (f.evidence.length > LIMITS.evidence) {
-      fail(errors, at, 'more than ' + LIMITS.evidence + ' evidence entries'); return null;
+      fail(errors, at + '.evidence', 'has more than ' + LIMITS.evidence + ' entries'); return null;
     }
     const evidence = [];
     for (let e = 0; e < f.evidence.length; e++) {
@@ -800,9 +825,9 @@ export function parseReport(text, capabilities) {
   // exactly how the composition defect in `create-audit.js` stayed invisible
   // while a suite that imported the predicate directly stayed green.
   const validSelector = requireSelectorPredicate(capabilities && capabilities.validSelector);
-  if (!isString(text)) return { ok: false, errors: ['not text'] };
+  if (!isString(text)) return { ok: false, errors: reject('invalid-json', { detail: 'not text' }) };
   if (byteLength(text) > LIMITS.bytes) {
-    return { ok: false, errors: ['file is larger than ' + LIMITS.bytes + ' bytes'] };
+    return { ok: false, errors: reject('too-large') };
   }
 
   let raw;
@@ -815,47 +840,49 @@ export function parseReport(text, capabilities) {
       return value;
     });
   } catch (e) {
-    return { ok: false, errors: ['not valid JSON: ' + (e && e.message ? e.message : 'parse failed')] };
+    // The engine's own parse text is a DIAGNOSTIC, never the message shown:
+    // it varies by JavaScript runtime and is not text this project controls.
+    return { ok: false, errors: reject('invalid-json', { detail: e && e.message ? e.message : '' }) };
   }
 
-  if (!isPlainObject(raw)) return { ok: false, errors: ['not a report object'] };
-  if (raw.schema !== SCHEMA_ID) return { ok: false, errors: ['not a report from this tool'] };
+  if (!isPlainObject(raw)) return { ok: false, errors: reject('not-report') };
+  if (raw.schema !== SCHEMA_ID) return { ok: false, errors: reject('not-report') };
   if (!isInt(raw.schemaVersion) || raw.schemaVersion < 1) {
-    return { ok: false, errors: ['invalid schemaVersion'] };
+    return { ok: false, errors: reject('malformed', { path: 'schemaVersion', detail: 'is not a positive integer' }) };
   }
   if (raw.schemaVersion > SCHEMA_VERSION) {
-    return { ok: false, errors: ['this report was made by a newer version of the tool'] };
+    return { ok: false, errors: reject('newer-version') };
   }
-  if (depthOf(raw) > LIMITS.depth) return { ok: false, errors: ['structure is nested too deeply'] };
+  if (depthOf(raw) > LIMITS.depth) return { ok: false, errors: reject('malformed', { path: '', detail: 'is nested more than ' + LIMITS.depth + ' deep' }) };
 
   if (!isTimestamp(raw.generatedAt)) {
-    return { ok: false, errors: ['generatedAt is not a UTC RFC 3339 timestamp'] };
+    return { ok: false, errors: reject('malformed', { path: 'generatedAt', detail: 'is not a UTC RFC 3339 timestamp' }) };
   }
-  if (!isPlainObject(raw.generator)) return { ok: false, errors: ['generator is not an object'] };
+  if (!isPlainObject(raw.generator)) return { ok: false, errors: reject('malformed', { path: 'generator', detail: 'is not an object' }) };
   if (!isString(raw.generator.version) || !SEMVER.test(raw.generator.version)) {
-    return { ok: false, errors: ['generator.version is not a release string'] };
+    return { ok: false, errors: reject('malformed', { path: 'generator.version', detail: 'is not a release string' }) };
   }
   if (!isInt(raw.generator.analysisVersion) || raw.generator.analysisVersion < 1) {
-    return { ok: false, errors: ['generator.analysisVersion is not a positive integer'] };
+    return { ok: false, errors: reject('malformed', { path: 'generator.analysisVersion', detail: 'is not a positive integer' }) };
   }
   if (!isResolverUrl(raw.resolver)) {
-    return { ok: false, errors: ['resolver is not an HTTPS URL'] };
+    return { ok: false, errors: reject('malformed', { path: 'resolver', detail: 'is not an HTTPS URL' }) };
   }
-  if (!isPlainObject(raw.options)) return { ok: false, errors: ['options is not an object'] };
+  if (!isPlainObject(raw.options)) return { ok: false, errors: reject('malformed', { path: 'options', detail: 'is not an object' }) };
   for (let i = 0; i < OPTION_KEYS.length; i++) {
     if (!isBool(raw.options[OPTION_KEYS[i]])) {
-      return { ok: false, errors: ['options.' + OPTION_KEYS[i] + ' is missing or not a boolean'] };
+      return { ok: false, errors: reject('malformed', { path: 'options.' + OPTION_KEYS[i], detail: 'is missing or not a boolean' }) };
     }
   }
   if (!Array.isArray(raw.options.selectors) || !raw.options.selectors.every(isString)) {
-    return { ok: false, errors: ['options.selectors is not an array of strings'] };
+    return { ok: false, errors: reject('malformed', { path: 'options.selectors', detail: 'is not an array of strings' }) };
   }
   if (!raw.options.selectors.every(validSelector)) {
-    return { ok: false, errors: ['options.selectors has a selector this build would not query'] };
+    return { ok: false, errors: reject('malformed', { path: 'options.selectors', detail: 'has a selector this build would not query' }) };
   }
-  if (!Array.isArray(raw.domains)) return { ok: false, errors: ['domains is not an array'] };
+  if (!Array.isArray(raw.domains)) return { ok: false, errors: reject('malformed', { path: 'domains', detail: 'is not an array' }) };
   if (raw.domains.length > LIMITS.domains) {
-    return { ok: false, errors: ['more than ' + LIMITS.domains + ' domains'] };
+    return { ok: false, errors: reject('too-many-domains') };
   }
 
   const domains = [];
@@ -866,7 +893,7 @@ export function parseReport(text, capabilities) {
     // Domain identity is the domain name (section 5). Two entries for one name
     // would make the comparison depend on which one the index kept.
     if (has(seenDomains, d.domain)) {
-      return { ok: false, errors: ['domains[' + i + ']: duplicate domain ' + d.domain] };
+      return { ok: false, errors: reject('malformed', { path: 'domains[' + i + ']', detail: 'is a duplicate domain' }) };
     }
     seenDomains[d.domain] = true;
     domains.push(d);

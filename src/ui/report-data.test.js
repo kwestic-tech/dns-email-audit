@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * The 0.9.0 report schema, importer and comparison.
- * Spec: report-comparison 1.6 (Final), sections 1, 4 and 5.
+ * Spec: report-comparison 1.7 (Final), sections 1, 4 and 5.
  *
  * Section 1 is the load-bearing one and it is proven in BOTH directions. A test
  * that only checked the wanted fields were present would pass on a dump of the
@@ -19,7 +19,7 @@ import { normalizeSource } from '../../tests/lib/source.mjs';
 // a composed capability and this assertion pins the two together.
 import { validDkimSelector } from '../core/dkim/dkim.js';
 import {
-  SCHEMA_ID, SCHEMA_VERSION, MAX_DOMAINS, LIMITS, REPORT_PATHS,
+  SCHEMA_ID, SCHEMA_VERSION, MAX_DOMAINS, LIMITS, REPORT_PATHS, ERROR_CODES,
   PROTOCOL_TOKENS, OPTION_PROTOCOLS, DOMAIN_STATUSES,
   projectReport, parseReport, compareReports, normalizeRecords, pathsIn,
 } from './report-data.js';
@@ -291,12 +291,15 @@ eq('too much evidence on one finding is rejected', (() => {
   return withDomain({ findings: [f] });
 })(), false);
 
-eq('a foreign schema is rejected with its own message',
+// Codes, not prose: the two situations section 4 singles out are different
+// problems with different actions, and the interface has to tell them apart
+// without parsing a sentence.
+eq('a foreign schema is rejected with its own code',
   parseReport(JSON.stringify(envelope({ schema: 'something-else' })), CAPS).errors,
-  ['not a report from this tool']);
-eq('a newer schemaVersion is rejected with a different message',
+  [{ code: 'not-report' }]);
+eq('a newer schemaVersion is rejected with a different one',
   parseReport(JSON.stringify(envelope({ schemaVersion: SCHEMA_VERSION + 1 })), CAPS).errors,
-  ['this report was made by a newer version of the tool']);
+  [{ code: 'newer-version' }]);
 eq('truncated JSON is rejected with no partial state',
   parseReport('{"schema":"dns-email-audit/report",', CAPS).ok, false);
 eq('an HTML file renamed .json is rejected', ok('<!doctype html><html></html>'), false);
@@ -491,7 +494,7 @@ eq('the byte counter sits exactly on the limit for both surrogate cases', (() =>
   // proves the count rather than merely exercising it. The lone-surrogate probe
   // is the one that catches an undercount: reading the following character as a
   // low surrogate would score six bytes as four and let an oversized file in.
-  const over = t => parseReport(t, CAPS).errors[0] === 'file is larger than ' + LIMITS.bytes + ' bytes';
+  const over = t => parseReport(t, CAPS).errors[0].code === 'too-large';
   const a = n => 'a'.repeat(n);
   const PAIR = '\u{1F600}';        // one code point, four UTF-8 bytes
   const LONE = '\uD800\u0800';    // lone high surrogate + a 3-byte BMP char = six
@@ -593,8 +596,80 @@ eq('every domain in the committed corpus round-trips through the importer', (() 
   return failures;
 })(), []);
 
+/* -- 4c. The rejection shape (spec 1.7 section 4) --------------------- */
+section('4c. Every rejection is a code, and the path survives it');
+
+/**
+ * The interface localizes the CODE and shows the path as technical data. Both
+ * halves matter: prose could not be translated at all, and a code with no path
+ * would tell a reader that something is wrong without saying where.
+ */
+eq('the code set is exactly the six section 4 publishes', ERROR_CODES,
+  ['invalid-json', 'not-report', 'newer-version', 'too-large', 'too-many-domains', 'malformed']);
+
+const errorsFor = over => parseReport(JSON.stringify(envelope(over)), CAPS).errors;
+const codesFor = over => errorsFor(over).map(e => e.code);
+
+eq('every rejection in this suite carries a registered code', (() => {
+  const probes = [
+    { schema: 'something-else' }, { schemaVersion: SCHEMA_VERSION + 1 },
+    { generator: undefined }, { generatedAt: '2026-99-99T99:99:99.999Z' },
+    { resolver: 'https://' }, { options: undefined },
+    { domains: new Array(MAX_DOMAINS + 1).fill({ domain: 'a.test', state: 'unregistered' }) },
+    { domains: [{ domain: '<img>', state: 'unregistered' }] },
+  ];
+  const seen = probes.flatMap(errorsFor);
+  return seen.filter(e => ERROR_CODES.indexOf(e.code) === -1);
+})(), []);
+eq('and none of them carries prose in place of a code',
+  errorsFor({ generator: undefined }).filter(e => typeof e.code !== 'string'), []);
+
+// The four codes that are not `malformed` identify a whole-file situation, so
+// they carry no path: there is no field to point at.
+eq('the whole-file codes are bare',
+  [errorsFor({ schema: 'something-else' })[0], errorsFor({ schemaVersion: SCHEMA_VERSION + 1 })[0]],
+  [{ code: 'not-report' }, { code: 'newer-version' }]);
+eq('an oversized file and an oversized domain list are their own codes',
+  [parseReport('x'.repeat(LIMITS.bytes + 1), CAPS).errors[0].code,
+    codesFor({ domains: new Array(MAX_DOMAINS + 1).fill({ domain: 'a.test', state: 'unregistered' }) })[0]],
+  ['too-large', 'too-many-domains']);
+
+// A malformed field points at itself, verbatim.
+eq('a malformed field carries its schema path and clause',
+  errorsFor({ resolver: 'https://' })[0],
+  { code: 'malformed', path: 'resolver', detail: 'is not an HTTPS URL' });
+eq('a nested path survives with its index',
+  parseReport(JSON.stringify(envelope({ domains: [audited({
+    score: Object.assign({}, build([richResult()]).domains[0].score, { pts: -1 }) }) ] })), CAPS).errors[0].path,
+  'domains[0]');
+eq('a deeply nested path names the member that failed', (() => {
+  const rec = JSON.parse(JSON.stringify(build([richResult()]).domains[0].records));
+  rec.ns[0].value = 42;
+  return parseReport(JSON.stringify(envelope({ domains: [audited({ records: rec })] })), CAPS).errors[0];
+})(), { code: 'malformed', path: 'domains[0].records.ns[0]', detail: 'value is not a string' });
+
+/**
+ * The engine's own parse text is diagnostic, never the message.
+ *
+ * `JSON.parse` phrasing differs between JavaScript runtimes, so it is not
+ * something this project can translate or even promise. The code is what the
+ * interface reads.
+ */
+const badJson = parseReport('{"schema":', CAPS).errors[0];
+eq('invalid JSON reports a code, with the engine text only as detail',
+  [badJson.code, typeof badJson.detail], ['invalid-json', 'string']);
+eq('and non-text input is the same code, not a crash',
+  parseReport(null, CAPS).errors[0].code, 'invalid-json');
+
+// Fail-closed: a rejection returns no report at all, so nothing partial can be
+// rendered from a file that did not validate.
+eq('a rejection carries no report', (() => {
+  const r = parseReport(JSON.stringify(envelope({ resolver: 'https://' })), CAPS);
+  return [r.ok, 'report' in r];
+})(), [false, false]);
+
 /* -- 5. Per-protocol comparability and the option mapping ------------- */
-section('5. Option mapping and per-protocol comparability (spec 1.6)');
+section('5. Option mapping and per-protocol comparability (spec 1.7)');
 
 eq('advanced maps to the five advanced protocols plus spf, dmarc and reporting',
   OPTION_PROTOCOLS.advanced.slice().sort(),

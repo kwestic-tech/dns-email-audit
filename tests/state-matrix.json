@@ -9784,6 +9784,54 @@
     "src/ui/report-data.test.js"
    ],
    "fixtures": []
+  },
+  {
+   "algebra": "report.import.error",
+   "member": "invalid-json",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.import.error",
+   "member": "not-report",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.import.error",
+   "member": "newer-version",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.import.error",
+   "member": "too-large",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.import.error",
+   "member": "too-many-domains",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.import.error",
+   "member": "malformed",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
   }
  ]
 }

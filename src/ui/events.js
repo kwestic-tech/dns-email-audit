@@ -44,7 +44,7 @@
  */
 import { createReport, serializeDocument, styleElement } from './report.js';
 // The run cap and the importer's domain cap are ONE constant, per
-// report-comparison 1.6 section 4: an importer that accepted more would
+// report-comparison 1.7 section 4: an importer that accepted more would
 // accept a file this application could not have written.
 import { MAX_DOMAINS } from './report-data.js';
 
@@ -1751,7 +1751,7 @@ export function createUi(capabilities) {
       wildcard: $('optWildcard').checked,
       deepChecks: $('optDeepChecks').checked,
       // The grammar is `src/core/dkim/`'s and arrives as a capability. It used
-      // to be inlined here as an identical regex; spec 1.6 section 0 forbids
+      // to be inlined here as an identical regex; spec 1.7 section 0 forbids
       // restating a protocol rule under `src/ui/`, because a copy drifts.
       selectors: $('dkimSelectors').value.split(/[\s,]+/).map(function (s) { return s.trim().toLowerCase(); })
         .filter(validSelector),
