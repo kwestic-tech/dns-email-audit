@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.6 (Final, amended) |
+| Spec version | 1.7 (Final, amended) |
 | Target release | 0.9.0 |
 | Status | Approved for implementation |
 | Depends on | [findings-and-remediation](implemented/findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
@@ -125,8 +125,11 @@ each is a different owner and two of them can move a published surface:
    copy of the DKIM selector grammar with the composed predicate, per section
    0's rule above.
 7. `src/ui/report.js` — `exportJSON()` beside the existing two exports.
-8. `locales/en.json` and all thirteen translations.
-9. `src/ui/events.js` — import controls, comparison mode, rendering, filters.
+8. `src/ui/report-data.js` — the coded error shape above, replacing the English
+   prose the first implementation returned. It precedes the locale commit
+   because the codes are what the locale commit writes messages for.
+9. `locales/en.json` and all thirteen translations.
+10. `src/ui/events.js` — import controls, comparison mode, rendering, filters.
 
 Steps 4 through 6 are preparation for the export and were absent from the 1.0
 plan, which named only `src/ui/report.js`. They are listed rather than folded
@@ -410,6 +413,34 @@ function parseReport(text, { validSelector })
 raises rather than returning a validation result: a build defect must not look
 like a bad file.
 
+Each error is `{ code, path?, detail? }`, and the code comes from a closed set:
+
+| Code | Means |
+| --- | --- |
+| `invalid-json` | The bytes are not JSON, or not text at all |
+| `not-report` | Valid JSON, but not this tool's schema |
+| `newer-version` | This tool's schema, from a later `schemaVersion` |
+| `too-large` | Over the byte limit, refused before parsing |
+| `too-many-domains` | More domains than a run can produce |
+| `malformed` | A field is present and wrong, or required and absent |
+
+**Only the code is localized.** `path` is a schema path — `domains[3].score.pts`
+— and `detail` names the clause that failed. Both stay literal technical data,
+for the same reason section 1 says a schema field name is never translated: they
+identify a location in a document, not a sentence addressed to a reader. The
+interface shows a localized message for the code, and for `malformed` a
+localized frame around the untranslated path.
+
+That split is what keeps this release's locale surface near fifty keys rather
+than several hundred. There are roughly fifty distinct validator clauses, almost
+all describing a malformed field that a report written by this tool can never
+contain; translating each into thirteen languages would spend most of the effort
+on text nobody reads, and would still leave a reader no better placed to act.
+
+`detail` on `invalid-json` may carry the engine's own parse message as a
+diagnostic. It is **never** the primary message: that text varies by JavaScript
+runtime and is not a statement this project controls or can translate.
+
 Enforced in order, each failing closed:
 
 | Limit | Value | Derivation |
@@ -626,7 +657,9 @@ reason and instruction.
 The import error messages deserve care. "This file is not a report from this
 tool" and "This report was made by a newer version" are different problems with
 different actions, and both will be read by someone who has just been handed a
-file by a colleague.
+file by a colleague. They are two of the six codes in section 4, which is why
+that set is closed and small: each of its members is a situation a reader can
+act on, and the validator's own clause is diagnostic detail beneath it.
 
 ## Testing
 
@@ -695,6 +728,9 @@ Hostile import fixtures, each asserting rejection or safe rendering:
 | Valid JSON, wrong shape | Rejected, no partial state |
 | Truncated JSON | Rejected, no partial state |
 | HTML file renamed `.json` | Rejected |
+| Every rejection | Carries a code from the closed set, never prose |
+| A malformed field | Carries the schema path, preserved verbatim |
+| A runtime's own `JSON.parse` message | Diagnostic detail only, never the code |
 | A selector the owner rejects, in user input | Filtered by the producer, never exported |
 | A selector the owner rejects, in an imported file | Rejected on import |
 | `projectReport` or `parseReport` with no `validSelector` | Raises; it is a wiring error, not a bad file |
@@ -857,6 +893,7 @@ rather than reverse-engineering it from score pillars and finding confidence.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.7 | 2026-09-04 | **Final, amended before the locale commit.** Publishes the importer's error shape, which 1.0 left as a bare `errors: []` while the localization section promised translated messages. The implementation had filled that silence with English prose at eighty call sites, which a UI cannot translate. Errors are now `{ code, path?, detail? }` over a closed six-member set; only the code is localized, and the schema path and failing clause stay literal technical data for the same reason a schema field name is never translated. The alternative — a locale key per validator clause — would have added roughly fifty keys in thirteen languages to describe fields a report written by this tool cannot contain. A runtime's own `JSON.parse` text is diagnostic detail and never the primary message, because it varies by engine. Adds the shape change as step 8, before the locale commit that writes messages for its codes. No product decision reopened. |
 | 1.6 | 2026-09-03 | **Final, amended during implementation of commit 4.** Two corrections. **(a) The published commit plan did not describe the work.** Section 0 promised directory-bound commits and named `src/ui/report.js` alone for the export, but the export needs a platform primitive, a runtime capability and run state in `src/ui/events.js` first. Rather than commit a cross-owner change under a directory-bound label, those three are now listed as their own steps, each leaving the browser working. **(b) The filename rationale was wrong a second time.** 1.5 replaced a false non-collision claim with a false justification — a timestamped name derived from the run's stable `generatedAt` would NOT differ between two exports of one run. The real reasons are recorded instead. No product decision reopened. Found by Codex review of the commit-4 working tree (I18, I19). |
 | 1.5 | 2026-09-03 | **Final, amended during implementation of commit 4.** Two corrections, both found by review of the working tree. **(a) The commit order was unbuildable.** Commit 4 calls `t('toast.jsonExported')`; the prescribed order wired the button at 5 and added the strings at 6, so that intermediate commit would have shipped a browser whose export toast read `toast.jsonExported` — against `AGENTS.md`, which requires the browser to work at every commit and requires an English key and thirteen translations in one change. Locales now land at 5 and the UI wiring at 6. **(b) The filename's stated rationale was false.** A date-only name does not prevent collisions: every run on one UTC date requests the same name. The claim is corrected rather than the name changed, and the rejected alternative is recorded — a name carrying a time would differ between two exports of one run, which is the property acceptance criterion 4 protects. No product decision reopened. Found by Codex review of the commit-4 working tree (I16, I18). |
 | 1.4 | 2026-09-03 | **Final, amended during implementation of commit 3.** Publishes the parser and producer interfaces the implementation actually has, and makes the composition of the DKIM selector grammar normative. 1.3 specified `parseReport(text)` and said nothing about how a rule owned by `src/core/dkim/` reaches a module in `src/ui/`, which may not import it. That silence is not cosmetic: it is what allowed a local duplicate of the grammar to pass review, wrong in both directions, and then allowed a factory destructuring to shadow the owner import with `undefined` so the production path skipped every selector check while the schema suite stayed green. Section 0 now names the owner and the injection path, and fixes three properties: the rule is never restated under `src/ui/`, the producer filters with the same predicate the importer validates with, and a missing capability raises rather than being read as permission. Section 4 carries both signatures. No product decision reopened. Found by Codex review of the commit-3 working tree (I14). |
