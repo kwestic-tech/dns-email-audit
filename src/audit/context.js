@@ -44,9 +44,18 @@
  * THROUGH a result changes what a later `result()` returns.
  *
  * That is deliberate and must stay. Deep-cloning here would change legacy
- * identities and value types — the result carries `BigInt`s from the SPF
- * subnet helpers among other things — and a structural copy is a behaviour
- * change, not a stronger boundary. Both halves are asserted in
+ * identities, and a structural copy is a behaviour change rather than a
+ * stronger boundary.
+ *
+ * This paragraph used to claim the result "carries `BigInt`s from the SPF
+ * subnet helpers". It does not, and did not: `auditSpfSubnets()` returns
+ * `{ subnets, redundancy, unknown }` and the `BigInt` blocks stay inside
+ * `classifySpfSubnets()`. `tests/fixtures/equivalence/baseline-v0.8.0.json`
+ * holds the full result object for all 32 corpus cases, serialised by
+ * `JSON.stringify`, which could not exist if a `BigInt` reached it. The claim
+ * is corrected rather than deleted because 0.9.0's report schema is built from
+ * this object and a reader who found the old sentence would reasonably design
+ * around a hazard that is not there. Both halves are asserted in
  * `context.test.js` so nobody later "hardens" this into serialization.
  *
  * ── Moved, not redesigned ────────────────────────────────────────────────

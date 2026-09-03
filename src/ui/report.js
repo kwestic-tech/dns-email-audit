@@ -218,8 +218,11 @@ export function createReport(capabilities) {
    * exactly that. Spreadsheet safety therefore wins over byte fidelity here,
    * reversing this release's earlier deferral; the change is disclosed by the
    * `formula-leading` token in the `record_hygiene` column rather than applied
-   * silently. A leading apostrophe is the standard neutralizer and is not
-   * displayed by the spreadsheet.
+   * silently. A leading apostrophe is the standard neutralizer: it makes the
+   * spreadsheet read the cell as text rather than a formula. On CSV import it
+   * is visible in the cell — an apostrophe is hidden only when it is typed
+   * into a cell directly — which is why the change is also named by the
+   * `formula-leading` token rather than relying on being invisible.
    */
   function neutralizeCsvCell(value) {
     var text = String(value === undefined || value === null ? '' : value);

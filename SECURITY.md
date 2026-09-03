@@ -35,10 +35,10 @@ This is a fully client-side, no-backend application. In-scope examples:
 
 - HTML injection or a markup sink reachable from DNS data — any path that gets
   a DNS-derived value out of a text node and into markup, or any assignment to
-  `innerHTML` / `outerHTML` under `js/` that the static scan in `npm test`
+  `innerHTML` / `outerHTML` under `src/` that the static scan in `npm test`
   missed
 - A rich-text string escaping the twelve-tag allowlist in `sanitizeFragment`
-  in `js/i18n.js`
+  in `src/i18n/index.js`
 - A malformed record that renders deceptively — a bidirectional override,
   zero-width or control character that reaches the display without its
   sentinel marker, in the interface or in either export, including inside an
