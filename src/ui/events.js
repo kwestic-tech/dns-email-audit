@@ -43,6 +43,10 @@
  * the adapter and the name with it.
  */
 import { createReport, serializeDocument, styleElement } from './report.js';
+// The run cap and the importer's domain cap are ONE constant, per
+// report-comparison 1.4 section 4: an importer that accepted more would
+// accept a file this application could not have written.
+import { MAX_DOMAINS } from './report-data.js';
 
 /**
  * Build the page over this runtime's i18n, renderer, platform and facade.
@@ -87,7 +91,6 @@ export function createUi(capabilities) {
   'use strict';
 
   var CONCURRENCY = 6;
-  var MAX_DOMAINS = 200;
   var MAX_COMPREHENSIVE_DKIM_DOMAINS = 5;
   /**
    * Above this many domains the deep protocol checks turn themselves off.

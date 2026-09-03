@@ -95,7 +95,7 @@
   },
   {
    "path": "tools/csp.test.mjs",
-   "assertions": 94,
+   "assertions": 95,
    "areas": [
     "every Content-Security-Policy directive in index.html",
     "the JSON-LD hash",
@@ -470,6 +470,31 @@
    ]
   },
   {
+   "path": "src/ui/report-data.test.js",
+   "assertions": 177,
+   "areas": [
+    "the closed report path set, proven in both directions: every emitted path registered, every registered path reached by a fixture",
+    "section 1's exclusions asserted as paths, including the txt/verifications vendor tokens the projection must not carry",
+    "producer to importer round-trip, and every domain in the committed corpus re-importing without self-rejection",
+    "canonical record ordering: dedupe by the full per-kind tuple, so resolver answer order cannot fabricate a change",
+    "hostile input: banned object keys, byte, domain, finding, evidence and depth limits, foreign schema, newer version, duplicate domains and finding ids",
+    "strict shape: a malformed known field is rejected rather than coerced to a default",
+    "the spec 1.4 option-to-protocol mapping, including advanced reaching spf, dmarc and reporting",
+    "per-protocol comparability: an unobserved protocol yields unknown, never resolved, without blanking the others",
+    "status precedence: presence, comparability, generator semantics, highest-severity finding movement, score, bare change",
+    "the module reaches no ambient storage or DOM primitive, checked over comment-stripped source",
+    "identity fields are grammar-bounded and rejected when malformed, while record and evidence values stay unbounded and carry the rendering-safety guarantee",
+    "shape is not validity: an impossible date, a leading-zero version, a hostless HTTPS URL and a malformed selector are each rejected",
+    "the UTF-8 byte counter proven on the limit for a complete surrogate pair and for a lone surrogate",
+    "blocked movement beside a comparable score delta is not incomparable",
+    "the UTC calendar checked arithmetically, with no ambient Date: impossible dates, leap years and leap seconds",
+    "the DKIM selector grammar judged by its owner through a composed predicate, with the producer filtering what the importer would reject",
+    "dmarcDiscovery domain identities validated as domain names, three of them nullable",
+    "the resolver URL's port range, where a five-digit shape check is not a port check",
+    "the selector capability is required, so a forgotten wiring call throws rather than silently skipping validation"
+   ]
+  },
+  {
    "path": "src/audit/context.test.js",
    "assertions": 49,
    "areas": [
@@ -493,7 +518,7 @@
     "the input boundary — scoring reads protocol facts, and a record attached to the same facts changes nothing",
     "the parked rubric and its four pillars",
     "calcAdvScore: an unverifiable check leaves the denominator",
-    "ANALYSIS_VERSION: a positive integer, pinned at 1 for 0.9.0 (report-comparison 1.2 §2)",
+    "ANALYSIS_VERSION: a positive integer, pinned at 1 for 0.9.0 (report-comparison 1.4 §2)",
     "the rubric drift fingerprint, and the negative controls it ships with: a weight change, a threshold change, and a function-body change with every constant byte-identical each move it",
     "the comment and whitespace normalizer that keeps a remark from firing the guard, its string-literal handling, and its regex blind spot proven absent from the four hashed functions"
    ]
@@ -677,7 +702,7 @@
   },
   {
    "path": "tests/contract/runtime.test.mjs",
-   "assertions": 53,
+   "assertions": 56,
    "areas": [
     "importing src/runtime.js performs no DOM, network or global work, asserted in a process with no browser",
     "it constructs nothing at module scope and reads no ambient global",
@@ -689,7 +714,8 @@
     "the facade delegates to the engine, including a core transport failure",
     "exactly one DOMContentLoaded boot path across src/, registered by ui/events.js and none by the entry point",
     "one canonical mount: a single i18n.init() call site, passed to createUi and returned by the runtime",
-    "APP_VERSION pinned to package.json and ANALYSIS_VERSION carried from audit/scoring.js, both frozen on runtime.versions, asserted through one predicate in both directions"
+    "APP_VERSION pinned to package.json and ANALYSIS_VERSION carried from audit/scoring.js, both frozen on runtime.versions, asserted through one predicate in both directions",
+    "the composed DKIM selector predicate is the owner's function object and applies the owner's grammar, checked at the runtime rather than only where the schema imports it directly"
    ]
   },
   {

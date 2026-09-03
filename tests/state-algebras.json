@@ -2136,6 +2136,42 @@
    "resultPaths": [
     "observability.*"
    ]
+  },
+  {
+   "id": "report.domain.state",
+   "owner": "ui",
+   "field": "report domains[].state",
+   "closed": true,
+   "site": "src/ui/report-data.js",
+   "members": [
+    "audited",
+    "unregistered",
+    "error"
+   ],
+   "note": "The exported report's per-domain state (report-comparison 1.4 section 1). An unregistered or errored domain carries only its name and this token: there is no observation to export.",
+   "resultPaths": [
+    "domains[].state"
+   ]
+  },
+  {
+   "id": "report.domain.status",
+   "owner": "ui",
+   "field": "compareReports() domains[].status",
+   "closed": true,
+   "site": "src/ui/report-data.js",
+   "members": [
+    "added",
+    "removed",
+    "improved",
+    "regressed",
+    "changed",
+    "unchanged",
+    "incomparable"
+   ],
+   "note": "The comparison verdict per domain (report-comparison 1.4 section 5), decided in a fixed precedence: presence, then comparability, then generator semantics, then highest-severity finding movement, then score, then bare change.",
+   "resultPaths": [
+    "comparison.domains[].status"
+   ]
   }
  ],
  "shapes": [

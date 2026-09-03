@@ -52,7 +52,7 @@ import { dnsError, dnsTypeNum } from './core/dns/errors.js';
 
 /**
  * The application's released version, as a value the running page can read.
- * Spec: report-comparison 1.2 (Final), §2.
+ * Spec: report-comparison 1.4 (Final), §2.
  *
  * It lives HERE because it has nowhere else to go. `AGENTS.md`'s import matrix
  * has rows for `src/main.js` and `src/runtime.js` and no others at the root, so
@@ -189,6 +189,10 @@ export function createAuditRuntime({
     // never imports `audit/scoring.js` to read it — §0's rule, and the reason
     // the export lives in `audit/` while the injection lives here.
     versions,
+    // The DKIM selector grammar, from its owner. `src/ui/` may not import
+    // `core/dkim/`, and the report schema must not restate a protocol rule, so
+    // the predicate crosses the composition boundary as a capability.
+    validSelector: audit.validDkimSelector,
   });
 
   return {

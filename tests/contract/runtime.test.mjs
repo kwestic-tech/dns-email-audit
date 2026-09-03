@@ -20,6 +20,7 @@ import { dirname, join, relative, sep } from 'node:path';
 
 import { createSuite } from '../lib/assert.mjs';
 import { ANALYSIS_VERSION } from '../../src/audit/scoring.js';
+import { validDkimSelector } from '../../src/core/dkim/dkim.js';
 import { createDocument } from '../../tools/lib/dom-shim.mjs';
 import { dohFixture, txt, ns, mx, a } from '../../tools/lib/doh-fixture.mjs';
 import { FIXTURE_PSL_RULES, probePublicSuffixRules, assertFixtureIdentity } from '../lib/fixture-identity.mjs';
@@ -110,7 +111,7 @@ eq('checkConnectivity is a function', typeof runtime.checkConnectivity, 'functio
 eq('mount is a function', typeof runtime.mount, 'function');
 
 /* ── The version metadata 0.9.0's report carries ──────────────────────── */
-section('Version metadata (report-comparison 1.2 §2)');
+section('Version metadata (report-comparison 1.4 §2)');
 
 const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'));
 
@@ -150,6 +151,29 @@ eq('and freezing actually holds', (() => {
 // from `audit/scoring.js` and not from a second literal declared in the UI.
 eq('the analysis version is the audit module\'s, not a copy',
   runtime.versions.analysis === ANALYSIS_VERSION, true);
+
+/* -- The selector capability the report schema is composed with -------- */
+
+/**
+ * `src/ui/` may not import `core/dkim/`, so the DKIM selector grammar reaches
+ * the report schema as a capability through this composition root.
+ *
+ * Asserted HERE, at the runtime, rather than only in the schema's own suite.
+ * That suite imports the predicate directly, so it stays green whatever the
+ * composition does -- and it did: `create-audit.js` briefly destructured
+ * `validDkimSelector` from a factory that does not return it, shadowing the
+ * module import with `undefined`, and the production path skipped every
+ * selector check while 175 assertions passed.
+ */
+eq('the audit exposes the owner\'s selector predicate, not undefined',
+  typeof runtime.engine.validDkimSelector, 'function');
+eq('and it is the same function object the owner exports',
+  runtime.engine.validDkimSelector === validDkimSelector, true);
+// Behaviour, not just identity: a re-exported wrapper would pass the check
+// above only if someone replaced the export with an equivalent object.
+eq('it applies the owner grammar: underscore yes, dot no',
+  [runtime.engine.validDkimSelector('a_b'), runtime.engine.validDkimSelector('a.b')],
+  [true, false]);
 
 // The generated data reached the engine, and it is the fixture table.
 assertFixtureIdentity([probePublicSuffixRules(runtime.engine.getOrganizationalDomain, 'fixture')]);

@@ -9704,6 +9704,86 @@
     "src/audit/observability.test.js"
    ],
    "fixtures": []
+  },
+  {
+   "algebra": "report.domain.state",
+   "member": "audited",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.domain.state",
+   "member": "unregistered",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.domain.state",
+   "member": "error",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.domain.status",
+   "member": "added",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.domain.status",
+   "member": "removed",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.domain.status",
+   "member": "improved",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.domain.status",
+   "member": "regressed",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.domain.status",
+   "member": "changed",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.domain.status",
+   "member": "unchanged",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
+  },
+  {
+   "algebra": "report.domain.status",
+   "member": "incomparable",
+   "suites": [
+    "src/ui/report-data.test.js"
+   ],
+   "fixtures": []
   }
  ]
 }

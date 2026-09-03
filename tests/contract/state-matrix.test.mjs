@@ -232,7 +232,7 @@ eq('src/ holds the entry point, the runtime and the converted layers',
     'core/transport/ext-value.js', 'core/transport/mta-sts-policy.js', 'core/transport/mta-sts.js',
     'core/transport/tls-rpt.js', 'core/transport/tlsa.js',
     'i18n/index.js', 'main.js', 'providers/detectors.js', 'runtime.js',
-    'ui/events.js', 'ui/render.js', 'ui/report.js']);
+    'ui/events.js', 'ui/render.js', 'ui/report-data.js', 'ui/report.js']);
 
 /**
  * The entry point exports the §10 facade and NOTHING else.
@@ -343,6 +343,15 @@ const REFERENCE_VOCABULARIES = [
   // transitional legacy engine surface. Third instance of the same
   // clarification, first outside `core/dmarc/`.
   'core/dkim/dkim.js:DKIM_SELECTORS',
+  // Accepted at 0.9.0. A PATH registry, not a state vocabulary: its members are
+  // dotted field paths into the exported report, and the thing they are closed
+  // over is the report's shape rather than a value some field may take. It is
+  // exported because `report-data.test.js` proves it in both directions --
+  // every emitted path registered, every registered path reached by a fixture --
+  // which is the check that keeps the 0.9.0 compatibility surface from widening
+  // by accident. Registering it as an algebra would make the registry claim a
+  // closed set of VALUES where the source publishes a closed set of PATHS.
+  'ui/report-data.js:REPORT_PATHS',
 ];
 
 const unknownConstants = [];
