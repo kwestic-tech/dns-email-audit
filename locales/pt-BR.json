@@ -24,7 +24,10 @@
     "uploadFile": "📄 Enviar arquivo .txt",
     "loadExamples": "Carregar exemplos",
     "clearResults": "🗑 Limpar resultados",
-    "learnMore": "Saiba mais →"
+    "learnMore": "Saiba mais →",
+    "exportJson": "⬇ Exportar JSON",
+    "importReport": "⬆ Comparar com um relatório salvo",
+    "exitCompare": "Sair da comparação"
   },
   "input": {
     "heading": "Informe os domínios a auditar",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "Avançado",
-    "hosting": "Hospedagem"
+    "hosting": "Hospedagem",
+    "delta": "Alteração"
   },
   "filter": {
     "all": "Todos os domínios",
@@ -156,7 +160,12 @@
     "noSpf": "Sem SPF",
     "hasBimi": "Tem BIMI",
     "noCaa": "Sem CAA",
-    "noDnssec": "Sem DNSSEC"
+    "noDnssec": "Sem DNSSEC",
+    "improved": "Melhoraram",
+    "regressed": "Pioraram",
+    "changed": "Com alterações",
+    "added": "Domínios novos",
+    "removed": "Domínios removidos"
   },
   "empty": {
     "text": "Nenhum domínio corresponde ao seu filtro."
@@ -362,7 +371,11 @@
     },
     "auditCancelled": "Auditoria cancelada",
     "langChanged": "Idioma alterado",
-    "langFailed": "Não foi possível carregar esse idioma — mantendo o inglês."
+    "langFailed": "Não foi possível carregar esse idioma — mantendo o inglês.",
+    "jsonExported": "JSON exportado",
+    "reportImported": "Relatório importado — exibindo o que mudou",
+    "comparisonCleared": "Comparação descartada",
+    "importFailed": "Não foi possível importar esse arquivo"
   },
   "csv": {
     "unknown": "Desconhecido",
@@ -1413,6 +1426,66 @@
       "foundation": "Corrija estes primeiro — todo o resto depende deles",
       "afterPrereq": "Assim que os pré-requisitos acima estiverem em vigor",
       "cleanup": "Sem dependências — faça-os quando quiser"
+    }
+  },
+  "compare": {
+    "heading": "Comparação de dois relatórios",
+    "baselineLabel": "Relatório de referência: {0}",
+    "currentLabel": "Atual: {0}",
+    "chooseBaseline": "Escolha um relatório salvo para comparar",
+    "status": {
+      "added": "Novo",
+      "removed": "Removido",
+      "improved": "Melhorou",
+      "regressed": "Piorou",
+      "changed": "Alterado",
+      "unchanged": "Sem alterações",
+      "incomparable": "Não comparável"
+    },
+    "reason": {
+      "state": "O domínio foi auditado em apenas um dos dois relatórios",
+      "noComparableProtocol": "Nenhum protocolo foi observado nos dois relatórios",
+      "options": "As duas execuções usaram opções diferentes",
+      "analysisVersion": "Os dois relatórios foram pontuados por versões diferentes da análise",
+      "onlyIncomparableMovement": "Tudo o que mudou pertence a um protocolo que um dos relatórios não observou"
+    },
+    "protocol": {
+      "unproven": "{0} foi verificado, mas não foi estabelecido",
+      "notRun": "{0} não foi verificado",
+      "unknownFindings": "Não comparável: {0} não foi observado no relatório {1}"
+    },
+    "side": {
+      "baseline": "de referência",
+      "current": "atual"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "Sem alteração",
+      "notComparable": "As pontuações não são comparáveis",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "{0} novos",
+      "resolved": "{0} resolvidos",
+      "unknown": "{0} desconhecidos",
+      "severityChanged": "{0} com gravidade alterada",
+      "baselineOnly": "Somente no relatório de referência",
+      "currentOnly": "Somente no relatório atual"
+    },
+    "meta": {
+      "versionsDiffer": "Estes relatórios vieram de versões diferentes desta ferramenta, portanto as mudanças são exibidas sem veredito.",
+      "optionsDiffer": "As duas execuções usaram opções diferentes: {0}.",
+      "unknownFinding": "Esta compilação não tem descrição para {0}."
+    },
+    "import": {
+      "invalidJson": "Este arquivo não é JSON válido.",
+      "notReport": "Este arquivo não é um relatório desta ferramenta.",
+      "newerVersion": "Este relatório foi criado por uma versão mais recente desta ferramenta. Atualize e tente novamente.",
+      "tooLarge": "Este arquivo é grande demais para ser um relatório desta ferramenta.",
+      "tooManyDomains": "Este relatório abrange mais domínios do que uma auditoria pode produzir.",
+      "malformed": "Este relatório tem um campo que esta compilação não consegue ler.",
+      "at": "Em {0}: {1}"
     }
   }
 }

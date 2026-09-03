@@ -24,7 +24,10 @@
     "uploadFile": "📄 Carica file .txt",
     "loadExamples": "Carica esempi",
     "clearResults": "🗑 Cancella risultati",
-    "learnMore": "Scopri di più →"
+    "learnMore": "Scopri di più →",
+    "exportJson": "⬇ Esporta JSON",
+    "importReport": "⬆ Confronta con un report salvato",
+    "exitCompare": "Esci dal confronto"
   },
   "input": {
     "heading": "Inserisci i domini da analizzare",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "Avanzato",
-    "hosting": "Hosting"
+    "hosting": "Hosting",
+    "delta": "Variazione"
   },
   "filter": {
     "all": "Tutti i domini",
@@ -156,7 +160,12 @@
     "noSpf": "SPF mancante",
     "hasBimi": "Ha BIMI",
     "noCaa": "CAA mancante",
-    "noDnssec": "Senza DNSSEC"
+    "noDnssec": "Senza DNSSEC",
+    "improved": "Migliorati",
+    "regressed": "Peggiorati",
+    "changed": "Modificati",
+    "added": "Nuovi domini",
+    "removed": "Domini rimossi"
   },
   "empty": {
     "text": "Nessun dominio corrisponde al filtro."
@@ -362,7 +371,11 @@
     },
     "auditCancelled": "Analisi annullata",
     "langChanged": "Lingua modificata",
-    "langFailed": "Impossibile caricare la lingua."
+    "langFailed": "Impossibile caricare la lingua.",
+    "jsonExported": "JSON esportato",
+    "reportImported": "Report importato — vengono mostrate le differenze",
+    "comparisonCleared": "Confronto annullato",
+    "importFailed": "Non è stato possibile importare questo file"
   },
   "csv": {
     "unknown": "Sconosciuto",
@@ -1413,6 +1426,66 @@
       "foundation": "Correggete prima questi: tutto il resto dipende da loro",
       "afterPrereq": "Una volta soddisfatti i prerequisiti sopra indicati",
       "cleanup": "Nessuna dipendenza: fateli quando volete"
+    }
+  },
+  "compare": {
+    "heading": "Confronto tra due report",
+    "baselineLabel": "Report di riferimento: {0}",
+    "currentLabel": "Attuale: {0}",
+    "chooseBaseline": "Scelga un report salvato da usare come confronto",
+    "status": {
+      "added": "Nuovo",
+      "removed": "Rimosso",
+      "improved": "Migliorato",
+      "regressed": "Peggiorato",
+      "changed": "Modificato",
+      "unchanged": "Invariato",
+      "incomparable": "Non confrontabile"
+    },
+    "reason": {
+      "state": "Il dominio è stato analizzato in uno solo dei due report",
+      "noComparableProtocol": "Nessun protocollo è stato osservato in entrambi i report",
+      "options": "Le due esecuzioni hanno usato opzioni diverse",
+      "analysisVersion": "I due report sono stati valutati da versioni diverse dell'analisi",
+      "onlyIncomparableMovement": "Tutto ciò che è cambiato riguarda un protocollo che uno dei report non ha osservato"
+    },
+    "protocol": {
+      "unproven": "{0} è stato verificato ma non accertato",
+      "notRun": "{0} non è stato verificato",
+      "unknownFindings": "Non confrontabile: {0} non è stato osservato nel report {1}"
+    },
+    "side": {
+      "baseline": "di riferimento",
+      "current": "attuale"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "Nessuna variazione",
+      "notComparable": "I punteggi non sono confrontabili",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "{0} nuovi",
+      "resolved": "{0} risolti",
+      "unknown": "{0} sconosciuti",
+      "severityChanged": "{0} con gravità cambiata",
+      "baselineOnly": "Solo nel report di riferimento",
+      "currentOnly": "Solo nel report attuale"
+    },
+    "meta": {
+      "versionsDiffer": "Questi report provengono da versioni diverse di questo strumento, quindi le differenze sono mostrate senza un verdetto.",
+      "optionsDiffer": "Le due esecuzioni hanno usato opzioni diverse: {0}.",
+      "unknownFinding": "Questa build non ha una descrizione per {0}."
+    },
+    "import": {
+      "invalidJson": "Questo file non è JSON valido.",
+      "notReport": "Questo file non è un report di questo strumento.",
+      "newerVersion": "Questo report è stato creato da una versione più recente di questo strumento. Aggiorni e riprovi.",
+      "tooLarge": "Questo file è troppo grande per essere un report di questo strumento.",
+      "tooManyDomains": "Questo report copre più domini di quanti una singola analisi possa produrne.",
+      "malformed": "Questo report contiene un campo che questa build non è in grado di leggere.",
+      "at": "In {0}: {1}"
     }
   }
 }

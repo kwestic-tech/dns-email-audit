@@ -24,7 +24,10 @@
     "uploadFile": "📄 上传 .txt 文件",
     "loadExamples": "加载示例",
     "clearResults": "🗑 清除结果",
-    "learnMore": "了解更多 →"
+    "learnMore": "了解更多 →",
+    "exportJson": "⬇ 导出 JSON",
+    "importReport": "⬆ 与已保存的报告比较",
+    "exitCompare": "退出比较"
   },
   "input": {
     "heading": "输入要审计的域名",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "高级安全",
-    "hosting": "网站托管"
+    "hosting": "网站托管",
+    "delta": "变化"
   },
   "filter": {
     "all": "所有域名",
@@ -156,7 +160,12 @@
     "noSpf": "缺少 SPF",
     "hasBimi": "包含 BIMI",
     "noCaa": "缺少 CAA",
-    "noDnssec": "未启用 DNSSEC"
+    "noDnssec": "未启用 DNSSEC",
+    "improved": "已改善",
+    "regressed": "已退步",
+    "changed": "有变化",
+    "added": "新增域名",
+    "removed": "移除的域名"
   },
   "empty": {
     "text": "没有符合您筛选条件的域名。"
@@ -362,7 +371,11 @@
     },
     "auditCancelled": "审计已取消",
     "langChanged": "语言已更改",
-    "langFailed": "无法加载该语言 — 将保持使用英文。"
+    "langFailed": "无法加载该语言 — 将保持使用英文。",
+    "jsonExported": "已导出 JSON",
+    "reportImported": "已导入报告 — 正在显示变化",
+    "comparisonCleared": "已清除比较",
+    "importFailed": "无法导入该文件"
   },
   "csv": {
     "unknown": "未知",
@@ -1413,6 +1426,66 @@
       "foundation": "先修复这些——其他一切都依赖于它们",
       "afterPrereq": "在上述前置条件就位之后",
       "cleanup": "没有依赖关系——随时都可以处理"
+    }
+  },
+  "compare": {
+    "heading": "比较两份报告",
+    "baselineLabel": "基准报告：{0}",
+    "currentLabel": "当前：{0}",
+    "chooseBaseline": "请选择一份已保存的报告作为比较基准",
+    "status": {
+      "added": "新增",
+      "removed": "已移除",
+      "improved": "已改善",
+      "regressed": "已退步",
+      "changed": "有变化",
+      "unchanged": "无变化",
+      "incomparable": "无法比较"
+    },
+    "reason": {
+      "state": "该域名只在两份报告之一中被审计",
+      "noComparableProtocol": "两份报告中没有共同观测到的协议",
+      "options": "两次运行使用了不同的选项",
+      "analysisVersion": "两份报告由不同版本的分析进行评分",
+      "onlyIncomparableMovement": "所有变化都属于其中一份报告未观测到的协议"
+    },
+    "protocol": {
+      "unproven": "{0} 已检查，但未能确认",
+      "notRun": "{0} 未检查",
+      "unknownFindings": "无法比较：{1}报告中未观测到 {0}"
+    },
+    "side": {
+      "baseline": "基准",
+      "current": "当前"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "无变化",
+      "notComparable": "分数无法比较",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "新增 {0} 项",
+      "resolved": "已解决 {0} 项",
+      "unknown": "未知 {0} 项",
+      "severityChanged": "严重程度变化 {0} 项",
+      "baselineOnly": "仅见于基准报告",
+      "currentOnly": "仅见于当前报告"
+    },
+    "meta": {
+      "versionsDiffer": "这两份报告来自本工具的不同版本，因此变化不附带判定。",
+      "optionsDiffer": "两次运行使用了不同的选项：{0}。",
+      "unknownFinding": "此版本没有 {0} 的说明。"
+    },
+    "import": {
+      "invalidJson": "此文件不是有效的 JSON。",
+      "notReport": "此文件不是本工具生成的报告。",
+      "newerVersion": "此报告由本工具的较新版本生成。请更新后重试。",
+      "tooLarge": "此文件过大，不可能是本工具生成的报告。",
+      "tooManyDomains": "此报告包含的域名多于一次审计所能产生的数量。",
+      "malformed": "此报告中有一个字段是此版本无法读取的。",
+      "at": "位于 {0}：{1}"
     }
   }
 }

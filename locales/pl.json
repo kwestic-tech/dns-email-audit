@@ -24,7 +24,10 @@
     "uploadFile": "📄 Prześlij plik .txt",
     "loadExamples": "Wczytaj przykłady",
     "clearResults": "🗑 Wyczyść wyniki",
-    "learnMore": "Dowiedz się więcej →"
+    "learnMore": "Dowiedz się więcej →",
+    "exportJson": "⬇ Eksportuj JSON",
+    "importReport": "⬆ Porównaj z zapisanym raportem",
+    "exitCompare": "Zakończ porównanie"
   },
   "input": {
     "heading": "Podaj domeny do audytu",
@@ -146,7 +149,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "Zaawansowane",
-    "hosting": "Hosting"
+    "hosting": "Hosting",
+    "delta": "Zmiana"
   },
   "filter": {
     "all": "Wszystkie domeny",
@@ -158,7 +162,12 @@
     "noSpf": "Brak SPF",
     "hasBimi": "Ma BIMI",
     "noCaa": "Brak CAA",
-    "noDnssec": "Brak DNSSEC"
+    "noDnssec": "Brak DNSSEC",
+    "improved": "Poprawione",
+    "regressed": "Pogorszone",
+    "changed": "Zmienione",
+    "added": "Nowe domeny",
+    "removed": "Usunięte domeny"
   },
   "empty": {
     "text": "Żadna domena nie pasuje do filtra."
@@ -374,7 +383,11 @@
     },
     "auditCancelled": "Audyt anulowany",
     "langChanged": "Zmieniono język",
-    "langFailed": "Nie udało się wczytać tego języka — pozostajemy przy angielskim."
+    "langFailed": "Nie udało się wczytać tego języka — pozostajemy przy angielskim.",
+    "jsonExported": "Wyeksportowano JSON",
+    "reportImported": "Zaimportowano raport — pokazujemy zmiany",
+    "comparisonCleared": "Porównanie wyczyszczone",
+    "importFailed": "Nie udało się zaimportować tego pliku"
   },
   "csv": {
     "unknown": "Nieznany",
@@ -1425,6 +1438,66 @@
       "foundation": "Napraw je najpierw — wszystko inne od nich zależy",
       "afterPrereq": "Gdy powyższe wymagania wstępne zostaną spełnione",
       "cleanup": "Bez zależności — wykonaj je w dowolnej chwili"
+    }
+  },
+  "compare": {
+    "heading": "Porównanie dwóch raportów",
+    "baselineLabel": "Raport odniesienia: {0}",
+    "currentLabel": "Bieżący: {0}",
+    "chooseBaseline": "Proszę wybrać zapisany raport do porównania",
+    "status": {
+      "added": "Nowa",
+      "removed": "Usunięta",
+      "improved": "Poprawiona",
+      "regressed": "Pogorszona",
+      "changed": "Zmieniona",
+      "unchanged": "Bez zmian",
+      "incomparable": "Nieporównywalna"
+    },
+    "reason": {
+      "state": "Domena została zbadana tylko w jednym z dwóch raportów",
+      "noComparableProtocol": "Żaden protokół nie został zaobserwowany w obu raportach",
+      "options": "Oba przebiegi użyły różnych opcji",
+      "analysisVersion": "Oba raporty zostały ocenione przez różne wersje analizy",
+      "onlyIncomparableMovement": "Wszystko, co się zmieniło, dotyczy protokołu, którego jeden z raportów nie zaobserwował"
+    },
+    "protocol": {
+      "unproven": "{0} sprawdzono, ale nie potwierdzono",
+      "notRun": "{0} nie zostało sprawdzone",
+      "unknownFindings": "Nieporównywalne: {0} nie zaobserwowano w raporcie {1}"
+    },
+    "side": {
+      "baseline": "odniesienia",
+      "current": "bieżącym"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "Bez zmian",
+      "notComparable": "Wyniki punktowe nie są porównywalne",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "{0} nowych",
+      "resolved": "{0} rozwiązanych",
+      "unknown": "{0} nieznanych",
+      "severityChanged": "{0} ze zmienioną wagą",
+      "baselineOnly": "Tylko w raporcie odniesienia",
+      "currentOnly": "Tylko w bieżącym raporcie"
+    },
+    "meta": {
+      "versionsDiffer": "Te raporty pochodzą z różnych wersji tego narzędzia, więc zmiany są pokazane bez oceny.",
+      "optionsDiffer": "Oba przebiegi użyły różnych opcji: {0}.",
+      "unknownFinding": "Ta kompilacja nie ma opisu dla {0}."
+    },
+    "import": {
+      "invalidJson": "Ten plik nie jest prawidłowym JSON-em.",
+      "notReport": "Ten plik nie jest raportem z tego narzędzia.",
+      "newerVersion": "Ten raport powstał w nowszej wersji tego narzędzia. Proszę zaktualizować i spróbować ponownie.",
+      "tooLarge": "Ten plik jest zbyt duży, aby był raportem z tego narzędzia.",
+      "tooManyDomains": "Ten raport obejmuje więcej domen, niż może dać jeden przebieg.",
+      "malformed": "Ten raport zawiera pole, którego ta kompilacja nie potrafi odczytać.",
+      "at": "W {0}: {1}"
     }
   }
 }

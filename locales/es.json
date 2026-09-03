@@ -24,7 +24,10 @@
     "uploadFile": "📄 Subir archivo .txt",
     "loadExamples": "Cargar ejemplos",
     "clearResults": "🗑 Limpiar resultados",
-    "learnMore": "Más información →"
+    "learnMore": "Más información →",
+    "exportJson": "⬇ Exportar JSON",
+    "importReport": "⬆ Comparar con un informe guardado",
+    "exitCompare": "Salir de la comparación"
   },
   "input": {
     "heading": "Introduce los dominios a auditar",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "Avanzado",
-    "hosting": "Alojamiento"
+    "hosting": "Alojamiento",
+    "delta": "Cambio"
   },
   "filter": {
     "all": "Todos los dominios",
@@ -156,7 +160,12 @@
     "noSpf": "Falta SPF",
     "hasBimi": "Tiene BIMI",
     "noCaa": "Falta CAA",
-    "noDnssec": "Sin DNSSEC"
+    "noDnssec": "Sin DNSSEC",
+    "improved": "Mejorados",
+    "regressed": "Empeorados",
+    "changed": "Con cambios",
+    "added": "Dominios nuevos",
+    "removed": "Dominios eliminados"
   },
   "empty": {
     "text": "Ningún dominio coincide con tu filtro."
@@ -362,7 +371,11 @@
     },
     "auditCancelled": "Auditoría cancelada",
     "langChanged": "Idioma cambiado",
-    "langFailed": "No se pudo cargar ese idioma — manteniendo inglés."
+    "langFailed": "No se pudo cargar ese idioma — manteniendo inglés.",
+    "jsonExported": "JSON exportado",
+    "reportImported": "Informe importado — se muestran los cambios",
+    "comparisonCleared": "Comparación descartada",
+    "importFailed": "No se pudo importar ese archivo"
   },
   "csv": {
     "unknown": "Desconocido",
@@ -1413,6 +1426,66 @@
       "foundation": "Corrija esto primero: todo lo demás depende de ello",
       "afterPrereq": "Una vez que los requisitos previos anteriores estén en su lugar",
       "cleanup": "Sin dependencias: hágalos cuando quiera"
+    }
+  },
+  "compare": {
+    "heading": "Comparación de dos informes",
+    "baselineLabel": "Informe de referencia: {0}",
+    "currentLabel": "Actual: {0}",
+    "chooseBaseline": "Elija un informe guardado para comparar",
+    "status": {
+      "added": "Nuevo",
+      "removed": "Eliminado",
+      "improved": "Mejorado",
+      "regressed": "Empeorado",
+      "changed": "Con cambios",
+      "unchanged": "Sin cambios",
+      "incomparable": "No comparable"
+    },
+    "reason": {
+      "state": "El dominio se auditó en solo uno de los dos informes",
+      "noComparableProtocol": "Ningún protocolo se observó en ambos informes",
+      "options": "Las dos ejecuciones usaron opciones distintas",
+      "analysisVersion": "Los dos informes se puntuaron con versiones distintas del análisis",
+      "onlyIncomparableMovement": "Todo lo que cambió pertenece a un protocolo que uno de los informes no observó"
+    },
+    "protocol": {
+      "unproven": "{0} se comprobó pero no se estableció",
+      "notRun": "{0} no se comprobó",
+      "unknownFindings": "No comparable: {0} no se observó en el informe {1}"
+    },
+    "side": {
+      "baseline": "de referencia",
+      "current": "actual"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "Sin cambios",
+      "notComparable": "Las puntuaciones no son comparables",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "{0} nuevos",
+      "resolved": "{0} resueltos",
+      "unknown": "{0} desconocidos",
+      "severityChanged": "{0} con gravedad cambiada",
+      "baselineOnly": "Solo en el informe de referencia",
+      "currentOnly": "Solo en el informe actual"
+    },
+    "meta": {
+      "versionsDiffer": "Estos informes provienen de versiones distintas de esta herramienta, por lo que los cambios se muestran sin veredicto.",
+      "optionsDiffer": "Las dos ejecuciones usaron opciones distintas: {0}.",
+      "unknownFinding": "Esta compilación no tiene descripción para {0}."
+    },
+    "import": {
+      "invalidJson": "Este archivo no es JSON válido.",
+      "notReport": "Este archivo no es un informe de esta herramienta.",
+      "newerVersion": "Este informe se creó con una versión más reciente de esta herramienta. Actualice e inténtelo de nuevo.",
+      "tooLarge": "Este archivo es demasiado grande para ser un informe de esta herramienta.",
+      "tooManyDomains": "Este informe abarca más dominios de los que puede producir una auditoría.",
+      "malformed": "Este informe tiene un campo que esta compilación no puede leer.",
+      "at": "En {0}: {1}"
     }
   }
 }

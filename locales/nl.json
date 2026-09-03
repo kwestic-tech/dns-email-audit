@@ -24,7 +24,10 @@
     "uploadFile": "📄 .txt-bestand uploaden",
     "loadExamples": "Voorbeelden laden",
     "clearResults": "🗑 Resultaten wissen",
-    "learnMore": "Meer informatie →"
+    "learnMore": "Meer informatie →",
+    "exportJson": "⬇ JSON exporteren",
+    "importReport": "⬆ Vergelijken met een opgeslagen rapport",
+    "exitCompare": "Vergelijking sluiten"
   },
   "input": {
     "heading": "Voer domeinen in om te auditen",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "Geavanceerd",
-    "hosting": "Hosting"
+    "hosting": "Hosting",
+    "delta": "Wijziging"
   },
   "filter": {
     "all": "Alle domeinen",
@@ -156,7 +160,12 @@
     "noSpf": "Geen SPF",
     "hasBimi": "Heeft BIMI",
     "noCaa": "Geen CAA",
-    "noDnssec": "Geen DNSSEC"
+    "noDnssec": "Geen DNSSEC",
+    "improved": "Verbeterd",
+    "regressed": "Verslechterd",
+    "changed": "Gewijzigd",
+    "added": "Nieuwe domeinen",
+    "removed": "Verwijderde domeinen"
   },
   "empty": {
     "text": "Geen domeinen komen overeen met uw filter."
@@ -362,7 +371,11 @@
     },
     "auditCancelled": "Audit geannuleerd",
     "langChanged": "Taal gewijzigd",
-    "langFailed": "Kon die taal niet laden — we blijven bij Engels."
+    "langFailed": "Kon die taal niet laden — we blijven bij Engels.",
+    "jsonExported": "JSON geëxporteerd",
+    "reportImported": "Rapport geïmporteerd — wijzigingen worden getoond",
+    "comparisonCleared": "Vergelijking gewist",
+    "importFailed": "Dit bestand kon niet worden geïmporteerd"
   },
   "csv": {
     "unknown": "Onbekend",
@@ -1413,6 +1426,66 @@
       "foundation": "Los deze eerst op — al het andere hangt ervan af",
       "afterPrereq": "Zodra aan de bovenstaande voorwaarden is voldaan",
       "cleanup": "Geen afhankelijkheden — doe deze wanneer het uitkomt"
+    }
+  },
+  "compare": {
+    "heading": "Twee rapporten vergeleken",
+    "baselineLabel": "Uitgangsrapport: {0}",
+    "currentLabel": "Huidig: {0}",
+    "chooseBaseline": "Kies een opgeslagen rapport om mee te vergelijken",
+    "status": {
+      "added": "Nieuw",
+      "removed": "Verwijderd",
+      "improved": "Verbeterd",
+      "regressed": "Verslechterd",
+      "changed": "Gewijzigd",
+      "unchanged": "Ongewijzigd",
+      "incomparable": "Niet vergelijkbaar"
+    },
+    "reason": {
+      "state": "Het domein is in slechts één van de twee rapporten gecontroleerd",
+      "noComparableProtocol": "Geen enkel protocol is in beide rapporten waargenomen",
+      "options": "De twee uitvoeringen gebruikten verschillende opties",
+      "analysisVersion": "De twee rapporten zijn beoordeeld door verschillende versies van de analyse",
+      "onlyIncomparableMovement": "Alles wat is gewijzigd hoort bij een protocol dat één rapport niet heeft waargenomen"
+    },
+    "protocol": {
+      "unproven": "{0} is gecontroleerd maar niet vastgesteld",
+      "notRun": "{0} is niet gecontroleerd",
+      "unknownFindings": "Niet vergelijkbaar: {0} is niet waargenomen in het {1} rapport"
+    },
+    "side": {
+      "baseline": "uitgangs-",
+      "current": "huidige"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "Geen wijziging",
+      "notComparable": "Scores zijn niet vergelijkbaar",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "{0} nieuw",
+      "resolved": "{0} opgelost",
+      "unknown": "{0} onbekend",
+      "severityChanged": "{0} met gewijzigde ernst",
+      "baselineOnly": "Alleen in het uitgangsrapport",
+      "currentOnly": "Alleen in het huidige rapport"
+    },
+    "meta": {
+      "versionsDiffer": "Deze rapporten komen uit verschillende versies van dit hulpmiddel, dus wijzigingen worden zonder oordeel getoond.",
+      "optionsDiffer": "De twee uitvoeringen gebruikten verschillende opties: {0}.",
+      "unknownFinding": "Deze build heeft geen omschrijving voor {0}."
+    },
+    "import": {
+      "invalidJson": "Dit bestand is geen geldige JSON.",
+      "notReport": "Dit bestand is geen rapport van dit hulpmiddel.",
+      "newerVersion": "Dit rapport is gemaakt door een nieuwere versie van dit hulpmiddel. Werk bij en probeer het opnieuw.",
+      "tooLarge": "Dit bestand is te groot voor een rapport van dit hulpmiddel.",
+      "tooManyDomains": "Dit rapport bevat meer domeinen dan één controle kan opleveren.",
+      "malformed": "Dit rapport bevat een veld dat deze build niet kan lezen.",
+      "at": "Bij {0}: {1}"
     }
   }
 }

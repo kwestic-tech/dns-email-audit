@@ -24,7 +24,10 @@
     "uploadFile": "📄 Importer un fichier .txt",
     "loadExamples": "Charger des exemples",
     "clearResults": "🗑 Effacer les résultats",
-    "learnMore": "En savoir plus →"
+    "learnMore": "En savoir plus →",
+    "exportJson": "⬇ Exporter en JSON",
+    "importReport": "⬆ Comparer avec un rapport enregistré",
+    "exitCompare": "Quitter la comparaison"
   },
   "input": {
     "heading": "Saisissez les domaines à auditer",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "Avancé",
-    "hosting": "Hébergement"
+    "hosting": "Hébergement",
+    "delta": "Changement"
   },
   "filter": {
     "all": "Tous les domaines",
@@ -156,7 +160,12 @@
     "noSpf": "SPF manquant",
     "hasBimi": "Possède BIMI",
     "noCaa": "CAA manquant",
-    "noDnssec": "Pas de DNSSEC"
+    "noDnssec": "Pas de DNSSEC",
+    "improved": "Améliorés",
+    "regressed": "Dégradés",
+    "changed": "Modifiés",
+    "added": "Nouveaux domaines",
+    "removed": "Domaines retirés"
   },
   "empty": {
     "text": "Aucun domaine ne correspond à votre filtre."
@@ -362,7 +371,11 @@
     },
     "auditCancelled": "Audit annulé",
     "langChanged": "Langue modifiée",
-    "langFailed": "Impossible de charger cette langue — maintien de l'anglais."
+    "langFailed": "Impossible de charger cette langue — maintien de l'anglais.",
+    "jsonExported": "JSON exporté",
+    "reportImported": "Rapport importé — les changements sont affichés",
+    "comparisonCleared": "Comparaison annulée",
+    "importFailed": "Ce fichier n'a pas pu être importé"
   },
   "csv": {
     "unknown": "Inconnu",
@@ -1413,6 +1426,66 @@
       "foundation": "Corrigez ceci en premier — tout le reste en dépend",
       "afterPrereq": "Une fois les prérequis ci-dessus en place",
       "cleanup": "Aucune dépendance — faites-les quand vous voulez"
+    }
+  },
+  "compare": {
+    "heading": "Comparaison de deux rapports",
+    "baselineLabel": "Rapport de référence : {0}",
+    "currentLabel": "Actuel : {0}",
+    "chooseBaseline": "Choisissez un rapport enregistré comme point de comparaison",
+    "status": {
+      "added": "Nouveau",
+      "removed": "Retiré",
+      "improved": "Amélioré",
+      "regressed": "Dégradé",
+      "changed": "Modifié",
+      "unchanged": "Inchangé",
+      "incomparable": "Non comparable"
+    },
+    "reason": {
+      "state": "Le domaine n'a été audité que dans l'un des deux rapports",
+      "noComparableProtocol": "Aucun protocole n'a été observé dans les deux rapports",
+      "options": "Les deux exécutions ont utilisé des options différentes",
+      "analysisVersion": "Les deux rapports ont été notés par des versions différentes de l'analyse",
+      "onlyIncomparableMovement": "Tout ce qui a changé relève d'un protocole que l'un des rapports n'a pas observé"
+    },
+    "protocol": {
+      "unproven": "{0} a été vérifié mais n'a pas été établi",
+      "notRun": "{0} n'a pas été vérifié",
+      "unknownFindings": "Non comparable : {0} n'a pas été observé dans le rapport {1}"
+    },
+    "side": {
+      "baseline": "de référence",
+      "current": "actuel"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "Aucun changement",
+      "notComparable": "Les scores ne sont pas comparables",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "{0} nouveaux",
+      "resolved": "{0} résolus",
+      "unknown": "{0} inconnus",
+      "severityChanged": "{0} dont la gravité a changé",
+      "baselineOnly": "Uniquement dans le rapport de référence",
+      "currentOnly": "Uniquement dans le rapport actuel"
+    },
+    "meta": {
+      "versionsDiffer": "Ces rapports proviennent de versions différentes de cet outil ; les changements sont donc affichés sans verdict.",
+      "optionsDiffer": "Les deux exécutions ont utilisé des options différentes : {0}.",
+      "unknownFinding": "Cette version ne dispose d'aucune description pour {0}."
+    },
+    "import": {
+      "invalidJson": "Ce fichier n'est pas du JSON valide.",
+      "notReport": "Ce fichier n'est pas un rapport de cet outil.",
+      "newerVersion": "Ce rapport a été créé par une version plus récente de cet outil. Mettez à jour, puis réessayez.",
+      "tooLarge": "Ce fichier est trop volumineux pour être un rapport de cet outil.",
+      "tooManyDomains": "Ce rapport couvre plus de domaines qu'un audit ne peut en produire.",
+      "malformed": "Ce rapport contient un champ que cette version ne sait pas lire.",
+      "at": "À {0} : {1}"
     }
   }
 }

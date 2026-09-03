@@ -24,7 +24,10 @@
     "uploadFile": "📄 .txt-Datei hochladen",
     "loadExamples": "Beispiele laden",
     "clearResults": "🗑 Ergebnisse löschen",
-    "learnMore": "Mehr erfahren →"
+    "learnMore": "Mehr erfahren →",
+    "exportJson": "⬇ JSON exportieren",
+    "importReport": "⬆ Mit gespeichertem Bericht vergleichen",
+    "exitCompare": "Vergleich beenden"
   },
   "input": {
     "heading": "Domains für das Audit eingeben",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "Erweitert",
-    "hosting": "Hosting"
+    "hosting": "Hosting",
+    "delta": "Änderung"
   },
   "filter": {
     "all": "Alle Domains",
@@ -156,7 +160,12 @@
     "noSpf": "SPF fehlt",
     "hasBimi": "Hat BIMI",
     "noCaa": "CAA fehlt",
-    "noDnssec": "Kein DNSSEC"
+    "noDnssec": "Kein DNSSEC",
+    "improved": "Verbessert",
+    "regressed": "Verschlechtert",
+    "changed": "Geändert",
+    "added": "Neue Domains",
+    "removed": "Entfernte Domains"
   },
   "empty": {
     "text": "Keine Domains entsprechen Ihrem Filter."
@@ -362,7 +371,11 @@
     },
     "auditCancelled": "Audit abgebrochen",
     "langChanged": "Sprache geändert",
-    "langFailed": "Diese Sprache konnte nicht geladen werden — verbleibe auf Englisch."
+    "langFailed": "Diese Sprache konnte nicht geladen werden — verbleibe auf Englisch.",
+    "jsonExported": "JSON exportiert",
+    "reportImported": "Bericht importiert — Änderungen werden angezeigt",
+    "comparisonCleared": "Vergleich verworfen",
+    "importFailed": "Diese Datei konnte nicht importiert werden"
   },
   "csv": {
     "unknown": "Unbekannt",
@@ -1413,6 +1426,66 @@
       "foundation": "Beheben Sie diese zuerst — alles andere hängt davon ab",
       "afterPrereq": "Sobald die obigen Voraussetzungen erfüllt sind",
       "cleanup": "Keine Abhängigkeiten — erledigen Sie diese jederzeit"
+    }
+  },
+  "compare": {
+    "heading": "Zwei Berichte im Vergleich",
+    "baselineLabel": "Ausgangsbericht: {0}",
+    "currentLabel": "Aktuell: {0}",
+    "chooseBaseline": "Wählen Sie einen gespeicherten Bericht als Vergleichsgrundlage",
+    "status": {
+      "added": "Neu",
+      "removed": "Entfernt",
+      "improved": "Verbessert",
+      "regressed": "Verschlechtert",
+      "changed": "Geändert",
+      "unchanged": "Unverändert",
+      "incomparable": "Nicht vergleichbar"
+    },
+    "reason": {
+      "state": "Die Domain wurde nur in einem der beiden Berichte geprüft",
+      "noComparableProtocol": "Kein Protokoll wurde in beiden Berichten beobachtet",
+      "options": "Die beiden Läufe verwendeten unterschiedliche Optionen",
+      "analysisVersion": "Die beiden Berichte wurden mit unterschiedlichen Analyseversionen bewertet",
+      "onlyIncomparableMovement": "Alle Änderungen betreffen ein Protokoll, das ein Bericht nicht beobachtet hat"
+    },
+    "protocol": {
+      "unproven": "{0} wurde geprüft, aber nicht belegt",
+      "notRun": "{0} wurde nicht geprüft",
+      "unknownFindings": "Nicht vergleichbar: {0} wurde im {1} Bericht nicht beobachtet"
+    },
+    "side": {
+      "baseline": "Ausgangs-",
+      "current": "aktuellen"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "Keine Änderung",
+      "notComparable": "Punktzahlen sind nicht vergleichbar",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "{0} neu",
+      "resolved": "{0} behoben",
+      "unknown": "{0} unbekannt",
+      "severityChanged": "{0} mit geänderter Schwere",
+      "baselineOnly": "Nur im Ausgangsbericht",
+      "currentOnly": "Nur im aktuellen Bericht"
+    },
+    "meta": {
+      "versionsDiffer": "Diese Berichte stammen aus unterschiedlichen Versionen dieses Werkzeugs; Änderungen werden daher ohne Bewertung angezeigt.",
+      "optionsDiffer": "Die beiden Läufe verwendeten unterschiedliche Optionen: {0}.",
+      "unknownFinding": "Dieser Build kennt keine Beschreibung für {0}."
+    },
+    "import": {
+      "invalidJson": "Diese Datei ist kein gültiges JSON.",
+      "notReport": "Diese Datei ist kein Bericht dieses Werkzeugs.",
+      "newerVersion": "Dieser Bericht stammt aus einer neueren Version dieses Werkzeugs. Aktualisieren Sie und versuchen Sie es erneut.",
+      "tooLarge": "Diese Datei ist zu groß für einen Bericht dieses Werkzeugs.",
+      "tooManyDomains": "Dieser Bericht umfasst mehr Domains, als ein Lauf erzeugen kann.",
+      "malformed": "Dieser Bericht enthält ein Feld, das dieser Build nicht lesen kann.",
+      "at": "Bei {0}: {1}"
     }
   }
 }
