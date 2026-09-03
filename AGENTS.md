@@ -247,6 +247,13 @@ State is *derived from the files*, not trusted from the database: `locale:sync`
 fingerprints both the English and the translation, so editing either one is
 detected on the next run. Never hand-edit `translation-status.json`.
 
+## Model Delegation
+
+If `.claude/rules/DELEGATION-POLICY.md` exists in this repo, read it and follow
+its sub-agent tiering, escalation, and tool-scoping rules for any delegated or
+sub-agent work. If the file is not present, proceed without tiering — use
+standard model selection.
+
 ## Other repo rules
 
 - `npm test` must pass before you open a PR. `npm run locale:gate` too.
@@ -301,8 +308,16 @@ the feature branch**, made after the work is finished and before the push:
    `docs/specs/README.md`, `ROADMAP.md` and the current-phase marker in
    `HANDOFF.md`.
 4. Push once, open the PR, and stop.
-5. Ian says when to squash and merge. **Tag after the merge**, annotated, on the
-   squashed commit: `git tag -a v<version> -m "<version> — <subject>"`.
+5. Ian says when to squash and merge.
+6. **After the squash merge, update the primary local checkout before tagging.**
+   Switch that checkout to `main`, then run `git pull --ff-only origin main`.
+   Verify that local `main` now points at the pull request's squash commit. Do
+   not tag the feature branch or a stale local `main`.
+7. Create the annotated tag on that updated `main` commit, then push the tag:
+   `git tag -a v<version> -m "<version> — <subject>"` followed by
+   `git push origin v<version>`.
+8. Publish the release from that tag, then verify the release, post-merge CI,
+   and deployment all point at the same squash commit.
 
 Read the assertion count for `README.md` out of a real `npm test` run rather
 than typing it from memory — it drifted from 174 to 489 unnoticed once already.
