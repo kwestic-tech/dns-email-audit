@@ -15,6 +15,7 @@ import {
   loadUi, MarkupSinkError, elements, attributes, locate, hasNoEventHandlers, textOf,
 } from './lib/browser-harness.mjs';
 import { RICH_TAG_ALLOWLIST, disallowedTags, LOCALE_CODES, loadLocale } from './lib/locale-utils.mjs';
+import { detectDNSProvider } from '../src/providers/detectors.js';
 
 // Task 6.2: a direct ESM path. This used to reach the renderer's internals
 // through `window.__APP_TEST__`, a marked adapter that existed for this suite
@@ -1094,6 +1095,48 @@ eq('the scrambled control really differs from the real sequence',
 eq('and a reordered sequence would be caught',
   JSON.stringify(await findingIdSequence(loadLocale('de'))) === JSON.stringify(scrambled), false);
 eq('the fourteen-locale set is complete', LOCALE_CODES.length + 1, 14);
+
+/* ── 17. Derived labels and object-keyed lookups ─────────────────────── */
+section('17. Derived labels and object-keyed lookups');
+
+// The suite above feeds hostile bytes into record VALUES. This section feeds
+// them into a value the tool DERIVES from a record and then uses as an object
+// key. `detectDNSProvider()` falls back to one DNS label of the first NS
+// record, capitalised; underscores are legal in owner names and resolvers
+// return them verbatim, so the audited domain's operator chooses this string.
+//
+// Every Object.prototype member name, because guarding the one that was
+// reported would leave the class open. `constructor` survives capitalisation
+// as `Constructor` and was never the bug; `__proto__` does not, and was.
+const derivedRow = (ns) => ({
+  ...result,
+  domain: 'derived.example',
+  ns: [ns],
+  dnsProvider: detectDNSProvider([ns], 'derived.example'),
+});
+
+for (const name of ['__proto__', 'constructor', 'toString', 'valueOf',
+  'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString']) {
+  const ns = `ns1.${name}.net`;
+  let threw = null;
+  try { APP.appendRow(derivedRow(ns)); } catch (e) { threw = e.message; }
+  eq(`an NS label of ${name} renders a row instead of throwing`, threw, null);
+}
+
+// Re-read the table: section 16 re-renders under fourteen locales, so the
+// reference captured in section 9 is not necessarily the live element.
+const derivedBody = textOf(document.getElementById('tableBody'));
+
+// The label reaches the badge, so the row is not merely surviving by dropping
+// it. `__proto__` is not a token, so it is displayed as the proper name it
+// looks like.
+eq('the derived label is displayed, not swallowed',
+  derivedBody.includes('__proto__'), true);
+
+// A real token still resolves to its translation rather than to the literal.
+eq('a genuine token still resolves through the table',
+  t('provider.unknown') !== '@unknown' && derivedBody.includes(t('provider.unknown')),
+  true);
 
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);

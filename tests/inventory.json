@@ -65,9 +65,10 @@
     },
     {
       "path": "tools/render.test.mjs",
-      "assertions": 390,
+      "assertions": 400,
       "areas": [
         "row rendering and the detail panels",
+        "values derived from DNS records reach object-keyed lookups without resolving through Object.prototype",
         "DNS-derived values reach text nodes or allowlisted attributes, never markup",
         "the record-hygiene sentinels",
         "local artifact byte and MIME limits plus the separate provenance/evidence renderer branch"

@@ -130,7 +130,16 @@ export function createUi(capabilities) {
 
   // js/dns.js returns '@'-prefixed tokens for anything a translator owns.
   // Proper nouns ('Cloudflare', 'Google Workspace') come back verbatim.
-  var TOKEN_KEYS = {
+  // Null-prototype, because the value handed to `label()` is not always one of
+  // these tokens. `detectDNSProvider()` derives its fallback from the audited
+  // domain's first NS record — one DNS label, capitalised — and underscores are
+  // legal in owner names, so a nameserver of `ns1.__proto__.net` produces the
+  // string `__proto__`. Against an object literal that lookup resolves to
+  // `Object.prototype`, which is truthy, so `t()` is handed an object, returns
+  // it unchanged, and the renderer refuses a non-node child by throwing.
+  // Capitalisation is what saves `constructor` and what does not save
+  // `__proto__`, which is why guarding one name would not have been a fix.
+  var TOKEN_KEYS = Object.assign(Object.create(null), {
     '@unknown': 'provider.unknown',
     '@custom': 'provider.custom',
     '@custom-unknown': 'provider.customUnknown',
@@ -144,7 +153,7 @@ export function createUi(capabilities) {
     '@cloudflare-proxied': 'provider.cloudflareProxied',
     '@porkbun-forwarding': 'provider.porkbunForwarding',
     '@dash': 'labels.dash',
-  };
+  });
 
   function label(value) {
     if (typeof value !== 'string') return '';
