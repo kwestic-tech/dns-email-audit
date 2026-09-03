@@ -42,7 +42,7 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [report-comparison](report-comparison.md) | 0.9.0 | 0.3 | Draft; awaiting review |
+| [report-comparison](report-comparison.md) | 0.9.0 | 1.0 | **Final; approved for implementation** |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 
@@ -75,8 +75,15 @@ that produced it:
 
 A `fixtures/` directory alongside a spec still under review holds the same
 thing before the move. One exists:
-[esbuild-legacy-bundle-spike-0.6.0](implemented/fixtures/esbuild-legacy-bundle-spike-0.6.0.md),
-which settles `OQ-ARCH-01` and demonstrates — rather than predicts — that a
+[report-size-measurement-0.9.0](fixtures/report-size-measurement-0.9.0.md),
+which settles `RQ-CMP-01` and `RQ-CMP-02` by measuring the committed
+equivalence corpus, and shows that the 0.3 draft's exported report would have
+exceeded its own import limit.
+
+The same pattern applies to a question that is settled by measuring this
+project rather than a resolver.
+[esbuild-legacy-bundle-spike-0.6.0](implemented/fixtures/esbuild-legacy-bundle-spike-0.6.0.md)
+settles `OQ-ARCH-01` and demonstrates — rather than predicts — that a
 bundled public-suffix list silently replaces a test fixture while the suite
 still reports 1,535 passing assertions.
 

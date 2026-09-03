@@ -23,17 +23,40 @@ The remaining release sequence is:
 ```
 
 Each remaining spec must be reviewed to Final before its implementation
-begins. Do not treat the sequence above as approval of the individual design
-choices still recorded as `OQ-*` questions.
+begins. `report-comparison` reached that bar on 2026-09-03;
+`one-zero-readiness` has not, and its `OQ-ONE-*` questions are not approved by
+the sequence above.
 
-## Start here: review the 0.9.0 stateless report-comparison spec
+## Start here: implement 0.9.0 stateless report comparison
 
 Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md),
-currently a draft and **not approved for implementation**.
+**`1.0 (Final)`, approved for implementation**. The review resolved all seven
+`OQ-CMP-*` questions as `RQ-CMP-01`–`07`, reconciled the schema against what
+`v0.8.1` actually produces, and raised and resolved one more — `RQ-CMP-08`,
+per-protocol comparability.
 
-The next task is review, not code. Resolve every `OQ-CMP-*` decision, reconcile
-the schema with what 0.8.0 actually exports, and promote the spec to Final
-before creating an implementation branch.
+Build it in the five directory-bound commits the spec's §0 lists, in that
+order. Two of them can move a published surface, so they do not share a commit
+with the UI work:
+
+1. `src/version.js` and `ANALYSIS_VERSION` in `src/audit/scoring.js`.
+2. `src/ui/report-data.js` — pure schema, validation and comparison.
+3. `src/ui/report.js` — `exportJSON()`.
+4. `src/ui/events.js` — import controls, comparison mode, filters.
+5. `locales/en.json` and all thirteen translations.
+
+Three review findings are implementation prerequisites rather than design
+notes, and each is easy to miss:
+
+- **`generator.version` has no runtime source.** The package version reaches
+  only the bundle's comment banner in `tools/build-bundle.mjs`. Commit 1 adds
+  `src/version.js` and the test that pins it to `package.json`.
+- **`generatedAt` is the moment the audit run completed**, captured once in
+  `src/ui/events.js` run state and reused by every export of that run. As
+  export time, acceptance criterion 4 is untestable.
+- **The schema is a projection, not a dump.** The exclusion table in §1 is the
+  specification; a test asserts the excluded fields are absent, because a test
+  that only checks the wanted fields would pass on a dump.
 
 The 0.8.0 release established the inputs 0.9.0 must respect:
 
@@ -52,7 +75,7 @@ The 0.8.0 release established the inputs 0.9.0 must respect:
 | --- | --- | --- | --- |
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
-| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec must be reviewed to Final | Versioned JSON schema, import validation and stateless comparison |
+| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec Final at `1.0` | Versioned JSON schema, import validation and stateless comparison |
 | 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary
@@ -66,10 +89,12 @@ uses the real browser parser and must prove its own detectors fail.
 ### 0.9.0 boundary
 
 Pure report schema and comparison work stays within `src/ui/` siblings.
-Scoring or analysis version metadata remains owned by `src/audit/` and crosses
-the existing composition boundary; the UI never imports scoring. Settle
-`OQ-CMP-06` before the first report is exported because the field cannot be
-repurposed after release. Match `OQ-CMP-07` to what 0.8.0 actually ships.
+`ANALYSIS_VERSION` remains owned by `src/audit/scoring.js` and crosses the
+existing composition boundary; the UI never imports scoring. `RQ-CMP-06`
+settled the field: one `analysisVersion`, bumped by anything that can move a
+score — discovery as well as the rubric — gating the score delta and never the
+finding diff. `RQ-CMP-07` excludes artifact findings with no reserved field,
+and the export asserts it against `artifactFindingCatalogIds()`.
 
 ### 1.0.0 boundary
 
