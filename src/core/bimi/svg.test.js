@@ -90,7 +90,7 @@ eq('the diagnostic vocabulary is frozen and complete',
   [true, ['namespace-not-svg', 'base-profile-not-tiny-ps', 'version-not-1-2',
     'title-missing', 'title-not-unique', 'desc-empty',
     'viewbox-missing', 'viewbox-not-square', 'root-has-position',
-    'raster-data-uri', 'unsupported-attribute']]);
+    'raster-data-uri', 'data-uri-reference', 'unsupported-attribute']]);
 // XML makes a second root a parse error, measured in Chrome, so a
 // "multiple-roots" diagnostic would be a state no fixture can reach.
 eq('and multiple roots is NOT a diagnostic — XML makes it a parse error',
@@ -258,28 +258,41 @@ const dataUri = (child) =>
 
 {
   const raster = dataUri(el('rect', { fill: 'url(data:image/png;base64,iVBOR)' }));
-  eq('a raster data URI in a fill is a diagnostic, not a rejection',
+  eq('a raster data URI in a fill diagnoses twice and refuses nothing',
     [raster.valid, raster.rejections, raster.diagnostics],
-    [true, [], ['raster-data-uri']]);
+    [true, [], ['data-uri-reference', 'raster-data-uri']]);
 
   const inStyleAttr = dataUri(el('rect', { style: 'fill:url(data:image/png;base64,iVBOR)' }));
   eq('and the same in a style attribute',
-    [inStyleAttr.valid, inStyleAttr.rejections], [true, []]);
+    [inStyleAttr.valid, inStyleAttr.rejections,
+      inStyleAttr.diagnostics.includes('data-uri-reference')], [true, [], true]);
 
   const inStyleEl = dataUri(el('style', {}, [text('.a{fill:url(data:image/png;base64,iVBOR)}')]));
-  eq('and inside a style element, which the 1.9 rule refused',
-    [inStyleEl.valid, inStyleEl.rejections], [true, []]);
+  eq('and inside a style element, which the 1.9 rule refused outright',
+    [inStyleEl.valid, inStyleEl.rejections,
+      inStyleEl.diagnostics.includes('data-uri-reference')], [true, [], true]);
 
-  // Vector, so `RASTER_DATA_URI` does not fire. Still self-contained, still
-  // not an external reference — this is the case with no diagnostic at all.
+  // Vector, so `RASTER_DATA_URI` does not fire. Through 0.8.0 this reached
+  // `bimi.svg-valid` with NO signal at all, which is the gap the diagnostic
+  // closes: the profile forbids the reference whatever the payload is.
   const vector = dataUri(el('rect', { fill: 'url(data:image/svg+xml,%3Csvg/%3E)' }));
-  eq('a vector data URI is neither a rejection nor a raster diagnostic',
-    [vector.valid, vector.rejections, vector.diagnostics], [true, [], []]);
+  eq('a vector data URI is diagnosed even though no bitmap is embedded',
+    [vector.valid, vector.rejections, vector.diagnostics],
+    [true, [], ['data-uri-reference']]);
 
   // The boundary: `data` as a HOST is an ordinary external reference.
   const host = dataUri(el('rect', { fill: 'url(https://data.example/p.svg#g)' }));
   eq('a host called data is still external',
-    [host.valid, host.rejections], [false, ['external-reference']]);
+    [host.valid, host.rejections, host.diagnostics], [false, ['external-reference'], []]);
+
+  // The line the two vocabularies draw. `valid` is a security verdict, bounded
+  // by spec 1.0 to refusal rather than profile conformance, which is why
+  // `base-profile-not-tiny-ps` and `raster-data-uri` also leave a document
+  // valid. A self-contained file fetches nothing, so there is no refusal to
+  // make — and the operator is still told the profile forbids the reference.
+  eq('data-uri-reference is a diagnostic, never a rejection',
+    [BIMI_SVG_DIAGNOSTICS.includes('data-uri-reference'),
+      BIMI_SVG_REJECTIONS.includes('data-uri-reference')], [true, false]);
 }
 
 section('4b. External references');
@@ -353,13 +366,20 @@ eq('an empty desc is reported',
 eq('a non-empty desc is fine',
   diag({}, [el('title', {}, [text('t')]), el('desc', {}, [text('brand')])]), []);
 
-eq('a raster data URI in a fill is a diagnostic, not a rejection',
+// Spec 1.10 added `data-uri-reference` beside it: SVG Tiny 1.2 permits a fill
+// to name a local fragment only, and `data:` is not one. Two diagnostics, one
+// per rule — the bitmap and the reference position are separate complaints —
+// and still no rejection, because nothing is fetched.
+eq('a raster data URI in a fill raises both diagnostics and no rejection',
   check(conformant({ children: [el('title', {}, [text('t')]),
     el('rect', { fill: 'url(data:image/png;base64,iVBOR)' })] })),
   { valid: true, parsed: true, root: 'svg', title: 't',
-    rejections: [], diagnostics: ['raster-data-uri'],
-    sites: [{ token: 'raster-data-uri', element: '<rect>',
-      value: 'fill="url(data:image/png;base64,iVBOR)"' }] });
+    rejections: [], diagnostics: ['data-uri-reference', 'raster-data-uri'],
+    sites: [
+      { token: 'data-uri-reference', element: '<rect>',
+        value: 'fill="url(data:image/png;base64,iVBOR)"' },
+      { token: 'raster-data-uri', element: '<rect>',
+        value: 'fill="url(data:image/png;base64,iVBOR)"' }] });
 eq('a raster data URI inside a style block is caught too',
   check(conformant({ children: [el('title', {}, [text('t')]),
     el('style', {}, [text('.a{fill:data:image/png;base64,iVBOR}')])] })).diagnostics,

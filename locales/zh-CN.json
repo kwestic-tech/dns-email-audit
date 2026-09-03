@@ -101,6 +101,7 @@
       "viewbox-not-square": "viewBox 的宽度与高度必须相等。",
       "root-has-position": "根 svg 元素不得带有 x 或 y 定位属性。",
       "raster-data-uri": "位图图像数据超出仅限矢量的配置范围。",
+      "data-uri-reference": "url() 引用指定了 data: URI；该配置文件仅允许绘制引用指向本地片段。",
       "unsupported-attribute": "某个受限的 SVG Tiny PS 属性取值不在该配置允许的范围内。"
     }
   },

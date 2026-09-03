@@ -101,6 +101,7 @@
       "viewbox-not-square": "A largura e a altura de viewBox devem ser iguais.",
       "root-has-position": "O elemento raiz svg não pode ter atributos de posicionamento x ou y.",
       "raster-data-uri": "Dados de imagem rasterizada estão fora do perfil exclusivamente vetorial.",
+      "data-uri-reference": "Uma referência url() nomeia um URI data:; o perfil permite referências de pintura apenas a fragmentos locais.",
       "unsupported-attribute": "Um atributo restrito do SVG Tiny PS tem um valor que o perfil não permite."
     }
   },

@@ -101,6 +101,7 @@
       "viewbox-not-square": "viewBox の幅と高さは等しくなければなりません。",
       "root-has-position": "ルートの svg 要素に x や y の位置属性を付けることはできません。",
       "raster-data-uri": "ラスター画像データは、ベクターのみのプロファイル外です。",
+      "data-uri-reference": "url() 参照が data: URI を指定しています。プロファイルは描画参照をローカルフラグメントにのみ許可します。",
       "unsupported-attribute": "制約のある SVG Tiny PS 属性に、プロファイルが許可しない値が指定されています。"
     }
   },

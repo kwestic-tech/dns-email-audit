@@ -101,6 +101,7 @@
       "viewbox-not-square": "viewBox genişliği ile yüksekliği eşit olmalıdır.",
       "root-has-position": "Kök svg öğesi x veya y konumlandırma öznitelikleri taşımamalıdır.",
       "raster-data-uri": "Raster görüntü verisi, yalnızca vektör kabul eden profilin dışındadır.",
+      "data-uri-reference": "Bir url() başvurusu data: URI'si belirtiyor; profil boyama başvurularına yalnızca yerel parçalar için izin verir.",
       "unsupported-attribute": "Kısıtlanmış bir SVG Tiny PS özniteliği, profilin izin vermediği bir değer taşıyor."
     }
   },

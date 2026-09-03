@@ -101,6 +101,7 @@
       "viewbox-not-square": "Lebar dan tinggi viewBox harus sama.",
       "root-has-position": "Elemen akar svg tidak boleh membawa atribut posisi x atau y.",
       "raster-data-uri": "Data gambar raster berada di luar profil yang hanya menerima vektor.",
+      "data-uri-reference": "Referensi url() menyebut URI data:; profil hanya mengizinkan referensi cat ke fragmen lokal.",
       "unsupported-attribute": "Sebuah atribut SVG Tiny PS yang dibatasi memiliki nilai yang tidak diizinkan profil ini."
     }
   },

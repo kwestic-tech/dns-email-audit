@@ -68,7 +68,7 @@ export const BIMI_SVG_DIAGNOSTICS = Object.freeze([
   'namespace-not-svg', 'base-profile-not-tiny-ps', 'version-not-1-2',
   'title-missing', 'title-not-unique', 'desc-empty',
   'viewbox-missing', 'viewbox-not-square', 'root-has-position',
-  'raster-data-uri', 'unsupported-attribute',
+  'raster-data-uri', 'data-uri-reference', 'unsupported-attribute',
 ]);
 
 const ANIMATION_ELEMENTS = ['animate', 'animatetransform', 'set', 'animatemotion'];
@@ -130,19 +130,41 @@ const RASTER_DATA_URI = /data:image\/(?!svg\+xml)/i;
  * An empty `url()` is external. It addresses nothing, it is not a fragment,
  * and this screen fails closed.
  *
- * `data:` is the one argument that is neither a fragment nor external. It
- * carries its own bytes, so it addresses no other document and cannot beacon,
- * which is the property this rule is about. It is already reported where it
- * matters: a raster `data:` URI in any position is the `raster-data-uri`
- * DIAGNOSTIC, because an SVG Tiny PS logo should not embed a bitmap — that is
- * a profile complaint, not a security one, and folding it into
- * `external-reference` would turn a shipped diagnostic into an invalid verdict
- * for a self-contained file.
+ * `data:` is the one argument that is neither a fragment nor external, and it
+ * is reported on the other side of this file's split rather than let through.
+ *
+ * SVG Tiny 1.2's reference-restrictions table permits `fill` and `stroke` to
+ * name only a category A local fragment; a `data:` IRI is category E and is
+ * not allowed there. So a `url(data:…)` paint reference IS a profile
+ * violation, and until 0.8.1 the vector case reached `bimi.svg-valid` with no
+ * signal at all — the raster case at least raised `raster-data-uri`.
+ *
+ * It is not a SECURITY rejection, and putting it in that vocabulary would
+ * break what the two vocabularies mean here. `BIMI_SVG_REJECTIONS` is the set
+ * that refuses a document outright, and `valid` is bounded to security refusal
+ * rather than profile conformance — spec 1.0 says so explicitly, which is why
+ * `base-profile-not-tiny-ps`, `version-not-1-2`, `viewbox-not-square` and
+ * `raster-data-uri` are all diagnostics on documents that stay valid. A
+ * `data:` URI carries its own bytes: it requires no network fetch and cannot
+ * beacon, so there is no refusal to make. (It does still resolve to a document
+ * distinct from the owner document — SVG Tiny 1.2 says so, and that is exactly
+ * why the profile forbids it here. What it does not do is reach the network,
+ * which is what this file's refusals are for.)
+ *
+ * `data-uri-reference` is therefore the answer, beside `raster-data-uri` and
+ * for the same reason: the profile forbids it, a mailbox provider may refuse
+ * to display it, and the operator is told so.
  */
 const URL_REF = /url\s*\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*))/gi;
 const IMPORT_RULE = /@import/i;
 
-function hasExternalUrlRef(value) {
+/**
+ * `{ external, dataUri }` for one value or one `<style>` text. Two answers
+ * rather than a boolean, because the two land in different vocabularies: an
+ * external reference refuses the document, a `data:` reference diagnoses it.
+ */
+function urlRefKinds(value) {
+  var found = { external: false, dataUri: false };
   var re = new RegExp(URL_REF.source, 'gi');
   var m;
   while ((m = re.exec(String(value == null ? '' : value)))) {
@@ -150,10 +172,10 @@ function hasExternalUrlRef(value) {
       : m[2] !== undefined ? m[2]
         : m[3] || '').trim();
     if (arg.charAt(0) === '#') continue;
-    if (/^data:/i.test(arg)) continue;
-    return true;
+    if (/^data:/i.test(arg)) { found.dataUri = true; continue; }
+    found.external = true;
   }
-  return false;
+  return found;
 }
 
 /**
@@ -337,9 +359,14 @@ function screen(root, result) {
       site(result, 'rejections', 'link-element', written, attrValueAnyCase(el, 'href'));
     }
 
-    if (name === 'style'
-      && (IMPORT_RULE.test(textOf(el)) || hasExternalUrlRef(textOf(el)))) {
-      site(result, 'rejections', 'external-style', written, textOf(el));
+    if (name === 'style') {
+      var styleRefs = urlRefKinds(textOf(el));
+      if (IMPORT_RULE.test(textOf(el)) || styleRefs.external) {
+        site(result, 'rejections', 'external-style', written, textOf(el));
+      }
+      if (styleRefs.dataUri) {
+        site(result, 'diagnostics', 'data-uri-reference', written, textOf(el));
+      }
     }
 
     var attrs = attributesOf(el);
@@ -364,8 +391,17 @@ function screen(root, result) {
       // `url()` in `stroke`, `filter`, `mask`, `clip-path`, `marker-*` and
       // more, and an allowlist of attribute names would have to be revisited
       // for every one of them. The value is what decides.
-      if (hasExternalUrlRef(value)) {
+      var refs = urlRefKinds(value);
+      if (refs.external) {
         site(result, 'rejections', 'external-reference', written,
+          attrs[i].name + '="' + value + '"');
+      }
+      // SVG Tiny 1.2's reference-restrictions table permits a fill or stroke
+      // to name a category A local fragment only; `data:` is category E and is
+      // not allowed. A profile complaint, so a diagnostic — see the comment on
+      // `urlRefKinds()` for why it is not a refusal.
+      if (refs.dataUri) {
+        site(result, 'diagnostics', 'data-uri-reference', written,
           attrs[i].name + '="' + value + '"');
       }
       if (RASTER_DATA_URI.test(value)) {

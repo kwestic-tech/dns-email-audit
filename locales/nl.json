@@ -101,6 +101,7 @@
       "viewbox-not-square": "De breedte en hoogte van viewBox moeten gelijk zijn.",
       "root-has-position": "Het svg-wortelelement mag geen x- of y-positieattributen hebben.",
       "raster-data-uri": "Rasterafbeeldingsgegevens vallen buiten het uitsluitend vectoriële profiel.",
+      "data-uri-reference": "Een url()-verwijzing noemt een data:-URI; het profiel staat verfverwijzingen alleen naar lokale fragmenten toe.",
       "unsupported-attribute": "Een beperkt SVG Tiny PS-attribuut heeft een waarde die het profiel niet toestaat."
     }
   },

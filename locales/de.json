@@ -101,6 +101,7 @@
       "viewbox-not-square": "Breite und Höhe von viewBox müssen gleich sein.",
       "root-has-position": "Das svg-Wurzelelement darf keine x- oder y-Positionsattribute tragen.",
       "raster-data-uri": "Rasterbilddaten liegen außerhalb des reinen Vektorprofils.",
+      "data-uri-reference": "Eine url()-Referenz nennt eine data:-URI; das Profil erlaubt Farbreferenzen nur auf lokale Fragmente.",
       "unsupported-attribute": "Ein eingeschränktes SVG Tiny PS-Attribut hat einen Wert, den das Profil nicht zulässt."
     }
   },

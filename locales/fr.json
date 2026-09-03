@@ -101,6 +101,7 @@
       "viewbox-not-square": "La largeur et la hauteur de viewBox doivent être égales.",
       "root-has-position": "L'élément racine svg ne doit pas porter d'attributs de position x ou y.",
       "raster-data-uri": "Les données d'image matricielle sortent du profil purement vectoriel.",
+      "data-uri-reference": "Une référence url() désigne une URI data: ; le profil n'autorise les références de peinture que vers des fragments locaux.",
       "unsupported-attribute": "Un attribut SVG Tiny PS contraint porte une valeur que le profil n'autorise pas."
     }
   },

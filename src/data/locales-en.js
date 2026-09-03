@@ -109,6 +109,7 @@ export const LOCALE_EN = {
       "viewbox-not-square": "viewBox width and height must be equal.",
       "root-has-position": "The root svg must not carry x or y positioning attributes.",
       "raster-data-uri": "Raster image data is outside the vector-only profile.",
+      "data-uri-reference": "A url() reference names a data: URI; the profile permits paint references only to local fragments.",
       "unsupported-attribute": "A constrained SVG Tiny PS attribute has a value the profile does not permit."
     }
   },

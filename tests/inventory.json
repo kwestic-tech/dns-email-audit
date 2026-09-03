@@ -223,7 +223,7 @@
     },
     {
       "path": "src/core/bimi/svg.test.js",
-      "assertions": 153,
+      "assertions": 154,
       "note": "Co-located per spec §9. local-artifact-validation 1.6. Pure screening over an INJECTED parser: the fixture tree exercises the rules, and tests/build/local-input-security.test.mjs drives the real DOMParser. Neither half is evidence for the other.",
       "areas": [
         "the two frozen vocabularies, and why multiple-roots is not among the diagnostics: XML makes a second root a parse error",
@@ -231,7 +231,7 @@
         "root identity: HTML in a .svg file parses cleanly and is caught only by name, while a wrong namespace on an svg root is a diagnostic rather than a refusal",
         "every security refusal: script, event handlers, foreignObject, image/use, external href in both the plain and xlink spellings, anchors, animation elements and external styles",
         "spec 1.10: a url() naming another document is refused in any attribute and in <style> text, with local url(#fragment) controls in both positions so a fix cannot close the under-screening while preserving the 1.9 false positive",
-        "spec 1.10: a data: URI is self-contained, so it is neither a fragment nor an external reference -- pinned in both positions and for the vector case that carries no raster diagnostic, with a host called data as the boundary",
+        "spec 1.11: a data: URI in a reference position is the data-uri-reference DIAGNOSTIC, never a rejection -- SVG Tiny 1.2 permits paint references to local fragments only, but a data: URI needs no network fetch, so valid (a security verdict) stays true; pinned raster (both diagnostics), vector (the case 1.10 left silent), both style positions, and a host called data as the boundary",
         "every profile diagnostic, including a title that must be a direct child and a viewBox that must be square",
         "XML case sensitivity: baseprofile/viewbox/VERSION/<SVG>/<TITLE> do not satisfy the exact names a conformance check requires, while the SECURITY screen stays deliberately case-insensitive so <SCRIPT> is still caught",
         "the six SVG Tiny PS constrained attributes against the value each MUST carry when present, per draft-svg-tiny-ps-abrotman-12 2.3, including the draft's own conformant example",
