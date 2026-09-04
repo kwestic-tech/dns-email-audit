@@ -1452,11 +1452,8 @@
     "protocol": {
       "unproven": "{0} diperiksa tetapi tidak terbukti",
       "notRun": "{0} tidak diperiksa",
-      "unknownFindings": "Tidak dapat dibandingkan: {0} tidak teramati di laporan {1}"
-    },
-    "side": {
-      "baseline": "acuan",
-      "current": "saat ini"
+      "unknownInBaseline": "Tidak dapat dibandingkan: {0} tidak teramati di laporan acuan",
+      "unknownInCurrent": "Tidak dapat dibandingkan: {0} tidak teramati di laporan saat ini"
     },
     "delta": {
       "up": "+{0}",

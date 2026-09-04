@@ -1452,11 +1452,8 @@
     "protocol": {
       "unproven": "{0} se comprobó pero no se estableció",
       "notRun": "{0} no se comprobó",
-      "unknownFindings": "No comparable: {0} no se observó en el informe {1}"
-    },
-    "side": {
-      "baseline": "de referencia",
-      "current": "actual"
+      "unknownInBaseline": "No comparable: {0} no se observó en el informe de referencia",
+      "unknownInCurrent": "No comparable: {0} no se observó en el informe actual"
     },
     "delta": {
       "up": "+{0}",

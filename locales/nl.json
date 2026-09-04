@@ -1452,11 +1452,8 @@
     "protocol": {
       "unproven": "{0} is gecontroleerd maar niet vastgesteld",
       "notRun": "{0} is niet gecontroleerd",
-      "unknownFindings": "Niet vergelijkbaar: {0} is niet waargenomen in het {1} rapport"
-    },
-    "side": {
-      "baseline": "uitgangs-",
-      "current": "huidige"
+      "unknownInBaseline": "Niet vergelijkbaar: {0} is niet waargenomen in het uitgangsrapport",
+      "unknownInCurrent": "Niet vergelijkbaar: {0} is niet waargenomen in het huidige rapport"
     },
     "delta": {
       "up": "+{0}",

@@ -1460,11 +1460,8 @@ export const LOCALE_EN = {
     "protocol": {
       "unproven": "{0} was checked but not established",
       "notRun": "{0} was not checked",
-      "unknownFindings": "Not comparable: {0} was not observed in the {1} report"
-    },
-    "side": {
-      "baseline": "baseline",
-      "current": "current"
+      "unknownInBaseline": "Not comparable: {0} was not observed in the baseline report",
+      "unknownInCurrent": "Not comparable: {0} was not observed in the current report"
     },
     "delta": {
       "up": "+{0}",

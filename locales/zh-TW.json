@@ -1452,11 +1452,8 @@
     "protocol": {
       "unproven": "{0} 已檢查，但未能確認",
       "notRun": "{0} 未檢查",
-      "unknownFindings": "無法比較：{1}報告中未觀測到 {0}"
-    },
-    "side": {
-      "baseline": "基準",
-      "current": "目前"
+      "unknownInBaseline": "無法比較：基準報告中未觀測到 {0}",
+      "unknownInCurrent": "無法比較：目前的報告中未觀測到 {0}"
     },
     "delta": {
       "up": "+{0}",

@@ -1452,11 +1452,8 @@
     "protocol": {
       "unproven": "{0} は確認されましたが、確定できませんでした",
       "notRun": "{0} は確認されていません",
-      "unknownFindings": "比較できません: {0} は{1}レポートで観測されていません"
-    },
-    "side": {
-      "baseline": "基準",
-      "current": "現在の"
+      "unknownInBaseline": "比較できません: {0} は基準レポートで観測されていません",
+      "unknownInCurrent": "比較できません: {0} は現在のレポートで観測されていません"
     },
     "delta": {
       "up": "+{0}",

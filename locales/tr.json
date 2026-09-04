@@ -1452,11 +1452,8 @@
     "protocol": {
       "unproven": "{0} denetlendi ancak doğrulanamadı",
       "notRun": "{0} denetlenmedi",
-      "unknownFindings": "Karşılaştırılamaz: {0}, {1} raporda gözlemlenmedi"
-    },
-    "side": {
-      "baseline": "karşılaştırma",
-      "current": "güncel"
+      "unknownInBaseline": "Karşılaştırılamaz: {0}, karşılaştırma raporunda gözlemlenmedi",
+      "unknownInCurrent": "Karşılaştırılamaz: {0}, güncel raporda gözlemlenmedi"
     },
     "delta": {
       "up": "+{0}",
