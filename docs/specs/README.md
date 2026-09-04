@@ -29,6 +29,18 @@ A spec is Final before implementation starts. If implementation discovers that
 the spec is wrong, the spec is amended and re-versioned rather than quietly
 diverged from.
 
+**A spec covering more than one release is versioned as one document, and
+approved per release.** The table above assumes one spec is one release, which
+is the normal case. Where a document carries two target releases, the **Status**
+field may mark one of them Final and approved for implementation while the
+document itself stays at `0.x` because a question belonging to the other is
+still open. Approval then extends only to the named release: the rule that a
+spec is Final before implementation starts is satisfied for that release and for
+no other, and beginning the unapproved release — or discharging a gate it
+carries — is out of scope for the approved one. The document reaches
+`1.0 (Final)` only when every release in it is resolved or explicitly deferred.
+[mx-host-validity](mx-host-validity.md) is the first document to use this.
+
 ## Planned
 
 `Target release` below is a version-numbering anchor, kept per the naming rule
