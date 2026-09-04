@@ -32,8 +32,8 @@ diverged from.
 ## Planned
 
 `Target release` below is a version-numbering anchor, kept per the naming rule
-in this document. **As of 2026-09-04, one planned release remains:** the 1.0.0 graduation
-gate. 0.9.0 reports shipped. The earlier
+in this document. **As of 2026-09-04, three planned releases remain:** 0.9.1 and 0.9.2 MX host
+validity, then the 1.0.0 graduation gate. 0.9.0 reports shipped. The earlier
 parallel artifact proposal was retired after the 0.6.0 refactor shipped; 0.7.0
 supplied the final finding shape and 0.8.0 consumed it without widening the
 public-DNS score. See [`HANDOFF.md`](../../HANDOFF.md) for the current operational
@@ -42,6 +42,7 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
+| [mx-host-validity](mx-host-validity.md) | 0.9.1, then 0.9.2 | 0.1 | Draft, awaiting review |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 
@@ -59,6 +60,14 @@ three more releases are layered onto a 5,704-line file than after.
 roadmap ended at 0.9.0 and referred to work “post-1.0” without defining 1.0.0.
 The new spec proposes a dedicated compatibility, browser, accessibility,
 reproducibility and decision-closure release after the remaining features.
+
+**2026-09-04 — two MX releases were inserted between 0.9.0 and 1.0.0.** The
+build order above is amended: 0.9.0 reports, then 0.9.1 and 0.9.2, then the
+1.0.0 graduation gate. [mx-host-validity](mx-host-validity.md) covers both, and
+is the first planned spec to carry two target releases — its two halves extend
+one result object but differ in whether they issue a new class of DNS query,
+which is a release boundary rather than a section boundary. The 0.9.0 start
+condition is unchanged and neither MX release begins before it ships.
 
 ## Captured evidence
 
