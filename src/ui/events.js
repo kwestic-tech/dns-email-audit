@@ -44,7 +44,7 @@
  */
 import { createReport, serializeDocument, styleElement } from './report.js';
 // The run cap and the importer's domain cap are ONE constant, per
-// report-comparison 1.8 section 4: an importer that accepted more would
+// report-comparison 1.9 section 4: an importer that accepted more would
 // accept a file this application could not have written.
 import { MAX_DOMAINS, LIMITS, parseReport, compareReports } from './report-data.js';
 
@@ -126,7 +126,7 @@ export function createUi(capabilities) {
   var runContext = null;
 
   /**
-   * Comparison mode. Spec: report-comparison 1.8 section 6.
+   * Comparison mode. Spec: report-comparison 1.9 section 6.
    *
    * `pendingReport` holds an imported report when there is no run to compare it
    * against yet, so two files can be compared with no audit at all.
@@ -542,12 +542,6 @@ export function createUi(capabilities) {
   }
 
   /**
-   * Apply the large-run rule to the deep-checks toggle, and say so.
-   *
-   * An explicit re-enable wins: having been told the cost and having ticked the
-   * box again, the user is not told twice for the rest of the tab session.
-   */
-  /**
    * Record the user's answer to the notice.
    *
    * Only a re-enable is remembered. An explicit un-tick needs no memory — the
@@ -560,6 +554,12 @@ export function createUi(capabilities) {
     $('deepChecksNotice').style.display = 'none';
   }
 
+  /**
+   * Apply the large-run rule to the deep-checks toggle, and say so.
+   *
+   * An explicit re-enable wins: having been told the cost and having ticked the
+   * box again, the user is not told twice for the rest of the tab session.
+   */
   function applyDeepCheckLimit(domainCount) {
     var notice = $('deepChecksNotice');
     if (domainCount <= MAX_DEEP_CHECK_DOMAINS || deepChecksReEnabled) {
@@ -1774,7 +1774,7 @@ export function createUi(capabilities) {
       wildcard: $('optWildcard').checked,
       deepChecks: $('optDeepChecks').checked,
       // The grammar is `src/core/dkim/`'s and arrives as a capability. It used
-      // to be inlined here as an identical regex; spec 1.8 section 0 forbids
+      // to be inlined here as an identical regex; spec 1.9 section 0 forbids
       // restating a protocol rule under `src/ui/`, because a copy drifts.
       selectors: $('dkimSelectors').value.split(/[\s,]+/).map(function (s) { return s.trim().toLowerCase(); })
         .filter(validSelector),
@@ -1934,13 +1934,6 @@ export function createUi(capabilities) {
   }
 
   /**
-   * Read a chosen report file.
-   *
-   * The byte check runs against `File.size` BEFORE `FileReader` does any work,
-   * which is the pattern 0.8.0 established for supplied artifacts: a file too
-   * large to be one of ours is refused without being read into memory at all.
-   */
-  /**
    * Hand back the audit guard AND the control it hid.
    *
    * Every early return in `startAudit()` releases the guard; each one has to
@@ -1952,6 +1945,13 @@ export function createUi(capabilities) {
     $('importReportLabel').style.display = '';
   }
 
+  /**
+   * Read a chosen report file.
+   *
+   * The byte check runs against `File.size` BEFORE `FileReader` does any work,
+   * which is the pattern 0.8.0 established for supplied artifacts: a file too
+   * large to be one of ours is refused without being read into memory at all.
+   */
   function importReportFile(e) {
     var file = e.target.files && e.target.files[0];
     e.target.value = '';
@@ -2000,12 +2000,6 @@ export function createUi(capabilities) {
   }
 
   /**
-   * Leave comparison mode and forget both reports.
-   *
-   * Section 6: "Leaving comparison mode discards the imported report from
-   * memory. So does reloading, which is the point."
-   */
-  /**
    * Forget both reports and everything drawn from them.
    *
    * Separated from `exitComparison()` because THREE things invalidate a
@@ -2020,6 +2014,12 @@ export function createUi(capabilities) {
     pendingReport = null;
   }
 
+  /**
+   * Leave comparison mode and forget both reports.
+   *
+   * Section 6: "Leaving comparison mode discards the imported report from
+   * memory. So does reloading, which is the point."
+   */
   function exitComparison() {
     discardComparison();
     $('compareNotice').style.display = 'none';
@@ -2115,13 +2115,6 @@ export function createUi(capabilities) {
   }
 
   /**
-   * The result rows, scoped to the table body.
-   *
-   * Element-scoped rather than a document-wide descendant selector: it is the
-   * more precise query, and it is the one the DOM shim can answer, so the
-   * comparison overlay is testable without a browser.
-   */
-  /**
    * The results table's header row, or nothing.
    *
    * `tHead.rows[0]` is the only answer this returns. There is no positional
@@ -2154,6 +2147,13 @@ export function createUi(capabilities) {
       function (n) { return n && n.id === 'compareHeadCell'; })[0] || null;
   }
 
+  /**
+   * The result rows, scoped to the table body.
+   *
+   * Element-scoped rather than a document-wide descendant selector: it is the
+   * more precise query, and it is the one the DOM shim can answer, so the
+   * comparison overlay is testable without a browser.
+   */
   function resultRows() {
     return Array.prototype.filter.call($('tableBody').querySelectorAll('tr'),
       function (tr) { return !tr.classList.contains('detail-row'); });
@@ -2164,23 +2164,6 @@ export function createUi(capabilities) {
     unchanged: 'muted', added: 'info', removed: 'muted', incomparable: 'muted',
   });
 
-  /**
-   * Overlay the comparison onto the table that is already rendered.
-   *
-   * Section 6 chose an overlay over a separate view, so the delta column is
-   * ADDED here rather than declared in `index.html`: outside comparison mode
-   * there is nothing for it to hold, and a permanently empty column would move
-   * every exported report and every equivalence DOM surface for a mode almost
-   * nobody is in.
-   */
-  /**
-   * One line of the diff: a label and the ids beneath it, as text.
-   *
-   * Every id here came out of a stranger's file. They go through
-   * `R.sentinelText()` for the same reason a DNS record does — the first
-   * version of this rendered nothing at all, which passed a test that only
-   * checked no `<img>` element had been created.
-   */
   // The observability values a protocol can carry when it is not `observed`.
   // A value with no entry here is one whose side sentence already states the
   // reason; a value that is neither is a schema change, and renders the side
@@ -2197,19 +2180,6 @@ export function createUi(capabilities) {
     return set;
   }, Object.create(null));
 
-  /**
-   * One line of the diff: a label and the ids beneath it, as text.
-   *
-   * The LABEL depends on whether the two reports came from the same build.
-   * Section 5: with different generator versions the diff is still shown, but
-   * it makes no causal claim — "in the baseline only" rather than "resolved",
-   * because a release can add or correct a finding without anything about the
-   * domain changing. An earlier version said "resolved" either way.
-   *
-   * An id this build does not recognize is displayed WITH a note saying so
-   * (section 4), never dropped: dropping it would make a diff across tool
-   * versions quietly incomplete.
-   */
   /**
    * Notes for the ids in a rendered group that this build does not recognize.
    *
@@ -2229,6 +2199,20 @@ export function createUi(capabilities) {
     });
   }
 
+  /**
+   * One line of the diff: a label and the ids beneath it, as text.
+   *
+   * The LABEL depends on whether the two reports came from the same build.
+   * Section 5: with different generator versions the diff is still shown, but
+   * it makes no causal claim — "in the baseline only" rather than "resolved",
+   * because a release can add or correct a finding without anything about the
+   * domain changing. An earlier version said "resolved" either way.
+   *
+   * Every id here came out of a stranger's file, so they go through
+   * `R.sentinelText()` for the same reason a DNS record does — the first
+   * version of this rendered nothing at all, which passed a test that only
+   * checked no `<img>` element had been created.
+   */
   function findingLine(sameKey, crossKey, ids) {
     if (!ids || !ids.length) return null;
     var labelKey = comparison.meta.findingSemanticsMatch ? sameKey : crossKey;
@@ -2348,6 +2332,15 @@ export function createUi(capabilities) {
     ]);
   }
 
+  /**
+   * Overlay the comparison onto the table that is already rendered.
+   *
+   * Section 6 chose an overlay over a separate view, so the delta column is
+   * ADDED here rather than declared in `index.html`: outside comparison mode
+   * there is nothing for it to hold, and a permanently empty column would move
+   * every exported report and every equivalence DOM surface for a mode almost
+   * nobody is in.
+   */
   function renderComparisonRows() {
     var byDomain = Object.create(null);
     comparison.domains.forEach(function (d) { byDomain[d.domain] = d; });

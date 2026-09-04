@@ -1,5 +1,5 @@
 /**
- * Per-protocol observability. Spec: report-comparison 1.8 (Final), §1 and §5.
+ * Per-protocol observability. Spec: report-comparison 1.9 (Final), §1 and §5.
  *
  * ── What this answers, and why it is an audit fact ──────────────────────
  *

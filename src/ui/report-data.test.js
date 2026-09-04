@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * The 0.9.0 report schema, importer and comparison.
- * Spec: report-comparison 1.8 (Final), sections 1, 4 and 5.
+ * Spec: report-comparison 1.9 (Final), sections 1, 4 and 5.
  *
  * Section 1 is the load-bearing one and it is proven in BOTH directions. A test
  * that only checked the wanted fields were present would pass on a dump of the
@@ -596,7 +596,7 @@ eq('every domain in the committed corpus round-trips through the importer', (() 
   return failures;
 })(), []);
 
-/* -- 4c. The rejection shape (spec 1.8 section 4) --------------------- */
+/* -- 4c. The rejection shape (spec 1.9 section 4) --------------------- */
 section('4c. Every rejection is a code, and the path survives it');
 
 /**
@@ -669,7 +669,7 @@ eq('a rejection carries no report', (() => {
 })(), [false, false]);
 
 /* -- 5. Per-protocol comparability and the option mapping ------------- */
-section('5. Option mapping and per-protocol comparability (spec 1.8)');
+section('5. Option mapping and per-protocol comparability (spec 1.9)');
 
 eq('advanced maps to the five advanced protocols plus spf, dmarc and reporting',
   OPTION_PROTOCOLS.advanced.slice().sort(),

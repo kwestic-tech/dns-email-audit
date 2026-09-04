@@ -2132,7 +2132,7 @@
     "unproven",
     "not-run"
    ],
-   "note": "Total map over PROTOCOLS, one value per protocol. Projected from the options in force and the finished facts (report-comparison 1.1 §1); never inferred from finding confidence, which names the wrong control for dns.checks-unverified and overstates failure for dmarc.external-unverifiable.",
+   "note": "Total map over PROTOCOLS, one value per protocol. Projected from the options in force and the finished facts (report-comparison 1.9 §1); never inferred from finding confidence, which names the wrong control for dns.checks-unverified and overstates failure for dmarc.external-unverifiable.",
    "resultPaths": [
     "observability.spf",
     "observability.dkim",
@@ -2160,7 +2160,7 @@
     "unregistered",
     "error"
    ],
-   "note": "The exported report's per-domain state (report-comparison 1.8 section 1). An unregistered or errored domain carries only its name and this token: there is no observation to export. Not observable in an analyzeDomain() result: it is a field of the exported report, so this algebra is suite-covered.",
+   "note": "The exported report's per-domain state (report-comparison 1.9 section 1). An unregistered or errored domain carries only its name and this token: there is no observation to export. Not observable in an analyzeDomain() result: it is a field of the exported report, so this algebra is suite-covered.",
    "resultPaths": []
   },
   {
@@ -2178,7 +2178,7 @@
     "unchanged",
     "incomparable"
    ],
-   "note": "The comparison verdict per domain (report-comparison 1.8 section 5), decided in a fixed precedence: presence, then comparability, then generator semantics, then highest-severity finding movement, then score, then bare change. Not observable in an analyzeDomain() result: it is produced by compareReports() over two imported reports, so this algebra is suite-covered.",
+   "note": "The comparison verdict per domain (report-comparison 1.9 section 5), decided in a fixed precedence: presence, then comparability, then generator semantics, then highest-severity finding movement, then score, then bare change. Not observable in an analyzeDomain() result: it is produced by compareReports() over two imported reports, so this algebra is suite-covered.",
    "resultPaths": []
   },
   {
@@ -2195,7 +2195,7 @@
     "too-many-domains",
     "malformed"
    ],
-   "note": "Why an imported report was refused (report-comparison 1.8 section 4). ONLY the code is localized: the accompanying schema path and failing clause stay literal technical data, like the schema field names section 1 never translates. Replaced English prose returned from eighty call sites, which no interface could translate. Not observable in an analyzeDomain() result: it is returned by parseReport(), so this algebra is suite-covered.",
+   "note": "Why an imported report was refused (report-comparison 1.9 section 4). ONLY the code is localized: the accompanying schema path and failing clause stay literal technical data, like the schema field names section 1 never translates. Replaced English prose returned from eighty call sites, which no interface could translate. Not observable in an analyzeDomain() result: it is returned by parseReport(), so this algebra is suite-covered.",
    "resultPaths": []
   }
  ],

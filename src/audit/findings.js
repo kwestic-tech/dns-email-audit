@@ -602,7 +602,7 @@ export const CROSS_PROTOCOL_RULES = [
  * Every finding id this build can produce.
  *
  * Exposed so the interface can tell an id it knows from one it does not, and
- * say so: report-comparison 1.8 section 4 requires an unrecognized id to be
+ * say so: report-comparison 1.9 section 4 requires an unrecognized id to be
  * "displayed by id with a note that this build has no description for it,
  * rather than being dropped". `src/ui/` may not import this module, so the
  * catalog crosses the composition boundary as data, the same route the DKIM

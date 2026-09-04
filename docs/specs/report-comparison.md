@@ -8,7 +8,7 @@
 | Depends on | [findings-and-remediation](implemented/findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
 | Blocks | Nothing |
 | Slug for open questions | `CMP` |
-| Last updated | 2026-09-03 |
+| Last updated | 2026-09-04 |
 
 ## Problem
 

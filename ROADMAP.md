@@ -244,7 +244,7 @@ query traces, CSV, HTML and DOM. Released as `v0.8.1`.
 
 ### 0.9.0: Stateless report comparison
 
-Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md) — `1.1 (Final, amended)`
+Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md) — `1.9 (Final, amended)`
 
 Defines a versioned JSON report schema, exports normalized evidence with an
 `analysisVersion`, and compares two reports entirely in memory to show new,

@@ -376,7 +376,7 @@ export function createAuditDomain(capabilities) {
     });
     const remediationPlan = buildRemediationPlan(findings);
 
-    // Which protocols this run actually observed (report-comparison 1.8 §1).
+    // Which protocols this run actually observed (report-comparison 1.9 §1).
     // Pure over the finished facts and the options in force — no new query, so
     // the published fan-out does not move — and computed HERE because neither
     // finding confidence nor finding protocol can reconstruct it: see the
