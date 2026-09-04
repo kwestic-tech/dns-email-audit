@@ -42,7 +42,7 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [mx-host-validity](mx-host-validity.md) | 0.9.1, then 0.9.2 | 0.1 | Draft, awaiting review |
+| [mx-host-validity](mx-host-validity.md) | 0.9.1, then 0.9.2 | 0.2 | 0.9.1 settled pending `OQ-MXV-03`; 0.9.2 blocked on a privacy review |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 

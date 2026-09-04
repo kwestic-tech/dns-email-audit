@@ -19,11 +19,20 @@ The `report-comparison` spec is at `1.10 (Implemented, amended)` and records
 nine implementation divergences in its **As implemented** section, eight of them
 found by review of the working tree rather than of the finished branch.
 
-One release remains:
+Three releases remain:
 
 ```text
-1.0.0 readiness
+0.9.1 MX address validity → 0.9.2 MX vanity divergence → 1.0.0 readiness
 ```
+
+The two MX releases were added on 2026-09-04 from
+[`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) (`0.2`). They
+are independent of the 1.0.0 review below and can be taken in either order
+against it. **0.9.1 is unblocked. 0.9.2 is not:** it adds `PTR` queries on a path
+deep checks leave enabled by default, which moves published DNS fan-out, and
+`AGENTS.md` makes anything implying a `PRIVACY.md` edit a stop condition. That
+review has not happened, and `OQ-MXV-03` — the measured query cost — is held open
+with it.
 
 ## Start here: review `one-zero-readiness` to Final
 
@@ -49,6 +58,8 @@ it to be Final before 1.0.0, subject to `OQ-ONE-05`.
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
 | 0.9.0 | [report-comparison](docs/specs/implemented/report-comparison.md) | Released as `v0.9.0` | Versioned JSON schema, import validation and stateless comparison |
+| 0.9.1 | [mx-host-validity](docs/specs/mx-host-validity.md) | `v0.9.0` released; spec `0.2`, design settled pending `OQ-MXV-03` | MX address-scope classification; address-literal and null-MX-conflict diagnosis |
+| 0.9.2 | [mx-host-validity](docs/specs/mx-host-validity.md) | 0.9.1 released; **privacy review concluded** and `PRIVACY.md` re-measured | Forward-confirmed reverse DNS and provider address-set divergence |
 | 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary

@@ -5,7 +5,7 @@
 | Spec version | 0.2 |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | 0.9.1 design settled pending `OQ-MXV-03`; **0.9.2 blocked on a privacy review**, §7 |
-| Depends on | 0.9.0 [report-comparison](report-comparison.md) for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
+| Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
 | Last updated | 2026-09-04 |
@@ -365,7 +365,7 @@ formality.
 
 **Why the deep-check gate and not a new one.** MX already sits behind it, DANE
 already extends it at [`audit-domain.js:347`](../../src/audit/audit-domain.js:347),
-and 0.9.0 makes `deepChecks` part of report provenance precisely so that a
+and 0.9.0 made `deepChecks` part of report provenance precisely so that a
 report run without it is not compared as though the protocol were observed.
 Putting 0.9.2 behind the same flag means the comparison release handles it
 correctly with no further work. A separate flag would need its own provenance

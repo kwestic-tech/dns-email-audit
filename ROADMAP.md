@@ -86,6 +86,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
 | 9 | Modular architecture and production build | **Done.** Released as 0.6.0; all six gates met. Spec `1.8`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with thirteen owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md), released |
 | 10 | 1.0 product contract and release readiness | Not started. The compatibility surface, supported environments, accessibility evidence and graduation gate are now explicit rather than inferred from completing 0.9.0. | [1.0.0](docs/specs/one-zero-readiness.md) |
+| 11 | MX host address validity and provider divergence | Not started; **spec `0.2`, 0.9.1 settled and 0.9.2 blocked on a privacy review.** Extends workstream 4, which resolved MX targets but never asked what they resolved *to*: a host answering only loopback or private space still reports as healthy. 0.9.1 adds address-scope classification, address-literal and null-MX-conflict diagnosis at no query cost; 0.9.2 adds forward-confirmed reverse lookups to find a vanity MX that has fallen behind its provider's address set. | [0.9.1 and 0.9.2](docs/specs/mx-host-validity.md) |
 
 ## Release sequence
 
@@ -272,6 +273,38 @@ Exit condition: reloading the page discards imported reports, hostile strings
 inside imported JSON render as text only, a protocol that was unobserved on
 either side reports its findings as unknown rather than resolved, and no
 user-supplied artifact finding appears in an exported report.
+
+### 0.9.1 and 0.9.2: MX host validity
+
+Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) — `0.2`.
+
+0.4.0 taught the audit to resolve every MX target and report the ones that do
+not resolve. Neither it nor anything since asks what a target resolves *to*, so a
+host answering `127.0.0.1` or `10.0.0.4` produces `resolves: 'yes'`, raises
+nothing, and reads as a correctly configured mail domain while receiving no mail
+from the internet. That false negative is why 0.9.1 exists; two adjacent defects
+— an address literal in the MX RDATA, and a null MX published beside a real one —
+are diagnosed today as dangling hosts, which is the right alarm attached to
+remediation the operator cannot carry out.
+
+0.9.2 addresses a quieter failure. A domain that points its MX at a name in its
+own zone holding a hand-copied snapshot of a provider's address has forked from
+that provider: the copy does not follow renumbering and need not contain every
+address the provider publishes. The check identifies the provider by
+forward-confirmed reverse DNS and reports the addresses that were never copied.
+
+**The releases split on query cost, not on subject.** 0.9.1 issues no query the
+audit does not already make. 0.9.2 adds `PTR` lookups on a path that deep checks
+leave enabled by default, which moves published DNS fan-out and therefore
+requires the privacy review `AGENTS.md` makes a stop condition. 0.9.1 is not
+blocked by that review; 0.9.2 does not begin until it concludes.
+
+Exit condition for 0.9.1: an MX host resolving only into special-purpose address
+space is reported as unreachable rather than healthy, the two misdiagnosed
+defects raise their own findings and suppress `mx.dangling`, and no score or
+grade moves. For 0.9.2: a vanity host missing addresses its forward-confirmed
+provider publishes is reported with those addresses named, an equal set reports
+nothing, and `PRIVACY.md` carries re-measured fan-out figures.
 
 ### 1.0.0: Product contract and release readiness
 
