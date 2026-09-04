@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.3 |
+| Spec version | 0.4 |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 Final, approved for implementation**; 0.9.2 blocked on privacy review (§7) and `OQ-MXV-03` |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
@@ -57,14 +57,22 @@ actual defect is that an MX names a host and never an address. RFC 1035 §3.3.9
 defines the RDATA as a `<domain-name>`; RFC 5321 §5.1 requires that name to
 have an address record of its own.
 
-**A null MX published beside a real one is diagnosed the same way.**
+**A null MX published beside a real one is reported nowhere at all.**
 `isNullMx()` at [`mx.js:64`](../../src/core/mx/mx.js:64) returns `false` whenever
 `mx.length !== 1`, which is correct for its own contract and wrong as a whole
-account of the record set. A domain publishing both `0 .` and
-`10 mail.example.com` is therefore treated as an ordinary mail domain, the `.`
-target is looked up, and the contradiction is reported as a dangling host. RFC
-7505 §3 requires that a null MX be the only MX record in the set. The operator
-is told a host is broken when what is broken is the intent.
+account of the record set. So a domain publishing both `0 .` and
+`10 mail.example.com` is treated as an ordinary mail domain. The `.` is then
+dropped in silence: `parseMxRecord()` strips a trailing dot and rejects the empty
+host that leaves, so `0 .` parses to `null` and never reaches `targets`. RFC 7505
+§3 requires that a null MX be the only MX record in the set, and a domain
+breaking that rule has declared two incompatible intents — I accept mail here,
+and I accept mail nowhere — while the audit reports one host and no defect.
+
+*This paragraph replaces the 0.3 claim that the `.` target is looked up and
+reported as a dangling host, which was wrong: the parser rejects it three lines
+before any lookup. The finding is still warranted — a contradiction that is
+reported nowhere is a worse outcome than one reported badly — but its
+justification and its suppression rule both change; see §5.*
 
 **A vanity MX silently loses the redundancy its provider publishes.** Where a
 domain points its MX at a name in its own zone whose address record is a
@@ -307,8 +315,13 @@ three places — the `src/audit/` deep-check gate, provider detection via
 [`artifacts.js:341`](../../src/audit/artifacts.js:341) — and every one of them wants the
 current meaning, which is "this domain has declared it receives no mail". A
 domain with a contradictory set has declared nothing coherent, so it correctly
-fails that predicate and correctly raises this one. When `hasNullMxConflict()`
-holds, the `.` pseudo-target is excluded from `targets` and never looked up.
+fails that predicate and correctly raises this one.
+
+The `.` pseudo-target needs no exclusion: `parseMxRecord()` already rejects it,
+because stripping its trailing dot leaves an empty host. Nothing about lookup
+behavior changes in this release — the record set is read twice, once for
+`targets` as today and once by this predicate, and only the second reports
+anything new.
 
 ### 4. Divergence detection — 0.9.2
 
@@ -405,12 +418,17 @@ because it is the same outage; it is `trivial` effort because the fix is one
 record.
 
 **Suppression (`RQ-MXV-05`).** A specific finding suppresses the general one
-whose remediation would be wrong. `mx.address-literal` and `mx.null-conflict`
-each suppress `mx.dangling` for the record that raised them: `mx-dangling` tells
-the operator to check the zone for a missing address record, which for an address
-literal and for a `.` pseudo-target is advice that cannot be followed.
-`mx.unroutable` does **not** suppress anything, because a host that resolves is
-not dangling and the two never co-occur.
+whose remediation would be wrong. **`mx.address-literal` is the only finding that
+suppresses anything.** It suppresses `mx.dangling` for the record that raised it,
+because `mx-dangling` tells the operator to check the zone for a missing address
+record, and no address record can exist for a name that is an address.
+
+`mx.null-conflict` suppresses nothing, and the 0.3 draft was wrong to say it did.
+A conflicted set raises no `mx.dangling` to suppress: `parseMxRecord()` rejects
+`0 .` outright, so the pseudo-target is never a host and never dangles. The
+finding adds a report where there was silence rather than replacing a wrong one.
+`mx.unroutable` likewise suppresses nothing, because a host that resolves is not
+dangling and the two never co-occur.
 
 **`mx.vanity-divergent` does not suppress `mx.single-host`, and the 0.1 Risks
 section was wrong to group them.** The two state different facts: `single-host`
@@ -549,9 +567,12 @@ are later admitted to the grade, that change is backtested with
    unreachable address.
 3. An MX record whose RDATA is an address literal raises `mx.address-literal`,
    raises no `mx.dangling`, and issues no A, AAAA or CNAME query for it.
-4. A null MX beside any other MX record raises `mx.null-conflict`, raises no
-   `mx.dangling`, and the `.` target is not resolved. `isNullMx()` behavior is
-   byte-identical to `v0.9.0` on every input.
+4. A null MX beside any other MX record raises `mx.null-conflict` where `v0.9.0`
+   raised nothing. The `.` target is still not resolved and no `mx.dangling`
+   appears — both were already true before this release, and are asserted as
+   regression guards rather than as new behavior. `isNullMx()` behavior is
+   byte-identical to `v0.9.0` on every input, and `parseMxRecord('0 .')` is still
+   `null`.
 5. A preference above 65535 raises `mx.invalid-preference` and does not prevent
    the host from being audited.
 6. No score or grade differs from `v0.9.0` on the deterministic corpus.
@@ -607,12 +628,13 @@ add several hundred queries. *Mitigation:* the caps in §4 — four addresses pe
 host, two candidates per domain — and the deep-check gate. The 0.9.2 pull
 request states the measured additional query count on the deterministic corpus.
 
-**Two findings for one defect.** `mx.address-literal` and `mx.null-conflict` are
-each adjacent to `mx.dangling`, and a reader given two findings for one cause —
-one of which prescribes an impossible fix — loses confidence in both.
-*Mitigation:* `RQ-MXV-05` settles it in §5; the specific finding suppresses
-`mx.dangling`, and acceptance criteria 3 and 4 assert the suppression rather than
-leaving it to review. `mx.vanity-divergent` and `mx.single-host` were listed here
+**Two findings for one defect.** `mx.address-literal` is adjacent to
+`mx.dangling`, and a reader given two findings for one cause — one of which
+prescribes an impossible fix — loses confidence in both. *Mitigation:*
+`RQ-MXV-05` settles it in §5 and acceptance criterion 3 asserts the suppression.
+`mx.null-conflict` was listed here in the 0.3 draft on the mistaken belief that a
+conflicted set produced a dangling host; it does not, and there is nothing to
+suppress. `mx.vanity-divergent` and `mx.single-host` were listed here
 in the 0.1 draft and do **not** belong: they state different facts and both
 correctly appear together, which criterion 12 now asserts.
 
@@ -636,10 +658,13 @@ reachable DNS, so a public MX advertising one is defective as published whatever
 translator stands behind it. Recorded in §1, which now carries the authority
 rather than the draft's hedge.
 
-**`RQ-MXV-05` — yes, specific findings suppress `mx.dangling`.** Its remediation
-is wrong for both address literals and null-MX conflicts. Settled in §5, asserted
-by criteria 3 and 4. `mx.unroutable` suppresses nothing, since a host that
-resolves is never also dangling.
+**`RQ-MXV-05` — yes, a specific finding suppresses `mx.dangling`** where one
+would otherwise be raised with unusable remediation. Settled in §5, asserted by
+criterion 3. **Narrowed at 0.4 to `mx.address-literal` alone:** implementation
+found that a null-MX conflict raises no `mx.dangling` to suppress, because
+`parseMxRecord()` rejects `0 .` before any lookup. `mx.unroutable` suppresses
+nothing either, since a host that resolves is never also dangling. The
+resolution's principle is unchanged; its extent was overstated.
 
 **`RQ-MXV-06` — bidirectional divergence is deferred.** `H \ P` does not
 establish that the provider disowned those addresses: forward confirmation
@@ -676,5 +701,6 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.4 | 2026-09-04 | Implementation of 0.9.1 found the Problem section's null-MX claim false: `parseMxRecord()` rejects `0 .` because stripping its trailing dot leaves an empty host, so the contradiction is reported nowhere rather than misdiagnosed as a dangling host. Corrected the Problem section, §3, §5, criterion 4, Risks and `RQ-MXV-05`, which is narrowed to `mx.address-literal` alone. The finding itself is unchanged and still warranted. |
 | 0.3 | 2026-09-04 | Sequencing review. 0.9.1 to Final, approved for implementation; `OQ-MXV-03` scoped explicitly to 0.9.2, which the 0.2 Status line had wrongly attached to both. Recorded that Status carries per-release approval while the document version tracks the whole spec. `mx.single-host` retention confirmed. |
 | 0.2 | 2026-09-04 | Review. Five questions resolved as `RQ-MXV-01`, `-02`, `-04`, `-05`, `-06`; `OQ-MXV-03` held open for measurement. Withdrew the false claim that 0.9.2 sits off the default path. Added §7 privacy impact and blocked 0.9.2 on that review. Made PTR aggregation per address and defined `hostsWithoutReverse`. Decided against `mx.single-host` suppression and corrected the Risks section that implied it. Criteria 12–15 added. |
