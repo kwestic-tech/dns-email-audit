@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.6 |
+| Spec version | 0.7 |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 implemented**, pending review; 0.9.2 blocked on privacy review (§7) and `OQ-MXV-03` |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
@@ -553,6 +553,27 @@ names two such constants and states exactly that. The 0.5 implementation used
 two real addresses taken from a live audit, which carried an ownership
 implication no test needs.
 
+**The corpus was split rather than rewritten (0.7).** Applying the fixture
+policy above moved 29 background MX hosts off documentation space into
+`100.200.x.x`, mapping each source /24 to a distinct /24 so no case newly groups
+under `mx.same-prefix`. `mx-health-and-tlsa` keeps its RFC 5737 addresses and its
+description now says the resulting `mx.unroutable` is intentional. Two of the
+address records carried a flag suffix in their fixture key — `'… A cd'`, the
+checking-disabled variant — and were missed by the first pass, which is how one
+unrelated case kept a critical finding it was not testing.
+
+**The authorized delta is bounded, not merely re-baselined (0.7).**
+`tests/build/release-compat.test.mjs` gains a `release091Violations()` rule
+proving the new oracle hides nothing beyond three changes: the seven new
+`mxHealth` fields, the stub addresses, and `mx.unroutable` in the single
+non-routable case. Query traces are asserted byte-identical in every case, and
+scores and grades likewise. Eight negative controls hold the rule honest, and two
+of them earned their place — the score control caught that the assertion was
+reading `score.total`, which does not exist (the field is `score.pts`), and so
+had been vacuous; and the authorized-finding filter initially missed
+`remediationPlan[].findings[]`, which carries bare id strings rather than
+objects.
+
 **Evidence for the record-level finding is special-cased, as §6 asked.**
 The protocol-generic `case 'mx':` fallback emits the resolved hosts, which for a
 null-MX conflict would show everything except the `0 .` that is the whole
@@ -775,6 +796,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.7 | 2026-09-04 | Bounded the equivalence delta instead of authorizing 120 differences. Moved 29 background MX hosts to routable-class stubs, keeping documentation addresses in `mx-health-and-tlsa` as its subject; re-baselined the oracle at `v0.9.1`; added `release091Violations()` with eight negative controls, asserting zero query-trace and zero score or grade movement. |
 | 0.6 | 2026-09-04 | Release-blocking review. Withdrew `mx.invalid-preference` entirely: a >65535 preference cannot survive the 16-bit wire format, so the check could only be exercised by fabricating a response shape no resolver produces. Corrected `hasNullMxConflict()` to mean a `0 .` beside a *different* record rather than merely a second array entry, and moved its emission outside the `hosts.length` gate so it survives a set where nothing parses into a host. Recorded the fixture policy for reachable addresses. Clarified the two remediation examples that label a documentation address "Right", in English and all thirteen locales. |
 | 0.5 | 2026-09-04 | 0.9.1 implemented. Added §8 recording five departures: the locale and findings commits are inseparable, `ipScope()` returns null for unparseable input and `reachability` degrades to `unknown`, `mx.null-conflict` is gated on a resolved host existing, the fixture corpus's RFC 5737 addresses make `mx.unroutable` fire across it, and record-level evidence is special-cased. |
 | 0.4 | 2026-09-04 | Implementation of 0.9.1 found the Problem section's null-MX claim false: `parseMxRecord()` rejects `0 .` because stripping its trailing dot leaves an empty host, so the contradiction is reported nowhere rather than misdiagnosed as a dangling host. Corrected the Problem section, §3, §5, criterion 4, Risks and `RQ-MXV-05`, which is narrowed to `mx.address-literal` alone. The finding itself is unchanged and still warranted. |
