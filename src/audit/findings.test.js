@@ -690,6 +690,25 @@ eq('every bare-domain finding still names evidence',
 /* ── 8. Locale independence ───────────────────────────────────────────── */
 section('8. The finding layer is locale-independent');
 
+const source = findingsSource;
+eq('findings.js imports only its audit sibling and the TLSA evidence reader',
+  [...source.matchAll(/^import .* from '([^']+)'/gm)].map(m => m[1]), ['./issues.js', '../core/transport/tlsa.js']);
+// Against the comment-stripped view declared above, per AGENTS.md rule 3: this
+// module's own docstring explains that `src/ui/` may not import it, and a raw
+// scan cannot tell an explanation from an edge. It read the raw text until that
+// docstring was written, and then reported an edge that does not exist.
+eq('it holds no i18n or ui edge', /i18n|\/ui\//.test(codeOnly), false);
+// Proven able to see one, and to tell it from a comment that mentions it.
+const stripped = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+eq('the scan would catch a real edge',
+  /i18n|\/ui\//.test(stripped("import { t } from '../ui/render.js';")), true);
+eq('while a comment naming one is not an edge',
+  /i18n|\/ui\//.test(stripped('// never imports from ../ui/ or i18n\nvar x = 1;')), false);
+// The plan sorts on tokens, never translated strings.
+eq('the plan carries token rationales, not prose',
+  buildRemediationPlan(naFindings).every(s => /^[a-zA-Z]+$/.test(s.rationale)), true);
+
+/* ── 9. The finding-id catalog ────────────────────────────────────────── */
 section('9. The finding-id catalog crosses the composition boundary as data');
 
 /**
@@ -745,24 +764,5 @@ section('9. The finding-id catalog crosses the composition boundary as data');
     [holed.length === new Set(holed).size,
       JSON.stringify(holed) === JSON.stringify(holed.slice().sort())], [true, true]);
 }
-
-
-const source = findingsSource;
-eq('findings.js imports only its audit sibling and the TLSA evidence reader',
-  [...source.matchAll(/^import .* from '([^']+)'/gm)].map(m => m[1]), ['./issues.js', '../core/transport/tlsa.js']);
-// Against the comment-stripped view declared above, per AGENTS.md rule 3: this
-// module's own docstring explains that `src/ui/` may not import it, and a raw
-// scan cannot tell an explanation from an edge. It read the raw text until that
-// docstring was written, and then reported an edge that does not exist.
-eq('it holds no i18n or ui edge', /i18n|\/ui\//.test(codeOnly), false);
-// Proven able to see one, and to tell it from a comment that mentions it.
-const stripped = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-eq('the scan would catch a real edge',
-  /i18n|\/ui\//.test(stripped("import { t } from '../ui/render.js';")), true);
-eq('while a comment naming one is not an edge',
-  /i18n|\/ui\//.test(stripped('// never imports from ../ui/ or i18n\nvar x = 1;')), false);
-// The plan sorts on tokens, never translated strings.
-eq('the plan carries token rationales, not prose',
-  buildRemediationPlan(naFindings).every(s => /^[a-zA-Z]+$/.test(s.rationale)), true);
 
 report();
