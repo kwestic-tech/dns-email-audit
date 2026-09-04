@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.8 |
+| Spec version | 0.9 |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 implemented**, pending review; 0.9.2 blocked on privacy review (§7) and `OQ-MXV-03` |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
@@ -598,6 +598,29 @@ the rule honest, three of them mutating the authorized case specifically,
 because every earlier control mutated `cases[0]` and so never exercised that
 branch.
 
+**The authorized delta is bounded by occurrence, not by kind (0.9).** Review
+round 2 found three ways the guard still granted more than the authorization
+stated. The report was bounded exactly for the 31 background cases and not at
+all for the authorized one, which accepted any structure and any greater length;
+it now requires the measured length delta of 3,371 bytes and the measured
+element-composition delta — `+1 button`, `+3 code`, `+19 div`, `+16 span` with
+matching closers — and has its own controls. The DOM transform removed the whole
+critical `finding-group` on sight, which hid a second critical finding inserted
+into that group; it now removes the named finding's subtree first and drops the
+group wrapper only after proving the group holds no remaining finding. And every
+remover used `filter()`, which deletes any number of matching entries; each now
+counts first and refuses unless the count is exactly one — two, for the DOM,
+where the finding renders both as itself and as a `plan-finding`.
+
+**What the report guard cannot prove, stated rather than implied (0.9).** The
+oracle records a report's length, element structure, fixed byte counts and a
+hash — never its body. No rule can therefore prove the authorized report's
+*content* is 0.9.0's plus the rendered finding, and an arbitrary replacement
+hash on that one case is indistinguishable from the real one. What is proven is
+the exact length delta, the exact element-composition delta, and that the hash
+moves with content and only with content — the last established by the two cases
+whose content did not move, where the hash is required to be identical.
+
 **Evidence for the record-level finding is special-cased, as §6 asked.**
 The protocol-generic `case 'mx':` fallback emits the resolved hosts, which for a
 null-MX conflict would show everything except the `0 .` that is the whole
@@ -820,6 +843,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.9 | 2026-09-04 | Codex review round 2. Bounded the authorized report exactly (3,371-byte length delta and a measured element-composition delta) where it had accepted any structure and any growth. Made the DOM transform finding-wide rather than severity-wide, so a second critical finding in the same group is no longer hidden. Gave every remover an exact occurrence count, so duplicated authorized material cannot ride through. Seven new controls, all mutating the authorized case. Recorded what the report guard cannot prove. |
 | 0.8 | 2026-09-04 | Codex review round 1. Made the stub addresses length-preserving so report length and structure move only in the authorized case. Closed three gaps in the cross-release guard: the report surface was unread, the authorized case skipped CSV and DOM entirely, and the seven new field names were stripped recursively rather than at their authorized paths. Guard now bounds all five surfaces with sixteen negative controls. |
 | 0.7 | 2026-09-04 | Bounded the equivalence delta instead of authorizing 120 differences. Moved 29 background MX hosts to routable-class stubs, keeping documentation addresses in `mx-health-and-tlsa` as its subject; re-baselined the oracle at `v0.9.1`; added `release091Violations()` with eight negative controls, asserting zero query-trace and zero score or grade movement. |
 | 0.6 | 2026-09-04 | Release-blocking review. Withdrew `mx.invalid-preference` entirely: a >65535 preference cannot survive the 16-bit wire format, so the check could only be exercised by fabricating a response shape no resolver produces. Corrected `hasNullMxConflict()` to mean a `0 .` beside a *different* record rather than merely a second array entry, and moved its emission outside the `hosts.length` gate so it survives a set where nothing parses into a host. Recorded the fixture policy for reachable addresses. Clarified the two remediation examples that label a documentation address "Right", in English and all thirteen locales. |

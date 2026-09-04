@@ -387,27 +387,58 @@ function stripMxValidity(resultEntries) {
 }
 
 /**
+ * How many times the authorized finding may appear, per surface.
+ *
+ * The authorization is for ONE finding, not for any number of entries bearing
+ * its key. Every remover below counts first and refuses — by returning null,
+ * which its caller turns into a violation — if the count is not exactly this.
+ * A duplicate is a change this release did not authorize.
+ */
+const AUTHORIZED_OCCURRENCES = Object.freeze({
+  issues: 1, findings: 1, planFindings: 1, domBadges: 1, domSubtrees: 2, csvSegments: 1,
+});
+
+/** Remove the first match only, and report how many there were. */
+function removeOne(list, predicate) {
+  let seen = 0;
+  const kept = [];
+  for (const item of list) {
+    if (predicate(item)) { seen++; if (seen === 1) continue; }
+    kept.push(item);
+  }
+  return { kept, seen };
+}
+
+/**
  * The authorized finding, removed from the three paths that carry it and from
  * no others: `issues[]` (keyed), `findings[]` (id'd), and
  * `remediationPlan[].findings[]`, which holds bare id STRINGS.
  */
 function stripAuthorizedFinding(resultEntries) {
   const copy = structuredClone(resultEntries);
+  let issues = 0;
+  let findings = 0;
+  let planFindings = 0;
   for (const entry of copy) {
     const r = entry && entry.result;
     if (!r) continue;
     if (Array.isArray(r.issues)) {
-      r.issues = r.issues.filter(i => i.key !== AUTHORIZED_FINDING_KEY);
+      const out = removeOne(r.issues, i => i.key === AUTHORIZED_FINDING_KEY);
+      r.issues = out.kept; issues += out.seen;
     }
     if (Array.isArray(r.findings)) {
-      r.findings = r.findings.filter(f => f.id !== AUTHORIZED_FINDING_ID);
+      const out = removeOne(r.findings, f => f.id === AUTHORIZED_FINDING_ID);
+      r.findings = out.kept; findings += out.seen;
     }
     for (const step of r.remediationPlan || []) {
-      if (Array.isArray(step.findings)) {
-        step.findings = step.findings.filter(id => id !== AUTHORIZED_FINDING_ID);
-      }
+      if (!Array.isArray(step.findings)) continue;
+      const out = removeOne(step.findings, id => id === AUTHORIZED_FINDING_ID);
+      step.findings = out.kept; planFindings += out.seen;
     }
   }
+  if (issues !== AUTHORIZED_OCCURRENCES.issues
+    || findings !== AUTHORIZED_OCCURRENCES.findings
+    || planFindings !== AUTHORIZED_OCCURRENCES.planFindings) return null;
   return copy;
 }
 
@@ -425,27 +456,40 @@ function subtreeEnd(lines, start) {
 /**
  * Reconstruct the 0.9.0 DOM from the 0.9.1 DOM of the authorized case.
  *
- * Three named removals, and nothing else: the critical badge the new finding
- * introduces, the `finding-group` subtree it opens, and its `plan-finding`
- * entry in the remediation plan — plus the row's `data-overall`, which reverts
- * from `crit` to the `warn` it was. Anything else added to this case survives
- * the transformation and fails the comparison, which is the point: the
- * authorization is for one finding, not for the whole case.
+ * Finding-wide, not severity-wide. An earlier version removed the whole
+ * `finding-group` whenever its label was critical, which hid a SECOND critical
+ * finding inserted into that group — the group wrapper is only removed here
+ * after its own subtree is proven to hold no remaining finding.
+ *
+ * Returns null if the authorized material does not appear exactly as many times
+ * as `AUTHORIZED_OCCURRENCES` allows, so duplicated authorized material cannot
+ * ride through either.
  */
 function removeAuthorizedFindingFromDom(lines) {
-  const out = [];
+  const findingId = new RegExp('data-finding-id="' + AUTHORIZED_FINDING_ID.replace('.', '\\.') + '"');
+  let badges = 0;
+  let subtrees = 0;
+  const withoutFinding = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (/<span title="1 critical">/.test(line)) { i++; continue; }
-    if (/<div class="finding-group">/.test(line) && /finding-sev-critical/.test(lines[i + 1] || '')) {
-      i = subtreeEnd(lines, i) - 1;
-      continue;
+    if (/<span title="1 critical">/.test(line)) { badges++; i++; continue; }
+    if (findingId.test(line)) { subtrees++; i = subtreeEnd(lines, i) - 1; continue; }
+    withoutFinding.push(line.replace('data-overall="crit"', 'data-overall="warn"'));
+  }
+  if (badges !== AUTHORIZED_OCCURRENCES.domBadges
+    || subtrees !== AUTHORIZED_OCCURRENCES.domSubtrees) return null;
+
+  const out = [];
+  for (let i = 0; i < withoutFinding.length; i++) {
+    const line = withoutFinding[i];
+    if (/<div class="finding-group">/.test(line)
+      && /finding-sev-critical/.test(withoutFinding[i + 1] || '')) {
+      const groupEnd = subtreeEnd(withoutFinding, i);
+      const body = withoutFinding.slice(i + 1, groupEnd);
+      // Only an EMPTIED group is the wrapper the authorized finding opened.
+      if (!body.some(l => /<div class="finding"/.test(l))) { i = groupEnd - 1; continue; }
     }
-    if (new RegExp('data-finding-id="' + AUTHORIZED_FINDING_ID + '"').test(line)) {
-      i = subtreeEnd(lines, i) - 1;
-      continue;
-    }
-    out.push(line.replace('data-overall="crit"', 'data-overall="warn"'));
+    out.push(line);
   }
   return out;
 }
@@ -453,35 +497,72 @@ function removeAuthorizedFindingFromDom(lines) {
 /** The rendered English message, matched by prefix so its arguments may vary. */
 const AUTHORIZED_MESSAGE_PREFIX = 'MX host resolves only into unreachable address space:';
 
-const AUTHORIZED_CSV_SEGMENTS = new Set([AUTHORIZED_FINDING_ID]);
-
 /**
  * Remove the authorized finding from the four CSV cells that carry it.
  *
  * `Finding Severities` is positional against `Finding IDs`, so its entry is
  * dropped at the index the id occupied rather than by matching the word
- * `critical` — which would also delete an unrelated critical severity.
+ * `critical` — which would also delete an unrelated critical severity. Each
+ * removal is of exactly one segment; a duplicate returns null.
  */
 function removeAuthorizedFindingFromCsv(lines) {
   const rows = csvRows(lines);
   const header = rows[0] || [];
   const idColumn = header.indexOf('Finding IDs');
   const severityColumn = header.indexOf('Finding Severities');
-  return rows.map((cells, rowIndex) => {
+  let violated = false;
+  const mapped = rows.map((cells, rowIndex) => {
     if (rowIndex === 0) return cells;
-    const dropAt = idColumn >= 0
-      ? cells[idColumn].split(' | ').indexOf(AUTHORIZED_FINDING_ID)
-      : -1;
+    const ids = idColumn >= 0 ? cells[idColumn].split(' | ') : [];
+    const dropAt = ids.indexOf(AUTHORIZED_FINDING_ID);
+    if (ids.filter(id => id === AUTHORIZED_FINDING_ID).length > AUTHORIZED_OCCURRENCES.csvSegments) {
+      violated = true;
+    }
     return cells.map((cell, column) => {
       if (column === severityColumn && dropAt >= 0) {
         return cell.split(' | ').filter((_, i) => i !== dropAt).join(' | ');
       }
       const parts = cell.split(' | ');
-      const kept = parts.filter(part =>
-        !AUTHORIZED_CSV_SEGMENTS.has(part) && !part.startsWith(AUTHORIZED_MESSAGE_PREFIX));
-      return kept.join(' | ');
+      const matches = parts.filter(part =>
+        part === AUTHORIZED_FINDING_ID || part.startsWith(AUTHORIZED_MESSAGE_PREFIX));
+      if (matches.length > AUTHORIZED_OCCURRENCES.csvSegments) violated = true;
+      const out = removeOne(parts, part =>
+        part === AUTHORIZED_FINDING_ID || part.startsWith(AUTHORIZED_MESSAGE_PREFIX));
+      return out.kept.join(' | ');
     });
   });
+  return violated ? null : mapped;
+}
+
+/* ── The authorized report movement, stated exactly ───────────────────── */
+
+/**
+ * What the report guard proves, and what it cannot.
+ *
+ * The oracle records a report's length, its element structure, its fixed byte
+ * counts and a hash — never its body. So no rule here can prove the authorized
+ * report's CONTENT is 0.9.0's plus the rendered finding. What is proven is
+ * that its size moved by exactly the measured amount, that its element
+ * composition gained exactly the measured elements, and that the hash tracks
+ * content — the last established by the two cases whose content did not move,
+ * where the hash is required to be identical.
+ */
+const AUTHORIZED_REPORT_LENGTH_DELTA = 3371;
+const AUTHORIZED_REPORT_STRUCTURE_DELTA = [
+  ['/button', 1], ['/code', 3], ['/div', 19], ['/span', 16],
+  ['button', 1], ['code', 3], ['div', 19], ['span', 16],
+];
+
+function structureDelta(oldStructure, newStructure) {
+  const count = text => text.split(' ').reduce((m, t) => m.set(t, (m.get(t) || 0) + 1), new Map());
+  const before = count(oldStructure);
+  const after = count(newStructure);
+  const delta = [];
+  for (const token of new Set([...before.keys(), ...after.keys()])) {
+    const d = (after.get(token) || 0) - (before.get(token) || 0);
+    if (d !== 0) delta.push([token, d]);
+  }
+  return delta.sort((a, b) => (a[0] < b[0] ? -1 : 1));
 }
 
 const scoresOf = c => c.result.map(entry => entry.result)
@@ -505,40 +586,43 @@ function release091Violations(after) {
     if (JSON.stringify(scoresOf(c)) !== JSON.stringify(scoresOf(before))) violations.push(id + ':score');
 
     // Results differ only by the seven new fields on their authorized paths,
-    // the stub addresses, and — in one case — the single new finding.
-    const newResult = stripMxValidity(authorized ? stripAuthorizedFinding(c.result) : c.result);
-    if (normalizeStubAddresses(newResult) !== normalizeStubAddresses(before.result)) {
-      violations.push(id + ':result');
-    }
+    // the stub addresses, and — in one case — one occurrence of one finding.
+    const withoutFinding = authorized ? stripAuthorizedFinding(c.result) : c.result;
+    if (withoutFinding === null) violations.push(id + ':result');
+    else if (normalizeStubAddresses(stripMxValidity(withoutFinding))
+      !== normalizeStubAddresses(before.result)) violations.push(id + ':result');
 
-    // CSV and DOM are compared in EVERY case, the authorized one included:
-    // there the authorized finding is removed first, so anything else added to
-    // that case still fails.
+    // CSV and DOM are compared in EVERY case, the authorized one included.
     const newCsv = authorized ? removeAuthorizedFindingFromCsv(c.csv.lines) : c.csv;
     const oldCsv = authorized ? csvRows(before.csv.lines) : before.csv;
-    if (normalizeStubAddresses(newCsv) !== normalizeStubAddresses(oldCsv)) violations.push(id + ':csv');
+    if (newCsv === null) violations.push(id + ':csv');
+    else if (normalizeStubAddresses(newCsv) !== normalizeStubAddresses(oldCsv)) violations.push(id + ':csv');
 
     const newDom = authorized ? removeAuthorizedFindingFromDom(c.dom) : c.dom;
-    if (normalizeStubAddresses(newDom) !== normalizeStubAddresses(before.dom)) violations.push(id + ':dom');
+    if (newDom === null) violations.push(id + ':dom');
+    else if (normalizeStubAddresses(newDom) !== normalizeStubAddresses(before.dom)) violations.push(id + ':dom');
 
-    // The report surface, bounded rather than unread. The stubs are
-    // length-preserving, so only the authorized case may move structure or
-    // length; the fixed bytes may never move; and the hash must move exactly
-    // when the rendered content did.
+    // The report surface. The stubs are length-preserving, so the background
+    // cases may not move at all; the authorized case must move by exactly the
+    // measured length and gain exactly the measured elements.
     const oldReport = before.report;
     const newReport = c.report;
     const contentMoved = JSON.stringify(c.dom) !== JSON.stringify(before.dom)
       || JSON.stringify(c.csv) !== JSON.stringify(before.csv);
-    const reportIsBounded =
+    const fixedBytesHeld =
       newReport.generated === oldReport.generated &&
       newReport.bytes.csp === oldReport.bytes.csp &&
       newReport.bytes.stylesheet === oldReport.bytes.stylesheet &&
-      newReport.bytes.stylesheetBytes === oldReport.bytes.stylesheetBytes &&
-      (authorized
-        ? newReport.structure !== oldReport.structure && newReport.length > oldReport.length
-        : newReport.structure === oldReport.structure && newReport.length === oldReport.length) &&
-      ((newReport.sha256 !== oldReport.sha256) === contentMoved);
-    if (!reportIsBounded) violations.push(id + ':report');
+      newReport.bytes.stylesheetBytes === oldReport.bytes.stylesheetBytes;
+    const movementIsExact = authorized
+      ? newReport.length === oldReport.length + AUTHORIZED_REPORT_LENGTH_DELTA
+        && JSON.stringify(structureDelta(oldReport.structure, newReport.structure))
+          === JSON.stringify(AUTHORIZED_REPORT_STRUCTURE_DELTA)
+      : newReport.length === oldReport.length && newReport.structure === oldReport.structure;
+    // The hash must track content: identical where nothing moved, different
+    // where something did. This is what makes the hash meaningful at all.
+    const hashTracksContent = (newReport.sha256 !== oldReport.sha256) === contentMoved;
+    if (!fixedBytesHeld || !movementIsExact || !hashTracksContent) violations.push(id + ':report');
   }
   return violations;
 }
@@ -648,11 +732,79 @@ eq('an unrelated DOM node in the AUTHORIZED case is caught',
   [NON_ROUTABLE_MX_CASE + ':dom']);
 
 // A second finding in the authorized case is not covered by the one authorized.
+// It must be inserted INSIDE the critical group, which is the shape the
+// renderer actually produces: appending a line at the end of the document does
+// not exercise the branch that removes the group wrapper.
+const domLines091 = release091.cases[authorizedIndex].dom;
+const criticalGroupIndex = domLines091.findIndex((line, i) =>
+  /<div class="finding-group">/.test(line) && /finding-sev-critical/.test(domLines091[i + 1] || ''));
+eq('the authorized case really has a critical finding group', criticalGroupIndex >= 0, true);
+
 const secondFindingDom = structuredClone(release091);
-secondFindingDom.cases[authorizedIndex].dom.push('              <div class="finding" data-finding-id="mx.address-literal">');
-eq('a SECOND finding rendered into the authorized case is caught',
+{
+  const lines = secondFindingDom.cases[authorizedIndex].dom;
+  const indent = ' '.repeat((lines[criticalGroupIndex].match(/^\s*/) || [''])[0].length + 2);
+  lines.splice(criticalGroupIndex + 2, 0,
+    indent + '<div class="finding" data-finding-id="mx.address-literal">',
+    indent + '  <span class="msg">');
+}
+eq('a SECOND finding inside the authorized critical group is caught',
   release091Violations(secondFindingDom).filter(v => v.endsWith(':dom')),
   [NON_ROUTABLE_MX_CASE + ':dom']);
+
+/* Multiplicity: the authorization is for ONE occurrence of one finding. */
+
+const duplicateIssue091 = structuredClone(release091);
+duplicateIssue091.cases[authorizedIndex].result[0].result.issues.push(
+  { key: AUTHORIZED_FINDING_KEY, sev: 'crit', args: ['second', 'occurrence'] });
+eq('a duplicated authorized issue is caught',
+  release091Violations(duplicateIssue091).filter(v => v.endsWith(':result')),
+  [NON_ROUTABLE_MX_CASE + ':result']);
+
+const duplicateDom091 = structuredClone(release091);
+duplicateDom091.cases[authorizedIndex].dom.push(
+  '              <div class="finding" data-finding-id="mx.unroutable">');
+eq('a duplicated authorized DOM subtree is caught',
+  release091Violations(duplicateDom091).filter(v => v.endsWith(':dom')),
+  [NON_ROUTABLE_MX_CASE + ':dom']);
+
+/* The authorized report movement is exact, and its controls mutate the
+   authorized case — every control above mutates cases[0], which is bounded by
+   the stricter "must not move at all" branch. */
+
+const authorizedStructure091 = structuredClone(release091);
+authorizedStructure091.cases[authorizedIndex].report.structure = 'html totally unauthorized /html';
+eq('an arbitrary structure in the authorized report is caught',
+  release091Violations(authorizedStructure091).filter(v => v.endsWith(':report')),
+  [NON_ROUTABLE_MX_CASE + ':report']);
+
+const authorizedLength091 = structuredClone(release091);
+authorizedLength091.cases[authorizedIndex].report.length += 1;
+eq('an off-by-one length in the authorized report is caught',
+  release091Violations(authorizedLength091).filter(v => v.endsWith(':report')),
+  [NON_ROUTABLE_MX_CASE + ':report']);
+
+const authorizedFrozenHash091 = structuredClone(release091);
+authorizedFrozenHash091.cases[authorizedIndex].report.sha256 =
+  release090ById.get(NON_ROUTABLE_MX_CASE).report.sha256;
+eq('an authorized report hash that failed to move is caught',
+  release091Violations(authorizedFrozenHash091).filter(v => v.endsWith(':report')),
+  [NON_ROUTABLE_MX_CASE + ':report']);
+
+// The limit, stated rather than implied: the oracle records no report body, so
+// an ARBITRARY different hash on the authorized report cannot be distinguished
+// from the real one. What the guard proves is the exact length delta, the exact
+// element-composition delta, and that the hash moves with content and only with
+// content — the latter established by the cases below, where nothing moved.
+const unmovedCases = release091.cases.filter(c => {
+  const before = release090ById.get(c.id);
+  return JSON.stringify(c.dom) === JSON.stringify(before.dom)
+    && JSON.stringify(c.csv) === JSON.stringify(before.csv);
+});
+eq('the cases whose content did not move keep their exact report hash',
+  [unmovedCases.length > 0,
+    unmovedCases.filter(c => c.report.sha256 !== release090ById.get(c.id).report.sha256).length],
+  [true, 0]);
 
 const changedReportCss091 = structuredClone(release091);
 changedReportCss091.cases[0].report.bytes.stylesheet += '.unauthorized{}';
