@@ -30,7 +30,7 @@ the sequence above.
 ## Start here: implement 0.9.0 stateless report comparison
 
 Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md),
-**`1.8 (Final, amended)`, approved for implementation**. The review resolved all
+**`1.9 (Final, amended)`, approved for implementation**. The review resolved all
 seven `OQ-CMP-*` questions as `RQ-CMP-01`–`07`, reconciled the schema against
 what `v0.8.1` actually produces, and raised and resolved one more —
 `RQ-CMP-08`, per-protocol comparability. The 1.1 amendment corrects the
@@ -50,8 +50,11 @@ Each leaves the browser working, and the order is load-bearing in two places:
 8. `src/ui/report-data.js` — the coded importer error shape.
 9. `locales/en.json` and all thirteen translations.
 10. `src/ui/`, `index.html`, `css/style.css` — import controls, comparison
-    mode, rendering and filters. The one step that is not owner-bound: markup,
-    listener and presentation are not shippable apart.
+    mode, rendering and filters — plus `src/audit/findings.js`,
+    `src/audit/create-audit.js` and `src/runtime.js` for the finding-id
+    catalog. The one step that is not owner-bound: markup, listener and
+    presentation are not shippable apart, and the unknown-id note cannot be
+    answered from inside `src/ui/`.
 
 **The locale commit precedes the UI wiring, and that is not a preference.**
 Step 7 calls `t('toast.jsonExported')`, and `t()` returns the key itself when it
@@ -100,7 +103,7 @@ The 0.8.0 release established the inputs 0.9.0 must respect:
 | --- | --- | --- | --- |
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
-| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec Final, amended at `1.8` | Versioned JSON schema, import validation and stateless comparison |
+| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec Final, amended at `1.9` | Versioned JSON schema, import validation and stateless comparison |
 | 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary

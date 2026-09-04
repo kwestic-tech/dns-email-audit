@@ -2122,18 +2122,11 @@ export function createUi(capabilities) {
    * comparison overlay is testable without a browser.
    */
   /**
-   * The delta header cell, found by walking the row's own children.
+   * The results table's header row, or nothing.
    *
-   * An id selector scoped to an element is not answerable everywhere the app
-   * runs its tests, and a lookup that silently finds nothing would add a second
-   * header on every comparison and leave the first behind on exit.
-   */
-  /**
-   * The results table's header row.
-   *
-   * `tHead.rows[0]` is the real DOM answer; the positional fallback is document
-   * order, where a table's own `tr` list puts header rows first. Deliberately
-   * NOT an id in `index.html`: adding one changed the exported HTML report for
+   * `tHead.rows[0]` is the only answer this returns. There is no positional
+   * fallback -- see below for the bug that removed it. Deliberately NOT found
+   * by an id in `index.html`: adding one changed the exported HTML report for
    * all thirty-two equivalence cases, and a published surface does not move to
    * make a test easier to write.
    */
@@ -2149,6 +2142,13 @@ export function createUi(capabilities) {
       ? table.tHead.rows[0] : null;
   }
 
+  /**
+   * The delta header cell, found by walking the row's own children.
+   *
+   * An id selector scoped to an element is not answerable everywhere the app
+   * runs its tests, and a lookup that silently finds nothing would add a second
+   * header on every comparison and leave the first behind on exit.
+   */
   function compareHeadCell(headRow) {
     return Array.prototype.filter.call(headRow.childNodes,
       function (n) { return n && n.id === 'compareHeadCell'; })[0] || null;
@@ -2181,6 +2181,17 @@ export function createUi(capabilities) {
    * version of this rendered nothing at all, which passed a test that only
    * checked no `<img>` element had been created.
    */
+  // The observability values a protocol can carry when it is not `observed`.
+  // A value with no entry here is one whose side sentence already states the
+  // reason; a value that is neither is a schema change, and renders the side
+  // alone rather than a key that does not exist.
+  var PROTOCOL_REASON_KEYS = (function () {
+    var m = Object.create(null);
+    m.unproven = 'compare.protocol.unproven';
+    m['not-run'] = 'compare.protocol.notRun';
+    return m;
+  }());
+
   var KNOWN_FINDING_IDS = (knownFindingIds || []).reduce(function (set, id) {
     set[id] = true;
     return set;
@@ -2199,21 +2210,33 @@ export function createUi(capabilities) {
    * (section 4), never dropped: dropping it would make a diff across tool
    * versions quietly incomplete.
    */
+  /**
+   * Notes for the ids in a rendered group that this build does not recognize.
+   *
+   * Section 4's rule is unconditional, so this is shared by every group a
+   * finding id can appear in rather than living inside one of them. It lived
+   * inside `findingLine()` first, which covers `new`, `resolved` and
+   * `unknown` -- and misses the one case an unknown id reaches none of them:
+   * present in BOTH reports, moved in severity. That id rendered as a bare
+   * token with nothing to say the build could not describe it.
+   */
+  function unknownIdNotes(ids) {
+    return (ids || []).filter(function (id) {
+      return !Object.prototype.hasOwnProperty.call(KNOWN_FINDING_IDS, id);
+    }).map(function (id) {
+      return R.el('div', { className: 'c-muted', style: 'font-size:11px' },
+        R.sentinelText(t('compare.meta.unknownFinding', id)));
+    });
+  }
+
   function findingLine(sameKey, crossKey, ids) {
     if (!ids || !ids.length) return null;
     var labelKey = comparison.meta.findingSemanticsMatch ? sameKey : crossKey;
-    var unknown = ids.filter(function (id) {
-      return !Object.prototype.hasOwnProperty.call(KNOWN_FINDING_IDS, id);
-    });
     var parts = [
       R.el('strong', null, t(labelKey, ids.length)),
       R.text(' '),
       R.sentinelText(ids.join(', ')),
-    ];
-    unknown.forEach(function (id) {
-      parts.push(R.el('div', { className: 'c-muted', style: 'font-size:11px' },
-        R.sentinelText(t('compare.meta.unknownFinding', id))));
-    });
+    ].concat(unknownIdNotes(ids));
     return R.el('div', { style: 'margin-top:2px' }, parts);
   }
 
@@ -2241,23 +2264,37 @@ export function createUi(capabilities) {
         R.sentinelText(d.findings.severityChanged.map(function (c) {
           return c.id + ' (' + t('findings.severity.' + c.from) + ' → ' + t('findings.severity.' + c.to) + ')';
         }).join(', ')),
-      ]));
+      ].concat(unknownIdNotes(d.findings.severityChanged.map(function (c) { return c.id; })))));
     }
 
-    // A protocol nobody could compare is NAMED, with its reason and which
-    // report was missing it. An earlier version walked the domain's reasons
-    // and claimed in a comment to be doing this.
-    // THREE sides, not two. An option mismatch produces `side: 'both'`, and
-    // mapping it onto "current" said a protocol was not observed in the current
-    // report when both reports had observed it perfectly well — a false
-    // statement about the data, from a renderer that read `side` and ignored
-    // `reason`.
+    // Section 6: a protocol nobody could compare is named "with its reason".
+    // `incomparableProtocols` carries TWO independent axes and both have to
+    // survive to the page.
+    //
+    // The SIDE — three of them, not two. An option mismatch produces
+    // `side: 'both'`, and folding it onto "current" said a protocol was not
+    // observed in the current report when both reports had observed it
+    // perfectly well.
+    //
+    // The REASON — `unproven` (looked, nothing established) and `not-run`
+    // (never looked) are different facts, and answer different questions: the
+    // first says the domain may be misconfigured, the second says this run
+    // simply had the option off. Rendering the side alone collapsed them into
+    // one generic sentence and left two translated strings unreachable.
     (d.incomparableProtocols || []).forEach(function (e) {
-      var key = e.side === 'baseline' ? 'compare.protocol.unknownInBaseline'
+      var sideKey = e.side === 'baseline' ? 'compare.protocol.unknownInBaseline'
         : e.side === 'current' ? 'compare.protocol.unknownInCurrent'
           : 'compare.protocol.unknownBoth';
-      parts.push(R.el('div', { className: 'compare-unknown', style: 'margin-top:2px' },
-        R.sentinelText(t(key, e.protocol))));
+      var kids = [R.sentinelText(t(sideKey, e.protocol))];
+      // `both` needs no separate line: its reason is always the option
+      // mismatch, and `unknownBoth` already says so in one sentence.
+      var reasonKey = Object.prototype.hasOwnProperty.call(PROTOCOL_REASON_KEYS, e.reason)
+        ? PROTOCOL_REASON_KEYS[e.reason] : null;
+      if (reasonKey) {
+        kids.push(R.el('div', { className: 'c-muted', style: 'font-size:11px' },
+          R.sentinelText(t(reasonKey, e.protocol))));
+      }
+      parts.push(R.el('div', { className: 'compare-unknown', style: 'margin-top:2px' }, kids));
     });
 
     (d.recordChanges || []).forEach(function (c) {

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.8 (Final, amended) |
+| Spec version | 1.9 (Final, amended) |
 | Target release | 0.9.0 |
 | Status | Approved for implementation |
 | Depends on | [findings-and-remediation](implemented/findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
@@ -75,25 +75,40 @@ from UI back into the audit engine:
 | `ANALYSIS_VERSION` | `src/audit/scoring.js`, carried in audit output or injected capabilities |
 | `APP_VERSION` | `src/runtime.js`, injected into the UI with the other runtime capabilities |
 | The DKIM selector grammar | `src/core/dkim/`, re-exposed by `src/audit/create-audit.js` and injected into the UI by `src/runtime.js` |
+| The finding-id catalog | `src/audit/findings.js`, re-exposed by `src/audit/create-audit.js` and injected into the UI by `src/runtime.js` |
 
 Both new UI modules remain within the existing `ui/` sibling edge. The UI must
 not import `src/audit/scoring.js`; the composition boundary passes version
 metadata with completed audit facts.
 
-One protocol rule has to reach this pure UI module, and how it does is part of
-the contract rather than an implementation detail. A DKIM selector is valid or
-not by `validDkimSelector()` in `src/core/dkim/`, which `src/ui/` may not
-import. The predicate therefore travels as a CAPABILITY: its owner exports it,
-`src/audit/create-audit.js` re-exposes it, `src/runtime.js` injects it beside
-the version metadata, and the schema functions receive it.
+TWO audit-owned facts have to reach the UI, and how they do is part of the
+contract rather than an implementation detail. Both travel the same route: the
+owner exports it, `src/audit/create-audit.js` re-exposes it, `src/runtime.js`
+injects it beside the version metadata, and the UI receives it.
+
+- **The DKIM selector grammar.** A selector is valid or not by
+  `validDkimSelector()` in `src/core/dkim/`, which `src/ui/` may not import.
+  The schema functions receive the predicate itself.
+- **The finding-id catalog.** Section 4 requires an imported finding this build
+  cannot describe to be shown WITH a note saying so, which is answerable only
+  against the set of ids this build can produce. That set is owned by
+  `src/audit/findings.js`, which `src/ui/` may not import either, so it crosses
+  as DATA rather than as a predicate: `findingCatalogIds()` returns the ids of
+  every entry in the finding metadata and every cross-protocol rule, unique and
+  sorted, as a FRESH array on each call. The UI holds it as a lookup and never
+  writes to it; the audit never reads it back. It is closed for a given build
+  and changes only when the catalog does, which is why nothing derived from it
+  is persisted or compared across reports.
 
 Three properties of that arrangement are normative, and each of them is a
 defect this spec has already produced by leaving them unsaid:
 
-1. **The rule is never restated under `src/ui/`.** A local copy drifts. The
+1. **Neither is ever restated under `src/ui/`.** A local copy drifts. The
    first implementation aliased selectors to a domain-name grammar, which
    forbids the underscore the owner allows and permits the dot the owner
-   forbids -- wrong in both directions.
+   forbids -- wrong in both directions. A hand-maintained id list under
+   `src/ui/` would go stale the first time a finding is added, and the failure
+   would be silent: a known id described as unknown.
 2. **The producer filters with the same predicate the importer validates
    with.** Otherwise user input the audit would never query is exported and
    then refused by the same build, which is the self-rejection defect the size
@@ -130,7 +145,11 @@ each is a different owner and two of them can move a published surface:
    because the codes are what the locale commit writes messages for.
 9. `locales/en.json` and all thirteen translations.
 10. `src/ui/`, `index.html` and `css/style.css` — the import controls,
-    comparison mode, rendering and filters, together.
+    comparison mode, rendering and filters, together. Also
+    `src/audit/findings.js`, `src/audit/create-audit.js` and `src/runtime.js`,
+    for the finding-id catalog above: section 4's unknown-id note cannot be
+    answered inside `src/ui/`, and the capability is worth nothing until
+    something reads it.
 
 Step 10 is the one step that is NOT owner-bound, and it is stated that way
 rather than labelled as something it is not. A control needs markup in
@@ -655,9 +674,17 @@ decorate. A summary that counts domains the table never shows is a defect.
 
 The detail row carries the evidence: the finding ids that appeared, resolved or
 became unknown, the severity changes, the record deltas paired baseline against
-current, and each incomparable protocol named with the side that did not
-observe it. Every one of those values came out of a supplied file and is
-rendered through the same text path as a DNS record.
+current, and each incomparable protocol named with BOTH of the facts it
+carries — the side that lacked it, and why. The two are independent and neither
+substitutes for the other: `unproven` (checked, nothing established) and
+`not-run` (never checked) answer different questions, and an option mismatch
+belongs to both sides rather than to either one. Every one of those values came
+out of a supplied file and is rendered through the same text path as a DNS
+record.
+
+Section 4's unknown-id note is unconditional, so it appears in every group a
+finding id can be rendered in — including a severity change, the one case an
+unrecognized id reaches while being present in both reports.
 
 An incomparable protocol is marked in the row, with its reason, using the same
 visual treatment as the existing unproven-pillar grade marker. It is never
@@ -915,6 +942,7 @@ rather than reverse-engineering it from score pillars and finding confidence.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.9 | 2026-09-04 | **Final, amended during implementation of step 10.** Publishes the second audit-owned capability. Section 4 requires an imported finding this build cannot describe to be shown with a note saying so, which is answerable only against the set of ids this build produces — owned by `src/audit/findings.js`, unimportable from `src/ui/`. 1.8 named only the DKIM selector grammar and bounded step 10 to `src/ui/`, `index.html` and `css/style.css`, so the implementation satisfied a normative promise through three files the plan said it would not touch: the same cross-owner silence corrected at 1.4 and 1.6. Section 0 now names the owner, the composition route and the closed, fresh-array, read-only value contract, and step 10 lists the files. Section 6 also states that an incomparable protocol carries TWO facts, side and reason, and that neither substitutes for the other — the first implementation rendered the side alone, collapsing `unproven` and `not-run` into one sentence — and that the unknown-id note reaches the severity-change group too. No product decision reopened. Found by Codex review of commit `31e4905` (I31, I32, I33). |
 | 1.8 | 2026-09-04 | **Final, amended during implementation of step 10.** Two corrections. **(a) Step 10 is not owner-bound and now says so.** The plan called it `src/ui/events.js`, but a control needs markup, a listener and presentation, and no two of `index.html`, `src/ui/events.js` and `css/style.css` ship apart without a broken browser in between — the same rule that forced every earlier step to be SPLIT forces this one to be whole. Recorded as the deliberate exception rather than committed under a label it does not fit. **(b) Section 6 now states what the table must show.** The first implementation decorated existing rows only, so a `removed` domain and a comparison of two reports with no run produced a summary counting domains the table never displayed, and the detail row carried none of the finding, record or per-protocol evidence the comparison had already computed. No product decision reopened. Found by Codex review of the step-10 commit (I22, I23, I26). |
 | 1.7 | 2026-09-04 | **Final, amended before the locale commit.** Publishes the importer's error shape, which 1.0 left as a bare `errors: []` while the localization section promised translated messages. The implementation had filled that silence with English prose at eighty call sites, which a UI cannot translate. Errors are now `{ code, path?, detail? }` over a closed six-member set; only the code is localized, and the schema path and failing clause stay literal technical data for the same reason a schema field name is never translated. The alternative — a locale key per validator clause — would have added roughly fifty keys in thirteen languages to describe fields a report written by this tool cannot contain. A runtime's own `JSON.parse` text is diagnostic detail and never the primary message, because it varies by engine. Adds the shape change as step 8, before the locale commit that writes messages for its codes. No product decision reopened. |
 | 1.6 | 2026-09-03 | **Final, amended during implementation of commit 4.** Two corrections. **(a) The published commit plan did not describe the work.** Section 0 promised directory-bound commits and named `src/ui/report.js` alone for the export, but the export needs a platform primitive, a runtime capability and run state in `src/ui/events.js` first. Rather than commit a cross-owner change under a directory-bound label, those three are now listed as their own steps, each leaving the browser working. **(b) The filename rationale was wrong a second time.** 1.5 replaced a false non-collision claim with a false justification — a timestamped name derived from the run's stable `generatedAt` would NOT differ between two exports of one run. The real reasons are recorded instead. No product decision reopened. Found by Codex review of the commit-4 working tree (I18, I19). |

@@ -268,9 +268,10 @@ async function bootedRun(domains) {
   return booted;
 }
 
-// The header row, the same way the application finds it: the real DOM answer
-// where table sections exist, document order otherwise. Deliberately not an id
-// in the markup — adding one moved the exported HTML report for all 32 cases.
+// The header row. `tHead.rows[0]` where table sections exist; where they do
+// not, DELIBERATELY the row a positional fallback would have picked — which is
+// a data row, and is the thing to look at to prove nothing was appended there.
+// The application itself has no such fallback: it returns null instead.
 const headRowOf = (doc) => {
   const table = doc.getElementById('resultsTable');
   if (table.tHead && table.tHead.rows && table.tHead.rows.length) return table.tHead.rows[0];
@@ -662,6 +663,86 @@ const comparedRows = doc => Array.prototype.filter.call(
     document.getElementById('importReportLabel').style.display, '');
   ui.acceptImportedReport(report);
   eq('and a report offered afterwards is accepted', ui.getComparison() !== null, true);
+}
+
+/* An incomparable protocol carries two facts, and the page owes both. */
+{
+  const { document, ui } = await bootedRun('a.example');
+  const current = ui.buildReportJson();
+  const baseline = JSON.parse(JSON.stringify(current));
+  // Two different reasons on the same side, so a renderer that reads only the
+  // side cannot tell them apart and a renderer that reads only the reason
+  // cannot place them.
+  baseline.domains[0].observability.dkim = 'unproven';
+  baseline.domains[0].observability.bimi = 'not-run';
+  ui.acceptImportedReport(JSON.stringify(baseline));
+
+  const d = ui.getComparison().domains[0];
+  const reasonOf = (protocol, side) => (d.incomparableProtocols
+    .filter(e => e.protocol === protocol && e.side === side)[0] || {}).reason;
+  eq('the comparison distinguishes the two reasons',
+    [reasonOf('dkim', 'baseline'), reasonOf('bimi', 'baseline')], ['unproven', 'not-run']);
+
+  const text = document.getElementById('tableBody')
+    .querySelectorAll('.compare-detail')[0].textContent;
+  // Section 6: named "with its reason". "Checked and nothing established" and
+  // "never checked" answer different questions — the first says the domain may
+  // be misconfigured, the second says this run had the option off.
+  eq('a protocol that was checked without result says so',
+    text.includes('dkim was checked but not established'), true);
+  eq('and one that was never checked says that instead',
+    text.includes('bimi was not checked'), true);
+  eq('while both still name the side that lacked them', [
+    text.includes('Not comparable: dkim was not observed in the baseline report'),
+    text.includes('Not comparable: bimi was not observed in the baseline report'),
+  ], [true, true]);
+  // Every reason in the data is accounted for, so a reason this build has no
+  // sentence for cannot pass unnoticed.
+  eq('and no reason in the comparison goes unrendered', d.incomparableProtocols
+    .filter(e => e.reason === 'unproven' && !text.includes(e.protocol + ' was checked but not established'))
+    .concat(d.incomparableProtocols
+      .filter(e => e.reason === 'not-run' && !text.includes(e.protocol + ' was not checked'))), []);
+}
+
+/* An unrecognized id is explained wherever it appears — including the one
+   bucket that is neither new nor resolved. */
+{
+  const seed = await bootedRun('a.example');
+  const first = seed.ui.buildReportJson();
+  // Both sides supplied, so both are under this test's control. Everything
+  // observed, so nothing is blocked and the movement really is a severity
+  // change rather than an `unknown`.
+  first.domains[0].observability = Object.keys(first.domains[0].observability)
+    .reduce((m, k) => Object.assign(m, { [k]: 'observed' }), {});
+  const unknownFinding = (severity) => ({
+    id: 'future.finding', protocol: 'dmarc', severity, confidence: 'confirmed',
+    category: 'policy', effort: 'moderate', args: [], dependsOn: [],
+    evidence: [{ kind: 'txt', queryName: '_dmarc.a.example', value: 'v=DMARC1' }],
+  });
+  first.domains[0].findings = [unknownFinding('low')];
+  const second = JSON.parse(JSON.stringify(first));
+  second.domains[0].findings = [unknownFinding('high')];
+
+  const { document, ui } = await boot();
+  ui.acceptImportedReport(JSON.stringify(first));
+  ui.acceptImportedReport(JSON.stringify(second));
+
+  const d = ui.getComparison().domains[0];
+  eq('the id is in neither the new nor the resolved bucket',
+    [d.findings.new, d.findings.resolved], [[], []]);
+  eq('it moved in severity', d.findings.severityChanged.map(c => c.id), ['future.finding']);
+
+  // With no run behind it there is no data row to carry a detail row: the
+  // evidence lives in the invented row itself.
+  const text = document.getElementById('tableBody')
+    .querySelectorAll('.compare-only-row')[0].textContent;
+  eq('the movement is shown', text.includes('future.finding'), true);
+  // Section 4 is unconditional: an id this build cannot describe is shown WITH
+  // the note, in every bucket it can reach. The note lived inside the line that
+  // renders new/resolved/unknown, so this case — present on both sides — got a
+  // bare token.
+  eq('and the id this build cannot describe is explained here too',
+    text.includes('This build has no description for future.finding'), true);
 }
 
 console.log(`\n${'='.repeat(60)}`);

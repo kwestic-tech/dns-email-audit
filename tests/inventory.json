@@ -78,7 +78,7 @@
   },
   {
    "path": "tools/audit-run.test.mjs",
-   "assertions": 85,
+   "assertions": 94,
    "areas": [
     "the audit run loop, booted from index.html and driven through its own controls",
     "one double click starts one run, and every early return releases the run guard",
@@ -90,6 +90,8 @@
     "the second entry path: two reports compared with no audit running",
     "every domain the comparison counts has a row, including one only the baseline had and two reports compared with no run at all",
     "the detail row carries the evidence: finding movement, severity changes, record deltas and each incomparable protocol named with its side",
+    "an incomparable protocol is named with BOTH facts it carries: the side that lacked it, and whether it was checked without result or never checked",
+    "an unrecognized finding id is explained in every group it can appear in, including a severity change present on both sides",
     "a hostile imported value present as text and absent as markup, both asserted",
     "Clear discards the comparison and the run context, and stops offering the JSON export",
     "a language change re-renders both comparison branches, asserted on the rendered text rather than on counts",
