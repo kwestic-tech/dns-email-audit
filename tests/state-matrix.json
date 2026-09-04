@@ -2810,6 +2810,38 @@
    ]
   },
   {
+   "algebra": "mx.host.reachability",
+   "fixtures": [],
+   "member": "global",
+   "suites": [
+    "src/core/mx/mx.test.js"
+   ]
+  },
+  {
+   "algebra": "mx.host.reachability",
+   "fixtures": [],
+   "member": "partial",
+   "suites": [
+    "src/core/mx/mx.test.js"
+   ]
+  },
+  {
+   "algebra": "mx.host.reachability",
+   "fixtures": [],
+   "member": "none",
+   "suites": [
+    "src/core/mx/mx.test.js"
+   ]
+  },
+  {
+   "algebra": "mx.host.reachability",
+   "fixtures": [],
+   "member": "unknown",
+   "suites": [
+    "src/core/mx/mx.test.js"
+   ]
+  },
+  {
    "algebra": "mx.ipv6Coverage",
    "member": "none",
    "suites": [],
@@ -9832,6 +9864,94 @@
     "src/ui/report-data.test.js"
    ],
    "fixtures": []
+  },
+  {
+   "algebra": "ip.scope",
+   "fixtures": [],
+   "member": "global",
+   "suites": [
+    "src/core/shared/ip.test.js"
+   ]
+  },
+  {
+   "algebra": "ip.scope",
+   "fixtures": [],
+   "member": "unspecified",
+   "suites": [
+    "src/core/shared/ip.test.js"
+   ]
+  },
+  {
+   "algebra": "ip.scope",
+   "fixtures": [],
+   "member": "loopback",
+   "suites": [
+    "src/core/shared/ip.test.js"
+   ]
+  },
+  {
+   "algebra": "ip.scope",
+   "fixtures": [],
+   "member": "private",
+   "suites": [
+    "src/core/shared/ip.test.js"
+   ]
+  },
+  {
+   "algebra": "ip.scope",
+   "fixtures": [],
+   "member": "link-local",
+   "suites": [
+    "src/core/shared/ip.test.js"
+   ]
+  },
+  {
+   "algebra": "ip.scope",
+   "fixtures": [],
+   "member": "shared",
+   "suites": [
+    "src/core/shared/ip.test.js"
+   ]
+  },
+  {
+   "algebra": "ip.scope",
+   "fixtures": [],
+   "member": "documentation",
+   "suites": [
+    "src/core/shared/ip.test.js"
+   ]
+  },
+  {
+   "algebra": "ip.scope",
+   "fixtures": [],
+   "member": "benchmarking",
+   "suites": [
+    "src/core/shared/ip.test.js"
+   ]
+  },
+  {
+   "algebra": "ip.scope",
+   "fixtures": [],
+   "member": "multicast",
+   "suites": [
+    "src/core/shared/ip.test.js"
+   ]
+  },
+  {
+   "algebra": "ip.scope",
+   "fixtures": [],
+   "member": "reserved",
+   "suites": [
+    "src/core/shared/ip.test.js"
+   ]
+  },
+  {
+   "algebra": "ip.scope",
+   "fixtures": [],
+   "member": "v4-mapped",
+   "suites": [
+    "src/core/shared/ip.test.js"
+   ]
   }
  ]
 }

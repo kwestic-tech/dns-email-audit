@@ -3017,7 +3017,8 @@ eq('and the parent policy is parsed',        climbed.issuers, ['pki.goog']);
 section('36. MX health');
 
 eq('an MX record splits into preference and host',
-  D.parseMxRecord('10 mail.example.com.'), { preference: 10, host: 'mail.example.com' });
+  D.parseMxRecord('10 mail.example.com.'),
+  { preference: 10, host: 'mail.example.com', isAddressLiteral: false, preferenceValid: true });
 eq('a malformed MX record is dropped', D.parseMxRecord('mail.example.com'), null);
 
 const MX_FIXTURE = {
