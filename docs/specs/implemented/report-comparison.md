@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.9 (Final, amended) |
+| Spec version | 1.10 (Implemented, amended) |
 | Target release | 0.9.0 |
-| Status | Approved for implementation |
-| Depends on | [findings-and-remediation](implemented/findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
+| Status | Released as `v0.9.0` |
+| Depends on | [findings-and-remediation](findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
 | Blocks | Nothing |
 | Slug for open questions | `CMP` |
 | Last updated | 2026-09-04 |
@@ -14,7 +14,7 @@
 
 The tool answers "what is the state of these domains right now" and cannot answer
 "what changed". Both existing exports are terminal. `exportCSV()` in
-[`src/ui/report.js`](../../src/ui/report.js) writes localized, human-readable strings into
+[`src/ui/report.js`](../../../src/ui/report.js) writes localized, human-readable strings into
 positional columns and flattens findings into a single pipe-joined cell.
 `exportHTML()` in the same module writes a static document with
 the stylesheet inlined. Neither can be read back, and neither should be: parsing
@@ -386,7 +386,7 @@ by id, and a renamed id ships with an alias map (see Risks).
 `APP_VERSION` in `src/runtime.js` is separate. It supplies human context and the
 conservative `findingSemanticsMatch` comparison. The package version currently
 reaches only the bundle's comment banner in
-[`tools/build-bundle.mjs`](../../tools/build-bundle.mjs), so the runtime gains a
+[`tools/build-bundle.mjs`](../../../tools/build-bundle.mjs), so the runtime gains a
 hand-maintained exported constant bumped by the release commit and asserted
 equal to `package.json`. This uses the existing composition owner and import
 edges; it does not invent a root module absent from the architecture matrix.
@@ -394,7 +394,7 @@ edges; it does not invent a root module absent from the architecture matrix.
 ### 3. Export
 
 `exportJSON()` sits beside the existing two export buttons in
-[`index.html`](../../index.html). It builds the structure from the in-memory
+[`index.html`](../../../index.html). It builds the structure from the in-memory
 `results` array and downloads it through the existing download capability
 already passed into `src/ui/report.js`.
 
@@ -938,10 +938,86 @@ unverified sub-check does not necessarily make its whole protocol unobserved.
 Version 1.1 therefore makes observability a closed, explicit audit projection
 rather than reverse-engineering it from score pillars and finding confidence.
 
+## As implemented
+
+The release follows the final architecture. `src/ui/report-data.js` is a pure
+module with no DOM and no ambient primitive: it owns the schema, the strict
+importer and `compareReports()`. `src/ui/report.js` writes the file beside the
+existing CSV and HTML exports, `src/ui/events.js` owns the mode, and every fact
+the UI cannot derive -- the app version, the analysis version, the resolver, the
+DKIM selector grammar and the finding-id catalog -- arrives through
+`src/runtime.js` as a capability rather than an import.
+
+Implementation and eight rounds of review sharpened nine details beyond the
+original 1.0 text. Each is recorded in the revision history with the finding
+that produced it; what follows is what a reader of the shipped code will see.
+
+1. **The commit plan in section 0 was rewritten twice, and once broken
+   deliberately.** 1.5 and 1.6 corrected an order that could not build -- a
+   commit that called a locale key added in a later commit -- and split three
+   cross-owner steps out of one. Step 10 is then the single step that is NOT
+   owner-bound, and says so: a control needs markup, a listener and
+   presentation, and no two of `index.html`, `src/ui/events.js` and
+   `css/style.css` ship apart without a broken browser in between.
+2. **Per-protocol observability is produced by the audit, not inferred.**
+   1.0 derived it from `score.unproven` and finding confidence. Both are lossy:
+   `dns.checks-unverified` carries `protocol: 'dns'` with MX and TLSA in its
+   arguments, and `dmarc.external-unverifiable` is unverified without erasing
+   DMARC. `src/audit/observability.js` returns a total map over the thirteen
+   protocols instead, closed over three values.
+3. **The option-to-protocol mapping covers `spf`, `dmarc` and `reporting`.**
+   1.1 named only the five dedicated advanced protocols, but `advanced` also
+   gates SPF lookup and subnet analysis and DMARC report authorization -- nine
+   finding ids. Under that mapping, comparing across an `advanced` change would
+   have reported all eight SPF findings as resolved: the exact harm `RQ-CMP-08`
+   exists to prevent, in the protocol carrying the most findings.
+4. **Identity and metadata fields are grammar-bounded; record and evidence
+   values are not.** 1.0 required a normalized ASCII `domain` while also
+   requiring an `<img src=x onerror=alert(1)>` domain to be accepted. Both
+   cannot hold. Hostile bytes arrive in record and evidence values, which carry
+   the rendering guarantee; a malformed identity field is a refusal.
+5. **The importer refuses rather than repairs.** The first implementation
+   coerced -- a missing `generator` became `{}`, an unknown severity became
+   `info` -- which on a supplied file silently manufactures a comparable-looking
+   report and then reports confident differences derived from values nobody
+   wrote. Every known member is now required and range-checked, and the only
+   thing dropped silently is an unknown member.
+6. **Refusals are `{ code, path?, detail? }` over a closed six-member set.**
+   1.0 left `errors: []` unspecified while promising translated messages, and
+   the implementation filled that silence with English prose at eighty call
+   sites. Only the code is localized; the schema path and the failing clause
+   stay literal technical data, for the same reason a schema field name is
+   never translated.
+7. **Two audit-owned facts reach the UI as capabilities.** The DKIM selector
+   grammar travels as a predicate and the finding-id catalog as data, both from
+   their owners through `src/audit/create-audit.js` and `src/runtime.js`. A
+   local copy of the selector grammar had already passed review once, wrong in
+   both directions, and then a destructuring shadow made the composed predicate
+   `undefined` in production while the focused suite stayed green. A missing
+   capability now raises rather than reading as permission.
+8. **A cross-version diff makes no causal claim.** Different generator versions
+   produce "in the baseline only" and "in the current report only" rather than
+   "new" and "resolved", because a release can add or correct a finding without
+   anything about the domain changing. An id this build does not recognize is
+   shown with a note saying so, in every group it can appear in.
+9. **An incomparable protocol is named with both of its facts.** The side that
+   lacked it and why -- checked without result, never checked, or checked under
+   different options in the two reports, which belongs to both sides rather
+   than either one.
+
+Every acceptance criterion is covered by a committed test. The equivalence
+corpus replays 32 cases across five surfaces against the finished `v0.8.0`
+oracle with exactly two authorized differences -- the added `observability` map
+and 632 bytes of comparison styles -- and query traces, CSV and rendered DOM are
+byte-identical: comparison is a second mode over an already-rendered table and
+issues no query of its own. `tests/build/release-compat.test.mjs` bounds that
+difference class and proves each of its rules can fail.
+
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.10 (Implemented) | 2026-09-04 | Released in `v0.9.0`. Added the **As implemented** record, moved the spec and its size-measurement fixture into `implemented/` and corrected their links, and recorded the final evidence: 280 inventory checks, 5,491 assertions, 13/13 locales, and a 32-case five-surface replay whose only differences are the two this release authorized. |
 | 1.9 | 2026-09-04 | **Final, amended during implementation of step 10.** Publishes the second audit-owned capability. Section 4 requires an imported finding this build cannot describe to be shown with a note saying so, which is answerable only against the set of ids this build produces — owned by `src/audit/findings.js`, unimportable from `src/ui/`. 1.8 named only the DKIM selector grammar and bounded step 10 to `src/ui/`, `index.html` and `css/style.css`, so the implementation satisfied a normative promise through three files the plan said it would not touch: the same cross-owner silence corrected at 1.4 and 1.6. Section 0 now names the owner, the composition route and the closed, fresh-array, read-only value contract, and step 10 lists the files. Section 6 also states that an incomparable protocol carries TWO facts, side and reason, and that neither substitutes for the other — the first implementation rendered the side alone, collapsing `unproven` and `not-run` into one sentence — and that the unknown-id note reaches the severity-change group too. No product decision reopened. Found by Codex review of commit `31e4905` (I31, I32, I33). |
 | 1.8 | 2026-09-04 | **Final, amended during implementation of step 10.** Two corrections. **(a) Step 10 is not owner-bound and now says so.** The plan called it `src/ui/events.js`, but a control needs markup, a listener and presentation, and no two of `index.html`, `src/ui/events.js` and `css/style.css` ship apart without a broken browser in between — the same rule that forced every earlier step to be SPLIT forces this one to be whole. Recorded as the deliberate exception rather than committed under a label it does not fit. **(b) Section 6 now states what the table must show.** The first implementation decorated existing rows only, so a `removed` domain and a comparison of two reports with no run produced a summary counting domains the table never displayed, and the detail row carried none of the finding, record or per-protocol evidence the comparison had already computed. No product decision reopened. Found by Codex review of the step-10 commit (I22, I23, I26). |
 | 1.7 | 2026-09-04 | **Final, amended before the locale commit.** Publishes the importer's error shape, which 1.0 left as a bare `errors: []` while the localization section promised translated messages. The implementation had filled that silence with English prose at eighty call sites, which a UI cannot translate. Errors are now `{ code, path?, detail? }` over a closed six-member set; only the code is localized, and the schema path and failing clause stay literal technical data for the same reason a schema field name is never translated. The alternative — a locale key per validator clause — would have added roughly fifty keys in thirteen languages to describe fields a report written by this tool cannot contain. A runtime's own `JSON.parse` text is diagnostic detail and never the primary message, because it varies by engine. Adds the shape change as step 8, before the locale commit that writes messages for its codes. No product decision reopened. |

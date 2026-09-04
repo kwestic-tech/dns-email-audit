@@ -82,7 +82,7 @@ headroom, not a rounded-up match.
 
 ## The bound the draft missed
 
-`MAX_DOMAINS = 200` in [`src/ui/events.js`](../../../src/ui/events.js), stated
+`MAX_DOMAINS = 200` in [`src/ui/events.js`](../../../../src/ui/events.js), stated
 in `index.html`, `locales/en.json` (`errors.tooMany`) and the package
 description. **This tool cannot produce a report with more than 200 domains
 in it.** The draft's 1000-domain import limit therefore accepts files this

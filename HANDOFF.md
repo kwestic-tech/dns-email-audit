@@ -2,100 +2,45 @@
 
 ## Current state
 
-Released through `v0.8.1`. Private local MTA-STS policy and BIMI SVG validators
-now consume 0.7.0's structured-finding boundary without changing legacy
-issues, suggestions, scores or grades. Supplied artifacts remain in memory,
-produce no network request, and are never rendered as active markup.
+Released through `v0.9.0`. A finished audit can be exported as a versioned JSON
+report and two reports can be compared entirely in the browser tab. The
+comparison overlays the existing results table, and leaving the mode or
+reloading discards both reports; nothing is written to storage.
 
-`v0.8.1` is a patch release with no new capability: it fixes five defects found
-by an external review of `v0.8.0` — a hostile NS label that discarded a whole
-run, a double click that started two audits, an unsentinelised provider badge,
-prototype-chain resolution in the i18n and entity lookups, and a BIMI `url()`
-screen that was wrong in both directions — plus a footer entity that rendered
-as literal text, and the documentation drift the review catalogued. The
-`local-artifact-validation` spec is amended to 1.11 to record the corrected
-`url()` rule and the new `data-uri-reference` diagnostic.
+`v0.9.0` also adds a per-protocol observability fact to every audit — a total
+map over the thirteen protocols, closed over observed, unproven and not-run.
+That is what makes a comparison safe to trust: a protocol either report did not
+observe is marked with the side that lacked it and the reason, rather than
+having its findings reported as resolved. `analysisVersion` gates the score
+delta only, and a difference in generator version shows the finding movement
+without labelling it improved or regressed.
 
-The remaining release sequence is:
+The `report-comparison` spec is at `1.10 (Implemented, amended)` and records
+nine implementation divergences in its **As implemented** section, eight of them
+found by review of the working tree rather than of the finished branch.
+
+One release remains:
 
 ```text
-0.9.0 reports → 1.0.0 readiness
+1.0.0 readiness
 ```
 
-Each remaining spec must be reviewed to Final before its implementation
-begins. `report-comparison` reached that bar on 2026-09-03;
-`one-zero-readiness` has not, and its `OQ-ONE-*` questions are not approved by
-the sequence above.
+## Start here: review `one-zero-readiness` to Final
 
-## Start here: implement 0.9.0 stateless report comparison
+Spec: [`docs/specs/one-zero-readiness.md`](docs/specs/one-zero-readiness.md),
+**`0.1`, Draft — not approved for implementation.** Every spec is Final before
+its implementation begins, and this one is not: its `OQ-ONE-*` questions are
+open, starting with `OQ-ONE-01`, whether 1.0.0 remains a dedicated graduation
+release at all rather than a version number placed on the state 0.9.0 leaves.
 
-Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md),
-**`1.9 (Final, amended)`, approved for implementation**. The review resolved all
-seven `OQ-CMP-*` questions as `RQ-CMP-01`–`07`, reconciled the schema against
-what `v0.8.1` actually produces, and raised and resolved one more —
-`RQ-CMP-08`, per-protocol comparability. The 1.1 amendment corrects the
-implementable contract without reopening those product decisions.
+`0.9.0` is what makes that question answerable now. The public report schema is
+the last compatibility surface the 1.x promise has to cover, and it exists:
+`schemaVersion`, a closed rejection vocabulary, published limits, and an
+explicit policy that fields are added and deprecated but never repurposed.
 
-Build it in the ten owner-bound commits the spec's §0 lists, in that order.
-Each leaves the browser working, and the order is load-bearing in two places:
-
-1. `src/audit/` — `ANALYSIS_VERSION` and the observability projection.
-2. `src/runtime.js` — `APP_VERSION` and injected version metadata.
-3. `src/ui/report-data.js` — pure schema, validation and comparison.
-4. `src/platform/browser.js` — `nowIso()`, the report's UTC instant.
-5. `src/runtime.js` — the resolver URL as a capability.
-6. `src/ui/events.js` — the run context the export reads, and the composed
-   selector predicate replacing an inlined copy of the grammar.
-7. `src/ui/report.js` — `exportJSON()`.
-8. `src/ui/report-data.js` — the coded importer error shape.
-9. `locales/en.json` and all thirteen translations.
-10. `src/ui/`, `index.html`, `css/style.css` — import controls, comparison
-    mode, rendering and filters — plus `src/audit/findings.js`,
-    `src/audit/create-audit.js` and `src/runtime.js` for the finding-id
-    catalog. The one step that is not owner-bound: markup, listener and
-    presentation are not shippable apart, and the unknown-id note cannot be
-    answered from inside `src/ui/`.
-
-**The locale commit precedes the UI wiring, and that is not a preference.**
-Step 7 calls `t('toast.jsonExported')`, and `t()` returns the key itself when it
-is missing, so a control wired before step 9 would ship a browser whose export
-toast reads `toast.jsonExported`. Nothing invokes that call until a control
-exists, which is what makes step 7 sound on its own. Step 8 has to precede the
-locales for the same kind of reason: the messages written there are messages for
-its codes.
-
-The review findings are implementation prerequisites rather than design notes,
-and these are the easiest to miss:
-
-- **`generator.version` has no runtime source.** The package version reaches
-  only the bundle's comment banner in `tools/build-bundle.mjs`. Commit 2 adds
-  `APP_VERSION` to the existing `src/runtime.js` composition owner and pins it
-  to `package.json`; `src/version.js` is not permitted by the import matrix.
-- **`generatedAt` is the moment the audit run completed**, captured once in
-  `src/ui/events.js` run state and reused by every export of that run. As
-  export time, acceptance criterion 4 is untestable.
-- **The schema is a projection, not a dump.** The exclusion table in §1 is the
-  specification; its normalized record paths are asserted in both directions,
-  because a test that only checks the wanted fields would pass on a dump or a
-  dead whitelist member.
-- **`deepChecks` is part of report provenance.** Its mismatch makes MX and DANE
-  incomparable without blanking unrelated protocols.
-- **Observability is an audit fact.** Do not infer it from finding confidence:
-  that loses unscored MX/DANE failures and overstates partial DMARC failures.
-- **Cross-generator finding movement is qualified.** Keep the raw id diff, but
-  use `changed` and baseline/current-only labels rather than claiming domain
-  improvement or regression.
-
-The 0.8.0 release established the inputs 0.9.0 must respect:
-
-1. Artifact findings are explicitly `user-supplied` and separate from DNS
-   findings, scores and reproducible public observations.
-2. CSV and static HTML present the current session's artifact findings, but the
-   0.8.0 decision excludes them from 0.9.0's versioned comparison JSON.
-3. Reload discards supplied material. The comparison release must preserve the
-   same zero-persistence boundary for imported reports.
-4. Existing CSV columns keep their positions; new report formats need an
-   explicit compatibility and versioning rule before they ship.
+[`docs/specs/external-intelligence.md`](docs/specs/external-intelligence.md) is
+a decision document with no implementation phase; the readiness draft requires
+it to be Final before 1.0.0, subject to `OQ-ONE-05`.
 
 ## What follows
 
@@ -103,8 +48,8 @@ The 0.8.0 release established the inputs 0.9.0 must respect:
 | --- | --- | --- | --- |
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
-| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec Final, amended at `1.9` | Versioned JSON schema, import validation and stateless comparison |
-| 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
+| 0.9.0 | [report-comparison](docs/specs/implemented/report-comparison.md) | Released as `v0.9.0` | Versioned JSON schema, import validation and stateless comparison |
+| 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary
 
@@ -116,7 +61,8 @@ uses the real browser parser and must prove its own detectors fail.
 
 ### 0.9.0 boundary
 
-Pure report schema and comparison work stays within `src/ui/` siblings.
+As shipped. Pure report schema and comparison work stays within `src/ui/`
+siblings.
 `ANALYSIS_VERSION` remains owned by `src/audit/scoring.js` and crosses the
 existing composition boundary; the UI never imports scoring. `APP_VERSION`
 lives in `src/runtime.js`, not a new unowned root module. `RQ-CMP-06` keeps one
@@ -137,8 +83,8 @@ dedicated release is `OQ-ONE-01` and must be resolved during spec review.
 ## Product-boundary decision alongside the feature work
 
 [`docs/specs/external-intelligence.md`](docs/specs/external-intelligence.md) has
-no implementation phase. Review it as a decision document while 0.9.0
-progresses. The 1.0 readiness draft currently requires it to be Final before
+no implementation phase. Review it as a decision document alongside the
+1.0.0 readiness spec. The 1.0 readiness draft currently requires it to be Final before
 1.0.0, subject to `OQ-ONE-05`.
 
 ## Standing rules

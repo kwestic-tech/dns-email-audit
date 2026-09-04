@@ -32,8 +32,8 @@ diverged from.
 ## Planned
 
 `Target release` below is a version-numbering anchor, kept per the naming rule
-in this document. **As of 2026-09-02, the remaining build order is also the
-release order:** 0.9.0 reports, then the 1.0.0 graduation gate. The earlier
+in this document. **As of 2026-09-04, one planned release remains:** the 1.0.0 graduation
+gate. 0.9.0 reports shipped. The earlier
 parallel artifact proposal was retired after the 0.6.0 refactor shipped; 0.7.0
 supplied the final finding shape and 0.8.0 consumed it without widening the
 public-DNS score. See [`HANDOFF.md`](../../HANDOFF.md) for the current operational
@@ -42,7 +42,6 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [report-comparison](report-comparison.md) | 0.9.0 | 1.9 | **Final, amended; approved for implementation** |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 
@@ -74,11 +73,11 @@ that produced it:
 | `implemented/fixtures/` | Captures for the specs they belong to, moved with the spec |
 
 A `fixtures/` directory alongside a spec still under review holds the same
-thing before the move. One exists:
-[report-size-measurement-0.9.0](fixtures/report-size-measurement-0.9.0.md),
-which settles `RQ-CMP-01` and `RQ-CMP-02` by measuring the committed
-equivalence corpus, and shows that the 0.3 draft's exported report would have
-exceeded its own import limit.
+thing before the move. There is none right now, because
+[report-size-measurement-0.9.0](implemented/fixtures/report-size-measurement-0.9.0.md)
+moved with its spec when 0.9.0 shipped. It settles `RQ-CMP-01` and `RQ-CMP-02`
+by measuring the committed equivalence corpus, and shows that the 0.3 draft's
+exported report would have exceeded its own import limit.
 
 The same pattern applies to a question that is settled by measuring this
 project rather than a resolver.
@@ -129,6 +128,7 @@ precedent, and one spec was superseded outright during implementation.
 | [modular-architecture-and-production-build](implemented/modular-architecture-and-production-build.md) | 0.6.0 | — | `v0.6.0` | 1.8 (Implemented) |
 | [findings-and-remediation](implemented/findings-and-remediation.md) | 0.7.0 | [#29](https://github.com/kwestic-tech/dns-email-audit/pull/29) | `v0.7.0` | 1.7 (Implemented) |
 | [local-artifact-validation](implemented/local-artifact-validation.md) | 0.8.0, amended in 0.8.1 | [#30](https://github.com/kwestic-tech/dns-email-audit/pull/30) | `v0.8.0`, amended at `v0.8.1` | 1.11 (Implemented, amended) |
+| [report-comparison](implemented/report-comparison.md) | 0.9.0 | — | `v0.9.0` | 1.10 (Implemented, amended) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in

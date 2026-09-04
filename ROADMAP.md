@@ -67,6 +67,7 @@ and an unverifiable result is marked rather than hidden.
 | 0.7.0 | Stable finding identity, source-bound evidence and dependency-ordered remediation | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) |
 | 0.8.0 | Private local MTA-STS policy and BIMI SVG validation with user-supplied provenance | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) |
 | 0.8.1 | Output-integrity hardening for hostile DNS/locale values, audit re-entry and BIMI SVG references | [local-artifact-validation, amended to 1.11](docs/specs/implemented/local-artifact-validation.md) |
+| 0.9.0 | A versioned JSON report, and comparison of two of them in memory with per-protocol observability | [report-comparison](docs/specs/implemented/report-comparison.md) |
 
 `0.1.0` and the work merged as PRs #1 through #7 predate the spec process and are
 documented in [`CHANGELOG.md`](CHANGELOG.md) only.
@@ -81,7 +82,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 4 | DKIM, MX, CAA and DANE depth | **Done.** 0.4.0 decodes DKIM public keys to algorithm and modulus size, parses CAA into a policy with wildcard semantics, resolves every MX target to find dangling and CNAME hosts, and adds TLSA lookup, reported per host as DNSSEC-authenticated or not on the strength of the resolver's AD bit for that host's own name. 0.5.0 reviewed and **retired** the `qualified` flag rather than completing it: a TLSA record lives in the MX host's zone, which the audited domain's chain evidence says nothing about, and local DS-to-DNSKEY matching never validates RRSIGs and so cannot exceed the resolver's per-host verdict (`OQ-SEC9-07`). Every observation is advisory: zero grade movement. | [0.4.0](docs/specs/implemented/dns-protocol-depth.md), released |
 | 5 | DNSSEC depth | **Done.** 0.5.0 queries the child `DNSKEY` set and the parent `DS` set, matches the digests locally with Web Crypto, and replaces the four-state model with six — separating a signed-but-unanchored zone and a DS/DNSKEY mismatch from a zone that was never signed. The resolver's AD flag remains the validation signal, and every claim is attributed to it or to local computation. | [0.5.0](docs/specs/implemented/dnssec-evidence.md), released |
 | 6 | Local MTA-STS and BIMI validation | **Done.** 0.8.0 adds a separate in-memory panel for supplied MTA-STS policy and BIMI SVG material, with strict pre-parse limits, source-bound findings and no network, storage, scoring or logo-rendering path. 0.8.1 hardens output handling and amends the SVG `url()` rule without changing that boundary. | [0.8.0 and 0.8.1](docs/specs/implemented/local-artifact-validation.md), released |
-| 7 | Local report comparison | Not started; **spec Final, amended at `1.1`.** Exports are CSV and static HTML; nothing can be read back. The review settled all seven open questions, replaced the draft's result-object dump with a named projection, and added explicit per-protocol observability so an unobserved protocol is never reported as fixed. | [0.9.0](docs/specs/report-comparison.md) |
+| 7 | Local report comparison | **Done.** 0.9.0 adds a versioned JSON report and compares two of them entirely in memory. The schema is a named projection rather than a dump of the result object, settled by measurement; per-protocol observability means an unobserved protocol is marked with its reason rather than reported as fixed; and an analysis-version or generator-version difference withholds the claim it cannot support instead of the whole diff. Nothing is persisted. | [0.9.0](docs/specs/implemented/report-comparison.md), released |
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
 | 9 | Modular architecture and production build | **Done.** Released as 0.6.0; all six gates met. Spec `1.8`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with thirteen owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md), released |
 | 10 | 1.0 product contract and release readiness | Not started. The compatibility surface, supported environments, accessibility evidence and graduation gate are now explicit rather than inferred from completing 0.9.0. | [1.0.0](docs/specs/one-zero-readiness.md) |
@@ -244,7 +245,7 @@ query traces, CSV, HTML and DOM. Released as `v0.8.1`.
 
 ### 0.9.0: Stateless report comparison
 
-Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md) — `1.9 (Final, amended)`
+Spec: [`docs/specs/implemented/report-comparison.md`](docs/specs/implemented/report-comparison.md) — `1.10 (Implemented, amended)`. Released as `v0.9.0`.
 
 Defines a versioned JSON report schema, exports normalized evidence with an
 `analysisVersion`, and compares two reports entirely in memory to show new,
@@ -316,14 +317,14 @@ with the protocol chain and reconcile a temporary finding stub later. That did
 not happen before the refactor serialized the source tree, and preserving the
 old optimization would now create avoidable contract churn.
 
-The remaining work is intentionally sequential:
+One release remains:
 
 ```text
-0.9.0 reports → 1.0.0 graduation
+1.0.0 graduation
 ```
 
 `0.7.0` froze finding identity and provenance. `0.8.0` consumed that final
-shape rather than inventing a stub. `0.9.0` now freezes the public report
+shape rather than inventing a stub. `0.9.0` froze the public report
 schema around both DNS and user-supplied provenance decisions. `1.0.0` verifies
 and documents the compatibility promises made by those releases. The decision
 document for external intelligence can be reviewed alongside the feature specs,
