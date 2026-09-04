@@ -809,10 +809,10 @@
  ],
  "notInNpmTest": [
   {
-   "command": "node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.8.0.json",
+   "command": "npm run equivalence",
    "why": "The five-surface comparison against the finished release baseline. Roughly 70 s for 32 cases, so it runs in CI rather than inside npm test; release-compat.test.mjs separately bounds the intentional v0.5.0 to v0.7.0, v0.7.0 to v0.8.0 and v0.8.0 to v0.9.0 deltas.",
    "areas": [
-    "exact five-surface equivalence against v0.8.0: result, query trace, CSV, HTML report, DOM"
+    "exact five-surface equivalence against v0.9.0: result, query trace, CSV, HTML report, DOM"
    ]
   },
   {

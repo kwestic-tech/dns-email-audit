@@ -145,12 +145,12 @@ jobs:
       - run: npm run build:bundle
 
       - name: Against the working tree
-        run: node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.8.0.json
+        run: npm run equivalence
 
       - name: Against the deployable artifact
         run: |
           npm run build
-          node tests/build/equivalence.mjs --subject-root=_site --baseline=tests/fixtures/equivalence/baseline-v0.8.0.json
+          npm run equivalence -- --subject-root=_site
 
       # The baseline is committed, so CI must be able to reproduce it rather
       # than take it on trust. Spec Design §8.
