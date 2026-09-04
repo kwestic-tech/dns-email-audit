@@ -233,6 +233,139 @@ section('4. A completed run stamps the report it can export');
   win.URL.createObjectURL = realCreateObjectUrl;
 }
 
+/* ── 5. Comparison mode ──────────────────────────────────────────────── */
+section('5. Comparison mode');
+
+/**
+ * Driven through the booted page, because comparison is a MODE: what it does
+ * to the table, the summary and the filters is the feature, and none of that
+ * is reachable by calling `compareReports()` directly.
+ *
+ * The DOM shim answers element-scoped queries and not document-wide descendant
+ * selectors, so every assertion below reads from the element that owns the
+ * nodes. That limit is also why `renderComparisonRows()` looks its header row
+ * up by id: a structural `thead tr` selector appended the delta header to a
+ * DATA row here, and would have shipped that way.
+ */
+async function bootedRun(domains) {
+  const booted = await boot();
+  booted.document.getElementById('domainInput').value = domains;
+  click(booted.document.getElementById('auditBtn'));
+  await settle();
+  return booted;
+}
+
+// The header row, the same way the application finds it: the real DOM answer
+// where table sections exist, document order otherwise. Deliberately not an id
+// in the markup — adding one moved the exported HTML report for all 32 cases.
+const headRowOf = (doc) => {
+  const table = doc.getElementById('resultsTable');
+  if (table.tHead && table.tHead.rows && table.tHead.rows.length) return table.tHead.rows[0];
+  return table.querySelectorAll('tr')[0];
+};
+const headCells = (doc) => Array.prototype.filter.call(
+  headRowOf(doc).childNodes, n => n && n.id === 'compareHeadCell').length;
+const deltaCells = doc => doc.getElementById('tableBody').querySelectorAll('.compare-cell').length;
+const comparedRows = doc => Array.prototype.filter.call(
+  doc.getElementById('tableBody').querySelectorAll('tr'), r => r.dataset && r.dataset.compare)
+  .map(r => r.dataset.domain + '=' + r.dataset.compare);
+
+{
+  const { document, ui } = await bootedRun('a.example\nb.example');
+  const current = ui.buildReportJson();
+  eq('the run can be exported as a report', current.domains.map(d => d.domain), ['a.example', 'b.example']);
+
+  // A baseline that has one of the two domains, so the other reads as added.
+  const baseline = JSON.parse(JSON.stringify(current));
+  baseline.domains = baseline.domains.filter(d => d.domain !== 'b.example');
+
+  ui.acceptImportedReport(JSON.stringify(baseline));
+  eq('importing a baseline enters comparison', ui.getComparison() !== null, true);
+  eq('every domain gets a verdict', comparedRows(document),
+    ['a.example=unchanged', 'b.example=added']);
+  eq('the delta column is added once', headCells(document), 1);
+  eq('and one cell per row', deltaCells(document), 2);
+  eq('the exit control and the comparison filter appear',
+    [document.getElementById('exitCompareBtn').style.display,
+      document.getElementById('filterCompare').style.display], ['', '']);
+  eq('the summary is replaced by the comparison summary',
+    document.getElementById('statsGrid').textContent.includes('Unchanged'), true);
+
+  // Entering twice must not stack a second column.
+  ui.acceptImportedReport(JSON.stringify(baseline));
+  eq('entering again does not add a second delta column', headCells(document), 1);
+  eq('nor a second cell per row', deltaCells(document), 2);
+
+  ui.exitComparison();
+  eq('leaving discards the comparison', ui.getComparison(), null);
+  eq('and takes the column with it', [headCells(document), deltaCells(document)], [0, 0]);
+  eq('and the verdicts', comparedRows(document), []);
+  eq('and hides the notice', document.getElementById('compareNotice').style.display, 'none');
+}
+
+/* A rejected file explains itself and changes nothing. */
+{
+  const { document, ui } = await bootedRun('a.example');
+  const before = comparedRows(document);
+
+  ui.acceptImportedReport('{"schema":"something-else","schemaVersion":1}');
+  const notice = document.getElementById('compareNotice');
+  eq('a foreign file is refused with the message for its code',
+    notice.textContent.includes('not a report from this tool'), true);
+  eq('and the notice is a warning, not the comparison banner',
+    notice.className.includes('callout-warn'), true);
+  eq('no comparison was entered', ui.getComparison(), null);
+  eq('and the table is untouched', comparedRows(document), before);
+
+  // A malformed field carries its schema path, untranslated, beneath the
+  // localized sentence. That pairing is the whole of spec 1.7 section 4.
+  ui.acceptImportedReport(JSON.stringify({
+    schema: 'dns-email-audit/report', schemaVersion: 1,
+    generatedAt: '2026-09-04T00:00:00.000Z',
+    generator: { version: '0.9.0', analysisVersion: 1 },
+    resolver: 'https://cloudflare-dns.com/dns-query',
+    options: { dkim: true, dkimComprehensive: false, www: true, wildcard: true,
+      advanced: true, deepChecks: true, selectors: [] },
+    domains: [], extra: 1, badField: true,
+  }).replace('"resolver":"https://cloudflare-dns.com/dns-query"', '"resolver":"https://"'));
+  eq('a malformed field names itself in the message', [
+    document.getElementById('compareNotice').textContent.includes('cannot read'),
+    document.getElementById('compareNotice').textContent.includes('resolver'),
+  ], [true, true]);
+}
+
+/* A hostile value inside an accepted report is data, and stays data. */
+{
+  const { document, ui } = await bootedRun('a.example');
+  const report = ui.buildReportJson();
+  const hostile = '<img src=x onerror=alert(1)>';
+  report.domains[0].records.spf = [{ queryName: 'a.example', value: hostile }];
+  ui.acceptImportedReport(JSON.stringify(report));
+  eq('a report carrying a script-like record value is still accepted',
+    ui.getComparison() !== null, true);
+  const html = document.getElementById('resultsSection').innerHTML || '';
+  eq('and no element was created from it', html.includes('<img src=x'), false);
+}
+
+/* Two reports, no audit: the second entry path section 6 names. */
+{
+  const booted = await boot();
+  const { document, ui } = booted;
+  const seed = await bootedRun('a.example');
+  const first = seed.ui.buildReportJson();
+  const second = JSON.parse(JSON.stringify(first));
+  second.domains[0].score.pts = first.domains[0].score.pts;
+
+  ui.acceptImportedReport(JSON.stringify(first));
+  eq('one report alone does not start a comparison', ui.getComparison(), null);
+  eq('and the page says what it is waiting for',
+    document.getElementById('compareNotice').textContent.includes('Choose a saved report'), true);
+  ui.acceptImportedReport(JSON.stringify(second));
+  eq('the second one does', ui.getComparison() !== null, true);
+  eq('with both domains accounted for',
+    ui.getComparison().domains.length, first.domains.length);
+}
+
 console.log(`\n${'='.repeat(60)}`);
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

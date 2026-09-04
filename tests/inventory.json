@@ -78,11 +78,16 @@
   },
   {
    "path": "tools/audit-run.test.mjs",
-   "assertions": 12,
+   "assertions": 36,
    "areas": [
     "the audit run loop, booted from index.html and driven through its own controls",
     "one double click starts one run, and every early return releases the run guard",
-    "a completed run stamps its own instant and options, driven through the click path with a pinned clock: the export's timestamp, captured options, download name and re-importability"
+    "a completed run stamps its own instant and options, driven through the click path with a pinned clock: the export's timestamp, captured options, download name and re-importability",
+    "comparison mode driven through the booted page: importing a baseline while results are showing enters it, every domain gets a verdict, and the delta column is added exactly once however many times it is entered",
+    "leaving comparison discards the comparison, the column, the verdicts and the notice",
+    "a refused import shows the message for its code with the untranslated schema path beneath it, and changes nothing in the table",
+    "a script-like record value inside an accepted report stays data and creates no element",
+    "the second entry path: two reports compared with no audit running"
    ]
   },
   {

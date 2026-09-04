@@ -46,7 +46,7 @@ import { createReport, serializeDocument, styleElement } from './report.js';
 // The run cap and the importer's domain cap are ONE constant, per
 // report-comparison 1.7 section 4: an importer that accepted more would
 // accept a file this application could not have written.
-import { MAX_DOMAINS } from './report-data.js';
+import { MAX_DOMAINS, LIMITS, parseReport, compareReports } from './report-data.js';
 
 /**
  * Build the page over this runtime's i18n, renderer, platform and facade.
@@ -124,6 +124,20 @@ export function createUi(capabilities) {
    * with the results, and gone on reload like everything else.
    */
   var runContext = null;
+
+  /**
+   * Comparison mode. Spec: report-comparison 1.7 section 6.
+   *
+   * `pendingReport` holds an imported report when there is no run to compare it
+   * against yet, so two files can be compared with no audit at all.
+   * `comparison` holds the result of `compareReports()`.
+   *
+   * Both are plain memory and nothing writes them anywhere: leaving the mode
+   * clears them, and a reload has no history to restore. That is the whole
+   * privacy argument for this release, so it is one assignment, not a store.
+   */
+  var pendingReport = null;
+  var comparison = null;
   var sortCol = null;
   var sortDir = 1;
   var auditController = null;
@@ -1639,6 +1653,11 @@ export function createUi(capabilities) {
       else if (filter === 'no-caa') matchesFilter = tr.dataset.caa === 'no';
       else if (filter === 'no-dnssec') matchesFilter = tr.dataset.dnssec === 'no';
 
+      // Comparison verdicts are a SECOND axis, not a replacement: a reader
+      // narrowing to regressed domains still wants the search box to work.
+      var compareFilter = comparison ? $('filterCompare').value : '';
+      if (compareFilter) matchesFilter = matchesFilter && tr.dataset.compare === compareFilter;
+
       var show = matchesSearch && matchesFilter;
       tr.classList.toggle('hidden', !show);
       var det = $('det-' + tr.id.replace('row-', ''));
@@ -1773,7 +1792,7 @@ export function createUi(capabilities) {
       R.el('span', { className: 'spinner' }),
       R.text(' ' + t('btn.auditRunning')),
     ]));
-    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = 'none'; });
+    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn', 'exportJsonBtn'].forEach(function (id) { $(id).style.display = 'none'; });
     ['summarySection', 'resultsSection', 'emptyState'].forEach(function (id) { $(id).style.display = 'none'; });
     $('resultsToolbar').style.display = 'none';
     $('progressSection').style.display = 'block';
@@ -1810,7 +1829,7 @@ export function createUi(capabilities) {
     $('auditBtn').disabled = false;
     $('cancelBtn').style.display = 'none';
     $('auditBtn').textContent = t('btn.runAudit');
-    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = ''; });
+    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn', 'exportJsonBtn'].forEach(function (id) { $(id).style.display = ''; });
     setTimeout(function () { $('progressSection').style.display = 'none'; }, 1200);
 
     $('tableBody').replaceChildren();
@@ -1857,6 +1876,301 @@ export function createUi(capabilities) {
       versions, resolver, validSelector,
       getRunContext: function () { return runContext; },
     });
+
+  /* ── Comparison mode ────────────────────────────────────────────────── */
+
+  /**
+   * Map a rejection code onto its message key.
+   *
+   * A null-prototype map because the code reaches this line from a file
+   * somebody was handed, and 0.8.1 fixed this exact class of defect: against an
+   * object literal, a code of `__proto__` resolves through the chain to
+   * something truthy.
+   */
+  var IMPORT_MESSAGE = Object.assign(Object.create(null), {
+    'invalid-json': 'compare.import.invalidJson',
+    'not-report': 'compare.import.notReport',
+    'newer-version': 'compare.import.newerVersion',
+    'too-large': 'compare.import.tooLarge',
+    'too-many-domains': 'compare.import.tooManyDomains',
+    'malformed': 'compare.import.malformed',
+  });
+
+  /**
+   * Render one rejection: a localized sentence for the code, and beneath it the
+   * schema path exactly as the importer reported it.
+   *
+   * The path and the clause are NOT translated. They name a location in a
+   * document rather than addressing a reader, which is the same reason a schema
+   * field name is never translated — and they are DNS-adjacent attacker-supplied
+   * text, so they go through the sentinel renderer like any other foreign value.
+   */
+  function importErrorNode(err) {
+    var key = Object.prototype.hasOwnProperty.call(IMPORT_MESSAGE, err.code)
+      ? IMPORT_MESSAGE[err.code] : 'compare.import.malformed';
+    var parts = [R.el('div', null, t(key))];
+    if (err.path || err.detail) {
+      parts.push(R.el('div', { style: 'font-size:12px;color:var(--ink3);margin-top:4px' },
+        R.sentinelText(t('compare.import.at', err.path || '', err.detail || ''))));
+    }
+    return R.frag(parts);
+  }
+
+  function showImportProblem(errors) {
+    var box = $('compareNotice');
+    box.className = 'callout callout-warn';
+    box.replaceChildren(R.frag((errors || []).map(importErrorNode)));
+    box.style.display = 'block';
+    showToast(t('toast.importFailed'));
+  }
+
+  /**
+   * Read a chosen report file.
+   *
+   * The byte check runs against `File.size` BEFORE `FileReader` does any work,
+   * which is the pattern 0.8.0 established for supplied artifacts: a file too
+   * large to be one of ours is refused without being read into memory at all.
+   */
+  function importReportFile(e) {
+    var file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > LIMITS.bytes) { showImportProblem([{ code: 'too-large' }]); return; }
+    var reader = new FileReader();
+    reader.onload = function (ev) { acceptImportedReport(String(ev.target.result || '')); };
+    reader.onerror = function () { showImportProblem([{ code: 'invalid-json' }]); };
+    reader.readAsText(file);
+  }
+
+  /**
+   * Validate an imported report and decide what it can be compared against.
+   *
+   * Two entry paths, both from section 6: a report imported while results are
+   * on screen becomes the BASELINE for the run that is showing, and a report
+   * imported with no run waits for a second file.
+   */
+  function acceptImportedReport(text) {
+    var parsed = parseReport(text, { validSelector: validSelector });
+    if (!parsed.ok) { showImportProblem(parsed.errors); return; }
+
+    var haveRun = runContext && results.filter(Boolean).length > 0;
+    if (haveRun) { enterComparison(parsed.report, buildReportJson()); return; }
+    if (pendingReport) { enterComparison(pendingReport, parsed.report); return; }
+
+    pendingReport = parsed.report;
+    var box = $('compareNotice');
+    box.className = 'callout callout-info';
+    box.replaceChildren(R.el('div', null, t('compare.chooseBaseline')));
+    box.style.display = 'block';
+    showToast(t('toast.reportImported'));
+  }
+
+  function enterComparison(baseline, current) {
+    comparison = compareReports(baseline, current);
+    pendingReport = null;
+    renderComparison();
+    showToast(t('toast.reportImported'));
+  }
+
+  /**
+   * Leave comparison mode and forget both reports.
+   *
+   * Section 6: "Leaving comparison mode discards the imported report from
+   * memory. So does reloading, which is the point."
+   */
+  function exitComparison() {
+    comparison = null;
+    pendingReport = null;
+    $('compareNotice').style.display = 'none';
+    $('compareNotice').replaceChildren();
+    $('exitCompareBtn').style.display = 'none';
+    $('filterCompare').style.display = 'none';
+    $('filterCompare').value = '';
+    resultRows().forEach(function (tr) {
+      delete tr.dataset.compare;
+      var cell = tr.querySelectorAll('.compare-cell')[0];
+      if (cell) cell.remove();
+    });
+    var headRow = headerRow();
+    var head = headRow && compareHeadCell(headRow);
+    if (head) head.remove();
+    if (results.filter(Boolean).length) renderSummary();
+    else $('statsGrid').replaceChildren();
+    filterTable();
+  }
+
+  /** The comparison summary, replacing the stats grid while the mode is on. */
+  function renderComparisonSummary() {
+    var s = comparison.summary;
+    $('statsGrid').replaceChildren(R.frag([
+      tile(s.improved, t('compare.status.improved'), 'c-ok'),
+      tile(s.regressed, t('compare.status.regressed'), 'c-crit'),
+      tile(s.changed, t('compare.status.changed'), 'c-warn'),
+      tile(s.unchanged, t('compare.status.unchanged'), 'c-muted'),
+      tile(s.added, t('compare.status.added'), 'c-info'),
+      tile(s.removed, t('compare.status.removed'), 'c-muted'),
+      tile(s.incomparable, t('compare.status.incomparable'), 'c-muted'),
+    ]));
+  }
+
+  /**
+   * The whole-comparison notes: what the two reports do not share.
+   *
+   * `versionsDiffer` is not a warning about the files — it is why no domain in
+   * this comparison will read `improved` or `regressed`.
+   */
+  function renderCompareNotice() {
+    var meta = comparison.meta;
+    var lines = [
+      R.el('div', null, t('compare.heading')),
+      R.el('div', { style: 'font-size:12px;margin-top:4px' },
+        R.sentinelText(t('compare.baselineLabel', meta.baselineGeneratedAt))),
+      R.el('div', { style: 'font-size:12px' },
+        R.sentinelText(t('compare.currentLabel', meta.currentGeneratedAt))),
+    ];
+    if (!meta.findingSemanticsMatch) {
+      lines.push(R.el('div', { style: 'margin-top:6px' }, t('compare.meta.versionsDiffer')));
+    }
+    if (!meta.optionsMatch) {
+      lines.push(R.el('div', { style: 'margin-top:6px' },
+        R.sentinelText(t('compare.meta.optionsDiffer', meta.optionDifferences.join(', ')))));
+    }
+    var box = $('compareNotice');
+    box.className = 'callout callout-info';
+    box.replaceChildren(R.frag(lines));
+    box.style.display = 'block';
+  }
+
+  /** The score movement for one domain, or why there is none. */
+  function deltaNode(d) {
+    if (!d.scoreComparable) {
+      return R.el('span', { className: 'compare-unknown', title: t('compare.delta.notComparable') },
+        t('compare.delta.notComparable'));
+    }
+    if (!d.scoreDelta && !d.gradeChange) return R.el('span', { className: 'c-muted' }, t('compare.delta.none'));
+    var parts = [];
+    if (d.scoreDelta) {
+      parts.push(R.el('span', { className: d.scoreDelta > 0 ? 'c-ok' : 'c-crit' },
+        t(d.scoreDelta > 0 ? 'compare.delta.up' : 'compare.delta.down', d.scoreDelta)));
+    }
+    if (d.gradeChange) {
+      parts.push(R.el('span', { style: 'margin-left:6px;font-size:12px' },
+        t('compare.delta.grade', d.gradeChange.from, d.gradeChange.to)));
+    }
+    return R.frag(parts);
+  }
+
+  /**
+   * The result rows, scoped to the table body.
+   *
+   * Element-scoped rather than a document-wide descendant selector: it is the
+   * more precise query, and it is the one the DOM shim can answer, so the
+   * comparison overlay is testable without a browser.
+   */
+  /**
+   * The delta header cell, found by walking the row's own children.
+   *
+   * An id selector scoped to an element is not answerable everywhere the app
+   * runs its tests, and a lookup that silently finds nothing would add a second
+   * header on every comparison and leave the first behind on exit.
+   */
+  /**
+   * The results table's header row.
+   *
+   * `tHead.rows[0]` is the real DOM answer; the positional fallback is document
+   * order, where a table's own `tr` list puts header rows first. Deliberately
+   * NOT an id in `index.html`: adding one changed the exported HTML report for
+   * all thirty-two equivalence cases, and a published surface does not move to
+   * make a test easier to write.
+   */
+  function headerRow() {
+    var table = $('resultsTable');
+    if (!table) return null;
+    if (table.tHead && table.tHead.rows && table.tHead.rows.length) return table.tHead.rows[0];
+    return table.querySelectorAll('tr')[0] || null;
+  }
+
+  function compareHeadCell(headRow) {
+    return Array.prototype.filter.call(headRow.childNodes,
+      function (n) { return n && n.id === 'compareHeadCell'; })[0] || null;
+  }
+
+  function resultRows() {
+    return Array.prototype.filter.call($('tableBody').querySelectorAll('tr'),
+      function (tr) { return !tr.classList.contains('detail-row'); });
+  }
+
+  var COMPARE_CLS = Object.assign(Object.create(null), {
+    improved: 'ok', regressed: 'crit', changed: 'warn',
+    unchanged: 'muted', added: 'info', removed: 'muted', incomparable: 'muted',
+  });
+
+  /**
+   * Overlay the comparison onto the table that is already rendered.
+   *
+   * Section 6 chose an overlay over a separate view, so the delta column is
+   * ADDED here rather than declared in `index.html`: outside comparison mode
+   * there is nothing for it to hold, and a permanently empty column would move
+   * every exported report and every equivalence DOM surface for a mode almost
+   * nobody is in.
+   */
+  function renderComparisonRows() {
+    var byDomain = Object.create(null);
+    comparison.domains.forEach(function (d) { byDomain[d.domain] = d; });
+
+    // Looked up by id, not by `thead tr`. A structural selector would be a
+    // guess in any environment that does not model table sections, and the
+    // first version of this appended the header cell to a DATA row there.
+    var headRow = headerRow();
+    if (headRow && !compareHeadCell(headRow)) {
+      headRow.appendChild(R.el('th', { id: 'compareHeadCell', style: 'width:96px' },
+        R.el('span', null, t('th.delta'))));
+    }
+
+    resultRows().forEach(function (tr) {
+      var d = Object.prototype.hasOwnProperty.call(byDomain, tr.dataset.domain || '')
+        ? byDomain[tr.dataset.domain] : null;
+      var old = tr.querySelectorAll('.compare-cell')[0];
+      if (old) old.remove();
+      if (!d) return;
+      tr.dataset.compare = d.status;
+      var contents = [
+        badge(t('compare.status.' + d.status), COMPARE_CLS[d.status] || 'muted'),
+        R.el('div', { style: 'margin-top:4px' }, deltaNode(d)),
+      ];
+      // An incomparable protocol is named with its reason, never shown as a
+      // zero delta. Same treatment as the unproven-pillar grade marker.
+      (d.incomparableReasons || []).forEach(function (reason) {
+        contents.push(R.el('div', { className: 'compare-unknown', style: 'font-size:11px;margin-top:2px' },
+          t('compare.reason.' + reasonKey(reason))));
+      });
+      tr.appendChild(R.el('td', {
+        className: 'compare-cell',
+        dataset: { label: t('th.delta') },
+      }, R.frag(contents)));
+    });
+  }
+
+  var REASON_KEY = Object.assign(Object.create(null), {
+    state: 'state',
+    'no-comparable-protocol': 'noComparableProtocol',
+    options: 'options',
+    'analysis-version': 'analysisVersion',
+    'only-incomparable-movement': 'onlyIncomparableMovement',
+  });
+  function reasonKey(reason) {
+    return Object.prototype.hasOwnProperty.call(REASON_KEY, reason) ? REASON_KEY[reason] : 'options';
+  }
+
+  function renderComparison() {
+    renderCompareNotice();
+    renderComparisonSummary();
+    renderComparisonRows();
+    $('exitCompareBtn').style.display = '';
+    $('filterCompare').style.display = '';
+    $('summarySection').style.display = 'block';
+    filterTable();
+  }
 
   /* ── Input helpers ──────────────────────────────────────────────────── */
 
@@ -2173,6 +2487,10 @@ export function createUi(capabilities) {
     $('helpBtn').addEventListener('click', showHelp);
     $('exportCsvBtn').addEventListener('click', exportCSV);
     $('exportHtmlBtn').addEventListener('click', exportHTML);
+    $('exportJsonBtn').addEventListener('click', exportJSON);
+    $('importReportInput').addEventListener('change', importReportFile);
+    $('exitCompareBtn').addEventListener('click', exitComparison);
+    $('filterCompare').addEventListener('change', filterTable);
     $('langSelect').addEventListener('change', function () { setLang(this.value); });
     $('searchBox').addEventListener('input', filterTable);
     $('filterStatus').addEventListener('change', filterTable);
@@ -2218,6 +2536,8 @@ export function createUi(capabilities) {
     getArtifactSessions: function () { return artifactSessions; },
     appendRow, appendRowIsolated,
     exportJSON, buildReportJson, getRunContext: function () { return runContext; },
+    acceptImportedReport, exitComparison, importErrorNode,
+    getComparison: function () { return comparison; },
     buildLearnMorePage, buildReportDocument, buildCsvRows, toCsvText,
     neutralizeCsvCell, issueMessage, tDns, rowHygieneValues, scoreBlock,
     advMiniDots, advFullDots, spfMeter, tile, badge, detailItem, log,

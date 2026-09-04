@@ -91,6 +91,9 @@
     <button class="btn btn-outline btn-sm" id="helpBtn" data-i18n="btn.howItWorks">📖 How it works</button>
     <button class="btn btn-outline btn-sm" id="exportCsvBtn" style="display:none" data-i18n="btn.exportCsv">⬇ Export CSV</button>
     <button class="btn btn-outline btn-sm" id="exportHtmlBtn" style="display:none" data-i18n="btn.exportHtml">⬇ Export Report</button>
+    <button class="btn btn-outline btn-sm" id="exportJsonBtn" style="display:none" data-i18n="btn.exportJson">⬇ Export JSON</button>
+    <label class="btn btn-outline btn-sm file-upload-label" id="importReportLabel" for="importReportInput"><span data-i18n="btn.importReport">⬆ Compare with a saved report</span><input type="file" id="importReportInput" accept=".json,application/json"></label>
+    <button class="btn btn-outline btn-sm" id="exitCompareBtn" style="display:none" data-i18n="btn.exitCompare">Exit comparison</button>
   </div>
 </div>
 
@@ -143,6 +146,10 @@
 
   <div id="summarySection"><div class="stats-grid" id="statsGrid"></div></div>
 
+  <!-- Comparison mode. Empty and hidden until two reports are held in memory;
+       cleared on exit and gone on reload, like everything else here. -->
+  <div class="callout callout-info" id="compareNotice" style="display:none"></div>
+
   <div id="resultsToolbar">
     <div class="toolbar-left">
       <input class="search-box" type="text" id="searchBox" data-i18n-placeholder="search.placeholder" placeholder="🔎 Filter domains…">
@@ -157,6 +164,16 @@
         <option value="has-bimi" data-i18n="filter.hasBimi">Has BIMI</option>
         <option value="no-caa" data-i18n="filter.noCaa">Missing CAA</option>
         <option value="no-dnssec" data-i18n="filter.noDnssec">No DNSSEC</option>
+      </select>
+      <!-- Comparison filters. Shown only in comparison mode: outside it there
+           is no verdict for them to select on. -->
+      <select class="filter-select" id="filterCompare" style="display:none">
+        <option value="" data-i18n="filter.all">All domains</option>
+        <option value="improved" data-i18n="filter.improved">Improved</option>
+        <option value="regressed" data-i18n="filter.regressed">Regressed</option>
+        <option value="changed" data-i18n="filter.changed">Changed</option>
+        <option value="added" data-i18n="filter.added">New domains</option>
+        <option value="removed" data-i18n="filter.removed">Removed domains</option>
       </select>
     </div>
     <div><span id="rowCount" style="font-size:12px;color:var(--ink3);"></span></div>
