@@ -375,7 +375,8 @@
     "jsonExported": "已匯出 JSON",
     "reportImported": "已匯入報告 — 正在顯示變化",
     "comparisonCleared": "已清除比較",
-    "importFailed": "無法匯入該檔案"
+    "importFailed": "無法匯入該檔案",
+    "importDuringRun": "請等待稽核完成後再匯入報告"
   },
   "csv": {
     "unknown": "未知",
@@ -1453,7 +1454,8 @@
       "unproven": "{0} 已檢查，但未能確認",
       "notRun": "{0} 未檢查",
       "unknownInBaseline": "無法比較：基準報告中未觀測到 {0}",
-      "unknownInCurrent": "無法比較：目前的報告中未觀測到 {0}"
+      "unknownInCurrent": "無法比較：目前的報告中未觀測到 {0}",
+      "unknownBoth": "無法比較：兩份報告以不同的選項檢查了 {0}"
     },
     "delta": {
       "up": "+{0}",

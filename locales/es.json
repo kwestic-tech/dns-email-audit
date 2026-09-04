@@ -375,7 +375,8 @@
     "jsonExported": "JSON exportado",
     "reportImported": "Informe importado — se muestran los cambios",
     "comparisonCleared": "Comparación descartada",
-    "importFailed": "No se pudo importar ese archivo"
+    "importFailed": "No se pudo importar ese archivo",
+    "importDuringRun": "Espere a que termine la auditoría antes de importar un informe"
   },
   "csv": {
     "unknown": "Desconocido",
@@ -1453,7 +1454,8 @@
       "unproven": "{0} se comprobó pero no se estableció",
       "notRun": "{0} no se comprobó",
       "unknownInBaseline": "No comparable: {0} no se observó en el informe de referencia",
-      "unknownInCurrent": "No comparable: {0} no se observó en el informe actual"
+      "unknownInCurrent": "No comparable: {0} no se observó en el informe actual",
+      "unknownBoth": "No comparable: {0} se comprobó con opciones distintas en los dos informes"
     },
     "delta": {
       "up": "+{0}",

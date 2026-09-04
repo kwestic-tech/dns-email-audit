@@ -197,6 +197,9 @@ export function createAuditRuntime({
     // the constant. The exported report records it as provenance, and `ui/`
     // may not import `core/dns/`.
     resolver: DOH_ENDPOINT,
+    // Which finding ids this build knows, so an imported report carrying
+    // one it does not can say so rather than showing a bare token.
+    knownFindingIds: audit.findingCatalogIds(),
   });
 
   return {

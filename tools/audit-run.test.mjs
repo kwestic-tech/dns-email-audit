@@ -296,8 +296,12 @@ const comparedRows = doc => Array.prototype.filter.call(
   eq('importing a baseline enters comparison', ui.getComparison() !== null, true);
   eq('every domain gets a verdict', comparedRows(document),
     ['a.example=unchanged', 'b.example=added']);
-  eq('the delta column is added once', headCells(document), 1);
-  eq('and one cell per row', deltaCells(document), 2);
+  // No header cell here: this environment models no table sections, and
+  // `headerRow()` refuses to guess rather than append a `th` to a data row.
+  eq('no header cell is invented without a header row', headCells(document), 0);
+  eq('but there is one delta cell per row', deltaCells(document), 2);
+  eq('and each names its column', document.getElementById('tableBody')
+    .querySelectorAll('.compare-cell')[0].dataset.label, 'Change');
   eq('the exit control and the comparison filter appear',
     [document.getElementById('exitCompareBtn').style.display,
       document.getElementById('filterCompare').style.display], ['', '']);
@@ -306,7 +310,7 @@ const comparedRows = doc => Array.prototype.filter.call(
 
   // Entering twice must not stack a second column.
   ui.acceptImportedReport(JSON.stringify(baseline));
-  eq('entering again does not add a second delta column', headCells(document), 1);
+  eq('entering again invents no header cell either', headCells(document), 0);
   eq('nor a second cell per row', deltaCells(document), 2);
 
   ui.exitComparison();
@@ -522,6 +526,142 @@ const comparedRows = doc => Array.prototype.filter.call(
   eq('and the results section is revealed to hold them',
     [document.getElementById('resultsSection').style.display,
       document.getElementById('resultsToolbar').style.display], ['block', 'flex']);
+}
+
+/* Cross-version diffs make no causal claim, and an unknown id says so. */
+{
+  const { document, ui } = await bootedRun('a.example');
+  const current = ui.buildReportJson();
+  const baseline = JSON.parse(JSON.stringify(current));
+  // A different build, carrying a finding this one has never heard of.
+  baseline.generator.version = '0.8.0';
+  baseline.domains[0].findings = [{
+    id: 'future.finding', protocol: 'dmarc', severity: 'high', confidence: 'confirmed',
+    category: 'policy', effort: 'moderate', args: [], dependsOn: [],
+    evidence: [{ kind: 'txt', queryName: '_dmarc.a.example', value: 'v=DMARC1' }],
+  }];
+  ui.acceptImportedReport(JSON.stringify(baseline));
+  eq('the two builds are recognized as different',
+    ui.getComparison().meta.findingSemanticsMatch, false);
+
+  const detail = document.getElementById('tableBody').querySelectorAll('.compare-detail')[0];
+  const text = detail ? detail.textContent : '';
+  // Acceptance criterion 6: across versions the diff is shown without a
+  // verdict, so "resolved" — which asserts somebody fixed something — is
+  // exactly what it must not say.
+  eq('a cross-version diff is labelled by side, not by cause',
+    [text.includes('In the baseline only'), text.includes('resolved')], [true, false]);
+  eq('and an id this build does not know is explained rather than shown bare',
+    text.includes('This build has no description for future.finding'), true);
+}
+
+/* Within one build the causal labels are the right ones. */
+{
+  const { document, ui } = await bootedRun('a.example');
+  const current = ui.buildReportJson();
+  const baseline = JSON.parse(JSON.stringify(current));
+  baseline.domains[0].findings = [{
+    id: 'dmarc.policy-none', protocol: 'dmarc', severity: 'high', confidence: 'confirmed',
+    category: 'policy', effort: 'moderate', args: [], dependsOn: [],
+    evidence: [{ kind: 'txt', queryName: '_dmarc.a.example', value: 'v=DMARC1; p=none' }],
+  }];
+  ui.acceptImportedReport(JSON.stringify(baseline));
+  eq('the two builds agree', ui.getComparison().meta.findingSemanticsMatch, true);
+  const text = document.getElementById('tableBody').querySelectorAll('.compare-detail')[0].textContent;
+  const d = ui.getComparison().domains[0];
+  eq('a same-build diff uses the causal label', d.findings.resolved.length
+    ? text.includes('resolved') : text.includes('unknown'), true);
+  eq('and a known id carries no unknown-id note',
+    text.includes('This build has no description for dmarc.policy-none'), false);
+}
+
+/* An option mismatch is not a missing observation. */
+{
+  const { document, ui } = await bootedRun('a.example');
+  const current = ui.buildReportJson();
+  const baseline = JSON.parse(JSON.stringify(current));
+  baseline.options.www = !baseline.options.www;
+  ui.acceptImportedReport(JSON.stringify(baseline));
+
+  const d = ui.getComparison().domains[0];
+  const both = d.incomparableProtocols.filter(e => e.side === 'both');
+  eq('an option difference marks protocols on BOTH sides', both.length > 0, true);
+  const text = document.getElementById('tableBody').querySelectorAll('.compare-detail')[0].textContent;
+  eq('and is described as an option difference',
+    text.includes('with different options in the two reports'), true);
+  // The mapping itself: every protocol marked on BOTH sides is described by the
+  // option sentence. The renderer used to fold `both` onto `current` and say a
+  // protocol was not observed in the current report when both reports had
+  // observed it — a false statement about the data.
+  eq('every both-sided protocol gets the option sentence, not a side sentence',
+    both.filter(e => !text.includes(
+      'Not comparable: ' + e.protocol + ' was checked with different options in the two reports')),
+    []);
+}
+
+/* The delta header and the severity labels are presentation, and follow the
+   language like everything else. */
+{
+  const { document, ui, i18n } = await bootedRun('a.example');
+  const current = ui.buildReportJson();
+  const baseline = JSON.parse(JSON.stringify(current));
+  baseline.domains[0].findings = (current.domains[0].findings || []).map(f =>
+    Object.assign({}, f, { severity: f.severity === 'high' ? 'low' : 'high' }));
+  ui.acceptImportedReport(JSON.stringify(baseline));
+
+  // The column's name reaches the reader through the cell's own `data-label`
+  // as well as the header — that is how the responsive layout labels it — and
+  // it is the half this environment can observe, because the shim models no
+  // table sections and `headerRow()` now refuses to guess without one.
+  const deltaLabel = () => {
+    const cell = document.getElementById('tableBody').querySelectorAll('.compare-cell')[0];
+    return cell ? cell.dataset.label : '';
+  };
+  eq('the delta column is named in the current language', deltaLabel(), 'Change');
+  await i18n.setLang('de');
+  await settle(10);
+  eq('and follows a language change like every other heading', deltaLabel(), 'Änderung');
+  eq('no header cell is invented where there is no header row to hold it',
+    Array.prototype.filter.call(headRowOf(document).childNodes,
+      n => n && n.id === 'compareHeadCell').length, 0);
+
+  const detail = document.getElementById('tableBody').querySelectorAll('.compare-detail')[0];
+  const d = ui.getComparison().domains[0];
+  if (d.findings.severityChanged.length) {
+    eq('a severity change is shown by its label, not its schema token',
+      /Hoch|Niedrig|Mittel|Kritisch|Info/.test(detail.textContent), true);
+  } else {
+    eq('no severity change in this fixture, so nothing to label',
+      d.findings.severityChanged.length, 0);
+  }
+}
+
+/* Mid-run is not one of the two defined entry states. */
+{
+  const booted = await boot();
+  const { document, ui } = booted;
+  const seed = await bootedRun('a.example');
+  const report = JSON.stringify(seed.ui.buildReportJson());
+
+  document.getElementById('domainInput').value = 'a.example\nb.example';
+  click(document.getElementById('auditBtn'));
+  // Mid-flight: the run has started and has not finished.
+  ui.acceptImportedReport(report);
+  // Refused, not HELD. Without the guard the file becomes a pending baseline —
+  // which the page announces — and is then either discarded by the new-run
+  // teardown or silently never compared, depending on when it arrived.
+  eq('a report offered during a run starts no comparison', ui.getComparison(), null);
+  eq('and is not quietly held as a pending baseline either',
+    document.getElementById('compareNotice').textContent.includes('Choose a saved report'), false);
+  eq('and the import control is hidden while the run is in flight',
+    document.getElementById('importReportLabel').style.display, 'none');
+
+  await settle();
+  eq('the run still finishes normally', ui.getRunContext() !== null, true);
+  eq('and the control comes back with the other export buttons',
+    document.getElementById('importReportLabel').style.display, '');
+  ui.acceptImportedReport(report);
+  eq('and a report offered afterwards is accepted', ui.getComparison() !== null, true);
 }
 
 console.log(`\n${'='.repeat(60)}`);

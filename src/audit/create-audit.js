@@ -39,6 +39,7 @@ import { createDmarcDiscovery } from '../core/dmarc/tree-walk.js';
 import { createReportAuth } from '../core/dmarc/report-auth.js';
 import { createDkimCheck, validDkimSelector } from '../core/dkim/dkim.js';
 import { createSpfChecks } from '../core/spf/spf.js';
+import { findingCatalogIds } from './findings.js';
 import { createAuditDomain } from './audit-domain.js';
 
 /**
@@ -148,6 +149,9 @@ export function createAudit(capabilities) {
     // the production path skip selector checks while a suite that imported the
     // predicate directly stayed green.
     validDkimSelector,
+    // The finding-id catalog, for the interface's "this build has no
+    // description for that id" note. Composition, not duplication.
+    findingCatalogIds,
     getOrganizationalDomain, discoverDmarc,
     resolveDestinationOrgDomains, checkExternalReportAuth,
     checkCAA, auditMxHosts, checkTlsa,

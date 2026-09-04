@@ -375,7 +375,8 @@
     "jsonExported": "JSON dışa aktarıldı",
     "reportImported": "Rapor içe aktarıldı — değişiklikler gösteriliyor",
     "comparisonCleared": "Karşılaştırma temizlendi",
-    "importFailed": "Bu dosya içe aktarılamadı"
+    "importFailed": "Bu dosya içe aktarılamadı",
+    "importDuringRun": "Bir rapor içe aktarmadan önce denetimin bitmesini bekleyin"
   },
   "csv": {
     "unknown": "Bilinmiyor",
@@ -1453,7 +1454,8 @@
       "unproven": "{0} denetlendi ancak doğrulanamadı",
       "notRun": "{0} denetlenmedi",
       "unknownInBaseline": "Karşılaştırılamaz: {0}, karşılaştırma raporunda gözlemlenmedi",
-      "unknownInCurrent": "Karşılaştırılamaz: {0}, güncel raporda gözlemlenmedi"
+      "unknownInCurrent": "Karşılaştırılamaz: {0}, güncel raporda gözlemlenmedi",
+      "unknownBoth": "Karşılaştırılamaz: {0}, iki raporda farklı seçeneklerle denetlendi"
     },
     "delta": {
       "up": "+{0}",

@@ -375,7 +375,8 @@
     "jsonExported": "JSON をエクスポートしました",
     "reportImported": "レポートを読み込みました — 変更点を表示しています",
     "comparisonCleared": "比較を解除しました",
-    "importFailed": "このファイルは読み込めませんでした"
+    "importFailed": "このファイルは読み込めませんでした",
+    "importDuringRun": "監査が終わってからレポートを読み込んでください"
   },
   "csv": {
     "unknown": "不明",
@@ -1453,7 +1454,8 @@
       "unproven": "{0} は確認されましたが、確定できませんでした",
       "notRun": "{0} は確認されていません",
       "unknownInBaseline": "比較できません: {0} は基準レポートで観測されていません",
-      "unknownInCurrent": "比較できません: {0} は現在のレポートで観測されていません"
+      "unknownInCurrent": "比較できません: {0} は現在のレポートで観測されていません",
+      "unknownBoth": "比較できません: {0} は 2 つのレポートで異なるオプションのもとに確認されています"
     },
     "delta": {
       "up": "+{0}",

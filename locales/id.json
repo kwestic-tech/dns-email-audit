@@ -375,7 +375,8 @@
     "jsonExported": "JSON diekspor",
     "reportImported": "Laporan diimpor — menampilkan perubahannya",
     "comparisonCleared": "Perbandingan dihapus",
-    "importFailed": "Berkas itu tidak dapat diimpor"
+    "importFailed": "Berkas itu tidak dapat diimpor",
+    "importDuringRun": "Tunggu audit selesai sebelum mengimpor laporan"
   },
   "csv": {
     "unknown": "Tidak diketahui",
@@ -1453,7 +1454,8 @@
       "unproven": "{0} diperiksa tetapi tidak terbukti",
       "notRun": "{0} tidak diperiksa",
       "unknownInBaseline": "Tidak dapat dibandingkan: {0} tidak teramati di laporan acuan",
-      "unknownInCurrent": "Tidak dapat dibandingkan: {0} tidak teramati di laporan saat ini"
+      "unknownInCurrent": "Tidak dapat dibandingkan: {0} tidak teramati di laporan saat ini",
+      "unknownBoth": "Tidak dapat dibandingkan: {0} diperiksa dengan opsi yang berbeda di kedua laporan"
     },
     "delta": {
       "up": "+{0}",

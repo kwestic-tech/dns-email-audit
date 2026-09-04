@@ -383,7 +383,8 @@ export const LOCALE_EN = {
     "jsonExported": "JSON exported",
     "reportImported": "Report imported — showing what changed",
     "comparisonCleared": "Comparison cleared",
-    "importFailed": "That file could not be imported"
+    "importFailed": "That file could not be imported",
+    "importDuringRun": "Wait for the audit to finish before importing a report"
   },
   "csv": {
     "unknown": "Unknown",
@@ -1461,7 +1462,8 @@ export const LOCALE_EN = {
       "unproven": "{0} was checked but not established",
       "notRun": "{0} was not checked",
       "unknownInBaseline": "Not comparable: {0} was not observed in the baseline report",
-      "unknownInCurrent": "Not comparable: {0} was not observed in the current report"
+      "unknownInCurrent": "Not comparable: {0} was not observed in the current report",
+      "unknownBoth": "Not comparable: {0} was checked with different options in the two reports"
     },
     "delta": {
       "up": "+{0}",

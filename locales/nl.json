@@ -375,7 +375,8 @@
     "jsonExported": "JSON geëxporteerd",
     "reportImported": "Rapport geïmporteerd — wijzigingen worden getoond",
     "comparisonCleared": "Vergelijking gewist",
-    "importFailed": "Dit bestand kon niet worden geïmporteerd"
+    "importFailed": "Dit bestand kon niet worden geïmporteerd",
+    "importDuringRun": "Wacht tot de controle klaar is voordat u een rapport importeert"
   },
   "csv": {
     "unknown": "Onbekend",
@@ -1453,7 +1454,8 @@
       "unproven": "{0} is gecontroleerd maar niet vastgesteld",
       "notRun": "{0} is niet gecontroleerd",
       "unknownInBaseline": "Niet vergelijkbaar: {0} is niet waargenomen in het uitgangsrapport",
-      "unknownInCurrent": "Niet vergelijkbaar: {0} is niet waargenomen in het huidige rapport"
+      "unknownInCurrent": "Niet vergelijkbaar: {0} is niet waargenomen in het huidige rapport",
+      "unknownBoth": "Niet vergelijkbaar: {0} is in de twee rapporten met verschillende opties gecontroleerd"
     },
     "delta": {
       "up": "+{0}",

@@ -88,7 +88,7 @@ export function createUi(capabilities) {
   const {
     document, fetch, setTimeout, open, URL, Blob, FileReader, AbortController, Intl,
   } = platform;
-  const { versions, resolver, validSelector } = capabilities;
+  const { versions, resolver, validSelector, knownFindingIds } = capabilities;
   'use strict';
 
   var CONCURRENCY = 6;
@@ -1725,13 +1725,17 @@ export function createUi(capabilities) {
     // recovers.
     if (auditController) return;
     auditController = new AbortController();
+    // Hidden here, with the guard, not further down after the connectivity
+    // await: the window between the two is exactly when a file offered mid-run
+    // was accepted into a state section 6 does not define.
+    $('importReportLabel').style.display = 'none';
 
     var domains = parseDomains($('domainInput').value);
-    if (!domains.length) { showToast(t('toast.noDomains')); auditController = null; return; }
-    if (domains.length > MAX_DOMAINS) { showToast(t('toast.tooMany')); auditController = null; return; }
+    if (!domains.length) { showToast(t('toast.noDomains')); releaseAudit(); return; }
+    if (domains.length > MAX_DOMAINS) { showToast(t('toast.tooMany')); releaseAudit(); return; }
     if ($('optDKIM').checked && $('optDKIMComprehensive').checked && domains.length > MAX_COMPREHENSIVE_DKIM_DOMAINS) {
       showToast(t('toast.tooManyComprehensiveDkim', MAX_COMPREHENSIVE_DKIM_DOMAINS));
-      auditController = null;
+      releaseAudit();
       return;
     }
 
@@ -1752,7 +1756,7 @@ export function createUi(capabilities) {
       // Without this the interface stays locked out of every later run: the
       // button was never disabled, so nothing looks wrong, and every
       // subsequent click returns at the guard above in silence.
-      auditController = null;
+      releaseAudit();
       return;
     }
     $('netBanner').style.display = 'none';
@@ -1796,6 +1800,7 @@ export function createUi(capabilities) {
       R.text(' ' + t('btn.auditRunning')),
     ]));
     ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn', 'exportJsonBtn'].forEach(function (id) { $(id).style.display = 'none'; });
+    $('importReportLabel').style.display = 'none';
     ['summarySection', 'resultsSection', 'emptyState'].forEach(function (id) { $(id).style.display = 'none'; });
     $('resultsToolbar').style.display = 'none';
     $('progressSection').style.display = 'block';
@@ -1825,7 +1830,7 @@ export function createUi(capabilities) {
       }
     }));
 
-    auditController = null;
+    releaseAudit();
     // The run is over: stamp it once, here, and let every export of it read
     // the same instant.
     runContext = { options: runOptions, generatedAt: platform.nowIso() };
@@ -1833,6 +1838,7 @@ export function createUi(capabilities) {
     $('cancelBtn').style.display = 'none';
     $('auditBtn').textContent = t('btn.runAudit');
     ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn', 'exportJsonBtn'].forEach(function (id) { $(id).style.display = ''; });
+    $('importReportLabel').style.display = '';
     setTimeout(function () { $('progressSection').style.display = 'none'; }, 1200);
 
     $('tableBody').replaceChildren();
@@ -1934,6 +1940,18 @@ export function createUi(capabilities) {
    * which is the pattern 0.8.0 established for supplied artifacts: a file too
    * large to be one of ours is refused without being read into memory at all.
    */
+  /**
+   * Hand back the audit guard AND the control it hid.
+   *
+   * Every early return in `startAudit()` releases the guard; each one has to
+   * release this too, or a refused run leaves report import hidden for the rest
+   * of the page's life with nothing looking wrong.
+   */
+  function releaseAudit() {
+    auditController = null;
+    $('importReportLabel').style.display = '';
+  }
+
   function importReportFile(e) {
     var file = e.target.files && e.target.files[0];
     e.target.value = '';
@@ -1953,6 +1971,12 @@ export function createUi(capabilities) {
    * imported with no run waits for a second file.
    */
   function acceptImportedReport(text) {
+    // Section 6 defines two entries: results are showing, or no audit is
+    // running. Mid-run is neither, and accepting a report there produced two
+    // timing-dependent outcomes — discarded by the new-run teardown, or left
+    // pending and never compared. Guarded HERE rather than at the file input
+    // because this is where a report becomes one, however it arrived.
+    if (auditController) { showToast(t('toast.importDuringRun')); return; }
     var parsed = parseReport(text, { validSelector: validSelector });
     if (!parsed.ok) { showImportProblem(parsed.errors); return; }
 
@@ -2115,9 +2139,14 @@ export function createUi(capabilities) {
    */
   function headerRow() {
     var table = $('resultsTable');
-    if (!table) return null;
-    if (table.tHead && table.tHead.rows && table.tHead.rows.length) return table.tHead.rows[0];
-    return table.querySelectorAll('tr')[0] || null;
+    // `tHead` or nothing. A positional fallback looked reasonable and was not:
+    // where table sections are not modelled, the table's own `tr` list holds
+    // only BODY rows once results exist, so the delta header was appended to a
+    // data row — twice, in two different disguises. Without a real header row
+    // the column simply has no heading, and each cell still carries its
+    // `data-label`, which is what names it on a narrow screen anyway.
+    return table && table.tHead && table.tHead.rows && table.tHead.rows.length
+      ? table.tHead.rows[0] : null;
   }
 
   function compareHeadCell(headRow) {
@@ -2152,13 +2181,40 @@ export function createUi(capabilities) {
    * version of this rendered nothing at all, which passed a test that only
    * checked no `<img>` element had been created.
    */
-  function findingLine(labelKey, ids) {
+  var KNOWN_FINDING_IDS = (knownFindingIds || []).reduce(function (set, id) {
+    set[id] = true;
+    return set;
+  }, Object.create(null));
+
+  /**
+   * One line of the diff: a label and the ids beneath it, as text.
+   *
+   * The LABEL depends on whether the two reports came from the same build.
+   * Section 5: with different generator versions the diff is still shown, but
+   * it makes no causal claim — "in the baseline only" rather than "resolved",
+   * because a release can add or correct a finding without anything about the
+   * domain changing. An earlier version said "resolved" either way.
+   *
+   * An id this build does not recognize is displayed WITH a note saying so
+   * (section 4), never dropped: dropping it would make a diff across tool
+   * versions quietly incomplete.
+   */
+  function findingLine(sameKey, crossKey, ids) {
     if (!ids || !ids.length) return null;
-    return R.el('div', { style: 'margin-top:2px' }, [
+    var labelKey = comparison.meta.findingSemanticsMatch ? sameKey : crossKey;
+    var unknown = ids.filter(function (id) {
+      return !Object.prototype.hasOwnProperty.call(KNOWN_FINDING_IDS, id);
+    });
+    var parts = [
       R.el('strong', null, t(labelKey, ids.length)),
       R.text(' '),
       R.sentinelText(ids.join(', ')),
-    ]);
+    ];
+    unknown.forEach(function (id) {
+      parts.push(R.el('div', { className: 'c-muted', style: 'font-size:11px' },
+        R.sentinelText(t('compare.meta.unknownFinding', id))));
+    });
+    return R.el('div', { style: 'margin-top:2px' }, parts);
   }
 
   /**
@@ -2173,15 +2229,17 @@ export function createUi(capabilities) {
     var parts = [R.el('div', { style: 'font-weight:600;margin-bottom:4px' },
       t('compare.status.' + d.status))];
 
-    parts.push(findingLine('compare.findings.new', d.findings.new));
-    parts.push(findingLine('compare.findings.resolved', d.findings.resolved));
-    parts.push(findingLine('compare.findings.unknown', d.findings.unknown));
+    parts.push(findingLine('compare.findings.new', 'compare.findings.currentOnly', d.findings.new));
+    parts.push(findingLine('compare.findings.resolved', 'compare.findings.baselineOnly', d.findings.resolved));
+    parts.push(findingLine('compare.findings.unknown', 'compare.findings.unknown', d.findings.unknown));
     if (d.findings.severityChanged.length) {
       parts.push(R.el('div', { style: 'margin-top:2px' }, [
         R.el('strong', null, t('compare.findings.severityChanged', d.findings.severityChanged.length)),
         R.text(' '),
+        // The tokens stay tokens in the DATA; what a reader sees is the label
+        // the rest of the interface already uses for that severity.
         R.sentinelText(d.findings.severityChanged.map(function (c) {
-          return c.id + ' (' + c.from + ' → ' + c.to + ')';
+          return c.id + ' (' + t('findings.severity.' + c.from) + ' → ' + t('findings.severity.' + c.to) + ')';
         }).join(', ')),
       ]));
     }
@@ -2189,10 +2247,17 @@ export function createUi(capabilities) {
     // A protocol nobody could compare is NAMED, with its reason and which
     // report was missing it. An earlier version walked the domain's reasons
     // and claimed in a comment to be doing this.
+    // THREE sides, not two. An option mismatch produces `side: 'both'`, and
+    // mapping it onto "current" said a protocol was not observed in the current
+    // report when both reports had observed it perfectly well — a false
+    // statement about the data, from a renderer that read `side` and ignored
+    // `reason`.
     (d.incomparableProtocols || []).forEach(function (e) {
+      var key = e.side === 'baseline' ? 'compare.protocol.unknownInBaseline'
+        : e.side === 'current' ? 'compare.protocol.unknownInCurrent'
+          : 'compare.protocol.unknownBoth';
       parts.push(R.el('div', { className: 'compare-unknown', style: 'margin-top:2px' },
-        R.sentinelText(t(e.side === 'baseline'
-          ? 'compare.protocol.unknownInBaseline' : 'compare.protocol.unknownInCurrent', e.protocol))));
+        R.sentinelText(t(key, e.protocol))));
     });
 
     (d.recordChanges || []).forEach(function (c) {
@@ -2251,7 +2316,13 @@ export function createUi(capabilities) {
     comparison.domains.forEach(function (d) { byDomain[d.domain] = d; });
 
     var headRow = headerRow();
-    if (headRow && !compareHeadCell(headRow)) {
+    if (headRow) {
+      // Replaced rather than left alone: it is built here rather than declared
+      // in `index.html`, so it carries no `data-i18n` and the locale sweep
+      // cannot reach it. An English "Change" survived a switch to German while
+      // every heading around it moved.
+      var existing = compareHeadCell(headRow);
+      if (existing) existing.remove();
       headRow.appendChild(R.el('th', { id: 'compareHeadCell', style: 'width:96px' },
         R.el('span', null, t('th.delta'))));
     }

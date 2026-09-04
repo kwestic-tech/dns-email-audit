@@ -78,7 +78,7 @@
   },
   {
    "path": "tools/audit-run.test.mjs",
-   "assertions": 65,
+   "assertions": 85,
    "areas": [
     "the audit run loop, booted from index.html and driven through its own controls",
     "one double click starts one run, and every early return releases the run guard",
@@ -92,7 +92,11 @@
     "the detail row carries the evidence: finding movement, severity changes, record deltas and each incomparable protocol named with its side",
     "a hostile imported value present as text and absent as markup, both asserted",
     "Clear discards the comparison and the run context, and stops offering the JSON export",
-    "a language change re-renders both comparison branches, asserted on the rendered text rather than on counts"
+    "a language change re-renders both comparison branches, asserted on the rendered text rather than on counts",
+    "a cross-version diff is labelled by side rather than by cause, and an id this build does not know is explained rather than shown bare",
+    "an option mismatch is described as one, never as a protocol the current report failed to observe",
+    "the delta column's name and the severity labels follow a language change; no header cell is invented without a header row",
+    "a report offered mid-run is refused rather than held as a pending baseline"
    ]
   },
   {
@@ -570,7 +574,7 @@
   },
   {
    "path": "src/audit/findings.test.js",
-   "assertions": 133,
+   "assertions": 135,
    "areas": [
     "the structured Finding shape and its five closed vocabularies (severity, confidence, category, effort, protocol)",
     "the dependency graph is resolvable and acyclic, with the cycle detector proven able to fire",
@@ -579,7 +583,8 @@
     "migrated findings mirror buildIssues 1:1 in order (enrich, not replace), and an unknown legacy key is skipped not thrown on",
     "the spec behavioural fixtures, including authentication planned before enforcement",
     "each cross-protocol rule proven NOT to fire against its negative case",
-    "the finding layer is locale-independent: imports only its audit sibling and sorts on tokens"
+    "the finding layer is locale-independent: imports only its audit sibling and sorts on tokens",
+    "the i18n/ui edge scan reads comment-stripped source, with controls proving it still catches a real edge and no longer trips on a docstring that names one"
    ]
   },
   {
