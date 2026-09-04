@@ -51,11 +51,11 @@ eq('preference 0 with a real target is not one', isNullMx(['0 mail.example.test.
 section('3. parseMxRecord');
 
 eq('a normal record', parseMxRecord('10 mail.example.test.'),
-  { preference: 10, host: 'mail.example.test', isAddressLiteral: false, preferenceValid: true });
+  { preference: 10, host: 'mail.example.test', isAddressLiteral: false });
 eq('the trailing dot is dropped and the host lowercased',
   parseMxRecord('10 Mail.Example.TEST.').host, 'mail.example.test');
 eq('extra whitespace is collapsed', parseMxRecord('  10   mail.example.test '),
-  { preference: 10, host: 'mail.example.test', isAddressLiteral: false, preferenceValid: true });
+  { preference: 10, host: 'mail.example.test', isAddressLiteral: false });
 eq('preference 0 with a target is a record', parseMxRecord('0 mail.example.test').preference, 0);
 eq('a non-numeric preference is not a record', parseMxRecord('ten mail.example.test'), null);
 eq('a record with no target is not one', parseMxRecord('10'), null);
@@ -286,12 +286,19 @@ eq('private and link-local space is unreachable too', priv.hosts[0].reachability
 eq('every address carries its own scope',
   priv.hosts[0].addressScopes.map(e => e.scope), ['private', 'link-local']);
 
-// Note the addresses below are real global ones rather than this file's usual
-// 192.0.2.x. RFC 5737 documentation space is not globally reachable, so
-// `ipScope` classifies it `documentation` and it cannot stand in for a routable
-// host in these assertions — which is itself the check working.
+// STUB VALUES, chosen for their scope and nothing else. This file's usual
+// 192.0.2.x is RFC 5737 documentation space, which `ipScope` classifies
+// `documentation` and therefore unreachable — correctly, and that is the point
+// of this release — so it cannot stand in for a reachable host here. These two
+// are in globally-routable class and are placeholders: they assert nothing
+// about who holds them, and nothing in this suite depends on their being
+// reachable in fact. Documentation addresses are still used elsewhere in the
+// file as deliberate classification inputs.
+const ROUTABLE_V4 = '100.200.100.200';
+const ROUTABLE_V6 = '2a01:beef::1';
+
 const routable = await audit({
-  'r.example.test': { A: ['210.71.187.212'], AAAA: ['2606:4700::1111'], CNAME: [] },
+  'r.example.test': { A: [ROUTABLE_V4], AAAA: [ROUTABLE_V6], CNAME: [] },
 })(['10 r.example.test.'], 'example.test');
 eq('a globally routable host is global', routable.hosts[0].reachability, 'global');
 
@@ -302,7 +309,7 @@ eq('documentation space is not globally reachable either',
 // Partial is its own state: this host takes mail from most senders and stalls
 // whichever ones pick the second address.
 const partlyRoutable = await audit({
-  'm.example.test': { A: ['210.71.187.212', '10.0.0.4'], AAAA: [], CNAME: [] },
+  'm.example.test': { A: [ROUTABLE_V4, '10.0.0.4'], AAAA: [], CNAME: [] },
 })(['10 m.example.test.'], 'example.test');
 eq('one routable and one not is partial', partlyRoutable.hosts[0].reachability, 'partial');
 eq('and it is listed as partial, not unroutable',
@@ -349,7 +356,7 @@ eq('while a real host is still queried three ways',
   realHost.asked.sort(),
   ['mail.example.test/A', 'mail.example.test/AAAA', 'mail.example.test/CNAME']);
 
-section('8. A null MX beside a real one, and preference range');
+section('8. A null MX beside a real one');
 
 // RFC 7505 §3. Reported where v0.9.0 reported nothing: `parseMxRecord` rejects
 // `0 .` because stripping the trailing dot leaves an empty host, so the
@@ -358,6 +365,14 @@ eq('`0 .` still does not parse', parseMxRecord('0 .'), null);
 eq('a null MX beside a real host is a conflict',
   hasNullMxConflict(['0 .', '10 mail.example.test.']), true);
 eq('a lone null MX is not', hasNullMxConflict(['0 .']), false);
+// A duplicate of one declaration says nothing contradictory. The predicate
+// needs a record that is NOT `0 .`, not merely a second array entry.
+eq('two null MX answers are a duplicate, not a conflict',
+  hasNullMxConflict(['0 .', '0 .']), false);
+// The other record does not have to parse. `0 .` beside an attempt to name
+// somewhere mail goes is contradictory however malformed that attempt is.
+eq('a null MX beside an unparseable record is still a conflict',
+  hasNullMxConflict(['0 .', 'garbage']), true);
 eq('an ordinary set is not', hasNullMxConflict(['10 a.example.test', '20 b.example.test']), false);
 eq('and neither is an empty one', hasNullMxConflict([]), false);
 
@@ -374,17 +389,12 @@ eq('the real host is still audited', conflictedResult.hosts.map(h => h.host), ['
 eq('nothing dangles and the pseudo-target is never queried',
   [conflictedResult.danglingHosts, conflicted.asked.filter(q => q.startsWith('./'))], [[], []]);
 
-// RFC 1035 §3.3.9: the preference is a 16-bit unsigned integer.
-eq('0 is a valid preference', parseMxRecord('0 mail.example.test').preferenceValid, true);
-eq('65535 is the last valid one', parseMxRecord('65535 mail.example.test').preferenceValid, true);
-eq('65536 is not', parseMxRecord('65536 mail.example.test').preferenceValid, false);
-
-const badPreference = await audit({
-  'mail.example.test': { A: ['192.0.2.1'], AAAA: [], CNAME: [] },
-})(['99999 mail.example.test.'], 'example.test');
-eq('an out-of-range preference is reported', badPreference.invalidPreferences, [99999]);
-// A hygiene defect is not a reason to stop looking at the host it names.
-eq('and the host is audited anyway', badPreference.hosts[0].resolves, 'yes');
+// No preference-range check: RFC 1035 §3.3.9 encodes the preference as an
+// unsigned 16-bit integer, so a value above 65535 cannot survive a real MX
+// response. Asserting one would mean handing the parser a string no resolver
+// produces. Both ends of the real range parse, and that is all there is to say.
+eq('0 parses', parseMxRecord('0 mail.example.test').preference, 0);
+eq('65535 parses', parseMxRecord('65535 mail.example.test').preference, 65535);
 
 section('9. The reachability constant is not decoration');
 

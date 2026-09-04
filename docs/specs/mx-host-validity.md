@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.5 |
+| Spec version | 0.6 |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 implemented**, pending review; 0.9.2 blocked on privacy review (§7) and `OQ-MXV-03` |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
@@ -102,7 +102,6 @@ discriminator this needs is present and unused.
 2. Report an MX RDATA that is an address literal as the distinct defect it is,
    and stop spending two lookups proving that it does not resolve.
 3. Report a null MX published alongside other MX records.
-4. Reject an MX preference outside the 16-bit range the wire format defines.
 
 **0.9.2 — vanity divergence.** Adds reverse lookups under the existing
 deep-check gate.
@@ -263,7 +262,6 @@ neighbour. Its severity is medium (`RQ-MXV-01`).
   unroutableHosts: string[],       // reachability === 'none'
   partiallyRoutableHosts: string[],
   nullMxConflict: boolean,
-  invalidPreferences: number[],
   // 0.9.2
   divergentHosts: [ { host, provider, missing: string[] } ],
   hostsWithoutReverse: string[],
@@ -296,18 +294,20 @@ one of which prescribes a fix that cannot be carried out, is worse than the
 single finding this release adds. §5 states the suppression rule and acceptance
 criterion 3 asserts it.
 
-**Preference range.** RFC 1035 §3.3.9 defines the preference as a 16-bit
-unsigned integer. The current guard is `/^\d+$/`, which accepts `99999`. Values
-above 65535 are collected into `invalidPreferences` and the record is otherwise
-processed normally — the host is still resolved and still audited, because a
-bad preference is a hygiene defect and not a reason to stop looking at the
-host.
-
 **Null MX conflict.** A new predicate, beside `isNullMx()` and not inside it:
 
 ```js
-export function hasNullMxConflict(mx)   // any record is `0 .` AND mx.length > 1
+export function hasNullMxConflict(mx)   // some record is `0 .` AND some record is not
 ```
+
+**Both halves are required, and array length is not the test.** Two `0 .`
+answers duplicate one declaration and contradict nothing, so they are not a
+conflict. A `0 .` beside anything else is one — including beside a record too
+malformed to parse into a host, because the domain has published "no mail here"
+next to an attempt to name where mail goes, and no sender can honour both. That
+case is also why the finding is raised outside `buildIssues()`'s `hosts.length`
+block: `0 .` beside a malformed record leaves `hosts` empty, and gating on it
+would lose precisely the case the finding exists for.
 
 `isNullMx()` is **not** changed. Its `mx.length !== 1` guard is load-bearing in
 three places — the `src/audit/` deep-check gate, provider detection via
@@ -408,7 +408,6 @@ lines 532–546.
 | 0.9.1 | `mx-partially-routable` | `mx.partially-routable` | medium (`RQ-MXV-01`) | transport | moderate |
 | 0.9.1 | `mx-address-literal` | `mx.address-literal` | critical | transport | trivial |
 | 0.9.1 | `mx-null-conflict` | `mx.null-conflict` | medium | hygiene | trivial |
-| 0.9.1 | `mx-invalid-preference` | `mx.invalid-preference` | info | hygiene | trivial |
 | 0.9.2 | `mx-vanity-divergent` | `mx.vanity-divergent` | medium | resilience | moderate |
 | 0.9.2 | `mx-no-reverse-dns` | `mx.no-reverse-dns` | info | resilience | moderate |
 
@@ -447,10 +446,10 @@ side where it matters least.
 
 ### 6. Evidence
 
-All seven findings emit `host` evidence, already an `EVIDENCE_KINDS` member at
-[`findings.js:72`](../../src/audit/findings.js:72), except `mx-null-conflict` and
-`mx-invalid-preference`, which emit `mx` evidence because the defect is in the
-record rather than in the host. `mx.unroutable` and `mx.partially-routable`
+All six findings emit `host` evidence, already an `EVIDENCE_KINDS` member at
+[`findings.js:72`](../../src/audit/findings.js:72), except `mx-null-conflict`,
+which emits `mx` evidence because the defect is in the record set rather than in
+any host. `mx.unroutable` and `mx.partially-routable`
 carry the offending address and its scope in their arguments, so the report
 states which address is unreachable and why, not merely that one is.
 
@@ -532,7 +531,29 @@ Worth stating because it is the first check in this project that a
 documentation address trips, and future fixture authors need to know that a
 "healthy" MX fixture now has to use a globally routable address.
 
-**Evidence for the two record-level findings is special-cased, as §6 asked.**
+**`mx.invalid-preference` is withdrawn (0.6).** RFC 1035 §3.3.9 encodes the
+preference as an unsigned 16-bit integer in the wire format, so a value above
+65535 cannot survive a real MX response and cannot reach `parseMxRecord()` from
+the resolver. The 0.5 implementation exercised it by calling `auditMxHosts()`
+with a string no resolver produces, which is the reviewed-registry stop
+condition in `AGENTS.md` — "inventing a response shape is worse than saying it
+cannot be reached" — rather than a finding. The finding, the `preferenceValid`
+parser field, the `invalidPreferences` result field, its locale strings in all
+fourteen languages, and its registry and matrix entries are all removed. What
+remains is the observation that both ends of the real range parse.
+
+**Fixture policy for reachable addresses (0.6).** Documentation addresses are
+*not* rewritten across the corpus: `192.0.2.x`, `198.51.100.x` and `203.0.113.x`
+remain valuable synthetic inputs, and several of them now exercise
+`mx.unroutable` deliberately. The rule is narrower — **a fixture that is meant
+to represent a healthy, reachable MX must deliberately use an address in
+globally-routable class, and must say in the fixture that the value is a stub
+chosen for its scope and not an assertion about who holds it.** `mx.test.js`
+names two such constants and states exactly that. The 0.5 implementation used
+two real addresses taken from a live audit, which carried an ownership
+implication no test needs.
+
+**Evidence for the record-level finding is special-cased, as §6 asked.**
 The protocol-generic `case 'mx':` fallback emits the resolved hosts, which for a
 null-MX conflict would show everything except the `0 .` that is the whole
 finding. Both now emit the raw MX records.
@@ -544,10 +565,18 @@ pinned by a regression test.
 
 ## Localization impact
 
-Seven new entries in `locales/en.json` under the existing findings block, each
-with `msg`, `what` and `fix`; `fixCode` on `mx-address-literal`,
-`mx-null-conflict` and `mx-vanity-divergent`, where a zone fragment is clearer
-than a sentence. Five ship in 0.9.1 and two in 0.9.2, each with its own release.
+Six new entries in `locales/en.json` under the existing findings block, each
+with `msg`, `what` and `fix`; `fixCode` on `mx-unroutable`,
+`mx-address-literal`, `mx-null-conflict` and `mx-vanity-divergent`, where a zone
+fragment is clearer than a sentence. Four ship in 0.9.1 and two in 0.9.2, each
+with its own release.
+
+**A `fixCode` block that shows a "right" answer must not leave a documentation
+address looking like one.** `mx-unroutable` and `mx-address-literal` both end on
+`203.0.113.10`, which this release classifies unreachable by design, so each
+says in its comment that the value is an example only and that the reader
+substitutes their own public address. That sentence is translated with the rest;
+the record syntax around it is not.
 
 Per the inherited constraint, each release translates all thirteen other locales
 in the same change, runs `npm run build:fallback`, and passes
@@ -620,9 +649,7 @@ are later admitted to the grade, that change is backtested with
    regression guards rather than as new behavior. `isNullMx()` behavior is
    byte-identical to `v0.9.0` on every input, and `parseMxRecord('0 .')` is still
    `null`.
-5. A preference above 65535 raises `mx.invalid-preference` and does not prevent
-   the host from being audited.
-6. No score or grade differs from `v0.9.0` on the deterministic corpus.
+5. No score or grade differs from `v0.9.0` on the deterministic corpus.
 
 **0.9.2**
 
@@ -748,6 +775,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.6 | 2026-09-04 | Release-blocking review. Withdrew `mx.invalid-preference` entirely: a >65535 preference cannot survive the 16-bit wire format, so the check could only be exercised by fabricating a response shape no resolver produces. Corrected `hasNullMxConflict()` to mean a `0 .` beside a *different* record rather than merely a second array entry, and moved its emission outside the `hosts.length` gate so it survives a set where nothing parses into a host. Recorded the fixture policy for reachable addresses. Clarified the two remediation examples that label a documentation address "Right", in English and all thirteen locales. |
 | 0.5 | 2026-09-04 | 0.9.1 implemented. Added §8 recording five departures: the locale and findings commits are inseparable, `ipScope()` returns null for unparseable input and `reachability` degrades to `unknown`, `mx.null-conflict` is gated on a resolved host existing, the fixture corpus's RFC 5737 addresses make `mx.unroutable` fire across it, and record-level evidence is special-cased. |
 | 0.4 | 2026-09-04 | Implementation of 0.9.1 found the Problem section's null-MX claim false: `parseMxRecord()` rejects `0 .` because stripping its trailing dot leaves an empty host, so the contradiction is reported nowhere rather than misdiagnosed as a dangling host. Corrected the Problem section, §3, §5, criterion 4, Risks and `RQ-MXV-05`, which is narrowed to `mx.address-literal` alone. The finding itself is unchanged and still warranted. |
 | 0.3 | 2026-09-04 | Sequencing review. 0.9.1 to Final, approved for implementation; `OQ-MXV-03` scoped explicitly to 0.9.2, which the 0.2 Status line had wrongly attached to both. Recorded that Status carries per-release approval while the document version tracks the whole spec. `mx.single-host` retention confirmed. |

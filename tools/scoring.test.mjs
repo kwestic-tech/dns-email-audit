@@ -3018,7 +3018,7 @@ section('36. MX health');
 
 eq('an MX record splits into preference and host',
   D.parseMxRecord('10 mail.example.com.'),
-  { preference: 10, host: 'mail.example.com', isAddressLiteral: false, preferenceValid: true });
+  { preference: 10, host: 'mail.example.com', isAddressLiteral: false });
 eq('a malformed MX record is dropped', D.parseMxRecord('mail.example.com'), null);
 
 const MX_FIXTURE = {

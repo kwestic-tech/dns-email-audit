@@ -582,15 +582,16 @@ export function buildIssues({ emailProvider, spfStatus, spfRecords, dkimStatus, 
     if (mxHealth.addressLiteralHosts && mxHealth.addressLiteralHosts.length) {
       issues.push({ key: 'mx-address-literal', sev: 'crit', args: [mxHealth.addressLiteralHosts.join(', ')] });
     }
-    // RFC 7505 §3. Raised where v0.9.0 raised nothing: `parseMxRecord` rejects
-    // `0 .`, so the contradiction reached neither a lookup nor a finding.
-    if (mxHealth.nullMxConflict) issues.push({ key: 'mx-null-conflict', sev: 'warn' });
-    // RFC 1035 §3.3.9 makes the preference 16-bit. Hygiene: the host it names
-    // is still audited and mail still flows.
-    if (mxHealth.invalidPreferences && mxHealth.invalidPreferences.length) {
-      issues.push({ key: 'mx-invalid-preference', sev: 'info', args: [mxHealth.invalidPreferences.join(', ')] });
-    }
   }
+
+  // RFC 7505 §3, and deliberately outside the block above rather than inside it.
+  // This is a property of the record SET, not of any host, so it must survive a
+  // set where nothing parses into a host: `0 .` beside a malformed record still
+  // leaves `hosts` empty, and gating on `hosts.length` would have lost exactly
+  // the case the finding is for. It reads `core/mx/`'s fact rather than deriving
+  // one from `mx` here, because the fact is what raises a finding and the record
+  // that would justify it never does.
+  if (advanced?.mxHealth?.nullMxConflict) issues.push({ key: 'mx-null-conflict', sev: 'warn' });
 
   /* ── TLSA / DANE ──────────────────────────────────────────────────── */
   if (advanced?.tlsa?.anyPresent) {

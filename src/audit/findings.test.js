@@ -161,7 +161,7 @@ section('4. The migrated table is complete against audit.issue.key');
 const registry = JSON.parse(readFileSync(join(REPO, 'tests/state-algebras.json'), 'utf8'));
 const algebra = id => registry.algebras.find(a => a.id === id);
 const issueAlgebra = algebra('audit.issue.key').members.slice().sort();
-eq('the reviewed vocabulary is 111 tokens', issueAlgebra.length, 111);
+eq('the reviewed vocabulary is 110 tokens', issueAlgebra.length, 110);
 eq('FINDING_META has an entry for every one',
   issueAlgebra.filter(k => !(k in FINDING_META)), []);
 eq('and no FINDING_META entry names a key outside the vocabulary',
@@ -185,8 +185,8 @@ eq('audit.remediation.rationale equals the exported enum', algebra('audit.remedi
 eq('audit.finding.key equals the keys the rules resolve',
   algebra('audit.finding.key').members.slice().sort(),
   [...new Set([...Object.keys(FINDING_META), ...CROSS_PROTOCOL_RULES.map(r => r.key)])].sort());
-eq('and it is the 111 migrated keys plus the ten cross-protocol ones',
-  algebra('audit.finding.key').members.length, 121);
+eq('and it is the 110 migrated keys plus the ten cross-protocol ones',
+  algebra('audit.finding.key').members.length, 120);
 eq('audit.finding.evidence.kind equals the exported enum',
   algebra('audit.finding.evidence.kind').members, EVIDENCE_KINDS);
 

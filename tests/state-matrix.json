@@ -10018,22 +10018,6 @@
    ]
   },
   {
-   "algebra": "audit.issue.key",
-   "fixtures": [],
-   "member": "mx-invalid-preference",
-   "suites": [
-    "src/audit/issues.test.js"
-   ]
-  },
-  {
-   "algebra": "audit.finding.key",
-   "fixtures": [],
-   "member": "mx-invalid-preference",
-   "suites": [
-    "src/audit/findings.test.js"
-   ]
-  },
-  {
    "algebra": "audit.finding.id",
    "fixtures": [],
    "member": "mx.unroutable",
@@ -10061,14 +10045,6 @@
    "algebra": "audit.finding.id",
    "fixtures": [],
    "member": "mx.null-conflict",
-   "suites": [
-    "src/audit/findings.test.js"
-   ]
-  },
-  {
-   "algebra": "audit.finding.id",
-   "fixtures": [],
-   "member": "mx.invalid-preference",
    "suites": [
     "src/audit/findings.test.js"
    ]

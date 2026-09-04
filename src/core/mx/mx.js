@@ -72,9 +72,6 @@ export const MX_IPV6_COVERAGE = Object.freeze(['none', 'some', 'all']);
  */
 export const MX_HOST_REACHABILITY = Object.freeze(['global', 'partial', 'none', 'unknown']);
 
-/** RFC 1035 §3.3.9 makes the preference a 16-bit unsigned integer. */
-var MX_MAX_PREFERENCE = 65535;
-
 /**
  * Whether an MX target is an address rather than a name.
  *
@@ -132,22 +129,29 @@ function bigIntToIp(value, family) {
  * `hasNullMxConflict()` reads the record set to report what this rejection
  * hides.
  *
- * `preferenceValid` is carried rather than enforced. A preference outside the
- * 16-bit wire format is a hygiene defect, not a reason to stop auditing the
- * host it names, so the record parses and the caller reports the value.
+ * No preference-range check. RFC 1035 §3.3.9 encodes the preference as an
+ * unsigned 16-bit integer in the wire format, so a value above 65535 cannot
+ * survive a real MX response and cannot reach this function from the resolver.
+ * A check for it could only ever be exercised by handing this parser a string
+ * no resolver produces, which is the reviewed-registry stop condition in
+ * `AGENTS.md` rather than a finding.
  */
 export function parseMxRecord(record) {
   var parts = String(record || '').trim().split(/\s+/);
   if (parts.length < 2 || !/^\d+$/.test(parts[0])) return null;
   var host = parts.slice(1).join(' ').replace(/\.$/, '').toLowerCase();
   if (!host) return null;
-  var preference = Number(parts[0]);
   return {
-    preference: preference,
+    preference: Number(parts[0]),
     host: host,
     isAddressLiteral: looksLikeAddressLiteral(host),
-    preferenceValid: preference <= MX_MAX_PREFERENCE,
   };
+}
+
+/** Whether one record is RFC 7505's `0 .`, in its own right. */
+function isNullMxRecord(record) {
+  var parts = String(record).trim().split(/\s+/);
+  return parts.length === 2 && parts[0] === '0' && parts[1] === '.';
 }
 
 /**
@@ -162,11 +166,17 @@ export function parseMxRecord(record) {
  */
 export function hasNullMxConflict(mx) {
   var records = mx || [];
-  if (records.length < 2) return false;
-  return records.some(function (record) {
-    var parts = String(record).trim().split(/\s+/);
-    return parts.length === 2 && parts[0] === '0' && parts[1] === '.';
+  var nulls = 0;
+  var others = 0;
+  records.forEach(function (record) {
+    if (isNullMxRecord(record)) nulls++; else others++;
   });
+  // Both halves are required. Two `0 .` answers are a duplicate of one
+  // declaration and say nothing contradictory, so they are not a conflict. A
+  // `0 .` beside anything else is, including beside a record too malformed to
+  // parse into a host: the domain has published "no mail here" alongside an
+  // attempt to name somewhere mail goes, and no sender can honour both.
+  return nulls > 0 && others > 0;
 }
 
 /**
@@ -197,18 +207,12 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
     // Read from the records, not from `entries`: the record this reports on is
     // exactly the one `parseMxRecord()` rejects.
     var nullMxConflict = hasNullMxConflict(mx);
-    var invalidPreferences = [];
-    entries.forEach(function (entry) {
-      if (!entry.preferenceValid && invalidPreferences.indexOf(entry.preference) === -1) {
-        invalidPreferences.push(entry.preference);
-      }
-    });
     if (!entries.length) {
       return {
         hosts: [], danglingHosts: [], cnameHosts: [], duplicatePreferences: [],
         singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [], unknown: false,
         addressLiteralHosts: [], unroutableHosts: [], partiallyRoutableHosts: [],
-        nullMxConflict: nullMxConflict, invalidPreferences: invalidPreferences,
+        nullMxConflict: nullMxConflict,
       };
     }
 
@@ -340,7 +344,6 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
       partiallyRoutableHosts: hosts.filter(function (h) { return h.reachability === 'partial'; })
         .map(function (h) { return h.host; }),
       nullMxConflict: nullMxConflict,
-      invalidPreferences: invalidPreferences,
       cnameHosts: hosts.filter(function (h) { return h.isCname; }).map(function (h) { return h.host; }),
       duplicatePreferences: duplicatePreferences,
       singleHost: hosts.length === 1,

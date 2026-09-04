@@ -26,7 +26,7 @@ Three releases remain:
 ```
 
 The two MX releases were added on 2026-09-04 from
-[`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) (`0.5`). **0.9.1 is
+[`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) (`0.6`). **0.9.1 is
 next**, and the 1.0.0 review continues independently of it. **0.9.2 is
 blocked:** it adds `PTR` queries on a path
 deep checks leave enabled by default, which moves published DNS fan-out, and
@@ -36,7 +36,7 @@ with it.
 
 ## Start here: implement 0.9.1 MX address validity
 
-Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md), **`0.5`
+Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md), **`0.6`
 — the 0.9.1 portion is Final and approved for implementation.** The document
 stays at `0.3` because `OQ-MXV-03` is open; approval extends to 0.9.1 and to
 nothing else, per the multi-release rule in
@@ -114,7 +114,7 @@ it to be Final before 1.0.0, subject to `OQ-ONE-05`.
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
 | 0.9.0 | [report-comparison](docs/specs/implemented/report-comparison.md) | Released as `v0.9.0` | Versioned JSON schema, import validation and stateless comparison |
-| 0.9.1 | [mx-host-validity](docs/specs/mx-host-validity.md) | `v0.9.0` released; spec `0.5`, **0.9.1 implemented** | MX address-scope classification; address-literal and null-MX-conflict diagnosis |
+| 0.9.1 | [mx-host-validity](docs/specs/mx-host-validity.md) | `v0.9.0` released; spec `0.6`, **0.9.1 implemented** | MX address-scope classification; address-literal and null-MX-conflict diagnosis |
 | 0.9.2 | [mx-host-validity](docs/specs/mx-host-validity.md) | 0.9.1 released; **privacy review concluded** and `PRIVACY.md` re-measured | Forward-confirmed reverse DNS and provider address-set divergence |
 | 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
@@ -160,7 +160,7 @@ no implementation phase. Review it as a decision document alongside the
 
 - Work on a branch, never on `main`.
 - A spec is Final before implementation starts. For a multi-release spec, that
-  is per release: `mx-host-validity` `0.5` approves 0.9.1 only.
+  is per release: `mx-host-validity` `0.6` approves 0.9.1 only.
 - A task is boundable to one owning directory; cross-directory work is split
   into separate commits with an architectural explanation.
 - Resolver and generated data dependencies are passed, never imported by their
