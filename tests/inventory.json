@@ -776,14 +776,18 @@
   },
   {
    "path": "tests/build/release-compat.test.mjs",
-   "assertions": 15,
+   "assertions": 27,
    "areas": [
-    "the v0.5.0, v0.7.0 and v0.8.0 baselines cover the same deterministic cases",
+    "the v0.5.0, v0.7.0, v0.8.0 and v0.9.0 baselines cover the same deterministic cases",
     "audit results and DNS traces remain byte-identical from v0.7.0 to v0.8.0",
     "v0.8.0 CSV changes only through three appended artifact cells and one exact MTA-STS wording replacement",
     "v0.8.0 DOM changes only through the exact MTA-STS wording replacement",
     "v0.8.0 report changes are bounded to the named artifact CSS block and the same wording replacement",
-    "negative controls prove every v0.8.0 bounded-difference rule fails"
+    "negative controls prove every v0.8.0 bounded-difference rule fails",
+    "v0.9.0 results change only by the added per-protocol observability map, with the 79 audited domains proven to carry it and the one unregistered domain proven to be the case that does not",
+    "v0.9.0 query traces, CSV and DOM are pinned identical to v0.8.0: comparison is a second mode over an already-rendered table and issues no query",
+    "v0.9.0 report changes are bounded to the named comparison CSS block, its byte count and the document length, with the hash required to move",
+    "negative controls prove every v0.9.0 rule fails, including a second new result field and a different addition of exactly the authorized size"
    ]
   },
   {
@@ -806,7 +810,7 @@
  "notInNpmTest": [
   {
    "command": "node tests/build/equivalence.mjs --subject-root=. --baseline=tests/fixtures/equivalence/baseline-v0.8.0.json",
-   "why": "The five-surface comparison against the finished release baseline. Roughly 70 s for 32 cases, so it runs in CI rather than inside npm test; release-compat.test.mjs separately bounds the intentional v0.5.0 to v0.7.0 and v0.7.0 to v0.8.0 deltas.",
+   "why": "The five-surface comparison against the finished release baseline. Roughly 70 s for 32 cases, so it runs in CI rather than inside npm test; release-compat.test.mjs separately bounds the intentional v0.5.0 to v0.7.0, v0.7.0 to v0.8.0 and v0.8.0 to v0.9.0 deltas.",
    "areas": [
     "exact five-surface equivalence against v0.8.0: result, query trace, CSV, HTML report, DOM"
    ]
