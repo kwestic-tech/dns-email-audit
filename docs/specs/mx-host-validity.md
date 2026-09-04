@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.1 (Draft) |
+| Spec version | 0.2 |
 | Target release | 0.9.1, then 0.9.2 |
-| Status | Draft, awaiting review |
+| Status | 0.9.1 design settled pending `OQ-MXV-03`; **0.9.2 blocked on a privacy review**, §7 |
 | Depends on | 0.9.0 [report-comparison](report-comparison.md) for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
@@ -106,7 +106,7 @@ deep-check gate.
   provider's full, current address set is correct, and is what every Google
   Workspace and Microsoft 365 customer using a CNAME-free branded host looks
   like. Reporting the pattern would fire on a correct configuration and train
-  the reader to ignore the check. Only divergence is a finding. See `OQ-MXV-02`.
+  the reader to ignore the check. Only divergence is a finding. See `RQ-MXV-02`.
 - **No ownership attribution.** The PTR gives a name, not an operator. No ASN,
   no WHOIS, no registry of hosted mail providers. This follows the precedent
   set by [spf-subnet-and-redundancy](implemented/spf-subnet-and-redundancy.md), whose
@@ -165,7 +165,7 @@ Registry algebra `ip.scope`, owner `core/shared`, closed:
 | `loopback` | `127.0.0.0/8` | `::1/128` | no |
 | `private` | `10/8`, `172.16/12`, `192.168/16` | `fc00::/7` | no |
 | `link-local` | `169.254.0.0/16` | `fe80::/10` | no |
-| `shared` | `100.64.0.0/10` | — | no (`OQ-MXV-04`) |
+| `shared` | `100.64.0.0/10` | — | no (`RQ-MXV-04`) |
 | `documentation` | `192.0.2/24`, `198.51.100/24`, `203.0.113/24` | `2001:db8::/32` | no |
 | `benchmarking` | `198.18.0.0/15` | `2001:2::/48` | no |
 | `multicast` | `224.0.0.0/4` | `ff00::/8` | no |
@@ -177,6 +177,13 @@ establishes. `v4-mapped` is separated from `reserved` because an AAAA record
 holding `::ffff:203.0.113.5` is a specific and recognisable authoring mistake,
 and telling the operator that is more useful than telling them the address is
 reserved.
+
+`shared` is classified unreachable on authority rather than on judgement. The
+IANA IPv4 Special-Purpose Address Registry marks `100.64.0.0/10` as not globally
+reachable, and RFC 6598 §4 forbids publishing it in DNS zones reachable from
+outside the service provider's own network. A public MX advertising a shared
+address is therefore defective as published, whatever translator sits behind it,
+and this check reads what is published (`RQ-MXV-04`).
 
 `global` is the default rather than an enumeration, so an address in a range
 added to the registry after this ships is reported as reachable rather than as
@@ -217,7 +224,7 @@ derived rather than looked up:
 one routable and one private address accepts mail most of the time and stalls
 whichever senders select the unroutable one, which is the harder fault to
 diagnose from the outside and the reason it is not folded into either
-neighbour. Its severity is `OQ-MXV-01`.
+neighbour. Its severity is medium (`RQ-MXV-01`).
 
 #### 2.2 Per host — 0.9.2
 
@@ -248,6 +255,13 @@ neighbour. Its severity is `OQ-MXV-01`.
 }
 ```
 
+`hostsWithoutReverse` means **no checked address of that host published a
+`PTR`**, and every one of those lookups returned to say so. A host where one
+address has a `PTR` and another does not is absent from this list: it has reverse
+DNS, incompletely, and the incompleteness is not what the finding is about. A
+host whose lookups did not return is likewise absent, because unknown is not
+absent — the rule the specs README binds every new observation to.
+
 ### 3. Parser changes — 0.9.1
 
 `parseMxRecord()` gains two rejections and one classification. Its return shape
@@ -262,9 +276,10 @@ AAAA and CNAME lookups entirely — they are three queries per host spent provin
 something the RDATA already stated — and reports `resolves: 'no'` with
 `isAddressLiteral: true`.
 
-Whether the host then also raises `mx.dangling` is `OQ-MXV-05`. The draft
-position is that it must not: two findings for one defect, one of which
-prescribes the wrong fix, is worse than the single finding this release adds.
+Such a host raises no `mx.dangling` (`RQ-MXV-05`): two findings for one defect,
+one of which prescribes a fix that cannot be carried out, is worse than the
+single finding this release adds. §5 states the suppression rule and acceptance
+criterion 3 asserts it.
 
 **Preference range.** RFC 1035 §3.3.9 defines the preference as a 16-bit
 unsigned integer. The current guard is `/^\d+$/`, which accepts `99999`. Values
@@ -297,9 +312,25 @@ one finding per host.
 Per qualifying host:
 
 1. **Reverse.** `PTR` on each of the host's addresses, capped at the first four,
-   each through `optionalCheck` per address. A lookup that does not return
-   leaves `reverseNames: null` and ends the procedure for that host — never a
-   claim of absence.
+   each through `optionalCheck` **per address**.
+
+   Aggregation is per address and never per host. One address whose `PTR` does
+   not return, or returns nothing, must not stop another address from yielding a
+   usable forward-confirmed name — that is the same rule `auditMxHosts()` already
+   applies when it degrades a single host rather than the whole audit, and the
+   reason `resolves` has three values. Concretely:
+
+   | Per-address outcome | Contributes to `reverseNames` | Ends the host's procedure |
+   | --- | --- | --- |
+   | Name returned | the name | no |
+   | Empty answer (no PTR published) | nothing | no |
+   | Lookup did not return | nothing | no |
+
+   `reverseNames` is `null` only when **every** checked address failed to return
+   — a state that supports no claim either way. It is `[]` when every lookup
+   returned and none published a `PTR`, which is a claim of absence and is the
+   only state that raises `mx.no-reverse-dns`. The procedure continues on any
+   address that did produce a name.
 2. **Candidate.** Take the first returned name that is neither the MX host
    itself nor a name under the audited domain. A PTR pointing back into the
    audited zone means there is no separate provider name to compare against,
@@ -316,12 +347,21 @@ Per qualifying host:
    provider's: report when `H ⊂ P` strictly. `missingAddresses` is `P \ H`.
    `H = P` is the correct vanity configuration and produces nothing. `H ⊄ P`
    means the two names have diverged in both directions, which is not this
-   finding and is left alone; see `OQ-MXV-06`.
+   finding and is left alone; deferred as `RQ-MXV-06`.
 
 **Query budget.** Per qualifying host: up to 4 PTR, plus 2 per candidate name,
 so a bounded worst case of 8 additional queries per host and 4 candidate
 resolutions per domain. On the common shape — one in-domain MX host with one
-address — it is 3. The gate keeps this off the default path entirely.
+address — it is 3.
+
+**The gate is not an opt-in, and the 0.1 draft was wrong to imply it.** Deep
+checks ship ticked: `MAX_DEEP_CHECK_DOMAINS` at
+[`events.js:105`](../../src/ui/events.js:105) switches them off only above 50
+domains, and PRIVACY.md states plainly that they are the default and that the
+published per-domain figures are the numbers with them on. An ordinary
+single-domain run therefore issues these queries. Every cost and disclosure
+argument in this document is made on that basis, and `OQ-MXV-03` is not a
+formality.
 
 **Why the deep-check gate and not a new one.** MX already sits behind it, DANE
 already extends it at [`audit-domain.js:347`](../../src/audit/audit-domain.js:347),
@@ -330,6 +370,11 @@ report run without it is not compared as though the protocol were observed.
 Putting 0.9.2 behind the same flag means the comparison release handles it
 correctly with no further work. A separate flag would need its own provenance
 field and its own comparability rule.
+
+That is an argument for reusing the existing flag, and it is **not** an argument
+that the work is opt-in. If the privacy review in §7 concludes the disclosure
+should be separately consentable, a dedicated flag is the mechanism, and its
+provenance and comparability cost is the price. §7 decides this; §4 does not.
 
 ### 5. Findings
 
@@ -340,7 +385,7 @@ lines 532–546.
 | Release | Key | Id | Severity | Category | Effort |
 | --- | --- | --- | --- | --- | --- |
 | 0.9.1 | `mx-unroutable` | `mx.unroutable` | critical | transport | moderate |
-| 0.9.1 | `mx-partially-routable` | `mx.partially-routable` | medium (`OQ-MXV-01`) | transport | moderate |
+| 0.9.1 | `mx-partially-routable` | `mx.partially-routable` | medium (`RQ-MXV-01`) | transport | moderate |
 | 0.9.1 | `mx-address-literal` | `mx.address-literal` | critical | transport | trivial |
 | 0.9.1 | `mx-null-conflict` | `mx.null-conflict` | medium | hygiene | trivial |
 | 0.9.1 | `mx-invalid-preference` | `mx.invalid-preference` | info | hygiene | trivial |
@@ -351,6 +396,23 @@ lines 532–546.
 the only host, the domain receives no mail. `mx.address-literal` is critical
 because it is the same outage; it is `trivial` effort because the fix is one
 record.
+
+**Suppression (`RQ-MXV-05`).** A specific finding suppresses the general one
+whose remediation would be wrong. `mx.address-literal` and `mx.null-conflict`
+each suppress `mx.dangling` for the record that raised them: `mx-dangling` tells
+the operator to check the zone for a missing address record, which for an address
+literal and for a `.` pseudo-target is advice that cannot be followed.
+`mx.unroutable` does **not** suppress anything, because a host that resolves is
+not dangling and the two never co-occur.
+
+**`mx.vanity-divergent` does not suppress `mx.single-host`, and the 0.1 Risks
+section was wrong to group them.** The two state different facts: `single-host`
+counts MX *names*, `vanity-divergent` compares *addresses behind one name*.
+Neither implies the other, and unlike the `mx.dangling` pairs, `single-host`'s
+remediation stays correct — publishing a second MX host is still sound advice for
+a domain that has one, whether or not the first one's address set is complete.
+Suppressing it would hide a real resilience fact that survives fixing the
+divergence. Both appear, and acceptance criterion 12 asserts it.
 
 `mx.no-reverse-dns` is `info` and must stay `info`. RFC 5321 §4.1.4 states that
 a failed reverse lookup **SHOULD NOT** on its own be grounds for refusing mail,
@@ -366,6 +428,47 @@ All seven findings emit `host` evidence, already an `EVIDENCE_KINDS` member at
 record rather than in the host. `mx.unroutable` and `mx.partially-routable`
 carry the offending address and its scope in their arguments, so the report
 states which address is unreachable and why, not merely that one is.
+
+### 7. Privacy impact — a blocking gate on 0.9.2
+
+[`AGENTS.md`](../../AGENTS.md:110) lists "anything implying a `PRIVACY.md` edit —
+that means DNS fan-out moved" among the conditions to **stop and say so, not push
+through**. 0.9.2 moves fan-out. This section states what moves; it does not
+discharge the review, and 0.9.2 does not reach Final until that review happens.
+
+**0.9.1 is not gated.** It issues no query. It *removes* three per
+address-literal host, which is a fan-out change in the cheaper direction and
+affects only a malformed configuration absent from PRIVACY.md's measured sample.
+It is recorded here for completeness and needs no re-measurement.
+
+**What 0.9.2 discloses that no earlier release did.** PRIVACY.md enumerates the
+names a run reveals to Cloudflare under "those queries cover more than the name
+you typed". 0.9.2 adds two entries to that list:
+
+1. **Reverse zones.** A `PTR` for each checked MX address discloses
+   `<reversed>.in-addr.arpa` or `.ip6.arpa`. The addresses themselves were
+   already disclosed as `A`/`AAAA` answers, but the *query* is new, and it states
+   to the resolver that this address is being investigated rather than merely
+   resolved.
+2. **A provider name the user never typed and the audited zone never named.**
+   Forward-confirming a candidate resolves a hostname belonging to a third-party
+   mail provider — `mailfilter.hibox.hinet.net` for the worked example. PRIVACY.md
+   already warns that MX host names "belong to whoever runs the domain's mail,
+   which is frequently a third-party provider"; this widens that from names the
+   audited zone published to names inferred from reverse DNS.
+
+**What must be re-measured, not estimated.** PRIVACY.md publishes 41 queries per
+domain on the 40-domain sample and 61 for `cloudflare.com`, both with deep checks
+on. Both figures move. They are re-measured on the same corpus, by the same
+method, and the paragraph at PRIVACY.md's line 59 already instructs a reader to
+re-measure rather than trust the prose — the spec is held to its own document's
+standard.
+
+**The question the review has to answer**, and which this spec does not presume:
+whether inferring and resolving a provider name the user did not supply is
+within the consent an audit run already carries, or whether it needs its own
+control. §4 notes a dedicated flag is the mechanism if the answer is the latter.
+`OQ-MXV-03` is entangled with this and is deliberately left open.
 
 ## Localization impact
 
@@ -439,9 +542,9 @@ are later admitted to the grade, that change is backtested with
    unreachable address.
 3. An MX record whose RDATA is an address literal raises `mx.address-literal`,
    raises no `mx.dangling`, and issues no A, AAAA or CNAME query for it.
-4. A null MX beside any other MX record raises `mx.null-conflict`, and the `.`
-   target is not resolved. `isNullMx()` behavior is byte-identical to `v0.9.0`
-   on every input.
+4. A null MX beside any other MX record raises `mx.null-conflict`, raises no
+   `mx.dangling`, and the `.` target is not resolved. `isNullMx()` behavior is
+   byte-identical to `v0.9.0` on every input.
 5. A preference above 65535 raises `mx.invalid-preference` and does not prevent
    the host from being audited.
 6. No score or grade differs from `v0.9.0` on the deterministic corpus.
@@ -455,8 +558,23 @@ are later admitted to the grade, that change is backtested with
 9. A reverse name that does not forward-confirm raises nothing, and a PTR
    lookup that does not return raises nothing.
 10. With deep checks off, no PTR query is issued and neither 0.9.2 finding
-    appears.
+    appears. Deep checks being **on** by default, this is the non-default path,
+    and criterion 14 covers the default one.
 11. No score or grade differs from `v0.9.1` on the deterministic corpus.
+12. A domain with one MX host that is also divergent raises **both**
+    `mx.single-host` and `mx.vanity-divergent`. Neither suppresses the other.
+13. On a host with two addresses where the first `PTR` lookup does not return
+    and the second yields a forward-confirmed provider name, the divergence is
+    still evaluated from the second. Asserted against a stub resolver that fails
+    exactly one address — per-address aggregation that is only described will
+    regress silently.
+14. `hostsWithoutReverse` contains a host only when every checked address
+    returned and none published a `PTR`. A host with one `PTR` and one without is
+    absent from it, and so is a host whose lookups did not return.
+15. The measured query count for the deterministic corpus, deep checks on, is
+    recorded in the 0.9.2 pull request and in `PRIVACY.md`, and `PRIVACY.md`'s
+    disclosure list names the reverse zones and the provider name. Criterion 15
+    is not satisfiable before the §7 review concludes.
 
 ## Risks
 
@@ -471,60 +589,82 @@ it fails the comparison rather than producing a false finding.
 **Scope classification is too aggressive.** An address range added to the IANA
 registry after this ships, or a deployment using shared address space
 deliberately behind a NAT that does receive mail, would be reported as an
-outage. *Mitigation:* `global` is the default, so unknown ranges are reported as
-reachable; `100.64.0.0/10` is `OQ-MXV-04` precisely because it is the range with
-a plausible legitimate use.
+outage. *Mitigation:* `global` is the default, so a range added to the registry after
+this ships is reported as reachable rather than as an outage. `100.64.0.0/10` is
+the range with the most plausible legitimate deployment, and `RQ-MXV-04` settles
+it against that intuition on the authority of RFC 6598 §4: whatever runs behind
+the translator, publishing the address in external DNS is the defect.
 
 **Query volume on large estates.** A 200-domain audit with deep checks on could
 add several hundred queries. *Mitigation:* the caps in §4 — four addresses per
 host, two candidates per domain — and the deep-check gate. The 0.9.2 pull
 request states the measured additional query count on the deterministic corpus.
 
-**Two findings for one defect.** `mx.unroutable` and `mx.dangling` are adjacent,
-as are `mx.address-literal` and `mx.dangling`, and `mx.vanity-divergent` and
-`mx.single-host`. A reader given two findings for one cause loses confidence in
-both. *Mitigation:* `OQ-MXV-05` settles the suppression rule; the draft position
-is that the more specific finding suppresses the more general one, and the
-acceptance criteria assert the suppression rather than leaving it to review.
+**Two findings for one defect.** `mx.address-literal` and `mx.null-conflict` are
+each adjacent to `mx.dangling`, and a reader given two findings for one cause —
+one of which prescribes an impossible fix — loses confidence in both.
+*Mitigation:* `RQ-MXV-05` settles it in §5; the specific finding suppresses
+`mx.dangling`, and acceptance criteria 3 and 4 assert the suppression rather than
+leaving it to review. `mx.vanity-divergent` and `mx.single-host` were listed here
+in the 0.1 draft and do **not** belong: they state different facts and both
+correctly appear together, which criterion 12 now asserts.
+
+## Resolved questions
+
+Resolved by the 2026-09-04 review. Each keeps its identifier, per the specs
+README's rule that a resolved question moves rather than disappears.
+
+**`RQ-MXV-01` — `mx.partially-routable` is medium.** Delivery is impaired, not
+proven absent; critical is reserved for complete loss. This keeps `critical`
+meaning "this domain is not receiving mail", which is what makes `mx.dangling`
+and `mx.unroutable` legible.
+
+**`RQ-MXV-02` — in-domain MX hosts only**, as scoped. An out-of-domain provider
+hostname is provider-controlled and offers the domain operator no remediation,
+so a finding against it would be unactionable by its only reader.
+
+**`RQ-MXV-04` — `100.64.0.0/10` is `shared` and unreachable.** IANA marks it not
+globally reachable and RFC 6598 §4 prohibits publishing it in externally
+reachable DNS, so a public MX advertising one is defective as published whatever
+translator stands behind it. Recorded in §1, which now carries the authority
+rather than the draft's hedge.
+
+**`RQ-MXV-05` — yes, specific findings suppress `mx.dangling`.** Its remediation
+is wrong for both address literals and null-MX conflicts. Settled in §5, asserted
+by criteria 3 and 4. `mx.unroutable` suppresses nothing, since a host that
+resolves is never also dangling.
+
+**`RQ-MXV-06` — bidirectional divergence is deferred.** `H \ P` does not
+establish that the provider disowned those addresses: forward confirmation
+evidences one relationship, not ownership of every address in either set. A
+later release may report a neutral address-set mismatch once fixtures bound the
+false-positive class. The 0.1 draft's framing — "the provider has disowned" —
+overstated what the evidence supports and is withdrawn.
 
 ## Open questions
 
-**`OQ-MXV-01` — Is `mx.partially-routable` medium or critical?** A host with one
-routable and one unroutable address delivers most mail and stalls some senders
-intermittently. The argument for critical is that intermittent inbound loss is
-worse to diagnose than total loss. The argument for medium is that the domain is
-receiving mail and critical should mean it is not. Draft position: medium.
+**`OQ-MXV-03` — is the query cost acceptable at the stated caps?** Left open
+deliberately. The architecture and the caps in §4 are sound, but the cost must be
+*measured* before approval, not argued: query traces on the deterministic corpus
+with deep checks on. It is entangled with §7, because the same traces answer both
+what it costs and what it discloses. Neither the 0.1 draft's estimate nor its
+withdrawn claim that the work sat off the default path is a substitute.
 
-**`OQ-MXV-02` — Should divergence run on out-of-domain MX hosts?** The check is
-gated on `inAudited` because a vanity name is by definition in the audited zone.
-A domain pointing directly at a provider name could in principle also lag, but
-that name is the provider's own and there is nothing for the operator to fix.
-Draft position: in-domain only, as scoped.
+## Review record
 
-**`OQ-MXV-03` — Is the query cost acceptable at the stated caps?** §4 bounds it
-at 8 per qualifying host. Settling this may want a measurement against the
-deterministic corpus, captured under `docs/specs/fixtures/` per the
-captured-evidence rule.
+`AGENTS.md` requires every reviewer finding be recorded with its reasoning,
+accepted or declined. All were reproduced against the code before folding in.
 
-**`OQ-MXV-04` — Is `100.64.0.0/10` unroutable for this purpose?** RFC 6598
-shared address space is not globally routable, but it is used inside carrier and
-cloud networks where a mail host might genuinely sit behind a translator. Draft
-position: classify as `shared`, and include it in `none`/`partial` — but this is
-the most likely false positive in the table.
-
-**`OQ-MXV-05` — Does a specific finding suppress `mx.dangling`?** Draft position
-in §3: yes, and asserted in acceptance criterion 3. The alternative is that both
-appear and the reader reconciles them.
-
-**`OQ-MXV-06` — What is reported when the sets diverge in both directions?**
-`H ⊄ P` and `P ⊄ H` means the vanity name holds an address the provider no
-longer publishes — the stale-copy case, and arguably the more serious one, since
-mail is being routed somewhere the provider has disowned. §4 currently ignores
-it. Draft position: defer to a later release rather than widen 0.9.2, but it is
-the strongest candidate for inclusion.
+| Finding | Disposition | Reasoning |
+| --- | --- | --- |
+| "Off the default path entirely" is false | **Accepted** | Reproduced: `MAX_DEEP_CHECK_DOMAINS = 50` at `events.js:105`; PRIVACY.md states deep checks ship ticked and the published figures include them. The claim was load-bearing for both the cost and disclosure arguments. §4 corrected. |
+| 0.9.2 needs a privacy review and probably a `PRIVACY.md` edit | **Accepted** | Reproduced: `AGENTS.md:110` item 4 makes a `PRIVACY.md` implication a stop condition. New §7; 0.9.2 blocked in the header. |
+| PTR failure needs per-address aggregation, and `hostsWithoutReverse` needs a definition | **Accepted** | The 0.1 text ended the whole host's procedure on one failed lookup, contradicting the per-host `optionalCheck` discipline this module already documents as its reason for three-valued `resolves`. §4 and §2.3 corrected. |
+| Decide whether `mx.vanity-divergent` suppresses `mx.single-host` | **Accepted as a gap; decided against suppression** | They state different facts — name count versus addresses behind one name — and `single-host`'s remediation stays correct after the divergence is fixed, unlike the `mx.dangling` pairs. The 0.1 Risks section implied suppression and was wrong. §5 decides, criterion 12 asserts. |
 
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.2 | 2026-09-04 | Review. Five questions resolved as `RQ-MXV-01`, `-02`, `-04`, `-05`, `-06`; `OQ-MXV-03` held open for measurement. Withdrew the false claim that 0.9.2 sits off the default path. Added §7 privacy impact and blocked 0.9.2 on that review. Made PTR aggregation per address and defined `hostsWithoutReverse`. Decided against `mx.single-host` suppression and corrected the Risks section that implied it. Criteria 12–15 added. |
