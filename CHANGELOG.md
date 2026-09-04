@@ -14,7 +14,63 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **A versioned JSON report.** **Export JSON** writes the finished run as a
+  named projection of the audit rather than the result object: normalized
+  records, findings with their nine comparable fields and source-bound
+  evidence, the per-domain score in its real `pts`/pillar shape, the options
+  that were in force, the resolver used, and the analysis version that scored
+  it. Display state, locale routing and the query trace are excluded by
+  decision, and the exclusion table is published in the spec.
+- **Comparison of two reports, entirely in memory.** Import a saved report
+  while results are on screen to compare it against the current run, or import
+  two with no audit running. Each domain gets a verdict — new, removed,
+  improved, regressed, changed, unchanged or not comparable — decided in a
+  fixed precedence, with the finding ids that appeared or resolved, the record
+  deltas paired baseline against current, and the score movement. The
+  comparison overlays the existing table rather than replacing it, and leaving
+  the mode or reloading discards both reports.
+- **Per-protocol observability, so nothing is reported as fixed that was never
+  looked at.** Every audit now carries a total map over the thirteen protocols
+  with one of three values: observed, unproven, or not run. A comparison
+  refuses to call a finding resolved on a protocol either report did not
+  observe; it marks the protocol instead, with the side that lacked it and
+  whether it was checked without result or never checked. This is what makes
+  a comparison across an options change safe: turning off advanced checks
+  would otherwise have reported eight SPF findings and DMARC report
+  authorization as resolved.
+- **`analysisVersion`, gating the score delta only.** Two reports scored by
+  different rubric versions still show their finding and record movement; only
+  the number is withheld, because that is the only part the rubric decides.
+  A rubric fingerprint test fails if the weights or thresholds move without the
+  version moving with them.
+
+### Changed
+
+- Imported reports are validated strictly and fail closed. Every known field is
+  type- and range-checked against published limits — 8 MB, 200 domains, 200
+  findings and 20 evidence entries per domain, 8 levels of nesting — and a
+  malformed file is refused whole rather than coerced into a comparable-looking
+  one. Refusals carry a code from a closed six-member set plus the literal
+  schema path that failed, so the message is translated while the diagnostic
+  stays exact.
+- Every value from an imported report is rendered as a text node, on the same
+  path a DNS record takes. A finding id this build does not recognize is shown
+  with a note saying so rather than dropped, so a diff across tool versions
+  stays complete.
+- Added 56 English locale leaves and the same interface, comparison, refusal
+  and per-protocol surface across all thirteen other locales. Protocol tokens,
+  schema paths and finding ids remain literal.
+- Pinned the finished 0.9.0 browser boundary across audit results, DNS traces,
+  CSV, HTML reports and rendered DOM. The release-compatibility suite bounds
+  the delta from 0.8.0 to exactly two authorized changes — the added
+  observability map and 632 bytes of comparison styles — and proves query
+  traces, CSV and DOM byte-identical: comparison is a second mode over an
+  already-rendered table and issues no query of its own.
+- The verification inventory reports 280 checks and 5,491 assertions. The
+  locale gate reports 13/13 at 100%, and the Content Security Policy retains
+  its existing connection destinations.
 
 ## [0.8.1] — 2026-09-03
 

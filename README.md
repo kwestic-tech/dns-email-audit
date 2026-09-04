@@ -28,6 +28,10 @@ sent to Cloudflare and are subject to Cloudflare's privacy policy.
   one of them is named with the step that recovers the points.
 - Search, filters, sortable results, expandable evidence, CSV export, and a
   self-contained script-free HTML report.
+- A versioned JSON report, and comparison of two of them entirely in the
+  browser: new, resolved and changed findings, record deltas, and score movement
+  per domain. Nothing is stored — the comparison lives in the tab and is gone on
+  exit or reload.
 - Stable structured findings with five severity levels, confidence, source-bound
   DNS evidence, and a dependency-ordered remediation view. CSV exports finding
   ids, severities and the first remediation step alongside the legacy columns.
@@ -89,6 +93,20 @@ Found DKIM selectors display the exact query name, CNAME target when applicable,
 and resolved public-key data. A supplied selector outside the catalog is labeled
 **Uncommon**. A supplied selector without an active key is shown as **No Domain
 Key Found**.
+
+After an audit completes, **Export JSON** saves the run as a versioned report:
+the same facts the table shows, normalized, with the options that were in force,
+the resolver used, and the analysis version that scored it. **Import report**
+then compares a saved report against what is on screen, or — with no audit
+running — against a second saved report.
+
+The comparison is honest about what it cannot say. A protocol one report did not
+observe is marked, with its reason, rather than counted as fixed; two reports
+scored by different analysis versions show their findings without a score delta;
+and two reports from different releases show what moved without calling it
+resolved, because a release can add or correct a finding on its own. A file that
+is not a report from this tool, or is malformed, is refused with the field that
+failed rather than partially loaded.
 
 After an audit completes, open **Validate a local MTA-STS policy or BIMI logo**
 below the results. Select one completed domain, paste the policy or SVG source
@@ -298,7 +316,7 @@ JSON files from disk, so translated interfaces require HTTP.
 | `npm ci` | Install exact versions of esbuild and its platform binary; no install scripts run. |
 | `npm start` | Serve the already-built application on port 8080 with the dependency-free development server. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Build the bundle, then run locale validation plus **5,100** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
+| `npm test` | Build the bundle, then run locale validation plus **5,491** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `src/data/locales-en.js` after editing `locales/en.json`. |
@@ -352,9 +370,9 @@ dns-email-audit/
 │   ├── runtime.js              # composition root
 │   ├── core/dns/               # DoH transport, cache, resolver, cancellation
 │   ├── core/spf|dkim|dmarc|…/  # one directory per protocol, plus shared/
-│   ├── audit/                  # which checks run, scoring, findings
+│   ├── audit/                  # which checks run, scoring, findings, observability
 │   ├── providers/              # DNS, email and hosting detection
-│   ├── ui/                     # render.js, report.js, events.js
+│   ├── ui/                     # render.js, report.js, report-data.js, events.js
 │   ├── i18n/index.js           # locale loading, fallback, and safe rich text
 │   └── data/                   # generated: locales-en, public suffixes, DKIM
 ├── dist/app.min.js             # the built artifact — what the browser loads
@@ -365,7 +383,7 @@ dns-email-audit/
 ├── tests/
 │   ├── contract/               # allowed imports, transport kinds, namespace
 │   ├── build/                  # artifact, parity, equivalence, file:// in Chrome
-│   └── fixtures/equivalence/   # the corpus and its committed baseline
+│   └── fixtures/equivalence/   # the corpus and its committed release baselines
 ├── tools/
 │   ├── serve.mjs               # dependency-free local server
 │   ├── build-bundle.mjs        # esbuild → dist/app.min.js
@@ -462,6 +480,9 @@ UI strings, keeping audit logic independent from translation work.
   operators can validate a policy they already possess in the local panel.
 - DNS, email-provider, and hosting detection use public records and heuristics;
   unusual or private infrastructure may be labeled custom or unknown.
+- Report comparison is between exactly two reports, bounded to 200 domains and
+  8 MB per file, and holds no history: there is no trend over time, because
+  keeping one would mean storing audits, which this tool does not do.
 - DNSSEC status reflects validation performed by the configured Cloudflare DoH
   resolver rather than an independent local validating resolver. The `DS`-to-
   `DNSKEY` digest matching this tool performs locally is diagnostic evidence
