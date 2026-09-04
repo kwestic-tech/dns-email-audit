@@ -8939,6 +8939,8 @@
       "render.hygiene.punycode": { "state": "translated", "sourceHash": "04175afd", "targetHash": "447d2635", "updatedAt": "2026-08-24", "translator": "claude-opus-5" },
       "render.hygiene.zeroWidth": { "state": "translated", "sourceHash": "98d71719", "targetHash": "7a6a5daf", "updatedAt": "2026-08-24", "translator": "claude-opus-5" },
       "render.hygieneTitle": { "state": "translated", "sourceHash": "fecf30a8", "targetHash": "cd56763e", "updatedAt": "2026-08-24", "translator": "claude-opus-5" },
+      "render.moreRecords.few": { "state": "translated", "sourceHash": "189ee209", "targetHash": "0ef4d750", "updatedAt": "2026-09-04", "translator": "gpt-5.6" },
+      "render.moreRecords.many": { "state": "translated", "sourceHash": "189ee209", "targetHash": "2554fc17", "updatedAt": "2026-09-04", "translator": "gpt-5.6" },
       "render.moreRecords.one": { "state": "translated", "sourceHash": "bedafdc4", "targetHash": "d1c4f710", "updatedAt": "2026-08-24", "translator": "claude-opus-5" },
       "render.moreRecords.other": { "state": "translated", "sourceHash": "189ee209", "targetHash": "2554fc17", "updatedAt": "2026-08-24", "translator": "claude-opus-5" },
       "render.rowFailed": { "state": "translated", "sourceHash": "38515cab", "targetHash": "d12dec4a", "updatedAt": "2026-09-03", "translator": "claude-opus-5" },

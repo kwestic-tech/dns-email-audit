@@ -203,6 +203,8 @@
     "showLess": "Pokaż mniej",
     "moreRecords": {
       "one": "{0} rekord więcej nie jest wyświetlany",
+      "few": "{0} rekordy więcej nie są wyświetlane",
+      "many": "{0} rekordów więcej nie jest wyświetlanych",
       "other": "{0} rekordów więcej nie jest wyświetlanych"
     },
     "hygieneTitle": "Higiena rekordu",

@@ -76,6 +76,12 @@ Nothing yet.
   locale gate reports 13/13 at 100%, and the Content Security Policy retains
   its existing connection destinations.
 
+### Fixed
+
+- Completed the Polish `render.moreRecords` plural with its reachable `few`
+  and `many` forms, so counts such as 3 and 5 use the correct grammatical case
+  instead of falling through to the English-shaped `other` form.
+
 ## [0.8.1] — 2026-09-03
 
 A patch release. Five defects found by an external review of `v0.8.0`, one
