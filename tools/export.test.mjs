@@ -691,7 +691,7 @@ eq('the emoji survives serialization', astralReport.includes('\u{1F600}'), true)
 eq('no replacement character was introduced', astralReport.includes('�'), false);
 assertInert('a report containing an astral boundary value', astralReport);
 
-/* ── The JSON export (report-comparison 1.7 §3) ──────────────────────── */
+/* ── The JSON export (report-comparison 1.8 §3) ──────────────────────── */
 section('The JSON export');
 
 /**

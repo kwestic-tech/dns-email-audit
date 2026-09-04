@@ -1,6 +1,6 @@
 /**
  * The 0.9.0 report schema, its importer and the comparison.
- * Spec: report-comparison 1.7 (Final), sections 1, 4 and 5.
+ * Spec: report-comparison 1.8 (Final), sections 1, 4 and 5.
  *
  * -- Pure, and deliberately so ------------------------------------------
  *
@@ -102,7 +102,7 @@ const RECORD_PROTOCOL = {
 };
 
 /**
- * The closed set of rejection codes (report-comparison 1.7 section 4).
+ * The closed set of rejection codes (report-comparison 1.8 section 4).
  *
  * ONLY the code is localized. `path` is a schema path and `detail` is the
  * clause that failed; both stay literal technical data, for the same reason a

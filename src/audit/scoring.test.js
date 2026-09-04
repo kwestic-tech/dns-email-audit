@@ -218,7 +218,7 @@ eq('MTA-STS counts as done only when its policy is verified',
   calcAdvScore({ bimi: {}, mtaSts: { present: true }, tlsRpt: {}, caa: {}, dnssec: {} }).done, 0);
 
 /* ── The analysis version and its drift guard ─────────────────────────── */
-section('The analysis version (report-comparison 1.7 §2)');
+section('The analysis version (report-comparison 1.8 §2)');
 
 eq('ANALYSIS_VERSION is a positive integer', [
   Number.isInteger(ANALYSIS_VERSION), ANALYSIS_VERSION > 0,

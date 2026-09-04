@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.7 (Final, amended) |
+| Spec version | 1.8 (Final, amended) |
 | Target release | 0.9.0 |
 | Status | Approved for implementation |
 | Depends on | [findings-and-remediation](implemented/findings-and-remediation.md), which defines finding identity, plus the 0.8.0 decision on user-supplied artifact findings |
@@ -129,7 +129,17 @@ each is a different owner and two of them can move a published surface:
    prose the first implementation returned. It precedes the locale commit
    because the codes are what the locale commit writes messages for.
 9. `locales/en.json` and all thirteen translations.
-10. `src/ui/events.js` — import controls, comparison mode, rendering, filters.
+10. `src/ui/`, `index.html` and `css/style.css` — the import controls,
+    comparison mode, rendering and filters, together.
+
+Step 10 is the one step that is NOT owner-bound, and it is stated that way
+rather than labelled as something it is not. A control needs markup in
+`index.html`, a listener in `src/ui/events.js` and presentation in
+`css/style.css`, and no two of the three are shippable apart: a button with no
+listener does nothing when clicked, and a listener whose element is absent
+throws on the lookup. Every earlier step was split precisely because it COULD
+be; this one is one commit because splitting it would produce a broken browser
+at each intermediate point, which the same rule forbids.
 
 Steps 4 through 6 are preparation for the export and were absent from the 1.0
 plan, which named only `src/ui/report.js`. They are listed rather than folded
@@ -637,6 +647,18 @@ static report already expands — rather than doubling every cell in the main gr
 
 A comparison summary replaces the existing stats grid while in comparison mode.
 
+The table shows a row for every domain the comparison counts, not only for the
+domains the current run audited. Two cases need that and neither can borrow an
+audit row: a domain present only in the baseline is `removed` and has no
+current result, and two reports compared with no run at all have no table to
+decorate. A summary that counts domains the table never shows is a defect.
+
+The detail row carries the evidence: the finding ids that appeared, resolved or
+became unknown, the severity changes, the record deltas paired baseline against
+current, and each incomparable protocol named with the side that did not
+observe it. Every one of those values came out of a supplied file and is
+rendered through the same text path as a DNS record.
+
 An incomparable protocol is marked in the row, with its reason, using the same
 visual treatment as the existing unproven-pillar grade marker. It is never
 rendered as a zero delta.
@@ -893,6 +915,7 @@ rather than reverse-engineering it from score pillars and finding confidence.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 1.8 | 2026-09-04 | **Final, amended during implementation of step 10.** Two corrections. **(a) Step 10 is not owner-bound and now says so.** The plan called it `src/ui/events.js`, but a control needs markup, a listener and presentation, and no two of `index.html`, `src/ui/events.js` and `css/style.css` ship apart without a broken browser in between — the same rule that forced every earlier step to be SPLIT forces this one to be whole. Recorded as the deliberate exception rather than committed under a label it does not fit. **(b) Section 6 now states what the table must show.** The first implementation decorated existing rows only, so a `removed` domain and a comparison of two reports with no run produced a summary counting domains the table never displayed, and the detail row carried none of the finding, record or per-protocol evidence the comparison had already computed. No product decision reopened. Found by Codex review of the step-10 commit (I22, I23, I26). |
 | 1.7 | 2026-09-04 | **Final, amended before the locale commit.** Publishes the importer's error shape, which 1.0 left as a bare `errors: []` while the localization section promised translated messages. The implementation had filled that silence with English prose at eighty call sites, which a UI cannot translate. Errors are now `{ code, path?, detail? }` over a closed six-member set; only the code is localized, and the schema path and failing clause stay literal technical data for the same reason a schema field name is never translated. The alternative — a locale key per validator clause — would have added roughly fifty keys in thirteen languages to describe fields a report written by this tool cannot contain. A runtime's own `JSON.parse` text is diagnostic detail and never the primary message, because it varies by engine. Adds the shape change as step 8, before the locale commit that writes messages for its codes. No product decision reopened. |
 | 1.6 | 2026-09-03 | **Final, amended during implementation of commit 4.** Two corrections. **(a) The published commit plan did not describe the work.** Section 0 promised directory-bound commits and named `src/ui/report.js` alone for the export, but the export needs a platform primitive, a runtime capability and run state in `src/ui/events.js` first. Rather than commit a cross-owner change under a directory-bound label, those three are now listed as their own steps, each leaving the browser working. **(b) The filename rationale was wrong a second time.** 1.5 replaced a false non-collision claim with a false justification — a timestamped name derived from the run's stable `generatedAt` would NOT differ between two exports of one run. The real reasons are recorded instead. No product decision reopened. Found by Codex review of the commit-4 working tree (I18, I19). |
 | 1.5 | 2026-09-03 | **Final, amended during implementation of commit 4.** Two corrections, both found by review of the working tree. **(a) The commit order was unbuildable.** Commit 4 calls `t('toast.jsonExported')`; the prescribed order wired the button at 5 and added the strings at 6, so that intermediate commit would have shipped a browser whose export toast read `toast.jsonExported` — against `AGENTS.md`, which requires the browser to work at every commit and requires an English key and thirteen translations in one change. Locales now land at 5 and the UI wiring at 6. **(b) The filename's stated rationale was false.** A date-only name does not prevent collisions: every run on one UTC date requests the same name. The claim is corrected rather than the name changed, and the rejected alternative is recorded — a name carrying a time would differ between two exports of one run, which is the property acceptance criterion 4 protects. No product decision reopened. Found by Codex review of the commit-4 working tree (I16, I18). |

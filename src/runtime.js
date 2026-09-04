@@ -52,7 +52,7 @@ import { dnsError, dnsTypeNum } from './core/dns/errors.js';
 
 /**
  * The application's released version, as a value the running page can read.
- * Spec: report-comparison 1.7 (Final), §2.
+ * Spec: report-comparison 1.8 (Final), §2.
  *
  * It lives HERE because it has nowhere else to go. `AGENTS.md`'s import matrix
  * has rows for `src/main.js` and `src/runtime.js` and no others at the root, so
