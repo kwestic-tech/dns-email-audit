@@ -30,6 +30,17 @@
  * `js/dns.js`'s `IP_FAMILY_BITS`, `ipv4ToBigInt`, `ipv6ToBigInt` and
  * `parseIpCidr`, unchanged apart from the two-space dedent and three `export`
  * keywords. `IP_FAMILY_BITS` stays private; nothing outside read it.
+ *
+ * ── ipScope(), added by 0.9.1 ────────────────────────────────────────────
+ *
+ * `parseIpCidr()` answers how big a block is. `ipScope()` answers what kind of
+ * address it holds, which nothing here could ask before: `core/mx/` computed
+ * `resolves: 'yes'` from `addresses.length` alone, so an MX host answering
+ * `127.0.0.1` reported as a healthy mail host that no sender can reach.
+ *
+ * It lives here rather than in `core/mx/` under the same test that placed
+ * `parseIpCidr()` here: two protocol owners. MX reads it now; `core/spf/`
+ * classifies the same address space and can read it without a new edge.
  */
 
 var IP_FAMILY_BITS = { ipv4: 32, ipv6: 128 };
@@ -112,4 +123,86 @@ export function parseIpCidr(text, family) {
   var address = family === 'ipv6' ? ipv6ToBigInt(value) : ipv4ToBigInt(value);
   if (address === null) return null;
   return { address: address, prefix: prefix, bits: bits };
+}
+
+/**
+ * The kinds of address `ipScope()` distinguishes. Registry algebra `ip.scope`.
+ *
+ * The registry behind this is RFC 6890 and the IANA special-purpose address
+ * registries it establishes. Every member but `global` names space that is not
+ * globally reachable, which is the only distinction MX reachability needs; they
+ * are kept apart anyway because "this MX points at loopback" and "this MX points
+ * at documentation space" are different mistakes and the operator fixes them
+ * differently.
+ */
+export const IP_SCOPE = Object.freeze(['global', 'unspecified', 'loopback',
+  'private', 'link-local', 'shared', 'documentation', 'benchmarking',
+  'multicast', 'reserved', 'v4-mapped']);
+
+/**
+ * Special-purpose ranges, most specific first where two overlap.
+ *
+ * `255.255.255.255/32` sits inside `240.0.0.0/4` and both are `reserved`, so
+ * their order is immaterial; it is listed for the reader rather than the
+ * matcher. Nothing else here overlaps.
+ */
+var SPECIAL_RANGES = [
+  { family: 'ipv4', cidr: '0.0.0.0/8',          scope: 'unspecified' },
+  { family: 'ipv4', cidr: '127.0.0.0/8',        scope: 'loopback' },
+  { family: 'ipv4', cidr: '10.0.0.0/8',         scope: 'private' },
+  { family: 'ipv4', cidr: '172.16.0.0/12',      scope: 'private' },
+  { family: 'ipv4', cidr: '192.168.0.0/16',     scope: 'private' },
+  { family: 'ipv4', cidr: '169.254.0.0/16',     scope: 'link-local' },
+  { family: 'ipv4', cidr: '100.64.0.0/10',      scope: 'shared' },
+  { family: 'ipv4', cidr: '192.0.2.0/24',       scope: 'documentation' },
+  { family: 'ipv4', cidr: '198.51.100.0/24',    scope: 'documentation' },
+  { family: 'ipv4', cidr: '203.0.113.0/24',     scope: 'documentation' },
+  { family: 'ipv4', cidr: '198.18.0.0/15',      scope: 'benchmarking' },
+  { family: 'ipv4', cidr: '224.0.0.0/4',        scope: 'multicast' },
+  { family: 'ipv4', cidr: '255.255.255.255/32', scope: 'reserved' },
+  { family: 'ipv4', cidr: '240.0.0.0/4',        scope: 'reserved' },
+  { family: 'ipv6', cidr: '::/128',             scope: 'unspecified' },
+  { family: 'ipv6', cidr: '::1/128',            scope: 'loopback' },
+  { family: 'ipv6', cidr: '::ffff:0:0/96',      scope: 'v4-mapped' },
+  { family: 'ipv6', cidr: '2001:db8::/32',      scope: 'documentation' },
+  { family: 'ipv6', cidr: '2001:2::/48',        scope: 'benchmarking' },
+  { family: 'ipv6', cidr: 'fc00::/7',           scope: 'private' },
+  { family: 'ipv6', cidr: 'fe80::/10',          scope: 'link-local' },
+  { family: 'ipv6', cidr: 'ff00::/8',           scope: 'multicast' },
+];
+
+/** Whether `value` falls inside the parsed block `block`. */
+function inBlock(value, block) {
+  var shift = BigInt(block.bits - block.prefix);
+  return (value >> shift) === (block.address >> shift);
+}
+
+/**
+ * Classify one address as globally reachable or as the special-purpose space it
+ * belongs to.
+ *
+ * Returns `null` — not `'global'` — for text that is not an address of that
+ * family. The distinction matters: these values come from DNS answers, which
+ * are third-party input, and reporting an unparseable string as globally
+ * reachable would state a reachability claim about something never read. A
+ * caller counting reachability must exclude a `null` rather than default it.
+ *
+ * `'global'` is the default for everything that parses and matches no range,
+ * so a range IANA adds after this ships is reported as reachable rather than as
+ * an outage. That direction of error is the safe one: this classification must
+ * never invent a mail outage that is not there.
+ */
+export function ipScope(address, family) {
+  var bits = IP_FAMILY_BITS[family];
+  if (!bits) return null;
+  var value = family === 'ipv6' ? ipv6ToBigInt(String(address || ''))
+    : ipv4ToBigInt(String(address || ''));
+  if (value === null) return null;
+  for (var i = 0; i < SPECIAL_RANGES.length; i++) {
+    var range = SPECIAL_RANGES[i];
+    if (range.family !== family) continue;
+    var block = parseIpCidr(range.cidr, family);
+    if (block && inBlock(value, block)) return range.scope;
+  }
+  return 'global';
 }

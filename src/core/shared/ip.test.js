@@ -9,7 +9,7 @@
  */
 
 import { createSuite } from '../../../tests/lib/assert.mjs';
-import { ipv4ToBigInt, ipv6ToBigInt, parseIpCidr } from './ip.js';
+import { ipv4ToBigInt, ipv6ToBigInt, parseIpCidr, ipScope, IP_SCOPE } from './ip.js';
 
 const { eq, section, report } = createSuite();
 
@@ -88,5 +88,128 @@ section('4. Pure');
 
 eq('repeated calls agree',
   parseIpCidr('192.0.2.0/24', 'ipv4'), parseIpCidr('192.0.2.0/24', 'ipv4'));
+
+/* ── 5. ipScope: both edges of every range, and just outside them ─────── */
+section('5. ipScope, IPv4');
+
+// Two per member, and both edges of every range. A classifier is wrong at its
+// boundaries or it is not wrong anywhere, so the first and last address of each
+// block is the assertion that matters.
+eq('0.0.0.0 is unspecified', ipScope('0.0.0.0', 'ipv4'), 'unspecified');
+eq('0.255.255.255 still is', ipScope('0.255.255.255', 'ipv4'), 'unspecified');
+eq('127.0.0.1 is loopback', ipScope('127.0.0.1', 'ipv4'), 'loopback');
+eq('127.0.0.0 and 127.255.255.255 bound it',
+  [ipScope('127.0.0.0', 'ipv4'), ipScope('127.255.255.255', 'ipv4')],
+  ['loopback', 'loopback']);
+eq('10.0.0.0/8 is private at both ends',
+  [ipScope('10.0.0.0', 'ipv4'), ipScope('10.255.255.255', 'ipv4')],
+  ['private', 'private']);
+eq('172.16.0.0/12 is private at both ends',
+  [ipScope('172.16.0.0', 'ipv4'), ipScope('172.31.255.255', 'ipv4')],
+  ['private', 'private']);
+eq('192.168.0.0/16 is private at both ends',
+  [ipScope('192.168.0.0', 'ipv4'), ipScope('192.168.255.255', 'ipv4')],
+  ['private', 'private']);
+eq('169.254.0.0/16 is link-local at both ends',
+  [ipScope('169.254.0.0', 'ipv4'), ipScope('169.254.255.255', 'ipv4')],
+  ['link-local', 'link-local']);
+eq('100.64.0.0/10 is shared at both ends',
+  [ipScope('100.64.0.0', 'ipv4'), ipScope('100.127.255.255', 'ipv4')],
+  ['shared', 'shared']);
+eq('the three documentation blocks',
+  [ipScope('192.0.2.0', 'ipv4'), ipScope('198.51.100.255', 'ipv4'),
+    ipScope('203.0.113.7', 'ipv4')],
+  ['documentation', 'documentation', 'documentation']);
+eq('198.18.0.0/15 is benchmarking at both ends',
+  [ipScope('198.18.0.0', 'ipv4'), ipScope('198.19.255.255', 'ipv4')],
+  ['benchmarking', 'benchmarking']);
+eq('224.0.0.0/4 is multicast at both ends',
+  [ipScope('224.0.0.0', 'ipv4'), ipScope('239.255.255.255', 'ipv4')],
+  ['multicast', 'multicast']);
+eq('240.0.0.0/4 and the broadcast address are reserved',
+  [ipScope('240.0.0.0', 'ipv4'), ipScope('255.255.255.255', 'ipv4')],
+  ['reserved', 'reserved']);
+
+// The other half of a boundary test: one address below and one above each
+// block is ordinary space. A matcher off by one bit passes everything above
+// and fails here.
+section('6. ipScope, immediately outside each IPv4 range');
+
+eq('1.0.0.0 is global', ipScope('1.0.0.0', 'ipv4'), 'global');
+eq('9.255.255.255 and 11.0.0.0 are global',
+  [ipScope('9.255.255.255', 'ipv4'), ipScope('11.0.0.0', 'ipv4')],
+  ['global', 'global']);
+eq('172.15.255.255 and 172.32.0.0 are global',
+  [ipScope('172.15.255.255', 'ipv4'), ipScope('172.32.0.0', 'ipv4')],
+  ['global', 'global']);
+eq('192.167.255.255 and 192.169.0.0 are global',
+  [ipScope('192.167.255.255', 'ipv4'), ipScope('192.169.0.0', 'ipv4')],
+  ['global', 'global']);
+eq('169.253.255.255 and 169.255.0.0 are global',
+  [ipScope('169.253.255.255', 'ipv4'), ipScope('169.255.0.0', 'ipv4')],
+  ['global', 'global']);
+eq('100.63.255.255 and 100.128.0.0 are global',
+  [ipScope('100.63.255.255', 'ipv4'), ipScope('100.128.0.0', 'ipv4')],
+  ['global', 'global']);
+eq('192.0.1.255 and 192.0.3.0 are global',
+  [ipScope('192.0.1.255', 'ipv4'), ipScope('192.0.3.0', 'ipv4')],
+  ['global', 'global']);
+eq('198.17.255.255 and 198.20.0.0 are global',
+  [ipScope('198.17.255.255', 'ipv4'), ipScope('198.20.0.0', 'ipv4')],
+  ['global', 'global']);
+eq('223.255.255.255 is global', ipScope('223.255.255.255', 'ipv4'), 'global');
+eq('a real mail host is global', ipScope('210.71.187.212', 'ipv4'), 'global');
+
+section('7. ipScope, IPv6');
+
+eq(':: is unspecified', ipScope('::', 'ipv6'), 'unspecified');
+eq('::1 is loopback', ipScope('::1', 'ipv6'), 'loopback');
+// A single-address block: the neighbour on each side must not be caught by it.
+eq('::2 is global', ipScope('::2', 'ipv6'), 'global');
+eq('fc00:: and fdff:...:ffff bound unique-local',
+  [ipScope('fc00::', 'ipv6'), ipScope('fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff', 'ipv6')],
+  ['private', 'private']);
+eq('fe80::/10 is link-local at both ends',
+  [ipScope('fe80::', 'ipv6'), ipScope('febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff', 'ipv6')],
+  ['link-local', 'link-local']);
+eq('2001:db8::/32 is documentation at both ends',
+  [ipScope('2001:db8::', 'ipv6'), ipScope('2001:db8:ffff:ffff:ffff:ffff:ffff:ffff', 'ipv6')],
+  ['documentation', 'documentation']);
+eq('2001:2::/48 is benchmarking', ipScope('2001:2::1', 'ipv6'), 'benchmarking');
+eq('ff00::/8 is multicast at both ends',
+  [ipScope('ff00::', 'ipv6'), ipScope('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff', 'ipv6')],
+  ['multicast', 'multicast']);
+// An AAAA holding a v4-mapped address is a specific authoring mistake, and
+// naming it that is more use than calling it reserved.
+eq('::ffff:0:0/96 is v4-mapped, written either way',
+  [ipScope('::ffff:0:0', 'ipv6'), ipScope('::ffff:203.0.113.5', 'ipv6')],
+  ['v4-mapped', 'v4-mapped']);
+eq('2001:db7:: and 2001:db9:: are global',
+  [ipScope('2001:db7::1', 'ipv6'), ipScope('2001:db9::1', 'ipv6')],
+  ['global', 'global']);
+eq('fbff:: and fe00:: are global',
+  [ipScope('fbff::1', 'ipv6'), ipScope('fe00::1', 'ipv6')],
+  ['global', 'global']);
+eq('a real resolver address is global', ipScope('2606:4700::1111', 'ipv6'), 'global');
+
+section('8. ipScope refuses what it cannot read');
+
+// These come from DNS answers, which are third-party input. Reporting an
+// unreadable string as globally reachable would claim reachability about
+// something never parsed, so it is null and the caller must exclude it.
+eq('an unparseable address is null, not global', ipScope('nonsense', 'ipv4'), null);
+eq('an empty address is null', ipScope('', 'ipv4'), null);
+eq('an absent address is null', ipScope(undefined, 'ipv4'), null);
+eq('an unknown family is null', ipScope('192.0.2.1', 'ipv5'), null);
+eq('an absent family is null', ipScope('192.0.2.1'), null);
+eq('a v6 address read as v4 is null', ipScope('2001:db8::1', 'ipv4'), null);
+eq('a v4 address read as v6 is null', ipScope('192.0.2.1', 'ipv6'), null);
+
+eq('every returned scope is a declared member',
+  ['0.0.0.0', '127.0.0.1', '10.0.0.1', '169.254.0.1', '100.64.0.1',
+    '192.0.2.1', '198.18.0.1', '224.0.0.1', '240.0.0.1', '8.8.8.8']
+    .map(function (a) { return IP_SCOPE.indexOf(ipScope(a, 'ipv4')) !== -1; })
+    .every(Boolean),
+  true);
 
 report();
