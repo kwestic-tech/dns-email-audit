@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.2 |
+| Spec version | 0.3 |
 | Target release | 0.9.1, then 0.9.2 |
-| Status | 0.9.1 design settled pending `OQ-MXV-03`; **0.9.2 blocked on a privacy review**, §7 |
+| Status | **0.9.1 Final, approved for implementation**; 0.9.2 blocked on privacy review (§7) and `OQ-MXV-03` |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
@@ -17,6 +17,13 @@
 > extend the same `auditMxHosts()` result object, and splitting the document
 > would duplicate that shape. They are released apart because their risk
 > profiles are not comparable. See §0.
+>
+> **The Status field carries per-release approval; the Spec version tracks the
+> document.** The specs README's version table assumes one spec is one release,
+> so it has no value for a document whose first release is approved while its
+> second is not. This one stays below `1.0 (Final)` while `OQ-MXV-03` is open,
+> and Status states which release that question actually holds up. 0.9.1 is
+> Final and may be implemented now; nothing open in this document gates it.
 
 ## Problem
 
@@ -644,7 +651,9 @@ overstated what the evidence supports and is withdrawn.
 ## Open questions
 
 **`OQ-MXV-03` — is the query cost acceptable at the stated caps?** Left open
-deliberately. The architecture and the caps in §4 are sound, but the cost must be
+deliberately. **It concerns 0.9.2 only** — the caps are §4's and the traces are
+§7's, and 0.9.1 issues no query at all. It does not gate 0.9.1, and the 0.2
+Status line that implied otherwise was wrong. The architecture and the caps in §4 are sound, but the cost must be
 *measured* before approval, not argued: query traces on the deterministic corpus
 with deep checks on. It is entangled with §7, because the same traces answer both
 what it costs and what it discloses. Neither the 0.1 draft's estimate nor its
@@ -667,4 +676,5 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.3 | 2026-09-04 | Sequencing review. 0.9.1 to Final, approved for implementation; `OQ-MXV-03` scoped explicitly to 0.9.2, which the 0.2 Status line had wrongly attached to both. Recorded that Status carries per-release approval while the document version tracks the whole spec. `mx.single-host` retention confirmed. |
 | 0.2 | 2026-09-04 | Review. Five questions resolved as `RQ-MXV-01`, `-02`, `-04`, `-05`, `-06`; `OQ-MXV-03` held open for measurement. Withdrew the false claim that 0.9.2 sits off the default path. Added §7 privacy impact and blocked 0.9.2 on that review. Made PTR aggregation per address and defined `hostsWithoutReverse`. Decided against `mx.single-host` suppression and corrected the Risks section that implied it. Criteria 12–15 added. |

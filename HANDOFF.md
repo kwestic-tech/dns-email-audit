@@ -26,15 +26,64 @@ Three releases remain:
 ```
 
 The two MX releases were added on 2026-09-04 from
-[`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) (`0.2`). They
-are independent of the 1.0.0 review below and can be taken in either order
-against it. **0.9.1 is unblocked. 0.9.2 is not:** it adds `PTR` queries on a path
+[`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) (`0.2`). **0.9.1 is
+next**, and the 1.0.0 review continues independently of it. **0.9.2 is
+blocked:** it adds `PTR` queries on a path
 deep checks leave enabled by default, which moves published DNS fan-out, and
 `AGENTS.md` makes anything implying a `PRIVACY.md` edit a stop condition. That
 review has not happened, and `OQ-MXV-03` — the measured query cost — is held open
 with it.
 
-## Start here: review `one-zero-readiness` to Final
+## Start here: implement 0.9.1 MX address validity
+
+Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md), **`0.3`
+— 0.9.1 Final, approved for implementation.** Nothing open in that document gates
+it: `OQ-MXV-03` and the §7 privacy review both concern 0.9.2, which issues `PTR`
+queries. 0.9.1 issues none.
+
+The finding it exists for is a false negative. `auditMxHosts()` computes
+`resolves` from `addresses.length` alone, so an MX host answering `127.0.0.1`,
+`10.0.0.4` or `::1` reports as healthy while receiving no mail from the internet.
+Three adjacent defects are diagnosed as dangling hosts — an address literal in
+the MX RDATA, a null MX published beside a real one, and a preference outside the
+16-bit range — which is the right alarm attached to remediation the operator
+cannot carry out.
+
+Build it in five commits, in this order:
+
+1. `src/core/shared/ip.js` — `ipScope()` and the closed `ip.scope` algebra. Pure,
+   and testable with no resolver.
+2. `src/core/mx/mx.js` — the parser changes (address literal, preference range,
+   `hasNullMxConflict()` beside an unchanged `isNullMx()`), the per-host
+   `addressScopes` and `reachability`, and the new top-level fields.
+3. `locales/en.json`, all thirteen translations, `npm run build:fallback`.
+4. `src/audit/findings.js` and `src/audit/issues.js` — the five findings and the
+   suppression rules.
+5. Regenerated `tests/state-algebras.json`, `tests/state-matrix.json` and
+   `tests/inventory.json`.
+
+**The locale commit precedes the findings commit, and that is not a preference.**
+`t()` returns the key itself when it is missing, so a finding raised before its
+messages exist ships a browser rendering `mx-unroutable` at the reader. This is
+the same ordering constraint 0.9.0's steps 9 and 10 were bound by.
+
+Three prerequisites that are easy to miss:
+
+- **`isNullMx()` must not change.** Its `mx.length !== 1` guard is load-bearing in
+  the deep-check gate, `@null-mx` provider detection, and the MTA-STS
+  `policy-on-null-mx` finding. Acceptance criterion 4 requires byte-identical
+  behavior on every input; the conflict case is a separate predicate.
+- **An address literal skips its lookups.** Three queries per such host are spent
+  proving what the RDATA already stated. The test asserts the saved queries
+  against a call-recording stub, because a saving that is only described
+  regresses silently.
+- **Advisory before scoring.** No score or grade moves in 0.9.1. Admitting these
+  findings to the grade is a later release, backtested with
+  `node tools/backtest.mjs`.
+
+## Continuing in parallel: review `one-zero-readiness` to Final
+
+Not the immediate delivery task, and it does not block 0.9.1 or 0.9.2.
 
 Spec: [`docs/specs/one-zero-readiness.md`](docs/specs/one-zero-readiness.md),
 **`0.1`, Draft — not approved for implementation.** Every spec is Final before
@@ -58,7 +107,7 @@ it to be Final before 1.0.0, subject to `OQ-ONE-05`.
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
 | 0.9.0 | [report-comparison](docs/specs/implemented/report-comparison.md) | Released as `v0.9.0` | Versioned JSON schema, import validation and stateless comparison |
-| 0.9.1 | [mx-host-validity](docs/specs/mx-host-validity.md) | `v0.9.0` released; spec `0.2`, design settled pending `OQ-MXV-03` | MX address-scope classification; address-literal and null-MX-conflict diagnosis |
+| 0.9.1 | [mx-host-validity](docs/specs/mx-host-validity.md) | `v0.9.0` released; spec `0.3`, **Final and approved** | MX address-scope classification; address-literal and null-MX-conflict diagnosis |
 | 0.9.2 | [mx-host-validity](docs/specs/mx-host-validity.md) | 0.9.1 released; **privacy review concluded** and `PRIVACY.md` re-measured | Forward-confirmed reverse DNS and provider address-set divergence |
 | 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
