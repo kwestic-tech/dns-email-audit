@@ -16,6 +16,7 @@ const historical = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalenc
 const release070 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.7.0.json'), 'utf8'));
 const release080 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.8.0.json'), 'utf8'));
 const release090 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.9.0.json'), 'utf8'));
+const release091 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.9.1.json'), 'utf8'));
 const { eq, section, report } = createSuite();
 
 const byId = document => new Map(document.cases.map(c => [c.id, c]));
@@ -315,6 +316,190 @@ forgedCss090.cases[0].report.bytes.stylesheet =
   release080ById.get(release090.cases[0].id).report.bytes.stylesheet + 'x'.repeat(COMPARISON_CSS_BYTES);
 eq('a different addition of the same size is caught',
   release090Violations(forgedCss090), [release090.cases[0].id + ':report']);
+
+
+/* ── 0.9.1: MX address validity ───────────────────────────────────────── */
+
+const release090ById = byId(release090);
+
+/**
+ * 0.9.1 moved every MX host that is background setup off RFC 5737
+ * documentation space, because those addresses are not globally routable and
+ * would raise `mx.unroutable` in cases whose subject is SPF, DKIM, DMARC or
+ * DNSSEC. That substitution is part of the authorized change.
+ *
+ * Both sides are normalized to a token rather than the old baseline being
+ * rewritten forward. The reason is that two of these addresses also appear in
+ * the `mx-dangling` remediation copy, which did NOT change: rewriting only the
+ * old side would report a difference in rendered locale text that does not
+ * exist. Normalizing both sides makes the pair equal wherever it appears, at
+ * the stated cost that this rule cannot see a change *between* those two
+ * values — which is precisely the change being authorized.
+ */
+const MX_STUB_ADDRESSES = [
+  ['192.0.2.20', '100.200.2.20'],
+  ['198.51.100.5', '100.200.100.5'],
+  ['198.51.100.10', '100.200.100.10'],
+  ['203.0.113.5', '100.200.113.5'],
+  ['203.0.113.9', '100.200.113.9'],
+  ['203.0.113.11', '100.200.113.11'],
+  ['203.0.113.13', '100.200.113.13'],
+  ['2001:db8::20', '2a01:beef::20'],
+];
+
+function normalizeStubAddresses(value) {
+  let text = JSON.stringify(value);
+  MX_STUB_ADDRESSES.forEach(([before, after], index) => {
+    const token = '<<mx-stub-' + index + '>>';
+    text = text.split(after).join(token).split(before).join(token);
+  });
+  return text;
+}
+
+/**
+ * The one case that keeps documentation addresses on purpose, and therefore the
+ * one case authorized to gain `mx.unroutable`. Its result is compared with that
+ * finding removed, so the rule still proves nothing ELSE moved there.
+ */
+const NON_ROUTABLE_MX_CASE = 'mx-health-and-tlsa';
+const AUTHORIZED_FINDING = { key: 'mx-unroutable', id: 'mx.unroutable' };
+
+function stripAuthorizedFinding(result) {
+  return JSON.parse(JSON.stringify(result), function (key, value) {
+    if (!Array.isArray(value)) return value;
+    // Three shapes carry it: `issues[]` keyed entries, `findings[]` id'd
+    // entries, and `remediationPlan[].findings[]`, which is a list of bare id
+    // STRINGS. Missing the third is how a first version of this rule reported a
+    // difference it had already authorized.
+    return value.filter(entry => {
+      if (typeof entry === 'string') return entry !== AUTHORIZED_FINDING.id;
+      return !(entry && typeof entry === 'object'
+        && (entry.key === AUTHORIZED_FINDING.key || entry.id === AUTHORIZED_FINDING.id));
+    });
+  });
+}
+
+/** The seven fields 0.9.1 adds to `mxHealth`, four at the top and three per host. */
+const MX_VALIDITY_FIELDS = new Set(['addressLiteralHosts', 'unroutableHosts',
+  'partiallyRoutableHosts', 'nullMxConflict', 'isAddressLiteral', 'addressScopes',
+  'reachability']);
+
+function stripMxValidity(value) {
+  if (Array.isArray(value)) return value.map(stripMxValidity);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !MX_VALIDITY_FIELDS.has(key))
+    .map(([key, child]) => [key, stripMxValidity(child)]));
+}
+
+const scoresOf = c => c.result.map(entry => entry.result)
+  .map(r => (r && r.score) ? [r.score.pts, r.score.grade] : null);
+
+function release091Violations(after) {
+  const violations = [];
+  if (JSON.stringify([...byId(after).keys()].sort()) !== JSON.stringify([...release090ById.keys()].sort())) {
+    return ['case-set'];
+  }
+  for (const c of after.cases) {
+    const before = release090ById.get(c.id);
+    const id = c.id;
+    const authorized = id === NON_ROUTABLE_MX_CASE;
+
+    // Zero query-trace movement, in every case without exception. 0.9.1 issues
+    // no new lookup, and this is the published privacy figure.
+    if (JSON.stringify(c.trace) !== JSON.stringify(before.trace)) violations.push(id + ':trace');
+
+    // No score and no grade moves anywhere: these findings are advisory.
+    if (JSON.stringify(scoresOf(c)) !== JSON.stringify(scoresOf(before))) violations.push(id + ':score');
+
+    // Results differ only by the seven new fields, the stub addresses, and — in
+    // the one authorized case — the single new finding.
+    const newResult = stripMxValidity(authorized ? stripAuthorizedFinding(c.result) : c.result);
+    if (normalizeStubAddresses(newResult) !== normalizeStubAddresses(before.result)) {
+      violations.push(id + ':result');
+    }
+
+    // CSV and DOM differ only by the stub addresses, except in that one case.
+    if (!authorized) {
+      if (normalizeStubAddresses(c.csv) !== normalizeStubAddresses(before.csv)) violations.push(id + ':csv');
+      if (normalizeStubAddresses(c.dom) !== normalizeStubAddresses(before.dom)) violations.push(id + ':dom');
+    }
+  }
+  return violations;
+}
+
+section('The 0.9.1 difference class is exact');
+
+eq('the 0.9.1 baseline differs only by its authorized surface changes',
+  release091Violations(release091), []);
+
+// The rule above passes by comparing nothing to nothing unless the new fields
+// are really present, and unless the one authorized finding is really raised.
+const mxHealths091 = release091.cases
+  .flatMap(c => c.result.map(entry => entry.result))
+  .map(r => r && r.advanced && r.advanced.mxHealth)
+  .filter(Boolean);
+eq('every mxHealth carries the four new top-level fields',
+  [mxHealths091.length > 0,
+    mxHealths091.filter(m => !('addressLiteralHosts' in m && 'unroutableHosts' in m
+      && 'partiallyRoutableHosts' in m && 'nullMxConflict' in m)).length],
+  [true, 0]);
+
+const unroutableCases = release091.cases
+  .filter(c => (c.result || []).some(e => e.result && e.result.advanced && e.result.advanced.mxHealth
+    && e.result.advanced.mxHealth.unroutableHosts.length))
+  .map(c => c.id);
+eq('and exactly one case raises mx.unroutable — the deliberately non-routable one',
+  unroutableCases, [NON_ROUTABLE_MX_CASE]);
+
+section('Every 0.9.1 compatibility rule has a negative control');
+
+const missingCase091 = structuredClone(release091);
+missingCase091.cases.pop();
+eq('a case-set movement is caught', release091Violations(missingCase091), ['case-set']);
+
+const changedTrace091 = structuredClone(release091);
+changedTrace091.cases[0].trace.total++;
+eq('a query-trace movement is caught',
+  release091Violations(changedTrace091), [release091.cases[0].id + ':trace']);
+
+const changedScore091 = structuredClone(release091);
+changedScore091.cases[0].result[0].result.score.pts += 1;
+eq('a score movement is caught',
+  release091Violations(changedScore091).filter(v => v.endsWith(':score')),
+  [release091.cases[0].id + ':score']);
+
+const changedResult091 = structuredClone(release091);
+changedResult091.cases[0].result[0].result.domain = 'mutated.test';
+eq('a result movement outside the new fields is caught',
+  release091Violations(changedResult091).filter(v => v.endsWith(':result')),
+  [release091.cases[0].id + ':result']);
+
+// An eighth new field would ride in unexamined if the strip list were open.
+const extraField091 = structuredClone(release091);
+extraField091.cases[0].result[0].result.advanced.mxHealth.somethingElse = true;
+eq('a further new mxHealth field is not covered by the authorized seven',
+  release091Violations(extraField091).filter(v => v.endsWith(':result')),
+  [release091.cases[0].id + ':result']);
+
+// The authorized finding is authorized in ONE case only.
+const strayFinding091 = structuredClone(release091);
+strayFinding091.cases[0].result[0].result.issues.push({ key: 'mx-unroutable', sev: 'crit', args: ['x', 'y'] });
+eq('the authorized finding appearing in another case is caught',
+  release091Violations(strayFinding091).filter(v => v.endsWith(':result')),
+  [release091.cases[0].id + ':result']);
+
+const changedCsv091 = structuredClone(release091);
+changedCsv091.cases[0].csv.lines[0] = '"inserted",' + changedCsv091.cases[0].csv.lines[0];
+eq('an unauthorized CSV cell is caught',
+  release091Violations(changedCsv091).filter(v => v.endsWith(':csv')),
+  [release091.cases[0].id + ':csv']);
+
+const changedDom091 = structuredClone(release091);
+changedDom091.cases[0].dom.push('unauthorized node');
+eq('an unauthorized DOM change is caught',
+  release091Violations(changedDom091).filter(v => v.endsWith(':dom')),
+  [release091.cases[0].id + ':dom']);
 
 
 report();
