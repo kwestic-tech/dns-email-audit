@@ -40,7 +40,7 @@ the current architecture cannot deliver.
 
 | Idea | Why it needs an app | What the core tool does instead |
 | --- | --- | --- |
-| **Scheduled drift monitoring with alerting** | The highest-value failure mode this tool is positioned to catch is a control disappearing *between* audits — a DMARC record dropped during a migration, a DKIM key rotated to something weaker, an MX record going dangling after a provider change. Catching that requires state (last-known-good result) and unattended execution (a check that runs without a human opening the tab) and a delivery channel (push, email, or similar) — three things a static single-page tool cannot provide by definition. | Manual re-audit. The user re-runs the tool and, once [report-comparison](report-comparison.md) (0.8.0) ships, can diff two saved exports by hand to see what changed. |
+| **Scheduled drift monitoring with alerting** | The highest-value failure mode this tool is positioned to catch is a control disappearing *between* audits — a DMARC record dropped during a migration, a DKIM key rotated to something weaker, an MX record going dangling after a provider change. Catching that requires state (last-known-good result) and unattended execution (a check that runs without a human opening the tab) and a delivery channel (push, email, or similar) — three things a static single-page tool cannot provide by definition. | Manual re-audit. The user re-runs the tool and, once [report-comparison](implemented/report-comparison.md) shipped in 0.9.0, can diff two saved exports by hand to see what changed. |
 
 *This table has one entry as of 2026-08-24, sourced from the async-build spec
 evaluation. Add rows here as they surface, rather than opening a new document,
@@ -51,7 +51,7 @@ so the "requires an app" exclusion reasoning stays in one place.*
 The pattern is the same one [external-intelligence](external-intelligence.md)
 uses for its own deferred capabilities: the core tool stays honest about what
 it cannot do, and the gap is named rather than quietly absent from the product.
-For drift monitoring specifically, [report-comparison](report-comparison.md)
+For drift monitoring specifically, [report-comparison](implemented/report-comparison.md)
 (0.8.0) is the load-bearing mitigation — it cannot alert the user
 proactively, but it makes a manual "did anything change since last time"
 check fast and reliable once the user remembers to run it.

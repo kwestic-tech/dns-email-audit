@@ -24,7 +24,10 @@
     "uploadFile": "📄 .txt ファイルをアップロード",
     "loadExamples": "サンプルを読み込む",
     "clearResults": "🗑 結果をクリア",
-    "learnMore": "詳細を見る →"
+    "learnMore": "詳細を見る →",
+    "exportJson": "⬇ JSON をエクスポート",
+    "importReport": "⬆ 保存したレポートと比較",
+    "exitCompare": "比較を終了"
   },
   "input": {
     "heading": "監査するドメインを入力",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "高度な設定",
-    "hosting": "Web ホスティング"
+    "hosting": "Web ホスティング",
+    "delta": "変化"
   },
   "filter": {
     "all": "すべてのドメイン",
@@ -156,7 +160,12 @@
     "noSpf": "SPF 未設定",
     "hasBimi": "BIMI あり",
     "noCaa": "CAA 未設定",
-    "noDnssec": "DNSSEC 未設定"
+    "noDnssec": "DNSSEC 未設定",
+    "improved": "改善",
+    "regressed": "悪化",
+    "changed": "変更あり",
+    "added": "新しいドメイン",
+    "removed": "削除されたドメイン"
   },
   "empty": {
     "text": "フィルターに一致するドメインはありません。"
@@ -362,7 +371,12 @@
     },
     "auditCancelled": "監査をキャンセルしました",
     "langChanged": "言語を変更しました",
-    "langFailed": "指定された言語を読み込めませんでした — 英語のまま継続します。"
+    "langFailed": "指定された言語を読み込めませんでした — 英語のまま継続します。",
+    "jsonExported": "JSON をエクスポートしました",
+    "reportImported": "レポートを読み込みました — 変更点を表示しています",
+    "comparisonCleared": "比較を解除しました",
+    "importFailed": "このファイルは読み込めませんでした",
+    "importDuringRun": "監査が終わってからレポートを読み込んでください"
   },
   "csv": {
     "unknown": "不明",
@@ -1413,6 +1427,64 @@
       "foundation": "まずこれらを修正してください。他のすべてがこれらに依存しています。",
       "afterPrereq": "上記の前提条件が整ったら",
       "cleanup": "依存関係はありません。いつでも対応できます。"
+    }
+  },
+  "compare": {
+    "heading": "2 つのレポートの比較",
+    "baselineLabel": "基準レポート: {0}",
+    "currentLabel": "現在: {0}",
+    "chooseBaseline": "比較の基準にする保存済みレポートを選択してください",
+    "status": {
+      "added": "新規",
+      "removed": "削除",
+      "improved": "改善",
+      "regressed": "悪化",
+      "changed": "変更あり",
+      "unchanged": "変更なし",
+      "incomparable": "比較できません"
+    },
+    "reason": {
+      "state": "このドメインは 2 つのレポートの一方でのみ監査されています",
+      "noComparableProtocol": "両方のレポートで観測されたプロトコルがありません",
+      "options": "2 回の実行で異なるオプションが使われています",
+      "analysisVersion": "2 つのレポートは異なるバージョンの分析で採点されています",
+      "onlyIncomparableMovement": "変化したものはすべて、一方のレポートが観測しなかったプロトコルに属しています"
+    },
+    "protocol": {
+      "unproven": "{0} は確認されましたが、確定できませんでした",
+      "notRun": "{0} は確認されていません",
+      "unknownInBaseline": "比較できません: {0} は基準レポートで観測されていません",
+      "unknownInCurrent": "比較できません: {0} は現在のレポートで観測されていません",
+      "unknownBoth": "比較できません: {0} は 2 つのレポートで異なるオプションのもとに確認されています"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "変化なし",
+      "notComparable": "スコアは比較できません",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "新規 {0} 件",
+      "resolved": "解消 {0} 件",
+      "unknown": "不明 {0} 件",
+      "severityChanged": "深刻度の変化 {0} 件",
+      "baselineOnly": "基準レポートのみ",
+      "currentOnly": "現在のレポートのみ"
+    },
+    "meta": {
+      "versionsDiffer": "これらのレポートはこのツールの異なるバージョンで作成されているため、変更点は判定なしで表示されます。",
+      "optionsDiffer": "2 回の実行で異なるオプションが使われています: {0}。",
+      "unknownFinding": "このビルドには {0} の説明がありません。"
+    },
+    "import": {
+      "invalidJson": "このファイルは有効な JSON ではありません。",
+      "notReport": "このファイルはこのツールのレポートではありません。",
+      "newerVersion": "このレポートはこのツールの新しいバージョンで作成されています。更新してから再度お試しください。",
+      "tooLarge": "このファイルはこのツールのレポートとしては大きすぎます。",
+      "tooManyDomains": "このレポートには、1 回の監査で生成できる数を超えるドメインが含まれています。",
+      "malformed": "このレポートには、このビルドが読み取れないフィールドがあります。",
+      "at": "{0} の箇所: {1}"
     }
   }
 }

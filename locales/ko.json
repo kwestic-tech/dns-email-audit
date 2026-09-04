@@ -24,7 +24,10 @@
     "uploadFile": "📄 .txt 파일 업로드",
     "loadExamples": "예시 불러오기",
     "clearResults": "🗑 결과 지우기",
-    "learnMore": "자세히 알아보기 →"
+    "learnMore": "자세히 알아보기 →",
+    "exportJson": "⬇ JSON 내보내기",
+    "importReport": "⬆ 저장된 보고서와 비교",
+    "exitCompare": "비교 종료"
   },
   "input": {
     "heading": "진단할 도메인 입력",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "고급 보안",
-    "hosting": "웹 호스팅"
+    "hosting": "웹 호스팅",
+    "delta": "변화"
   },
   "filter": {
     "all": "모든 도메인",
@@ -156,7 +160,12 @@
     "noSpf": "SPF 누락",
     "hasBimi": "BIMI 설정됨",
     "noCaa": "CAA 누락",
-    "noDnssec": "DNSSEC 미설정"
+    "noDnssec": "DNSSEC 미설정",
+    "improved": "개선됨",
+    "regressed": "악화됨",
+    "changed": "변경됨",
+    "added": "새 도메인",
+    "removed": "제거된 도메인"
   },
   "empty": {
     "text": "필터와 일치하는 도메인이 없습니다."
@@ -362,7 +371,12 @@
     },
     "auditCancelled": "진단이 취소되었습니다",
     "langChanged": "언어가 변경되었습니다",
-    "langFailed": "해당 언어를 불러올 수 없어 영어로 유지됩니다."
+    "langFailed": "해당 언어를 불러올 수 없어 영어로 유지됩니다.",
+    "jsonExported": "JSON을 내보냈습니다",
+    "reportImported": "보고서를 가져왔습니다 — 변경 사항을 표시합니다",
+    "comparisonCleared": "비교를 해제했습니다",
+    "importFailed": "이 파일은 가져올 수 없습니다",
+    "importDuringRun": "감사가 끝난 뒤에 보고서를 가져오십시오"
   },
   "csv": {
     "unknown": "알 수 없음",
@@ -1413,6 +1427,64 @@
       "foundation": "이것들을 먼저 수정하십시오 — 나머지 모두가 이것들에 의존합니다.",
       "afterPrereq": "위의 전제 조건이 갖춰진 뒤에",
       "cleanup": "의존성 없음 — 아무 때나 처리하십시오"
+    }
+  },
+  "compare": {
+    "heading": "두 보고서 비교",
+    "baselineLabel": "기준 보고서: {0}",
+    "currentLabel": "현재: {0}",
+    "chooseBaseline": "비교 기준으로 사용할 저장된 보고서를 선택하십시오",
+    "status": {
+      "added": "신규",
+      "removed": "제거됨",
+      "improved": "개선됨",
+      "regressed": "악화됨",
+      "changed": "변경됨",
+      "unchanged": "변동 없음",
+      "incomparable": "비교 불가"
+    },
+    "reason": {
+      "state": "이 도메인은 두 보고서 중 하나에서만 감사되었습니다",
+      "noComparableProtocol": "두 보고서 모두에서 관측된 프로토콜이 없습니다",
+      "options": "두 실행이 서로 다른 옵션을 사용했습니다",
+      "analysisVersion": "두 보고서는 서로 다른 버전의 분석으로 채점되었습니다",
+      "onlyIncomparableMovement": "변경된 모든 항목이 한쪽 보고서가 관측하지 않은 프로토콜에 속합니다"
+    },
+    "protocol": {
+      "unproven": "{0}을(를) 확인했으나 확정하지 못했습니다",
+      "notRun": "{0}을(를) 확인하지 않았습니다",
+      "unknownInBaseline": "비교 불가: {0}은(는) 기준 보고서에서 관측되지 않았습니다",
+      "unknownInCurrent": "비교 불가: {0}은(는) 현재 보고서에서 관측되지 않았습니다",
+      "unknownBoth": "비교 불가: {0}은(는) 두 보고서에서 서로 다른 옵션으로 확인되었습니다"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "변화 없음",
+      "notComparable": "점수를 비교할 수 없습니다",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "신규 {0}건",
+      "resolved": "해결 {0}건",
+      "unknown": "불명 {0}건",
+      "severityChanged": "심각도 변경 {0}건",
+      "baselineOnly": "기준 보고서에만 있음",
+      "currentOnly": "현재 보고서에만 있음"
+    },
+    "meta": {
+      "versionsDiffer": "이 보고서들은 이 도구의 서로 다른 버전에서 생성되었으므로 변경 사항을 판정 없이 표시합니다.",
+      "optionsDiffer": "두 실행이 서로 다른 옵션을 사용했습니다: {0}.",
+      "unknownFinding": "이 빌드에는 {0}에 대한 설명이 없습니다."
+    },
+    "import": {
+      "invalidJson": "이 파일은 올바른 JSON이 아닙니다.",
+      "notReport": "이 파일은 이 도구의 보고서가 아닙니다.",
+      "newerVersion": "이 보고서는 이 도구의 최신 버전에서 생성되었습니다. 업데이트한 뒤 다시 시도하십시오.",
+      "tooLarge": "이 파일은 이 도구의 보고서라기에는 너무 큽니다.",
+      "tooManyDomains": "이 보고서에는 한 번의 감사가 생성할 수 있는 것보다 많은 도메인이 들어 있습니다.",
+      "malformed": "이 보고서에는 이 빌드가 읽을 수 없는 필드가 있습니다.",
+      "at": "{0} 위치: {1}"
     }
   }
 }

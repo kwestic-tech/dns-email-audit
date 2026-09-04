@@ -18,7 +18,10 @@
 
 import { createSuite } from '../../tests/lib/assert.mjs';
 import { POLICY_RANK } from '../core/dmarc/record.js';
+import { createHash } from 'node:crypto';
+import { stripComments, normalizeSource } from '../../tests/lib/source.mjs';
 import {
+  ANALYSIS_VERSION,
   WEIGHTS, PARKED_WEIGHTS, GRADE_THRESHOLDS,
   calcScore, calcDmarcScore, calcSpfScore, gradeFor, calcAdvScore,
 } from './scoring.js';
@@ -213,5 +216,142 @@ eq('an indeterminate DNSSEC chain counts as unknown too',
 // because the policy file itself is never fetched.
 eq('MTA-STS counts as done only when its policy is verified',
   calcAdvScore({ bimi: {}, mtaSts: { present: true }, tlsRpt: {}, caa: {}, dnssec: {} }).done, 0);
+
+/* ── The analysis version and its drift guard ─────────────────────────── */
+section('The analysis version (report-comparison 1.9 §2)');
+
+eq('ANALYSIS_VERSION is a positive integer', [
+  Number.isInteger(ANALYSIS_VERSION), ANALYSIS_VERSION > 0,
+], [true, true]);
+eq('and 0.9.0 ships version 1', ANALYSIS_VERSION, 1);
+
+/**
+ * The rubric drift guard.
+ *
+ * Fingerprints the rubric's own definition — the three constants as data, the
+ * four scoring functions as source — so a changed weight, threshold or branch
+ * fails here with an instruction rather than silently making every previously
+ * exported report's score delta a lie.
+ *
+ * **Comments are stripped first**, per the framework rule that a check over
+ * source text must, "because the file most likely to discuss a thing is the one
+ * that just stopped doing it." These four functions carry 39 line comments
+ * between them, so without stripping, editing a comment would demand an
+ * `ANALYSIS_VERSION` bump that no score movement justifies — and a guard that
+ * cries wolf gets its hash re-pinned without thought, which is the same as not
+ * having one.
+ *
+ * **What this cannot catch, stated rather than left to be discovered:** a
+ * DISCOVERY change outside this file. 0.3.0 replaced the Public Suffix List
+ * with the RFC 9989 Tree Walk and moved scores with all three constants
+ * untouched; a fingerprint of `scoring.js` sees nothing. That half is caught by
+ * the standing backtest rule in `AGENTS.md` — a backtest showing grade or score
+ * movement requires a bump in the same release. This guard is the mechanical
+ * half of a two-part rule, not the whole of it.
+ */
+
+
+function rubricFingerprint(constants, fnSources) {
+  return createHash('sha256')
+    .update(constants.concat(fnSources.map(normalizeSource)).join('\n'))
+    .digest('hex');
+}
+
+const RUBRIC_CONSTANTS = [
+  JSON.stringify(WEIGHTS), JSON.stringify(PARKED_WEIGHTS), JSON.stringify(GRADE_THRESHOLDS),
+];
+const RUBRIC_FUNCTIONS = [
+  calcDmarcScore.toString(), calcSpfScore.toString(),
+  calcAdvScore.toString(), calcScore.toString(),
+];
+
+eq('the rubric is unchanged — if this fails, bump ANALYSIS_VERSION in scoring.js '
+  + 'and record the score movement in the release notes',
+rubricFingerprint(RUBRIC_CONSTANTS, RUBRIC_FUNCTIONS), '9ff1b3775ffdf0f20e706954fd6a92929b367c20fc28c6169f6ed6dc1613c80b');
+
+/* ── The negative controls the guard ships with ───────────────────────── */
+section('The drift guard, proven to fail (AGENTS.md framework rule 3)');
+
+const REAL = rubricFingerprint(RUBRIC_CONSTANTS, RUBRIC_FUNCTIONS);
+
+// Vacuity control first: a fingerprint that changed on every call would make
+// every assertion below pass while detecting nothing.
+eq('an unchanged rubric fingerprints identically',
+  rubricFingerprint(RUBRIC_CONSTANTS, RUBRIC_FUNCTIONS), REAL);
+
+// 1. A changed weight.
+const bumpedWeights = [
+  JSON.stringify({ ...WEIGHTS, dmarc: WEIGHTS.dmarc + 1 }),
+  RUBRIC_CONSTANTS[1], RUBRIC_CONSTANTS[2],
+];
+eq('a changed pillar weight moves the fingerprint',
+  rubricFingerprint(bumpedWeights, RUBRIC_FUNCTIONS) !== REAL, true);
+
+// 2. A changed grade threshold.
+const bumpedThresholds = [
+  RUBRIC_CONSTANTS[0], RUBRIC_CONSTANTS[1],
+  JSON.stringify(GRADE_THRESHOLDS.map((t, i) => (i === 0 ? { ...t, min: t.min + 1 } : t))),
+];
+eq('a changed grade threshold moves the fingerprint',
+  rubricFingerprint(bumpedThresholds, RUBRIC_FUNCTIONS) !== REAL, true);
+
+// 3. THE UNIQUE DETECTION. A logic change inside a function body, with every
+// constant byte-identical — the class of change no other assertion in this
+// suite catches, which is the entire reason the fingerprint exists. The
+// statement and the comment in control 4 are injected at the SAME point in the
+// SAME real function, so the pair isolates exactly one variable.
+const INJECT_AT = RUBRIC_FUNCTIONS[1].indexOf('{') + 1;
+const withStatement = RUBRIC_FUNCTIONS[1].slice(0, INJECT_AT)
+  + '\n  var driftProbe = 1;' + RUBRIC_FUNCTIONS[1].slice(INJECT_AT);
+const bodyMutated = [RUBRIC_FUNCTIONS[0], withStatement, RUBRIC_FUNCTIONS[2], RUBRIC_FUNCTIONS[3]];
+eq('a function-body change moves the fingerprint',
+  rubricFingerprint(RUBRIC_CONSTANTS, bodyMutated) !== REAL, true);
+eq('and that case changed no constant at all',
+  RUBRIC_CONSTANTS, [JSON.stringify(WEIGHTS), JSON.stringify(PARKED_WEIGHTS), JSON.stringify(GRADE_THRESHOLDS)]);
+
+// 4. The converse control: a COMMENT at that same point must NOT move it.
+const withComment = RUBRIC_FUNCTIONS[1].slice(0, INJECT_AT)
+  + '\n  // a remark about scoring that changes no behaviour' + RUBRIC_FUNCTIONS[1].slice(INJECT_AT);
+const commentOnly = [RUBRIC_FUNCTIONS[0], withComment, RUBRIC_FUNCTIONS[2], RUBRIC_FUNCTIONS[3]];
+eq('a comment at the same point does not',
+  rubricFingerprint(RUBRIC_CONSTANTS, commentOnly), REAL);
+eq('and the two probes really were different text',
+  withStatement !== withComment && withStatement !== RUBRIC_FUNCTIONS[1], true);
+
+/* ── The stripper itself ──────────────────────────────────────────────── */
+section('The comment stripper, and its one blind spot proven absent');
+
+eq('it removes a line comment', normalizeSource('a; // gone\nb;').includes('gone'), false);
+eq('it removes a block comment', normalizeSource('a; /* gone */ b;').includes('gone'), false);
+// The bug this pair exists to prevent: a comment sits on its own line, so
+// removing it must not leave the whitespace run split in two.
+eq('a comment on its own line normalizes to exactly the code without it',
+  normalizeSource('f() {\n  // remark\n  var x = 1;\n}'), normalizeSource('f() {\n  var x = 1;\n}'));
+// The reason it is a scanner rather than a regex: a comment sequence inside a
+// string literal is code, not a comment.
+eq('it leaves a comment sequence inside a string alone',
+  normalizeSource('var u = "http://x"; // gone').includes('http://x'), true);
+eq('single, double and backtick quotes are all respected',
+  ["'//a'", '"//b"', '`//c`'].map(s => normalizeSource('var x = ' + s + ';').includes('//')),
+  [true, true, true]);
+eq('an escaped quote does not end the string',
+  normalizeSource('var x = "a\\"// still string";').includes('// still string'), true);
+eq('whitespace outside a string collapses', normalizeSource('a;\n\n   b;'), 'a; b;');
+eq('but whitespace inside a string is code and survives',
+  normalizeSource('var x = "a   b";'), 'var x = "a   b";');
+eq('normalizing is idempotent',
+  RUBRIC_FUNCTIONS.map(src => normalizeSource(normalizeSource(src)) === normalizeSource(src)),
+  [true, true, true, true]);
+// The blind spot: a regex literal containing `//` would be mangled. Rather than
+// assume none is present, assert it — if scoring ever grows one, this fails and
+// the stripper gets a tokenizer.
+eq('no hashed function contains a regex literal for the scanner to trip on',
+  RUBRIC_FUNCTIONS.filter(src => /[=(,:[]\s*\/(?![/*])/.test(src)), []);
+// And the stripped output is still real code, which a mangling stripper would
+// not produce.
+eq('every stripped function still parses',
+  RUBRIC_FUNCTIONS.map((src) => {
+    try { new Function('return (' + normalizeSource(src) + ')'); return true; } catch (e) { return false; }
+  }), [true, true, true, true]);
 
 report();

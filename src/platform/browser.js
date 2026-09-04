@@ -117,6 +117,20 @@ export function createBrowserPlatform(win) {
       const value = date instanceof win.Date ? date : new win.Date(date ?? win.Date.now());
       return value.toLocaleString(locale);
     },
+
+    /**
+     * The current instant as a canonical UTC timestamp.
+     *
+     * `now()` returns milliseconds and `formatDateTime()` returns LOCALIZED
+     * text; 0.9.0's report needs neither. Its `generatedAt` is machine-read and
+     * must be byte-identical between two exports of one run in two languages,
+     * which is exactly what `toISOString()` gives and a locale format does not.
+     *
+     * It lives here for the same reason `now()` does: the clock is a capability
+     * the runtime holds, so the equivalence runner's pinned `Date` controls this
+     * too, and no module above has to reach for an ambient `Date`.
+     */
+    nowIso() { return new win.Date(win.Date.now()).toISOString(); },
   };
 }
 
@@ -132,4 +146,5 @@ export const PLATFORM_PRIMITIVES = [
   'fetch', 'crypto', 'AbortController', 'URLSearchParams', 'setTimeout',
   'clearTimeout', 'document', 'localStorage', 'navigator', 'open', 'URL', 'Blob',
   'FileReader', 'DOMParser', 'Intl', 'console', 'now', 'formatDateTime',
+  'nowIso',
 ];

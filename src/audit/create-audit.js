@@ -37,8 +37,9 @@ import { createDnssecCheck } from '../core/dnssec/chain.js';
 import { createOrgDomain } from '../core/dmarc/org-domain.js';
 import { createDmarcDiscovery } from '../core/dmarc/tree-walk.js';
 import { createReportAuth } from '../core/dmarc/report-auth.js';
-import { createDkimCheck } from '../core/dkim/dkim.js';
+import { createDkimCheck, validDkimSelector } from '../core/dkim/dkim.js';
 import { createSpfChecks } from '../core/spf/spf.js';
+import { findingCatalogIds } from './findings.js';
 import { createAuditDomain } from './audit-domain.js';
 
 /**
@@ -140,6 +141,17 @@ export function createAudit(capabilities) {
     checkDKIM, catalogSelectors, spfSelectorSources, buildDkimSelectorList,
     isRecognizedDkimSelector, inspectDkimSelector, summarizeDkimKeys,
     validateDkimKeyStructure, dkimKeyRecords, dkimRecordSet,
+    // The selector grammar, from its owner's MODULE export rather than from the
+    // factory above, which does not return it. Re-exposed so the report schema
+    // can validate selectors without `src/ui/` importing a protocol owner:
+    // composition, not duplication. It was briefly destructured from the
+    // factory by mistake, which shadowed this import with `undefined` and made
+    // the production path skip selector checks while a suite that imported the
+    // predicate directly stayed green.
+    validDkimSelector,
+    // The finding-id catalog, for the interface's "this build has no
+    // description for that id" note. Composition, not duplication.
+    findingCatalogIds,
     getOrganizationalDomain, discoverDmarc,
     resolveDestinationOrgDomains, checkExternalReportAuth,
     checkCAA, auditMxHosts, checkTlsa,

@@ -20,7 +20,8 @@ import { createSuite } from '../../tests/lib/assert.mjs';
 import { buildIssues } from './issues.js';
 import { parseTlsaRecord } from '../core/transport/tlsa.js';
 import {
-  buildFindings, buildRemediationPlan, FINDING_META, CROSS_PROTOCOL_RULES,
+  buildFindings, buildRemediationPlan, findingCatalogIds,
+  FINDING_META, CROSS_PROTOCOL_RULES,
   SEVERITIES, CONFIDENCES, CATEGORIES, EFFORTS, PROTOCOLS, KEYSPACES, RATIONALES,
   EVIDENCE_KINDS, evidenceEntry,
 } from './findings.js';
@@ -689,12 +690,79 @@ eq('every bare-domain finding still names evidence',
 /* ── 8. Locale independence ───────────────────────────────────────────── */
 section('8. The finding layer is locale-independent');
 
-const source = readFileSync(join(REPO, 'src/audit/findings.js'), 'utf8');
+const source = findingsSource;
 eq('findings.js imports only its audit sibling and the TLSA evidence reader',
   [...source.matchAll(/^import .* from '([^']+)'/gm)].map(m => m[1]), ['./issues.js', '../core/transport/tlsa.js']);
-eq('it holds no i18n or ui edge', /i18n|\/ui\//.test(source), false);
+// Against the comment-stripped view declared above, per AGENTS.md rule 3: this
+// module's own docstring explains that `src/ui/` may not import it, and a raw
+// scan cannot tell an explanation from an edge. It read the raw text until that
+// docstring was written, and then reported an edge that does not exist.
+eq('it holds no i18n or ui edge', /i18n|\/ui\//.test(codeOnly), false);
+// Proven able to see one, and to tell it from a comment that mentions it.
+const stripped = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+eq('the scan would catch a real edge',
+  /i18n|\/ui\//.test(stripped("import { t } from '../ui/render.js';")), true);
+eq('while a comment naming one is not an edge',
+  /i18n|\/ui\//.test(stripped('// never imports from ../ui/ or i18n\nvar x = 1;')), false);
 // The plan sorts on tokens, never translated strings.
 eq('the plan carries token rationales, not prose',
   buildRemediationPlan(naFindings).every(s => /^[a-zA-Z]+$/.test(s.rationale)), true);
+
+/* ── 9. The finding-id catalog ────────────────────────────────────────── */
+section('9. The finding-id catalog crosses the composition boundary as data');
+
+/**
+ * `findingCatalogIds()` is the capability the interface answers "this build has
+ * no description for that id" with, per report-comparison 1.9 section 0. It is
+ * the ONLY consumer-visible statement of what this build can produce, so what
+ * it omits is invisible: an id left out is reported to a reader as unknown to
+ * this build, about a finding this build had just produced itself.
+ *
+ * Nothing here goes through the UI. The integration proves one known id and one
+ * unknown id, which stays green while the other 113 quietly fall out.
+ */
+{
+  const expected = Array.from(new Set(Object.keys(FINDING_META)
+    .map(k => FINDING_META[k].id)
+    .concat(CROSS_PROTOCOL_RULES.map(r => r.id)))).sort();
+  const catalog = findingCatalogIds();
+
+  // Equality, not a count and not a spot check: a count matches after a
+  // substitution, and a spot check is what already existed.
+  eq('the catalog is exactly the metadata ids plus the cross-protocol rule ids',
+    catalog, expected);
+  eq('every cross-protocol rule is in it', CROSS_PROTOCOL_RULES
+    .filter(r => catalog.indexOf(r.id) === -1).map(r => r.id), []);
+  eq('and every metadata id', Object.keys(FINDING_META)
+    .filter(k => catalog.indexOf(FINDING_META[k].id) === -1), []);
+
+  eq('it carries no duplicates', catalog.length, new Set(catalog).size);
+  eq('and is sorted, which is what makes two builds comparable by eye',
+    catalog, catalog.slice().sort());
+
+  // Fresh, because the UI holds it and the audit must not be reachable
+  // through it. Equal by value, and not the same array.
+  const again = findingCatalogIds();
+  eq('a second call is equal', again, catalog);
+  eq('and is a different array', again === catalog, false);
+  again.push('mutated.by.a.caller');
+  eq('so a caller writing to it cannot reach the next call',
+    findingCatalogIds().indexOf('mutated.by.a.caller'), -1);
+
+  // The negative half AGENTS.md rule 3 asks for: these assertions are run
+  // against a catalog with a real id removed, and they do fail.
+  const holed = catalog.filter(id => id !== 'spf.missing');
+  eq('spf.missing is a real id this build produces',
+    catalog.indexOf('spf.missing') !== -1, true);
+  eq('a catalog missing it is caught by the equality assertion',
+    JSON.stringify(holed) === JSON.stringify(expected), false);
+  eq('and by the per-source sweeps', Object.keys(FINDING_META)
+    .filter(k => holed.indexOf(FINDING_META[k].id) === -1).length > 0, true);
+  // Uniqueness and sort alone would NOT catch it — which is why the equality
+  // assertion above is the guard and these two are only its companions.
+  eq('while uniqueness and order would not have noticed',
+    [holed.length === new Set(holed).size,
+      JSON.stringify(holed) === JSON.stringify(holed.slice().sort())], [true, true]);
+}
 
 report();

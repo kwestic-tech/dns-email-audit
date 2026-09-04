@@ -73,6 +73,7 @@ import { planReportDestinations } from '../core/dmarc/report-auth.js';
 import { calcScore, calcAdvScore } from './scoring.js';
 import { buildIssues, buildSuggestions } from './issues.js';
 import { buildFindings, buildRemediationPlan } from './findings.js';
+import { buildObservability } from './observability.js';
 import {
   detectDNSProvider, detectEmailProvider, detectHosting, selectVerifications,
 } from '../providers/detectors.js';
@@ -375,6 +376,15 @@ export function createAuditDomain(capabilities) {
     });
     const remediationPlan = buildRemediationPlan(findings);
 
+    // Which protocols this run actually observed (report-comparison 1.9 §1).
+    // Pure over the finished facts and the options in force — no new query, so
+    // the published fan-out does not move — and computed HERE because neither
+    // finding confidence nor finding protocol can reconstruct it: see the
+    // module header for the two cases that make the downstream inference wrong.
+    const observability = buildObservability({
+      options: ctx.options, advanced, dkimStatus, dmarcDiscovery,
+    });
+
     ctx.record({
       ns, mx, txt, aRec, aaaaRec, dnsProvider, emailProvider,
       spfRecord, spfRecords, spfStatus, dmarcRecord, dmarcStatus, dmarcDiscovery, dmarcExistence,
@@ -382,7 +392,7 @@ export function createAuditDomain(capabilities) {
       // so the CSV export and the saved report keep working, then removed.
       dmarcAtDomain, organizationalDomain, dkimStatus,
       wildcardApex, wildcardDkim, hosting, verifications, advanced, advScore,
-      issues, suggestions, score, findings, remediationPlan,
+      issues, suggestions, score, findings, remediationPlan, observability,
     });
     return ctx.result();
   }

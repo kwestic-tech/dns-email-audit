@@ -24,7 +24,10 @@
     "uploadFile": "📄 .txt dosyası yükle",
     "loadExamples": "Örnekleri yükle",
     "clearResults": "🗑 Sonuçları temizle",
-    "learnMore": "Daha fazla bilgi →"
+    "learnMore": "Daha fazla bilgi →",
+    "exportJson": "⬇ JSON dışa aktar",
+    "importReport": "⬆ Kayıtlı bir raporla karşılaştır",
+    "exitCompare": "Karşılaştırmadan çık"
   },
   "input": {
     "heading": "Denetlenecek alan adlarını girin",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "Gelişmiş",
-    "hosting": "Barındırma"
+    "hosting": "Barındırma",
+    "delta": "Değişim"
   },
   "filter": {
     "all": "Tüm alan adları",
@@ -156,7 +160,12 @@
     "noSpf": "SPF eksik",
     "hasBimi": "BIMI var",
     "noCaa": "CAA eksik",
-    "noDnssec": "DNSSEC yok"
+    "noDnssec": "DNSSEC yok",
+    "improved": "İyileşenler",
+    "regressed": "Kötüleşenler",
+    "changed": "Değişenler",
+    "added": "Yeni alan adları",
+    "removed": "Kaldırılan alan adları"
   },
   "empty": {
     "text": "Filtrenizle eşleşen alan adı yok."
@@ -362,7 +371,12 @@
     },
     "auditCancelled": "Denetim iptal edildi",
     "langChanged": "Dil değiştirildi",
-    "langFailed": "Bu dil yüklenemedi — İngilizce'de kalınıyor."
+    "langFailed": "Bu dil yüklenemedi — İngilizce'de kalınıyor.",
+    "jsonExported": "JSON dışa aktarıldı",
+    "reportImported": "Rapor içe aktarıldı — değişiklikler gösteriliyor",
+    "comparisonCleared": "Karşılaştırma temizlendi",
+    "importFailed": "Bu dosya içe aktarılamadı",
+    "importDuringRun": "Bir rapor içe aktarmadan önce denetimin bitmesini bekleyin"
   },
   "csv": {
     "unknown": "Bilinmiyor",
@@ -1413,6 +1427,64 @@
       "foundation": "Önce bunları düzeltin — diğer her şey bunlara bağlı",
       "afterPrereq": "Yukarıdaki ön koşullar sağlandıktan sonra",
       "cleanup": "Bağımlılık yok — bunları istediğiniz zaman yapın"
+    }
+  },
+  "compare": {
+    "heading": "İki raporun karşılaştırması",
+    "baselineLabel": "Karşılaştırma raporu: {0}",
+    "currentLabel": "Güncel: {0}",
+    "chooseBaseline": "Karşılaştırmak için kayıtlı bir rapor seçin",
+    "status": {
+      "added": "Yeni",
+      "removed": "Kaldırıldı",
+      "improved": "İyileşti",
+      "regressed": "Kötüleşti",
+      "changed": "Değişti",
+      "unchanged": "Değişmedi",
+      "incomparable": "Karşılaştırılamaz"
+    },
+    "reason": {
+      "state": "Alan adı iki rapordan yalnızca birinde denetlendi",
+      "noComparableProtocol": "Her iki raporda da gözlemlenen hiçbir protokol yok",
+      "options": "İki çalıştırma farklı seçenekler kullandı",
+      "analysisVersion": "İki rapor, analizin farklı sürümleriyle puanlandı",
+      "onlyIncomparableMovement": "Değişen her şey, raporlardan birinin gözlemlemediği bir protokole ait"
+    },
+    "protocol": {
+      "unproven": "{0} denetlendi ancak doğrulanamadı",
+      "notRun": "{0} denetlenmedi",
+      "unknownInBaseline": "Karşılaştırılamaz: {0}, karşılaştırma raporunda gözlemlenmedi",
+      "unknownInCurrent": "Karşılaştırılamaz: {0}, güncel raporda gözlemlenmedi",
+      "unknownBoth": "Karşılaştırılamaz: {0}, iki raporda farklı seçeneklerle denetlendi"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "Değişim yok",
+      "notComparable": "Puanlar karşılaştırılabilir değil",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "{0} yeni",
+      "resolved": "{0} giderildi",
+      "unknown": "{0} bilinmiyor",
+      "severityChanged": "{0} önem derecesi değişti",
+      "baselineOnly": "Yalnızca karşılaştırma raporunda",
+      "currentOnly": "Yalnızca güncel raporda"
+    },
+    "meta": {
+      "versionsDiffer": "Bu raporlar bu aracın farklı sürümlerinden geliyor; bu nedenle değişiklikler bir yargı belirtilmeden gösteriliyor.",
+      "optionsDiffer": "İki çalıştırma farklı seçenekler kullandı: {0}.",
+      "unknownFinding": "Bu yapı {0} için bir açıklama içermiyor."
+    },
+    "import": {
+      "invalidJson": "Bu dosya geçerli bir JSON değil.",
+      "notReport": "Bu dosya bu araçtan çıkmış bir rapor değil.",
+      "newerVersion": "Bu rapor bu aracın daha yeni bir sürümüyle oluşturuldu. Güncelleyip yeniden deneyin.",
+      "tooLarge": "Bu dosya, bu araçtan çıkmış bir rapor olamayacak kadar büyük.",
+      "tooManyDomains": "Bu rapor, tek bir denetimin üretebileceğinden fazla alan adı içeriyor.",
+      "malformed": "Bu raporda bu yapının okuyamadığı bir alan var.",
+      "at": "{0} konumunda: {1}"
     }
   }
 }

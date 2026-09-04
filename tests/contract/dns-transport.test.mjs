@@ -224,7 +224,8 @@ const UI_DIR = join(REPO, 'src', 'ui');
 const uiFiles = readdirSync(UI_DIR)
   .filter(f => f.endsWith('.js') && !f.endsWith('.test.js'))
   .map(f => `ui/${f}`);
-eq('the ui directory is the three modules', uiFiles.sort(), ['ui/events.js', 'ui/render.js', 'ui/report.js']);
+eq('the ui directory is the four modules', uiFiles.sort(),
+  ['ui/events.js', 'ui/render.js', 'ui/report-data.js', 'ui/report.js']);
 
 const uiSource = uiFiles.map(f => readFileSync(join(UI_DIR, f.slice(3)), 'utf8')).join('\n');
 eq('no parser or selector is declared under src/ui/',

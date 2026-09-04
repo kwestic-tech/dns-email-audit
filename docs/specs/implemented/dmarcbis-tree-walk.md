@@ -106,7 +106,7 @@ async function discoverDmarc(domain, queryOpts) → {
 **`applied.foundAt` and `applied.labelsUp` are defined as the location of the
 policy record actually applied**, and are not renamed. Both are read directly by
 [findings-and-remediation](findings-and-remediation.md) and exported as schema
-fields by [report-comparison](../report-comparison.md), so their names are frozen.
+fields by [report-comparison](report-comparison.md), so their names are frozen.
 `policyDomain` is an alias of `applied.foundAt` provided for readability at call
 sites that care about the policy rather than the discovery evidence.
 `organizationalDomain` is a **separate** value and is often not the same name:
@@ -523,7 +523,7 @@ whose policy is found at a different name than the PSL previously chose will
 score differently, and a domain with duplicate records at one name may now
 inherit a valid policy from higher in the tree where it previously scored zero.
 The backtest is run and the movement reported in the pull request rather than
-suppressed — this is the case [report-comparison](../report-comparison.md)'s
+suppressed — this is the case [report-comparison](report-comparison.md)'s
 `OQ-CMP-06` exists to describe.
 
 ## As implemented

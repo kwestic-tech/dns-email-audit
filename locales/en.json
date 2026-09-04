@@ -24,7 +24,10 @@
     "uploadFile": "📄 Upload .txt file",
     "loadExamples": "Load examples",
     "clearResults": "🗑 Clear results",
-    "learnMore": "Learn more →"
+    "learnMore": "Learn more →",
+    "exportJson": "⬇ Export JSON",
+    "importReport": "⬆ Compare with a saved report",
+    "exitCompare": "Exit comparison"
   },
   "input": {
     "heading": "Enter domains to audit",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "Advanced",
-    "hosting": "Hosting"
+    "hosting": "Hosting",
+    "delta": "Change"
   },
   "filter": {
     "all": "All domains",
@@ -156,7 +160,12 @@
     "noSpf": "Missing SPF",
     "hasBimi": "Has BIMI",
     "noCaa": "Missing CAA",
-    "noDnssec": "No DNSSEC"
+    "noDnssec": "No DNSSEC",
+    "improved": "Improved",
+    "regressed": "Regressed",
+    "changed": "Changed",
+    "added": "New domains",
+    "removed": "Removed domains"
   },
   "empty": {
     "text": "No domains match your filter."
@@ -362,7 +371,12 @@
     },
     "auditCancelled": "Audit cancelled",
     "langChanged": "Language changed",
-    "langFailed": "Could not load that language — staying on English."
+    "langFailed": "Could not load that language — staying on English.",
+    "jsonExported": "JSON exported",
+    "reportImported": "Report imported — showing what changed",
+    "comparisonCleared": "Comparison cleared",
+    "importFailed": "That file could not be imported",
+    "importDuringRun": "Wait for the audit to finish before importing a report"
   },
   "csv": {
     "unknown": "Unknown",
@@ -1413,6 +1427,64 @@
       "foundation": "Fix these first — everything else depends on them",
       "afterPrereq": "Once the prerequisites above are in place",
       "cleanup": "No dependencies — do these whenever"
+    }
+  },
+  "compare": {
+    "heading": "Comparing two reports",
+    "baselineLabel": "Baseline: {0}",
+    "currentLabel": "Current: {0}",
+    "chooseBaseline": "Choose a saved report to compare against",
+    "status": {
+      "added": "New",
+      "removed": "Removed",
+      "improved": "Improved",
+      "regressed": "Regressed",
+      "changed": "Changed",
+      "unchanged": "Unchanged",
+      "incomparable": "Not comparable"
+    },
+    "reason": {
+      "state": "The domain was audited in only one of the two reports",
+      "noComparableProtocol": "Neither report observed any protocol both could be compared on",
+      "options": "The two runs used different options",
+      "analysisVersion": "The two reports were scored by different versions of the analysis",
+      "onlyIncomparableMovement": "Everything that changed belongs to a protocol one report did not observe"
+    },
+    "protocol": {
+      "unproven": "{0} was checked but not established",
+      "notRun": "{0} was not checked",
+      "unknownInBaseline": "Not comparable: {0} was not observed in the baseline report",
+      "unknownInCurrent": "Not comparable: {0} was not observed in the current report",
+      "unknownBoth": "Not comparable: {0} was checked with different options in the two reports"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "No change",
+      "notComparable": "Scores are not comparable",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "{0} new",
+      "resolved": "{0} resolved",
+      "unknown": "{0} unknown",
+      "severityChanged": "{0} changed severity",
+      "baselineOnly": "In the baseline only",
+      "currentOnly": "In the current report only"
+    },
+    "meta": {
+      "versionsDiffer": "These reports came from different versions of this tool, so changes are shown without a verdict.",
+      "optionsDiffer": "The two runs used different options: {0}.",
+      "unknownFinding": "This build has no description for {0}."
+    },
+    "import": {
+      "invalidJson": "This file is not valid JSON.",
+      "notReport": "This file is not a report from this tool.",
+      "newerVersion": "This report was made by a newer version of this tool. Update, then try again.",
+      "tooLarge": "This file is too large to be a report from this tool.",
+      "tooManyDomains": "This report covers more domains than one audit can produce.",
+      "malformed": "This report has a field this build cannot read.",
+      "at": "At {0}: {1}"
     }
   }
 }

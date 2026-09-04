@@ -24,7 +24,10 @@
     "uploadFile": "📄 上傳 .txt 檔案",
     "loadExamples": "載入範例",
     "clearResults": "🗑 清除結果",
-    "learnMore": "瞭解更多 →"
+    "learnMore": "瞭解更多 →",
+    "exportJson": "⬇ 匯出 JSON",
+    "importReport": "⬆ 與已儲存的報告比較",
+    "exitCompare": "結束比較"
   },
   "input": {
     "heading": "輸入要稽核的網域",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "進階",
-    "hosting": "網站託管"
+    "hosting": "網站託管",
+    "delta": "變化"
   },
   "filter": {
     "all": "所有網域",
@@ -156,7 +160,12 @@
     "noSpf": "缺少 SPF",
     "hasBimi": "包含 BIMI",
     "noCaa": "缺少 CAA",
-    "noDnssec": "無 DNSSEC"
+    "noDnssec": "無 DNSSEC",
+    "improved": "已改善",
+    "regressed": "已退步",
+    "changed": "有變化",
+    "added": "新增網域",
+    "removed": "移除的網域"
   },
   "empty": {
     "text": "沒有符合您篩選條件的網域。"
@@ -362,7 +371,12 @@
     },
     "auditCancelled": "稽核已取消",
     "langChanged": "語言已變更",
-    "langFailed": "無法載入該語言 — 將保持使用英文。"
+    "langFailed": "無法載入該語言 — 將保持使用英文。",
+    "jsonExported": "已匯出 JSON",
+    "reportImported": "已匯入報告 — 正在顯示變化",
+    "comparisonCleared": "已清除比較",
+    "importFailed": "無法匯入該檔案",
+    "importDuringRun": "請等待稽核完成後再匯入報告"
   },
   "csv": {
     "unknown": "未知",
@@ -1413,6 +1427,64 @@
       "foundation": "先修復這些——其他一切都依賴於它們",
       "afterPrereq": "在上述前置條件就位之後",
       "cleanup": "沒有依賴關係——隨時都可以處理"
+    }
+  },
+  "compare": {
+    "heading": "比較兩份報告",
+    "baselineLabel": "基準報告：{0}",
+    "currentLabel": "目前：{0}",
+    "chooseBaseline": "請選擇一份已儲存的報告作為比較基準",
+    "status": {
+      "added": "新增",
+      "removed": "已移除",
+      "improved": "已改善",
+      "regressed": "已退步",
+      "changed": "有變化",
+      "unchanged": "無變化",
+      "incomparable": "無法比較"
+    },
+    "reason": {
+      "state": "此網域只在兩份報告之一中被稽核",
+      "noComparableProtocol": "兩份報告中沒有共同觀測到的協定",
+      "options": "兩次執行使用了不同的選項",
+      "analysisVersion": "兩份報告由不同版本的分析評分",
+      "onlyIncomparableMovement": "所有變化都屬於其中一份報告未觀測到的協定"
+    },
+    "protocol": {
+      "unproven": "{0} 已檢查，但未能確認",
+      "notRun": "{0} 未檢查",
+      "unknownInBaseline": "無法比較：基準報告中未觀測到 {0}",
+      "unknownInCurrent": "無法比較：目前的報告中未觀測到 {0}",
+      "unknownBoth": "無法比較：兩份報告以不同的選項檢查了 {0}"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "無變化",
+      "notComparable": "分數無法比較",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "新增 {0} 項",
+      "resolved": "已解決 {0} 項",
+      "unknown": "未知 {0} 項",
+      "severityChanged": "嚴重程度變化 {0} 項",
+      "baselineOnly": "僅見於基準報告",
+      "currentOnly": "僅見於目前的報告"
+    },
+    "meta": {
+      "versionsDiffer": "這兩份報告來自本工具的不同版本，因此變化不附帶判定。",
+      "optionsDiffer": "兩次執行使用了不同的選項：{0}。",
+      "unknownFinding": "此版本沒有 {0} 的說明。"
+    },
+    "import": {
+      "invalidJson": "此檔案不是有效的 JSON。",
+      "notReport": "此檔案不是本工具產生的報告。",
+      "newerVersion": "此報告由本工具的較新版本產生。請更新後再試一次。",
+      "tooLarge": "此檔案過大，不可能是本工具產生的報告。",
+      "tooManyDomains": "此報告包含的網域多於一次稽核所能產生的數量。",
+      "malformed": "此報告中有一個欄位是此版本無法讀取的。",
+      "at": "位於 {0}：{1}"
     }
   }
 }

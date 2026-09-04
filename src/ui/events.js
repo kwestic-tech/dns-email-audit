@@ -43,6 +43,10 @@
  * the adapter and the name with it.
  */
 import { createReport, serializeDocument, styleElement } from './report.js';
+// The run cap and the importer's domain cap are ONE constant, per
+// report-comparison 1.9 section 4: an importer that accepted more would
+// accept a file this application could not have written.
+import { MAX_DOMAINS, LIMITS, parseReport, compareReports } from './report-data.js';
 
 /**
  * Build the page over this runtime's i18n, renderer, platform and facade.
@@ -84,10 +88,10 @@ export function createUi(capabilities) {
   const {
     document, fetch, setTimeout, open, URL, Blob, FileReader, AbortController, Intl,
   } = platform;
+  const { versions, resolver, validSelector, knownFindingIds } = capabilities;
   'use strict';
 
   var CONCURRENCY = 6;
-  var MAX_DOMAINS = 200;
   var MAX_COMPREHENSIVE_DKIM_DOMAINS = 5;
   /**
    * Above this many domains the deep protocol checks turn themselves off.
@@ -111,6 +115,29 @@ export function createUi(capabilities) {
   var deepChecksReEnabled = false;
 
   var results = [];
+  /**
+   * The finished run's provenance, for the 0.9.0 JSON export.
+   *
+   * `generatedAt` is captured ONCE when the run completes and reused by every
+   * export of it, so two exports of one audit are byte-identical -- reading a
+   * clock at export time would make acceptance criterion 4 untestable. Cleared
+   * with the results, and gone on reload like everything else.
+   */
+  var runContext = null;
+
+  /**
+   * Comparison mode. Spec: report-comparison 1.9 section 6.
+   *
+   * `pendingReport` holds an imported report when there is no run to compare it
+   * against yet, so two files can be compared with no audit at all.
+   * `comparison` holds the result of `compareReports()`.
+   *
+   * Both are plain memory and nothing writes them anywhere: leaving the mode
+   * clears them, and a reload has no history to restore. That is the whole
+   * privacy argument for this release, so it is one assignment, not a store.
+   */
+  var pendingReport = null;
+  var comparison = null;
   var sortCol = null;
   var sortDir = 1;
   var auditController = null;
@@ -515,12 +542,6 @@ export function createUi(capabilities) {
   }
 
   /**
-   * Apply the large-run rule to the deep-checks toggle, and say so.
-   *
-   * An explicit re-enable wins: having been told the cost and having ticked the
-   * box again, the user is not told twice for the rest of the tab session.
-   */
-  /**
    * Record the user's answer to the notice.
    *
    * Only a re-enable is remembered. An explicit un-tick needs no memory — the
@@ -533,6 +554,12 @@ export function createUi(capabilities) {
     $('deepChecksNotice').style.display = 'none';
   }
 
+  /**
+   * Apply the large-run rule to the deep-checks toggle, and say so.
+   *
+   * An explicit re-enable wins: having been told the cost and having ticked the
+   * box again, the user is not told twice for the rest of the tab session.
+   */
   function applyDeepCheckLimit(domainCount) {
     var notice = $('deepChecksNotice');
     if (domainCount <= MAX_DEEP_CHECK_DOMAINS || deepChecksReEnabled) {
@@ -1626,6 +1653,11 @@ export function createUi(capabilities) {
       else if (filter === 'no-caa') matchesFilter = tr.dataset.caa === 'no';
       else if (filter === 'no-dnssec') matchesFilter = tr.dataset.dnssec === 'no';
 
+      // Comparison verdicts are a SECOND axis, not a replacement: a reader
+      // narrowing to regressed domains still wants the search box to work.
+      var compareFilter = comparison ? $('filterCompare').value : '';
+      if (compareFilter) matchesFilter = matchesFilter && tr.dataset.compare === compareFilter;
+
       var show = matchesSearch && matchesFilter;
       tr.classList.toggle('hidden', !show);
       var det = $('det-' + tr.id.replace('row-', ''));
@@ -1693,13 +1725,17 @@ export function createUi(capabilities) {
     // recovers.
     if (auditController) return;
     auditController = new AbortController();
+    // Hidden here, with the guard, not further down after the connectivity
+    // await: the window between the two is exactly when a file offered mid-run
+    // was accepted into a state section 6 does not define.
+    $('importReportLabel').style.display = 'none';
 
     var domains = parseDomains($('domainInput').value);
-    if (!domains.length) { showToast(t('toast.noDomains')); auditController = null; return; }
-    if (domains.length > MAX_DOMAINS) { showToast(t('toast.tooMany')); auditController = null; return; }
+    if (!domains.length) { showToast(t('toast.noDomains')); releaseAudit(); return; }
+    if (domains.length > MAX_DOMAINS) { showToast(t('toast.tooMany')); releaseAudit(); return; }
     if ($('optDKIM').checked && $('optDKIMComprehensive').checked && domains.length > MAX_COMPREHENSIVE_DKIM_DOMAINS) {
       showToast(t('toast.tooManyComprehensiveDkim', MAX_COMPREHENSIVE_DKIM_DOMAINS));
-      auditController = null;
+      releaseAudit();
       return;
     }
 
@@ -1720,7 +1756,7 @@ export function createUi(capabilities) {
       // Without this the interface stays locked out of every later run: the
       // button was never disabled, so nothing looks wrong, and every
       // subsequent click returns at the guard above in silence.
-      auditController = null;
+      releaseAudit();
       return;
     }
     $('netBanner').style.display = 'none';
@@ -1737,19 +1773,34 @@ export function createUi(capabilities) {
       advanced: true,
       wildcard: $('optWildcard').checked,
       deepChecks: $('optDeepChecks').checked,
+      // The grammar is `src/core/dkim/`'s and arrives as a capability. It used
+      // to be inlined here as an identical regex; spec 1.9 section 0 forbids
+      // restating a protocol rule under `src/ui/`, because a copy drifts.
       selectors: $('dkimSelectors').value.split(/[\s,]+/).map(function (s) { return s.trim().toLowerCase(); })
-        .filter(function (s) { return /^[a-z0-9][a-z0-9_-]{0,62}$/.test(s); }),
+        .filter(validSelector),
     };
     opts.signal = auditController.signal;
 
     results = new Array(domains.length);
+    // A comparison drawn from the previous run describes facts this one is
+    // about to replace, so it goes before the first query.
+    if (comparison || pendingReport) exitComparison();
+    // `signal` is an AbortController, not provenance, so the report's copy of
+    // the options is taken before it is attached.
+    var runOptions = {
+      dkim: opts.dkim, dkimComprehensive: opts.dkimComprehensive, www: opts.www,
+      wildcard: opts.wildcard, advanced: opts.advanced, deepChecks: opts.deepChecks,
+      selectors: opts.selectors.slice(),
+    };
+    runContext = null;
     $('auditBtn').disabled = true;
     $('cancelBtn').style.display = '';
     $('auditBtn').replaceChildren(R.frag([
       R.el('span', { className: 'spinner' }),
       R.text(' ' + t('btn.auditRunning')),
     ]));
-    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = 'none'; });
+    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn', 'exportJsonBtn'].forEach(function (id) { $(id).style.display = 'none'; });
+    $('importReportLabel').style.display = 'none';
     ['summarySection', 'resultsSection', 'emptyState'].forEach(function (id) { $(id).style.display = 'none'; });
     $('resultsToolbar').style.display = 'none';
     $('progressSection').style.display = 'block';
@@ -1779,11 +1830,15 @@ export function createUi(capabilities) {
       }
     }));
 
-    auditController = null;
+    releaseAudit();
+    // The run is over: stamp it once, here, and let every export of it read
+    // the same instant.
+    runContext = { options: runOptions, generatedAt: platform.nowIso() };
     $('auditBtn').disabled = false;
     $('cancelBtn').style.display = 'none';
     $('auditBtn').textContent = t('btn.runAudit');
-    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = ''; });
+    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn', 'exportJsonBtn'].forEach(function (id) { $(id).style.display = ''; });
+    $('importReportLabel').style.display = '';
     setTimeout(function () { $('progressSection').style.display = 'none'; }, 1200);
 
     $('tableBody').replaceChildren();
@@ -1814,7 +1869,10 @@ export function createUi(capabilities) {
    * and `i18n/` only, so everything else here is supplied rather than reached
    * for.
    */
-  const { exportCSV, exportHTML, buildCsvRows, toCsvText, neutralizeCsvCell, buildReportDocument } =
+  const {
+    exportCSV, exportHTML, exportJSON, buildCsvRows, toCsvText, neutralizeCsvCell,
+    buildReportDocument, buildReportJson,
+  } =
     createReport({
       document, platform, i18n, renderer: R,
       englishBundle: englishBundle,
@@ -1822,7 +1880,560 @@ export function createUi(capabilities) {
       showToast, $, getResults: function () { return results; },
       getArtifactSessions: function () { return artifactSessions; },
       buildArtifactReportContent,
+      // Forwarded, not reached for: `report.js` is a sibling and these three
+      // come from the composition root.
+      versions, resolver, validSelector,
+      getRunContext: function () { return runContext; },
     });
+
+  /* ── Comparison mode ────────────────────────────────────────────────── */
+
+  /**
+   * Map a rejection code onto its message key.
+   *
+   * A null-prototype map because the code reaches this line from a file
+   * somebody was handed, and 0.8.1 fixed this exact class of defect: against an
+   * object literal, a code of `__proto__` resolves through the chain to
+   * something truthy.
+   */
+  var IMPORT_MESSAGE = Object.assign(Object.create(null), {
+    'invalid-json': 'compare.import.invalidJson',
+    'not-report': 'compare.import.notReport',
+    'newer-version': 'compare.import.newerVersion',
+    'too-large': 'compare.import.tooLarge',
+    'too-many-domains': 'compare.import.tooManyDomains',
+    'malformed': 'compare.import.malformed',
+  });
+
+  /**
+   * Render one rejection: a localized sentence for the code, and beneath it the
+   * schema path exactly as the importer reported it.
+   *
+   * The path and the clause are NOT translated. They name a location in a
+   * document rather than addressing a reader, which is the same reason a schema
+   * field name is never translated — and they are DNS-adjacent attacker-supplied
+   * text, so they go through the sentinel renderer like any other foreign value.
+   */
+  function importErrorNode(err) {
+    var key = Object.prototype.hasOwnProperty.call(IMPORT_MESSAGE, err.code)
+      ? IMPORT_MESSAGE[err.code] : 'compare.import.malformed';
+    var parts = [R.el('div', null, t(key))];
+    if (err.path || err.detail) {
+      parts.push(R.el('div', { style: 'font-size:12px;color:var(--ink3);margin-top:4px' },
+        R.sentinelText(t('compare.import.at', err.path || '', err.detail || ''))));
+    }
+    return R.frag(parts);
+  }
+
+  function showImportProblem(errors) {
+    var box = $('compareNotice');
+    box.className = 'callout callout-warn';
+    box.replaceChildren(R.frag((errors || []).map(importErrorNode)));
+    box.style.display = 'block';
+    showToast(t('toast.importFailed'));
+  }
+
+  /**
+   * Hand back the audit guard AND the control it hid.
+   *
+   * Every early return in `startAudit()` releases the guard; each one has to
+   * release this too, or a refused run leaves report import hidden for the rest
+   * of the page's life with nothing looking wrong.
+   */
+  function releaseAudit() {
+    auditController = null;
+    $('importReportLabel').style.display = '';
+  }
+
+  /**
+   * Read a chosen report file.
+   *
+   * The byte check runs against `File.size` BEFORE `FileReader` does any work,
+   * which is the pattern 0.8.0 established for supplied artifacts: a file too
+   * large to be one of ours is refused without being read into memory at all.
+   */
+  function importReportFile(e) {
+    var file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > LIMITS.bytes) { showImportProblem([{ code: 'too-large' }]); return; }
+    var reader = new FileReader();
+    reader.onload = function (ev) { acceptImportedReport(String(ev.target.result || '')); };
+    reader.onerror = function () { showImportProblem([{ code: 'invalid-json' }]); };
+    reader.readAsText(file);
+  }
+
+  /**
+   * Validate an imported report and decide what it can be compared against.
+   *
+   * Two entry paths, both from section 6: a report imported while results are
+   * on screen becomes the BASELINE for the run that is showing, and a report
+   * imported with no run waits for a second file.
+   */
+  function acceptImportedReport(text) {
+    // Section 6 defines two entries: results are showing, or no audit is
+    // running. Mid-run is neither, and accepting a report there produced two
+    // timing-dependent outcomes — discarded by the new-run teardown, or left
+    // pending and never compared. Guarded HERE rather than at the file input
+    // because this is where a report becomes one, however it arrived.
+    if (auditController) { showToast(t('toast.importDuringRun')); return; }
+    var parsed = parseReport(text, { validSelector: validSelector });
+    if (!parsed.ok) { showImportProblem(parsed.errors); return; }
+
+    var haveRun = runContext && results.filter(Boolean).length > 0;
+    if (haveRun) { enterComparison(parsed.report, buildReportJson()); return; }
+    if (pendingReport) { enterComparison(pendingReport, parsed.report); return; }
+
+    pendingReport = parsed.report;
+    var box = $('compareNotice');
+    box.className = 'callout callout-info';
+    box.replaceChildren(R.el('div', null, t('compare.chooseBaseline')));
+    box.style.display = 'block';
+    showToast(t('toast.reportImported'));
+  }
+
+  function enterComparison(baseline, current) {
+    comparison = compareReports(baseline, current);
+    pendingReport = null;
+    renderComparison();
+    showToast(t('toast.reportImported'));
+  }
+
+  /**
+   * Forget both reports and everything drawn from them.
+   *
+   * Separated from `exitComparison()` because THREE things invalidate a
+   * comparison and only one of them is the exit button: clearing the results
+   * and starting a new run also leave a comparison whose every row describes a
+   * previous set of facts. `clearAll()` used to leave the whole object in
+   * memory with JSON export still offered, so the remaining button could write
+   * an empty report carrying the last run's timestamp and options.
+   */
+  function discardComparison() {
+    comparison = null;
+    pendingReport = null;
+  }
+
+  /**
+   * Leave comparison mode and forget both reports.
+   *
+   * Section 6: "Leaving comparison mode discards the imported report from
+   * memory. So does reloading, which is the point."
+   */
+  function exitComparison() {
+    discardComparison();
+    $('compareNotice').style.display = 'none';
+    $('compareNotice').replaceChildren();
+    $('exitCompareBtn').style.display = 'none';
+    $('filterCompare').style.display = 'none';
+    $('filterCompare').value = '';
+    Array.prototype.slice.call($('tableBody').querySelectorAll('.compare-only-row'))
+      .forEach(function (tr) { tr.remove(); });
+    resultRows().forEach(function (tr) {
+      delete tr.dataset.compare;
+      var cell = tr.querySelectorAll('.compare-cell')[0];
+      if (cell) cell.remove();
+    });
+    Array.prototype.slice.call($('tableBody').querySelectorAll('.compare-detail'))
+      .forEach(function (node) { node.remove(); });
+    var headRow = headerRow();
+    var head = headRow && compareHeadCell(headRow);
+    if (head) head.remove();
+    if (results.filter(Boolean).length) {
+      renderSummary();
+    } else {
+      // Nothing was on screen before the comparison, so nothing is after it.
+      $('statsGrid').replaceChildren();
+      $('tableBody').replaceChildren();
+      ['summarySection', 'resultsSection', 'emptyState'].forEach(function (id) {
+        $(id).style.display = 'none';
+      });
+      $('resultsToolbar').style.display = 'none';
+    }
+    filterTable();
+  }
+
+  /** The comparison summary, replacing the stats grid while the mode is on. */
+  function renderComparisonSummary() {
+    var s = comparison.summary;
+    $('statsGrid').replaceChildren(R.frag([
+      tile(s.improved, t('compare.status.improved'), 'c-ok'),
+      tile(s.regressed, t('compare.status.regressed'), 'c-crit'),
+      tile(s.changed, t('compare.status.changed'), 'c-warn'),
+      tile(s.unchanged, t('compare.status.unchanged'), 'c-muted'),
+      tile(s.added, t('compare.status.added'), 'c-info'),
+      tile(s.removed, t('compare.status.removed'), 'c-muted'),
+      tile(s.incomparable, t('compare.status.incomparable'), 'c-muted'),
+    ]));
+  }
+
+  /**
+   * The whole-comparison notes: what the two reports do not share.
+   *
+   * `versionsDiffer` is not a warning about the files — it is why no domain in
+   * this comparison will read `improved` or `regressed`.
+   */
+  function renderCompareNotice() {
+    var meta = comparison.meta;
+    var lines = [
+      R.el('div', null, t('compare.heading')),
+      R.el('div', { style: 'font-size:12px;margin-top:4px' },
+        R.sentinelText(t('compare.baselineLabel', meta.baselineGeneratedAt))),
+      R.el('div', { style: 'font-size:12px' },
+        R.sentinelText(t('compare.currentLabel', meta.currentGeneratedAt))),
+    ];
+    if (!meta.findingSemanticsMatch) {
+      lines.push(R.el('div', { style: 'margin-top:6px' }, t('compare.meta.versionsDiffer')));
+    }
+    if (!meta.optionsMatch) {
+      lines.push(R.el('div', { style: 'margin-top:6px' },
+        R.sentinelText(t('compare.meta.optionsDiffer', meta.optionDifferences.join(', ')))));
+    }
+    var box = $('compareNotice');
+    box.className = 'callout callout-info';
+    box.replaceChildren(R.frag(lines));
+    box.style.display = 'block';
+  }
+
+  /** The score movement for one domain, or why there is none. */
+  function deltaNode(d) {
+    if (!d.scoreComparable) {
+      return R.el('span', { className: 'compare-unknown', title: t('compare.delta.notComparable') },
+        t('compare.delta.notComparable'));
+    }
+    if (!d.scoreDelta && !d.gradeChange) return R.el('span', { className: 'c-muted' }, t('compare.delta.none'));
+    var parts = [];
+    if (d.scoreDelta) {
+      parts.push(R.el('span', { className: d.scoreDelta > 0 ? 'c-ok' : 'c-crit' },
+        t(d.scoreDelta > 0 ? 'compare.delta.up' : 'compare.delta.down', d.scoreDelta)));
+    }
+    if (d.gradeChange) {
+      parts.push(R.el('span', { style: 'margin-left:6px;font-size:12px' },
+        t('compare.delta.grade', d.gradeChange.from, d.gradeChange.to)));
+    }
+    return R.frag(parts);
+  }
+
+  /**
+   * The results table's header row, or nothing.
+   *
+   * `tHead.rows[0]` is the only answer this returns. There is no positional
+   * fallback -- see below for the bug that removed it. Deliberately NOT found
+   * by an id in `index.html`: adding one changed the exported HTML report for
+   * all thirty-two equivalence cases, and a published surface does not move to
+   * make a test easier to write.
+   */
+  function headerRow() {
+    var table = $('resultsTable');
+    // `tHead` or nothing. A positional fallback looked reasonable and was not:
+    // where table sections are not modelled, the table's own `tr` list holds
+    // only BODY rows once results exist, so the delta header was appended to a
+    // data row — twice, in two different disguises. Without a real header row
+    // the column simply has no heading, and each cell still carries its
+    // `data-label`, which is what names it on a narrow screen anyway.
+    return table && table.tHead && table.tHead.rows && table.tHead.rows.length
+      ? table.tHead.rows[0] : null;
+  }
+
+  /**
+   * The delta header cell, found by walking the row's own children.
+   *
+   * An id selector scoped to an element is not answerable everywhere the app
+   * runs its tests, and a lookup that silently finds nothing would add a second
+   * header on every comparison and leave the first behind on exit.
+   */
+  function compareHeadCell(headRow) {
+    return Array.prototype.filter.call(headRow.childNodes,
+      function (n) { return n && n.id === 'compareHeadCell'; })[0] || null;
+  }
+
+  /**
+   * The result rows, scoped to the table body.
+   *
+   * Element-scoped rather than a document-wide descendant selector: it is the
+   * more precise query, and it is the one the DOM shim can answer, so the
+   * comparison overlay is testable without a browser.
+   */
+  function resultRows() {
+    return Array.prototype.filter.call($('tableBody').querySelectorAll('tr'),
+      function (tr) { return !tr.classList.contains('detail-row'); });
+  }
+
+  var COMPARE_CLS = Object.assign(Object.create(null), {
+    improved: 'ok', regressed: 'crit', changed: 'warn',
+    unchanged: 'muted', added: 'info', removed: 'muted', incomparable: 'muted',
+  });
+
+  // The observability values a protocol can carry when it is not `observed`.
+  // A value with no entry here is one whose side sentence already states the
+  // reason; a value that is neither is a schema change, and renders the side
+  // alone rather than a key that does not exist.
+  var PROTOCOL_REASON_KEYS = (function () {
+    var m = Object.create(null);
+    m.unproven = 'compare.protocol.unproven';
+    m['not-run'] = 'compare.protocol.notRun';
+    return m;
+  }());
+
+  var KNOWN_FINDING_IDS = (knownFindingIds || []).reduce(function (set, id) {
+    set[id] = true;
+    return set;
+  }, Object.create(null));
+
+  /**
+   * Notes for the ids in a rendered group that this build does not recognize.
+   *
+   * Section 4's rule is unconditional, so this is shared by every group a
+   * finding id can appear in rather than living inside one of them. It lived
+   * inside `findingLine()` first, which covers `new`, `resolved` and
+   * `unknown` -- and misses the one case an unknown id reaches none of them:
+   * present in BOTH reports, moved in severity. That id rendered as a bare
+   * token with nothing to say the build could not describe it.
+   */
+  function unknownIdNotes(ids) {
+    return (ids || []).filter(function (id) {
+      return !Object.prototype.hasOwnProperty.call(KNOWN_FINDING_IDS, id);
+    }).map(function (id) {
+      return R.el('div', { className: 'c-muted', style: 'font-size:11px' },
+        R.sentinelText(t('compare.meta.unknownFinding', id)));
+    });
+  }
+
+  /**
+   * One line of the diff: a label and the ids beneath it, as text.
+   *
+   * The LABEL depends on whether the two reports came from the same build.
+   * Section 5: with different generator versions the diff is still shown, but
+   * it makes no causal claim — "in the baseline only" rather than "resolved",
+   * because a release can add or correct a finding without anything about the
+   * domain changing. An earlier version said "resolved" either way.
+   *
+   * Every id here came out of a stranger's file, so they go through
+   * `R.sentinelText()` for the same reason a DNS record does — the first
+   * version of this rendered nothing at all, which passed a test that only
+   * checked no `<img>` element had been created.
+   */
+  function findingLine(sameKey, crossKey, ids) {
+    if (!ids || !ids.length) return null;
+    var labelKey = comparison.meta.findingSemanticsMatch ? sameKey : crossKey;
+    var parts = [
+      R.el('strong', null, t(labelKey, ids.length)),
+      R.text(' '),
+      R.sentinelText(ids.join(', ')),
+    ].concat(unknownIdNotes(ids));
+    return R.el('div', { style: 'margin-top:2px' }, parts);
+  }
+
+  /**
+   * The evidence behind a domain's verdict, in the detail row the table
+   * already has.
+   *
+   * Section 6 puts paired values here rather than doubling every cell in the
+   * grid. `recordChanges` is often the more useful half: it shows what someone
+   * actually did, where the finding diff shows what it cost them.
+   */
+  function comparisonDetail(d) {
+    var parts = [R.el('div', { style: 'font-weight:600;margin-bottom:4px' },
+      t('compare.status.' + d.status))];
+
+    parts.push(findingLine('compare.findings.new', 'compare.findings.currentOnly', d.findings.new));
+    parts.push(findingLine('compare.findings.resolved', 'compare.findings.baselineOnly', d.findings.resolved));
+    parts.push(findingLine('compare.findings.unknown', 'compare.findings.unknown', d.findings.unknown));
+    if (d.findings.severityChanged.length) {
+      parts.push(R.el('div', { style: 'margin-top:2px' }, [
+        R.el('strong', null, t('compare.findings.severityChanged', d.findings.severityChanged.length)),
+        R.text(' '),
+        // The tokens stay tokens in the DATA; what a reader sees is the label
+        // the rest of the interface already uses for that severity.
+        R.sentinelText(d.findings.severityChanged.map(function (c) {
+          return c.id + ' (' + t('findings.severity.' + c.from) + ' → ' + t('findings.severity.' + c.to) + ')';
+        }).join(', ')),
+      ].concat(unknownIdNotes(d.findings.severityChanged.map(function (c) { return c.id; })))));
+    }
+
+    // Section 6: a protocol nobody could compare is named "with its reason".
+    // `incomparableProtocols` carries TWO independent axes and both have to
+    // survive to the page.
+    //
+    // The SIDE — three of them, not two. An option mismatch produces
+    // `side: 'both'`, and folding it onto "current" said a protocol was not
+    // observed in the current report when both reports had observed it
+    // perfectly well.
+    //
+    // The REASON — `unproven` (looked, nothing established) and `not-run`
+    // (never looked) are different facts, and answer different questions: the
+    // first says the domain may be misconfigured, the second says this run
+    // simply had the option off. Rendering the side alone collapsed them into
+    // one generic sentence and left two translated strings unreachable.
+    (d.incomparableProtocols || []).forEach(function (e) {
+      var sideKey = e.side === 'baseline' ? 'compare.protocol.unknownInBaseline'
+        : e.side === 'current' ? 'compare.protocol.unknownInCurrent'
+          : 'compare.protocol.unknownBoth';
+      var kids = [R.sentinelText(t(sideKey, e.protocol))];
+      // `both` needs no separate line: its reason is always the option
+      // mismatch, and `unknownBoth` already says so in one sentence.
+      var reasonKey = Object.prototype.hasOwnProperty.call(PROTOCOL_REASON_KEYS, e.reason)
+        ? PROTOCOL_REASON_KEYS[e.reason] : null;
+      if (reasonKey) {
+        kids.push(R.el('div', { className: 'c-muted', style: 'font-size:11px' },
+          R.sentinelText(t(reasonKey, e.protocol))));
+      }
+      parts.push(R.el('div', { className: 'compare-unknown', style: 'margin-top:2px' }, kids));
+    });
+
+    (d.recordChanges || []).forEach(function (c) {
+      parts.push(R.el('div', { style: 'margin-top:4px;font-size:12px' }, [
+        R.el('strong', null, R.sentinelText(c.path)),
+        R.el('div', null, [R.el('span', { className: 'c-muted' }, t('compare.findings.baselineOnly') + ': '),
+          R.sentinelText(String(c.from))]),
+        R.el('div', null, [R.el('span', { className: 'c-muted' }, t('compare.findings.currentOnly') + ': '),
+          R.sentinelText(String(c.to))]),
+      ]));
+    });
+
+    return R.frag(parts.filter(Boolean));
+  }
+
+  /** The cell that carries a domain's verdict and its score movement. */
+  function comparisonCell(d) {
+    var contents = [
+      badge(t('compare.status.' + d.status), COMPARE_CLS[d.status] || 'muted'),
+      R.el('div', { style: 'margin-top:4px' }, deltaNode(d)),
+    ];
+    (d.incomparableReasons || []).forEach(function (reason) {
+      contents.push(R.el('div', { className: 'compare-unknown', style: 'font-size:11px;margin-top:2px' },
+        t('compare.reason.' + reasonKey(reason))));
+    });
+    return R.el('td', {
+      className: 'compare-cell',
+      dataset: { label: t('th.delta') },
+    }, R.frag(contents));
+  }
+
+  /**
+   * A row for a domain the current run has none for.
+   *
+   * Two cases need this and neither can borrow an audit row: a domain that was
+   * `removed` exists only in the baseline, and in two-report mode there is no
+   * run at all. Without it the comparison counted domains in its summary that
+   * the table never showed.
+   */
+  function comparisonOnlyRow(d) {
+    var rowId = 'row-' + d.domain.replace(/\W/g, '-');
+    return R.el('tr', {
+      id: rowId,
+      className: 'compare-only-row',
+      dataset: { domain: d.domain, overall: 'compare' },
+    }, [
+      R.el('td'),
+      R.el('td', { className: 'domain-cell' }, R.host(d.domain)),
+      R.el('td', { colspan: '8', style: 'color:var(--ink3);font-size:12px' },
+        comparisonDetail(d)),
+    ]);
+  }
+
+  /**
+   * Overlay the comparison onto the table that is already rendered.
+   *
+   * Section 6 chose an overlay over a separate view, so the delta column is
+   * ADDED here rather than declared in `index.html`: outside comparison mode
+   * there is nothing for it to hold, and a permanently empty column would move
+   * every exported report and every equivalence DOM surface for a mode almost
+   * nobody is in.
+   */
+  function renderComparisonRows() {
+    var byDomain = Object.create(null);
+    comparison.domains.forEach(function (d) { byDomain[d.domain] = d; });
+
+    var headRow = headerRow();
+    if (headRow) {
+      // Replaced rather than left alone: it is built here rather than declared
+      // in `index.html`, so it carries no `data-i18n` and the locale sweep
+      // cannot reach it. An English "Change" survived a switch to German while
+      // every heading around it moved.
+      var existing = compareHeadCell(headRow);
+      if (existing) existing.remove();
+      headRow.appendChild(R.el('th', { id: 'compareHeadCell', style: 'width:96px' },
+        R.el('span', null, t('th.delta'))));
+    }
+
+    // Rows this comparison introduced last time are rebuilt, not reused: their
+    // contents are localized and their verdicts belong to one comparison.
+    Array.prototype.slice.call($('tableBody').querySelectorAll('.compare-only-row'))
+      .forEach(function (tr) { tr.remove(); });
+
+    // The detail row follows its data row in document order. Found that way
+    // rather than by `$('det-...')`: an id lookup returns nothing in an
+    // environment that does not index dynamically created elements, and the
+    // evidence silently never rendered while a test that only checked no
+    // element had been created still passed.
+    var allRows = Array.prototype.slice.call($('tableBody').querySelectorAll('tr'));
+    function detailRowFor(tr) {
+      var next = allRows[allRows.indexOf(tr) + 1];
+      return next && next.classList && next.classList.contains('detail-row') ? next : null;
+    }
+
+    var seen = Object.create(null);
+    resultRows().forEach(function (tr) {
+      var name = tr.dataset.domain || '';
+      var d = Object.prototype.hasOwnProperty.call(byDomain, name) ? byDomain[name] : null;
+      var old = tr.querySelectorAll('.compare-cell')[0];
+      if (old) old.remove();
+      if (!d) return;
+      seen[name] = true;
+      tr.dataset.compare = d.status;
+      tr.appendChild(comparisonCell(d));
+
+      // The evidence goes in the detail row the table already has.
+      var detail = detailRowFor(tr);
+      if (detail) {
+        var host = detail.querySelectorAll('.compare-detail')[0];
+        if (host) host.remove();
+        var cell = detail.querySelectorAll('td')[0];
+        if (cell) {
+          cell.appendChild(R.el('div', {
+            className: 'compare-detail',
+            style: 'margin-top:10px;padding-top:10px;border-top:1px solid var(--border)',
+          }, comparisonDetail(d)));
+        }
+      }
+    });
+
+    // Everything the comparison knows about that the table does not show yet.
+    comparison.domains.forEach(function (d) {
+      if (Object.prototype.hasOwnProperty.call(seen, d.domain)) return;
+      var tr = comparisonOnlyRow(d);
+      tr.dataset.compare = d.status;
+      tr.appendChild(comparisonCell(d));
+      $('tableBody').appendChild(tr);
+    });
+  }
+
+  var REASON_KEY = Object.assign(Object.create(null), {
+    state: 'state',
+    'no-comparable-protocol': 'noComparableProtocol',
+    options: 'options',
+    'analysis-version': 'analysisVersion',
+    'only-incomparable-movement': 'onlyIncomparableMovement',
+  });
+  function reasonKey(reason) {
+    return Object.prototype.hasOwnProperty.call(REASON_KEY, reason) ? REASON_KEY[reason] : 'options';
+  }
+
+  function renderComparison() {
+    renderCompareNotice();
+    renderComparisonSummary();
+    renderComparisonRows();
+    $('exitCompareBtn').style.display = '';
+    $('filterCompare').style.display = '';
+    // Two reports compared with no run behind them still need somewhere to be
+    // shown: on a fresh page these three are hidden, and the summary counted
+    // domains the table never revealed.
+    $('summarySection').style.display = 'block';
+    $('resultsSection').style.display = 'block';
+    $('resultsToolbar').style.display = 'flex';
+    filterTable();
+  }
 
   /* ── Input helpers ──────────────────────────────────────────────────── */
 
@@ -2071,12 +2682,17 @@ export function createUi(capabilities) {
 
   function clearAll() {
     results = [];
+    // The run's provenance goes with the run. Leaving it behind let an export
+    // describe a set of results that no longer existed.
+    runContext = null;
+    if (comparison || pendingReport) exitComparison();
+    discardComparison();
     clearArtifacts();
     $('domainInput').value = '';
     $('tableBody').replaceChildren();
     ['summarySection', 'resultsSection', 'emptyState'].forEach(function (id) { $(id).style.display = 'none'; });
     $('resultsToolbar').style.display = 'none';
-    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn'].forEach(function (id) { $(id).style.display = 'none'; });
+    ['clearBtn', 'exportCsvBtn', 'exportHtmlBtn', 'exportJsonBtn'].forEach(function (id) { $(id).style.display = 'none'; });
     $('searchBox').value = '';
     syncArtifactDomains();
   }
@@ -2101,6 +2717,16 @@ export function createUi(capabilities) {
   // Re-render results in the new language whenever it changes.
   i18n.onChange(function () {
     if (!results.length) {
+      // A comparison of two imported reports has no `results` behind it, and
+      // its rows, verdicts and notice are all localized. Without this the mode
+      // stayed active in the previous language.
+      if (comparison) { renderComparison(); syncArtifactDomains(); return; }
+      if (pendingReport) {
+        var box = $('compareNotice');
+        box.className = 'callout callout-info';
+        box.replaceChildren(R.el('div', null, t('compare.chooseBaseline')));
+        box.style.display = 'block';
+      }
       syncArtifactDomains();
       return;
     }
@@ -2111,6 +2737,10 @@ export function createUi(capabilities) {
     // language — and `appendRow()` already has a branch that draws them.
     results.filter(Boolean).forEach(appendRowIsolated);
     renderSummary();
+    // Rebuilding the rows destroyed every verdict and delta cell while the mode
+    // was still on, so a selected comparison filter matched nothing and hid the
+    // whole table.
+    if (comparison) renderComparison();
     filterTable();
     syncArtifactDomains();
     showToast(t('toast.langChanged'));
@@ -2139,6 +2769,10 @@ export function createUi(capabilities) {
     $('helpBtn').addEventListener('click', showHelp);
     $('exportCsvBtn').addEventListener('click', exportCSV);
     $('exportHtmlBtn').addEventListener('click', exportHTML);
+    $('exportJsonBtn').addEventListener('click', exportJSON);
+    $('importReportInput').addEventListener('change', importReportFile);
+    $('exitCompareBtn').addEventListener('click', exitComparison);
+    $('filterCompare').addEventListener('change', filterTable);
     $('langSelect').addEventListener('change', function () { setLang(this.value); });
     $('searchBox').addEventListener('input', filterTable);
     $('filterStatus').addEventListener('change', filterTable);
@@ -2183,6 +2817,9 @@ export function createUi(capabilities) {
     syncArtifactDomains, clearArtifacts, buildArtifactReportContent,
     getArtifactSessions: function () { return artifactSessions; },
     appendRow, appendRowIsolated,
+    exportJSON, buildReportJson, getRunContext: function () { return runContext; },
+    acceptImportedReport, exitComparison, importErrorNode,
+    getComparison: function () { return comparison; },
     buildLearnMorePage, buildReportDocument, buildCsvRows, toCsvText,
     neutralizeCsvCell, issueMessage, tDns, rowHygieneValues, scoreBlock,
     advMiniDots, advFullDots, spfMeter, tile, badge, detailItem, log,

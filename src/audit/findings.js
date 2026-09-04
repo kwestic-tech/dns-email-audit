@@ -598,6 +598,23 @@ export const CROSS_PROTOCOL_RULES = [
  * drop `dependsOn` edges pointing at findings that did not fire, and derive
  * `blocks` as the inverse (RQ-FIND-07).
  * ──────────────────────────────────────────────────────────────────────── */
+/**
+ * Every finding id this build can produce.
+ *
+ * Exposed so the interface can tell an id it knows from one it does not, and
+ * say so: report-comparison 1.9 section 4 requires an unrecognized id to be
+ * "displayed by id with a note that this build has no description for it,
+ * rather than being dropped". `src/ui/` may not import this module, so the
+ * catalog crosses the composition boundary as data, the same route the DKIM
+ * selector grammar takes.
+ */
+export function findingCatalogIds() {
+  var ids = Object.keys(FINDING_META).map(function (k) { return FINDING_META[k].id; })
+    .concat(CROSS_PROTOCOL_RULES.map(function (r) { return r.id; }));
+  return Object.keys(ids.reduce(function (set, id) { set[id] = true; return set; },
+    Object.create(null))).sort();
+}
+
 export function buildFindings(ctx, issuesOverride) {
   // `issuesOverride` exists so the suite can feed a fabricated issue array —
   // including an unknown key — to exercise the skip branch directly. Production

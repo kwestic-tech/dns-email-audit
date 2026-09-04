@@ -146,7 +146,7 @@ right substitute in every case, or is the absence of a PSL call site a **latent
 defect** — somewhere the organizational domain should have been computed from
 the public suffix list and instead falls back to discovery? That is a protocol
 question for [findings-and-remediation](specs/implemented/findings-and-remediation.md) or
-[report-comparison](specs/report-comparison.md) to answer.
+[report-comparison](specs/implemented/report-comparison.md) to answer.
 
 ### What to do
 

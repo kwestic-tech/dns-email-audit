@@ -2,49 +2,45 @@
 
 ## Current state
 
-Released through `v0.8.1`. Private local MTA-STS policy and BIMI SVG validators
-now consume 0.7.0's structured-finding boundary without changing legacy
-issues, suggestions, scores or grades. Supplied artifacts remain in memory,
-produce no network request, and are never rendered as active markup.
+Released through `v0.9.0`. A finished audit can be exported as a versioned JSON
+report and two reports can be compared entirely in the browser tab. The
+comparison overlays the existing results table, and leaving the mode or
+reloading discards both reports; nothing is written to storage.
 
-`v0.8.1` is a patch release with no new capability: it fixes five defects found
-by an external review of `v0.8.0` — a hostile NS label that discarded a whole
-run, a double click that started two audits, an unsentinelised provider badge,
-prototype-chain resolution in the i18n and entity lookups, and a BIMI `url()`
-screen that was wrong in both directions — plus a footer entity that rendered
-as literal text, and the documentation drift the review catalogued. The
-`local-artifact-validation` spec is amended to 1.11 to record the corrected
-`url()` rule and the new `data-uri-reference` diagnostic.
+`v0.9.0` also adds a per-protocol observability fact to every audit — a total
+map over the thirteen protocols, closed over observed, unproven and not-run.
+That is what makes a comparison safe to trust: a protocol either report did not
+observe is marked with the side that lacked it and the reason, rather than
+having its findings reported as resolved. `analysisVersion` gates the score
+delta only, and a difference in generator version shows the finding movement
+without labelling it improved or regressed.
 
-The remaining release sequence is:
+The `report-comparison` spec is at `1.10 (Implemented, amended)` and records
+nine implementation divergences in its **As implemented** section, eight of them
+found by review of the working tree rather than of the finished branch.
+
+One release remains:
 
 ```text
-0.9.0 reports → 1.0.0 readiness
+1.0.0 readiness
 ```
 
-Each remaining spec must be reviewed to Final before its implementation
-begins. Do not treat the sequence above as approval of the individual design
-choices still recorded as `OQ-*` questions.
+## Start here: review `one-zero-readiness` to Final
 
-## Start here: review the 0.9.0 stateless report-comparison spec
+Spec: [`docs/specs/one-zero-readiness.md`](docs/specs/one-zero-readiness.md),
+**`0.1`, Draft — not approved for implementation.** Every spec is Final before
+its implementation begins, and this one is not: its `OQ-ONE-*` questions are
+open, starting with `OQ-ONE-01`, whether 1.0.0 remains a dedicated graduation
+release at all rather than a version number placed on the state 0.9.0 leaves.
 
-Spec: [`docs/specs/report-comparison.md`](docs/specs/report-comparison.md),
-currently a draft and **not approved for implementation**.
+`0.9.0` is what makes that question answerable now. The public report schema is
+the last compatibility surface the 1.x promise has to cover, and it exists:
+`schemaVersion`, a closed rejection vocabulary, published limits, and an
+explicit policy that fields are added and deprecated but never repurposed.
 
-The next task is review, not code. Resolve every `OQ-CMP-*` decision, reconcile
-the schema with what 0.8.0 actually exports, and promote the spec to Final
-before creating an implementation branch.
-
-The 0.8.0 release established the inputs 0.9.0 must respect:
-
-1. Artifact findings are explicitly `user-supplied` and separate from DNS
-   findings, scores and reproducible public observations.
-2. CSV and static HTML present the current session's artifact findings, but the
-   0.8.0 decision excludes them from 0.9.0's versioned comparison JSON.
-3. Reload discards supplied material. The comparison release must preserve the
-   same zero-persistence boundary for imported reports.
-4. Existing CSV columns keep their positions; new report formats need an
-   explicit compatibility and versioning rule before they ship.
+[`docs/specs/external-intelligence.md`](docs/specs/external-intelligence.md) is
+a decision document with no implementation phase; the readiness draft requires
+it to be Final before 1.0.0, subject to `OQ-ONE-05`.
 
 ## What follows
 
@@ -52,8 +48,8 @@ The 0.8.0 release established the inputs 0.9.0 must respect:
 | --- | --- | --- | --- |
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
-| 0.9.0 | [report-comparison](docs/specs/report-comparison.md) | 0.8.0 released; spec must be reviewed to Final | Versioned JSON schema, import validation and stateless comparison |
-| 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
+| 0.9.0 | [report-comparison](docs/specs/implemented/report-comparison.md) | Released as `v0.9.0` | Versioned JSON schema, import validation and stateless comparison |
+| 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary
 
@@ -65,11 +61,16 @@ uses the real browser parser and must prove its own detectors fail.
 
 ### 0.9.0 boundary
 
-Pure report schema and comparison work stays within `src/ui/` siblings.
-Scoring or analysis version metadata remains owned by `src/audit/` and crosses
-the existing composition boundary; the UI never imports scoring. Settle
-`OQ-CMP-06` before the first report is exported because the field cannot be
-repurposed after release. Match `OQ-CMP-07` to what 0.8.0 actually ships.
+As shipped. Pure report schema and comparison work stays within `src/ui/`
+siblings.
+`ANALYSIS_VERSION` remains owned by `src/audit/scoring.js` and crosses the
+existing composition boundary; the UI never imports scoring. `APP_VERSION`
+lives in `src/runtime.js`, not a new unowned root module. `RQ-CMP-06` keeps one
+`analysisVersion`, bumped by anything that can move a score, while 1.1
+qualifies finding movement whenever generator versions differ. The closed
+observability map, including unscored MX and DANE, prevents a failed or skipped
+check from reading as fixed. `RQ-CMP-07` excludes artifact findings with no
+reserved field, asserted against `artifactFindingCatalogIds()`.
 
 ### 1.0.0 boundary
 
@@ -82,8 +83,8 @@ dedicated release is `OQ-ONE-01` and must be resolved during spec review.
 ## Product-boundary decision alongside the feature work
 
 [`docs/specs/external-intelligence.md`](docs/specs/external-intelligence.md) has
-no implementation phase. Review it as a decision document while 0.9.0
-progresses. The 1.0 readiness draft currently requires it to be Final before
+no implementation phase. Review it as a decision document alongside the
+1.0.0 readiness spec. The 1.0 readiness draft currently requires it to be Final before
 1.0.0, subject to `OQ-ONE-05`.
 
 ## Standing rules

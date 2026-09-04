@@ -24,7 +24,10 @@
     "uploadFile": "📄 Unggah berkas .txt",
     "loadExamples": "Muat contoh",
     "clearResults": "🗑 Bersihkan hasil",
-    "learnMore": "Pelajari lebih lanjut →"
+    "learnMore": "Pelajari lebih lanjut →",
+    "exportJson": "⬇ Ekspor JSON",
+    "importReport": "⬆ Bandingkan dengan laporan tersimpan",
+    "exitCompare": "Keluar dari perbandingan"
   },
   "input": {
     "heading": "Masukkan domain untuk diaudit",
@@ -144,7 +147,8 @@
     "dkim": "DKIM",
     "dmarc": "DMARC",
     "advanced": "Lanjutan",
-    "hosting": "Hosting"
+    "hosting": "Hosting",
+    "delta": "Perubahan"
   },
   "filter": {
     "all": "Semua domain",
@@ -156,7 +160,12 @@
     "noSpf": "Tanpa SPF",
     "hasBimi": "Punya BIMI",
     "noCaa": "Tanpa CAA",
-    "noDnssec": "Tanpa DNSSEC"
+    "noDnssec": "Tanpa DNSSEC",
+    "improved": "Membaik",
+    "regressed": "Memburuk",
+    "changed": "Berubah",
+    "added": "Domain baru",
+    "removed": "Domain yang dihapus"
   },
   "empty": {
     "text": "Tidak ada domain yang cocok dengan filter Anda."
@@ -362,7 +371,12 @@
     },
     "auditCancelled": "Audit dibatalkan",
     "langChanged": "Bahasa diubah",
-    "langFailed": "Tidak dapat memuat bahasa itu — tetap memakai bahasa Inggris."
+    "langFailed": "Tidak dapat memuat bahasa itu — tetap memakai bahasa Inggris.",
+    "jsonExported": "JSON diekspor",
+    "reportImported": "Laporan diimpor — menampilkan perubahannya",
+    "comparisonCleared": "Perbandingan dihapus",
+    "importFailed": "Berkas itu tidak dapat diimpor",
+    "importDuringRun": "Tunggu audit selesai sebelum mengimpor laporan"
   },
   "csv": {
     "unknown": "Tidak diketahui",
@@ -1413,6 +1427,64 @@
       "foundation": "Perbaiki ini terlebih dahulu — semua yang lain bergantung padanya",
       "afterPrereq": "Setelah prasyarat di atas terpenuhi",
       "cleanup": "Tanpa dependensi — kerjakan kapan saja"
+    }
+  },
+  "compare": {
+    "heading": "Membandingkan dua laporan",
+    "baselineLabel": "Laporan acuan: {0}",
+    "currentLabel": "Saat ini: {0}",
+    "chooseBaseline": "Pilih laporan tersimpan sebagai pembanding",
+    "status": {
+      "added": "Baru",
+      "removed": "Dihapus",
+      "improved": "Membaik",
+      "regressed": "Memburuk",
+      "changed": "Berubah",
+      "unchanged": "Tidak berubah",
+      "incomparable": "Tidak dapat dibandingkan"
+    },
+    "reason": {
+      "state": "Domain hanya diaudit di salah satu dari dua laporan",
+      "noComparableProtocol": "Tidak ada protokol yang teramati di kedua laporan",
+      "options": "Kedua proses menggunakan opsi yang berbeda",
+      "analysisVersion": "Kedua laporan dinilai oleh versi analisis yang berbeda",
+      "onlyIncomparableMovement": "Semua yang berubah termasuk protokol yang tidak teramati di salah satu laporan"
+    },
+    "protocol": {
+      "unproven": "{0} diperiksa tetapi tidak terbukti",
+      "notRun": "{0} tidak diperiksa",
+      "unknownInBaseline": "Tidak dapat dibandingkan: {0} tidak teramati di laporan acuan",
+      "unknownInCurrent": "Tidak dapat dibandingkan: {0} tidak teramati di laporan saat ini",
+      "unknownBoth": "Tidak dapat dibandingkan: {0} diperiksa dengan opsi yang berbeda di kedua laporan"
+    },
+    "delta": {
+      "up": "+{0}",
+      "down": "{0}",
+      "none": "Tidak ada perubahan",
+      "notComparable": "Skor tidak dapat dibandingkan",
+      "grade": "{0} → {1}"
+    },
+    "findings": {
+      "new": "{0} baru",
+      "resolved": "{0} teratasi",
+      "unknown": "{0} tidak diketahui",
+      "severityChanged": "{0} berubah tingkat keparahannya",
+      "baselineOnly": "Hanya di laporan acuan",
+      "currentOnly": "Hanya di laporan saat ini"
+    },
+    "meta": {
+      "versionsDiffer": "Laporan ini berasal dari versi alat yang berbeda, sehingga perubahan ditampilkan tanpa penilaian.",
+      "optionsDiffer": "Kedua proses menggunakan opsi yang berbeda: {0}.",
+      "unknownFinding": "Build ini tidak memiliki deskripsi untuk {0}."
+    },
+    "import": {
+      "invalidJson": "Berkas ini bukan JSON yang valid.",
+      "notReport": "Berkas ini bukan laporan dari alat ini.",
+      "newerVersion": "Laporan ini dibuat oleh versi alat yang lebih baru. Perbarui, lalu coba lagi.",
+      "tooLarge": "Berkas ini terlalu besar untuk menjadi laporan dari alat ini.",
+      "tooManyDomains": "Laporan ini mencakup lebih banyak domain daripada yang dapat dihasilkan satu audit.",
+      "malformed": "Laporan ini memiliki bidang yang tidak dapat dibaca build ini.",
+      "at": "Di {0}: {1}"
     }
   }
 }

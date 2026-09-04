@@ -19,6 +19,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, sep } from 'node:path';
 
 import { createSuite } from '../lib/assert.mjs';
+import { ANALYSIS_VERSION } from '../../src/audit/scoring.js';
+import { validDkimSelector } from '../../src/core/dkim/dkim.js';
 import { createDocument } from '../../tools/lib/dom-shim.mjs';
 import { dohFixture, txt, ns, mx, a } from '../../tools/lib/doh-fixture.mjs';
 import { FIXTURE_PSL_RULES, probePublicSuffixRules, assertFixtureIdentity } from '../lib/fixture-identity.mjs';
@@ -97,7 +99,7 @@ function makeRuntime(fetchImpl, DOMParserImpl = class DOMParser {}) {
 const runtime = makeRuntime(dohFixture({}));
 eq('the facade is the two supported members plus the Phase 2 parts',
   Object.keys(runtime).sort(),
-  ['analyzeDomain', 'checkConnectivity', 'engine', 'i18n', 'mount', 'renderer', 'ui']);
+  ['analyzeDomain', 'checkConnectivity', 'engine', 'i18n', 'mount', 'renderer', 'ui', 'versions']);
 // `ui` joined at Task 5.6, when §12's matrix put the `ui/` edge on this module
 // rather than on the entry point. It is a Phase 2 part like `i18n`, `renderer`
 // and `engine` — NOT a facade member: `src/facade.expected.json` is still the
@@ -107,6 +109,71 @@ eq('and `ui` is not on the supported facade',
 eq('analyzeDomain is a function', typeof runtime.analyzeDomain, 'function');
 eq('checkConnectivity is a function', typeof runtime.checkConnectivity, 'function');
 eq('mount is a function', typeof runtime.mount, 'function');
+
+/* ── The version metadata 0.9.0's report carries ──────────────────────── */
+section('Version metadata (report-comparison 1.9 §2)');
+
+const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'));
+
+/**
+ * The pin that makes the release commit bump both or fail.
+ *
+ * A browser cannot read `package.json`, and the bundle carries the version only
+ * as a comment banner, so `runtime.js` holds a literal. That literal is exactly
+ * the kind of thing that goes stale silently — which is what this catches.
+ */
+/**
+ * ONE predicate, asserted in both directions.
+ *
+ * The negative case has to run the SAME comparison against the SAME live value,
+ * or it proves nothing about the check. Comparing two locally constructed
+ * strings would pass whatever `runtime.versions.app` held — including
+ * `undefined` — which is the failure this control exists to rule out.
+ */
+const versionMatches = expected => runtime.versions.app === expected;
+
+eq('APP_VERSION matches package.json', versionMatches(pkg.version), true);
+eq('and the same predicate rejects a drifted version',
+  versionMatches(`${pkg.version}-stale`), false);
+eq('ANALYSIS_VERSION is carried too, from audit/scoring.js',
+  runtime.versions.analysis, ANALYSIS_VERSION);
+eq('both are integers or version strings, never undefined',
+  [typeof runtime.versions.app, typeof runtime.versions.analysis], ['string', 'number']);
+// Frozen so a consumer handed the runtime cannot rewrite its own provenance.
+eq('the version object is frozen', Object.isFrozen(runtime.versions), true);
+eq('and freezing actually holds', (() => {
+  try { runtime.versions.app = 'tampered'; } catch (e) { /* strict mode throws */ }
+  return runtime.versions.app;
+})(), pkg.version);
+// §0's boundary — the UI is HANDED these values rather than importing
+// scoring — is asserted end-to-end when the UI consumes them in the export
+// commit. What IS provable here is the half this module owns: the value came
+// from `audit/scoring.js` and not from a second literal declared in the UI.
+eq('the analysis version is the audit module\'s, not a copy',
+  runtime.versions.analysis === ANALYSIS_VERSION, true);
+
+/* -- The selector capability the report schema is composed with -------- */
+
+/**
+ * `src/ui/` may not import `core/dkim/`, so the DKIM selector grammar reaches
+ * the report schema as a capability through this composition root.
+ *
+ * Asserted HERE, at the runtime, rather than only in the schema's own suite.
+ * That suite imports the predicate directly, so it stays green whatever the
+ * composition does -- and it did: `create-audit.js` briefly destructured
+ * `validDkimSelector` from a factory that does not return it, shadowing the
+ * module import with `undefined`, and the production path skipped every
+ * selector check while 175 assertions passed.
+ */
+eq('the audit exposes the owner\'s selector predicate, not undefined',
+  typeof runtime.engine.validDkimSelector, 'function');
+eq('and it is the same function object the owner exports',
+  runtime.engine.validDkimSelector === validDkimSelector, true);
+// Behaviour, not just identity: a re-exported wrapper would pass the check
+// above only if someone replaced the export with an equivalent object.
+eq('it applies the owner grammar: underscore yes, dot no',
+  [runtime.engine.validDkimSelector('a_b'), runtime.engine.validDkimSelector('a.b')],
+  [true, false]);
 
 // The generated data reached the engine, and it is the fixture table.
 assertFixtureIdentity([probePublicSuffixRules(runtime.engine.getOrganizationalDomain, 'fixture')]);

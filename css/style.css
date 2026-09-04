@@ -355,6 +355,16 @@ td.domain-cell { font-weight: 700; font-size: 12.5px; white-space: nowrap; }
 .callout-info { background: var(--info-bg); border-color: var(--info); }
 .callout-info strong { color: var(--info); }
 .callout a { color: var(--accent); }
+.callout-warn { background: var(--warn-bg); border-color: var(--warn); }
+.callout-warn strong { color: var(--warn); }
+
+/* Comparison mode. The delta cell is added to the table only while two reports
+   are held in memory, so nothing here applies to an ordinary audit. */
+.compare-cell { text-align: center; white-space: nowrap; }
+/* Same treatment as the unproven-pillar grade marker: a dashed edge means the
+   tool did not establish this, which is not the same as a zero. */
+.compare-unknown { display: inline-block; border: 1px dashed var(--border); border-radius: 6px;
+  padding: 1px 6px; font-size: 11px; color: var(--ink3); }
 
 /* ── Empty state ── */
 .empty-state { text-align: center; padding: 60px 20px; color: var(--ink3); }

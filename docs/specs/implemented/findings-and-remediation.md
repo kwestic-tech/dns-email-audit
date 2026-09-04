@@ -6,7 +6,7 @@
 | Target release | 0.7.0 |
 | Status | Released in `v0.7.0` |
 | Depends on | 0.2.3 through 0.6.0. This release consumes the stabilized protocol signals through the module boundaries shipped by the refactor. |
-| Blocks | [report-comparison](../report-comparison.md), whose diff operates on finding identity |
+| Blocks | [report-comparison](report-comparison.md), whose diff operates on finding identity |
 | Slug for open questions | `FIND` |
 | Last updated | 2026-08-31 |
 
