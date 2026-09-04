@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.4 |
+| Spec version | 0.5 |
 | Target release | 0.9.1, then 0.9.2 |
-| Status | **0.9.1 Final, approved for implementation**; 0.9.2 blocked on privacy review (§7) and `OQ-MXV-03` |
+| Status | **0.9.1 implemented**, pending review; 0.9.2 blocked on privacy review (§7) and `OQ-MXV-03` |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
@@ -495,6 +495,53 @@ within the consent an audit run already carries, or whether it needs its own
 control. §4 notes a dedicated flag is the mechanism if the answer is the latter.
 `OQ-MXV-03` is entangled with this and is deliberately left open.
 
+### 8. As implemented — 0.9.1
+
+Five departures from this document, found while building it. None changes what
+0.9.1 reports; all change how the spec described getting there.
+
+**The five-commit order was wrong: steps 3 and 4 are one commit.** The spec and
+the handoff both put the locale strings before the findings, because `t()`
+returns the key itself when a message is missing. That constraint is real, but
+so is its opposite: `src/audit/issues.test.js` and
+`tests/contract/legacy-shapes.test.mjs` both assert that `audit.issue.key`
+equals the locale issue keys exactly, so strings without findings fail as surely
+as findings without strings. Neither ordering has a green commit between them,
+and the two land together.
+
+**`ipScope()` returns `null` for text it cannot parse, and `reachability` treats
+a host with no classifiable address as `unknown`.** §2.1 enumerated four cases
+and did not cover an unreadable DNS answer. Counting one as `global` would
+assert reachability never checked, and counting it as unroutable would invent an
+outage; both are excluded from the verdict, and a host with nothing left to
+judge is `unknown`. Asserted by `mx.test.js` section 6.
+
+**`mx.null-conflict` is gated on the audit having at least one resolved host.**
+`buildIssues()` reaches the MX block only when `mxHealth.hosts` is non-empty, so
+a record set of nothing but `0 .` entries — where `hasNullMxConflict()` is
+`true` but no real host exists — reports nothing. That is the right observable
+behavior, since the contradiction the finding is about is a null MX beside a
+*real* host, but the predicate and the finding are not coextensive and the spec
+implied they were.
+
+**The existing fixture corpus publishes RFC 5737 documentation addresses, so
+`mx.unroutable` fires across it.** `203.0.113.x` is not globally reachable, so
+the classifier is correct and the fixtures are synthetic; 0.4.0's rubric-drift
+guard in `tools/scoring.test.mjs` moves from 21 findings to 22 for this reason.
+Worth stating because it is the first check in this project that a
+documentation address trips, and future fixture authors need to know that a
+"healthy" MX fixture now has to use a globally routable address.
+
+**Evidence for the two record-level findings is special-cased, as §6 asked.**
+The protocol-generic `case 'mx':` fallback emits the resolved hosts, which for a
+null-MX conflict would show everything except the `0 .` that is the whole
+finding. Both now emit the raw MX records.
+
+One defect was found by the suite and fixed before commit: reading the new
+`mxHealth` fields unguarded threw a `TypeError` on a context assembled without
+them, discarding the entire audit rather than the MX section. Guarded, and
+pinned by a regression test.
+
 ## Localization impact
 
 Seven new entries in `locales/en.json` under the existing findings block, each
@@ -701,6 +748,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.5 | 2026-09-04 | 0.9.1 implemented. Added §8 recording five departures: the locale and findings commits are inseparable, `ipScope()` returns null for unparseable input and `reachability` degrades to `unknown`, `mx.null-conflict` is gated on a resolved host existing, the fixture corpus's RFC 5737 addresses make `mx.unroutable` fire across it, and record-level evidence is special-cased. |
 | 0.4 | 2026-09-04 | Implementation of 0.9.1 found the Problem section's null-MX claim false: `parseMxRecord()` rejects `0 .` because stripping its trailing dot leaves an empty host, so the contradiction is reported nowhere rather than misdiagnosed as a dangling host. Corrected the Problem section, §3, §5, criterion 4, Risks and `RQ-MXV-05`, which is narrowed to `mx.address-literal` alone. The finding itself is unchanged and still warranted. |
 | 0.3 | 2026-09-04 | Sequencing review. 0.9.1 to Final, approved for implementation; `OQ-MXV-03` scoped explicitly to 0.9.2, which the 0.2 Status line had wrongly attached to both. Recorded that Status carries per-release approval while the document version tracks the whole spec. `mx.single-host` retention confirmed. |
 | 0.2 | 2026-09-04 | Review. Five questions resolved as `RQ-MXV-01`, `-02`, `-04`, `-05`, `-06`; `OQ-MXV-03` held open for measurement. Withdrew the false claim that 0.9.2 sits off the default path. Added §7 privacy impact and blocked 0.9.2 on that review. Made PTR aggregation per address and defined `hostsWithoutReverse`. Decided against `mx.single-host` suppression and corrected the Risks section that implied it. Criteria 12–15 added. |
