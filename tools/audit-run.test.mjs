@@ -69,7 +69,20 @@ const settle = (turns = 60) =>
 async function boot({ connectivity = true } = {}) {
   const calls = { probe: 0, dns: 0 };
   const fetch = async (url) => {
-    const name = new URL(String(url), 'https://cloudflare-dns.com').searchParams.get('name') || '';
+    // Locale files are served from disk. Without this `setLang()` returns false
+    // and `onChange` never fires, so a language-change assertion measures a
+    // language that never changed — which is exactly how the first version of
+    // section 5's locale test stayed green under a mutation that removed the
+    // comparison re-render entirely.
+    const raw = String(url);
+    if (raw.startsWith('locales/')) {
+      try {
+        const body = readFileSync(join(repo, raw), 'utf8');
+        return { ok: true, status: 200, headers: { get: () => 'application/json' },
+          json: async () => JSON.parse(body) };
+      } catch { return { ok: false, status: 404, headers: { get: () => null } }; }
+    }
+    const name = new URL(raw, 'https://cloudflare-dns.com').searchParams.get('name') || '';
     const isProbe = name === 'example.com';
     if (isProbe) calls.probe++; else calls.dns++;
     await new Promise(resolve => setTimeout(resolve, 5));
@@ -318,7 +331,7 @@ const comparedRows = doc => Array.prototype.filter.call(
   eq('and the table is untouched', comparedRows(document), before);
 
   // A malformed field carries its schema path, untranslated, beneath the
-  // localized sentence. That pairing is the whole of spec 1.7 section 4.
+  // localized sentence. That pairing is the whole of spec 1.8 section 4.
   ui.acceptImportedReport(JSON.stringify({
     schema: 'dns-email-audit/report', schemaVersion: 1,
     generatedAt: '2026-09-04T00:00:00.000Z',
@@ -334,7 +347,14 @@ const comparedRows = doc => Array.prototype.filter.call(
   ], [true, true]);
 }
 
-/* A hostile value inside an accepted report is data, and stays data. */
+/**
+ * A hostile value inside an accepted report is data, and stays data.
+ *
+ * BOTH directions. The first version of this asserted only that no `<img>`
+ * element had been created — which passed while the renderer displayed nothing
+ * at all, because the evidence was never rendered. Absence alone cannot tell
+ * "escaped correctly" from "silently dropped".
+ */
 {
   const { document, ui } = await bootedRun('a.example');
   const report = ui.buildReportJson();
@@ -343,8 +363,138 @@ const comparedRows = doc => Array.prototype.filter.call(
   ui.acceptImportedReport(JSON.stringify(report));
   eq('a report carrying a script-like record value is still accepted',
     ui.getComparison() !== null, true);
-  const html = document.getElementById('resultsSection').innerHTML || '';
-  eq('and no element was created from it', html.includes('<img src=x'), false);
+  const section = document.getElementById('resultsSection');
+  eq('the record change is shown, naming its path',
+    (section.textContent || '').includes('records.spf'), true);
+  eq('and the hostile value is present AS TEXT',
+    (section.textContent || '').includes(hostile), true);
+  eq('while no element was created from it',
+    (section.innerHTML || '').includes('<img src=x'), false);
+}
+
+/* The evidence behind a verdict, in the detail row the table already has. */
+{
+  const { document, ui } = await bootedRun('a.example');
+  const current = ui.buildReportJson();
+  const baseline = JSON.parse(JSON.stringify(current));
+  baseline.domains[0].findings = [{
+    id: 'dmarc.policy-none', protocol: 'dmarc', severity: 'high', confidence: 'confirmed',
+    category: 'policy', effort: 'moderate', args: [], dependsOn: [],
+    evidence: [{ kind: 'txt', queryName: '_dmarc.a.example', value: 'v=DMARC1; p=none' }],
+  }];
+  ui.acceptImportedReport(JSON.stringify(baseline));
+  const body = document.getElementById('tableBody');
+  eq('the detail row carries the comparison evidence',
+    body.querySelectorAll('.compare-detail').length, 1);
+  const detailText = body.querySelectorAll('.compare-detail')[0].textContent || '';
+  const d = ui.getComparison().domains[0];
+  // Whichever bucket the id lands in, the detail names it — a renderer that
+  // read only the status would show none of these.
+  eq('and names the finding it moved',
+    detailText.includes('dmarc.policy-none'), true);
+  eq('the comparison really did move that finding', [
+    d.findings.resolved.includes('dmarc.policy-none'),
+    d.findings.unknown.includes('dmarc.policy-none'),
+  ].some(Boolean), true);
+  eq('an incomparable protocol is named, not just counted',
+    d.incomparableProtocols.length > 0
+      && detailText.includes(d.incomparableProtocols[0].protocol), true);
+}
+
+/* Every domain the summary counts has a row, including one only the baseline
+   has. `renderComparisonRows()` used to decorate existing rows only. */
+{
+  const seed = await bootedRun('a.example');
+  const withOne = seed.ui.buildReportJson();
+  const withTwo = JSON.parse(JSON.stringify(withOne));
+  withTwo.domains.push(JSON.parse(JSON.stringify(withOne.domains[0])));
+  withTwo.domains[1].domain = 'b.example';
+
+  const { document, ui } = await bootedRun('a.example');
+  ui.acceptImportedReport(JSON.stringify(withTwo));
+  const verdicts = comparedRows(document);
+  eq('a domain only the baseline had still gets a row',
+    verdicts.includes('b.example=removed'), true);
+  eq('and the table shows every domain the summary counted',
+    verdicts.length, ui.getComparison().domains.length);
+  eq('with a delta cell each', deltaCells(document), verdicts.length);
+
+  ui.exitComparison();
+  eq('leaving removes the rows it invented',
+    document.getElementById('tableBody').querySelectorAll('.compare-only-row').length, 0);
+  eq('and the evidence it added to the detail rows',
+    document.getElementById('tableBody').querySelectorAll('.compare-detail').length, 0);
+}
+
+/* Clear takes the comparison and the run's provenance with it. */
+{
+  const { document, ui } = await bootedRun('a.example');
+  ui.acceptImportedReport(JSON.stringify(ui.buildReportJson()));
+  eq('a comparison is showing', ui.getComparison() !== null, true);
+
+  click(document.getElementById('clearBtn'));
+  eq('Clear discards the comparison', ui.getComparison(), null);
+  // Without this, the remaining button exported an empty report carrying the
+  // previous run's timestamp and options.
+  eq('and the run context it was drawn from', ui.getRunContext(), null);
+  eq('and stops offering the JSON export',
+    document.getElementById('exportJsonBtn').style.display, 'none');
+}
+
+/* A language change rebuilds the mode, not just the rows. */
+{
+  const { document, ui, i18n } = await bootedRun('a.example');
+  ui.acceptImportedReport(JSON.stringify(ui.buildReportJson()));
+  const before = deltaCells(document);
+  eq('a comparison is showing before the switch', before > 0, true);
+
+  await i18n.setLang('de');
+  await settle(10);
+  eq('the delta cells survive a language change', deltaCells(document), before);
+  eq('and so do the verdicts the filter selects on',
+    comparedRows(document).length, before);
+  eq('the comparison itself is untouched', ui.getComparison() !== null, true);
+}
+
+/* The other branch: a two-report comparison has no `results` behind it, and the
+   locale handler returns early before it ever reaches the rebuild above. */
+{
+  const seed = await bootedRun('a.example');
+  const report = seed.ui.buildReportJson();
+  const other = JSON.parse(JSON.stringify(report));
+  other.domains.push(JSON.parse(JSON.stringify(report.domains[0])));
+  other.domains[1].domain = 'b.example';
+
+  const { document, ui, i18n } = await boot();
+  ui.acceptImportedReport(JSON.stringify(report));
+  ui.acceptImportedReport(JSON.stringify(other));
+  const before = deltaCells(document);
+  eq('two imported reports are showing', before, ui.getComparison().domains.length);
+
+  await i18n.setLang('de');
+  await settle(10);
+  eq('the language really changed', i18n.lang, 'de');
+  eq('and the comparison survives it with all its rows', deltaCells(document), before);
+  eq('and its verdicts', comparedRows(document).length, before);
+  // Counts alone cannot catch this branch: it returns early WITHOUT rebuilding
+  // the table, so the rows survive in the previous language and every count
+  // stays right. What moves is the text.
+  eq('and the comparison is re-rendered in the new language',
+    document.getElementById('compareNotice').textContent.includes('Zwei Berichte im Vergleich'), true);
+  eq('down to the verdicts in the table',
+    document.getElementById('tableBody').textContent.includes('Unverändert'), true);
+}
+
+/* A pending single report is a localized message too. */
+{
+  const seed = await bootedRun('a.example');
+  const { document, ui, i18n } = await boot();
+  ui.acceptImportedReport(JSON.stringify(seed.ui.buildReportJson()));
+  eq('the page is waiting for a second report', ui.getComparison(), null);
+  await i18n.setLang('de');
+  await settle(10);
+  eq('and says so in the new language',
+    document.getElementById('compareNotice').textContent.includes('Wählen Sie'), true);
 }
 
 /* Two reports, no audit: the second entry path section 6 names. */
@@ -360,10 +510,18 @@ const comparedRows = doc => Array.prototype.filter.call(
   eq('one report alone does not start a comparison', ui.getComparison(), null);
   eq('and the page says what it is waiting for',
     document.getElementById('compareNotice').textContent.includes('Choose a saved report'), true);
+
   ui.acceptImportedReport(JSON.stringify(second));
   eq('the second one does', ui.getComparison() !== null, true);
-  eq('with both domains accounted for',
-    ui.getComparison().domains.length, first.domains.length);
+  // The rows are the point. With no audit behind it there is nothing on the
+  // page to decorate, and this path used to render a summary over an empty
+  // table with the results section still hidden.
+  eq('every compared domain has a row', comparedRows(document).length,
+    ui.getComparison().domains.length);
+  eq('and a delta cell', deltaCells(document), ui.getComparison().domains.length);
+  eq('and the results section is revealed to hold them',
+    [document.getElementById('resultsSection').style.display,
+      document.getElementById('resultsToolbar').style.display], ['block', 'flex']);
 }
 
 console.log(`\n${'='.repeat(60)}`);

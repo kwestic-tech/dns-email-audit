@@ -78,7 +78,7 @@
   },
   {
    "path": "tools/audit-run.test.mjs",
-   "assertions": 36,
+   "assertions": 65,
    "areas": [
     "the audit run loop, booted from index.html and driven through its own controls",
     "one double click starts one run, and every early return releases the run guard",
@@ -87,7 +87,12 @@
     "leaving comparison discards the comparison, the column, the verdicts and the notice",
     "a refused import shows the message for its code with the untranslated schema path beneath it, and changes nothing in the table",
     "a script-like record value inside an accepted report stays data and creates no element",
-    "the second entry path: two reports compared with no audit running"
+    "the second entry path: two reports compared with no audit running",
+    "every domain the comparison counts has a row, including one only the baseline had and two reports compared with no run at all",
+    "the detail row carries the evidence: finding movement, severity changes, record deltas and each incomparable protocol named with its side",
+    "a hostile imported value present as text and absent as markup, both asserted",
+    "Clear discards the comparison and the run context, and stops offering the JSON export",
+    "a language change re-renders both comparison branches, asserted on the rendered text rather than on counts"
    ]
   },
   {
@@ -492,7 +497,7 @@
     "canonical record ordering: dedupe by the full per-kind tuple, so resolver answer order cannot fabricate a change",
     "hostile input: banned object keys, byte, domain, finding, evidence and depth limits, foreign schema, newer version, duplicate domains and finding ids",
     "strict shape: a malformed known field is rejected rather than coerced to a default",
-    "the spec 1.7 option-to-protocol mapping, including advanced reaching spf, dmarc and reporting",
+    "the spec 1.8 option-to-protocol mapping, including advanced reaching spf, dmarc and reporting",
     "per-protocol comparability: an unobserved protocol yields unknown, never resolved, without blanking the others",
     "status precedence: presence, comparability, generator semantics, highest-severity finding movement, score, bare change",
     "the module reaches no ambient storage or DOM primitive, checked over comment-stripped source",
@@ -532,7 +537,7 @@
     "the input boundary — scoring reads protocol facts, and a record attached to the same facts changes nothing",
     "the parked rubric and its four pillars",
     "calcAdvScore: an unverifiable check leaves the denominator",
-    "ANALYSIS_VERSION: a positive integer, pinned at 1 for 0.9.0 (report-comparison 1.7 §2)",
+    "ANALYSIS_VERSION: a positive integer, pinned at 1 for 0.9.0 (report-comparison 1.8 §2)",
     "the rubric drift fingerprint, and the negative controls it ships with: a weight change, a threshold change, and a function-body change with every constant byte-identical each move it",
     "the comment and whitespace normalizer that keeps a remark from firing the guard, its string-literal handling, and its regex blind spot proven absent from the four hashed functions"
    ]
