@@ -284,6 +284,11 @@ export const FINDING_META = {
   'mx-no-ipv6': { id: 'mx.no-ipv6', protocol: 'mx', severity: 'info', category: 'resilience', effort: 'moderate' },
   'mx-same-prefix': { id: 'mx.same-prefix', protocol: 'mx', severity: 'info', category: 'resilience', effort: 'moderate' },
   'mx-duplicate-preference': { id: 'mx.duplicate-preference', protocol: 'mx', severity: 'info', category: 'hygiene', effort: 'trivial' },
+  'mx-unroutable': { id: 'mx.unroutable', protocol: 'mx', severity: 'critical', category: 'transport', effort: 'moderate' },
+  'mx-partially-routable': { id: 'mx.partially-routable', protocol: 'mx', severity: 'medium', category: 'transport', effort: 'moderate' },
+  'mx-address-literal': { id: 'mx.address-literal', protocol: 'mx', severity: 'critical', category: 'transport', effort: 'trivial' },
+  'mx-null-conflict': { id: 'mx.null-conflict', protocol: 'mx', severity: 'medium', category: 'hygiene', effort: 'trivial' },
+  'mx-invalid-preference': { id: 'mx.invalid-preference', protocol: 'mx', severity: 'info', category: 'hygiene', effort: 'trivial' },
 
   // TLSA / DANE. `tlsa-published-unsigned` is the migrated per-host finding the
   // spec keeps instead of a cross-zone DNSSEC/DANE combination (§3).
@@ -372,6 +377,15 @@ function migratedEvidence(finding, ctx) {
         addrs.slice(0, 4).map(function (a) { return q('address', ctx.domain, String(a)); })
       );
     }
+    // Both of these are defects in the RECORD, not in a host, and the
+    // protocol-generic fallback below would show the resolved hosts instead —
+    // which for a null-MX conflict means showing everything except the `0 .`
+    // that is the whole finding. The raw records are the evidence.
+    case 'mx.null-conflict':
+    case 'mx.invalid-preference':
+      return (ctx.mx && ctx.mx.length)
+        ? ctx.mx.slice(0, 4).map(function (m) { return q('mx', ctx.domain, String(m)); })
+        : [q('absent', ctx.domain, '')];
     case 'mx.porkbun-forwarding':
       return (ctx.mx && ctx.mx.length) ? ctx.mx.slice(0, 4).map(function (m) { return q('mx', ctx.domain, String(m)); }) : [q('absent', ctx.domain, '')];
   }

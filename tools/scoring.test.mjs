@@ -3443,8 +3443,13 @@ eq('every finding in this release has English text',
   [...depthEmitted].filter(k => !enIssues[k]), []);
 // And the set actually covers what was built, rather than passing by emitting
 // nothing at all.
-eq('the guard exercises all 21 new findings',
-  [...depthEmitted].filter(k => /^(dkim-key|caa-|mx-|tlsa-)/.test(k)).length, 21);
+// 21 through 0.8.1, 22 from 0.9.1: this fixture set's MX hosts answer on
+// 203.0.113.x, which is RFC 5737 documentation space and not globally
+// reachable, so `mx-unroutable` now fires on them. That is the check working on
+// synthetic data rather than a fixture defect — a real domain publishing a
+// documentation address as its MX receives no mail either.
+eq('the guard exercises all 22 depth findings',
+  [...depthEmitted].filter(k => /^(dkim-key|caa-|mx-|tlsa-)/.test(k)).length, 22);
 
 /* ── 40. Conflicting SPF records keep their evidence ─────────────────── */
 section('40. Multiple SPF records are reported WITH the records');

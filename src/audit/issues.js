@@ -545,6 +545,51 @@ export function buildIssues({ emailProvider, spfStatus, spfRecords, dkimStatus, 
     if (mxHealth.duplicatePreferences.length) {
       issues.push({ key: 'mx-duplicate-preference', sev: 'info', args: [mxHealth.duplicatePreferences.join(', ')] });
     }
+
+    /* ── 0.9.1: what the hosts resolve to, and the record's own shape ──── */
+
+    // Names each unreachable address with the space it belongs to, because
+    // "10.0.0.4 (private)" tells the operator what to change and a host name
+    // on its own does not.
+    var scopesOf = function (list) {
+      return list.reduce(function (out, host) {
+        (host.addressScopes || []).forEach(function (entry) {
+          if (entry.scope && entry.scope !== 'global') out.push(entry.address + ' (' + entry.scope + ')');
+        });
+        return out;
+      }, []);
+    };
+
+    // Critical for the same reason mx-dangling is: where this is the only host,
+    // the domain receives no mail. It resolves, so it is not dangling — which
+    // is exactly why it went unreported before 0.9.1.
+    var unroutable = mxHealth.hosts.filter(function (h) { return h.reachability === 'none'; });
+    if (unroutable.length) {
+      issues.push({ key: 'mx-unroutable', sev: 'crit',
+        args: [unroutable.map(function (h) { return h.host; }).join(', '), scopesOf(unroutable).join(', ')] });
+    }
+    // Mail still arrives, so this is not critical. It is reported because the
+    // failure it produces is intermittent and correlates with nothing the
+    // sender can see.
+    var partial = mxHealth.hosts.filter(function (h) { return h.reachability === 'partial'; });
+    if (partial.length) {
+      issues.push({ key: 'mx-partially-routable', sev: 'warn',
+        args: [partial.map(function (h) { return h.host; }).join(', '), scopesOf(partial).join(', ')] });
+    }
+    // Suppresses mx-dangling, which `auditMxHosts()` already excludes it from:
+    // that finding's remediation is to publish the missing address record, and
+    // no address record can exist for a name that is an address.
+    if (mxHealth.addressLiteralHosts && mxHealth.addressLiteralHosts.length) {
+      issues.push({ key: 'mx-address-literal', sev: 'crit', args: [mxHealth.addressLiteralHosts.join(', ')] });
+    }
+    // RFC 7505 §3. Raised where v0.9.0 raised nothing: `parseMxRecord` rejects
+    // `0 .`, so the contradiction reached neither a lookup nor a finding.
+    if (mxHealth.nullMxConflict) issues.push({ key: 'mx-null-conflict', sev: 'warn' });
+    // RFC 1035 §3.3.9 makes the preference 16-bit. Hygiene: the host it names
+    // is still audited and mail still flows.
+    if (mxHealth.invalidPreferences && mxHealth.invalidPreferences.length) {
+      issues.push({ key: 'mx-invalid-preference', sev: 'info', args: [mxHealth.invalidPreferences.join(', ')] });
+    }
   }
 
   /* ── TLSA / DANE ──────────────────────────────────────────────────── */

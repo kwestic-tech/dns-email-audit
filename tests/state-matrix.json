@@ -9952,6 +9952,126 @@
    "suites": [
     "src/core/shared/ip.test.js"
    ]
+  },
+  {
+   "algebra": "audit.issue.key",
+   "fixtures": [],
+   "member": "mx-unroutable",
+   "suites": [
+    "src/audit/issues.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.key",
+   "fixtures": [],
+   "member": "mx-unroutable",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.issue.key",
+   "fixtures": [],
+   "member": "mx-partially-routable",
+   "suites": [
+    "src/audit/issues.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.key",
+   "fixtures": [],
+   "member": "mx-partially-routable",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.issue.key",
+   "fixtures": [],
+   "member": "mx-address-literal",
+   "suites": [
+    "src/audit/issues.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.key",
+   "fixtures": [],
+   "member": "mx-address-literal",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.issue.key",
+   "fixtures": [],
+   "member": "mx-null-conflict",
+   "suites": [
+    "src/audit/issues.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.key",
+   "fixtures": [],
+   "member": "mx-null-conflict",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.issue.key",
+   "fixtures": [],
+   "member": "mx-invalid-preference",
+   "suites": [
+    "src/audit/issues.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.key",
+   "fixtures": [],
+   "member": "mx-invalid-preference",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.id",
+   "fixtures": [],
+   "member": "mx.unroutable",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.id",
+   "fixtures": [],
+   "member": "mx.partially-routable",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.id",
+   "fixtures": [],
+   "member": "mx.address-literal",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.id",
+   "fixtures": [],
+   "member": "mx.null-conflict",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.id",
+   "fixtures": [],
+   "member": "mx.invalid-preference",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
   }
  ]
 }

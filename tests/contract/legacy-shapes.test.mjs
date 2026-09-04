@@ -630,7 +630,7 @@ const issueAlgebra = registry.algebras.find(a => a.id === 'audit.issue.key');
 const en = JSON.parse(readFileSync(join(REPO, 'locales/en.json'), 'utf8'));
 const localeIssueKeys = Object.keys(en.issue).sort();
 
-eq('the registry records 106 issue tokens', issueAlgebra.members.length, 106);
+eq('the registry records 111 issue tokens', issueAlgebra.members.length, 111);
 eq('and they are exactly the locale issue keys',
   [...issueAlgebra.members].sort(), localeIssueKeys);
 
@@ -684,7 +684,7 @@ eq('and every one has a locale entry',
   COMPUTED_ISSUE_KEYS.filter(k => !Object.prototype.hasOwnProperty.call(en.issue, k)), []);
 // The arithmetic that makes the under-reporting concrete: what a scan sees,
 // plus what it cannot, is the whole reviewed vocabulary.
-eq('a literal scan sees 92 of the 106', literalKeys.size, 92);
+eq('a literal scan sees 97 of the 111', literalKeys.size, 97);
 eq('and 92 + 14 closes the registry', literalKeys.size + COMPUTED_ISSUE_KEYS.length, issueAlgebra.members.length);
 
 report();
