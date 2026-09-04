@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.9 |
+| Spec version | 0.10 |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 implemented**, pending review; 0.9.2 blocked on privacy review (§7) and `OQ-MXV-03` |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
@@ -621,6 +621,27 @@ the exact length delta, the exact element-composition delta, and that the hash
 moves with content and only with content — the last established by the two cases
 whose content did not move, where the hash is required to be identical.
 
+**Order, shape and absence, which counting did not close (0.10).** Review round
+3 found three more. The report structure was reduced to token counts, so
+reversing the entire sequence preserved the delta and passed; the oracle does
+retain the ordered tag sequence, and the guard now asserts an ordered edit
+script — zero deletions, and 78 insertions in ten runs at named positions. The
+removers validated how many entries carried the authorized id but not what they
+contained, so the sole authorized issue could carry any arguments and the sole
+authorized DOM subtree any content; both are now validated by shape — the issue
+field-wise including its arguments, the finding by its seven identity fields,
+and each DOM subtree by role, line count and content hash. And the CSV rule
+flagged only *more* than one authorized segment, so a CSV with none at all —
+a renderer that silently stopped emitting the finding — passed unchanged; the
+four carrying columns are now resolved by header and each must contain exactly
+one, with the severity checked at the index the id occupies.
+
+**A note on the document version.** The specs README's table runs `0.2`–`0.9`
+for revisions, which this document has now exhausted while `OQ-MXV-03` keeps it
+below `1.0 (Final)`. It continues at `0.10`. The table did not anticipate a
+document revised this many times before its second release is approved, and the
+numbering is the only thing that needed a decision.
+
 **Evidence for the record-level finding is special-cased, as §6 asked.**
 The protocol-generic `case 'mx':` fallback emits the resolved hosts, which for a
 null-MX conflict would show everything except the `0 .` that is the whole
@@ -843,6 +864,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.10 | 2026-09-04 | Codex review round 3. Bound the report structure as an ordered edit script rather than a token multiset, which had accepted a full reversal. Validated the shape of every removed entry — issue arguments and severity, finding identity fields, and each DOM subtree by role, line count and content hash — where only occurrence counts had been checked. Required exactly one authorized segment in each of the four CSV columns, resolved by header, where the rule had flagged duplication but accepted absence. Seven new controls. |
 | 0.9 | 2026-09-04 | Codex review round 2. Bounded the authorized report exactly (3,371-byte length delta and a measured element-composition delta) where it had accepted any structure and any growth. Made the DOM transform finding-wide rather than severity-wide, so a second critical finding in the same group is no longer hidden. Gave every remover an exact occurrence count, so duplicated authorized material cannot ride through. Seven new controls, all mutating the authorized case. Recorded what the report guard cannot prove. |
 | 0.8 | 2026-09-04 | Codex review round 1. Made the stub addresses length-preserving so report length and structure move only in the authorized case. Closed three gaps in the cross-release guard: the report surface was unread, the authorized case skipped CSV and DOM entirely, and the seven new field names were stripped recursively rather than at their authorized paths. Guard now bounds all five surfaces with sixteen negative controls. |
 | 0.7 | 2026-09-04 | Bounded the equivalence delta instead of authorizing 120 differences. Moved 29 background MX hosts to routable-class stubs, keeping documentation addresses in `mx-health-and-tlsa` as its subject; re-baselined the oracle at `v0.9.1`; added `release091Violations()` with eight negative controls, asserting zero query-trace and zero score or grade movement. |
