@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.5 (Final, amended) |
+| Spec version | 1.6 (Final, amended) |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 released**; **0.9.2 implemented, awaiting code review** — privacy review accepted at `ac7e984`; implementation measured and bounded, `PRIVACY.md` amended with measured figures |
@@ -980,6 +980,40 @@ plan through the real audit path. Every other case keeps self-hosted reverse
 DNS and reports neither finding, which `release-compat.test.mjs` asserts
 directly. This closes the coverage gap recorded at `1.1`.
 
+**The user-facing text still said what the code no longer does, corrected at
+`1.6`.** Round 20 reproduced both findings against `962fc22` first.
+
+*Three false claims in `mx-vanity-divergent`.* The `what` text said the
+forward-confirmed name "is the operator of the address", which Non-goals
+expressly denies; the `msg` said the host "resolves to fewer addresses", which
+`1.5` made untrue — a host can now publish an equal or greater raw count and
+still lack a reachable address; and the `fix` said to copy "all of the
+provider's current addresses", which would include the very values `1.5`
+refuses to recommend. The finding's own remediation contradicted the rule the
+same release had just introduced.
+
+Corrected in English and all thirteen locales in this change, through
+`locale:sync` / `locale:set` with the fallback rebuilt and the gate re-run: the
+round trip is stated as evidence of a **relationship**, explicitly not of
+ownership or operation; the message says the host does not publish every
+globally reachable address the provider does; the fix names the reachable
+addresses that are missing and warns that adding a private or reserved one
+creates the `mx.unroutable` fault; and a new paragraph says only globally
+reachable addresses are compared, so the reader can tell why an address they
+can see at their provider is not listed. The `fixCode` block gains the RFC 5737
+warning this document already requires — "203.0.113.10 is an example value
+only" — reusing each locale's existing wording of it from `mx-unroutable`.
+
+The equivalence baseline moved for **one case on three surfaces**:
+`mx-vanity-divergence`'s csv, dom and report. Its `result` and `trace` are
+byte-identical to the `1.2` capture, and the other 32 cases are unchanged on
+all five surfaces — which is the evidence that this round changed what is said
+and not what is measured or asked. `release-compat`'s pinned hashes are
+re-pinned to the corrected text with that split recorded beside them.
+
+*And the control count was not reproducible.* See the corrected accounting in
+the `1.5` entry below: eight new §18 assertions replacing one, net `+7`.
+
 **An architectural widening and a remediation defect, corrected at `1.5`.**
 Round 19 reproduced both against `9eff55b` first.
 
@@ -1007,8 +1041,14 @@ control is replaced by one asserting the mapped address is **not** reported.
 Reproduced alongside it, and fixed by the same change: an extra private address
 on the host made `H ⊄ P` and suppressed a real missing global address, so the
 audit reported nothing at all for a host that genuinely lacked reachable
-redundancy. Twelve controls in `mx.test.js`, including both directions of that
-case and the still-deferred reachable-both-ways case.
+redundancy. **Eight new assertions** in `mx.test.js` §18 — five provider-only
+classes that must raise nothing, the missing-global case that must still raise,
+the suppression case and the reachable-both-ways case — replacing the one `1.4`
+assertion that had pinned the mapped-address defect as though it were the
+contract. Net `+7`: 141 to 148, which is what `tests/inventory.json` records.
+Across §§17 and 18 together the file carries fourteen MX assertions, six and
+eight. *(`1.5` said "twelve controls", a number the file does not produce;
+corrected at `1.6`.)*
 
 *And a wording correction while in the file.* `src/core/mx/API.md` said the
 reverse DNS says "who really operates" the addresses. §Non-goals says the
@@ -1399,7 +1439,8 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
-| 1.5 | 2026-09-05 | Codex round 19, both findings reproduced first. Withdrew `ipIdentity()` from `core/shared/`: it had exactly one production consumer, and §12 reserves that directory for helpers two or more protocol owners read. The identity is now `addressKey()`, private to `core/mx/` and built from the shared parsers, with every `1.4` behaviour and control retained. Restricted the `H ⊂ P` comparison to globally reachable addresses on both sides, after the audit was executed recommending that an operator publish a provider's private `10.0.0.5` on a public MX host — remediation that contradicts 0.9.1's `mx.unroutable`; the same run showed an extra private address on the host suppressing a real missing global one, which restricting both sides also fixes. Criterion 17 and twelve controls. Corrected the MX API's "who really operates them", which §Non-goals contradicts. |
+| 1.6 | 2026-09-05 | Codex round 20, both findings reproduced first. Corrected `mx-vanity-divergent` in English and all thirteen locales: the forward-confirmed name evidences a relationship rather than operation, the message describes missing globally reachable addresses rather than a smaller raw count, and the fix names only the reachable missing addresses and warns that publishing a reserved one creates the `mx.unroutable` fault. Added the RFC 5737 example-only warning to the `fixCode` block, reusing each locale's existing wording. Re-pinned the one authorized case's csv, dom and report to the corrected text; its result and trace are unchanged, as are all 32 other cases on all five surfaces. Replaced `1.5`'s unreproducible "twelve controls" with the accounting the file produces: eight new §18 assertions replacing one, net `+7`, 141 to 148, fourteen across §§17–18. |
+| 1.5 | 2026-09-05 | Codex round 19, both findings reproduced first. Withdrew `ipIdentity()` from `core/shared/`: it had exactly one production consumer, and §12 reserves that directory for helpers two or more protocol owners read. The identity is now `addressKey()`, private to `core/mx/` and built from the shared parsers, with every `1.4` behaviour and control retained. Restricted the `H ⊂ P` comparison to globally reachable addresses on both sides, after the audit was executed recommending that an operator publish a provider's private `10.0.0.5` on a public MX host — remediation that contradicts 0.9.1's `mx.unroutable`; the same run showed an extra private address on the host suppressing a real missing global one, which restricting both sides also fixes. Criterion 17, and eight new §18 assertions replacing one — net `+7`, 141 to 148. *(This row first said "twelve controls", which the file does not produce; corrected at `1.6`.)* Corrected the MX API's "who really operates them", which §Non-goals contradicts. |
 | 1.4 | 2026-09-05 | Codex round 18, all four findings reproduced first. Address identity is now canonical: `ipIdentity()` keys an address by value, so equivalent IPv6 spellings de-duplicate, forward-confirm and compare as one member of `H` and `P` — the executed reproduction showed a real divergence reported nowhere because the host wrote its address out in full and its provider compressed it. First-seen text is preserved for evidence and the families are kept apart. Brought `src/core/mx/API.md` up to the full eight-export, 0.9.2 contract and added the three missing `ip.js` exports to `core/shared/API.md`. Defined the monotonic post-Final version rule in the specs README and stopped saying shipment returns the document to `1.0`. Withdrew the `1.3` claim that the report hash cannot bind finding text: `reportSurface()` hashes the complete HTML, so the pin binds every byte, which a one-word message change demonstrates. |
 | 1.3 | 2026-09-05 | Codex round 17, all four findings reproduced first. `reverseNames` now encodes three states rather than two, so a lookup that did not answer is never recorded as an empty answer. The authorized trace delta became exact multiset equality after a substitution — one `TLSA` removed, one `PTR` added — was shown to pass the counting rule. The one authorized new case, which `1.2` exempted from surface comparison entirely, is bound by content hash on all five surfaces with per-surface mutation controls and both findings asserted through `findings`, remediation, CSV and DOM. Reconciled `HANDOFF.md` and `ROADMAP.md`, which still described 0.9.2 as unapproved, unstarted, and privacy-neutral. *(This row also recorded that the report hash cannot prove finding text. That was wrong and is withdrawn at `1.4`: the surface hashes the complete HTML.)* |
 | 1.2 | 2026-09-05 | Codex round 16. Four behaviour defects corrected, each reproduced first: absence was claimed when one lookup had not returned; provider fields were populated before forward confirmation, which itself tested any host address rather than the one whose PTR produced the candidate; address sets were compared as arrays, so a duplicated RR duplicated the evidence; and `reverseName()` built names from malformed IPv4. Added the dedicated `mx-vanity-divergence` equivalence case so both findings are reachable through the real audit path, closing the `1.1` coverage gap — authorized as exactly one new case, with the case-set rule tightened rather than relaxed. |
