@@ -517,7 +517,10 @@ eq('a UI row whose grade moved is caught',
  */
 const cacheCase = first.get('cache-reuse-siblings');
 const baselineCache = JSON.parse(
-  readFileSync(join(REPO, 'tests/fixtures/equivalence/baseline-v0.5.0.json'), 'utf8'))
+  // The current release oracle. This reads a QUERY TRACE, which release-compat
+  // asserts byte-identical across every baseline in the chain, so the figures
+  // are the same ones the retired v0.5.0 capture recorded.
+  readFileSync(join(REPO, 'tests/fixtures/equivalence/baseline-v0.9.1.json'), 'utf8'))
   .cases.find(c => c.id === 'cache-reuse-siblings');
 eq('the sibling-cache case still reports a trace', !!cacheCase.trace, true);
 eq('and its total query count is what the single-execution baseline recorded',

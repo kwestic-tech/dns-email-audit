@@ -3,6 +3,13 @@
  * Bound each intentional release difference from the preceding oracle.
  * Finished-release baselines pin all five surfaces exactly; this suite proves
  * a new baseline did not hide unrelated movement inside an intentional change.
+ *
+ * The chain starts at `v0.7.0`. It used to start at the pre-refactor `v0.5.0`
+ * capture, which was retired once the project had been stable across four
+ * releases since the 0.6.0 refactor: that oracle was regenerated in CI from the
+ * v0.5.0 implementation run over the CURRENT corpus, so it could not survive any
+ * edit to the shared corpus, and the corpus is a live input that later releases
+ * legitimately need to change.
  */
 
 import { readFileSync } from 'node:fs';
@@ -13,7 +20,6 @@ import { dirname, join } from 'node:path';
 import { createSuite } from '../lib/assert.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const historical = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.5.0.json'), 'utf8'));
 const release070 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.7.0.json'), 'utf8'));
 const release080 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.8.0.json'), 'utf8'));
 const release090 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.9.0.json'), 'utf8'));
@@ -21,26 +27,7 @@ const release091 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalenc
 const { eq, section, report } = createSuite();
 
 const byId = document => new Map(document.cases.map(c => [c.id, c]));
-const historicalById = byId(historical);
 const release070ById = byId(release070);
-
-function stripAdditiveFields(value) {
-  if (Array.isArray(value)) return value.map(stripAdditiveFields);
-  if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(Object.entries(value)
-    .filter(([key]) => key !== 'findings' && key !== 'remediationPlan')
-    .map(([key, child]) => [key, stripAdditiveFields(child)]));
-}
-
-function traceViolations(document) {
-  return document.cases.flatMap(c =>
-    JSON.stringify(historicalById.get(c.id)?.trace) === JSON.stringify(c.trace) ? [] : [c.id]);
-}
-
-function legacyResultViolations(document) {
-  return document.cases.flatMap(c =>
-    JSON.stringify(historicalById.get(c.id)?.result) === JSON.stringify(stripAdditiveFields(c.result)) ? [] : [c.id]);
-}
 
 function csvRows(lines) {
   const rows = [];
@@ -63,42 +50,6 @@ function csvRows(lines) {
   rows.push(cells);
   return rows;
 }
-
-function csvViolations(document) {
-  return document.cases.flatMap(c => {
-    const before = csvRows(historicalById.get(c.id)?.csv.lines || []);
-    const after = csvRows(c.csv.lines || []);
-    if (before.length !== after.length) return [c.id + ':line-count'];
-    return before.flatMap((oldCells, i) => {
-      const newCells = after[i];
-      const prefixMatches = JSON.stringify(newCells.slice(0, oldCells.length)) === JSON.stringify(oldCells);
-      return prefixMatches && newCells.length === oldCells.length + 3 ? [] : [c.id + ':row-' + i];
-    });
-  });
-}
-
-section('The 0.7.0 difference class is exact');
-
-eq('the historical and release baselines cover the same cases',
-  [...historicalById.keys()].sort(), [...byId(release070).keys()].sort());
-eq('the DNS trace is byte-identical in every case', traceViolations(release070), []);
-eq('legacy results are byte-identical after removing the two additive fields',
-  legacyResultViolations(release070), []);
-eq('CSV changes only by three appended cells on every row', csvViolations(release070), []);
-
-section('Each release-compatibility rule has a negative control');
-
-const changedTrace = structuredClone(release070);
-changedTrace.cases[0].trace.total++;
-eq('a trace movement is caught', traceViolations(changedTrace), [release070.cases[0].id]);
-
-const changedResult = structuredClone(release070);
-changedResult.cases[0].result[0].result.domain = 'mutated.test';
-eq('a legacy result movement is caught', legacyResultViolations(changedResult), [release070.cases[0].id]);
-
-const insertedCsv = structuredClone(release070);
-insertedCsv.cases[0].csv.lines[0] = '"inserted",' + insertedCsv.cases[0].csv.lines[0];
-eq('an inserted CSV cell is caught', csvViolations(insertedCsv), [release070.cases[0].id + ':row-0']);
 
 const OLD_MTA_STS_COPY = 'The MTA-STS TXT record is valid, but this browser-only audit cannot verify the HTTPS policy file because most policy hosts do not permit cross-origin reads.';
 const NEW_MTA_STS_COPY = 'The MTA-STS TXT record is valid, but the DNS-only audit did not fetch its HTTPS policy. Supply the policy in the local artifact panel to validate it without a network request.';

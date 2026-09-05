@@ -3,7 +3,7 @@
  * The five-surface equivalence runner. Spec Design §8, Task 0.4.b.
  *
  *   node tests/build/equivalence.mjs --subject-root=. [--entry=classic]
- *   node tests/build/equivalence.mjs --subject-root=../dea-v050 --emit > baseline.json
+ *   node tests/build/equivalence.mjs --subject-root=. --emit > baseline.json
  *   node tests/build/equivalence.mjs --subject-root=_site --case=<id>
  *
  * Surfaces, per spec Design §8:
@@ -762,7 +762,7 @@ async function main() {
 
   const baselinePath = args.baseline
     ? resolve(args.baseline)
-    : join(RUNNER_ROOT, 'tests/fixtures/equivalence/baseline-v0.5.0.json');
+    : join(RUNNER_ROOT, 'tests/fixtures/equivalence/baseline-v0.9.1.json');
   if (!existsSync(baselinePath)) {
     console.error(`equivalence: no baseline at ${baselinePath}. Capture one with --emit.`);
     process.exit(2);
