@@ -706,14 +706,61 @@ eq('the missing address is quoted as the provider published it',
   providerWritesItLong.result.divergentHosts[0].missing,
   ['2A01:0100:0000:0000:0000:0000:0000:0021']);
 
-// The two families stay apart: an A and an AAAA are different delivery paths.
-const mappedV4 = await oneVanity({
+// The two families stay apart, which is visible in the key rather than in a
+// finding: an IPv4-mapped address is not the IPv4 address it embeds, and it is
+// not globally reachable either, so §18 is where its behaviour is asserted.
+
+/* ── 18. Only reachable addresses are missing redundancy ──────────────── */
+section('18. The comparison is over globally reachable addresses');
+
+// A provider address that cannot accept Internet mail is not redundancy the
+// operator is missing, and telling them to publish it would contradict
+// `mx.unroutable`. Each of these is a provider-only address the audit must
+// refuse to turn into remediation.
+const providerOnly = async extra => (await oneVanity({
   'mail.example.test': { A: ['100.2.0.20'], AAAA: [], CNAME: [] },
   '20.0.2.100.in-addr.arpa': { PTR: [PROVIDER] },
-  [PROVIDER]: { A: ['100.2.0.20'], AAAA: ['::ffff:100.2.0.20'] },
+  [PROVIDER]: { A: ['100.2.0.20'].concat(extra.A || []), AAAA: extra.AAAA || [] },
+})).result.divergentHosts;
+
+eq('a private provider address is not missing redundancy',
+  await providerOnly({ A: ['10.0.0.5'] }), []);
+eq('nor is a documentation address',
+  await providerOnly({ A: ['198.51.100.9'] }), []);
+eq('nor is shared address space',
+  await providerOnly({ A: ['100.64.0.9'] }), []);
+eq('nor is an IPv4-mapped form of an address the host already publishes',
+  await providerOnly({ AAAA: ['::ffff:100.2.0.20'] }), []);
+eq('nor is text that is not an address at all',
+  await providerOnly({ A: ['not-an-address'] }), []);
+
+// And the finding still fires for the case it exists for.
+eq('a missing global address is still reported',
+  await providerOnly({ A: ['100.9.9.9'] }),
+  [{ host: 'mail.example.test', provider: PROVIDER, missing: ['100.9.9.9'] }]);
+
+// The suppression case. Comparing raw sets, the host's private address is
+// absent from the provider's, so `H ⊄ P` reads as bidirectional divergence and
+// the real missing global address is reported nowhere.
+const extraPrivateOnHost = await oneVanity({
+  'mail.example.test': { A: ['100.2.0.20', '10.0.0.5'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: [PROVIDER] },
+  '5.0.0.10.in-addr.arpa': { PTR: [] },
+  [PROVIDER]: { A: ['100.2.0.20', '100.9.9.9'], AAAA: [] },
 });
-eq('an IPv4-mapped AAAA is an address the host does not publish',
-  mappedV4.result.divergentHosts,
-  [{ host: 'mail.example.test', provider: PROVIDER, missing: ['::ffff:100.2.0.20'] }]);
+eq('an extra non-global host address does not suppress the finding',
+  extraPrivateOnHost.result.divergentHosts,
+  [{ host: 'mail.example.test', provider: PROVIDER, missing: ['100.9.9.9'] }]);
+
+// Bidirectional divergence between two REACHABLE sets is still deferred, and
+// the restriction above must not have quietly turned it into a finding.
+const bothWaysGlobal = await oneVanity({
+  'mail.example.test': { A: ['100.2.0.20', '100.8.8.8'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: [PROVIDER] },
+  '8.8.8.100.in-addr.arpa': { PTR: [] },
+  [PROVIDER]: { A: ['100.2.0.20', '100.9.9.9'], AAAA: [] },
+});
+eq('two reachable sets diverging both ways is still not this finding',
+  bothWaysGlobal.result.divergentHosts, []);
 
 report();
