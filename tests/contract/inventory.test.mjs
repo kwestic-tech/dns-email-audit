@@ -99,4 +99,27 @@ const inTest = scripts.test.split('&&').map(part => {
 eq('npm test runs exactly the suites the inventory names',
   [...inTest].sort(), inventory.suites.map(s => s.path).sort());
 
+/* ── 4. The README's total is derived, not remembered ─────────────────── */
+section('4. The README quotes the measured total');
+
+/**
+ * README.md tells a reader how many assertions `npm test` runs. Nothing checked
+ * that number, and it has gone stale twice: `ROADMAP.md` records "README.md
+ * still cites 174 assertions; corrected in 0.2.3", and 0.9.1 shipped saying
+ * 5,624 after retiring an oracle took the suite to 5,617.
+ *
+ * Section 3 already proves `npm test` runs exactly the inventoried suites, so
+ * the sum above IS the figure the README is claiming. This binds them.
+ */
+const readme = readFileSync(join(REPO, 'README.md'), 'utf8');
+const quoted = /\|\s*`npm test`\s*\|[^|]*?\*\*([\d,]+)\*\*/.exec(readme);
+
+// A reworded row must fail here rather than silently stop checking anything.
+eq('the README states a total for `npm test`', quoted !== null, true);
+eq('and it is the total that actually ran',
+  quoted ? Number(quoted[1].replace(/,/g, '')) : null, total);
+if (quoted && Number(quoted[1].replace(/,/g, '')) !== total) {
+  console.log(`  README says ${quoted[1]}; the suites ran ${total}. Update README.md.`);
+}
+
 report();
