@@ -42,7 +42,7 @@
  * it.
  */
 
-import { parseIpCidr, ipScope, ipv6ToBigInt } from '../shared/ip.js';
+import { parseIpCidr, ipScope, ipv4ToBigInt, ipv6ToBigInt } from '../shared/ip.js';
 
 /** The three answers a host lookup can give. Registry algebra `mx.host.resolves`. */
 export const MX_HOST_RESOLVES = Object.freeze(['yes', 'no', 'unknown']);
@@ -105,9 +105,11 @@ export function reverseName(address, family) {
     for (var i = 0; i < 32; i++) nibbles.push((((value >> BigInt(i * 4)) & 0xfn)).toString(16));
     return nibbles.join('.') + '.ip6.arpa';
   }
-  var octets = text.split('.');
-  if (octets.length !== 4 || !octets.every(function (o) { return /^\d{1,3}$/.test(o); })) return null;
-  return octets.slice().reverse().join('.') + '.in-addr.arpa';
+  // Validated with the shared parser, not a shape regex: `999.1.1.1` matches
+  // three-digits-per-octet and is not an address, and building a reverse name
+  // from it would put a malformed question on the wire.
+  if (ipv4ToBigInt(text) === null) return null;
+  return text.split('.').slice().reverse().join('.') + '.in-addr.arpa';
 }
 
 /**
@@ -239,6 +241,17 @@ export function hasNullMxConflict(mx) {
  * record type. Both are arguments because §12 gives a protocol directory no
  * edge to `core/dns/`.
  */
+/**
+ * First-seen-order de-duplication. §4 compares address SETS; DNS answers are
+ * multisets and a zone publishing the same RR twice must not change either the
+ * comparison or the evidence rendered from it.
+ */
+function uniqueAddresses(list) {
+  var out = [];
+  (list || []).forEach(function (a) { if (out.indexOf(a) === -1) out.push(a); });
+  return out;
+}
+
 /** A thunk for `optionalCheck`, named so the loop above stays readable. */
 function makeQuery(dohQuery, name, type, queryOpts) {
   return function () { return dohQuery(name, type, queryOpts); };
@@ -368,44 +381,61 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
 
     for (var qi = 0; qi < qualifying.length; qi++) {
       var qHost = qualifying[qi];
-      var names = [];
-      var anyReturned = false;
-      var reverseTargets = qHost.addresses.slice(0, MX_MAX_REVERSE_ADDRESSES);
+      // Each reverse name is kept with the address that returned it. The
+      // candidate has to be confirmed against THAT address: a provider name
+      // that resolves to some other address of the same host has not been
+      // confirmed for the address whose PTR produced it.
+      var found = [];
+      var attempted = 0;
+      var returned = 0;
+      var hostAddresses = uniqueAddresses(qHost.addresses);
+      var reverseTargets = hostAddresses.slice(0, MX_MAX_REVERSE_ADDRESSES);
 
-      // Per address, never per host: one lookup that does not return must not
-      // stop another from yielding a usable name. The same rule `resolves`
-      // follows, and the reason it has three values rather than two.
       for (var ai = 0; ai < reverseTargets.length; ai++) {
         var addr = reverseTargets[ai];
         var rName = reverseName(addr, addr.indexOf(':') === -1 ? 'ipv4' : 'ipv6');
+        // An address with no valid reverse name is not a lookup that was made,
+        // so it neither counts toward absence nor puts a question on the wire.
         if (!rName) continue;
+        attempted++;
         var UNKNOWN_PTR = {};
         var answer = await optionalCheck(
           makeQuery(dohQuery, rName, 'PTR', queryOpts), UNKNOWN_PTR);
         if (answer === UNKNOWN_PTR) continue;
-        anyReturned = true;
+        returned++;
         for (var xi = 0; xi < answer.length; xi++) {
           var clean = String(answer[xi] || '').trim().replace(/\.$/, '').toLowerCase();
-          if (clean && names.indexOf(clean) === -1) names.push(clean);
+          if (!clean) continue;
+          if (!found.some(function (f) { return f.name === clean; })) {
+            found.push({ name: clean, source: addr });
+          }
         }
       }
 
-      // `null` is "every lookup failed", which supports no claim either way.
-      // `[]` is an answer, and the only state that reports absent reverse DNS.
-      qHost.reverseNames = anyReturned ? names : null;
-      if (!anyReturned) continue;
-      if (!names.length) { hostsWithoutReverse.push(qHost.host); continue; }
+      var names = found.map(function (f) { return f.name; });
+      // `null` means no lookup returned at all, which supports no claim.
+      qHost.reverseNames = returned ? names : null;
+      if (!returned) continue;
+
+      if (!names.length) {
+        // Absence is claimable only when EVERY attempted lookup returned. One
+        // that did not is unknown, and unknown is not absent — the same rule
+        // `resolves` follows.
+        if (returned === attempted) hostsWithoutReverse.push(qHost.host);
+        continue;
+      }
 
       // A reverse name inside the audited zone is the self-hosted case: no
-      // separate provider name exists to compare against, so nothing is said.
-      var candidate = null;
-      for (var ni = 0; ni < names.length; ni++) {
-        var n = names[ni];
+      // separate provider name exists to compare against.
+      var pick = null;
+      for (var ni = 0; ni < found.length; ni++) {
+        var n = found[ni].name;
         if (n === qHost.host || n === domain || n.endsWith('.' + domain)) continue;
-        candidate = n;
+        pick = found[ni];
         break;
       }
-      if (!candidate) continue;
+      if (!pick) continue;
+      var candidate = pick.name;
       if (candidates.indexOf(candidate) === -1) {
         if (candidates.length >= MX_MAX_CANDIDATES) continue;
         candidates.push(candidate);
@@ -419,22 +449,23 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
       var pv4 = forward[0] === UNKNOWN_FWD ? null : forward[0];
       var pv6 = forward[1] === UNKNOWN_FWD ? null : forward[1];
       if (pv4 === null && pv6 === null) continue;
-      var provider = (pv4 || []).concat(pv6 || []);
+      var provider = uniqueAddresses((pv4 || []).concat(pv6 || []));
+
+      // Forward confirmation, against the address whose PTR named this
+      // candidate. A PTR is authored by whoever holds the reverse zone and
+      // nothing forces it to name a service, so an unconfirmed name is never
+      // acted on and is never recorded as this host's provider.
+      if (provider.indexOf(pick.source) === -1) continue;
+
       qHost.providerName = candidate;
       qHost.providerAddresses = provider;
 
-      // Forward confirmation. A PTR is authored by whoever holds the reverse
-      // zone, and nothing forces it to name a service, so an unconfirmed name
-      // is never acted on. This gate is also what keeps the procedure inside
-      // the chain the audited domain published — the property the privacy
-      // review relied on.
-      if (!qHost.addresses.some(function (a) { return provider.indexOf(a) !== -1; })) continue;
-
-      // Strict subset only: H ⊂ P. Divergence in both directions is a
-      // different finding and is deliberately deferred — RQ-MXV-06.
-      var missing = provider.filter(function (a) { return qHost.addresses.indexOf(a) === -1; });
+      // Sets, not arrays: a provider publishing the same RR twice must not
+      // duplicate the evidence. Strict subset only, H ⊂ P — divergence in both
+      // directions is a different finding and is deferred (RQ-MXV-06).
+      var missing = provider.filter(function (a) { return hostAddresses.indexOf(a) === -1; });
       var strictSubset = missing.length > 0
-        && qHost.addresses.every(function (a) { return provider.indexOf(a) !== -1; });
+        && hostAddresses.every(function (a) { return provider.indexOf(a) !== -1; });
       if (strictSubset) {
         qHost.missingAddresses = missing;
         divergentHosts.push({ host: qHost.host, provider: candidate, missing: missing });

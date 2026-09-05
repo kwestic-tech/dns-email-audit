@@ -547,4 +547,84 @@ await threeCandidates.run(['10 a.example.test.', '20 b.example.test.'], 'example
 eq('two candidates are resolved, one A and one AAAA each',
   threeCandidates.asked.filter(q => /provider\.test\/(A|AAAA)$/.test(q)).length, 4);
 
+/* ── 14. 0.9.2 review corrections ─────────────────────────────────────── */
+section('14. Unknown is not absent, and confirmation is per source address');
+
+// F1. One lookup that never returned means absence cannot be claimed, even
+// though the other returned an empty answer. Unknown is not absent.
+const mixedFailure = await oneVanity({
+  'mail.example.test': { A: ['100.2.0.20', '100.2.0.21'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: null },
+  '21.0.2.100.in-addr.arpa': { PTR: [] },
+});
+eq('a failed lookup beside an empty one claims no absence',
+  mixedFailure.result.hostsWithoutReverse, []);
+// The successful aggregation is still preserved: the empty answer was read.
+eq('and the answer that did return is still recorded',
+  mixedFailure.result.hosts[0].reverseNames, []);
+
+// Acceptance criterion 13. One address fails, the other yields a confirmed
+// provider, and divergence is still evaluated from the address that worked.
+const oneFailedOneWorked = await oneVanity({
+  'mail.example.test': { A: ['100.2.0.20', '100.2.0.21'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: null },
+  '21.0.2.100.in-addr.arpa': { PTR: [PROVIDER] },
+  [PROVIDER]: { A: ['100.2.0.20', '100.2.0.21', '100.9.9.9'], AAAA: [] },
+});
+eq('divergence is still found from the address whose lookup returned',
+  oneFailedOneWorked.result.divergentHosts,
+  [{ host: 'mail.example.test', provider: PROVIDER, missing: ['100.9.9.9'] }]);
+
+// F2. The candidate must forward-confirm against the address whose PTR named
+// it — not against any address the host happens to publish.
+const wrongSource = await oneVanity({
+  'mail.example.test': { A: ['100.2.0.20', '100.2.0.21'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: [PROVIDER] },
+  '21.0.2.100.in-addr.arpa': { PTR: [] },
+  [PROVIDER]: { A: ['100.2.0.21'], AAAA: [] },
+});
+eq('a provider confirming a different address of the same host is not confirmed',
+  wrongSource.result.divergentHosts, []);
+// And an unconfirmed name is never recorded as this host's provider.
+eq('and neither provider field is populated',
+  [wrongSource.result.hosts[0].providerName, wrongSource.result.hosts[0].providerAddresses],
+  [null, null]);
+
+section('15. Address sets, not arrays');
+
+// F3. A provider publishing the same RR twice must not duplicate the evidence.
+eq('a duplicated provider RR appears once in the missing set',
+  (await oneVanity(vanity({
+    [PROVIDER]: { A: ['100.2.0.20', '100.9.9.9', '100.9.9.9'], AAAA: [] },
+  }))).result.divergentHosts[0].missing, ['100.9.9.9']);
+
+// And on the host's side: a duplicated host RR must not defeat the subset test.
+eq('a duplicated host RR still compares as a set',
+  (await oneVanity({
+    'mail.example.test': { A: ['100.2.0.20', '100.2.0.20'], AAAA: [], CNAME: [] },
+    '20.0.2.100.in-addr.arpa': { PTR: [PROVIDER] },
+    [PROVIDER]: { A: ['100.2.0.20', '100.9.9.9'], AAAA: [] },
+  })).result.divergentHosts[0].missing, ['100.9.9.9']);
+
+section('16. A reverse name is only built from a real address');
+
+// F4. `999.1.1.1` matches three-digits-per-octet and is not an address.
+eq('255.255.255.255 reverses', reverseName('255.255.255.255'), '255.255.255.255.in-addr.arpa');
+eq('256.1.1.1 does not', reverseName('256.1.1.1'), null);
+eq('999.1.1.1 does not either', reverseName('999.1.1.1'), null);
+eq('and neither does a three-octet address', reverseName('1.2.3'), null);
+
+// A host answering with one usable address and one malformed one still
+// qualifies through the usable address — and must put no malformed question
+// on the wire.
+const partlyMalformed = auditWith({
+  'mail.example.test': { A: ['100.2.0.20', '999.1.1.1'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: [] },
+});
+await partlyMalformed.run(['10 mail.example.test.'], 'example.test');
+eq('the usable address is reversed',
+  partlyMalformed.asked.includes('20.0.2.100.in-addr.arpa/PTR'), true);
+eq('and no malformed reverse name is ever queried',
+  partlyMalformed.asked.some(q => q.includes('999')), false);
+
 report();
