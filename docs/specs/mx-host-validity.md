@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.2 (Final, amended) |
+| Spec version | 1.3 (Final, amended) |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 released**; **0.9.2 implemented, awaiting code review** — privacy review accepted at `ac7e984`; implementation measured and bounded, `PRIVACY.md` amended with measured figures |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
-| Last updated | 2026-09-04 |
+| Last updated | 2026-09-05 |
 
 > **Two releases, one document.** The capability is one question — what DNS can
 > say about an MX host beyond whether the name resolves — but it splits on a
@@ -246,7 +246,7 @@ neighbour. Its severity is medium (`RQ-MXV-01`).
 ```js
 {
   …0.9.1 fields,
-  reverseNames: string[] | null,  // null when the PTR lookup did not return
+  reverseNames: string[] | null,  // null when no name returned and a lookup did not answer
   providerName: string | null,    // forward-confirmed canonical name, if any
   providerAddresses: string[] | null,
   missingAddresses: string[],     // provider set minus this host's set
@@ -355,11 +355,21 @@ Per qualifying host:
    | Empty answer (no PTR published) | nothing | no |
    | Lookup did not return | nothing | no |
 
-   `reverseNames` is `null` only when **every** checked address failed to return
-   — a state that supports no claim either way. It is `[]` when every lookup
-   returned and none published a `PTR`, which is a claim of absence and is the
-   only state that raises `mx.no-reverse-dns`. The procedure continues on any
-   address that did produce a name.
+   The recorded field carries three distinguishable states, because `[]` is a
+   claim — "this host publishes no reverse DNS" — and must never stand in for a
+   lookup that did not answer:
+
+   | State of `reverseNames` | Means | Raises `mx.no-reverse-dns` |
+   | --- | --- | --- |
+   | a non-empty array | those names returned, whatever else failed | no |
+   | `[]` | every checked address answered, and none published a `PTR` | yes |
+   | `null` | no name returned **and** at least one lookup did not answer | no |
+
+   So `null` is not reserved for the case where *every* address failed: one
+   failure beside one empty answer is `null` too, since nothing distinguishes
+   that host from one whose `PTR` simply did not reach the resolver. Any name
+   that did return outranks a sibling failure and is recorded, and the procedure
+   continues on it.
 2. **Candidate.** Take the first returned name that is neither the MX host
    itself nor a name under the audited domain. A PTR pointing back into the
    audited zone means there is no separate provider name to compare against,
@@ -924,11 +934,54 @@ plan through the real audit path. Every other case keeps self-hosted reverse
 DNS and reports neither finding, which `release-compat.test.mjs` asserts
 directly. This closes the coverage gap recorded at `1.1`.
 
+**Three guard defects and one encoding defect, corrected at `1.3`.** Round 17
+reproduced all four against `35d137d` before anything was changed.
+
+*`[]` was standing in for "did not answer".* The `1.2` fix gated the absence
+*claim* on `returned === attempted`, which kept `hostsWithoutReverse` honest but
+left `reverseNames` recording `[]` for a host where one lookup failed and the
+other returned empty — the same value as a host that answered and published
+nothing. A consumer reading the field alone could not tell them apart, and §2.3's
+rule binds the recorded observation, not only the derived list. The three states
+above are now encoded distinctly, and the controls read the field and the list
+together, because either one alone passes on the wrong encoding.
+
+*The authorized trace delta was a bound, not an identity.* `release-compat`
+counted new questions per case, so removing an existing question and adding a
+reverse one netted to zero and passed — verified by deleting
+`_25._tcp.mail.bravo.test TLSA` and substituting a `PTR`. The rule is now an
+exact multiset equality: the `v0.9.1` trace plus a named question at a named
+count, `do=`/`cd=` included, must equal the current trace. Four controls —
+substitution, right name under the wrong type, right question under different
+transport options, and a silently dropped question.
+
+*The one authorized new case was exempt from every surface check.* `1.2` added
+`mx-vanity-divergence` and then skipped it in the surface comparison, so its
+result, CSV, DOM, report and trace could change arbitrarily under a guard whose
+whole purpose is that they cannot. All five surfaces are now content-addressed
+by hash, with a control that mutates each and requires rejection, and both
+finding ids are asserted present in `findings`, the remediation plan, CSV and
+DOM rather than merely reachable.
+
+*The status documents described the branch as it was before it existed.*
+`HANDOFF.md` and `ROADMAP.md` still said 0.9.2 was unapproved and unstarted and
+that `PRIVACY.md` was untouched, beside prose recording the approval, the
+implementation and a 25-line privacy amendment. Corrected to the actual state;
+the superseded measurements are kept as history where they are labelled as such.
+
+*What the new-case guard still cannot prove.* The report surface is bound by the
+hash of its recorded form, and that form carries no finding text — so the guard
+proves the report's structure and its numbers are what review saw, not that the
+sentences rendered for `mx.vanity-divergent` and `mx.no-reverse-dns` are the
+reviewed ones. That is what the locale gate and `src/audit`'s own suites cover,
+and the division is deliberate rather than an oversight.
+
 **Four behaviour defects, found by review of the implementation and corrected
 at `1.2`.** Each was reproduced before it was changed, and each has a control
 that fails without the fix.
 
-*Unknown was being reported as absent.* A host with one `PTR` that never
+*Unknown was being reported as absent.* (Corrected again at `1.3` — the fix
+below is necessary and was not sufficient.) A host with one `PTR` that never
 returned and one that returned empty was added to `hostsWithoutReverse`. The
 code tracked whether **any** lookup returned, where §2.3 and criterion 14
 require **every** attempted lookup to have returned before absence is claimed.
@@ -1074,7 +1127,10 @@ are later admitted to the grade, that change is backtested with
     regress silently.
 14. `hostsWithoutReverse` contains a host only when every checked address
     returned and none published a `PTR`. A host with one `PTR` and one without is
-    absent from it, and so is a host whose lookups did not return.
+    absent from it, and so is a host whose lookups did not return. The recorded
+    `reverseNames` distinguishes the three states of §4 step 1 — names, `[]`,
+    `null` — and is asserted together with the list, since either read alone
+    accepts a wrong encoding.
 15. The measured query count for the deterministic corpus, deep checks on, is
     recorded in the 0.9.2 pull request and in `PRIVACY.md`, and `PRIVACY.md`'s
     disclosure list names the reverse zones and the provider name. Criterion 15
@@ -1201,6 +1257,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 1.3 | 2026-09-05 | Codex round 17, all four findings reproduced first. `reverseNames` now encodes three states rather than two, so a lookup that did not answer is never recorded as an empty answer. The authorized trace delta became exact multiset equality after a substitution — one `TLSA` removed, one `PTR` added — was shown to pass the counting rule. The one authorized new case, which `1.2` exempted from surface comparison entirely, is bound by content hash on all five surfaces with per-surface mutation controls and both findings asserted through `findings`, remediation, CSV and DOM. Reconciled `HANDOFF.md` and `ROADMAP.md`, which still described 0.9.2 as unapproved, unstarted, and privacy-neutral. Recorded that the report hash cannot prove finding text. |
 | 1.2 | 2026-09-05 | Codex round 16. Four behaviour defects corrected, each reproduced first: absence was claimed when one lookup had not returned; provider fields were populated before forward confirmation, which itself tested any host address rather than the one whose PTR produced the candidate; address sets were compared as arrays, so a duplicated RR duplicated the evidence; and `reverseName()` built names from malformed IPv4. Added the dedicated `mx-vanity-divergence` equivalence case so both findings are reachable through the real audit path, closing the `1.1` coverage gap — authorized as exactly one new case, with the case-set rule tightened rather than relaxed. |
 | 1.1 | 2026-09-05 | 0.9.2 implemented under the reviewed §4 algorithm. Reverse lookups use real reverse-zone names; the caps, the deep-check gate, per-address aggregation, forward confirmation and strict-subset-only are all load-bearing in code and covered by negative controls. Corpus background hosts were given self-hosted reverse DNS so the advisory does not fire in cases about other protocols — with that, no rendered surface moves and only the result shape and seven traces differ. Measured 8 additional queries across 80 audited domains and amended `PRIVACY.md` with that figure. Recorded one coverage gap: no equivalence case exercises `mx.vanity-divergent` end to end. |
 | 1.0 | 2026-09-05 | **Final.** Codex round 15 accepted the privacy review at `ac7e984`. `OQ-MXV-03` becomes `RQ-MXV-03`; no question remains open, which is what Final records. 0.9.2 is approved for implementation under the reviewed §4 algorithm and acceptance criteria, with the caps, the deep-check gate and the no-score-movement rule load-bearing. The document reaches `1.0 (Implemented)` when 0.9.2 ships. |

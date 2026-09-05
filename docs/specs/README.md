@@ -62,7 +62,7 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [mx-host-validity](mx-host-validity.md) | 0.9.1 released, then 0.9.2 | 1.2 (Final, amended) | **0.9.1 released as `v0.9.1`**; **0.9.2 Final and approved for implementation**, privacy review accepted 2026-09-05 |
+| [mx-host-validity](mx-host-validity.md) | 0.9.1 released, then 0.9.2 | 1.3 (Final, amended) | **0.9.1 released as `v0.9.1`**; **0.9.2 implemented and in code review**, privacy review accepted 2026-09-05 |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 
