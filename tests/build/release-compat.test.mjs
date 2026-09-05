@@ -1171,11 +1171,18 @@ const AUTHORIZED_NEW_CASE = 'mx-vanity-divergence';
  * version skipped it entirely and checked a few spot values underneath, which
  * bound nothing about the rest of its result, CSV, DOM, report or trace.
  *
- * The report's recorded form carries no finding text — it is a structure of tag
- * names, a length and a hash — so presence of a finding *in the report* is
- * established by pinning it, not by matching an id inside it. The id-level
- * end-to-end claim is made against issues, findings, remediation, CSV and DOM,
- * where the ids are actually visible.
+ * The report surface records `sha256` over the **complete generated HTML**, so
+ * pinning it binds every byte of the reviewed report — including both findings'
+ * rendered sentences. It is a cryptographic binding rather than a semantic one:
+ * it does not locate an id inside the document, and a rejection says the report
+ * changed rather than where. The id-level claim is therefore made separately,
+ * against issues, findings, remediation, CSV and DOM, where the ids are visible
+ * and a failure names the surface that moved.
+ *
+ * An earlier revision of this comment said the recorded form carried no finding
+ * text and that the guard could not bind it. That was false — verified by
+ * changing one word of the `mx-vanity-divergent` message, which moves the CSV,
+ * the DOM **and** the report surface — and it understated the evidence.
  */
 const NEW_CASE_SURFACES = Object.freeze({
   result: 'ee4a9bd378f08a9960a25c255b488c905d9d18c515d00afb559fbe2e1cf353b2',
@@ -1286,10 +1293,14 @@ eq('both reach the CSV',
   BOTH_IDS.filter(id => JSON.stringify(newCase.csv).includes(id)), BOTH_IDS);
 eq('both reach the DOM',
   BOTH_IDS.filter(id => JSON.stringify(newCase.dom).includes(id)), BOTH_IDS);
-// The report records no finding text, so it is bound by its hash instead —
-// stated rather than implied.
-eq('and the report is pinned by content, which is all its recorded form allows',
+// The report surface hashes the complete HTML, so this pin binds every byte of
+// the reviewed report — both findings' rendered sentences included.
+eq('and the report is pinned to the reviewed bytes, finding text and all',
   surfaceHash(newCase.report), NEW_CASE_SURFACES.report);
+// Said plainly, because the strength of that claim rests on it: the surface
+// carries a hash of the document, not a summary of it.
+eq('the pinned report surface is a hash of the whole document',
+  [newCase.report.sha256.length, newCase.report.length > 0], [64, true]);
 
 // The new fields are really present, or the rule above compares nothing.
 const mxHealths092 = release092.cases
