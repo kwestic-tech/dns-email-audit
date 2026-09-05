@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.14 |
+| Spec version | 0.15 |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
-| Status | **0.9.1 released**; 0.9.2 not started — privacy review conducted (§7), no open questions, **awaiting approval to implement** |
+| Status | **0.9.1 released**; 0.9.2 not started — privacy review conducted and its fan-out executed (§7). `OQ-MXV-03` open pending the reviewer's acceptance; **promote to `1.0 (Final)` on approval, and not before implementation** |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
@@ -22,9 +22,9 @@
 > **The Status field carries per-release approval; the Spec version tracks the
 > document.** The specs README's version table assumes one spec is one release,
 > so it has no value for a document whose first release is approved while its
-> second is not. This one stays below `1.0 (Final)` while 0.9.2 is unshipped,
-> and Status states which release that question actually holds up. 0.9.1 is
-> Final and may be implemented now; nothing open in this document gates it.
+> second is not. This one stays below `1.0 (Final)` while a question is open —
+> **not** because 0.9.2 is unshipped, which is what `1.0 (Implemented)` records.
+> The 0.13 note had those backwards; review corrected it at 0.15.
 
 ## Problem
 
@@ -464,12 +464,24 @@ any host. `mx.unroutable` and `mx.partially-routable`
 carry the offending address and its scope in their arguments, so the report
 states which address is unreachable and why, not merely that one is.
 
-### 7. Privacy review — conducted, with the fan-out measured
+### 7. Privacy review — conducted, with the fan-out executed
 
 [`AGENTS.md`](../../AGENTS.md:110) makes anything implying a `PRIVACY.md` edit a
 stop condition. 0.9.2 implies one. This section is the review that discharges
-it; it was conducted before any 0.9.2 code was written, and its measurements
-come from the committed `v0.9.1` oracle rather than from an estimate.
+it, conducted before any 0.9.2 production code was written.
+
+**The 0.14 draft called its figures measured, and they were not.** They were
+obtained by counting addresses already stored in the `v0.9.1` oracle, which says
+how many `PTR` calls the algorithm *would request* and says nothing at all about
+the forward-confirm step — the oracle holds no `PTR` answers, so no candidate
+name can be selected from it. Review caught the mislabelling, and the gap was
+not academic: the projection said 8 additional queries and execution issues 16.
+
+The figures below are now **executed**. A measurement-only harness runs §4
+literally over the real qualifying hosts against a recording resolver, with a
+negative control, and its trace is captured in
+[ptr-fan-out-0.9.2](fixtures/ptr-fan-out-0.9.2.md). No 0.9.2 production code
+exists, and none is authorized by this section.
 
 **0.9.1 was not gated.** It issued no query and removed three per address-literal
 host. What follows is entirely about 0.9.2.
@@ -502,12 +514,28 @@ Per qualifying host the procedure costs `min(addresses, 4)` `PTR` queries; per
 domain it then costs at most two candidate names × two lookups each (`A` and
 `AAAA`) to forward-confirm.
 
+Executed over the corpus, deep checks on:
+
+| | Observed |
+| --- | --- |
+| `PTR` queries issued | **8** |
+| Forward-confirm queries issued | **8** |
+| Total additional queries | **16** |
+| Per audited domain | **0.200** |
+| With the gate off (negative control) | **0** |
+
 | Case | Additional queries |
 | --- | --- |
 | Domain with provider-named MX (the common case) | **0** |
 | Domain with one vanity host, one address | 1 `PTR` + 2 forward = **3** |
 | Domain with one vanity host, two addresses | 2 + 2 = **4** |
-| Corpus average, across all 80 audited domains | **0.1 `PTR` per domain** |
+
+Two observations the projection could not have produced. The forward step
+**doubles** the cost, being per candidate rather than per address. And the
+harness counts *requests, not cache misses*: two domains reach the same provider
+name, so a real run through the page-lifetime DoH cache issues **14**, not 16.
+That is precisely why §7.5 requires `PRIVACY.md`'s figures to be re-measured on
+the shipping release rather than adjusted by adding this number.
 
 For scale: deep checks already cost **four queries per MX host** — three to
 resolve and probe for a `CNAME`, plus one `TLSA`. On a single-address vanity
@@ -552,27 +580,46 @@ own records. This is the first inferred from a third party's data.
 **PTR checks remain under the existing deep-check flag.** Three reasons, in the
 order that decided it.
 
-**The chain is already resolver-visible.** Every name queried comes from an
-answer the same resolver has just given. Cloudflare returned the `A` record, so
-it holds the address before any `PTR` is sent; it answers the `PTR`, so it holds
-the provider name before the forward lookup is sent. The marginal disclosure of
-the second and third queries in the chain, *to the party that supplied the
-first*, is close to nil. A separate consent control would be asking the user to
-approve telling someone what they just told us.
+**What is genuinely new is intent and linkability, not data.** The 0.14 draft
+argued that the resolver already holds every datum, so the marginal disclosure
+is nil. That was too quick, and review was right to reject it. Holding a datum
+is not the same as watching this client ask for it: the `PTR` reveals that the
+client is *investigating* a particular MX address, and the forward lookup links
+that investigation to the returned provider name and to the rest of the audit
+run. The resolver learns a chain it could not previously assemble — this
+address, then this provider, then these other domains in the same page.
+
+That is a real disclosure and it is weighed here rather than waved past. It does
+not, on balance, require its own control, for three reasons.
+
+**The chain is short, and every link is already visible.** Cloudflare returned
+the `A` record, so it holds the address before any `PTR` is sent; it answers the
+`PTR`, so it holds the provider name before the forward lookup. The new
+information is the *sequence*, not any element of it — and the sequence is
+already inferable from the existing MX, `A`, `AAAA`, `CNAME` and `TLSA` queries
+the audit issues for the same host within the same page. An observer who can
+correlate the new queries could already correlate those.
+
+**The correlation window is not widened.** All of it happens inside one page
+lifetime, against one resolver, for domains the user typed. 0.9.2 adds no
+persistence, no new destination, and no identifier; a run remains unlinkable to
+any other run, which is the property `PRIVACY.md` actually promises.
 
 **The derivation starts in the audited domain's own records.** MX → address →
 `PTR` → name is a chain whose first link the domain published deliberately. This
 is not a name from an unrelated source; it is the domain's own MX target,
 followed one hop further.
 
-**A separate flag has a real, stated cost.** 0.9.0 made `deepChecks` part of
+**And a separate flag has a real, stated cost.** 0.9.0 made `deepChecks` part of
 report provenance so that a comparison never reports an unobserved protocol as
 fixed. A new flag needs its own provenance field, its own entry in the
 observability map, and its own comparability rule — machinery that exists to
 prevent false "resolved" claims, duplicated for a distinction the paragraph
 above says is nearly empty.
 
-**What would change this answer.** If the procedure ever queried a name *not*
+**What would change this answer.** If the correlation outlived the page, reached
+a second destination, or attached to an identifier, the second reason fails and
+the decision is wrong. Likewise if the procedure ever queried a name *not*
 derivable from the audited domain's published records — a provider registry, a
 reputation service, an ASN lookup — the first two reasons collapse and it
 belongs behind its own control, or in
@@ -1017,7 +1064,19 @@ overstated what the evidence supports and is withdrawn.
 
 ## Open questions
 
-None. `OQ-MXV-03` was the last; §7 resolves it as `RQ-MXV-03` below.
+**`OQ-MXV-03` — is the query cost and the disclosure it carries acceptable?**
+Restored, deliberately, after the 0.14 draft closed it on evidence that did not
+exist. The evidence exists now — §7's figures are executed and captured in
+[ptr-fan-out-0.9.2](fixtures/ptr-fan-out-0.9.2.md), and §7.4 weighs intent and
+linkability rather than asserting the disclosure is nil — but **whether that is
+acceptable is the reviewer's call, not the author's**, and it is the last thing
+standing between this document and `1.0 (Final)`.
+
+On approval: this question moves to `RQ-MXV-03`, the document is promoted to
+`1.0 (Final)` in the same edit, and only then may 0.9.2 implementation begin.
+The specs README is explicit that Final is about questions being resolved and
+`1.0 (Implemented)` is what shipping earns; the 0.13 note that kept this
+document below 1.0 *because 0.9.2 was unshipped* had those two backwards.
 
 ## Review record
 
@@ -1036,6 +1095,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.15 | 2026-09-05 | Codex review round 12. Replaced the 0.14 figures, which counted stored addresses and were wrongly labelled measured, with an executed measurement: a spike runs §4 literally against a recording resolver with a negative control, captured in `fixtures/ptr-fan-out-0.9.2.md`. It issues 16 queries where the projection said 8, because forward-confirm is per candidate — and 14 through the page cache, which is why `PRIVACY.md` must be re-measured rather than adjusted. Rewrote §7.4 to weigh query intent and linkability instead of claiming the marginal disclosure is nil, and named what would reverse the decision. Restored `OQ-MXV-03`: the evidence now exists, but accepting it is the reviewer's call, and promotion to `1.0 (Final)` belongs to that approval. |
 | 0.14 | 2026-09-05 | 0.9.2 privacy review conducted before any implementation. Measured PTR fan-out from the committed oracle: 8 queries across 80 audited domains, 0 for provider-named MX, 3 for the common vanity shape. Found the worst case unbounded in MX-host count and capped §4 at two qualifying hosts, bounding a domain at 12 and the default path at 600. Inventoried the two newly disclosed name classes. Decided against a separate opt-in, because every name queried comes from an answer the same resolver just returned. Resolved `OQ-MXV-03` as `RQ-MXV-03`; no open questions remain. The `PRIVACY.md` amendment is drafted in §7.5 and deliberately not applied, because that document describes shipped behavior. |
 | 0.13 | 2026-09-05 | Release-blocking CI failure, found after push. The `Five-surface equivalence` job regenerated the pre-refactor `v0.5.0` oracle over the *current* corpus and diffed it byte-for-byte, which made the shared fixture corpus immutable — a constraint that had held only because nothing had edited the corpus since 0.6.0 created it. Retired that oracle rather than regenerating it: its purpose was discharged by the 0.6.0 refactor, and regenerating would have rewritten a pre-refactor record and left the trap in place. Chain now starts at `v0.7.0`; two suites repointed at the current oracle for the data they were reading. |
 | 0.12 | 2026-09-05 | Codex review round 5. Pinned the severity badge and the emptied critical-group shell by exact content hash, where both had been removed on their opening classes alone and their text could be rewritten freely. Audited the transform for the same class of gap and closed one more unprompted: the row `data-overall` revert was a blanket replace and now requires exactly one. Three new controls. |

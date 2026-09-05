@@ -30,17 +30,22 @@ Two releases remain:
 
 ## Start here: 0.9.2 awaits approval, not investigation
 
-Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) `0.14`,
-§7. **The privacy review is done. 0.9.2 is not started and must not begin until
-that review is approved.**
+Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) `0.15`,
+§7. **The privacy review is done and its fan-out is executed, not projected. 0.9.2
+is not started and must not begin until `OQ-MXV-03` is accepted and the document
+is promoted to `1.0 (Final)`.**
 
 What the review established, before any 0.9.2 code was written:
 
-- **The fan-out is small and was measured, not estimated.** 8 `PTR` queries
-  across the 32-case corpus's 80 audited domains, because only 7 of them have a
-  qualifying host at all. A domain whose MX hosts are named by its provider —
-  the common case for hosted mail — costs **nothing**, because the gate requires
-  an in-domain MX host.
+- **The fan-out is small, and it was executed rather than counted.** A
+  measurement-only spike runs §4 against a recording resolver with a negative
+  control: **8 `PTR` and 8 forward-confirm queries, 16 in total, 0.200 per
+  audited domain** — 14 through the page cache. The first draft projected 8 by
+  counting stored addresses and called it measured; forward-confirm is per
+  candidate and doubles it. Evidence:
+  [`fixtures/ptr-fan-out-0.9.2.md`](docs/specs/fixtures/ptr-fan-out-0.9.2.md).
+  A domain whose MX hosts are named by its provider — the common case for hosted
+  mail — costs **nothing**, because the gate requires an in-domain MX host.
 - **The worst case was unbounded, and is not any more.** §4 capped addresses per
   host and candidates per domain but never the number of hosts, so ten in-domain
   MX hosts would have cost forty `PTR` queries. It now examines the two
@@ -50,12 +55,16 @@ What the review established, before any 0.9.2 code was written:
   reverse zone of each checked address, and — where the reverse name is
   forward-confirmed — a provider name the user never typed and the audited zone
   never published.
-- **No separate opt-in.** PTR checks stay under the existing deep-check flag,
-  because every name queried comes from an answer the same resolver has just
-  given, and the chain begins in the audited domain's own MX record. §7.4 states
-  what would change that answer, and why the forward-confirm gate is now
-  load-bearing for privacy as well as correctness.
-- **`OQ-MXV-03` is resolved as `RQ-MXV-03`.** The document has no open questions.
+- **No separate opt-in — but the reasoning changed.** The new disclosure is
+  query *intent and linkability*, not data: the resolver learns that this client
+  is investigating this address and links it to the provider name and the rest of
+  the run. §7.4 weighs that and still declines a separate control, because the
+  correlation is already inferable from the MX, `A`, `CNAME` and `TLSA` queries
+  the same page issues for the same host, and nothing outlives the page. It also
+  names what would reverse the decision.
+- **`OQ-MXV-03` is open, on purpose.** The evidence exists; accepting it is the
+  reviewer's call, and it is the last thing between this document and
+  `1.0 (Final)`.
 
 `PRIVACY.md` is deliberately unchanged. It describes what the shipped
 application does, and 0.9.2 does not ship yet; §7.5 carries the exact amendment
@@ -117,7 +126,7 @@ no implementation phase. Review it as a decision document alongside the
 
 - Work on a branch, never on `main`.
 - A spec is Final before implementation starts. For a multi-release spec, that
-  is per release: `mx-host-validity` `0.14` covers 0.9.1, which shipped, and
+  is per release: `mx-host-validity` `0.15` covers 0.9.1, which shipped, and
   0.9.2, which is not approved.
 - A task is boundable to one owning directory; cross-directory work is split
   into separate commits with an architectural explanation.
