@@ -551,7 +551,9 @@ eq('two candidates are resolved, one A and one AAAA each',
 section('14. Unknown is not absent, and confirmation is per source address');
 
 // F1. One lookup that never returned means absence cannot be claimed, even
-// though the other returned an empty answer. Unknown is not absent.
+// though the other returned an empty answer. Unknown is not absent — and the
+// recorded field has to say so, because an empty array is the encoding of a
+// host that answered and published nothing.
 const mixedFailure = await oneVanity({
   'mail.example.test': { A: ['100.2.0.20', '100.2.0.21'], AAAA: [], CNAME: [] },
   '20.0.2.100.in-addr.arpa': { PTR: null },
@@ -559,9 +561,30 @@ const mixedFailure = await oneVanity({
 });
 eq('a failed lookup beside an empty one claims no absence',
   mixedFailure.result.hostsWithoutReverse, []);
-// The successful aggregation is still preserved: the empty answer was read.
-eq('and the answer that did return is still recorded',
-  mixedFailure.result.hosts[0].reverseNames, []);
+eq('and reverseNames is null, not the empty answer of a host that published none',
+  mixedFailure.result.hosts[0].reverseNames, null);
+
+// The three states are distinct, and the distinction is only visible when all
+// three are read together: every address answered nothing is `[]` with the
+// host named; some address did not answer and none produced a name is `null`
+// with the host unnamed; a name that did return survives a sibling failure.
+const bothEmpty = await oneVanity({
+  'mail.example.test': { A: ['100.2.0.20', '100.2.0.21'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: [] },
+  '21.0.2.100.in-addr.arpa': { PTR: [] },
+});
+eq('every address answering nothing is an empty answer',
+  [bothEmpty.result.hosts[0].reverseNames, bothEmpty.result.hostsWithoutReverse],
+  [[], ['mail.example.test']]);
+
+const failedWithName = await oneVanity({
+  'mail.example.test': { A: ['100.2.0.20', '100.2.0.21'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: null },
+  '21.0.2.100.in-addr.arpa': { PTR: ['mail.example.test'] },
+});
+eq('a name that returned is kept even though a sibling lookup failed',
+  [failedWithName.result.hosts[0].reverseNames, failedWithName.result.hostsWithoutReverse],
+  [['mail.example.test'], []]);
 
 // Acceptance criterion 13. One address fails, the other yields a confirmed
 // provider, and divergence is still evaluated from the address that worked.

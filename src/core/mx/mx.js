@@ -413,15 +413,21 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
       }
 
       var names = found.map(function (f) { return f.name; });
-      // `null` means no lookup returned at all, which supports no claim.
-      qHost.reverseNames = returned ? names : null;
-      if (!returned) continue;
+
+      // Three states, and `[]` is the narrow one. It means every attempted
+      // lookup returned and none published a PTR — the only state that supports
+      // the absence finding. A host where one lookup failed and another
+      // answered empty is NOT that state, and encoding it as `[]` would claim
+      // in the result what the finding correctly refused to claim.
+      //
+      // Names that did return are kept whatever else failed: per-address
+      // aggregation is not conditional on the other addresses succeeding.
+      if (names.length) qHost.reverseNames = names;
+      else if (attempted > 0 && returned === attempted) qHost.reverseNames = [];
+      else qHost.reverseNames = null;
 
       if (!names.length) {
-        // Absence is claimable only when EVERY attempted lookup returned. One
-        // that did not is unknown, and unknown is not absent — the same rule
-        // `resolves` follows.
-        if (returned === attempted) hostsWithoutReverse.push(qHost.host);
+        if (qHost.reverseNames !== null) hostsWithoutReverse.push(qHost.host);
         continue;
       }
 
