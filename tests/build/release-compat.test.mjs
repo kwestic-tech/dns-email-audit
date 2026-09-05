@@ -1184,18 +1184,22 @@ const AUTHORIZED_NEW_CASE = 'mx-vanity-divergence';
  * changing one word of the `mx-vanity-divergent` message, which moves the CSV,
  * the DOM **and** the report surface — and it understated the evidence.
  */
-// Rounds 20 and 21 each moved the same three of these five, and only those:
-// the two findings' text was corrected in English and thirteen locales, so csv,
-// dom and report are re-pinned to it. `result` and `trace` are byte-identical
-// to the `1.2` capture through both rounds, which is the evidence that what
-// changed is what is SAID and not what is measured or asked. A text round that
-// moved `result` or `trace` would be a different kind of change and is meant to
-// fail here.
+// Three text rounds have moved these hashes, each only where the words it
+// changed are rendered. Rounds 20 and 21 corrected both findings' message,
+// explanation and fix, so csv, dom and report moved. Round 22 corrected only an
+// explanation — how the four-address cap orders its addresses — which the CSV
+// does not carry, so `csv` is unchanged there too and only dom and report were
+// re-pinned.
+//
+// `result` and `trace` are byte-identical to the `1.2` capture through all
+// three. That is the standing evidence that these rounds changed what is SAID
+// and not what is measured or asked, and a text round that moves either is a
+// different kind of change and is meant to fail here.
 const NEW_CASE_SURFACES = Object.freeze({
   result: 'ee4a9bd378f08a9960a25c255b488c905d9d18c515d00afb559fbe2e1cf353b2',
   csv: '1a5505fa3a389a9ff93e4eaf87295fc745b28ce81e07e6bb2f08335e4b24c24c',
-  dom: '329cc617e84247e28ae0df7303ad8206bd94f091358e9fc3e891d7bac7f94539',
-  report: 'e40691e3de899da6e36a3d4a71308e2493000118f3672d3111d1d5d80ab10301',
+  dom: '1ea9bdcc4b93adf258d1d96b4e2e03e2fde7cb96ad48b67e9324720c98aa9f5a',
+  report: '8820f98c68f8aa62b3e9c0c81b233f14bec53eec5bcd126a1abd4a4641d2202f',
   trace: 'c125036cb445c632724fa661661d132b50dd0f1135512290828326b69d483ccc',
 });
 const surfaceHash = value => sha256(JSON.stringify(value));
