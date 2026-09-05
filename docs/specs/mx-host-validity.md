@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.6 (Final, amended) |
+| Spec version | 1.7 (Final, amended) |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 released**; **0.9.2 implemented, awaiting code review** — privacy review accepted at `ac7e984`; implementation measured and bounded, `PRIVACY.md` amended with measured figures |
@@ -364,6 +364,11 @@ Per qualifying host:
    The recorded field carries three distinguishable states, because `[]` is a
    claim — "this host publishes no reverse DNS" — and must never stand in for a
    lookup that did not answer:
+
+   The cap is not only a budget, it is part of what the finding *means*: at
+   most the first four addresses are reversed, in the order the zone returned
+   them, so every state below is a statement about the checked addresses and
+   the text says so.
 
    | State of `reverseNames` | Means | Raises `mx.no-reverse-dns` |
    | --- | --- | --- |
@@ -980,6 +985,43 @@ plan through the real audit path. Every other case keeps self-hosted reverse
 DNS and reports neither finding, which `release-compat.test.mjs` asserts
 directly. This closes the coverage gap recorded at `1.1`.
 
+**Two remediations still claimed more than DNS established, corrected at
+`1.7`.** Round 21 reproduced both against `e52ead0` first.
+
+*The fix installed a name the audit inferred.* The `fix` told the operator to
+point the MX record at "the provider's own hostname", and the `fixCode` "after"
+block presented the inferred name as the replacement. Forward-confirmed reverse
+DNS proves a mapping exists; it does not prove the name is documented, stable,
+meant as an MX target, or available to this customer, and a generic per-address
+PTR name is the common case. Followed literally, the advice could replace a
+working MX with a name the provider never intended to serve. The remediation now
+starts at the provider's documentation: use a provider hostname only where the
+provider designates one, otherwise keep the operator's own name and reconcile
+the reachable addresses with them — the missing addresses being exactly what to
+ask about. The `fixCode` "after" block is labelled conditional, and its name is
+marked as a placeholder for the documented one.
+
+*And the explanation promised servers.* "Your provider is advertising more than
+one mail server" and "a working server was available" assert independent
+capacity from an address list. The text now says address paths: the host offers
+senders fewer reachable addresses than the provider publishes, DNS shows
+addresses and not machines, and whether they are separate servers is not
+something this audit saw.
+
+*The advisory overclaimed past its own cap.* Executed: a host publishing five
+addresses with a `PTR` on the fifth is asked about four, the fifth is never
+asked, and the finding said "This host publishes none" — false about that zone.
+The message and explanation now name the **checked** addresses and disclose that
+at most the first four are checked, in zone order. The severity and the RFC 5321
+§4.1.4 position are untouched. Criterion 18 and a control in `mx.test.js` §19
+pin the cap and the scope of the claim together, because either alone permits
+the dishonest pairing.
+
+Both corrections were applied in English and all thirteen locales in the same
+change, and the movement was again one case on three surfaces —
+`mx-vanity-divergence`'s csv, dom and report — with `result` and `trace`
+byte-identical. `mx.test.js` 148 → 151.
+
 **The user-facing text still said what the code no longer does, corrected at
 `1.6`.** Round 20 reproduced both findings against `962fc22` first.
 
@@ -1206,15 +1248,35 @@ in the same change, runs `npm run build:fallback`, and passes
 `npm run locale:gate`. `src/data/locales-en.js` is regenerated in the same
 commit.
 
-Two drafting notes for the `what` text:
+Drafting rules for the user-facing text. Each of these is a claim the audit
+cannot support, and every one of them was written into the strings at some point
+and had to be taken out again:
 
 - `mx-vanity-divergent` must not assert that the named provider *is* the
   operator. The evidence is a forward-confirmed reverse pointer, and the wording
   says that: the addresses reached from this host's reverse name include ones
   this host does not publish.
+- **The remediation must not install the inferred name.** FCrDNS proves a
+  mapping, not that the name is documented, stable, intended as an MX target, or
+  available to this customer — it is frequently a generic per-address name.
+  The first step is therefore verification against the provider's own
+  documentation: use a provider hostname only where the provider designates it
+  as the MX target, and otherwise keep the operator's name and reconcile the
+  reachable addresses with the provider. The `fixCode` "after" block is labelled
+  conditional and its name marked as a placeholder for the documented one, not
+  as the name this audit derived.
+- **Addresses are not servers.** DNS establishes address-level paths. The text
+  says the host offers fewer reachable address paths than the provider
+  publishes; it must not promise independent machines, separate capacity or "a
+  working server", none of which a DNS answer shows.
 - `mx-no-reverse-dns` must state the RFC 5321 §4.1.4 position rather than imply
   that inbound mail is at risk, and should distinguish the receiving path from
   the sending path, which is where the reader has probably heard the rule.
+- **And it must be scoped to the addresses actually checked.** §4 caps reverse
+  lookups at the first four addresses per host, so a host publishing five can
+  hold a `PTR` on one that was never asked. The message and explanation say the
+  checked addresses and disclose the cap; "this host publishes none" is a claim
+  about a zone the audit did not read.
 
 ## Testing
 
@@ -1316,6 +1378,11 @@ are later admitted to the grade, that change is backtested with
     non-global address on the host does not suppress it; a host with no
     reachable address of its own raises nothing; and two reachable sets
     diverging in both directions remain `RQ-MXV-06`'s deferred case.
+18. A host with five addresses whose fifth publishes a `PTR` is asked about
+    exactly four, is still named in `hostsWithoutReverse`, and its finding text
+    says the checked addresses rather than the host's whole published set. The
+    cap and the honesty of the claim are one fact, and the control asserts both
+    halves together.
 
 ## Risks
 
@@ -1439,6 +1506,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 1.7 | 2026-09-05 | Codex round 21, both findings reproduced first. `mx-vanity-divergent`'s remediation no longer installs the name the audit inferred: FCrDNS proves a mapping, not a documented, supported MX target, so the first step is verification against the provider's documentation and the `fixCode` "after" block is conditional with a placeholder name. Its explanation describes reachable address paths instead of independent mail servers, which an address list does not establish. `mx-no-reverse-dns` now names the **checked** addresses and discloses the four-address cap, after a host publishing a `PTR` on its unasked fifth address was shown to receive "this host publishes none". Criterion 18 and a five-address control. Fourteen locales; one case, three rendered surfaces re-pinned, result and trace unchanged. |
 | 1.6 | 2026-09-05 | Codex round 20, both findings reproduced first. Corrected `mx-vanity-divergent` in English and all thirteen locales: the forward-confirmed name evidences a relationship rather than operation, the message describes missing globally reachable addresses rather than a smaller raw count, and the fix names only the reachable missing addresses and warns that publishing a reserved one creates the `mx.unroutable` fault. Added the RFC 5737 example-only warning to the `fixCode` block, reusing each locale's existing wording. Re-pinned the one authorized case's csv, dom and report to the corrected text; its result and trace are unchanged, as are all 32 other cases on all five surfaces. Replaced `1.5`'s unreproducible "twelve controls" with the accounting the file produces: eight new §18 assertions replacing one, net `+7`, 141 to 148, fourteen across §§17–18. |
 | 1.5 | 2026-09-05 | Codex round 19, both findings reproduced first. Withdrew `ipIdentity()` from `core/shared/`: it had exactly one production consumer, and §12 reserves that directory for helpers two or more protocol owners read. The identity is now `addressKey()`, private to `core/mx/` and built from the shared parsers, with every `1.4` behaviour and control retained. Restricted the `H ⊂ P` comparison to globally reachable addresses on both sides, after the audit was executed recommending that an operator publish a provider's private `10.0.0.5` on a public MX host — remediation that contradicts 0.9.1's `mx.unroutable`; the same run showed an extra private address on the host suppressing a real missing global one, which restricting both sides also fixes. Criterion 17, and eight new §18 assertions replacing one — net `+7`, 141 to 148. *(This row first said "twelve controls", which the file does not produce; corrected at `1.6`.)* Corrected the MX API's "who really operates them", which §Non-goals contradicts. |
 | 1.4 | 2026-09-05 | Codex round 18, all four findings reproduced first. Address identity is now canonical: `ipIdentity()` keys an address by value, so equivalent IPv6 spellings de-duplicate, forward-confirm and compare as one member of `H` and `P` — the executed reproduction showed a real divergence reported nowhere because the host wrote its address out in full and its provider compressed it. First-seen text is preserved for evidence and the families are kept apart. Brought `src/core/mx/API.md` up to the full eight-export, 0.9.2 contract and added the three missing `ip.js` exports to `core/shared/API.md`. Defined the monotonic post-Final version rule in the specs README and stopped saying shipment returns the document to `1.0`. Withdrew the `1.3` claim that the report hash cannot bind finding text: `reportSurface()` hashes the complete HTML, so the pin binds every byte, which a one-word message change demonstrates. |
