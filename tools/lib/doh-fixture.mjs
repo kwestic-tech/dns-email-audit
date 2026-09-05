@@ -34,6 +34,8 @@ export const mx = (...entries) => entries.map(e => ({ type: 15, data: e }));
 export const a = (...addresses) => addresses.map(v => ({ type: 1, data: v }));
 export const aaaa = (...addresses) => addresses.map(v => ({ type: 28, data: v }));
 export const cname = (...targets) => targets.map(v => ({ type: 5, data: v }));
+/** PTR, type 12. Answers a reverse-zone name with the host it points back to. */
+export const ptr = (...names) => names.map(v => ({ type: 12, data: v }));
 export const caa = (...records) => records.map(v => ({ type: 257, data: v }));
 /**
  * TLSA answers are written in the resolver's own presentation form —

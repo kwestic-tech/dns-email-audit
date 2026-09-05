@@ -110,12 +110,12 @@ const occurrencesIn = text => [...text.matchAll(/key: '([a-z0-9-]+)'/g)].map(m =
 const literalIssueKeys = [...new Set(occurrencesIn(source.slice(0, cut)))].sort();
 const tipKeys = [...new Set(occurrencesIn(source.slice(cut)))].sort();
 
-eq('the registry records 110 issue tokens', issueAlgebra.length, 110);
+eq('the registry records 112 issue tokens', issueAlgebra.length, 112);
 eq('and they are exactly the locale issue keys', issueAlgebra, Object.keys(en.issue).sort());
 
 /* ── 3a. Direct literals ─────────────────────────────────────────────── */
-eq('buildIssues writes 97 key literals', occurrencesIn(source.slice(0, cut)).length, 97);
-eq('which are 96 distinct keys — one is written twice', literalIssueKeys.length, 96);
+eq('buildIssues writes 99 key literals', occurrencesIn(source.slice(0, cut)).length, 99);
+eq('which are 98 distinct keys — one is written twice', literalIssueKeys.length, 98);
 eq('every literal is a registry member', literalIssueKeys.filter(k => !issueAlgebra.includes(k)), []);
 eq('and every literal has a locale entry', literalIssueKeys.filter(k => !(k in en.issue)), []);
 
@@ -149,7 +149,7 @@ eq('fourteen issue keys are emitted without ever being written as a literal',
 // The two directions that stop the inventory and the registry drifting apart.
 eq('the inventory is exactly the registry minus the literals',
   nonLiteral, issueAlgebra.filter(k => !literalIssueKeys.includes(k)));
-eq('so literals plus non-literals close the 110-member vocabulary',
+eq('so literals plus non-literals close the 112-member vocabulary',
   [...literalIssueKeys, ...nonLiteral].sort(), issueAlgebra);
 eq('every one of the fourteen has a locale entry',
   nonLiteral.filter(k => !(k in en.issue)), []);
@@ -450,6 +450,38 @@ eq('a globally reachable host raises no address-validity finding',
     .filter(k => /^mx-(unroutable|partially-routable|address-literal|null-conflict)$/.test(k)),
   []);
 
+/* ── 0.9.2 emission paths ─────────────────────────────────────────────── */
+
+const divergent = issuesFor({
+  advanced: { mxHealth: {
+    hosts: [mxHost({})], danglingHosts: [], cnameHosts: [], duplicatePreferences: [],
+    singleHost: false, ipv6Coverage: 'all', sharedPrefixes: [], unknown: false,
+    addressLiteralHosts: [], unroutableHosts: [], partiallyRoutableHosts: [],
+    nullMxConflict: false,
+    divergentHosts: [{ host: 'mail.example.test', provider: 'mx.provider.test', missing: ['100.9.9.9'] }],
+    hostsWithoutReverse: [],
+  } },
+}).find(i => i.key === 'mx-vanity-divergent');
+eq('a divergent vanity host is reported', !!divergent, true);
+// The message needs all three: which host, whose provider, and what is missing.
+eq('and it names the host, the provider and the missing addresses',
+  divergent.args, ['mail.example.test', 'mx.provider.test', '100.9.9.9']);
+
+eq('a host with no reverse DNS is reported',
+  mxKeys([mxHost({})], { hostsWithoutReverse: ['mail.example.test'] })
+    .includes('mx-no-reverse-dns'), true);
+// Advisory, and it must stay advisory: RFC 5321 §4.1.4.
+eq('and it is info, not a warning',
+  issuesFor({ advanced: { mxHealth: {
+    hosts: [mxHost({})], danglingHosts: [], cnameHosts: [], duplicatePreferences: [],
+    singleHost: false, ipv6Coverage: 'all', sharedPrefixes: [], unknown: false,
+    addressLiteralHosts: [], unroutableHosts: [], partiallyRoutableHosts: [],
+    nullMxConflict: false, divergentHosts: [], hostsWithoutReverse: ['mail.example.test'],
+  } } }).find(i => i.key === 'mx-no-reverse-dns').sev, 'info');
+
+eq('a host with neither reports neither',
+  mxKeys([mxHost({})]).filter(k => /^mx-(vanity-divergent|no-reverse-dns)$/.test(k)), []);
+
 // Regression: buildIssues is reached with contexts assembled elsewhere, and an
 // mxHealth predating 0.9.1 carries none of these fields. Reading them
 // unguarded threw a TypeError and discarded the whole audit, not just the MX
@@ -464,7 +496,7 @@ const preRelease = () => keysFor({
   } },
 });
 eq('an mxHealth without the 0.9.1 fields does not throw', typeof preRelease(), 'object');
-eq('and reports none of the four', preRelease()
-  .filter(k => /^mx-(unroutable|partially-routable|address-literal|null-conflict)$/.test(k)), []);
+eq('and reports none of the six', preRelease()
+  .filter(k => /^mx-(unroutable|partially-routable|address-literal|null-conflict|vanity-divergent|no-reverse-dns)$/.test(k)), []);
 
 report();

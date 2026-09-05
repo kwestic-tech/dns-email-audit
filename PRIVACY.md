@@ -72,6 +72,21 @@ ordinary run of one domain makes them, and the 41-per-domain and 61-for-
 they switch themselves off and the interface says so; you can tick the box again
 to run them anyway, and that choice lasts for the browser tab's session.
 
+Since 0.9.2 the deep checks also reverse-look-up the addresses of an MX host
+named inside the audited domain. Measured on the 32-case deterministic corpus
+through the shipping implementation and the page cache, that adds **8 queries
+across 80 audited domains — 0.1 per domain**, because most domains name their
+MX hosts after their provider and are not examined at all. A domain that does
+use a name in its own zone pays one query per address of its first two such
+hosts, and up to four more if a reverse name is found and has to be confirmed.
+
+One further case exists whose subject is exactly this check: a domain with two
+in-domain MX hosts, one whose provider publishes an address the domain's copy
+lacks and one with no reverse record at all. It costs **four** additional
+queries — two reverse lookups and two to confirm the provider name — which is
+the shape a real vanity-MX domain pays. The ceiling above, twelve for any one
+domain, is what bounds the worst case.
+
 Turning them off leaves **about 34 queries per domain** on the 40-domain sample
 and **45** for `cloudflare.com`. That is 0.3.0's and 0.4.0's shared figure of 43
 plus 0.5.0's two DNSSEC lookups, which are not part of the deep checks and
@@ -85,6 +100,16 @@ Those queries cover more than the name you typed. They include:
   host by name: an `A`, an `AAAA` and a `CNAME` query per host, plus
   `_25._tcp.<mx-host>` for its `TLSA` record. These names belong to whoever runs the domain's mail, which is
   frequently a third-party provider rather than the domain itself.
+- **With the deep protocol checks enabled, for an MX host named inside the
+  audited domain** — the reverse zone of each of its addresses
+  (`<reversed>.in-addr.arpa` or `.ip6.arpa`), and, where that reverse name is
+  forward-confirmed, the name itself. That last name belongs to whoever runs
+  the mail service and is not published by the audited domain: it is reached by
+  following the domain's own MX record one hop further. A domain whose MX hosts
+  are named by its provider — the common case for hosted mail — makes none of
+  these queries. At most the two lowest-preference such hosts are examined, at
+  most four addresses each, and at most two provider names are resolved per
+  domain, which bounds this at twelve additional queries for any one domain.
 - Subdomains derived from the standards being checked — `_dmarc.<domain>`,
   `<selector>._domainkey.<domain>` for each DKIM selector tried,
   `default._bimi.<domain>`, `_mta-sts.<domain>`, `_smtp._tls.<domain>`.

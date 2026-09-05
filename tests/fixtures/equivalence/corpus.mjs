@@ -19,7 +19,7 @@
  */
 
 import {
-  dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa, ds, dnskey, rrsig,
+  dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa, ds, dnskey, rrsig, ptr,
 } from '../../../tools/lib/doh-fixture.mjs';
 import {
   RSA_2048_SPKI, RSA_2048_PKCS1, RSA_1024_SPKI, RSA_512_SPKI, ED25519_RAW,
@@ -142,6 +142,8 @@ cases.push({
     '_smtp._tls.alpha.test TXT': txt('v=TLSRPTv1; rua=mailto:tlsrpt@alpha.test'),
     'selector1._domainkey.alpha.test TXT': txt('v=DKIM1; k=rsa; p=' + RSA_2048_SPKI),
     'mail.alpha.test A': a('100.2.0.20'),
+    '20.0.2.100.in-addr.arpa PTR': ptr('mail.alpha.test'),
+    '0.2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.1.0.a.2.ip6.arpa PTR': ptr('mail.alpha.test'),
     'mail.alpha.test AAAA': aaaa('2a01:100::20'),
     '_25._tcp.mail.alpha.test TLSA': { ad: true, answers: tlsa('3 1 1 ( ' + 'CD'.repeat(32) + ' )') },
     'www.alpha.test A': a('192.0.2.10'),
@@ -158,6 +160,7 @@ cases.push({
     'bravo.test NS': ns('ns1.bravo.test'),
     'bravo.test MX': mx('10 mail.bravo.test'),
     'mail.bravo.test A': a('100.51.100.5'),
+    '5.100.51.100.in-addr.arpa PTR': ptr('mail.bravo.test'),
   }),
 });
 
@@ -196,6 +199,7 @@ cases.push({
     'sub.delta.test MX': mx('10 mail.delta.test'),
     'sub.delta.test TXT': txt('v=spf1 -all'),
     'mail.delta.test A': a('100.0.113.5'),
+    '5.113.0.100.in-addr.arpa PTR': ptr('mail.delta.test'),
   }),
 });
 
@@ -232,6 +236,7 @@ cases.push({
     'foxtrot.test TXT cd': txt('v=spf1 -all'),
     '_dmarc.foxtrot.test TXT cd': txt('v=DMARC1; p=none'),
     'mail.foxtrot.test A cd': a('100.0.113.9'),
+    '9.113.0.100.in-addr.arpa PTR cd': ptr('mail.foxtrot.test'),
   }),
 });
 
@@ -249,6 +254,7 @@ cases.push({
     'golf.test DNSKEY': SOME_DNSKEY,
     '_dmarc.golf.test TXT': txt('v=DMARC1; p=none'),
     'mail.golf.test A': a('100.0.113.11'),
+    '11.113.0.100.in-addr.arpa PTR': ptr('mail.golf.test'),
   }),
 });
 
@@ -269,6 +275,7 @@ cases.push({
     'hotel.test TXT': txt('v=spf1 include:‮safe.example -all'),
     '_dmarc.hotel.test TXT': txt('v=DMARC1; p=none; rua=mailto:re‮ports@hotel.test'),
     'mail​.hotel.test A': a('100.0.113.13'),
+    '13.113.0.100.in-addr.arpa PTR': ptr('mail​.hotel.test'),
   }),
 });
 
@@ -454,6 +461,7 @@ cases.push({
     'nowww.host.test MX': mx('10 mail.nowww.host.test'),
     'nowww.host.test TXT': txt('v=spf1 -all'),
     'mail.nowww.host.test A': a('100.51.100.10'),
+    '10.100.51.100.in-addr.arpa PTR': ptr('mail.nowww.host.test'),
   }),
   domains: [{ domain: 'nowww.host.test' }],
 });
@@ -1172,6 +1180,45 @@ cases.push({
         '3 1 1 ( ' + 'AB'.repeat(32) + ' )',        // valid, in the resolver's own form
       ),
     ],
+  }),
+});
+
+/* ── 27b. 0.9.2: a vanity MX that has fallen behind its provider ───────── */
+
+/**
+ * The subject of 0.9.2, and the only case that reaches either of its findings.
+ *
+ * Both MX hosts are named inside the audited domain, which is what the gate
+ * requires — a provider-named host has no vanity copy to have fallen behind.
+ * The first has reverse DNS pointing at a provider that publishes one address
+ * more than the copy does; the second publishes no reverse record at all. The
+ * two hosts sit in different /24s so that `mx.same-prefix` does not fire and
+ * blur what this case is about.
+ *
+ * Every other case in this corpus gives its MX hosts reverse DNS naming
+ * themselves, so neither 0.9.2 finding appears anywhere else. That separation
+ * is deliberate and is the same one 0.9.1 drew for addresses.
+ */
+cases.push({
+  id: 'mx-vanity-divergence',
+  description: 'a vanity MX host missing an address its provider publishes, and a second host with no reverse DNS at all',
+  domains: [{ domain: 'vanity.mx.test' }],
+  fetch: () => corpusFixture({
+    'vanity.mx.test NS': ns('ns1.other.test'),
+    'vanity.mx.test TXT': txt('v=spf1 -all'),
+    'vanity.mx.test MX': mx('10 mail.vanity.mx.test', '20 backup.vanity.mx.test'),
+
+    // The divergent host. Its address is one of two the provider publishes.
+    'mail.vanity.mx.test A': a('100.3.0.10'),
+    '10.0.3.100.in-addr.arpa PTR': ptr('mailfilter.vanity-provider.test'),
+    // Forward confirmation resolves the candidate back to the address whose
+    // PTR named it, and shows one more address the copy never picked up.
+    'mailfilter.vanity-provider.test A': a('100.3.0.10', '100.3.0.11'),
+
+    // The second host answers its reverse lookup with nothing, which is a
+    // claim of absence — distinct from a lookup that never returned.
+    'backup.vanity.mx.test A': a('100.4.0.20'),
+    '20.0.4.100.in-addr.arpa PTR': [],
   }),
 });
 

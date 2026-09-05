@@ -16,6 +16,70 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Nothing yet.
 
+## [0.9.2] — 2026-09-05
+
+### Added
+
+- **A vanity MX host is checked against the provider whose addresses it
+  copied.** A domain that points its MX at a name in its own zone — a branded
+  name holding a hand-copied snapshot of a hosted provider's address — has
+  forked from that provider. The copy does not follow renumbering, and it need
+  not contain every address the provider publishes. The audit now identifies
+  the provider by reverse DNS on the host's own address, confirms that name by
+  resolving it back to the same address, and reports the globally reachable
+  addresses the provider publishes and the copy lacks. The finding names them,
+  so the operator can ask their provider about exactly those addresses.
+
+  What this does **not** claim is as deliberate as what it does. A confirmed
+  reverse pointer evidences a relationship between an address and a name; it
+  does not establish who owns or operates the address, and the audit does not
+  say it does. Nor does the remediation install the inferred name: it directs
+  the operator to their provider's documentation, because a per-address reverse
+  name is frequently generic and pointing an MX record at one can replace a
+  working configuration with a name the provider never meant to serve. Only
+  globally reachable addresses are compared, so a provider's private, shared,
+  documentation or IPv4-mapped address is never recommended — publishing one
+  would create the unroutable-address fault this tool reports separately.
+- **A host whose checked addresses publish no reverse DNS gets an advisory
+  note.** It is `info` and stays there: RFC 5321 §4.1.4 says a failed reverse
+  lookup is not on its own grounds for refusing mail, and the receiving path is
+  not where reverse DNS is enforced in practice. Where it genuinely matters is
+  the sending address, which this tool does not audit — the explanation says so
+  rather than implying an inbound risk. The note is scoped to what was actually
+  looked at: up to four unique addresses per host, `A` answers considered before
+  `AAAA` answers, so a host publishing more can hold a reverse record on one
+  that was never checked.
+
+### Notes
+
+- **The new query class was reviewed for privacy before any of it was written,
+  and measured again afterwards.** This is the first release since 0.8.0 to send
+  the resolver a name the user never typed. The review executed the fan-out
+  through the production cache and transport with a recording `fetch` beneath,
+  rather than predicting it. Measured through the shipping code across the
+  32-case corpus's 80 audited domains: **8 additional queries**, 0.1 per domain.
+  A domain whose MX hosts are named by its provider — the common case for hosted
+  mail — costs **nothing**, because the check only examines a host named inside
+  the audited domain. Three caps bound the worst case at **12 additional queries
+  per domain**: two qualifying hosts, four unique addresses reversed per host,
+  two candidate provider names. `PRIVACY.md` carries the measured figures and
+  names the two classes of disclosed name.
+- **No score, no grade, and no rendered surface moves for any existing case.**
+  Both findings are advisory in the scoring sense: deterministic replay across
+  the corpus shows unchanged scores and grades, and byte-identical CSV, DOM and
+  report output on all 32 pre-existing cases. The one case added to exercise the
+  feature end to end is pinned by content hash on all five surfaces, and the
+  authorized query-trace delta is an exact per-question multiset — a removed
+  question cannot pay for an added one.
+- **Unknown is not absent, in the result as well as the finding.** A reverse
+  lookup that did not answer is recorded as `null`; an answer of nothing is
+  recorded as `[]`, and only that state raises the advisory. A host where one
+  lookup failed and another returned empty is `null`, because nothing
+  distinguishes it from a host whose reverse zone was simply unreachable.
+- **Addresses are compared as values, not as text.** `2a01:100::20` and its
+  expanded form are one address; the evidence still quotes whichever spelling
+  the zone published.
+
 ## [0.9.1] — 2026-09-05
 
 ### Added
@@ -1507,7 +1571,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.8.0...v0.8.1

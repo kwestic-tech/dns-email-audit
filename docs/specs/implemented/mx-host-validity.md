@@ -1,0 +1,1634 @@
+# Spec: MX host address validity and vanity divergence
+
+| Field | Value |
+| --- | --- |
+| Spec version | 1.12 (Implemented) |
+| Released in | `v0.9.1`, 2026-09-05 (the 0.9.1 half) and `v0.9.2`, 2026-09-05 (the 0.9.2 half) |
+| Target release | 0.9.1, then 0.9.2 |
+| Status | **Released.** Both halves have shipped: 0.9.1 as `v0.9.1` and 0.9.2 as `v0.9.2`. Nothing in this document is outstanding, which is what moving it here records. |
+| Depends on | [report-comparison](report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](findings-and-remediation.md) for finding identity |
+| Blocks | Nothing |
+| Slug for open questions | `MXV` |
+| Last updated | 2026-09-05 |
+
+> **Two releases, one document.** The capability is one question — what DNS can
+> say about an MX host beyond whether the name resolves — but it splits on a
+> hard boundary: 0.9.1 issues no query the audit does not already make, and
+> 0.9.2 introduces a new query class. They are specified together because both
+> extend the same `auditMxHosts()` result object, and splitting the document
+> would duplicate that shape. They are released apart because their risk
+> profiles are not comparable. See §0.
+>
+> **The Status field carries per-release approval; the Spec version tracks the
+> document.** The specs README's version table assumes one spec is one release,
+> so it has no value for a document whose first release is approved while its
+> second is not. This one stayed below `1.0 (Final)` while a question was open —
+> **not** because 0.9.2 was unshipped, which is what the Implemented revision
+> records. The 0.13 note had those backwards; review corrected it at 0.15.
+>
+> **The version is monotonic, and the release commit carries the number.** This
+> document reached Final at `1.0` and was amended eight times after that, so
+> shipment records the **next** `1.x (Implemented)` revision after its last
+> amendment — never `1.0 (Implemented)`, which would claim the shipped text is
+> the Final text. **`1.12` is that revision**, and it is what the release commit
+> contains.
+>
+> `1.9`, `1.10` and `1.11` are **superseded pre-publication revisions**. Each
+> was written into a release commit that no longer exists: artifact review found
+> defects in the release artifacts themselves, and each correction was folded
+> into the same commit with `git commit --amend`, which replaces it. There is no
+> published history in which those numbers were ever the release — the branch
+> holds exactly one release commit, and it carries `1.12`. The rows below are
+> kept because the corrections are the record; the numbers on them are not
+> claims about what shipped.
+
+## Problem
+
+[`src/core/mx/mx.js`](../../../src/core/mx/mx.js) resolves every MX target and reports
+eleven findings about the result. Its own docblock states the finding it exists
+for: an MX host that does not resolve is a total inbound mail outage that,
+before it was checked, read in the interface exactly like a healthy mail domain.
+
+That sentence is still true of four other configurations, because `resolves` is
+computed at [`mx.js:180`](../../../src/core/mx/mx.js:180) as `addresses.length ? 'yes' : …`
+and nothing downstream asks what those addresses are.
+
+**An MX host resolving only to unroutable space reports as healthy.** A host
+answering `127.0.0.1`, `10.0.0.4` or `::1` produces `resolves: 'yes'`, no
+finding, and a domain that reads as correctly configured. No sending server on
+the internet can reach it. A grep of `src/` finds no address-range predicate of
+any kind: `parseIpCidr()` in [`src/core/shared/ip.js`](../../../src/core/shared/ip.js) does
+the arithmetic for `mx.same-prefix` and for SPF prefix sizing, and neither
+caller asks about scope. This is the only case in this spec where the tool
+states a false negative rather than a true finding with the wrong explanation,
+and it is the reason 0.9.1 exists.
+
+**An address literal in the MX RDATA is diagnosed as a missing address record.**
+`parseMxRecord()` at [`mx.js:97`](../../../src/core/mx/mx.js:97) requires only a numeric
+preference and a non-empty remainder, so `10 203.0.113.5` parses to host
+`203.0.113.5`. Two lookups are then spent on a name that cannot exist, and the
+host surfaces as `mx.dangling`. The severity is right and the remediation is
+not: the `mx-dangling` locale entry tells the operator to check the hostname for
+a typo and confirm the zone still publishes an address record for it, when the
+actual defect is that an MX names a host and never an address. RFC 1035 §3.3.9
+defines the RDATA as a `<domain-name>`; RFC 5321 §5.1 requires that name to
+have an address record of its own.
+
+**A null MX published beside a real one is reported nowhere at all.**
+`isNullMx()` at [`mx.js:64`](../../../src/core/mx/mx.js:64) returns `false` whenever
+`mx.length !== 1`, which is correct for its own contract and wrong as a whole
+account of the record set. So a domain publishing both `0 .` and
+`10 mail.example.com` is treated as an ordinary mail domain. The `.` is then
+dropped in silence: `parseMxRecord()` strips a trailing dot and rejects the empty
+host that leaves, so `0 .` parses to `null` and never reaches `targets`. RFC 7505
+§3 requires that a null MX be the only MX record in the set, and a domain
+breaking that rule has declared two incompatible intents — I accept mail here,
+and I accept mail nowhere — while the audit reports one host and no defect.
+
+*This paragraph replaces the 0.3 claim that the `.` target is looked up and
+reported as a dangling host, which was wrong: the parser rejects it three lines
+before any lookup. The finding is still warranted — a contradiction that is
+reported nowhere is a worse outcome than one reported badly — but its
+justification and its suppression rule both change; see §5.*
+
+**A vanity MX silently loses the redundancy its provider publishes.** Where a
+domain points its MX at a name in its own zone whose address record is a
+hand-copied snapshot of a hosted provider's, that copy is a fork. It does not
+follow the provider's renumbering, and it does not have to contain all of the
+provider's addresses. Observed on 2026-09-04, `allremote.com.tw`:
+
+```text
+mailfilter.hibox.hinet.net.    316 IN A  210.71.187.212     ; provider, two hosts
+mailfilter.hibox.hinet.net.    316 IN A  61.219.36.11
+mailfilter.allremote.com.tw.  3158 IN A  210.71.187.212     ; customer, one
+```
+
+> **Amended at `1.7` — see §8.** "Two mail servers" is what this section said,
+> and it is more than DNS establishes: two `A` records are two address paths,
+> which may or may not be separate machines. The finding's user-facing text was
+> corrected to say address paths; this paragraph is left as written, because it
+> is the reasoning that produced the check.
+
+The customer reaches one of the two mail servers their provider advertises. The
+audit reports `mx.single-host` at `info` — technically true, and it names the
+wrong cause, because the operator reads it as "my provider gave me one host"
+when the provider gave them two. `inAudited` is already computed per host at
+[`mx.js:183`](../../../src/core/mx/mx.js:183) and is consumed by no finding, so the
+discriminator this needs is present and unused.
+
+## Scope
+
+**0.9.1 — address validity.** No new DNS query.
+
+1. Classify every resolved MX address by special-purpose scope, and report a
+   host whose addresses are wholly or partly unreachable from the internet.
+2. Report an MX RDATA that is an address literal as the distinct defect it is,
+   and stop spending two lookups proving that it does not resolve.
+3. Report a null MX published alongside other MX records.
+
+**0.9.2 — vanity divergence.** Adds reverse lookups under the existing
+deep-check gate.
+
+5. Identify the canonical provider name behind an in-domain MX host by
+   forward-confirmed reverse DNS.
+6. Report an in-domain MX host whose address set is a strict subset of that
+   provider's, naming the addresses that were not copied.
+7. Report the absence of reverse DNS for an MX host as an advisory note.
+
+## Non-goals
+
+- **No SMTP, ever.** The rule the module opens with is unchanged. Nothing here
+  connects to port 25, and no finding claims what a delivery attempt would do.
+- **No vanity-MX finding as such.** A branded MX name that resolves to the
+  provider's full, current address set is correct, and is what every Google
+  Workspace and Microsoft 365 customer using a CNAME-free branded host looks
+  like. Reporting the pattern would fire on a correct configuration and train
+  the reader to ignore the check. Only divergence is a finding. See `RQ-MXV-02`.
+- **No ownership attribution.** The PTR gives a name, not an operator. No ASN,
+  no WHOIS, no registry of hosted mail providers. This follows the precedent
+  set by [spf-subnet-and-redundancy](spf-subnet-and-redundancy.md), whose
+  Non-goals excluded the same network destinations for the same reason.
+- **No reverse-DNS finding on the sending path.** Reverse DNS matters most for
+  the IP that connects outbound, and this tool audits a domain's published
+  records, not its egress. The MX-side note in scope item 7 is advisory and
+  says so; see the severity argument in §2.3.
+- **No TTL findings.** The `allremote` failure mode is a stale copy held at a
+  long TTL, and it is not observable here: `dohQuery` normalizes answers to
+  string arrays and carries no TTL to any caller. Making TTL visible is a layer
+  3 change to the transport contract and is out of scope for both releases. It
+  is recorded as a known limitation rather than an oversight.
+- **No scoring change in either release.** Both inherit the advisory-before-
+  scoring constraint from [the specs README](../README.md): a new check reports for at
+  least one release before it affects the grade.
+
+## Design
+
+### 0. Why the release boundary falls where it does
+
+0.9.1 reads addresses the audit has already fetched. It adds a pure predicate to
+`src/core/shared/ip.js`, four findings, and no query. Its blast radius is the
+finding catalog and the state matrix, and it can be reviewed by reading one
+function.
+
+0.9.2 adds PTR lookups and a heuristic. The heuristic is the load-bearing part:
+it infers "this is my provider's canonical name" from a reverse pointer, which
+is a convention and not a guarantee. It roughly doubles the query count for the
+MX section on domains that qualify. It deserves its own review and its own
+release, and it must not delay four unambiguous correctness findings.
+
+`PTR` is already a supported transport type — [`errors.js:48`](../../../src/core/dns/errors.js:48)
+lists it in `DNS_TYPES` — so 0.9.2 needs no transport change and no new
+architectural edge. `createMxAudit()` already receives `dohQuery` and
+`optionalCheck` as arguments, per §12's rule that a protocol directory has no
+edge to `core/dns/`. Both releases use what is already injected.
+
+### 1. `ipScope()` — 0.9.1
+
+New export in [`src/core/shared/ip.js`](../../../src/core/shared/ip.js), beside
+`parseIpCidr()` which it uses for the range arithmetic. Placement follows the
+existing import matrix: `core/mx/` already imports from `core/shared/`, and
+`core/spf/` will be able to use the same predicate without a new edge.
+
+```js
+export function ipScope(address, family)  // → one of IP_SCOPE
+```
+
+Registry algebra `ip.scope`, owner `core/shared`, closed:
+
+| Member | IPv4 | IPv6 | Reachable |
+| --- | --- | --- | --- |
+| `global` | everything not below | everything not below | yes |
+| `unspecified` | `0.0.0.0/8` | `::/128` | no |
+| `loopback` | `127.0.0.0/8` | `::1/128` | no |
+| `private` | `10/8`, `172.16/12`, `192.168/16` | `fc00::/7` | no |
+| `link-local` | `169.254.0.0/16` | `fe80::/10` | no |
+| `shared` | `100.64.0.0/10` | — | no (`RQ-MXV-04`) |
+| `documentation` | `192.0.2/24`, `198.51.100/24`, `203.0.113/24` | `2001:db8::/32` | no |
+| `benchmarking` | `198.18.0.0/15` | `2001:2::/48` | no |
+| `multicast` | `224.0.0.0/4` | `ff00::/8` | no |
+| `reserved` | `240.0.0.0/4`, `255.255.255.255/32` | — | no |
+| `v4-mapped` | — | `::ffff:0:0/96` | no |
+
+The registry is RFC 6890 and the IANA special-purpose address registries it
+establishes. `v4-mapped` is separated from `reserved` because an AAAA record
+holding `::ffff:203.0.113.5` is a specific and recognisable authoring mistake,
+and telling the operator that is more useful than telling them the address is
+reserved.
+
+`shared` is classified unreachable on authority rather than on judgement. The
+IANA IPv4 Special-Purpose Address Registry marks `100.64.0.0/10` as not globally
+reachable, and RFC 6598 §4 forbids publishing it in DNS zones reachable from
+outside the service provider's own network. A public MX advertising a shared
+address is therefore defective as published, whatever translator sits behind it,
+and this check reads what is published (`RQ-MXV-04`).
+
+`global` is the default rather than an enumeration, so an address in a range
+added to the registry after this ships is reported as reachable rather than as
+a finding. That direction of error is the safe one: this check must never
+invent an outage.
+
+### 2. MX result-shape changes
+
+Both releases extend the object `auditMxHosts()` returns. Every field added is
+optional in the sense that a host the resolver could not read carries the
+module's existing third value rather than a claim — the discipline `resolves`
+already follows and the reason it has three members and not two.
+
+#### 2.1 Per host — 0.9.1
+
+```js
+{
+  …existing fields,
+  isAddressLiteral: boolean,      // RDATA was an address, not a name
+  addressScopes: [                // one entry per address in `addresses`
+    { address: string, scope: string }   // scope ∈ IP_SCOPE
+  ],
+  reachability: 'global' | 'partial' | 'none' | 'unknown',
+}
+```
+
+`reachability` is registry algebra `mx.host.reachability`, closed, and is
+derived rather than looked up:
+
+- `unknown` when `resolves !== 'yes'`. An address set we could not read supports
+  no claim about scope, and this keeps the new field from contradicting the old
+  one.
+- `none` when every address is non-`global`. The host is unreachable.
+- `partial` when at least one address is `global` and at least one is not.
+- `global` when every address is `global`.
+
+`partial` is a real and distinct state, not a rounding of `none`. A host with
+one routable and one private address accepts mail most of the time and stalls
+whichever senders select the unroutable one, which is the harder fault to
+diagnose from the outside and the reason it is not folded into either
+neighbour. Its severity is medium (`RQ-MXV-01`).
+
+#### 2.2 Per host — 0.9.2
+
+```js
+{
+  …0.9.1 fields,
+  reverseNames: string[] | null,  // null when no name returned and a lookup did not answer
+  providerName: string | null,    // forward-confirmed canonical name, if any
+  providerAddresses: string[] | null,
+  missingAddresses: string[],     // provider set minus this host's set
+}
+```
+
+#### 2.3 Top level
+
+```js
+{
+  …existing fields,
+  // 0.9.1
+  addressLiteralHosts: string[],
+  unroutableHosts: string[],       // reachability === 'none'
+  partiallyRoutableHosts: string[],
+  nullMxConflict: boolean,
+  // 0.9.2
+  divergentHosts: [ { host, provider, missing: string[] } ],
+  hostsWithoutReverse: string[],
+}
+```
+
+`hostsWithoutReverse` means **no checked address of that host published a
+`PTR`**, and every one of those lookups returned to say so. A host where one
+address has a `PTR` and another does not is absent from this list: it has reverse
+DNS, incompletely, and the incompleteness is not what the finding is about. A
+host whose lookups did not return is likewise absent, because unknown is not
+absent — the rule the specs README binds every new observation to.
+
+### 3. Parser changes — 0.9.1
+
+`parseMxRecord()` gains two rejections and one classification. Its return shape
+gains `isAddressLiteral`; existing callers reading `preference` and `host` are
+unaffected.
+
+**Address literal.** A target is an address literal when it parses as an IPv4
+dotted quad or contains a colon. Both tests are safe: the DNS root delegates no
+all-numeric top-level domain, so a name that parses as a dotted quad cannot be
+a hostname, and a colon cannot appear in one. A host so classified skips its A,
+AAAA and CNAME lookups entirely — they are three queries per host spent proving
+something the RDATA already stated — and reports `resolves: 'no'` with
+`isAddressLiteral: true`.
+
+Such a host raises no `mx.dangling` (`RQ-MXV-05`): two findings for one defect,
+one of which prescribes a fix that cannot be carried out, is worse than the
+single finding this release adds. §5 states the suppression rule and acceptance
+criterion 3 asserts it.
+
+**Null MX conflict.** A new predicate, beside `isNullMx()` and not inside it:
+
+```js
+export function hasNullMxConflict(mx)   // some record is `0 .` AND some record is not
+```
+
+**Both halves are required, and array length is not the test.** Two `0 .`
+answers duplicate one declaration and contradict nothing, so they are not a
+conflict. A `0 .` beside anything else is one — including beside a record too
+malformed to parse into a host, because the domain has published "no mail here"
+next to an attempt to name where mail goes, and no sender can honour both. That
+case is also why the finding is raised outside `buildIssues()`'s `hosts.length`
+block: `0 .` beside a malformed record leaves `hosts` empty, and gating on it
+would lose precisely the case the finding exists for.
+
+`isNullMx()` is **not** changed. Its `mx.length !== 1` guard is load-bearing in
+three places — the `src/audit/` deep-check gate, provider detection via
+`@null-mx`, and the MTA-STS `policy-on-null-mx` finding at
+[`artifacts.js:341`](../../../src/audit/artifacts.js:341) — and every one of them wants the
+current meaning, which is "this domain has declared it receives no mail". A
+domain with a contradictory set has declared nothing coherent, so it correctly
+fails that predicate and correctly raises this one.
+
+The `.` pseudo-target needs no exclusion: `parseMxRecord()` already rejects it,
+because stripping its trailing dot leaves an empty host. Nothing about lookup
+behavior changes in this release — the record set is read twice, once for
+`targets` as today and once by this predicate, and only the second reports
+anything new.
+
+### 4. Divergence detection — 0.9.2
+
+Runs only where all four hold: `inAudited === true`, `resolves === 'yes'`,
+`reachability !== 'none'`, and the deep-check gate is on. It produces at most
+one finding per host.
+
+**At most the two lowest-preference qualifying hosts are examined.** The 0.13
+draft capped addresses per host and candidates per domain but not hosts, leaving
+the worst case unbounded in whatever a domain chooses to publish — ten in-domain
+MX hosts would have cost forty `PTR` queries. The privacy review measured that
+and closed it (§7.2, `RQ-MXV-03`). The cost is that a third divergent vanity
+host goes unreported; the finding is that a copy has fallen behind its provider,
+and two instances establish it as well as ten.
+
+Per qualifying host:
+
+1. **Reverse.** `PTR` on the host's addresses, capped at four unique addresses,
+   each through `optionalCheck` **per address**. The host's addresses are the
+   `A` answers followed by the `AAAA` answers — two lookups, combined in that
+   order, each preserving the order the resolver returned — so the cap is
+   applied to that list and not to any single combined "zone order", which does
+   not exist. A host publishing four or more IPv4 addresses therefore has its
+   IPv6 addresses left unchecked.
+
+   Aggregation is per address and never per host. One address whose `PTR` does
+   not return, or returns nothing, must not stop another address from yielding a
+   usable forward-confirmed name — that is the same rule `auditMxHosts()` already
+   applies when it degrades a single host rather than the whole audit, and the
+   reason `resolves` has three values. Concretely:
+
+   | Per-address outcome | Contributes to `reverseNames` | Ends the host's procedure |
+   | --- | --- | --- |
+   | Name returned | the name | no |
+   | Empty answer (no PTR published) | nothing | no |
+   | Lookup did not return | nothing | no |
+
+   The recorded field carries three distinguishable states, because `[]` is a
+   claim — "this host publishes no reverse DNS" — and must never stand in for a
+   lookup that did not answer:
+
+   The cap is not only a budget, it is part of what the finding *means*: at
+   most four unique addresses are reversed, `A` answers before `AAAA` answers,
+   so every state below is a statement about the **checked** addresses and the
+   text says so — including that a host with four IPv4 addresses has had none
+   of its IPv6 addresses looked at.
+
+   | State of `reverseNames` | Means | Raises `mx.no-reverse-dns` |
+   | --- | --- | --- |
+   | a non-empty array | those names returned, whatever else failed | no |
+   | `[]` | every checked address answered, and none published a `PTR` | yes |
+   | `null` | no name returned **and** at least one lookup did not answer | no |
+
+   So `null` is not reserved for the case where *every* address failed: one
+   failure beside one empty answer is `null` too, since nothing distinguishes
+   that host from one whose `PTR` simply did not reach the resolver. Any name
+   that did return outranks a sibling failure and is recorded, and the procedure
+   continues on it.
+2. **Candidate.** Take the first returned name that is neither the MX host
+   itself nor a name under the audited domain. A PTR pointing back into the
+   audited zone means there is no separate provider name to compare against,
+   which is the self-hosted case and is not a finding. Cap at two distinct
+   candidates per domain.
+3. **Forward-confirm.** Resolve the candidate's A and AAAA. If the address the
+   PTR came from is absent from that set, the pointer is not forward-confirmed
+   and the procedure stops. **This gate is the whole basis for trusting the
+   name**: a PTR is authored by whoever holds the reverse zone, which for hosted
+   mail is the provider, but nothing forces it to name a service. FCrDNS is the
+   standard test — the one large receivers apply to sending IPs — and without
+   it this check would report divergence against an arbitrary string.
+4. **Compare.** With `H` the host's address set and `P` the confirmed
+   provider's: report when `H ⊂ P` strictly. `missingAddresses` is `P \ H`.
+   `H = P` is the correct vanity configuration and produces nothing. `H ⊄ P`
+   means the two names have diverged in both directions, which is not this
+   finding and is left alone; deferred as `RQ-MXV-06`.
+
+**These are sets of address values, not of strings.** `2a01:100::20` and
+`2a01:0100:0000:0000:0000:0000:0000:0020` are one address written two ways, and
+a zone is free to publish either. Membership — de-duplication, the
+forward-confirmation test in step 3, and `H ⊂ P` in step 4 — is therefore
+decided on address VALUES, never on the text. The identity that decides it is
+`addressKey()`, private to `core/mx/` and built from the shared parsers: MX is
+the only owner asking this question, and `core/shared/` is for helpers two or
+more protocol owners read.
+Comparing text made the two spellings two addresses, which failed confirmation
+and reported a real divergence nowhere.
+
+Two things this deliberately does not do. It does not rewrite the evidence: the
+first-seen spelling is what `missingAddresses` and `hosts[].addresses` carry, so
+the remediation quotes the address as its zone published it. And it does not
+fold the families together: an `AAAA` publishing `::ffff:203.0.113.1` keys as
+IPv6, because it is a different delivery path from an `A` publishing
+`203.0.113.1` and treating them as one would report a host as holding an
+address it does not publish.
+
+**And they are sets of REACHABLE values.** `H` and `P` are taken over globally
+routable addresses only — `ipScope()` returning `'global'` — before either the
+subset test or `P \ H` is computed. The finding says the operator is missing
+redundancy a sender could have used; a provider's private, shared-space,
+documentation, IPv4-mapped or unparseable value is not that, and naming it in
+`missingAddresses` would tell the operator to publish an address 0.9.1 reports
+as `mx.unroutable`. The finding would be recommending the defect its sibling
+reports.
+
+The restriction applies to **both** sides, which is what stops it introducing a
+second defect: with only `P` restricted, an extra private address on the host
+would leave `H ⊄ P`, read as bidirectional divergence, and suppress a real
+missing global address entirely. Two consequences follow and are asserted:
+`H` empty — a host with no reachable address of its own — supports no claim and
+produces nothing, rather than passing a vacuous subset test; and genuine
+bidirectional divergence between two *reachable* sets is still `RQ-MXV-06`'s
+deferred case, not this finding.
+
+Evidence is unaffected: what `missingAddresses` carries is still the provider's
+published text for the addresses that survive the filter.
+
+**Query budget.** With the two-host cap above, a domain costs at most
+`2 hosts × 4 addresses = 8` PTR plus `2 candidates × 2 = 4` forward lookups —
+**12**. On the common shape, one in-domain MX host with one address, it is 3;
+for a domain whose MX hosts are named by its provider it is 0. Measured over the
+deterministic corpus: 8 `PTR` queries across 80 audited domains, because only 7
+of them have a qualifying host at all (§7.1).
+
+**The gate is not an opt-in, and the 0.1 draft was wrong to imply it.** Deep
+checks ship ticked: `MAX_DEEP_CHECK_DOMAINS` at
+[`events.js:105`](../../../src/ui/events.js:105) switches them off only above 50
+domains, and PRIVACY.md states plainly that they are the default and that the
+published per-domain figures are the numbers with them on. An ordinary
+single-domain run therefore issues these queries. Every cost and disclosure
+argument in this document is made on that basis, and the fan-out it implies is
+measured in §7.2 rather than assumed.
+
+**Why the deep-check gate and not a new one.** MX already sits behind it, DANE
+already extends it at [`audit-domain.js:347`](../../../src/audit/audit-domain.js:347),
+and 0.9.0 made `deepChecks` part of report provenance precisely so that a
+report run without it is not compared as though the protocol were observed.
+Putting 0.9.2 behind the same flag means the comparison release handles it
+correctly with no further work. A separate flag would need its own provenance
+field and its own comparability rule.
+
+That is an argument for reusing the existing flag, and it is **not** an argument
+that the work is opt-in. If the privacy review in §7 concludes the disclosure
+should be separately consentable, a dedicated flag is the mechanism, and its
+provenance and comparability cost is the price. §7 decides this; §4 does not.
+
+### 5. Findings
+
+Registered in [`src/audit/findings.js`](../../../src/audit/findings.js) and raised from
+[`src/audit/issues.js`](../../../src/audit/issues.js) beside the existing `mx-*` block at
+lines 532–546.
+
+| Release | Key | Id | Severity | Category | Effort |
+| --- | --- | --- | --- | --- | --- |
+| 0.9.1 | `mx-unroutable` | `mx.unroutable` | critical | transport | moderate |
+| 0.9.1 | `mx-partially-routable` | `mx.partially-routable` | medium (`RQ-MXV-01`) | transport | moderate |
+| 0.9.1 | `mx-address-literal` | `mx.address-literal` | critical | transport | trivial |
+| 0.9.1 | `mx-null-conflict` | `mx.null-conflict` | medium | hygiene | trivial |
+| 0.9.2 | `mx-vanity-divergent` | `mx.vanity-divergent` | medium | resilience | moderate |
+| 0.9.2 | `mx-no-reverse-dns` | `mx.no-reverse-dns` | info | resilience | moderate |
+
+`mx.unroutable` is critical for the same reason `mx.dangling` is: where it is
+the only host, the domain receives no mail. `mx.address-literal` is critical
+because it is the same outage; it is `trivial` effort because the fix is one
+record.
+
+**Suppression (`RQ-MXV-05`).** A specific finding suppresses the general one
+whose remediation would be wrong. **`mx.address-literal` is the only finding that
+suppresses anything.** It suppresses `mx.dangling` for the record that raised it,
+because `mx-dangling` tells the operator to check the zone for a missing address
+record, and no address record can exist for a name that is an address.
+
+`mx.null-conflict` suppresses nothing, and the 0.3 draft was wrong to say it did.
+A conflicted set raises no `mx.dangling` to suppress: `parseMxRecord()` rejects
+`0 .` outright, so the pseudo-target is never a host and never dangles. The
+finding adds a report where there was silence rather than replacing a wrong one.
+`mx.unroutable` likewise suppresses nothing, because a host that resolves is not
+dangling and the two never co-occur.
+
+**`mx.vanity-divergent` does not suppress `mx.single-host`, and the 0.1 Risks
+section was wrong to group them.** The two state different facts: `single-host`
+counts MX *names*, `vanity-divergent` compares *addresses behind one name*.
+Neither implies the other, and unlike the `mx.dangling` pairs, `single-host`'s
+remediation stays correct — publishing a second MX host is still sound advice for
+a domain that has one, whether or not the first one's address set is complete.
+Suppressing it would hide a real resilience fact that survives fixing the
+divergence. Both appear, and acceptance criterion 12 asserts it.
+
+`mx.no-reverse-dns` is `info` and must stay `info`. RFC 5321 §4.1.4 states that
+a failed reverse lookup **SHOULD NOT** on its own be grounds for refusing mail,
+and the receiving path is not where reverse DNS is enforced in practice. Raising
+it higher would misrepresent a hygiene note as a delivery risk, on the protocol
+side where it matters least.
+
+### 6. Evidence
+
+All six findings emit `host` evidence, already an `EVIDENCE_KINDS` member at
+[`findings.js:72`](../../../src/audit/findings.js:72), except `mx-null-conflict`,
+which emits `mx` evidence because the defect is in the record set rather than in
+any host. `mx.unroutable` and `mx.partially-routable`
+carry the offending address and its scope in their arguments, so the report
+states which address is unreachable and why, not merely that one is.
+
+### 7. Privacy review — conducted, with the fan-out executed
+
+[`AGENTS.md`](../../../AGENTS.md:110) makes anything implying a `PRIVACY.md` edit a
+stop condition. 0.9.2 implies one. This section is the review that discharges
+it, conducted before any 0.9.2 production code was written.
+
+**The 0.14 draft called its figures measured, and they were not.** They were
+obtained by counting addresses already stored in the `v0.9.1` oracle, which says
+how many `PTR` calls the algorithm *would request* and says nothing at all about
+the forward-confirm step — the oracle holds no `PTR` answers, so no candidate
+name can be selected from it. Review caught the mislabelling, and the gap was
+not academic: the projection said 8 additional queries and execution issues 16.
+
+The figures below are now **executed**. A measurement-only harness runs §4
+literally over the real qualifying hosts against a recording resolver, with a
+negative control, and its trace is captured in
+[ptr-fan-out-0.9.2](fixtures/ptr-fan-out-0.9.2.md). No 0.9.2 production code
+exists, and none is authorized by this section.
+
+**0.9.1 was not gated.** It issued no query and removed three per address-literal
+host. What follows is entirely about 0.9.2.
+
+#### 7.1 What the gate actually admits
+
+The divergence procedure runs only where `inAudited && resolves === 'yes' &&
+reachability !== 'none'`, with deep checks on. `inAudited` is the narrow one: the
+MX host must be a name under the audited domain. A domain using provider-named
+MX hosts — every Google Workspace and Microsoft 365 customer, and most hosted
+mail — has **no qualifying host and costs nothing**.
+
+Measured over the 32-case deterministic corpus, from `baseline-v0.9.1.json`:
+
+| | |
+| --- | --- |
+| Domains audited | 80 |
+| Carrying an `mxHealth` fact (deep checks on) | 76 |
+| Domains with **any** qualifying host | **7** |
+| Qualifying hosts in total | 7 |
+| `PTR` queries the whole corpus would issue | **8** |
+
+Under 9% of audited domains reach step 1 at all. That is the gate doing the
+work, not an accident of the corpus: the check exists for vanity MX, and a
+vanity MX is by definition in-domain.
+
+#### 7.2 Ordinary and worst-case fan-out
+
+Per qualifying host the procedure costs `min(addresses, 4)` `PTR` queries; per
+domain it then costs at most two candidate names × two lookups each (`A` and
+`AAAA`) to forward-confirm.
+
+Executed over the corpus, deep checks on, through the **production cache and
+transport** with a recording `fetch` beneath them:
+
+| | Observed |
+| --- | --- |
+| Procedure calls above the cache | **16** (8 `PTR` + 8 forward) |
+| **Requests that left the browser** | **14** |
+| Saved by page-lifetime cache reuse | **2** |
+| Outbound per audited domain | **0.175** |
+| With the gate off (control) | **0** |
+
+The distinction is the point. `PRIVACY.md` publishes transport fan-out — what
+leaves the browser after cache reuse — so **14** is the figure in its terms, and
+it is observed at the `fetch` seam rather than derived from 16 by subtraction. A
+draft of this section calculated 14 instead of executing it, which was the same
+mistake one layer down.
+
+| Case | Additional queries |
+| --- | --- |
+| Domain with provider-named MX (the common case) | **0** |
+| Domain with one vanity host, one address | 1 `PTR` + 2 forward = **3** |
+| Domain with one vanity host, two addresses | 2 + 2 = **4** |
+
+Two observations the projection could not have produced. The forward step
+**doubles** the call count, being per candidate rather than per address. And the
+cache absorbs exactly two of the sixteen — `alpha.test` and `nowww.host.test`
+reach the same provider, and the two-candidate cap is per domain and does not
+dedupe across them.
+
+**The accepted result is pinned, not merely printed.** Every figure above is a
+`node:assert/strict` constant in the harness — the domain and host counts, the
+8 + 8 split, 16 above the cache, 14 outbound, 2 saved, the three findings, and
+the ordered fourteen-entry outbound trace. An earlier verdict asserted only the
+controls, and all of them still passed while the ordinary result drifted to
+14/12; that drift now exits non-zero.
+
+Five controls hold it honest. The gate off issues nothing. Renaming the repeated
+provider returns outbound to exactly 16 — pinned to 16, not to "more than 14",
+because 15 would mean the cache had absorbed a request it should not have. The
+same name under a different type misses, so the key discriminates on both. The
+pinned check is itself run against a deliberately drifted fixture and must
+reject it. And the trace printed in the capture is asserted equal to the
+executable's constant, so document and harness cannot part company silently.
+Capture: [ptr-fan-out-0.9.2](fixtures/ptr-fan-out-0.9.2.md).
+
+What is executed is the *shape*, not the real-world distribution: how often a
+reverse name forward-confirms, and how often two audited domains share a
+provider, are properties of the internet rather than of this corpus. §7.5's
+requirement that `PRIVACY.md` be re-measured rather than adjusted stands for
+exactly that reason.
+
+For scale: deep checks already cost **four queries per MX host** — three to
+resolve and probe for a `CNAME`, plus one `TLSA`. On a single-address vanity
+host 0.9.2 adds one more, and the two forward-confirm lookups are per domain
+rather than per host.
+
+**The worst case is unbounded, and that is a defect in §4 rather than a
+measurement.** The caps are on addresses *per host* and candidates *per domain*.
+Nothing caps the number of qualifying hosts, so a domain publishing ten
+in-domain MX hosts costs forty `PTR` queries. §4 is amended to cap the procedure
+at **the two lowest-preference qualifying hosts**, which bounds a domain at
+
+    2 hosts × 4 addresses = 8 PTR  +  2 candidates × 2 = 4 forward  =  12
+
+and the whole default path — deep checks disable themselves above 50 domains —
+at **600 additional queries**, against a present ceiling of roughly 41 × 50 =
+2,050. The cost of the cap is that a third divergent vanity host goes
+unreported; the finding is about a copy that has fallen behind, and two
+instances establish that as well as ten. `RQ-MXV-03`.
+
+#### 7.3 What is disclosed, exactly
+
+Two name classes reach the resolver that no earlier release sent it.
+
+**1. Reverse zones.** One `PTR` per checked address:
+
+    <reversed-octets>.in-addr.arpa          for IPv4
+    <reversed-nibbles>.ip6.arpa             for IPv6
+
+**2. A provider name the user never typed and the audited zone never
+published.** Forward-confirming a candidate resolves a hostname belonging to a
+third-party mail operator — `mailfilter.hibox.hinet.net` for the worked example
+in §Problem, reached from a customer domain that names only
+`mailfilter.allremote.com.tw`.
+
+The second is the one that deserved this review. Every other name the tool has
+ever queried is either typed by the user or published in the audited domain's
+own records. This is the first inferred from a third party's data.
+
+#### 7.4 Decision: no separate opt-in — `RQ-MXV-03`
+
+**PTR checks remain under the existing deep-check flag.** Three reasons, in the
+order that decided it.
+
+**What is genuinely new is intent and linkability, not data.** The 0.14 draft
+argued that the resolver already holds every datum, so the marginal disclosure
+is nil. That was too quick, and review was right to reject it. Holding a datum
+is not the same as watching this client ask for it: the `PTR` reveals that the
+client is *investigating* a particular MX address, and the forward lookup links
+that investigation to the returned provider name and to the rest of the audit
+run. The resolver learns a chain it could not previously assemble — this
+address, then this provider, then these other domains in the same page.
+
+That is a real disclosure and it is weighed here rather than waved past. It does
+not, on balance, require its own control, for three reasons.
+
+**The chain is short, and every link is already visible.** Cloudflare returned
+the `A` record, so it holds the address before any `PTR` is sent; it answers the
+`PTR`, so it holds the provider name before the forward lookup. The new
+information is the *sequence*, not any element of it — and the sequence is
+already inferable from the existing MX, `A`, `AAAA`, `CNAME` and `TLSA` queries
+the audit issues for the same host within the same page. An observer who can
+correlate the new queries could already correlate those.
+
+**0.9.2 adds no new means of correlation of its own.** All of it happens inside
+one page lifetime, against the one resolver the application already uses, for
+domains the user typed: no application-level identifier, no persistence, and no
+new recipient.
+
+That is the whole of the claim, and it is deliberately narrower than a draft of
+this section made it. That draft said a run stays "unlinkable to any other run,
+which is the property `PRIVACY.md` actually promises". Both halves were wrong.
+`PRIVACY.md` promises no such thing — it says plainly that every query name is
+visible to Cloudflare and governed by Cloudflare's policy. And Cloudflare can
+correlate runs from ordinary connection metadata — source address, TLS
+connection, timing — whether or not this application contributes an identifier.
+Adding nothing is not the same as preventing it, and this document does not get
+to claim the second.
+
+**The derivation starts in the audited domain's own records.** MX → address →
+`PTR` → name is a chain whose first link the domain published deliberately. This
+is not a name from an unrelated source; it is the domain's own MX target,
+followed one hop further.
+
+**And a separate flag has a real, stated cost.** 0.9.0 made `deepChecks` part of
+report provenance so that a comparison never reports an unobserved protocol as
+fixed. A new flag needs its own provenance field, its own entry in the
+observability map, and its own comparability rule — machinery that exists to
+prevent false "resolved" claims, duplicated for a distinction the paragraph
+above says is nearly empty.
+
+**What would change this answer.** If 0.9.2 introduced persistence across runs,
+a second destination, or an application-level identifier, the second reason fails and
+the decision is wrong. Likewise if the procedure ever queried a name *not*
+derivable from the audited domain's published records — a provider registry, a
+reputation service, an ASN lookup — the first two reasons collapse and it
+belongs behind its own control, or in
+[external-intelligence](../external-intelligence.md). The forward-confirm gate is
+what keeps 0.9.2 on the near side of that line: it refuses any candidate that
+does not resolve back to the address the audited domain published, so no name
+outside that chain is ever acted on. That gate is now load-bearing for privacy
+as well as for correctness.
+
+#### 7.5 The prepared `PRIVACY.md` amendment
+
+`PRIVACY.md` documents what the shipped application does. 0.9.2 is not
+implemented, so the amendment is recorded here and applied **in the release that
+ships the behavior**, not before — publishing it earlier would describe queries
+the application does not make.
+
+Add to the disclosure list at `PRIVACY.md:80`, after the MX-host entry:
+
+> - **With the deep protocol checks enabled, for an MX host named inside the
+>   audited domain** — the reverse zone of each of its addresses
+>   (`<reversed>.in-addr.arpa` or `.ip6.arpa`), and, where that reverse name is
+>   forward-confirmed, the name itself. That last name belongs to whoever runs
+>   the mail service and is not published by the audited domain: it is reached
+>   by following the domain's own MX record one hop further. A domain whose MX
+>   hosts are named by its provider — the common case for hosted mail — makes
+>   none of these queries.
+
+And to the fan-out paragraph at `PRIVACY.md:70`: the per-domain figures must be
+**re-measured, not adjusted**, on the release that ships 0.9.2. The measurement
+above predicts a corpus average of 0.1 additional queries per domain and a
+bounded worst case of 12, but the published figures come from a real run and
+this document does not get to estimate them.
+
+### 8. As implemented
+
+The 0.9.1 record comes first because it was written first; the 0.9.2 entries
+follow it in the order review produced them, newest first. Nothing here has been
+rewritten to match the finished state — an amendment says what was wrong and
+what replaced it, and the original claim stays visible above it.
+
+**Released as `v0.9.2` on 2026-09-05.** The behaviour that shipped is the §4
+algorithm with all three caps load-bearing, forward confirmation against the
+source address, value-identity comparison over globally reachable addresses
+only, and the three-state `reverseNames`. Measured through the shipping code
+across the 32-case corpus's 80 audited domains: **8 additional queries**, 0.1
+per domain, 0 for a domain whose MX hosts are provider-named, and **4** for the
+dedicated case that exercises both findings. `PRIVACY.md` carries those measured
+figures. No score, grade, CSV, DOM or report surface moves on any pre-existing
+case; the single new case is content-pinned on all five surfaces.
+
+#### 8.1 As implemented — 0.9.1
+
+Five departures from this document, found while building it. **Corrected at
+`1.10`:** this section originally said none of them changes what 0.9.1 reports.
+Two do. The preference check below was withdrawn outright, so a finding this
+document specified is not in the release at all; and the null-MX conflict's
+emission moved at `0.6`, which changes what is reported for a record set that
+parses into no host. The other three change only how the spec described getting
+there. Each departure is left as it was written, with a correction beside it
+where a later round overtook it.
+
+**The five-commit order was wrong: steps 3 and 4 are one commit.** The spec and
+the handoff both put the locale strings before the findings, because `t()`
+returns the key itself when a message is missing. That constraint is real, but
+so is its opposite: `src/audit/issues.test.js` and
+`tests/contract/legacy-shapes.test.mjs` both assert that `audit.issue.key`
+equals the locale issue keys exactly, so strings without findings fail as surely
+as findings without strings. Neither ordering has a green commit between them,
+and the two land together.
+
+**`ipScope()` returns `null` for text it cannot parse, and `reachability` treats
+a host with no classifiable address as `unknown`.** §2.1 enumerated four cases
+and did not cover an unreadable DNS answer. Counting one as `global` would
+assert reachability never checked, and counting it as unroutable would invent an
+outage; both are excluded from the verdict, and a host with nothing left to
+judge is `unknown`. Asserted by `mx.test.js` section 6.
+
+**`mx.null-conflict` is gated on the audit having at least one resolved host.**
+`buildIssues()` reaches the MX block only when `mxHealth.hosts` is non-empty, so
+a record set of nothing but `0 .` entries — where `hasNullMxConflict()` is
+`true` but no real host exists — reports nothing. That is the right observable
+behavior, since the contradiction the finding is about is a null MX beside a
+*real* host, but the predicate and the finding are not coextensive and the spec
+implied they were.
+
+> **Superseded at `0.6`, before 0.9.1 shipped. This paragraph is history, not
+> current behaviour.** Two of its claims are now false. `hasNullMxConflict()`
+> does **not** return `true` for a set of nothing but `0 .` entries: it means
+> `0 .` published beside a **different** record, so two copies of `0 .` are a
+> duplicate and not a conflict — final §3, and revision `0.6`. And the finding
+> is no longer gated on a resolved host existing: emission moved outside the
+> `hosts.length` gate in the same round, precisely so a record set that parses
+> into no host still reports the contradiction. What survives from this
+> paragraph is the observation that drove the change — that the predicate and
+> the finding were not coextensive.
+
+**The existing fixture corpus publishes RFC 5737 documentation addresses, so
+`mx.unroutable` fires across it.** `203.0.113.x` is not globally reachable, so
+the classifier is correct and the fixtures are synthetic; 0.4.0's rubric-drift
+guard in `tools/scoring.test.mjs` moves from 21 findings to 22 for this reason.
+Worth stating because it is the first check in this project that a
+documentation address trips, and future fixture authors need to know that a
+"healthy" MX fixture now has to use a globally routable address.
+
+**`mx.invalid-preference` is withdrawn (0.6).** RFC 1035 §3.3.9 encodes the
+preference as an unsigned 16-bit integer in the wire format, so a value above
+65535 cannot survive a real MX response and cannot reach `parseMxRecord()` from
+the resolver. The 0.5 implementation exercised it by calling `auditMxHosts()`
+with a string no resolver produces, which is the reviewed-registry stop
+condition in `AGENTS.md` — "inventing a response shape is worse than saying it
+cannot be reached" — rather than a finding. The finding, the `preferenceValid`
+parser field, the `invalidPreferences` result field, its locale strings in all
+fourteen languages, and its registry and matrix entries are all removed. What
+remains is the observation that both ends of the real range parse.
+
+**Fixture policy for reachable addresses (0.6).** Documentation addresses are
+*not* rewritten across the corpus: `192.0.2.x`, `198.51.100.x` and `203.0.113.x`
+remain valuable synthetic inputs, and several of them now exercise
+`mx.unroutable` deliberately. The rule is narrower — **a fixture that is meant
+to represent a healthy, reachable MX must deliberately use an address in
+globally-routable class, and must say in the fixture that the value is a stub
+chosen for its scope and not an assertion about who holds it.** `mx.test.js`
+names two such constants and states exactly that. The 0.5 implementation used
+two real addresses taken from a live audit, which carried an ownership
+implication no test needs.
+
+**The corpus was split rather than rewritten (0.7).** Applying the fixture
+policy above moved 29 background MX hosts off documentation space into
+`100.200.x.x`, mapping each source /24 to a distinct /24 so no case newly groups
+under `mx.same-prefix`. `mx-health-and-tlsa` keeps its RFC 5737 addresses and its
+description now says the resulting `mx.unroutable` is intentional. Two of the
+address records carried a flag suffix in their fixture key — `'… A cd'`, the
+checking-disabled variant — and were missed by the first pass, which is how one
+unrelated case kept a critical finding it was not testing.
+
+**The authorized delta is bounded, not merely re-baselined (0.7).**
+`tests/build/release-compat.test.mjs` gains a `release091Violations()` rule
+proving the new oracle hides nothing beyond three changes: the seven new
+`mxHealth` fields, the stub addresses, and `mx.unroutable` in the single
+non-routable case. Query traces are asserted byte-identical in every case, and
+scores and grades likewise. Eight negative controls hold the rule honest, and two
+of them earned their place — the score control caught that the assertion was
+reading `score.total`, which does not exist (the field is `score.pts`), and so
+had been vacuous; and the authorized-finding filter initially missed
+`remediationPlan[].findings[]`, which carries bare id strings rather than
+objects.
+
+**The stub addresses are length-preserving (0.8).** The 0.7 stubs were the
+right scope but the wrong width, which left `report.length` moving in 30 cases
+and no exact way to account for it — the report surface can only be
+reconstructed from what the oracle records, and it records length, structure and
+a hash, not the body. Each stub is now the same number of characters as the
+address it replaces, so the substitution moves no rendered byte: report length
+and structure are identical to 0.9.0 in every case except the one authorized
+one. The /24 grouping is preserved as before.
+
+**The cross-release guard bounds all five surfaces, on their authorized paths
+only (0.8).** Review found three ways the 0.7 guard was looser than the
+authorization it claimed to express: it never read `report` at all; it skipped
+CSV and DOM entirely for the authorized case, making that authorization
+case-wide rather than finding-wide; and it stripped the seven new field names
+recursively by name rather than at `advanced.mxHealth`, so one of those names
+appearing elsewhere would have ridden through. All three are closed. The
+authorized case's DOM is now reconstructed exactly — three named removals, and
+the reconstruction is asserted equal line-for-line — and its CSV is compared
+cell by cell with the finding dropped positionally from `Finding Severities`
+against the index it occupied in `Finding IDs`. Sixteen negative controls hold
+the rule honest, three of them mutating the authorized case specifically,
+because every earlier control mutated `cases[0]` and so never exercised that
+branch.
+
+**The authorized delta is bounded by occurrence, not by kind (0.9).** Review
+round 2 found three ways the guard still granted more than the authorization
+stated. The report was bounded exactly for the 31 background cases and not at
+all for the authorized one, which accepted any structure and any greater length;
+it now requires the measured length delta of 3,371 bytes and the measured
+element-composition delta — `+1 button`, `+3 code`, `+19 div`, `+16 span` with
+matching closers — and has its own controls. The DOM transform removed the whole
+critical `finding-group` on sight, which hid a second critical finding inserted
+into that group; it now removes the named finding's subtree first and drops the
+group wrapper only after proving the group holds no remaining finding. And every
+remover used `filter()`, which deletes any number of matching entries; each now
+counts first and refuses unless the count is exactly one — two, for the DOM,
+where the finding renders both as itself and as a `plan-finding`.
+
+**What the report guard cannot prove, stated rather than implied (0.9).** The
+oracle records a report's length, element structure, fixed byte counts and a
+hash — never its body. No rule can therefore prove the authorized report's
+*content* is 0.9.0's plus the rendered finding, and an arbitrary replacement
+hash on that one case is indistinguishable from the real one. What is proven is
+the exact length delta, the exact element-composition delta, and that the hash
+moves with content and only with content — the last established by the two cases
+whose content did not move, where the hash is required to be identical.
+
+**Order, shape and absence, which counting did not close (0.10).** Review round
+3 found three more. The report structure was reduced to token counts, so
+reversing the entire sequence preserved the delta and passed; the oracle does
+retain the ordered tag sequence, and the guard now asserts an ordered edit
+script — zero deletions, and 78 insertions in ten runs at named positions. The
+removers validated how many entries carried the authorized id but not what they
+contained, so the sole authorized issue could carry any arguments and the sole
+authorized DOM subtree any content; both are now validated by shape — the issue
+field-wise including its arguments, the finding by its seven identity fields,
+and each DOM subtree by role, line count and content hash. And the CSV rule
+flagged only *more* than one authorized segment, so a CSV with none at all —
+a renderer that silently stopped emitting the finding — passed unchanged; the
+four carrying columns are now resolved by header and each must contain exactly
+one, with the severity checked at the index the id occupies.
+
+**A note on the document version.** The specs README's table runs `0.2`–`0.9`
+for revisions, which this document has now exhausted while its unshipped 0.9.2
+half keeps it below `1.0 (Final)`. It continues past `0.9`. The table did not anticipate a
+document revised this many times before its second release is approved, and the
+numbering is the only thing that needed a decision.
+
+**Partial shapes, closed (0.11).** Round 4 found the shape validation itself
+incomplete in two places. The structured finding carries fourteen fields and the
+validator checked seven, so `args`, `blocks`, `dependsOn`, `evidence`,
+`keyspace`, `noteArgs` and `noteKey` could change while the finding was still
+removed as authorized; it is now compared whole, key-order-independently,
+against all fourteen. And the CSV `Issues` segment was matched by its opening
+words, so arbitrary text after `address space:` was counted, removed and
+normalized back to 0.9.0; the complete 230-character rendered message is now the
+comparand. Three controls added: the finding with rewritten `args`, the same
+with rewritten `evidence`, and the CSV message rewritten after its prefix.
+
+**The DOM shell, closed (0.12).** Round 5 applied the same test to the material
+the reconstruction removes *around* the finding. The severity badge was skipped
+by line count without reading its child, and the emptied `finding-group` was
+recognized by its opening classes alone, so the badge's emoji and the group's
+"Critical" label could both be rewritten and still normalize to 0.9.0. Both are
+now pinned by exact content hash, as the two finding subtrees already were.
+
+Auditing the transform for the same class of gap rather than waiting for it to
+be reported found one more: the row's `data-overall` revert was a blanket string
+replace, so a second row carrying `crit` would have been rewritten unexamined.
+Exactly one revert is now required, with its own control.
+
+The pattern across rounds 2, 3, 4 and 5 is worth naming, because it is the failure
+this kind of guard invites: each round the rule bound one more property of the
+authorized material — first that it appeared, then how often, then in what order,
+then with what content, then the same for the material surrounding it — and
+each intermediate version looked exact while accepting a mutation nobody had
+thought to write a control for. The controls are
+the specification; the rule is only their consequence.
+
+**The shared corpus was immutable, and nobody knew (0.13).** CI failed after the
+release was approved and pushed. The `Five-surface equivalence` job regenerated
+`baseline-v0.5.0.json` by checking out the v0.5.0 implementation and running it
+over the **current** corpus — `equivalence.mjs` loads the corpus from the runner
+root, not the subject root — then diffed the result byte-for-byte against the
+committed file. Any edit to a shared fixture therefore broke it: the regenerated
+output carried the new values while the committed oracle kept the old ones.
+
+This had held for four releases only because the corpus had not been touched
+since 0.6.0 created it. `git log` on `corpus.mjs` shows exactly two edits since,
+both from this branch. The constraint was real and undocumented, and the release
+that first exercised it is the one that discovered it.
+
+The v0.5.0 oracle is retired rather than regenerated. Regenerating it would have
+rewritten what a pre-refactor implementation is recorded as producing, on a
+scenario it never saw, and would have left the same trap for the next release
+that needs a fixture. Its purpose — proving the 0.6.0 refactor changed nothing —
+was discharged four releases ago. The cross-release chain now starts at `v0.7.0`,
+and `release-compat.test.mjs` loses the pre-refactor difference class and its
+three controls, 67 assertions to 60. Two suites that read the old file for data
+rather than for history were repointed at the current oracle: `transport-edges`
+reads it as a corpus of observed transport kinds, and `equivalence.validate`
+reads one query trace, which is byte-identical across every baseline in the
+chain — its assertion count is unchanged at 77, which is the evidence that the
+figures did not move.
+
+**As implemented — 0.9.2.** Three things the implementation settled that the
+spec had not.
+
+*The corpus needed reverse DNS before it could be measured honestly.* On first
+run the advisory fired in seven background cases, because no fixture published a
+`PTR` — the same fixture-pollution pattern 0.9.1 corrected for addresses,
+recurring at `info` severity. Those hosts were given reverse DNS naming
+themselves, which is the ordinary self-hosted shape and exercises §4's
+self-hosted branch. With that, **no rendered surface moves at all**: CSV, DOM
+and the report are byte-identical to `v0.9.1`, and only the result shape and
+seven query traces differ.
+
+*The shipping cost is 8 queries, not the spike's 14.* Measured through the
+implementation and the page cache across the 32-case corpus: 8 additional
+queries over 80 audited domains, 0.1 per domain, pinned per case in
+`release-compat.test.mjs` — `enforcing-signed` pays two because its qualifying
+host publishes both an `A` and an `AAAA`. The difference from the spike is that
+the corpus's reverse names are self-hosted, so forward confirmation is never
+reached there. `PRIVACY.md` carries the measured figure and says so.
+
+*The corpus now exercises both findings, in a case of their own.*
+`mx-vanity-divergence` audits a domain with two in-domain MX hosts: one whose
+provider publishes an address the copy lacks, and one with no reverse record at
+all. Both findings reach `issues`, CSV, DOM, the report and the remediation
+plan through the real audit path. Every other case keeps self-hosted reverse
+DNS and reports neither finding, which `release-compat.test.mjs` asserts
+directly. This closes the coverage gap recorded at `1.1`.
+
+**The disclosed order was not the order the code uses, corrected at `1.8`.**
+Reproduced against `318f36f` before anything changed: a host publishing four
+`A` answers and one `AAAA` whose `ip6.arpa` zone holds a `PTR` is asked four
+`in-addr.arpa` questions, is never asked the `ip6.arpa` one, and is reported as
+having no reverse DNS on its checked addresses — correct behaviour, described by
+text that was not.
+
+`1.7` said the four checked addresses are taken "in the order the zone returned
+them". There is no such order. `auditMxHosts()` performs two lookups and builds
+`addresses` as `(v4 || []).concat(v6 || [])`; `uniqueAddresses(...).slice(0, 4)`
+then takes unique `A` answers first and unique `AAAA` answers after, preserving
+the resolver's order only within each type. The phrase invented a single
+serialization that does not exist and hid the consequence that does: four IPv4
+addresses exhaust the budget before any IPv6 address is considered.
+
+Every normative and status occurrence now states what the code proves — up to
+four **unique** addresses per host, `A` answers considered before `AAAA`
+answers, resolver order preserved within each type — in §4 step 1, the §4
+three-state note, §5's drafting rules, the `1.7` entry below and the fourteen
+locale strings. **Query behaviour is unchanged**, deliberately: the cap and the
+A-then-AAAA order were reviewed and accepted, and this round corrects the
+description, not the code. Criterion 19 and a control in `mx.test.js` assert the
+trace as well as the result, so the opposite order fails rather than quietly
+finding a different name. `mx.test.js` 151 → 154.
+
+**Two remediations still claimed more than DNS established, corrected at
+`1.7`.** Round 21 reproduced both against `e52ead0` first.
+
+*The fix installed a name the audit inferred.* The `fix` told the operator to
+point the MX record at "the provider's own hostname", and the `fixCode` "after"
+block presented the inferred name as the replacement. Forward-confirmed reverse
+DNS proves a mapping exists; it does not prove the name is documented, stable,
+meant as an MX target, or available to this customer, and a generic per-address
+PTR name is the common case. Followed literally, the advice could replace a
+working MX with a name the provider never intended to serve. The remediation now
+starts at the provider's documentation: use a provider hostname only where the
+provider designates one, otherwise keep the operator's own name and reconcile
+the reachable addresses with them — the missing addresses being exactly what to
+ask about. The `fixCode` "after" block is labelled conditional, and its name is
+marked as a placeholder for the documented one.
+
+*And the explanation promised servers.* "Your provider is advertising more than
+one mail server" and "a working server was available" assert independent
+capacity from an address list. The text now says address paths: the host offers
+senders fewer reachable addresses than the provider publishes, DNS shows
+addresses and not machines, and whether they are separate servers is not
+something this audit saw.
+
+*The advisory overclaimed past its own cap.* Executed: a host publishing five
+addresses with a `PTR` on the fifth is asked about four, the fifth is never
+asked, and the finding said "This host publishes none" — false about that zone.
+The message and explanation now name the **checked** addresses and disclose that
+at most four unique addresses are checked, `A` answers before `AAAA` answers.
+*(The `1.7` text said "the first four ... in zone order"; corrected at `1.8`.)*
+The severity and the RFC 5321
+§4.1.4 position are untouched. Criterion 18 and a control in `mx.test.js` §19
+pin the cap and the scope of the claim together, because either alone permits
+the dishonest pairing.
+
+Both corrections were applied in English and all thirteen locales in the same
+change, and the movement was again one case on three surfaces —
+`mx-vanity-divergence`'s csv, dom and report — with `result` and `trace`
+byte-identical. `mx.test.js` 148 → 151.
+
+**The user-facing text still said what the code no longer does, corrected at
+`1.6`.** Round 20 reproduced both findings against `962fc22` first.
+
+*Three false claims in `mx-vanity-divergent`.* The `what` text said the
+forward-confirmed name "is the operator of the address", which Non-goals
+expressly denies; the `msg` said the host "resolves to fewer addresses", which
+`1.5` made untrue — a host can now publish an equal or greater raw count and
+still lack a reachable address; and the `fix` said to copy "all of the
+provider's current addresses", which would include the very values `1.5`
+refuses to recommend. The finding's own remediation contradicted the rule the
+same release had just introduced.
+
+Corrected in English and all thirteen locales in this change, through
+`locale:sync` / `locale:set` with the fallback rebuilt and the gate re-run: the
+round trip is stated as evidence of a **relationship**, explicitly not of
+ownership or operation; the message says the host does not publish every
+globally reachable address the provider does; the fix names the reachable
+addresses that are missing and warns that adding a private or reserved one
+creates the `mx.unroutable` fault; and a new paragraph says only globally
+reachable addresses are compared, so the reader can tell why an address they
+can see at their provider is not listed. The `fixCode` block gains the RFC 5737
+warning this document already requires — "203.0.113.10 is an example value
+only" — reusing each locale's existing wording of it from `mx-unroutable`.
+
+The equivalence baseline moved for **one case on three surfaces**:
+`mx-vanity-divergence`'s csv, dom and report. Its `result` and `trace` are
+byte-identical to the `1.2` capture, and the other 32 cases are unchanged on
+all five surfaces — which is the evidence that this round changed what is said
+and not what is measured or asked. `release-compat`'s pinned hashes are
+re-pinned to the corrected text with that split recorded beside them.
+
+*And the control count was not reproducible.* See the corrected accounting in
+the `1.5` entry below: eight new §18 assertions replacing one, net `+7`.
+
+**An architectural widening and a remediation defect, corrected at `1.5`.**
+Round 19 reproduced both against `9eff55b` first.
+
+*Identity did not belong in `core/shared/`.* `1.4` added `ipIdentity()` there
+with tests and an API entry, on the argument that a second protocol owner could
+one day read it. §12 defines that directory as helpers **two or more** protocol
+owners read, and the search is unambiguous: one production consumer,
+`core/mx/mx.js`. The export, its API entry and its shared-only tests are
+withdrawn; `addressKey()` is private to `core/mx/`, built from the already
+allowed `ipv4ToBigInt()` and `ipv6ToBigInt()`, and every MX behaviour and
+control from `1.4` is retained unchanged. A possible future reader is not an
+architectural edge — it is what would justify moving the helper on the day that
+reader exists.
+
+*The finding recommended publishing addresses that cannot receive mail.*
+Executed: a vanity host publishing `100.2.0.20` against a provider publishing
+`100.2.0.20` and `10.0.0.5` emitted `mx.vanity-divergent` with
+`missing: ["10.0.0.5"]` — remediation telling the operator to add a private
+address to a public MX host. Documentation space, shared space, an IPv4-mapped
+form and text that is not an address at all all did the same, and `1.4`'s own
+IPv4-mapped control pinned the defect as though it were the contract. The
+comparison is now over globally reachable values on both sides, per §4; that
+control is replaced by one asserting the mapped address is **not** reported.
+
+Reproduced alongside it, and fixed by the same change: an extra private address
+on the host made `H ⊄ P` and suppressed a real missing global address, so the
+audit reported nothing at all for a host that genuinely lacked reachable
+redundancy. **Eight new assertions** in `mx.test.js` §18 — five provider-only
+classes that must raise nothing, the missing-global case that must still raise,
+the suppression case and the reachable-both-ways case — replacing the one `1.4`
+assertion that had pinned the mapped-address defect as though it were the
+contract. Net `+7`: 141 to 148, which is what `tests/inventory.json` records.
+Across §§17 and 18 together the file carries fourteen MX assertions, six and
+eight. *(`1.5` said "twelve controls", a number the file does not produce;
+corrected at `1.6`.)*
+
+*And a wording correction while in the file.* `src/core/mx/API.md` said the
+reverse DNS says "who really operates" the addresses. §Non-goals says the
+opposite in terms: forward-confirmed reverse DNS evidences a relationship and
+does not establish ownership or operation. Corrected.
+
+**An identity defect and three documentation defects, corrected at `1.4`.**
+Round 18 reproduced all four against `4f0b7b3` first.
+
+*An address set was a set of spellings.* A host publishing
+`2a01:0100:0000:0000:0000:0000:0000:0020` whose provider publishes the
+equivalent `2a01:100::20` failed forward confirmation — `provider.indexOf()` on
+presentation text — so `providerName` stayed null and a real strict-subset
+divergence was reported nowhere. The same defect made two spellings of one
+address two members of `H`, which then could not be a subset of anything.
+An address identity — `addressKey()`, private to `core/mx/` since `1.5` and
+built from the shared parsers — now gives an address a comparable key, and
+de-duplication, forward confirmation and the `H ⊂ P` test all compare keys.
+First-seen text is preserved for evidence, because the remediation should quote
+the address as the zone published it, and `hosts[].addresses` still records the
+answer as it came back: canonicalization is for the comparisons, not for the
+report. The two families stay apart — an `AAAA` publishing `::ffff:203.0.113.1`
+is a different delivery path from an `A` publishing `203.0.113.1`, and folding
+them would report a host as holding an address it does not publish. Six
+controls in `mx.test.js` and eight in `ip.test.js`.
+
+*The owning directory's API contract was three releases stale.*
+`src/core/mx/API.md` documented five exports and the pre-0.9.1 result. §12 makes
+that file the architectural contract, and leaving the new surface only in this
+spec means the contract a reader is told to trust is the wrong one. It now
+tables all eight exports, the full top-level and per-host result with the
+release each field arrived in, the three states of `reverseNames`, the identity
+rule above, and the three caps. `core/shared/API.md` gains `ipScope()` and
+`IP_SCOPE`, which were also missing. *(It also gained an `ipIdentity()` entry,
+withdrawn at `1.5` along with the export itself.)*
+
+*The stated shipment version went backwards.* This document is `1.4`, and
+several sentences said shipping would make it `1.0 (Implemented)` — which would
+claim the shipped text is the Final text, three amendments after it stopped
+being. The specs README now states the monotonic rule and names
+`1.x (Final, amended)` and `1.x (Implemented)`; every current-state sentence
+follows it, and the number is deliberately not chosen yet, because review can
+still increment this document.
+
+**Three guard defects and one encoding defect, corrected at `1.3`.** Round 17
+reproduced all four against `35d137d` before anything was changed.
+
+*`[]` was standing in for "did not answer".* The `1.2` fix gated the absence
+*claim* on `returned === attempted`, which kept `hostsWithoutReverse` honest but
+left `reverseNames` recording `[]` for a host where one lookup failed and the
+other returned empty — the same value as a host that answered and published
+nothing. A consumer reading the field alone could not tell them apart, and §2.3's
+rule binds the recorded observation, not only the derived list. The three states
+above are now encoded distinctly, and the controls read the field and the list
+together, because either one alone passes on the wrong encoding.
+
+*The authorized trace delta was a bound, not an identity.* `release-compat`
+counted new questions per case, so removing an existing question and adding a
+reverse one netted to zero and passed — verified by deleting
+`_25._tcp.mail.bravo.test TLSA` and substituting a `PTR`. The rule is now an
+exact multiset equality: the `v0.9.1` trace plus a named question at a named
+count, `do=`/`cd=` included, must equal the current trace. Four controls —
+substitution, right name under the wrong type, right question under different
+transport options, and a silently dropped question.
+
+*The one authorized new case was exempt from every surface check.* `1.2` added
+`mx-vanity-divergence` and then skipped it in the surface comparison, so its
+result, CSV, DOM, report and trace could change arbitrarily under a guard whose
+whole purpose is that they cannot. All five surfaces are now content-addressed
+by hash, with a control that mutates each and requires rejection, and both
+finding ids are asserted present in `findings`, the remediation plan, CSV and
+DOM rather than merely reachable.
+
+*The status documents described the branch as it was before it existed.*
+`HANDOFF.md` and `ROADMAP.md` still said 0.9.2 was unapproved and unstarted and
+that `PRIVACY.md` was untouched, beside prose recording the approval, the
+implementation and a 25-line privacy amendment. Corrected to the actual state;
+the superseded measurements are kept as history where they are labelled as such.
+
+*What the new-case guard proves about the report — corrected at `1.4`.* The
+paragraph here at `1.3` said the report's recorded form carries no finding text
+and that the guard therefore could not bind the rendered sentences. That was
+false, and it understated the evidence: `reportSurface()` records `sha256` over
+the **complete generated HTML**, and the pinned surface hash covers that field,
+so every byte of the reviewed report is bound — both findings' sentences
+included. Verified by changing one word of the `mx-vanity-divergent` message and
+re-running the comparison, which moves the CSV, the DOM and the report surface.
+
+What remains true is much narrower: the binding is cryptographic, not semantic.
+It does not locate an id inside the document, so a rejection says the report
+changed rather than where, and the id-level end-to-end claim is made separately
+against issues, findings, remediation, CSV and DOM, where a failure names the
+surface that moved. That is a division of labour between two rules, not a gap
+in either.
+
+**Four behaviour defects, found by review of the implementation and corrected
+at `1.2`.** Each was reproduced before it was changed, and each has a control
+that fails without the fix.
+
+*Unknown was being reported as absent.* (Corrected again at `1.3` — the fix
+below is necessary and was not sufficient.) A host with one `PTR` that never
+returned and one that returned empty was added to `hostsWithoutReverse`. The
+code tracked whether **any** lookup returned, where §2.3 and criterion 14
+require **every** attempted lookup to have returned before absence is claimed.
+Per-address aggregation is unchanged; only the absence claim is now gated on
+`returned === attempted`. Criterion 13's case — one address fails, the other
+yields a confirmed provider, divergence still evaluated — is now a control too.
+
+*An unconfirmed name was recorded as the host's provider, and confirmation
+tested the wrong address.* `providerName` and `providerAddresses` were assigned
+before the forward-confirmation gate, so a name that failed it still appeared in
+the result as though it had passed. Worse, confirmation accepted **any** address
+of the MX host rather than the one whose `PTR` produced the candidate. Each
+reverse name is now kept with its source address, confirmation tests that source
+specifically, and both fields are populated only after it passes.
+
+*Address sets were being compared as arrays.* A provider publishing the same RR
+twice put the same address twice into `missingAddresses` and therefore into the
+rendered remediation. §4 defines `H` and `P` as sets; both sides are now
+de-duplicated in first-seen order, on the host's side as well as the provider's.
+
+*`reverseName()` accepted malformed IPv4.* Its octet check was a shape regex, so
+`999.1.1.1` produced `1.1.1.999.in-addr.arpa` — a malformed question on the
+wire, from a host that could still qualify through a second, valid address. It
+now validates with `ipv4ToBigInt()`, the shared parser, and a host with one
+usable and one malformed address is proven to reverse only the usable one.
+
+**Evidence for the record-level finding is special-cased, as §6 asked.**
+The protocol-generic `case 'mx':` fallback emits the resolved hosts, which for a
+null-MX conflict would show everything except the `0 .` that is the whole
+finding. Both now emit the raw MX records.
+
+One defect was found by the suite and fixed before commit: reading the new
+`mxHealth` fields unguarded threw a `TypeError` on a context assembled without
+them, discarding the entire audit rather than the MX section. Guarded, and
+pinned by a regression test.
+
+## Localization impact
+
+Six new entries in `locales/en.json` under the existing findings block, each
+with `msg`, `what` and `fix`; `fixCode` on `mx-unroutable`,
+`mx-address-literal`, `mx-null-conflict` and `mx-vanity-divergent`, where a zone
+fragment is clearer than a sentence. Four ship in 0.9.1 and two in 0.9.2, each
+with its own release.
+
+**A `fixCode` block that shows a "right" answer must not leave a documentation
+address looking like one.** `mx-unroutable` and `mx-address-literal` both end on
+`203.0.113.10`, which this release classifies unreachable by design, so each
+says in its comment that the value is an example only and that the reader
+substitutes their own public address. That sentence is translated with the rest;
+the record syntax around it is not.
+
+Per the inherited constraint, each release translates all thirteen other locales
+in the same change, runs `npm run build:fallback`, and passes
+`npm run locale:gate`. `src/data/locales-en.js` is regenerated in the same
+commit.
+
+Drafting rules for the user-facing text. Each of these is a claim the audit
+cannot support, and every one of them was written into the strings at some point
+and had to be taken out again:
+
+- `mx-vanity-divergent` must not assert that the named provider *is* the
+  operator. The evidence is a forward-confirmed reverse pointer, and the wording
+  says that: the addresses reached from this host's reverse name include ones
+  this host does not publish.
+- **The remediation must not install the inferred name.** FCrDNS proves a
+  mapping, not that the name is documented, stable, intended as an MX target, or
+  available to this customer — it is frequently a generic per-address name.
+  The first step is therefore verification against the provider's own
+  documentation: use a provider hostname only where the provider designates it
+  as the MX target, and otherwise keep the operator's name and reconcile the
+  reachable addresses with the provider. The `fixCode` "after" block is labelled
+  conditional and its name marked as a placeholder for the documented one, not
+  as the name this audit derived.
+- **Addresses are not servers.** DNS establishes address-level paths. The text
+  says the host offers fewer reachable address paths than the provider
+  publishes; it must not promise independent machines, separate capacity or "a
+  working server", none of which a DNS answer shows.
+- `mx-no-reverse-dns` must state the RFC 5321 §4.1.4 position rather than imply
+  that inbound mail is at risk, and should distinguish the receiving path from
+  the sending path, which is where the reader has probably heard the rule.
+- **And it must be scoped to the addresses actually checked.** §4 caps reverse
+  lookups at four unique addresses per host, so a host publishing five can hold
+  a `PTR` on one that was never asked. The message and explanation say the
+  checked addresses and disclose the cap; "this host publishes none" is a claim
+  about a zone the audit did not read.
+- **The disclosed order must be the order the code uses.** That is `A` answers
+  then `AAAA` answers, each in resolver order. There is no single zone order
+  across two lookups, and saying there is hides the consequence that matters:
+  four IPv4 addresses exhaust the budget before any IPv6 address is considered.
+
+## Testing
+
+Unit, in `src/core/shared/ip.test.js`:
+
+1. `ipScope()` against a table of at least two addresses per algebra member,
+   both families, including the boundary address at each end of every range.
+2. Addresses immediately outside each range classify as `global`.
+
+Unit, in `src/core/mx/mx.test.js`:
+
+3. `reachability` for each of its four members, including `partial` from a
+   mixed set and `unknown` from a host that did not resolve.
+4. An address-literal target in both families: classified, not looked up, and
+   raising exactly one finding. The "not looked up" half is asserted against a
+   stub resolver that records its calls — a spec that says three queries are
+   saved and does not assert it will regress silently.
+5. `hasNullMxConflict()` true for `0 .` beside a real host, false for a lone
+   `0 .`, false for a normal set; and `isNullMx()` unchanged on all three.
+6. Preferences at 0, 65535 and 65536.
+7. 0.9.2: divergence reported for a strict subset; not reported for an equal
+   set; not reported when forward confirmation fails; not reported when the PTR
+   points back into the audited domain; `unknown` rather than a claim when the
+   PTR lookup fails.
+
+Integration:
+
+8. The `allremote.com.tw` shape as a committed fixture — one in-domain MX host,
+   one address, provider name resolving to two — asserting `mx.vanity-divergent`
+   with exactly one missing address. Captured under `docs/specs/fixtures/`
+   per the captured-evidence rule, dated, naming the resolver.
+9. Regenerated `tests/state-algebras.json` carrying `ip.scope` and
+   `mx.host.reachability` with their `resultPaths`, and `tests/state-matrix.json`
+   and `tests/inventory.json` regenerated to match.
+10. `npm test` and `npm run locale:gate` pass before either pull request opens.
+
+No scoring test, because neither release changes scoring. When these findings
+are later admitted to the grade, that change is backtested with
+`node tools/backtest.mjs` as its own release.
+
+## Acceptance criteria
+
+**0.9.1**
+
+1. An MX host resolving only to loopback, private, link-local, unspecified,
+   documentation, benchmarking, multicast, reserved or v4-mapped space raises
+   `mx.unroutable` at critical and no longer reports as a healthy host.
+2. A host with a mixed address set raises `mx.partially-routable` and names the
+   unreachable address.
+3. An MX record whose RDATA is an address literal raises `mx.address-literal`,
+   raises no `mx.dangling`, and issues no A, AAAA or CNAME query for it.
+4. A null MX beside any other MX record raises `mx.null-conflict` where `v0.9.0`
+   raised nothing. The `.` target is still not resolved and no `mx.dangling`
+   appears — both were already true before this release, and are asserted as
+   regression guards rather than as new behavior. `isNullMx()` behavior is
+   byte-identical to `v0.9.0` on every input, and `parseMxRecord('0 .')` is still
+   `null`.
+5. No score or grade differs from `v0.9.0` on the deterministic corpus.
+
+**0.9.2**
+
+7. An in-domain MX host whose forward-confirmed provider name resolves to a
+   strict superset of its addresses raises `mx.vanity-divergent` naming the
+   missing addresses.
+8. An equal address set raises nothing.
+9. A reverse name that does not forward-confirm raises nothing, and a PTR
+   lookup that does not return raises nothing.
+10. With deep checks off, no PTR query is issued and neither 0.9.2 finding
+    appears. Deep checks being **on** by default, this is the non-default path,
+    and criterion 14 covers the default one.
+11. No score or grade differs from `v0.9.1` on the deterministic corpus.
+12. A domain with one MX host that is also divergent raises **both**
+    `mx.single-host` and `mx.vanity-divergent`. Neither suppresses the other.
+13. On a host with two addresses where the first `PTR` lookup does not return
+    and the second yields a forward-confirmed provider name, the divergence is
+    still evaluated from the second. Asserted against a stub resolver that fails
+    exactly one address — per-address aggregation that is only described will
+    regress silently.
+14. `hostsWithoutReverse` contains a host only when every checked address
+    returned and none published a `PTR`. A host with one `PTR` and one without is
+    absent from it, and so is a host whose lookups did not return. The recorded
+    `reverseNames` distinguishes the three states of §4 step 1 — names, `[]`,
+    `null` — and is asserted together with the list, since either read alone
+    accepts a wrong encoding.
+15. The measured query count for the deterministic corpus, deep checks on, is
+    recorded in the 0.9.2 pull request and in `PRIVACY.md`, and `PRIVACY.md`'s
+    disclosure list names the reverse zones and the provider name. Criterion 15
+    is not satisfiable before the §7 review concludes.
+16. Address-set membership is decided on address values. A host publishing the
+    expanded form of an address whose provider publishes the compressed form
+    forward-confirms and reports the divergence; an equal set written in two
+    spellings reports nothing; one address written twice is one member of `H`
+    and costs one reverse lookup. An IPv4-mapped `::ffff:` address does not
+    satisfy membership for the IPv4 address it embeds. The evidence quotes the
+    spelling that was published.
+17. `H` and `P` are compared over globally reachable addresses. A provider-only
+    private, shared-space, documentation, IPv4-mapped or unparseable value
+    raises nothing; a missing global address still raises the finding; an extra
+    non-global address on the host does not suppress it; a host with no
+    reachable address of its own raises nothing; and two reachable sets
+    diverging in both directions remain `RQ-MXV-06`'s deferred case.
+18. A host with five addresses whose fifth publishes a `PTR` is asked about
+    exactly four, is still named in `hostsWithoutReverse`, and its finding text
+    says the checked addresses rather than the host's whole published set. The
+    cap and the honesty of the claim are one fact, and the control asserts both
+    halves together.
+19. A host publishing four `A` answers and one `AAAA` answer whose reverse zone
+    holds a `PTR` is asked four `in-addr.arpa` questions in resolver order and
+    **no** `ip6.arpa` question. Asserted on the trace as well as the result, so
+    considering `AAAA` before the fourth `A` fails the control rather than
+    merely changing which name is found.
+
+## Risks
+
+**The PTR heuristic names the wrong thing.** A reverse pointer is authored by
+the holder of the reverse zone and need not name a mail service; some providers
+point every address at a generic per-IP name, as `210.71.187.193` does with
+`210-71-187-193.hinet-ip.hinet.net`. *Mitigation:* forward confirmation, the
+in-domain exclusion, and `medium` severity with the evidence stated rather than
+summarized. A generic per-IP name will almost never resolve to a superset, so
+it fails the comparison rather than producing a false finding.
+
+**Scope classification is too aggressive.** An address range added to the IANA
+registry after this ships, or a deployment using shared address space
+deliberately behind a NAT that does receive mail, would be reported as an
+outage. *Mitigation:* `global` is the default, so a range added to the registry after
+this ships is reported as reachable rather than as an outage. `100.64.0.0/10` is
+the range with the most plausible legitimate deployment, and `RQ-MXV-04` settles
+it against that intuition on the authority of RFC 6598 §4: whatever runs behind
+the translator, publishing the address in external DNS is the defect.
+
+**Query volume on large estates.** A 200-domain audit with deep checks on could
+add several hundred queries. *Mitigation:* the caps in §4 — four addresses per
+host, two candidates per domain — and the deep-check gate. The 0.9.2 pull
+request states the measured additional query count on the deterministic corpus.
+
+**Two findings for one defect.** `mx.address-literal` is adjacent to
+`mx.dangling`, and a reader given two findings for one cause — one of which
+prescribes an impossible fix — loses confidence in both. *Mitigation:*
+`RQ-MXV-05` settles it in §5 and acceptance criterion 3 asserts the suppression.
+`mx.null-conflict` was listed here in the 0.3 draft on the mistaken belief that a
+conflicted set produced a dangling host; it does not, and there is nothing to
+suppress. `mx.vanity-divergent` and `mx.single-host` were listed here
+in the 0.1 draft and do **not** belong: they state different facts and both
+correctly appear together, which criterion 12 now asserts.
+
+## Resolved questions
+
+Resolved by the 2026-09-04 review. Each keeps its identifier, per the specs
+README's rule that a resolved question moves rather than disappears.
+
+**`RQ-MXV-01` — `mx.partially-routable` is medium.** Delivery is impaired, not
+proven absent; critical is reserved for complete loss. This keeps `critical`
+meaning "this domain is not receiving mail", which is what makes `mx.dangling`
+and `mx.unroutable` legible.
+
+**`RQ-MXV-02` — in-domain MX hosts only**, as scoped. An out-of-domain provider
+hostname is provider-controlled and offers the domain operator no remediation,
+so a finding against it would be unactionable by its only reader.
+
+**`RQ-MXV-04` — `100.64.0.0/10` is `shared` and unreachable.** IANA marks it not
+globally reachable and RFC 6598 §4 prohibits publishing it in externally
+reachable DNS, so a public MX advertising one is defective as published whatever
+translator stands behind it. Recorded in §1, which now carries the authority
+rather than the draft's hedge.
+
+**`RQ-MXV-05` — yes, a specific finding suppresses `mx.dangling`** where one
+would otherwise be raised with unusable remediation. Settled in §5, asserted by
+criterion 3. **Narrowed at 0.4 to `mx.address-literal` alone:** implementation
+found that a null-MX conflict raises no `mx.dangling` to suppress, because
+`parseMxRecord()` rejects `0 .` before any lookup. `mx.unroutable` suppresses
+nothing either, since a host that resolves is never also dangling. The
+resolution's principle is unchanged; its extent was overstated.
+
+**`RQ-MXV-03` — the query cost and the disclosure it carries are acceptable.**
+Accepted by review at `ac7e984` on 2026-09-05, on executed evidence rather than
+on argument: the harness in [ptr-fan-out-0.9.2](fixtures/ptr-fan-out-0.9.2.md)
+runs §4 through the production cache, transport and resolver with a recording
+`fetch` beneath, and its accepted result is pinned — 16 calls above the cache,
+**14 requests leaving the browser**, 2 saved by reuse, with five controls
+including one that rejects a deliberately drifted run and one that binds the
+capture's printed trace to the executable constant.
+
+The review recorded the decision as proportionate because the caps bound
+additional outbound work at 12 per domain, the procedure adds no application
+identifier, persistence or recipient, and a separate flag would create its own
+provenance and comparability surface.
+
+The reasoning that got here is preserved in full rather than summarised away:
+the cost was first projected at 8 and was wrong, then measured at 16 calls and
+still wrong about what leaves the browser, before being executed at 14. Each
+correction is in the revision history, and the harness that settles it is kept
+beside this document.
+
+**The original question, for the record.** Measured rather than argued: 8 `PTR` queries across the
+32-case corpus's 80 audited domains, 0 for any domain whose MX hosts are
+provider-named, 3 for the common vanity shape. The measurement also found the
+worst case unbounded in the number of MX hosts, which §4 now caps at two —
+bounding a domain at 12 additional queries and the default path at 600. The
+disclosure question that travelled with it is answered in §7.4: no separate
+opt-in, because every name queried comes from an answer the same resolver has
+just given, and the chain begins in the audited domain's own MX record.
+
+**`RQ-MXV-06` — bidirectional divergence is deferred.** `H \ P` does not
+establish that the provider disowned those addresses: forward confirmation
+evidences one relationship, not ownership of every address in either set. A
+later release may report a neutral address-set mismatch once fixtures bound the
+false-positive class. The 0.1 draft's framing — "the provider has disowned" —
+overstated what the evidence supports and is withdrawn.
+
+## Open questions
+
+None. Every question this document raised is resolved or explicitly deferred,
+which is what Final recorded. 0.9.2 ships as `v0.9.2`, and the release commit
+records `1.12 (Implemented)` — the next revision after the last amendment,
+exactly as the rule requires, and the number that stays true after the squash
+merge and the tag. The three revisions below it were written into earlier states
+of that same commit and superseded by amendment before publication.
+`RQ-MXV-06`, bidirectional divergence, remains deliberately deferred and is not
+an open question in this document; a future release that wants it starts a new
+spec.
+
+## Review record
+
+`AGENTS.md` requires every reviewer finding be recorded with its reasoning,
+accepted or declined. All were reproduced against the code before folding in.
+
+| Finding | Disposition | Reasoning |
+| --- | --- | --- |
+| "Off the default path entirely" is false | **Accepted** | Reproduced: `MAX_DEEP_CHECK_DOMAINS = 50` at `events.js:105`; PRIVACY.md states deep checks ship ticked and the published figures include them. The claim was load-bearing for both the cost and disclosure arguments. §4 corrected. |
+| 0.9.2 needs a privacy review and probably a `PRIVACY.md` edit | **Accepted** | Reproduced: `AGENTS.md:110` item 4 makes a `PRIVACY.md` implication a stop condition. New §7; 0.9.2 blocked in the header. |
+| PTR failure needs per-address aggregation, and `hostsWithoutReverse` needs a definition | **Accepted** | The 0.1 text ended the whole host's procedure on one failed lookup, contradicting the per-host `optionalCheck` discipline this module already documents as its reason for three-valued `resolves`. §4 and §2.3 corrected. |
+| Decide whether `mx.vanity-divergent` suppresses `mx.single-host` | **Accepted as a gap; decided against suppression** | They state different facts — name count versus addresses behind one name — and `single-host`'s remediation stays correct after the divergence is fixed, unlike the `mx.dangling` pairs. The 0.1 Risks section implied suppression and was wrong. §5 decides, criterion 12 asserts. |
+
+## Revision history
+
+| Version | Date | Change |
+| --- | --- | --- |
+| 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 1.12 | 2026-09-05 | **Implemented.** Codex round 26 corrected round 25's chronology, which this document had adopted from that review. `git commit --amend` *replaces* a commit, so `f09e00f`, `81e2af4` and `7291777` are not a sequence of published states — verified against the branch, which contains exactly one release commit and no ancestor carrying `1.9`, `1.10` or `1.11`. The rule those rounds were applying says the Implemented number is fixed in the release commit; the release commit is the one that will be published, and it carries this revision. So `1.9`, `1.10` and `1.11` are superseded pre-publication release-artifact revisions folded into the final commit, not versions that shipped, and every "released at `1.9`" claim is withdrawn from the spec, `HANDOFF.md`, `ROADMAP.md` and the specs index. `1.12` is what the squash merge and the `v0.9.2` tag will carry. |
+| 1.11 | 2026-09-05 | *(Superseded pre-publication; folded into the final release commit. Its chronology — that `1.9` was "the release revision" and that later rounds came after it in history — came from the Codex round 25 review and was corrected in round 26 at `1.12`.)* Codex round 25, artifact review. One blocking inconsistency, reproduced first: the revision table records `1.9` as the release revision and `1.10` as round 24's artifact amendment, while three passages still described `1.10` as the revision fixed in the release commit — the header blockquote, the Open questions conclusion and `HANDOFF.md`'s `RQ-MXV-03` bullet. A document cannot be at once the release revision and two amendments past it. Corrected to state the chronology: `1.9` shipped, and the artifact reviews that followed it produced `1.10` and now `1.11`, each amending the same unpushed release commit rather than being written by it. Applying the monotonic rule to this finding is what makes it `1.11`. |
+| 1.10 | 2026-09-05 | *(Superseded pre-publication; folded into the final release commit. An earlier annotation here said `1.9` shipped and this row was the amendment after it — corrected at `1.12`: no version below `1.12` was ever published.)* Codex round 24, artifact review. Five artifact defects, each reproduced first. The `v0.9.1` assertion baseline quoted in the PR body was fabricated — the tag's own inventory sums to 5,617, not the 5,658 claimed, and the 5,624 in the README committed at the tag is the already-recorded stale-doc defect. The `1.9` row below claimed no review round changed what the audit asks, which the append-only record refutes: round 16 stopped a malformed IPv4 address becoming a `PTR` question, and the later identity and reachability corrections change whether a candidate's forward queries are reached for affected inputs. What did not change is narrower and is what the row now says. The move left two consecutive monotonic blockquotes, a §8.1 null-conflict paragraph reading as current fact after `0.6` had superseded it, an unamended "two mail servers" in the Problem section, and a §8.1 opening claim too broad to be true. Historical text preserved; inline correction pointers added at each. |
+| 1.9 | 2026-09-05 | *(Superseded pre-publication at `1.12`. This row recorded the first state of the release commit; two artifact reviews amended that commit before it was published, so this number never shipped.)* 0.9.2 released as `v0.9.2`; both halves of the document have now shipped, so it moves to `implemented/` with its measurement fixtures beside it. Behaviour approved by review at `b4d21f7`, after an implementation round and then seven corrective review rounds (16 through 22); the privacy decision at round 15 preceded implementation. *(This row first said none of those rounds changed what the audit asks — corrected at `1.10`: several changed which questions are reached. What is unchanged is the reviewed 0.9.2 design's shape: the three caps, the `A`-before-`AAAA` order and the deep-check gate.)* Status set to released; version is the next monotonic revision after `1.8`, not a return to `1.0`. |
+| 1.8 | 2026-09-05 | Codex round 22, reproduced against `318f36f` first. The disclosed order was fiction: `1.7` said the four checked addresses are taken in the order the zone returned them, but the audit makes two lookups and concatenates `A` answers before `AAAA` answers, de-duplicates and takes four — so a host with four IPv4 addresses never has an IPv6 address checked, which the executed case shows. Every normative and status occurrence now says up to four unique addresses per host, `A` answers before `AAAA`, resolver order within each type, in the spec and in all fourteen locales. Query behaviour is deliberately unchanged: the cap and that order were reviewed and accepted, and this corrects the description. Criterion 19 and a mixed-family control asserting the trace as well as the result. |
+| 1.7 | 2026-09-05 | Codex round 21, both findings reproduced first. `mx-vanity-divergent`'s remediation no longer installs the name the audit inferred: FCrDNS proves a mapping, not a documented, supported MX target, so the first step is verification against the provider's documentation and the `fixCode` "after" block is conditional with a placeholder name. Its explanation describes reachable address paths instead of independent mail servers, which an address list does not establish. `mx-no-reverse-dns` now names the **checked** addresses and discloses the four-address cap *(described in this row and in the strings as "in zone order", which was wrong and is corrected at `1.8`: `A` answers are considered before `AAAA` answers)*, after a host publishing a `PTR` on its unasked fifth address was shown to receive "this host publishes none". Criterion 18 and a five-address control. Fourteen locales; one case, three rendered surfaces re-pinned, result and trace unchanged. |
+| 1.6 | 2026-09-05 | Codex round 20, both findings reproduced first. Corrected `mx-vanity-divergent` in English and all thirteen locales: the forward-confirmed name evidences a relationship rather than operation, the message describes missing globally reachable addresses rather than a smaller raw count, and the fix names only the reachable missing addresses and warns that publishing a reserved one creates the `mx.unroutable` fault. Added the RFC 5737 example-only warning to the `fixCode` block, reusing each locale's existing wording. Re-pinned the one authorized case's csv, dom and report to the corrected text; its result and trace are unchanged, as are all 32 other cases on all five surfaces. Replaced `1.5`'s unreproducible "twelve controls" with the accounting the file produces: eight new §18 assertions replacing one, net `+7`, 141 to 148, fourteen across §§17–18. |
+| 1.5 | 2026-09-05 | Codex round 19, both findings reproduced first. Withdrew `ipIdentity()` from `core/shared/`: it had exactly one production consumer, and §12 reserves that directory for helpers two or more protocol owners read. The identity is now `addressKey()`, private to `core/mx/` and built from the shared parsers, with every `1.4` behaviour and control retained. Restricted the `H ⊂ P` comparison to globally reachable addresses on both sides, after the audit was executed recommending that an operator publish a provider's private `10.0.0.5` on a public MX host — remediation that contradicts 0.9.1's `mx.unroutable`; the same run showed an extra private address on the host suppressing a real missing global one, which restricting both sides also fixes. Criterion 17, and eight new §18 assertions replacing one — net `+7`, 141 to 148. *(This row first said "twelve controls", which the file does not produce; corrected at `1.6`.)* Corrected the MX API's "who really operates them", which §Non-goals contradicts. |
+| 1.4 | 2026-09-05 | Codex round 18, all four findings reproduced first. Address identity is now canonical: `ipIdentity()` keys an address by value, so equivalent IPv6 spellings de-duplicate, forward-confirm and compare as one member of `H` and `P` — the executed reproduction showed a real divergence reported nowhere because the host wrote its address out in full and its provider compressed it. First-seen text is preserved for evidence and the families are kept apart. Brought `src/core/mx/API.md` up to the full eight-export, 0.9.2 contract and added the three missing `ip.js` exports to `core/shared/API.md`. Defined the monotonic post-Final version rule in the specs README and stopped saying shipment returns the document to `1.0`. Withdrew the `1.3` claim that the report hash cannot bind finding text: `reportSurface()` hashes the complete HTML, so the pin binds every byte, which a one-word message change demonstrates. |
+| 1.3 | 2026-09-05 | Codex round 17, all four findings reproduced first. `reverseNames` now encodes three states rather than two, so a lookup that did not answer is never recorded as an empty answer. The authorized trace delta became exact multiset equality after a substitution — one `TLSA` removed, one `PTR` added — was shown to pass the counting rule. The one authorized new case, which `1.2` exempted from surface comparison entirely, is bound by content hash on all five surfaces with per-surface mutation controls and both findings asserted through `findings`, remediation, CSV and DOM. Reconciled `HANDOFF.md` and `ROADMAP.md`, which still described 0.9.2 as unapproved, unstarted, and privacy-neutral. *(This row also recorded that the report hash cannot prove finding text. That was wrong and is withdrawn at `1.4`: the surface hashes the complete HTML.)* |
+| 1.2 | 2026-09-05 | Codex round 16. Four behaviour defects corrected, each reproduced first: absence was claimed when one lookup had not returned; provider fields were populated before forward confirmation, which itself tested any host address rather than the one whose PTR produced the candidate; address sets were compared as arrays, so a duplicated RR duplicated the evidence; and `reverseName()` built names from malformed IPv4. Added the dedicated `mx-vanity-divergence` equivalence case so both findings are reachable through the real audit path, closing the `1.1` coverage gap — authorized as exactly one new case, with the case-set rule tightened rather than relaxed. |
+| 1.1 | 2026-09-05 | 0.9.2 implemented under the reviewed §4 algorithm. Reverse lookups use real reverse-zone names; the caps, the deep-check gate, per-address aggregation, forward confirmation and strict-subset-only are all load-bearing in code and covered by negative controls. Corpus background hosts were given self-hosted reverse DNS so the advisory does not fire in cases about other protocols — with that, no rendered surface moves and only the result shape and seven traces differ. Measured 8 additional queries across 80 audited domains and amended `PRIVACY.md` with that figure. Recorded one coverage gap: no equivalence case exercises `mx.vanity-divergent` end to end. |
+| 1.0 | 2026-09-05 | *(The closing sentence of this row said shipment would make the document `1.0 (Implemented)`. Superseded at `1.4`: the version is monotonic, so shipment records the next `1.x`.)* **Final.** Codex round 15 accepted the privacy review at `ac7e984`. `OQ-MXV-03` becomes `RQ-MXV-03`; no question remains open, which is what Final records. 0.9.2 is approved for implementation under the reviewed §4 algorithm and acceptance criteria, with the caps, the deep-check gate and the no-score-movement rule load-bearing. The document reaches `1.0 (Implemented)` when 0.9.2 ships. |
+| 0.17 | 2026-09-05 | Codex review round 14. Pinned the accepted result with `node:assert/strict` — counts, the 8+8 split, 16 above cache, 14 outbound, 2 saved, the three findings and the ordered fourteen-entry outbound trace — after the previous verdict was shown to print CONTROLS PASS while the ordinary result drifted to 14/12. Pinned the renamed control to exactly 16 rather than greater-than. Added a control that runs the pinned check against a deliberately drifted fixture and requires rejection, and a control asserting the capture's printed trace equals the executable constant. Reproduced the fourteen-entry trace in the capture, which the spec already claimed was there. |
+| 0.16 | 2026-09-05 | Codex review round 13. Executed the outbound fan-out instead of calculating it: the spike now runs §4 through the production cache and transport with a recording `fetch` beneath, so **14 requests leaving the browser** is observed at the transport seam rather than derived from 16 by subtraction. Added two reuse controls — renaming the repeated provider returns outbound to 16, and the same name under a different type misses — alongside the gate control. Withdrew the claim that a run is unlinkable to any other and that `PRIVACY.md` promises it: `PRIVACY.md` promises no such thing, and Cloudflare can correlate runs from ordinary connection metadata regardless. What remains is the supported claim — 0.9.2 adds no application-level identifier, persistence, or new recipient. |
+| 0.15 | 2026-09-05 | Codex review round 12. Replaced the 0.14 figures, which counted stored addresses and were wrongly labelled measured, with an executed measurement: a spike runs §4 literally against a recording resolver with a negative control, captured in `fixtures/ptr-fan-out-0.9.2.md`. It issues 16 queries where the projection said 8, because forward-confirm is per candidate — and 14 through the page cache, which is why `PRIVACY.md` must be re-measured rather than adjusted. Rewrote §7.4 to weigh query intent and linkability instead of claiming the marginal disclosure is nil, and named what would reverse the decision. Restored `OQ-MXV-03`: the evidence now exists, but accepting it is the reviewer's call, and promotion to `1.0 (Final)` belongs to that approval. |
+| 0.14 | 2026-09-05 | 0.9.2 privacy review conducted before any implementation. Measured PTR fan-out from the committed oracle: 8 queries across 80 audited domains, 0 for provider-named MX, 3 for the common vanity shape. Found the worst case unbounded in MX-host count and capped §4 at two qualifying hosts, bounding a domain at 12 and the default path at 600. Inventoried the two newly disclosed name classes. Decided against a separate opt-in, because every name queried comes from an answer the same resolver just returned. Resolved `OQ-MXV-03` as `RQ-MXV-03`; no open questions remain. The `PRIVACY.md` amendment is drafted in §7.5 and deliberately not applied, because that document describes shipped behavior. |
+| 0.13 | 2026-09-05 | Release-blocking CI failure, found after push. The `Five-surface equivalence` job regenerated the pre-refactor `v0.5.0` oracle over the *current* corpus and diffed it byte-for-byte, which made the shared fixture corpus immutable — a constraint that had held only because nothing had edited the corpus since 0.6.0 created it. Retired that oracle rather than regenerating it: its purpose was discharged by the 0.6.0 refactor, and regenerating would have rewritten a pre-refactor record and left the trap in place. Chain now starts at `v0.7.0`; two suites repointed at the current oracle for the data they were reading. |
+| 0.12 | 2026-09-05 | Codex review round 5. Pinned the severity badge and the emptied critical-group shell by exact content hash, where both had been removed on their opening classes alone and their text could be rewritten freely. Audited the transform for the same class of gap and closed one more unprompted: the row `data-overall` revert was a blanket replace and now requires exactly one. Three new controls. |
+| 0.11 | 2026-09-05 | Codex review round 4. Compared the structured finding whole — all fourteen fields, key-order-independent — where seven identity fields had been checked and the rest could change freely. Replaced the CSV issue-segment prefix match with the complete 230-character rendered message. Three new controls. |
+| 0.10 | 2026-09-04 | Codex review round 3. Bound the report structure as an ordered edit script rather than a token multiset, which had accepted a full reversal. Validated the shape of every removed entry — issue arguments and severity, finding identity fields, and each DOM subtree by role, line count and content hash — where only occurrence counts had been checked. Required exactly one authorized segment in each of the four CSV columns, resolved by header, where the rule had flagged duplication but accepted absence. Seven new controls. |
+| 0.9 | 2026-09-04 | Codex review round 2. Bounded the authorized report exactly (3,371-byte length delta and a measured element-composition delta) where it had accepted any structure and any growth. Made the DOM transform finding-wide rather than severity-wide, so a second critical finding in the same group is no longer hidden. Gave every remover an exact occurrence count, so duplicated authorized material cannot ride through. Seven new controls, all mutating the authorized case. Recorded what the report guard cannot prove. |
+| 0.8 | 2026-09-04 | Codex review round 1. Made the stub addresses length-preserving so report length and structure move only in the authorized case. Closed three gaps in the cross-release guard: the report surface was unread, the authorized case skipped CSV and DOM entirely, and the seven new field names were stripped recursively rather than at their authorized paths. Guard now bounds all five surfaces with sixteen negative controls. |
+| 0.7 | 2026-09-04 | Bounded the equivalence delta instead of authorizing 120 differences. Moved 29 background MX hosts to routable-class stubs, keeping documentation addresses in `mx-health-and-tlsa` as its subject; re-baselined the oracle at `v0.9.1`; added `release091Violations()` with eight negative controls, asserting zero query-trace and zero score or grade movement. |
+| 0.6 | 2026-09-04 | Release-blocking review. Withdrew `mx.invalid-preference` entirely: a >65535 preference cannot survive the 16-bit wire format, so the check could only be exercised by fabricating a response shape no resolver produces. Corrected `hasNullMxConflict()` to mean a `0 .` beside a *different* record rather than merely a second array entry, and moved its emission outside the `hosts.length` gate so it survives a set where nothing parses into a host. Recorded the fixture policy for reachable addresses. Clarified the two remediation examples that label a documentation address "Right", in English and all thirteen locales. |
+| 0.5 | 2026-09-04 | 0.9.1 implemented. Added §8 recording five departures: the locale and findings commits are inseparable, `ipScope()` returns null for unparseable input and `reachability` degrades to `unknown`, `mx.null-conflict` is gated on a resolved host existing, the fixture corpus's RFC 5737 addresses make `mx.unroutable` fire across it, and record-level evidence is special-cased. |
+| 0.4 | 2026-09-04 | Implementation of 0.9.1 found the Problem section's null-MX claim false: `parseMxRecord()` rejects `0 .` because stripping its trailing dot leaves an empty host, so the contradiction is reported nowhere rather than misdiagnosed as a dangling host. Corrected the Problem section, §3, §5, criterion 4, Risks and `RQ-MXV-05`, which is narrowed to `mx.address-literal` alone. The finding itself is unchanged and still warranted. |
+| 0.3 | 2026-09-04 | Sequencing review. 0.9.1 to Final, approved for implementation; `OQ-MXV-03` scoped explicitly to 0.9.2, which the 0.2 Status line had wrongly attached to both. Recorded that Status carries per-release approval while the document version tracks the whole spec. `mx.single-host` retention confirmed. |
+| 0.2 | 2026-09-04 | Review. Five questions resolved as `RQ-MXV-01`, `-02`, `-04`, `-05`, `-06`; `OQ-MXV-03` held open for measurement. Withdrew the false claim that 0.9.2 sits off the default path. Added §7 privacy impact and blocked 0.9.2 on that review. Made PTR aggregation per address and defined `hostsWithoutReverse`. Decided against `mx.single-host` suppression and corrected the Risks section that implied it. Criteria 12–15 added. |

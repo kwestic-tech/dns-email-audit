@@ -579,6 +579,20 @@ export function buildIssues({ emailProvider, spfStatus, spfRecords, dkimStatus, 
     // Suppresses mx-dangling, which `auditMxHosts()` already excludes it from:
     // that finding's remediation is to publish the missing address record, and
     // no address record can exist for a name that is an address.
+    // 0.9.2. A branded MX name is not itself a finding — every hosted-mail
+    // customer using one is correct — so only the divergence is reported, and
+    // only when the provider's set is a strict superset of the copy's.
+    (mxHealth.divergentHosts || []).forEach(function (d) {
+      issues.push({ key: 'mx-vanity-divergent', sev: 'warn',
+        args: [d.host, d.provider, d.missing.join(', ')] });
+    });
+    // Advisory, and it stays advisory: RFC 5321 §4.1.4 says a failed reverse
+    // lookup is not on its own grounds for refusing mail, and the receiving
+    // path is not where reverse DNS is enforced in practice.
+    if (mxHealth.hostsWithoutReverse && mxHealth.hostsWithoutReverse.length) {
+      issues.push({ key: 'mx-no-reverse-dns', sev: 'info',
+        args: [mxHealth.hostsWithoutReverse.join(', ')] });
+    }
     if (mxHealth.addressLiteralHosts && mxHealth.addressLiteralHosts.length) {
       issues.push({ key: 'mx-address-literal', sev: 'crit', args: [mxHealth.addressLiteralHosts.join(', ')] });
     }

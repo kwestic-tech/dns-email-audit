@@ -10048,6 +10048,66 @@
    "suites": [
     "src/audit/findings.test.js"
    ]
+  },
+  {
+   "algebra": "audit.issue.key",
+   "fixtures": [
+    "mx-vanity-divergence"
+   ],
+   "member": "mx-vanity-divergent",
+   "suites": [
+    "src/audit/issues.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.issue.key",
+   "fixtures": [
+    "mx-vanity-divergence"
+   ],
+   "member": "mx-no-reverse-dns",
+   "suites": [
+    "src/audit/issues.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.key",
+   "fixtures": [
+    "mx-vanity-divergence"
+   ],
+   "member": "mx-vanity-divergent",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.key",
+   "fixtures": [
+    "mx-vanity-divergence"
+   ],
+   "member": "mx-no-reverse-dns",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.id",
+   "fixtures": [
+    "mx-vanity-divergence"
+   ],
+   "member": "mx.vanity-divergent",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.id",
+   "fixtures": [
+    "mx-vanity-divergence"
+   ],
+   "member": "mx.no-reverse-dns",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
   }
  ]
 }

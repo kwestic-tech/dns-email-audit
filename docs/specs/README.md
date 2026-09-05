@@ -23,7 +23,22 @@ filename:
 | `0.1 (Draft)` | First complete statement of the design. Open questions unanswered. |
 | `0.2`–`0.9` | Revised after a review pass. Each revision records what changed and why. |
 | `1.0 (Final)` | Every open question is resolved or explicitly deferred. Implementation may begin. |
-| `1.0 (Implemented)` | The release shipped. The document has moved to [`implemented/`](implemented/) and records what was actually built. |
+| `1.x (Final, amended)` | Amended after Final. Each amendment increments the minor: `1.1`, `1.2`, and so on. |
+| `1.x (Implemented)` | The release shipped. The document has moved to [`implemented/`](implemented/) and records what was actually built. |
+
+**The version only ever goes up.** A document that reached Final at `1.0` and
+was then amended three times is at `1.3`, and shipping it records
+`1.4 (Implemented)` — the **next** revision after its last amendment, not a
+return to `1.0 (Implemented)`. Writing `1.0 (Implemented)` on a `1.3` document
+would say the shipped text is the Final text, which is exactly what the
+amendments prove it is not. A document still under review therefore does not
+name its Implemented number in advance: it says shipment records the next
+monotonic `1.x`, and the number is fixed in the release commit, when no further
+amendment can arrive.
+
+This is a rule the table had not stated, not a new practice:
+[rendering-and-robustness](implemented/rendering-and-robustness.md) shipped as
+`1.3 (Implemented)` for exactly this reason.
 
 A spec is Final before implementation starts. If implementation discovers that
 the spec is wrong, the spec is amended and re-versioned rather than quietly
@@ -39,21 +54,24 @@ spec is Final before implementation starts is satisfied for that release and for
 no other, and beginning the unapproved release — or discharging a gate it
 carries — is out of scope for the approved one. The document reaches
 `1.0 (Final)` only when every release in it is resolved or explicitly deferred.
-[mx-host-validity](mx-host-validity.md) is the first document to use this.
+[mx-host-validity](implemented/mx-host-validity.md) was the first document to use
+this, and both of its releases have now shipped.
 
 **It moves to [`implemented/`](implemented/) when its LAST release ships, not its
 first.** A document whose first release is out and whose second is not started
 still describes unshipped work, and filing it as implemented would say
 otherwise. It stays here, carrying a `Released in` row naming which half
-shipped, until nothing in it is outstanding. `mx-host-validity` is in exactly
-that state after `v0.9.1`.
+shipped, until nothing in it is outstanding. `mx-host-validity` was in exactly
+that state between `v0.9.1` and `v0.9.2`, and moved when the second half
+shipped — with its `fixtures/` directory, so its own relative links did not
+change.
 
 ## Planned
 
 `Target release` below is a version-numbering anchor, kept per the naming rule
-in this document. **As of 2026-09-05, two planned releases remain:** 0.9.2 MX vanity divergence,
-then the 1.0.0 graduation gate. 0.9.0 reports and 0.9.1 MX address validity
-shipped. The earlier
+in this document. **As of 2026-09-05, one planned release remains:** the 1.0.0
+graduation gate. 0.9.0 reports, 0.9.1 MX address validity and 0.9.2 MX vanity
+divergence have all shipped. The earlier
 parallel artifact proposal was retired after the 0.6.0 refactor shipped; 0.7.0
 supplied the final finding shape and 0.8.0 consumed it without widening the
 public-DNS score. See [`HANDOFF.md`](../../HANDOFF.md) for the current operational
@@ -62,7 +80,6 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [mx-host-validity](mx-host-validity.md) | 0.9.1 released, then 0.9.2 | 0.13 | **0.9.1 released as `v0.9.1`**; 0.9.2 not started, blocked on privacy review and `OQ-MXV-03` |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 
@@ -83,7 +100,8 @@ reproducibility and decision-closure release after the remaining features.
 
 **2026-09-04 — two MX releases were inserted between 0.9.0 and 1.0.0.** The
 build order above is amended: 0.9.0 reports, then 0.9.1 and 0.9.2, then the
-1.0.0 graduation gate. [mx-host-validity](mx-host-validity.md) covers both, and
+1.0.0 graduation gate. [mx-host-validity](implemented/mx-host-validity.md)
+covers both, and
 is the first planned spec to carry two target releases — its two halves extend
 one result object but differ in whether they issue a new class of DNS query,
 which is a release boundary rather than a section boundary. The 0.9.0 start
@@ -102,11 +120,19 @@ that produced it:
 | `implemented/fixtures/` | Captures for the specs they belong to, moved with the spec |
 
 A `fixtures/` directory alongside a spec still under review holds the same
-thing before the move. There is none right now, because
+thing before the move. There is none right now, because both current captures
+moved with their specs.
+
 [report-size-measurement-0.9.0](implemented/fixtures/report-size-measurement-0.9.0.md)
-moved with its spec when 0.9.0 shipped. It settles `RQ-CMP-01` and `RQ-CMP-02`
-by measuring the committed equivalence corpus, and shows that the 0.3 draft's
-exported report would have exceeded its own import limit.
+moved when 0.9.0 shipped. It settles `RQ-CMP-01` and `RQ-CMP-02` by measuring
+the committed equivalence corpus, and shows that the 0.3 draft's exported report
+would have exceeded its own import limit.
+
+[ptr-fan-out-0.9.2](implemented/fixtures/ptr-fan-out-0.9.2.md) moved when 0.9.2
+did, with its executable spike beside it. It records the privacy review's
+executed fan-out — 16 calls above the page cache, 14 requests actually sent —
+measured by running the algorithm through the production cache and transport
+rather than predicting it, and the spike still runs from its new location.
 
 The same pattern applies to a question that is settled by measuring this
 project rather than a resolver.
@@ -158,6 +184,7 @@ precedent, and one spec was superseded outright during implementation.
 | [findings-and-remediation](implemented/findings-and-remediation.md) | 0.7.0 | [#29](https://github.com/kwestic-tech/dns-email-audit/pull/29) | `v0.7.0` | 1.7 (Implemented) |
 | [local-artifact-validation](implemented/local-artifact-validation.md) | 0.8.0, amended in 0.8.1 | [#30](https://github.com/kwestic-tech/dns-email-audit/pull/30) | `v0.8.0`, amended at `v0.8.1` | 1.11 (Implemented, amended) |
 | [report-comparison](implemented/report-comparison.md) | 0.9.0 | [#32](https://github.com/kwestic-tech/dns-email-audit/pull/32) | `v0.9.0` | 1.10 (Implemented, amended) |
+| [mx-host-validity](implemented/mx-host-validity.md) | 0.9.1 and 0.9.2 | [#33](https://github.com/kwestic-tech/dns-email-audit/pull/33) for 0.9.1 | `v0.9.1`, then `v0.9.2` | 1.12 (Implemented) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in

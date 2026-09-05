@@ -281,13 +281,18 @@
   },
   {
    "path": "src/core/mx/mx.test.js",
-   "assertions": 96,
+   "assertions": 154,
    "note": "Co-located per spec §9. Phase 4, Task 4.2. The audit runs against a fake resolver and the REAL optionalCheck imported from core/dns/ — the module has to work against the function it will actually be handed, and a local reimplementation would only prove the test agrees with itself. A test import is not a production edge.",
    "areas": [
     "the two published state constants, with every value the audit can produce shown to be one of them and all six shown to be reachable",
     "RFC 7505: a null MX is exactly one record and exactly `0 .`, so a null MX beside another record is not one",
     "resolves is three values, and `no` — a total inbound mail outage — is claimed only when both address lookups returned",
     "an unknown host is never dangling and never contributes to the block-concentration grouping",
+    "reverseNames encodes three states — names, an empty answer, and a lookup that did not answer — read together with hostsWithoutReverse, since either alone accepts a wrong encoding",
+    "address sets compare values, not spellings: expanded and compressed IPv6 confirm and subset as one address, and a duplicate spelling is reversed once",
+    "divergence compares globally reachable addresses on both sides, so a provider's private, shared, documentation, mapped or unparseable value is never remediation and an extra non-global host address cannot suppress a real missing global one",
+    "the reverse-DNS advisory is scoped to the addresses actually checked: a host with five addresses whose fifth publishes a PTR is asked about four and the finding says so",
+    "the cap runs over A answers before AAAA answers, asserted on the trace: four IPv4 addresses exhaust it and the host's IPv6 address is never asked about",
     "optionalCheck applied per host: one unreachable target does not turn the others into an outage report",
     "two records naming one exchange are one host, queried once, still a single point of failure — while duplicate PREFERENCES are about the records",
     "block concentration through core/shared/ip.js at /24 and /48, with the private label renderer observed through sharedPrefixes[].prefix rather than exported for the test",
@@ -550,7 +555,7 @@
   },
   {
    "path": "src/audit/issues.test.js",
-   "assertions": 87,
+   "assertions": 92,
    "areas": [
     "the shape of a finding: a key, a severity, no complete message prose",
     "the closed three-member severity vocabulary",
@@ -776,7 +781,7 @@
   },
   {
    "path": "tests/build/release-compat.test.mjs",
-   "assertions": 60,
+   "assertions": 95,
    "areas": [
     "the v0.7.0, v0.8.0, v0.9.0 and v0.9.1 baselines cover the same deterministic cases",
     "audit results and DNS traces remain byte-identical from v0.7.0 to v0.8.0",
@@ -787,7 +792,9 @@
     "v0.9.0 results change only by the added per-protocol observability map, with the 79 audited domains proven to carry it and the one unregistered domain proven to be the case that does not",
     "v0.9.0 query traces, CSV and DOM are pinned identical to v0.8.0: comparison is a second mode over an already-rendered table and issues no query",
     "v0.9.0 report changes are bounded to the named comparison CSS block, its byte count and the document length, with the hash required to move",
-    "negative controls prove every v0.9.0 rule fails, including a second new result field and a different addition of exactly the authorized size"
+    "negative controls prove every v0.9.0 rule fails, including a second new result field and a different addition of exactly the authorized size",
+    "v0.9.2 query traces are an exact multiset equality — the v0.9.1 trace plus named questions at named counts — with substitution, wrong-type, wrong-transport-option and silent-drop controls",
+    "the one authorized new case is bound by content hash on all five surfaces, with a per-surface mutation control, and both 0.9.2 findings are proven to reach findings, remediation, CSV and DOM"
    ]
   },
   {

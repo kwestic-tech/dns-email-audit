@@ -42,7 +42,7 @@
  * it.
  */
 
-import { parseIpCidr, ipScope } from '../shared/ip.js';
+import { parseIpCidr, ipScope, ipv4ToBigInt, ipv6ToBigInt } from '../shared/ip.js';
 
 /** The three answers a host lookup can give. Registry algebra `mx.host.resolves`. */
 export const MX_HOST_RESOLVES = Object.freeze(['yes', 'no', 'unknown']);
@@ -71,6 +71,46 @@ export const MX_IPV6_COVERAGE = Object.freeze(['none', 'some', 'all']);
  * address returned was unparseable. Unknown is not absent.
  */
 export const MX_HOST_REACHABILITY = Object.freeze(['global', 'partial', 'none', 'unknown']);
+
+/**
+ * Caps on the 0.9.2 divergence procedure. Every one is load-bearing, and none
+ * was set by taste: together they bound the additional outbound work at twelve
+ * queries per domain, which is what made keeping this check under the existing
+ * deep-check flag proportionate rather than a widening of what the tool
+ * discloses. Spec §4 and §7, measured in `docs/specs/implemented/fixtures/ptr-fan-out-0.9.2.md`.
+ */
+var MX_MAX_DIVERGENCE_HOSTS = 2;
+var MX_MAX_REVERSE_ADDRESSES = 4;
+var MX_MAX_CANDIDATES = 2;
+
+/**
+ * The name a `PTR` is actually asked under.
+ *
+ * Reverse DNS does not look up an address; it looks up a name derived from one,
+ * and that derived name is what reaches the resolver — so it is also what the
+ * privacy review inventories as disclosed. IPv4 reverses the octets under
+ * `in-addr.arpa`. IPv6 reverses all 32 nibbles under `ip6.arpa`, which means
+ * the address must be expanded first: `::` elides a run of zeroes, and
+ * reversing the text as written would produce a short, wrong name.
+ *
+ * Returns null for anything that does not parse, which the caller treats as an
+ * address it cannot ask about rather than as an absent reverse record.
+ */
+export function reverseName(address, family) {
+  var text = String(address || '');
+  if (family === 'ipv6' || text.indexOf(':') !== -1) {
+    var value = ipv6ToBigInt(text);
+    if (value === null) return null;
+    var nibbles = [];
+    for (var i = 0; i < 32; i++) nibbles.push((((value >> BigInt(i * 4)) & 0xfn)).toString(16));
+    return nibbles.join('.') + '.ip6.arpa';
+  }
+  // Validated with the shared parser, not a shape regex: `999.1.1.1` matches
+  // three-digits-per-octet and is not an address, and building a reverse name
+  // from it would put a malformed question on the wire.
+  if (ipv4ToBigInt(text) === null) return null;
+  return text.split('.').slice().reverse().join('.') + '.in-addr.arpa';
+}
 
 /**
  * Whether an MX target is an address rather than a name.
@@ -201,6 +241,75 @@ export function hasNullMxConflict(mx) {
  * record type. Both are arguments because §12 gives a protocol directory no
  * edge to `core/dns/`.
  */
+/**
+ * The comparable identity of an address, never its spelling.
+ *
+ * Everything §4 does with addresses — de-duplicating an answer, confirming a
+ * PTR against the address it came from, testing `H ⊂ P` — is set membership
+ * over IP values, and `2a01:100::20` and `2a01:0100:0000:...:0020` are one
+ * value written two ways. Text that is not an address keys as itself, so a
+ * malformed answer still de-duplicates rather than silently multiplying.
+ *
+ * **Private to this directory**, built from the shared parsers rather than
+ * added to them: MX is the only owner asking this question, and `core/shared/`
+ * is for value helpers two or more protocol owners read. A second owner is
+ * where it moves, not a reason to put it there now.
+ *
+ * The two families never collide. An `AAAA` publishing `::ffff:203.0.113.1`
+ * keys as IPv6, because it is a different delivery path from an `A` publishing
+ * `203.0.113.1`.
+ */
+function addressKey(text) {
+  var value = String(text == null ? '' : text).trim();
+  if (value.indexOf(':') !== -1) {
+    var v6 = ipv6ToBigInt(value);
+    if (v6 !== null) return 'v6:' + v6.toString(16);
+  } else if (value) {
+    var v4 = ipv4ToBigInt(value);
+    if (v4 !== null) return 'v4:' + v4.toString(16);
+  }
+  return 'text:' + value.toLowerCase();
+}
+
+/**
+ * Is this address one the Internet can deliver mail to?
+ *
+ * The divergence finding is about missing REACHABLE redundancy, so both sides
+ * of `H ⊂ P` are taken over globally routable values. A provider publishing
+ * `10.0.0.5`, a documentation address, an IPv4-mapped `::ffff:` form or text
+ * that is not an address at all has published nothing a sender can use, and
+ * recommending the operator copy it onto their vanity host would contradict
+ * `mx.unroutable` — 0.9.1's finding for exactly that mistake.
+ */
+function isGloballyReachable(text) {
+  var value = String(text == null ? '' : text).trim();
+  return ipScope(value, value.indexOf(':') === -1 ? 'ipv4' : 'ipv6') === 'global';
+}
+
+/**
+ * First-seen-order de-duplication, by identity rather than by text. §4 compares
+ * address SETS; DNS answers are multisets, and a zone publishing the same RR
+ * twice — or the same address in two legal spellings — must not change either
+ * the comparison or the evidence rendered from it. The text kept is the first
+ * spelling seen, because the evidence should read as the zone published it.
+ */
+function uniqueAddresses(list) {
+  var out = [];
+  var seen = [];
+  (list || []).forEach(function (a) {
+    var key = addressKey(a);
+    if (seen.indexOf(key) !== -1) return;
+    seen.push(key);
+    out.push(a);
+  });
+  return out;
+}
+
+/** A thunk for `optionalCheck`, named so the loop above stays readable. */
+function makeQuery(dohQuery, name, type, queryOpts) {
+  return function () { return dohQuery(name, type, queryOpts); };
+}
+
 export function createMxAudit({ dohQuery, optionalCheck }) {
   async function auditMxHosts(mx, domain, queryOpts) {
     var entries = (mx || []).map(parseMxRecord).filter(Boolean);
@@ -212,7 +321,7 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
         hosts: [], danglingHosts: [], cnameHosts: [], duplicatePreferences: [],
         singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [], unknown: false,
         addressLiteralHosts: [], unroutableHosts: [], partiallyRoutableHosts: [],
-        nullMxConflict: nullMxConflict,
+        nullMxConflict: nullMxConflict, divergentHosts: [], hostsWithoutReverse: [],
       };
     }
 
@@ -251,6 +360,7 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
           resolves: 'no', isCname: false, cnameUnknown: false,
           inAudited: entry.host === domain || entry.host.endsWith('.' + domain),
           isAddressLiteral: true, addressScopes: [], reachability: 'unknown',
+          reverseNames: null, providerName: null, providerAddresses: null, missingAddresses: [],
         };
       }
       var UNKNOWN = {};
@@ -292,12 +402,145 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
         cnameUnknown: cname === null,
         inAudited: entry.host === domain || entry.host.endsWith('.' + domain),
         isAddressLiteral: false,
+        // 0.9.2 fills these for qualifying hosts only. `null` means "not
+        // asked" and is not the same as `[]`, which is an answer.
+        reverseNames: null,
+        providerName: null,
+        providerAddresses: null,
+        missingAddresses: [],
         addressScopes: addressScopes,
         reachability: resolves !== 'yes' || !classified.length ? 'unknown'
           : globalCount === classified.length ? 'global'
             : globalCount ? 'partial' : 'none',
       };
     }));
+
+    /* ── 0.9.2: vanity divergence, and the reverse-DNS advisory ─────────
+       Only for hosts named INSIDE the audited domain that resolved to
+       something reachable. A provider-named MX has no vanity copy to have
+       fallen behind, and a name the operator does not control is not theirs to
+       fix. The three caps below are the privacy review's, not taste: together
+       they bound the additional outbound work at twelve queries per domain. */
+    var divergentHosts = [];
+    var hostsWithoutReverse = [];
+    var candidates = [];
+    var qualifying = hosts
+      .filter(function (h) {
+        return h.inAudited && h.resolves === 'yes' && h.reachability !== 'none';
+      })
+      .slice()
+      .sort(function (a, b) { return a.preference - b.preference; })
+      .slice(0, MX_MAX_DIVERGENCE_HOSTS);
+
+    for (var qi = 0; qi < qualifying.length; qi++) {
+      var qHost = qualifying[qi];
+      // Each reverse name is kept with the address that returned it. The
+      // candidate has to be confirmed against THAT address: a provider name
+      // that resolves to some other address of the same host has not been
+      // confirmed for the address whose PTR produced it.
+      var found = [];
+      var attempted = 0;
+      var returned = 0;
+      var hostAddresses = uniqueAddresses(qHost.addresses);
+      var reverseTargets = hostAddresses.slice(0, MX_MAX_REVERSE_ADDRESSES);
+
+      for (var ai = 0; ai < reverseTargets.length; ai++) {
+        var addr = reverseTargets[ai];
+        var rName = reverseName(addr, addr.indexOf(':') === -1 ? 'ipv4' : 'ipv6');
+        // An address with no valid reverse name is not a lookup that was made,
+        // so it neither counts toward absence nor puts a question on the wire.
+        if (!rName) continue;
+        attempted++;
+        var UNKNOWN_PTR = {};
+        var answer = await optionalCheck(
+          makeQuery(dohQuery, rName, 'PTR', queryOpts), UNKNOWN_PTR);
+        if (answer === UNKNOWN_PTR) continue;
+        returned++;
+        for (var xi = 0; xi < answer.length; xi++) {
+          var clean = String(answer[xi] || '').trim().replace(/\.$/, '').toLowerCase();
+          if (!clean) continue;
+          if (!found.some(function (f) { return f.name === clean; })) {
+            found.push({ name: clean, source: addr });
+          }
+        }
+      }
+
+      var names = found.map(function (f) { return f.name; });
+
+      // Three states, and `[]` is the narrow one. It means every attempted
+      // lookup returned and none published a PTR — the only state that supports
+      // the absence finding. A host where one lookup failed and another
+      // answered empty is NOT that state, and encoding it as `[]` would claim
+      // in the result what the finding correctly refused to claim.
+      //
+      // Names that did return are kept whatever else failed: per-address
+      // aggregation is not conditional on the other addresses succeeding.
+      if (names.length) qHost.reverseNames = names;
+      else if (attempted > 0 && returned === attempted) qHost.reverseNames = [];
+      else qHost.reverseNames = null;
+
+      if (!names.length) {
+        if (qHost.reverseNames !== null) hostsWithoutReverse.push(qHost.host);
+        continue;
+      }
+
+      // A reverse name inside the audited zone is the self-hosted case: no
+      // separate provider name exists to compare against.
+      var pick = null;
+      for (var ni = 0; ni < found.length; ni++) {
+        var n = found[ni].name;
+        if (n === qHost.host || n === domain || n.endsWith('.' + domain)) continue;
+        pick = found[ni];
+        break;
+      }
+      if (!pick) continue;
+      var candidate = pick.name;
+      if (candidates.indexOf(candidate) === -1) {
+        if (candidates.length >= MX_MAX_CANDIDATES) continue;
+        candidates.push(candidate);
+      }
+
+      var UNKNOWN_FWD = {};
+      var forward = await Promise.all([
+        optionalCheck(makeQuery(dohQuery, candidate, 'A', queryOpts), UNKNOWN_FWD),
+        optionalCheck(makeQuery(dohQuery, candidate, 'AAAA', queryOpts), UNKNOWN_FWD),
+      ]);
+      var pv4 = forward[0] === UNKNOWN_FWD ? null : forward[0];
+      var pv6 = forward[1] === UNKNOWN_FWD ? null : forward[1];
+      if (pv4 === null && pv6 === null) continue;
+      var provider = uniqueAddresses((pv4 || []).concat(pv6 || []));
+
+      // Forward confirmation, against the address whose PTR named this
+      // candidate. A PTR is authored by whoever holds the reverse zone and
+      // nothing forces it to name a service, so an unconfirmed name is never
+      // acted on and is never recorded as this host's provider.
+      var providerKeys = provider.map(addressKey);
+      if (providerKeys.indexOf(addressKey(pick.source)) === -1) continue;
+
+      qHost.providerName = candidate;
+      qHost.providerAddresses = provider;
+
+      // Sets, not arrays: a provider publishing the same RR twice must not
+      // duplicate the evidence. Strict subset only, H ⊂ P — divergence in both
+      // directions is a different finding and is deferred (RQ-MXV-06).
+      // Reachable addresses on both sides. Restricting BOTH is what keeps an
+      // extra private address on the host from reading as divergence in the
+      // other direction and silently suppressing a real missing global one.
+      var hostGlobals = hostAddresses.filter(isGloballyReachable).map(addressKey);
+      var providerGlobals = provider.filter(isGloballyReachable);
+      var providerGlobalKeys = providerGlobals.map(addressKey);
+      var missing = providerGlobals.filter(function (a) {
+        return hostGlobals.indexOf(addressKey(a)) === -1;
+      });
+      // `H` empty is not `H ⊂ P`: a host with no reachable address of its own
+      // supports no claim about what it is missing, and every() would say yes.
+      var strictSubset = missing.length > 0 && hostGlobals.length > 0
+        && hostGlobals.every(function (k) { return providerGlobalKeys.indexOf(k) !== -1; });
+      if (strictSubset) {
+        qHost.missingAddresses = missing;
+        divergentHosts.push({ host: qHost.host, provider: candidate, missing: missing });
+      }
+    }
 
     var seenPreferences = Object.create(null);
     var duplicatePreferences = [];
@@ -344,6 +587,8 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
       partiallyRoutableHosts: hosts.filter(function (h) { return h.reachability === 'partial'; })
         .map(function (h) { return h.host; }),
       nullMxConflict: nullMxConflict,
+      divergentHosts: divergentHosts,
+      hostsWithoutReverse: hostsWithoutReverse,
       cnameHosts: hosts.filter(function (h) { return h.isCname; }).map(function (h) { return h.host; }),
       duplicatePreferences: duplicatePreferences,
       singleHost: hosts.length === 1,
