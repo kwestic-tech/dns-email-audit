@@ -288,6 +288,8 @@ export const FINDING_META = {
   'mx-partially-routable': { id: 'mx.partially-routable', protocol: 'mx', severity: 'medium', category: 'transport', effort: 'moderate' },
   'mx-address-literal': { id: 'mx.address-literal', protocol: 'mx', severity: 'critical', category: 'transport', effort: 'trivial' },
   'mx-null-conflict': { id: 'mx.null-conflict', protocol: 'mx', severity: 'medium', category: 'hygiene', effort: 'trivial' },
+  'mx-vanity-divergent': { id: 'mx.vanity-divergent', protocol: 'mx', severity: 'medium', category: 'resilience', effort: 'moderate' },
+  'mx-no-reverse-dns': { id: 'mx.no-reverse-dns', protocol: 'mx', severity: 'info', category: 'resilience', effort: 'moderate' },
 
   // TLSA / DANE. `tlsa-published-unsigned` is the migrated per-host finding the
   // spec keeps instead of a cross-zone DNSSEC/DANE combination (§3).

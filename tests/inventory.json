@@ -281,7 +281,7 @@
   },
   {
    "path": "src/core/mx/mx.test.js",
-   "assertions": 96,
+   "assertions": 119,
    "note": "Co-located per spec §9. Phase 4, Task 4.2. The audit runs against a fake resolver and the REAL optionalCheck imported from core/dns/ — the module has to work against the function it will actually be handed, and a local reimplementation would only prove the test agrees with itself. A test import is not a production edge.",
    "areas": [
     "the two published state constants, with every value the audit can produce shown to be one of them and all six shown to be reachable",
@@ -550,7 +550,7 @@
   },
   {
    "path": "src/audit/issues.test.js",
-   "assertions": 87,
+   "assertions": 92,
    "areas": [
     "the shape of a finding: a key, a severity, no complete message prose",
     "the closed three-member severity vocabulary",

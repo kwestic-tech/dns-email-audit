@@ -10048,6 +10048,54 @@
    "suites": [
     "src/audit/findings.test.js"
    ]
+  },
+  {
+   "algebra": "audit.issue.key",
+   "fixtures": [],
+   "member": "mx-vanity-divergent",
+   "suites": [
+    "src/audit/issues.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.issue.key",
+   "fixtures": [],
+   "member": "mx-no-reverse-dns",
+   "suites": [
+    "src/audit/issues.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.key",
+   "fixtures": [],
+   "member": "mx-vanity-divergent",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.key",
+   "fixtures": [],
+   "member": "mx-no-reverse-dns",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.id",
+   "fixtures": [],
+   "member": "mx.vanity-divergent",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
+  },
+  {
+   "algebra": "audit.finding.id",
+   "fixtures": [],
+   "member": "mx.no-reverse-dns",
+   "suites": [
+    "src/audit/findings.test.js"
+   ]
   }
  ]
 }
