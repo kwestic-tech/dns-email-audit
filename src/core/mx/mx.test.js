@@ -793,4 +793,34 @@ eq('and the host is still named, because the checked addresses published none',
 eq('the recorded answer covers the checked addresses only',
   [capped.hosts[0].reverseNames, capped.hosts[0].addresses.length], [[], 5]);
 
+// The cap is applied to one combined list, and that list is A answers followed
+// by AAAA answers — not a single "order the zone returned them", which does not
+// exist across two lookups. Four IPv4 answers therefore consume the whole
+// budget and the host's IPv6 address is never asked about, even though it is
+// the one publishing a PTR. This asserts the result AND the trace: under the
+// opposite order the ip6.arpa question would be asked, the PTR would return a
+// name, and both assertions below would fail.
+const fourAOneAAAA = auditWith({
+  'mail.example.test': {
+    A: ['100.2.0.20', '100.2.0.21', '100.2.0.22', '100.2.0.23'],
+    AAAA: ['2a01:100::20'], CNAME: [],
+  },
+  '20.0.2.100.in-addr.arpa': { PTR: [] }, '21.0.2.100.in-addr.arpa': { PTR: [] },
+  '22.0.2.100.in-addr.arpa': { PTR: [] }, '23.0.2.100.in-addr.arpa': { PTR: [] },
+  '0.2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.1.0.a.2.ip6.arpa':
+    { PTR: ['mail.example.test'] },
+});
+const cappedByA = await fourAOneAAAA.run(['10 mail.example.test.'], 'example.test');
+eq('the four IPv4 answers consume the budget, in resolver order',
+  fourAOneAAAA.asked.filter(q => q.endsWith('/PTR')),
+  ['20.0.2.100.in-addr.arpa/PTR', '21.0.2.100.in-addr.arpa/PTR',
+    '22.0.2.100.in-addr.arpa/PTR', '23.0.2.100.in-addr.arpa/PTR']);
+eq('and the IPv6 address is never asked about, PTR or not',
+  fourAOneAAAA.asked.some(q => q.includes('ip6.arpa')), false);
+// Which is exactly why the finding's text says the checked addresses: this host
+// does publish reverse DNS, on an address the cap never reached.
+eq('the advisory still names the host, on what was checked',
+  [cappedByA.hostsWithoutReverse, cappedByA.hosts[0].reverseNames],
+  [['mail.example.test'], []]);
+
 report();

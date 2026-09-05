@@ -281,7 +281,7 @@
   },
   {
    "path": "src/core/mx/mx.test.js",
-   "assertions": 151,
+   "assertions": 154,
    "note": "Co-located per spec §9. Phase 4, Task 4.2. The audit runs against a fake resolver and the REAL optionalCheck imported from core/dns/ — the module has to work against the function it will actually be handed, and a local reimplementation would only prove the test agrees with itself. A test import is not a production edge.",
    "areas": [
     "the two published state constants, with every value the audit can produce shown to be one of them and all six shown to be reachable",
@@ -292,6 +292,7 @@
     "address sets compare values, not spellings: expanded and compressed IPv6 confirm and subset as one address, and a duplicate spelling is reversed once",
     "divergence compares globally reachable addresses on both sides, so a provider's private, shared, documentation, mapped or unparseable value is never remediation and an extra non-global host address cannot suppress a real missing global one",
     "the reverse-DNS advisory is scoped to the addresses actually checked: a host with five addresses whose fifth publishes a PTR is asked about four and the finding says so",
+    "the cap runs over A answers before AAAA answers, asserted on the trace: four IPv4 addresses exhaust it and the host's IPv6 address is never asked about",
     "optionalCheck applied per host: one unreachable target does not turn the others into an outage report",
     "two records naming one exchange are one host, queried once, still a single point of failure — while duplicate PREFERENCES are about the records",
     "block concentration through core/shared/ip.js at /24 and /48, with the private label renderer observed through sharedPrefixes[].prefix rather than exported for the test",
