@@ -42,7 +42,7 @@
  * it.
  */
 
-import { parseIpCidr, ipScope, ipIdentity, ipv4ToBigInt, ipv6ToBigInt } from '../shared/ip.js';
+import { parseIpCidr, ipScope, ipv4ToBigInt, ipv6ToBigInt } from '../shared/ip.js';
 
 /** The three answers a host lookup can give. Registry algebra `mx.host.resolves`. */
 export const MX_HOST_RESOLVES = Object.freeze(['yes', 'no', 'unknown']);
@@ -246,12 +246,44 @@ export function hasNullMxConflict(mx) {
  *
  * Everything §4 does with addresses — de-duplicating an answer, confirming a
  * PTR against the address it came from, testing `H ⊂ P` — is set membership
- * over IP values. Text that is not an address keys as itself so that a
+ * over IP values, and `2a01:100::20` and `2a01:0100:0000:...:0020` are one
+ * value written two ways. Text that is not an address keys as itself, so a
  * malformed answer still de-duplicates rather than silently multiplying.
+ *
+ * **Private to this directory**, built from the shared parsers rather than
+ * added to them: MX is the only owner asking this question, and `core/shared/`
+ * is for value helpers two or more protocol owners read. A second owner is
+ * where it moves, not a reason to put it there now.
+ *
+ * The two families never collide. An `AAAA` publishing `::ffff:203.0.113.1`
+ * keys as IPv6, because it is a different delivery path from an `A` publishing
+ * `203.0.113.1`.
  */
 function addressKey(text) {
-  var key = ipIdentity(text);
-  return key === null ? 'text:' + String(text == null ? '' : text).trim().toLowerCase() : key;
+  var value = String(text == null ? '' : text).trim();
+  if (value.indexOf(':') !== -1) {
+    var v6 = ipv6ToBigInt(value);
+    if (v6 !== null) return 'v6:' + v6.toString(16);
+  } else if (value) {
+    var v4 = ipv4ToBigInt(value);
+    if (v4 !== null) return 'v4:' + v4.toString(16);
+  }
+  return 'text:' + value.toLowerCase();
+}
+
+/**
+ * Is this address one the Internet can deliver mail to?
+ *
+ * The divergence finding is about missing REACHABLE redundancy, so both sides
+ * of `H ⊂ P` are taken over globally routable values. A provider publishing
+ * `10.0.0.5`, a documentation address, an IPv4-mapped `::ffff:` form or text
+ * that is not an address at all has published nothing a sender can use, and
+ * recommending the operator copy it onto their vanity host would contradict
+ * `mx.unroutable` — 0.9.1's finding for exactly that mistake.
+ */
+function isGloballyReachable(text) {
+  var value = String(text == null ? '' : text).trim();
+  return ipScope(value, value.indexOf(':') === -1 ? 'ipv4' : 'ipv6') === 'global';
 }
 
 /**
@@ -491,10 +523,19 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
       // Sets, not arrays: a provider publishing the same RR twice must not
       // duplicate the evidence. Strict subset only, H ⊂ P — divergence in both
       // directions is a different finding and is deferred (RQ-MXV-06).
-      var hostKeys = hostAddresses.map(addressKey);
-      var missing = provider.filter(function (a) { return hostKeys.indexOf(addressKey(a)) === -1; });
-      var strictSubset = missing.length > 0
-        && hostKeys.every(function (k) { return providerKeys.indexOf(k) !== -1; });
+      // Reachable addresses on both sides. Restricting BOTH is what keeps an
+      // extra private address on the host from reading as divergence in the
+      // other direction and silently suppressing a real missing global one.
+      var hostGlobals = hostAddresses.filter(isGloballyReachable).map(addressKey);
+      var providerGlobals = provider.filter(isGloballyReachable);
+      var providerGlobalKeys = providerGlobals.map(addressKey);
+      var missing = providerGlobals.filter(function (a) {
+        return hostGlobals.indexOf(addressKey(a)) === -1;
+      });
+      // `H` empty is not `H ⊂ P`: a host with no reachable address of its own
+      // supports no claim about what it is missing, and every() would say yes.
+      var strictSubset = missing.length > 0 && hostGlobals.length > 0
+        && hostGlobals.every(function (k) { return providerGlobalKeys.indexOf(k) !== -1; });
       if (strictSubset) {
         qHost.missingAddresses = missing;
         divergentHosts.push({ host: qHost.host, provider: candidate, missing: missing });

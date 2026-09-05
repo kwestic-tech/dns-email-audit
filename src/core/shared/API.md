@@ -110,7 +110,6 @@ reports duplicates — and stays where it is.
 | `ipv6ToBigInt(text)` | pure | 128-bit `BigInt`, or `null`. Expands `::` to exactly eight hextets and folds an embedded IPv4 (RFC 4291 §2.2.3). |
 | `parseIpCidr(text, family)` | pure | `{ address, prefix, bits }`, or `null`. An absent prefix is a single host; `family` is the caller's declaration, never guessed from the text. |
 | `ipScope(address, family)` | pure | An `IP_SCOPE` member, or `null` for text that is not an address in that family. `'global'` is the default for anything that parses and matches no special-purpose range, so a range IANA adds later reads as reachable rather than as an outage. |
-| `ipIdentity(text)` | pure | A comparable key for one address value, or `null`. The family is read from the text, because callers compare `A` and `AAAA` answers in one set; the two families never collide, so an IPv4-mapped `::ffff:203.0.113.1` does not key as `203.0.113.1`. |
 | `IP_SCOPE` | frozen array | The eleven scope names. Registry algebra `ip.scope`. |
 
 Read by `core/mx/` (`auditMxHosts()` block concentration) and `core/spf/`

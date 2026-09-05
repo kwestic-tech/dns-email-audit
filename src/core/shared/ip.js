@@ -206,32 +206,3 @@ export function ipScope(address, family) {
   }
   return 'global';
 }
-
-/**
- * The identity of an address, as a comparable key — or `null` if the text is
- * not an address at all.
- *
- * An address set is a set of IP **values**; DNS answers are presentation text.
- * `2a01:100::20` and `2a01:0100:0000:0000:0000:0000:0000:0020` are one address
- * written two ways, and comparing the strings makes them two — which silently
- * defeats de-duplication, forward confirmation and the `H ⊂ P` subset test
- * that the whole vanity-divergence finding rests on. Callers keep the
- * first-seen text for evidence and compare on this key.
- *
- * The family is read from the text rather than declared, because the caller is
- * comparing answers from `A` and `AAAA` in one set and has nothing else to go
- * on. **The two families do not collide:** an IPv4-mapped `::ffff:203.0.113.1`
- * keys as IPv6, because an `AAAA` publishing it is a different delivery path
- * from an `A` publishing `203.0.113.1`, and folding them together would report
- * a host as holding an address it does not publish.
- */
-export function ipIdentity(text) {
-  var value = String(text == null ? '' : text).trim();
-  if (!value) return null;
-  if (value.indexOf(':') !== -1) {
-    var v6 = ipv6ToBigInt(value);
-    return v6 === null ? null : 'v6:' + v6.toString(16);
-  }
-  var v4 = ipv4ToBigInt(value);
-  return v4 === null ? null : 'v4:' + v4.toString(16);
-}
