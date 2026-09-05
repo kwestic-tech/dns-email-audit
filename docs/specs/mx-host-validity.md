@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.12 |
+| Spec version | 0.13 |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 released**; 0.9.2 not started, blocked on privacy review (§7) and `OQ-MXV-03` |
@@ -674,6 +674,32 @@ each intermediate version looked exact while accepting a mutation nobody had
 thought to write a control for. The controls are
 the specification; the rule is only their consequence.
 
+**The shared corpus was immutable, and nobody knew (0.13).** CI failed after the
+release was approved and pushed. The `Five-surface equivalence` job regenerated
+`baseline-v0.5.0.json` by checking out the v0.5.0 implementation and running it
+over the **current** corpus — `equivalence.mjs` loads the corpus from the runner
+root, not the subject root — then diffed the result byte-for-byte against the
+committed file. Any edit to a shared fixture therefore broke it: the regenerated
+output carried the new values while the committed oracle kept the old ones.
+
+This had held for four releases only because the corpus had not been touched
+since 0.6.0 created it. `git log` on `corpus.mjs` shows exactly two edits since,
+both from this branch. The constraint was real and undocumented, and the release
+that first exercised it is the one that discovered it.
+
+The v0.5.0 oracle is retired rather than regenerated. Regenerating it would have
+rewritten what a pre-refactor implementation is recorded as producing, on a
+scenario it never saw, and would have left the same trap for the next release
+that needs a fixture. Its purpose — proving the 0.6.0 refactor changed nothing —
+was discharged four releases ago. The cross-release chain now starts at `v0.7.0`,
+and `release-compat.test.mjs` loses the pre-refactor difference class and its
+three controls, 67 assertions to 60. Two suites that read the old file for data
+rather than for history were repointed at the current oracle: `transport-edges`
+reads it as a corpus of observed transport kinds, and `equivalence.validate`
+reads one query trace, which is byte-identical across every baseline in the
+chain — its assertion count is unchanged at 77, which is the evidence that the
+figures did not move.
+
 **Evidence for the record-level finding is special-cased, as §6 asked.**
 The protocol-generic `case 'mx':` fallback emits the resolved hosts, which for a
 null-MX conflict would show everything except the `0 .` that is the whole
@@ -896,6 +922,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.13 | 2026-09-05 | Release-blocking CI failure, found after push. The `Five-surface equivalence` job regenerated the pre-refactor `v0.5.0` oracle over the *current* corpus and diffed it byte-for-byte, which made the shared fixture corpus immutable — a constraint that had held only because nothing had edited the corpus since 0.6.0 created it. Retired that oracle rather than regenerating it: its purpose was discharged by the 0.6.0 refactor, and regenerating would have rewritten a pre-refactor record and left the trap in place. Chain now starts at `v0.7.0`; two suites repointed at the current oracle for the data they were reading. |
 | 0.12 | 2026-09-05 | Codex review round 5. Pinned the severity badge and the emptied critical-group shell by exact content hash, where both had been removed on their opening classes alone and their text could be rewritten freely. Audited the transform for the same class of gap and closed one more unprompted: the row `data-overall` revert was a blanket replace and now requires exactly one. Three new controls. |
 | 0.11 | 2026-09-05 | Codex review round 4. Compared the structured finding whole — all fourteen fields, key-order-independent — where seven identity fields had been checked and the rest could change freely. Replaced the CSV issue-segment prefix match with the complete 230-character rendered message. Three new controls. |
 | 0.10 | 2026-09-04 | Codex review round 3. Bound the report structure as an ordered edit script rather than a token multiset, which had accepted a full reversal. Validated the shape of every removed entry — issue arguments and severity, finding identity fields, and each DOM subtree by role, line count and content hash — where only occurrence counts had been checked. Required exactly one authorized segment in each of the four CSV columns, resolved by header, where the rule had flagged duplication but accepted absence. Seven new controls. |

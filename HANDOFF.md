@@ -31,7 +31,7 @@ Two releases remain:
 ## Start here: conclude the 0.9.2 privacy review
 
 Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) §7,
-`0.12`. **0.9.2 does not begin until this concludes**, and nothing else in the
+`0.13`. **0.9.2 does not begin until this concludes**, and nothing else in the
 document gates it.
 
 0.9.2 adds `PTR` lookups to identify the provider behind a vanity MX host by
@@ -105,7 +105,7 @@ no implementation phase. Review it as a decision document alongside the
 
 - Work on a branch, never on `main`.
 - A spec is Final before implementation starts. For a multi-release spec, that
-  is per release: `mx-host-validity` `0.12` covers 0.9.1, which shipped, and
+  is per release: `mx-host-validity` `0.13` covers 0.9.1, which shipped, and
   0.9.2, which is not approved.
 - A task is boundable to one owning directory; cross-directory work is split
   into separate commits with an architectural explanation.
