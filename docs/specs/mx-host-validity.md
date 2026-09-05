@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.7 (Final, amended) |
+| Spec version | 1.8 (Final, amended) |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 released**; **0.9.2 implemented, awaiting code review** — privacy review accepted at `ac7e984`; implementation measured and bounded, `PRIVACY.md` amended with measured figures |
@@ -346,8 +346,13 @@ and two instances establish it as well as ten.
 
 Per qualifying host:
 
-1. **Reverse.** `PTR` on each of the host's addresses, capped at the first four,
-   each through `optionalCheck` **per address**.
+1. **Reverse.** `PTR` on the host's addresses, capped at four unique addresses,
+   each through `optionalCheck` **per address**. The host's addresses are the
+   `A` answers followed by the `AAAA` answers — two lookups, combined in that
+   order, each preserving the order the resolver returned — so the cap is
+   applied to that list and not to any single combined "zone order", which does
+   not exist. A host publishing four or more IPv4 addresses therefore has its
+   IPv6 addresses left unchecked.
 
    Aggregation is per address and never per host. One address whose `PTR` does
    not return, or returns nothing, must not stop another address from yielding a
@@ -366,9 +371,10 @@ Per qualifying host:
    lookup that did not answer:
 
    The cap is not only a budget, it is part of what the finding *means*: at
-   most the first four addresses are reversed, in the order the zone returned
-   them, so every state below is a statement about the checked addresses and
-   the text says so.
+   most four unique addresses are reversed, `A` answers before `AAAA` answers,
+   so every state below is a statement about the **checked** addresses and the
+   text says so — including that a host with four IPv4 addresses has had none
+   of its IPv6 addresses looked at.
 
    | State of `reverseNames` | Means | Raises `mx.no-reverse-dns` |
    | --- | --- | --- |
@@ -985,6 +991,31 @@ plan through the real audit path. Every other case keeps self-hosted reverse
 DNS and reports neither finding, which `release-compat.test.mjs` asserts
 directly. This closes the coverage gap recorded at `1.1`.
 
+**The disclosed order was not the order the code uses, corrected at `1.8`.**
+Reproduced against `318f36f` before anything changed: a host publishing four
+`A` answers and one `AAAA` whose `ip6.arpa` zone holds a `PTR` is asked four
+`in-addr.arpa` questions, is never asked the `ip6.arpa` one, and is reported as
+having no reverse DNS on its checked addresses — correct behaviour, described by
+text that was not.
+
+`1.7` said the four checked addresses are taken "in the order the zone returned
+them". There is no such order. `auditMxHosts()` performs two lookups and builds
+`addresses` as `(v4 || []).concat(v6 || [])`; `uniqueAddresses(...).slice(0, 4)`
+then takes unique `A` answers first and unique `AAAA` answers after, preserving
+the resolver's order only within each type. The phrase invented a single
+serialization that does not exist and hid the consequence that does: four IPv4
+addresses exhaust the budget before any IPv6 address is considered.
+
+Every normative and status occurrence now states what the code proves — up to
+four **unique** addresses per host, `A` answers considered before `AAAA`
+answers, resolver order preserved within each type — in §4 step 1, the §4
+three-state note, §5's drafting rules, the `1.7` entry below and the fourteen
+locale strings. **Query behaviour is unchanged**, deliberately: the cap and the
+A-then-AAAA order were reviewed and accepted, and this round corrects the
+description, not the code. Criterion 19 and a control in `mx.test.js` assert the
+trace as well as the result, so the opposite order fails rather than quietly
+finding a different name. `mx.test.js` 151 → 154.
+
 **Two remediations still claimed more than DNS established, corrected at
 `1.7`.** Round 21 reproduced both against `e52ead0` first.
 
@@ -1012,7 +1043,9 @@ something this audit saw.
 addresses with a `PTR` on the fifth is asked about four, the fifth is never
 asked, and the finding said "This host publishes none" — false about that zone.
 The message and explanation now name the **checked** addresses and disclose that
-at most the first four are checked, in zone order. The severity and the RFC 5321
+at most four unique addresses are checked, `A` answers before `AAAA` answers.
+*(The `1.7` text said "the first four ... in zone order"; corrected at `1.8`.)*
+The severity and the RFC 5321
 §4.1.4 position are untouched. Criterion 18 and a control in `mx.test.js` §19
 pin the cap and the scope of the claim together, because either alone permits
 the dishonest pairing.
@@ -1273,10 +1306,14 @@ and had to be taken out again:
   that inbound mail is at risk, and should distinguish the receiving path from
   the sending path, which is where the reader has probably heard the rule.
 - **And it must be scoped to the addresses actually checked.** §4 caps reverse
-  lookups at the first four addresses per host, so a host publishing five can
-  hold a `PTR` on one that was never asked. The message and explanation say the
+  lookups at four unique addresses per host, so a host publishing five can hold
+  a `PTR` on one that was never asked. The message and explanation say the
   checked addresses and disclose the cap; "this host publishes none" is a claim
   about a zone the audit did not read.
+- **The disclosed order must be the order the code uses.** That is `A` answers
+  then `AAAA` answers, each in resolver order. There is no single zone order
+  across two lookups, and saying there is hides the consequence that matters:
+  four IPv4 addresses exhaust the budget before any IPv6 address is considered.
 
 ## Testing
 
@@ -1383,6 +1420,11 @@ are later admitted to the grade, that change is backtested with
     says the checked addresses rather than the host's whole published set. The
     cap and the honesty of the claim are one fact, and the control asserts both
     halves together.
+19. A host publishing four `A` answers and one `AAAA` answer whose reverse zone
+    holds a `PTR` is asked four `in-addr.arpa` questions in resolver order and
+    **no** `ip6.arpa` question. Asserted on the trace as well as the result, so
+    considering `AAAA` before the fourth `A` fails the control rather than
+    merely changing which name is found.
 
 ## Risks
 
@@ -1506,7 +1548,8 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
-| 1.7 | 2026-09-05 | Codex round 21, both findings reproduced first. `mx-vanity-divergent`'s remediation no longer installs the name the audit inferred: FCrDNS proves a mapping, not a documented, supported MX target, so the first step is verification against the provider's documentation and the `fixCode` "after" block is conditional with a placeholder name. Its explanation describes reachable address paths instead of independent mail servers, which an address list does not establish. `mx-no-reverse-dns` now names the **checked** addresses and discloses the four-address cap, after a host publishing a `PTR` on its unasked fifth address was shown to receive "this host publishes none". Criterion 18 and a five-address control. Fourteen locales; one case, three rendered surfaces re-pinned, result and trace unchanged. |
+| 1.8 | 2026-09-05 | Codex round 22, reproduced against `318f36f` first. The disclosed order was fiction: `1.7` said the four checked addresses are taken in the order the zone returned them, but the audit makes two lookups and concatenates `A` answers before `AAAA` answers, de-duplicates and takes four — so a host with four IPv4 addresses never has an IPv6 address checked, which the executed case shows. Every normative and status occurrence now says up to four unique addresses per host, `A` answers before `AAAA`, resolver order within each type, in the spec and in all fourteen locales. Query behaviour is deliberately unchanged: the cap and that order were reviewed and accepted, and this corrects the description. Criterion 19 and a mixed-family control asserting the trace as well as the result. |
+| 1.7 | 2026-09-05 | Codex round 21, both findings reproduced first. `mx-vanity-divergent`'s remediation no longer installs the name the audit inferred: FCrDNS proves a mapping, not a documented, supported MX target, so the first step is verification against the provider's documentation and the `fixCode` "after" block is conditional with a placeholder name. Its explanation describes reachable address paths instead of independent mail servers, which an address list does not establish. `mx-no-reverse-dns` now names the **checked** addresses and discloses the four-address cap *(described in this row and in the strings as "in zone order", which was wrong and is corrected at `1.8`: `A` answers are considered before `AAAA` answers)*, after a host publishing a `PTR` on its unasked fifth address was shown to receive "this host publishes none". Criterion 18 and a five-address control. Fourteen locales; one case, three rendered surfaces re-pinned, result and trace unchanged. |
 | 1.6 | 2026-09-05 | Codex round 20, both findings reproduced first. Corrected `mx-vanity-divergent` in English and all thirteen locales: the forward-confirmed name evidences a relationship rather than operation, the message describes missing globally reachable addresses rather than a smaller raw count, and the fix names only the reachable missing addresses and warns that publishing a reserved one creates the `mx.unroutable` fault. Added the RFC 5737 example-only warning to the `fixCode` block, reusing each locale's existing wording. Re-pinned the one authorized case's csv, dom and report to the corrected text; its result and trace are unchanged, as are all 32 other cases on all five surfaces. Replaced `1.5`'s unreproducible "twelve controls" with the accounting the file produces: eight new §18 assertions replacing one, net `+7`, 141 to 148, fourteen across §§17–18. |
 | 1.5 | 2026-09-05 | Codex round 19, both findings reproduced first. Withdrew `ipIdentity()` from `core/shared/`: it had exactly one production consumer, and §12 reserves that directory for helpers two or more protocol owners read. The identity is now `addressKey()`, private to `core/mx/` and built from the shared parsers, with every `1.4` behaviour and control retained. Restricted the `H ⊂ P` comparison to globally reachable addresses on both sides, after the audit was executed recommending that an operator publish a provider's private `10.0.0.5` on a public MX host — remediation that contradicts 0.9.1's `mx.unroutable`; the same run showed an extra private address on the host suppressing a real missing global one, which restricting both sides also fixes. Criterion 17, and eight new §18 assertions replacing one — net `+7`, 141 to 148. *(This row first said "twelve controls", which the file does not produce; corrected at `1.6`.)* Corrected the MX API's "who really operates them", which §Non-goals contradicts. |
 | 1.4 | 2026-09-05 | Codex round 18, all four findings reproduced first. Address identity is now canonical: `ipIdentity()` keys an address by value, so equivalent IPv6 spellings de-duplicate, forward-confirm and compare as one member of `H` and `P` — the executed reproduction showed a real divergence reported nowhere because the host wrote its address out in full and its provider compressed it. First-seen text is preserved for evidence and the families are kept apart. Brought `src/core/mx/API.md` up to the full eight-export, 0.9.2 contract and added the three missing `ip.js` exports to `core/shared/API.md`. Defined the monotonic post-Final version rule in the specs README and stopped saying shipment returns the document to `1.0`. Withdrew the `1.3` claim that the report hash cannot bind finding text: `reportSurface()` hashes the complete HTML, so the pin binds every byte, which a one-word message change demonstrates. |

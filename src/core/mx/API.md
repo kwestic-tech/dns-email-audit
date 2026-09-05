@@ -134,7 +134,9 @@ none.
 #### What 0.9.2 costs, and what bounds it
 
 Three caps, set by the privacy review and load-bearing in code: at most two
-qualifying hosts per domain, at most four addresses reversed per host, at most
+qualifying hosts per domain, at most four unique addresses reversed per host —
+`A` answers considered before `AAAA` answers, resolver order preserved within
+each type, so four IPv4 addresses leave the IPv6 ones unchecked — at most
 two candidate provider names per domain — twelve additional queries per domain
 at the ceiling. Lookups happen only for a host named **inside** the audited
 domain that resolved to something reachable, and only through the `optionalCheck`
