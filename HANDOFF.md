@@ -28,29 +28,41 @@ Two releases remain:
 0.9.2 MX vanity divergence → 1.0.0 readiness
 ```
 
-## Start here: conclude the 0.9.2 privacy review
+## Start here: 0.9.2 awaits approval, not investigation
 
-Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) §7,
-`0.13`. **0.9.2 does not begin until this concludes**, and nothing else in the
-document gates it.
+Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) `0.14`,
+§7. **The privacy review is done. 0.9.2 is not started and must not begin until
+that review is approved.**
 
-0.9.2 adds `PTR` lookups to identify the provider behind a vanity MX host by
-forward-confirmed reverse DNS, and reports the addresses a customer's copy has
-fallen behind on. That moves published DNS fan-out, and `AGENTS.md` makes
-anything implying a `PRIVACY.md` edit a stop condition rather than a note.
+What the review established, before any 0.9.2 code was written:
 
-The review has to answer one question the spec deliberately does not presume:
-whether inferring and resolving a provider name the user never supplied is
-within the consent an audit run already carries, or whether it needs its own
-control. §4 records that a dedicated flag is the mechanism if the answer is the
-latter, and what its provenance and comparability cost would be.
+- **The fan-out is small and was measured, not estimated.** 8 `PTR` queries
+  across the 32-case corpus's 80 audited domains, because only 7 of them have a
+  qualifying host at all. A domain whose MX hosts are named by its provider —
+  the common case for hosted mail — costs **nothing**, because the gate requires
+  an in-domain MX host.
+- **The worst case was unbounded, and is not any more.** §4 capped addresses per
+  host and candidates per domain but never the number of hosts, so ten in-domain
+  MX hosts would have cost forty `PTR` queries. It now examines the two
+  lowest-preference qualifying hosts, bounding a domain at 12 additional queries
+  and the whole default path at 600.
+- **Two name classes reach the resolver that no earlier release sent it:** the
+  reverse zone of each checked address, and — where the reverse name is
+  forward-confirmed — a provider name the user never typed and the audited zone
+  never published.
+- **No separate opt-in.** PTR checks stay under the existing deep-check flag,
+  because every name queried comes from an answer the same resolver has just
+  given, and the chain begins in the audited domain's own MX record. §7.4 states
+  what would change that answer, and why the forward-confirm gate is now
+  load-bearing for privacy as well as correctness.
+- **`OQ-MXV-03` is resolved as `RQ-MXV-03`.** The document has no open questions.
 
-`OQ-MXV-03` — the measured query cost — is held open with it, because the same
-traces answer both what it costs and what it discloses. Two entries must be
-added to `PRIVACY.md`'s disclosure list, and its published per-domain figures
-re-measured rather than estimated.
+`PRIVACY.md` is deliberately unchanged. It describes what the shipped
+application does, and 0.9.2 does not ship yet; §7.5 carries the exact amendment
+to apply in the release that ships the behavior, and requires the per-domain
+figures to be re-measured rather than adjusted.
 
-The 1.0.0 readiness review continues independently of both.
+The 1.0.0 readiness review continues independently.
 
 ## What follows
 
@@ -60,7 +72,7 @@ The 1.0.0 readiness review continues independently of both.
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
 | 0.9.0 | [report-comparison](docs/specs/implemented/report-comparison.md) | Released as `v0.9.0` | Versioned JSON schema, import validation and stateless comparison |
 | 0.9.1 | [mx-host-validity](docs/specs/mx-host-validity.md) | Released as `v0.9.1` | MX address-scope classification; address-literal and null-MX-conflict diagnosis |
-| 0.9.2 | [mx-host-validity](docs/specs/mx-host-validity.md) | 0.9.1 released; **privacy review concluded** and `PRIVACY.md` re-measured | Forward-confirmed reverse DNS and provider address-set divergence |
+| 0.9.2 | [mx-host-validity](docs/specs/mx-host-validity.md) | 0.9.1 released; privacy review conducted and **approved**; `PRIVACY.md` amended and re-measured on the shipping release | Forward-confirmed reverse DNS and provider address-set divergence |
 | 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.1 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary
@@ -105,7 +117,7 @@ no implementation phase. Review it as a decision document alongside the
 
 - Work on a branch, never on `main`.
 - A spec is Final before implementation starts. For a multi-release spec, that
-  is per release: `mx-host-validity` `0.13` covers 0.9.1, which shipped, and
+  is per release: `mx-host-validity` `0.14` covers 0.9.1, which shipped, and
   0.9.2, which is not approved.
 - A task is boundable to one owning directory; cross-directory work is split
   into separate commits with an architectural explanation.

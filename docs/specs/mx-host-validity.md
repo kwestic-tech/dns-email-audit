@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.13 |
+| Spec version | 0.14 |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
-| Status | **0.9.1 released**; 0.9.2 not started, blocked on privacy review (§7) and `OQ-MXV-03` |
+| Status | **0.9.1 released**; 0.9.2 not started — privacy review conducted (§7), no open questions, **awaiting approval to implement** |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
@@ -22,7 +22,7 @@
 > **The Status field carries per-release approval; the Spec version tracks the
 > document.** The specs README's version table assumes one spec is one release,
 > so it has no value for a document whose first release is approved while its
-> second is not. This one stays below `1.0 (Final)` while `OQ-MXV-03` is open,
+> second is not. This one stays below `1.0 (Final)` while 0.9.2 is unshipped,
 > and Status states which release that question actually holds up. 0.9.1 is
 > Final and may be implemented now; nothing open in this document gates it.
 
@@ -330,6 +330,14 @@ Runs only where all four hold: `inAudited === true`, `resolves === 'yes'`,
 `reachability !== 'none'`, and the deep-check gate is on. It produces at most
 one finding per host.
 
+**At most the two lowest-preference qualifying hosts are examined.** The 0.13
+draft capped addresses per host and candidates per domain but not hosts, leaving
+the worst case unbounded in whatever a domain chooses to publish — ten in-domain
+MX hosts would have cost forty `PTR` queries. The privacy review measured that
+and closed it (§7.2, `RQ-MXV-03`). The cost is that a third divergent vanity
+host goes unreported; the finding is that a copy has fallen behind its provider,
+and two instances establish it as well as ten.
+
 Per qualifying host:
 
 1. **Reverse.** `PTR` on each of the host's addresses, capped at the first four,
@@ -370,10 +378,12 @@ Per qualifying host:
    means the two names have diverged in both directions, which is not this
    finding and is left alone; deferred as `RQ-MXV-06`.
 
-**Query budget.** Per qualifying host: up to 4 PTR, plus 2 per candidate name,
-so a bounded worst case of 8 additional queries per host and 4 candidate
-resolutions per domain. On the common shape — one in-domain MX host with one
-address — it is 3.
+**Query budget.** With the two-host cap above, a domain costs at most
+`2 hosts × 4 addresses = 8` PTR plus `2 candidates × 2 = 4` forward lookups —
+**12**. On the common shape, one in-domain MX host with one address, it is 3;
+for a domain whose MX hosts are named by its provider it is 0. Measured over the
+deterministic corpus: 8 `PTR` queries across 80 audited domains, because only 7
+of them have a qualifying host at all (§7.1).
 
 **The gate is not an opt-in, and the 0.1 draft was wrong to imply it.** Deep
 checks ship ticked: `MAX_DEEP_CHECK_DOMAINS` at
@@ -381,8 +391,8 @@ checks ship ticked: `MAX_DEEP_CHECK_DOMAINS` at
 domains, and PRIVACY.md states plainly that they are the default and that the
 published per-domain figures are the numbers with them on. An ordinary
 single-domain run therefore issues these queries. Every cost and disclosure
-argument in this document is made on that basis, and `OQ-MXV-03` is not a
-formality.
+argument in this document is made on that basis, and the fan-out it implies is
+measured in §7.2 rather than assumed.
 
 **Why the deep-check gate and not a new one.** MX already sits behind it, DANE
 already extends it at [`audit-domain.js:347`](../../src/audit/audit-domain.js:347),
@@ -454,46 +464,147 @@ any host. `mx.unroutable` and `mx.partially-routable`
 carry the offending address and its scope in their arguments, so the report
 states which address is unreachable and why, not merely that one is.
 
-### 7. Privacy impact — a blocking gate on 0.9.2
+### 7. Privacy review — conducted, with the fan-out measured
 
-[`AGENTS.md`](../../AGENTS.md:110) lists "anything implying a `PRIVACY.md` edit —
-that means DNS fan-out moved" among the conditions to **stop and say so, not push
-through**. 0.9.2 moves fan-out. This section states what moves; it does not
-discharge the review, and 0.9.2 does not reach Final until that review happens.
+[`AGENTS.md`](../../AGENTS.md:110) makes anything implying a `PRIVACY.md` edit a
+stop condition. 0.9.2 implies one. This section is the review that discharges
+it; it was conducted before any 0.9.2 code was written, and its measurements
+come from the committed `v0.9.1` oracle rather than from an estimate.
 
-**0.9.1 is not gated.** It issues no query. It *removes* three per
-address-literal host, which is a fan-out change in the cheaper direction and
-affects only a malformed configuration absent from PRIVACY.md's measured sample.
-It is recorded here for completeness and needs no re-measurement.
+**0.9.1 was not gated.** It issued no query and removed three per address-literal
+host. What follows is entirely about 0.9.2.
 
-**What 0.9.2 discloses that no earlier release did.** PRIVACY.md enumerates the
-names a run reveals to Cloudflare under "those queries cover more than the name
-you typed". 0.9.2 adds two entries to that list:
+#### 7.1 What the gate actually admits
 
-1. **Reverse zones.** A `PTR` for each checked MX address discloses
-   `<reversed>.in-addr.arpa` or `.ip6.arpa`. The addresses themselves were
-   already disclosed as `A`/`AAAA` answers, but the *query* is new, and it states
-   to the resolver that this address is being investigated rather than merely
-   resolved.
-2. **A provider name the user never typed and the audited zone never named.**
-   Forward-confirming a candidate resolves a hostname belonging to a third-party
-   mail provider — `mailfilter.hibox.hinet.net` for the worked example. PRIVACY.md
-   already warns that MX host names "belong to whoever runs the domain's mail,
-   which is frequently a third-party provider"; this widens that from names the
-   audited zone published to names inferred from reverse DNS.
+The divergence procedure runs only where `inAudited && resolves === 'yes' &&
+reachability !== 'none'`, with deep checks on. `inAudited` is the narrow one: the
+MX host must be a name under the audited domain. A domain using provider-named
+MX hosts — every Google Workspace and Microsoft 365 customer, and most hosted
+mail — has **no qualifying host and costs nothing**.
 
-**What must be re-measured, not estimated.** PRIVACY.md publishes 41 queries per
-domain on the 40-domain sample and 61 for `cloudflare.com`, both with deep checks
-on. Both figures move. They are re-measured on the same corpus, by the same
-method, and the paragraph at PRIVACY.md's line 59 already instructs a reader to
-re-measure rather than trust the prose — the spec is held to its own document's
-standard.
+Measured over the 32-case deterministic corpus, from `baseline-v0.9.1.json`:
 
-**The question the review has to answer**, and which this spec does not presume:
-whether inferring and resolving a provider name the user did not supply is
-within the consent an audit run already carries, or whether it needs its own
-control. §4 notes a dedicated flag is the mechanism if the answer is the latter.
-`OQ-MXV-03` is entangled with this and is deliberately left open.
+| | |
+| --- | --- |
+| Domains audited | 80 |
+| Carrying an `mxHealth` fact (deep checks on) | 76 |
+| Domains with **any** qualifying host | **7** |
+| Qualifying hosts in total | 7 |
+| `PTR` queries the whole corpus would issue | **8** |
+
+Under 9% of audited domains reach step 1 at all. That is the gate doing the
+work, not an accident of the corpus: the check exists for vanity MX, and a
+vanity MX is by definition in-domain.
+
+#### 7.2 Ordinary and worst-case fan-out
+
+Per qualifying host the procedure costs `min(addresses, 4)` `PTR` queries; per
+domain it then costs at most two candidate names × two lookups each (`A` and
+`AAAA`) to forward-confirm.
+
+| Case | Additional queries |
+| --- | --- |
+| Domain with provider-named MX (the common case) | **0** |
+| Domain with one vanity host, one address | 1 `PTR` + 2 forward = **3** |
+| Domain with one vanity host, two addresses | 2 + 2 = **4** |
+| Corpus average, across all 80 audited domains | **0.1 `PTR` per domain** |
+
+For scale: deep checks already cost **four queries per MX host** — three to
+resolve and probe for a `CNAME`, plus one `TLSA`. On a single-address vanity
+host 0.9.2 adds one more, and the two forward-confirm lookups are per domain
+rather than per host.
+
+**The worst case is unbounded, and that is a defect in §4 rather than a
+measurement.** The caps are on addresses *per host* and candidates *per domain*.
+Nothing caps the number of qualifying hosts, so a domain publishing ten
+in-domain MX hosts costs forty `PTR` queries. §4 is amended to cap the procedure
+at **the two lowest-preference qualifying hosts**, which bounds a domain at
+
+    2 hosts × 4 addresses = 8 PTR  +  2 candidates × 2 = 4 forward  =  12
+
+and the whole default path — deep checks disable themselves above 50 domains —
+at **600 additional queries**, against a present ceiling of roughly 41 × 50 =
+2,050. The cost of the cap is that a third divergent vanity host goes
+unreported; the finding is about a copy that has fallen behind, and two
+instances establish that as well as ten. `RQ-MXV-03`.
+
+#### 7.3 What is disclosed, exactly
+
+Two name classes reach the resolver that no earlier release sent it.
+
+**1. Reverse zones.** One `PTR` per checked address:
+
+    <reversed-octets>.in-addr.arpa          for IPv4
+    <reversed-nibbles>.ip6.arpa             for IPv6
+
+**2. A provider name the user never typed and the audited zone never
+published.** Forward-confirming a candidate resolves a hostname belonging to a
+third-party mail operator — `mailfilter.hibox.hinet.net` for the worked example
+in §Problem, reached from a customer domain that names only
+`mailfilter.allremote.com.tw`.
+
+The second is the one that deserved this review. Every other name the tool has
+ever queried is either typed by the user or published in the audited domain's
+own records. This is the first inferred from a third party's data.
+
+#### 7.4 Decision: no separate opt-in — `RQ-MXV-03`
+
+**PTR checks remain under the existing deep-check flag.** Three reasons, in the
+order that decided it.
+
+**The chain is already resolver-visible.** Every name queried comes from an
+answer the same resolver has just given. Cloudflare returned the `A` record, so
+it holds the address before any `PTR` is sent; it answers the `PTR`, so it holds
+the provider name before the forward lookup is sent. The marginal disclosure of
+the second and third queries in the chain, *to the party that supplied the
+first*, is close to nil. A separate consent control would be asking the user to
+approve telling someone what they just told us.
+
+**The derivation starts in the audited domain's own records.** MX → address →
+`PTR` → name is a chain whose first link the domain published deliberately. This
+is not a name from an unrelated source; it is the domain's own MX target,
+followed one hop further.
+
+**A separate flag has a real, stated cost.** 0.9.0 made `deepChecks` part of
+report provenance so that a comparison never reports an unobserved protocol as
+fixed. A new flag needs its own provenance field, its own entry in the
+observability map, and its own comparability rule — machinery that exists to
+prevent false "resolved" claims, duplicated for a distinction the paragraph
+above says is nearly empty.
+
+**What would change this answer.** If the procedure ever queried a name *not*
+derivable from the audited domain's published records — a provider registry, a
+reputation service, an ASN lookup — the first two reasons collapse and it
+belongs behind its own control, or in
+[external-intelligence](external-intelligence.md). The forward-confirm gate is
+what keeps 0.9.2 on the near side of that line: it refuses any candidate that
+does not resolve back to the address the audited domain published, so no name
+outside that chain is ever acted on. That gate is now load-bearing for privacy
+as well as for correctness.
+
+#### 7.5 The prepared `PRIVACY.md` amendment
+
+`PRIVACY.md` documents what the shipped application does. 0.9.2 is not
+implemented, so the amendment is recorded here and applied **in the release that
+ships the behavior**, not before — publishing it earlier would describe queries
+the application does not make.
+
+Add to the disclosure list at `PRIVACY.md:80`, after the MX-host entry:
+
+> - **With the deep protocol checks enabled, for an MX host named inside the
+>   audited domain** — the reverse zone of each of its addresses
+>   (`<reversed>.in-addr.arpa` or `.ip6.arpa`), and, where that reverse name is
+>   forward-confirmed, the name itself. That last name belongs to whoever runs
+>   the mail service and is not published by the audited domain: it is reached
+>   by following the domain's own MX record one hop further. A domain whose MX
+>   hosts are named by its provider — the common case for hosted mail — makes
+>   none of these queries.
+
+And to the fan-out paragraph at `PRIVACY.md:70`: the per-domain figures must be
+**re-measured, not adjusted**, on the release that ships 0.9.2. The measurement
+above predicts a corpus average of 0.1 additional queries per domain and a
+bounded worst case of 12, but the published figures come from a real run and
+this document does not get to estimate them.
 
 ### 8. As implemented — 0.9.1
 
@@ -638,8 +749,8 @@ four carrying columns are now resolved by header and each must contain exactly
 one, with the severity checked at the index the id occupies.
 
 **A note on the document version.** The specs README's table runs `0.2`–`0.9`
-for revisions, which this document has now exhausted while `OQ-MXV-03` keeps it
-below `1.0 (Final)`. It continues at `0.10`. The table did not anticipate a
+for revisions, which this document has now exhausted while its unshipped 0.9.2
+half keeps it below `1.0 (Final)`. It continues past `0.9`. The table did not anticipate a
 document revised this many times before its second release is approved, and the
 numbering is the only thing that needed a decision.
 
@@ -887,6 +998,16 @@ found that a null-MX conflict raises no `mx.dangling` to suppress, because
 nothing either, since a host that resolves is never also dangling. The
 resolution's principle is unchanged; its extent was overstated.
 
+**`RQ-MXV-03` — the query cost is acceptable, at a cap that did not exist when
+the question was asked.** Measured rather than argued: 8 `PTR` queries across the
+32-case corpus's 80 audited domains, 0 for any domain whose MX hosts are
+provider-named, 3 for the common vanity shape. The measurement also found the
+worst case unbounded in the number of MX hosts, which §4 now caps at two —
+bounding a domain at 12 additional queries and the default path at 600. The
+disclosure question that travelled with it is answered in §7.4: no separate
+opt-in, because every name queried comes from an answer the same resolver has
+just given, and the chain begins in the audited domain's own MX record.
+
 **`RQ-MXV-06` — bidirectional divergence is deferred.** `H \ P` does not
 establish that the provider disowned those addresses: forward confirmation
 evidences one relationship, not ownership of every address in either set. A
@@ -896,14 +1017,7 @@ overstated what the evidence supports and is withdrawn.
 
 ## Open questions
 
-**`OQ-MXV-03` — is the query cost acceptable at the stated caps?** Left open
-deliberately. **It concerns 0.9.2 only** — the caps are §4's and the traces are
-§7's, and 0.9.1 issues no query at all. It does not gate 0.9.1, and the 0.2
-Status line that implied otherwise was wrong. The architecture and the caps in §4 are sound, but the cost must be
-*measured* before approval, not argued: query traces on the deterministic corpus
-with deep checks on. It is entangled with §7, because the same traces answer both
-what it costs and what it discloses. Neither the 0.1 draft's estimate nor its
-withdrawn claim that the work sat off the default path is a substitute.
+None. `OQ-MXV-03` was the last; §7 resolves it as `RQ-MXV-03` below.
 
 ## Review record
 
@@ -922,6 +1036,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.14 | 2026-09-05 | 0.9.2 privacy review conducted before any implementation. Measured PTR fan-out from the committed oracle: 8 queries across 80 audited domains, 0 for provider-named MX, 3 for the common vanity shape. Found the worst case unbounded in MX-host count and capped §4 at two qualifying hosts, bounding a domain at 12 and the default path at 600. Inventoried the two newly disclosed name classes. Decided against a separate opt-in, because every name queried comes from an answer the same resolver just returned. Resolved `OQ-MXV-03` as `RQ-MXV-03`; no open questions remain. The `PRIVACY.md` amendment is drafted in §7.5 and deliberately not applied, because that document describes shipped behavior. |
 | 0.13 | 2026-09-05 | Release-blocking CI failure, found after push. The `Five-surface equivalence` job regenerated the pre-refactor `v0.5.0` oracle over the *current* corpus and diffed it byte-for-byte, which made the shared fixture corpus immutable — a constraint that had held only because nothing had edited the corpus since 0.6.0 created it. Retired that oracle rather than regenerating it: its purpose was discharged by the 0.6.0 refactor, and regenerating would have rewritten a pre-refactor record and left the trap in place. Chain now starts at `v0.7.0`; two suites repointed at the current oracle for the data they were reading. |
 | 0.12 | 2026-09-05 | Codex review round 5. Pinned the severity badge and the emptied critical-group shell by exact content hash, where both had been removed on their opening classes alone and their text could be rewritten freely. Audited the transform for the same class of gap and closed one more unprompted: the row `data-overall` revert was a blanket replace and now requires exactly one. Three new controls. |
 | 0.11 | 2026-09-05 | Codex review round 4. Compared the structured finding whole — all fourteen fields, key-order-independent — where seven identity fields had been checked and the rest could change freely. Replaced the CSV issue-segment prefix match with the complete 230-character rendered message. Three new controls. |
