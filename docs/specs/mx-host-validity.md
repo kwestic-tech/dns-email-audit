@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.0 (Final) |
+| Spec version | 1.1 (Final, amended) |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
-| Status | **0.9.1 released**; **0.9.2 Final and approved for implementation** — privacy review conducted, its fan-out executed (§7), and accepted by review at `ac7e984` on 2026-09-05 |
+| Status | **0.9.1 released**; **0.9.2 implemented, awaiting code review** — privacy review accepted at `ac7e984`; implementation measured and bounded, `PRIVACY.md` amended with measured figures |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
@@ -896,6 +896,35 @@ reads one query trace, which is byte-identical across every baseline in the
 chain — its assertion count is unchanged at 77, which is the evidence that the
 figures did not move.
 
+**As implemented — 0.9.2.** Three things the implementation settled that the
+spec had not.
+
+*The corpus needed reverse DNS before it could be measured honestly.* On first
+run the advisory fired in seven background cases, because no fixture published a
+`PTR` — the same fixture-pollution pattern 0.9.1 corrected for addresses,
+recurring at `info` severity. Those hosts were given reverse DNS naming
+themselves, which is the ordinary self-hosted shape and exercises §4's
+self-hosted branch. With that, **no rendered surface moves at all**: CSV, DOM
+and the report are byte-identical to `v0.9.1`, and only the result shape and
+seven query traces differ.
+
+*The shipping cost is 8 queries, not the spike's 14.* Measured through the
+implementation and the page cache across the 32-case corpus: 8 additional
+queries over 80 audited domains, 0.1 per domain, pinned per case in
+`release-compat.test.mjs` — `enforcing-signed` pays two because its qualifying
+host publishes both an `A` and an `AAAA`. The difference from the spike is that
+the corpus's reverse names are self-hosted, so forward confirmation is never
+reached there. `PRIVACY.md` carries the measured figure and says so.
+
+*The corpus does not exercise `mx.vanity-divergent` end to end.* Divergence is
+covered by unit tests in `core/mx/` and by emission tests in `src/audit/`, and
+its state-matrix rows name those suites honestly — but no equivalence case
+produces the finding, because every corpus reverse name is self-hosted by the
+choice above. **This is a recorded coverage gap, not a claim of coverage.**
+Closing it needs a corpus case with an in-domain MX host whose reverse name
+resolves to a provider publishing a superset, which reshapes a fixture and is
+left for review rather than taken unilaterally at the end of the change.
+
 **Evidence for the record-level finding is special-cased, as §6 asked.**
 The protocol-generic `case 'mx':` fallback emits the resolved hosts, which for a
 null-MX conflict would show everything except the `0 .` that is the whole
@@ -1142,6 +1171,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 1.1 | 2026-09-05 | 0.9.2 implemented under the reviewed §4 algorithm. Reverse lookups use real reverse-zone names; the caps, the deep-check gate, per-address aggregation, forward confirmation and strict-subset-only are all load-bearing in code and covered by negative controls. Corpus background hosts were given self-hosted reverse DNS so the advisory does not fire in cases about other protocols — with that, no rendered surface moves and only the result shape and seven traces differ. Measured 8 additional queries across 80 audited domains and amended `PRIVACY.md` with that figure. Recorded one coverage gap: no equivalence case exercises `mx.vanity-divergent` end to end. |
 | 1.0 | 2026-09-05 | **Final.** Codex round 15 accepted the privacy review at `ac7e984`. `OQ-MXV-03` becomes `RQ-MXV-03`; no question remains open, which is what Final records. 0.9.2 is approved for implementation under the reviewed §4 algorithm and acceptance criteria, with the caps, the deep-check gate and the no-score-movement rule load-bearing. The document reaches `1.0 (Implemented)` when 0.9.2 ships. |
 | 0.17 | 2026-09-05 | Codex review round 14. Pinned the accepted result with `node:assert/strict` — counts, the 8+8 split, 16 above cache, 14 outbound, 2 saved, the three findings and the ordered fourteen-entry outbound trace — after the previous verdict was shown to print CONTROLS PASS while the ordinary result drifted to 14/12. Pinned the renamed control to exactly 16 rather than greater-than. Added a control that runs the pinned check against a deliberately drifted fixture and requires rejection, and a control asserting the capture's printed trace equals the executable constant. Reproduced the fourteen-entry trace in the capture, which the spec already claimed was there. |
 | 0.16 | 2026-09-05 | Codex review round 13. Executed the outbound fan-out instead of calculating it: the spike now runs §4 through the production cache and transport with a recording `fetch` beneath, so **14 requests leaving the browser** is observed at the transport seam rather than derived from 16 by subtraction. Added two reuse controls — renaming the repeated provider returns outbound to 16, and the same name under a different type misses — alongside the gate control. Withdrew the claim that a run is unlinkable to any other and that `PRIVACY.md` promises it: `PRIVACY.md` promises no such thing, and Cloudflare can correlate runs from ordinary connection metadata regardless. What remains is the supported claim — 0.9.2 adds no application-level identifier, persistence, or new recipient. |

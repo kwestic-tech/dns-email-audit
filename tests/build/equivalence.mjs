@@ -762,7 +762,7 @@ async function main() {
 
   const baselinePath = args.baseline
     ? resolve(args.baseline)
-    : join(RUNNER_ROOT, 'tests/fixtures/equivalence/baseline-v0.9.1.json');
+    : join(RUNNER_ROOT, 'tests/fixtures/equivalence/baseline-v0.9.2.json');
   if (!existsSync(baselinePath)) {
     console.error(`equivalence: no baseline at ${baselinePath}. Capture one with --emit.`);
     process.exit(2);

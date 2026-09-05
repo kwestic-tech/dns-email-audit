@@ -19,7 +19,7 @@
  */
 
 import {
-  dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa, ds, dnskey, rrsig,
+  dohFixture, txt, ns, mx, a, aaaa, cname, caa, tlsa, ds, dnskey, rrsig, ptr,
 } from '../../../tools/lib/doh-fixture.mjs';
 import {
   RSA_2048_SPKI, RSA_2048_PKCS1, RSA_1024_SPKI, RSA_512_SPKI, ED25519_RAW,
@@ -142,6 +142,8 @@ cases.push({
     '_smtp._tls.alpha.test TXT': txt('v=TLSRPTv1; rua=mailto:tlsrpt@alpha.test'),
     'selector1._domainkey.alpha.test TXT': txt('v=DKIM1; k=rsa; p=' + RSA_2048_SPKI),
     'mail.alpha.test A': a('100.2.0.20'),
+    '20.0.2.100.in-addr.arpa PTR': ptr('mail.alpha.test'),
+    '0.2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.1.0.a.2.ip6.arpa PTR': ptr('mail.alpha.test'),
     'mail.alpha.test AAAA': aaaa('2a01:100::20'),
     '_25._tcp.mail.alpha.test TLSA': { ad: true, answers: tlsa('3 1 1 ( ' + 'CD'.repeat(32) + ' )') },
     'www.alpha.test A': a('192.0.2.10'),
@@ -158,6 +160,7 @@ cases.push({
     'bravo.test NS': ns('ns1.bravo.test'),
     'bravo.test MX': mx('10 mail.bravo.test'),
     'mail.bravo.test A': a('100.51.100.5'),
+    '5.100.51.100.in-addr.arpa PTR': ptr('mail.bravo.test'),
   }),
 });
 
@@ -196,6 +199,7 @@ cases.push({
     'sub.delta.test MX': mx('10 mail.delta.test'),
     'sub.delta.test TXT': txt('v=spf1 -all'),
     'mail.delta.test A': a('100.0.113.5'),
+    '5.113.0.100.in-addr.arpa PTR': ptr('mail.delta.test'),
   }),
 });
 
@@ -232,6 +236,7 @@ cases.push({
     'foxtrot.test TXT cd': txt('v=spf1 -all'),
     '_dmarc.foxtrot.test TXT cd': txt('v=DMARC1; p=none'),
     'mail.foxtrot.test A cd': a('100.0.113.9'),
+    '9.113.0.100.in-addr.arpa PTR cd': ptr('mail.foxtrot.test'),
   }),
 });
 
@@ -249,6 +254,7 @@ cases.push({
     'golf.test DNSKEY': SOME_DNSKEY,
     '_dmarc.golf.test TXT': txt('v=DMARC1; p=none'),
     'mail.golf.test A': a('100.0.113.11'),
+    '11.113.0.100.in-addr.arpa PTR': ptr('mail.golf.test'),
   }),
 });
 
@@ -269,6 +275,7 @@ cases.push({
     'hotel.test TXT': txt('v=spf1 include:‮safe.example -all'),
     '_dmarc.hotel.test TXT': txt('v=DMARC1; p=none; rua=mailto:re‮ports@hotel.test'),
     'mail​.hotel.test A': a('100.0.113.13'),
+    '13.113.0.100.in-addr.arpa PTR': ptr('mail​.hotel.test'),
   }),
 });
 
@@ -454,6 +461,7 @@ cases.push({
     'nowww.host.test MX': mx('10 mail.nowww.host.test'),
     'nowww.host.test TXT': txt('v=spf1 -all'),
     'mail.nowww.host.test A': a('100.51.100.10'),
+    '10.100.51.100.in-addr.arpa PTR': ptr('mail.nowww.host.test'),
   }),
   domains: [{ domain: 'nowww.host.test' }],
 });

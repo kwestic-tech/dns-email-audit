@@ -30,7 +30,7 @@ Two releases remain:
 
 ## Start here: 0.9.2 awaits approval, not investigation
 
-Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) `1.0 (Final)`,
+Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) `1.1`,
 §7. **The privacy review is done, its fan-out executed, and both accepted by review
 on 2026-09-05 at `ac7e984`. The spec is `1.0 (Final)` and 0.9.2 is approved for
 implementation.**
@@ -130,7 +130,7 @@ no implementation phase. Review it as a decision document alongside the
 
 - Work on a branch, never on `main`.
 - A spec is Final before implementation starts. For a multi-release spec, that
-  is per release: `mx-host-validity` `1.0 (Final)` covers 0.9.1, which shipped, and
+  is per release: `mx-host-validity` `1.1` covers 0.9.1, which shipped, and
   0.9.2, which is not approved.
 - A task is boundable to one owning directory; cross-directory work is split
   into separate commits with an architectural explanation.

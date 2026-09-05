@@ -301,7 +301,7 @@ section('4. Measured against the baseline');
 // oracle was retired — the project has been stable since the 0.6.0 refactor,
 // and keeping a baseline that no corpus edit could survive cost more than it
 // proved.
-const baseline = JSON.parse(readFileSync(join(REPO, 'tests/fixtures/equivalence/baseline-v0.9.1.json'), 'utf8'));
+const baseline = JSON.parse(readFileSync(join(REPO, 'tests/fixtures/equivalence/baseline-v0.9.2.json'), 'utf8'));
 const kinds = new Set(TRANSPORT_KINDS);
 
 /** Read one declared path out of a result, following `[]` into arrays. */

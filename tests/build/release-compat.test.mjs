@@ -24,6 +24,7 @@ const release070 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalenc
 const release080 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.8.0.json'), 'utf8'));
 const release090 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.9.0.json'), 'utf8'));
 const release091 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.9.1.json'), 'utf8'));
+const release092 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.9.2.json'), 'utf8'));
 const { eq, section, report } = createSuite();
 
 const byId = document => new Map(document.cases.map(c => [c.id, c]));
@@ -1080,5 +1081,173 @@ eq('a report hash that failed to move with the content is caught',
   release091Violations(frozenHash091).filter(v => v.endsWith(':report')),
   [release091.cases[0].id + ':report']);
 
+
+/* ── 0.9.2: vanity divergence and the reverse-DNS advisory ────────────── */
+
+const release091ById = byId(release091);
+
+/**
+ * 0.9.2 adds six fields and issues PTR lookups. Nothing else may move.
+ *
+ * The corpus was given self-hosted reverse DNS for its background MX hosts in
+ * the same change, for the reason 0.9.1 moved their addresses: a case about SPF
+ * or DNSSEC must not acquire a finding about reverse DNS. The effect is that
+ * CSV, DOM and the report are byte-identical here — the only surfaces that move
+ * are the result shape and seven query traces.
+ */
+const MX_DIVERGENCE_HOST_FIELDS = ['reverseNames', 'providerName', 'providerAddresses', 'missingAddresses'];
+const MX_DIVERGENCE_TOP_FIELDS = ['divergentHosts', 'hostsWithoutReverse'];
+
+function stripMxDivergence(resultEntries) {
+  const copy = structuredClone(resultEntries);
+  for (const entry of copy) {
+    const mxHealth = entry && entry.result && entry.result.advanced
+      && entry.result.advanced.mxHealth;
+    if (!mxHealth) continue;
+    for (const field of MX_DIVERGENCE_TOP_FIELDS) delete mxHealth[field];
+    for (const host of mxHealth.hosts || []) {
+      for (const field of MX_DIVERGENCE_HOST_FIELDS) delete host[field];
+    }
+  }
+  return copy;
+}
+
+/**
+ * The measured cost, per case, of the reverse lookups 0.9.2 issues. Eight
+ * queries across the whole 32-case corpus; `enforcing-signed` pays two because
+ * its qualifying host publishes both an A and an AAAA record.
+ *
+ * Pinned per case and summed, not merely bounded: a rule that only checked the
+ * total would accept the same eight queries landing on different domains.
+ */
+const AUTHORIZED_TRACE_DELTA = {
+  'enforcing-signed': 2,
+  'bare-registered': 1,
+  'cache-reuse-siblings': 1,
+  'dnssec-bogus': 1,
+  'dnssec-orphan-ds': 1,
+  'hygiene-sentinels': 1,
+  'website-probe-off': 1,
+};
+const AUTHORIZED_TRACE_TOTAL = 8;
+
+function release092Violations(after) {
+  const violations = [];
+  if (JSON.stringify([...byId(after).keys()].sort()) !== JSON.stringify([...release091ById.keys()].sort())) {
+    return ['case-set'];
+  }
+  let traceTotal = 0;
+  for (const c of after.cases) {
+    const before = release091ById.get(c.id);
+    const id = c.id;
+
+    // Scores and grades do not move. The findings are advisory.
+    if (JSON.stringify(scoresOf(c)) !== JSON.stringify(scoresOf(before))) violations.push(id + ':score');
+
+    // The result differs only by the six new fields, on their own paths.
+    if (JSON.stringify(stripMxDivergence(c.result)) !== JSON.stringify(before.result)) {
+      violations.push(id + ':result');
+    }
+
+    // Nothing rendered moves at all.
+    if (JSON.stringify(c.csv) !== JSON.stringify(before.csv)) violations.push(id + ':csv');
+    if (JSON.stringify(c.dom) !== JSON.stringify(before.dom)) violations.push(id + ':dom');
+    if (JSON.stringify(c.report) !== JSON.stringify(before.report)) violations.push(id + ':report');
+
+    // The trace moves by exactly the measured amount, in exactly these cases,
+    // and in no other way: the queries themselves are otherwise untouched.
+    const expected = AUTHORIZED_TRACE_DELTA[id] || 0;
+    const actual = c.trace.total - before.trace.total;
+    traceTotal += actual;
+    if (actual !== expected || c.trace.distinct - before.trace.distinct !== expected) {
+      violations.push(id + ':trace');
+    }
+    const strip = t => ({ ...t, total: 0, distinct: 0, queries: undefined });
+    // `queries` is a list of { query, count }, so compare the question text.
+    // Every question 0.9.2 adds must be a reverse lookup; anything else is a
+    // different disclosure wearing the authorized count.
+    const askedBefore = new Set((before.trace.queries || []).map(q => q.query));
+    const added = (c.trace.queries || []).filter(q => !askedBefore.has(q.query));
+    if (added.some(q => !/\.(in-addr|ip6)\.arpa\b/.test(q.query))) violations.push(id + ':trace-shape');
+    if (JSON.stringify(strip(c.trace)) !== JSON.stringify(strip(before.trace))) violations.push(id + ':trace-other');
+  }
+  if (traceTotal !== AUTHORIZED_TRACE_TOTAL) violations.push('trace-total');
+  return violations;
+}
+
+section('The 0.9.2 difference class is exact');
+
+eq('the 0.9.2 baseline differs only by its authorized surface changes',
+  release092Violations(release092), []);
+
+// The new fields are really present, or the rule above compares nothing.
+const mxHealths092 = release092.cases
+  .flatMap(c => c.result.map(e => e.result))
+  .map(r => r && r.advanced && r.advanced.mxHealth)
+  .filter(Boolean);
+eq('every mxHealth carries the two new top-level fields',
+  [mxHealths092.length > 0, mxHealths092.filter(m => !MX_DIVERGENCE_TOP_FIELDS.every(f => f in m)).length],
+  [true, 0]);
+
+// And the corpus really is clean of the advisory, which is why nothing rendered
+// moved. If a fixture loses its reverse DNS this stops being true.
+eq('no case reports absent reverse DNS',
+  mxHealths092.filter(m => (m.hostsWithoutReverse || []).length).length, 0);
+
+section('Every 0.9.2 compatibility rule has a negative control');
+
+const missing092 = structuredClone(release092);
+missing092.cases.pop();
+eq('a case-set movement is caught', release092Violations(missing092), ['case-set']);
+
+const score092 = structuredClone(release092);
+score092.cases[0].result[0].result.score.pts += 1;
+eq('a score movement is caught',
+  release092Violations(score092).filter(v => v.endsWith(':score')), [release092.cases[0].id + ':score']);
+
+const result092 = structuredClone(release092);
+result092.cases[0].result[0].result.domain = 'mutated.test';
+eq('a result movement outside the new fields is caught',
+  release092Violations(result092).filter(v => v.endsWith(':result')), [release092.cases[0].id + ':result']);
+
+const extra092 = structuredClone(release092);
+extra092.cases[0].result[0].result.advanced.mxHealth.anotherField = true;
+eq('a seventh new mxHealth field is not covered by the authorized six',
+  release092Violations(extra092).filter(v => v.endsWith(':result')), [release092.cases[0].id + ':result']);
+
+const misplaced092 = structuredClone(release092);
+misplaced092.cases[0].result[0].result.divergentHosts = [];
+eq('an authorized field name outside advanced.mxHealth is caught',
+  release092Violations(misplaced092).filter(v => v.endsWith(':result')), [release092.cases[0].id + ':result']);
+
+const dom092 = structuredClone(release092);
+dom092.cases[0].dom.push('unauthorized node');
+eq('any DOM change at all is caught',
+  release092Violations(dom092).filter(v => v.endsWith(':dom')), [release092.cases[0].id + ':dom']);
+
+const csv092 = structuredClone(release092);
+csv092.cases[0].csv.lines[0] = '"inserted",' + csv092.cases[0].csv.lines[0];
+eq('any CSV change at all is caught',
+  release092Violations(csv092).filter(v => v.endsWith(':csv')), [release092.cases[0].id + ':csv']);
+
+const report092 = structuredClone(release092);
+report092.cases[0].report.length += 1;
+eq('any report change at all is caught',
+  release092Violations(report092).filter(v => v.endsWith(':report')), [release092.cases[0].id + ':report']);
+
+// The trace is pinned per case, not merely in total: eight queries landing on
+// a different domain is a different disclosure.
+const movedTrace092 = structuredClone(release092);
+movedTrace092.cases.find(c => c.id === 'bare-registered').trace.total += 1;
+movedTrace092.cases.find(c => c.id === 'bare-registered').trace.distinct += 1;
+eq('a query moved onto another domain is caught',
+  release092Violations(movedTrace092).filter(v => v.endsWith(':trace')), ['bare-registered:trace']);
+
+// And a query that is not a reverse lookup is not what 0.9.2 authorized.
+const wrongShape092 = structuredClone(release092);
+const wsCase = wrongShape092.cases.find(c => c.id === 'bare-registered');
+wsCase.trace.queries = [...(wsCase.trace.queries || []), { query: 'unauthorized.example TXT do=0 cd=0', count: 1 }];
+eq('an added query that is not a reverse lookup is caught',
+  release092Violations(wrongShape092).filter(v => v.endsWith(':trace-shape')), ['bare-registered:trace-shape']);
 
 report();
