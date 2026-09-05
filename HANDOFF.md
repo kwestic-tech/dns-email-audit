@@ -20,7 +20,7 @@ any lookup.
 `v0.9.1` issues no new DNS query and moves no score or grade. Deterministic
 replay across the 32-case corpus shows byte-identical query traces, and the
 cross-release guard in `tests/build/release-compat.test.mjs` bounds every
-surface of the authorized delta with 67 assertions.
+surface of the authorized delta with 60 assertions.
 
 Two releases remain:
 
