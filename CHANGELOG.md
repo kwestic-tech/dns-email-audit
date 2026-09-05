@@ -44,11 +44,19 @@ Nothing yet.
 
 ### Notes
 
-- **No new DNS query, and no score or grade movement.** The three findings are
+- **No new DNS query, and no score or grade movement.** The four findings are
   read from answers the audit already had. Deterministic replay across the
-  32-case corpus shows byte-identical query traces and unchanged scores and
-  grades on every domain; the only rendered movement is in the one fixture that
-  publishes deliberately unreachable MX hosts.
+  32-case corpus shows byte-identical query traces on every domain, and
+  unchanged scores and grades.
+
+  Two kinds of movement are worth separating. **Finding** movement is confined
+  to the one fixture that publishes deliberately unreachable MX hosts. **Raw
+  rendered** movement is wider: 29 background MX fixtures moved to
+  routable-class stub addresses so that cases testing SPF, DKIM, DMARC and
+  DNSSEC would not acquire a finding about something they are not testing, and
+  those substituted addresses are printed. Against the previous oracle that is
+  30 result, 30 DOM and 30 report surfaces, one CSV, and zero query traces. The
+  cross-release guard authorizes exactly that substitution and nothing else.
 - **A preference-range check was specified and withdrawn before release.** RFC
   1035 §3.3.9 encodes the MX preference as an unsigned 16-bit integer, so a
   larger value cannot survive a real response and the check could only ever be
@@ -1499,7 +1507,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.7.0...v0.8.0

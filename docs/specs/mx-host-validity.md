@@ -3,8 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Spec version | 0.12 |
+| Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
-| Status | **0.9.1 implemented**, pending review; 0.9.2 blocked on privacy review (§7) and `OQ-MXV-03` |
+| Status | **0.9.1 released**; 0.9.2 not started, blocked on privacy review (§7) and `OQ-MXV-03` |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |

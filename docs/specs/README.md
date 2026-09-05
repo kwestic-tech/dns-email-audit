@@ -41,11 +41,19 @@ carries — is out of scope for the approved one. The document reaches
 `1.0 (Final)` only when every release in it is resolved or explicitly deferred.
 [mx-host-validity](mx-host-validity.md) is the first document to use this.
 
+**It moves to [`implemented/`](implemented/) when its LAST release ships, not its
+first.** A document whose first release is out and whose second is not started
+still describes unshipped work, and filing it as implemented would say
+otherwise. It stays here, carrying a `Released in` row naming which half
+shipped, until nothing in it is outstanding. `mx-host-validity` is in exactly
+that state after `v0.9.1`.
+
 ## Planned
 
 `Target release` below is a version-numbering anchor, kept per the naming rule
-in this document. **As of 2026-09-04, three planned releases remain:** 0.9.1 and 0.9.2 MX host
-validity, then the 1.0.0 graduation gate. 0.9.0 reports shipped. The earlier
+in this document. **As of 2026-09-05, two planned releases remain:** 0.9.2 MX vanity divergence,
+then the 1.0.0 graduation gate. 0.9.0 reports and 0.9.1 MX address validity
+shipped. The earlier
 parallel artifact proposal was retired after the 0.6.0 refactor shipped; 0.7.0
 supplied the final finding shape and 0.8.0 consumed it without widening the
 public-DNS score. See [`HANDOFF.md`](../../HANDOFF.md) for the current operational
@@ -54,7 +62,7 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [mx-host-validity](mx-host-validity.md) | 0.9.1, then 0.9.2 | 0.12 | **0.9.1 Final, approved for implementation**; 0.9.2 blocked on privacy review and `OQ-MXV-03` |
+| [mx-host-validity](mx-host-validity.md) | 0.9.1 released, then 0.9.2 | 0.12 | **0.9.1 released as `v0.9.1`**; 0.9.2 not started, blocked on privacy review and `OQ-MXV-03` |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 
