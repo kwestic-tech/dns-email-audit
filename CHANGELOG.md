@@ -16,6 +16,44 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Nothing yet.
 
+## [0.9.1] — 2026-09-05
+
+### Added
+
+- **MX hosts are read for what they resolve to, not only for whether they
+  resolve.** A host answering `127.0.0.1`, `10.0.0.4` or `::1` resolved
+  successfully, raised nothing, and read in the interface exactly like a
+  healthy mail domain — while no sending server on the internet could deliver
+  to it. Every resolved address is now classified against the IANA
+  special-purpose registries, and a host whose addresses are all unreachable is
+  reported as a critical finding. A host with both routable and unreachable
+  addresses gets its own finding: mail still arrives, for whichever senders
+  happen to pick a routable address, and stalls for the rest.
+- **An address written where a hostname belongs is named for what it is.**
+  `MX 10 203.0.113.10` was diagnosed as a host that does not resolve, which is
+  the right alarm attached to advice that cannot be followed — no address
+  record can exist for a name that is an address. It now reports its own
+  finding, suppresses the dangling one, and skips the three lookups that were
+  spent proving what the record already stated.
+- **A null MX published beside a real MX record is reported.** RFC 7505 §3
+  requires `0 .` to be the only MX record in the set; a domain publishing both
+  has declared that it accepts mail and that it accepts none, and which
+  declaration a given sender honours is not something the domain controls.
+  This was previously reported nowhere at all: the parser rejects `0 .` before
+  any lookup, so the contradiction reached neither a finding nor a query.
+
+### Notes
+
+- **No new DNS query, and no score or grade movement.** The three findings are
+  read from answers the audit already had. Deterministic replay across the
+  32-case corpus shows byte-identical query traces and unchanged scores and
+  grades on every domain; the only rendered movement is in the one fixture that
+  publishes deliberately unreachable MX hosts.
+- **A preference-range check was specified and withdrawn before release.** RFC
+  1035 §3.3.9 encodes the MX preference as an unsigned 16-bit integer, so a
+  larger value cannot survive a real response and the check could only ever be
+  exercised by feeding the parser a string no resolver produces.
+
 ## [0.9.0] — 2026-09-04
 
 ### Added
