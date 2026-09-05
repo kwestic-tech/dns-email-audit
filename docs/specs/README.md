@@ -54,7 +54,7 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [mx-host-validity](mx-host-validity.md) | 0.9.1, then 0.9.2 | 0.11 | **0.9.1 Final, approved for implementation**; 0.9.2 blocked on privacy review and `OQ-MXV-03` |
+| [mx-host-validity](mx-host-validity.md) | 0.9.1, then 0.9.2 | 0.12 | **0.9.1 Final, approved for implementation**; 0.9.2 blocked on privacy review and `OQ-MXV-03` |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 

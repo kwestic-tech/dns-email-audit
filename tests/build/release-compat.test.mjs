@@ -431,6 +431,21 @@ const AUTHORIZED_FINDING_SHAPE = Object.freeze({
   severity: 'critical',
 });
 
+/**
+ * The material the new finding adds around itself: the severity badge it
+ * introduces, and the `finding-group` shell it opens because the case had no
+ * critical group before. Both are removed by the reconstruction, so both are
+ * pinned by exact content for the same reason the finding subtrees are — a
+ * remover that recognizes a wrapper only by its opening classes will discard
+ * any text those classes happen to enclose.
+ */
+const AUTHORIZED_DOM_BADGE = Object.freeze({
+  lines: 2, sha256: 'f5d8102bee4ca099ac0a0d7064c6a882699f83553b4c054e441951adc18b030c',
+});
+const AUTHORIZED_DOM_GROUP_SHELL = Object.freeze({
+  lines: 3, sha256: '73ea388c4c84f37ffa0d1e22ae468bbb6005c50cecb11e038d39ccaaae6acb9b',
+});
+
 /** The two rendered occurrences, by role, size and exact content. */
 const AUTHORIZED_DOM_SUBTREES = [
   { role: 'finding', lines: 52, sha256: '9422943a0b297ec39f6ad2489aa61f1c845830f63b34a106e594cb1343715b8e' },
@@ -527,12 +542,19 @@ function subtreeEnd(lines, start) {
  */
 function removeAuthorizedFindingFromDom(lines) {
   const findingId = new RegExp('data-finding-id="' + AUTHORIZED_FINDING_ID.replace('.', '\\.') + '"');
-  let badges = 0;
+  const badges = [];
   const seen = [];
+  let overallReverts = 0;
   const withoutFinding = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (/<span title="1 critical">/.test(line)) { badges++; i++; continue; }
+    if (/<span title="1 critical">/.test(line)) {
+      const end = subtreeEnd(lines, i);
+      const body = lines.slice(i, end);
+      badges.push({ lines: body.length, sha256: sha256(body.join('\n')) });
+      i = end - 1;
+      continue;
+    }
     if (findingId.test(line)) {
       const end = subtreeEnd(lines, i);
       const body = lines.slice(i, end);
@@ -545,10 +567,18 @@ function removeAuthorizedFindingFromDom(lines) {
       i = end - 1;
       continue;
     }
+    // The row's severity attribute reverts, and exactly one row may carry it.
+    // An unvalidated blanket replace would silently rewrite a second domain's
+    // row too — the same class of gap as an unvalidated wrapper removal.
+    if (line.includes('data-overall="crit"')) overallReverts++;
     withoutFinding.push(line.replace('data-overall="crit"', 'data-overall="warn"'));
   }
-  if (badges !== 1 || JSON.stringify(seen) !== JSON.stringify(AUTHORIZED_DOM_SUBTREES)) return null;
+  if (badges.length !== 1
+    || overallReverts !== 1
+    || JSON.stringify(badges[0]) !== JSON.stringify(AUTHORIZED_DOM_BADGE)
+    || JSON.stringify(seen) !== JSON.stringify(AUTHORIZED_DOM_SUBTREES)) return null;
 
+  const shells = [];
   const out = [];
   for (let i = 0; i < withoutFinding.length; i++) {
     const line = withoutFinding[i];
@@ -556,10 +586,19 @@ function removeAuthorizedFindingFromDom(lines) {
       && /finding-sev-critical/.test(withoutFinding[i + 1] || '')) {
       const groupEnd = subtreeEnd(withoutFinding, i);
       const body = withoutFinding.slice(i + 1, groupEnd);
-      if (!body.some(l => /<div class="finding"/.test(l))) { i = groupEnd - 1; continue; }
+      // Only an EMPTIED group is the wrapper the authorized finding opened —
+      // and its own text is checked before it goes, not just its classes.
+      if (!body.some(l => /<div class="finding"/.test(l))) {
+        const shell = withoutFinding.slice(i, groupEnd);
+        shells.push({ lines: shell.length, sha256: sha256(shell.join('\n')) });
+        i = groupEnd - 1;
+        continue;
+      }
     }
     out.push(line);
   }
+  if (shells.length !== 1
+    || JSON.stringify(shells[0]) !== JSON.stringify(AUTHORIZED_DOM_GROUP_SHELL)) return null;
   return out;
 }
 
@@ -995,6 +1034,40 @@ const mutatedSubtree091 = structuredClone(release091);
 }
 eq('rewritten content inside the authorized DOM subtree is caught',
   release091Violations(mutatedSubtree091).filter(v => v.endsWith(':dom')),
+  [NON_ROUTABLE_MX_CASE + ':dom']);
+
+// The material around the finding is removed too, so it is bound too: the
+// badge the finding introduces and the group shell it opens. Both mutations
+// below leave the two authorized finding subtrees, and every count, untouched.
+const mutatedBadge091 = structuredClone(release091);
+{
+  const lines = mutatedBadge091.cases[authorizedIndex].dom;
+  const at = lines.findIndex(l => /<span title="1 critical">/.test(l));
+  lines[at + 1] = lines[at + 1].replace(/".*"/, '"arbitrary badge content"');
+}
+eq('rewritten content in the authorized severity badge is caught',
+  release091Violations(mutatedBadge091).filter(v => v.endsWith(':dom')),
+  [NON_ROUTABLE_MX_CASE + ':dom']);
+
+const mutatedGroupLabel091 = structuredClone(release091);
+{
+  const lines = mutatedGroupLabel091.cases[authorizedIndex].dom;
+  const group = lines.findIndex((l, i) =>
+    /<div class="finding-group">/.test(l) && /finding-sev-critical/.test(lines[i + 1] || ''));
+  const label = lines.findIndex((l, i) => i > group && /#3 /.test(l));
+  lines[label] = lines[label].replace(/".*"/, '"arbitrary group label"');
+}
+eq('a rewritten critical-group label is caught',
+  release091Violations(mutatedGroupLabel091).filter(v => v.endsWith(':dom')),
+  [NON_ROUTABLE_MX_CASE + ':dom']);
+
+// Found while auditing the transform for the same class of gap rather than
+// waiting for it to be reported: the row-severity revert was a blanket string
+// replace, so a second row carrying it would have been rewritten unexamined.
+const secondOverall091 = structuredClone(release091);
+secondOverall091.cases[authorizedIndex].dom.push('  <tr data-overall="crit">');
+eq('a second row carrying the reverted severity attribute is caught',
+  release091Violations(secondOverall091).filter(v => v.endsWith(':dom')),
   [NON_ROUTABLE_MX_CASE + ':dom']);
 
 // Absence: a renderer that silently stopped emitting the finding into CSV.
