@@ -295,7 +295,13 @@ eq('nor is the thrown audit error.kind',
 /* ── 4. Every declared path carries only closed kinds ─────────────────── */
 section('4. Measured against the baseline');
 
-const baseline = JSON.parse(readFileSync(join(REPO, 'tests/fixtures/equivalence/baseline-v0.5.0.json'), 'utf8'));
+// The current release oracle, read only as a corpus of observed values: this
+// section asks what transport kinds actually appear on the declared paths, and
+// any baseline answers that. It used the pre-refactor v0.5.0 capture until that
+// oracle was retired — the project has been stable since the 0.6.0 refactor,
+// and keeping a baseline that no corpus edit could survive cost more than it
+// proved.
+const baseline = JSON.parse(readFileSync(join(REPO, 'tests/fixtures/equivalence/baseline-v0.9.1.json'), 'utf8'));
 const kinds = new Set(TRANSPORT_KINDS);
 
 /** Read one declared path out of a result, following `[]` into arrays. */

@@ -19,6 +19,9 @@ import { dirname, join } from 'node:path';
 
 import { createSuite } from '../../tests/lib/assert.mjs';
 import { buildIssues, buildSuggestions } from './issues.js';
+// The real producer, so the fact under test is the one `core/mx/` computes
+// rather than one this file asserts into existence.
+import { createMxAudit } from '../core/mx/mx.js';
 
 const { eq, section, report } = createSuite();
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -107,12 +110,12 @@ const occurrencesIn = text => [...text.matchAll(/key: '([a-z0-9-]+)'/g)].map(m =
 const literalIssueKeys = [...new Set(occurrencesIn(source.slice(0, cut)))].sort();
 const tipKeys = [...new Set(occurrencesIn(source.slice(cut)))].sort();
 
-eq('the registry records 106 issue tokens', issueAlgebra.length, 106);
+eq('the registry records 110 issue tokens', issueAlgebra.length, 110);
 eq('and they are exactly the locale issue keys', issueAlgebra, Object.keys(en.issue).sort());
 
 /* ── 3a. Direct literals ─────────────────────────────────────────────── */
-eq('buildIssues writes 93 key literals', occurrencesIn(source.slice(0, cut)).length, 93);
-eq('which are 92 distinct keys — one is written twice', literalIssueKeys.length, 92);
+eq('buildIssues writes 97 key literals', occurrencesIn(source.slice(0, cut)).length, 97);
+eq('which are 96 distinct keys — one is written twice', literalIssueKeys.length, 96);
 eq('every literal is a registry member', literalIssueKeys.filter(k => !issueAlgebra.includes(k)), []);
 eq('and every literal has a locale entry', literalIssueKeys.filter(k => !(k in en.issue)), []);
 
@@ -146,7 +149,7 @@ eq('fourteen issue keys are emitted without ever being written as a literal',
 // The two directions that stop the inventory and the registry drifting apart.
 eq('the inventory is exactly the registry minus the literals',
   nonLiteral, issueAlgebra.filter(k => !literalIssueKeys.includes(k)));
-eq('so literals plus non-literals close the 106-member vocabulary',
+eq('so literals plus non-literals close the 110-member vocabulary',
   [...literalIssueKeys, ...nonLiteral].sort(), issueAlgebra);
 eq('every one of the fourteen has a locale entry',
   nonLiteral.filter(k => !(k in en.issue)), []);
@@ -359,5 +362,109 @@ eq('it imports only protocol fact producers',
   ['../core/dmarc/record.js', '../core/dmarc/report-auth.js', '../core/dnssec/records.js']);
 eq('and holds no transport capability',
   /dohFetch|dohQuery|requireUsable|optionalCheck/.test(source), false);
+
+/* ── 6. 0.9.1: the MX address-validity emission paths ─────────────────── */
+section('6. MX address validity');
+
+// A host is a full mxHealth host record; buildIssues reads reachability,
+// isAddressLiteral and the two record-level flags.
+const mxHost = over => ({
+  host: 'mail.example.test', preference: 10, preferences: [10], addresses: [],
+  v4Count: 0, v6Count: 0, resolves: 'yes', isCname: false, cnameUnknown: false,
+  inAudited: false, isAddressLiteral: false, addressScopes: [], reachability: 'global',
+  ...over,
+});
+const mxKeys = (hosts, top = {}) => keysFor({
+  advanced: {
+    mxHealth: {
+      hosts, danglingHosts: [], cnameHosts: [], duplicatePreferences: [],
+      singleHost: false, ipv6Coverage: 'all', sharedPrefixes: [], unknown: false,
+      addressLiteralHosts: [], unroutableHosts: [], partiallyRoutableHosts: [],
+      nullMxConflict: false, ...top,
+    },
+  },
+});
+
+const unroutable = mxKeys([mxHost({
+  addresses: ['127.0.0.1'], v4Count: 1, reachability: 'none',
+  addressScopes: [{ address: '127.0.0.1', scope: 'loopback' }],
+})]);
+eq('an unreachable host is reported', unroutable.includes('mx-unroutable'), true);
+// It resolved, so it is not dangling — which is why it went unreported before.
+eq('and not as dangling', unroutable.includes('mx-dangling'), false);
+
+const mixed = mxKeys([mxHost({
+  addresses: ['210.71.187.212', '10.0.0.4'], v4Count: 2, reachability: 'partial',
+  addressScopes: [{ address: '210.71.187.212', scope: 'global' },
+    { address: '10.0.0.4', scope: 'private' }],
+})]);
+eq('a partly reachable host is reported', mixed.includes('mx-partially-routable'), true);
+eq('and is not also called unreachable', mixed.includes('mx-unroutable'), false);
+
+// The argument names the address and its space: a host name alone does not
+// tell the operator which record to change.
+const unroutableArgs = issuesFor({
+  advanced: { mxHealth: {
+    hosts: [mxHost({ addresses: ['10.0.0.4'], v4Count: 1, reachability: 'none',
+      addressScopes: [{ address: '10.0.0.4', scope: 'private' }] })],
+    danglingHosts: [], cnameHosts: [], duplicatePreferences: [], singleHost: false,
+    ipv6Coverage: 'all', sharedPrefixes: [], unknown: false, addressLiteralHosts: [],
+    unroutableHosts: [], partiallyRoutableHosts: [], nullMxConflict: false,
+  } },
+}).find(i => i.key === 'mx-unroutable');
+eq('and it names the address and its scope',
+  unroutableArgs.args, ['mail.example.test', '10.0.0.4 (private)']);
+
+eq('an address literal is reported',
+  mxKeys([mxHost({ host: '203.0.113.5', resolves: 'no', isAddressLiteral: true,
+    reachability: 'unknown' })], { addressLiteralHosts: ['203.0.113.5'] })
+    .includes('mx-address-literal'), true);
+
+// The null-MX conflict is read from the RECORDS, not from mxHealth, and is
+// emitted outside the hosts block. Every case below has no resolvable host at
+// all, and two of them have no mxHealth either.
+// A resolver that answers nothing: these record sets are about the SET, and
+// none of them is meant to produce a resolvable host.
+const emptyMxAudit = createMxAudit({
+  dohQuery: async () => [],
+  optionalCheck: async fn => fn(),
+});
+const mxHealthFor = async mx => emptyMxAudit(mx, 'example.test', {});
+const conflictFor = async mx =>
+  keysFor({ advanced: { mxHealth: await mxHealthFor(mx) } }).includes('mx-null-conflict');
+eq('a null MX beside a real record is reported', await conflictFor(['0 .', '10 mail.example.test']), true);
+eq('and beside an unparseable one, where no host exists to hang it on',
+  await conflictFor(['0 .', 'garbage']), true);
+eq('two null MX answers are a duplicate, not a conflict', await conflictFor(['0 .', '0 .']), false);
+eq('a lone null MX is not a conflict', await conflictFor(['0 .']), false);
+eq('and an ordinary set is not', await conflictFor(['10 a.example.test', '20 b.example.test']), false);
+// The point of moving it outside the hosts block: in every case above `hosts`
+// is empty, and inside the block none of them would have been reported.
+eq('none of those record sets produced a host to hang it on',
+  (await mxHealthFor(['0 .', 'garbage'])).hosts.length, 0);
+
+// A healthy host raises none of the five.
+eq('a globally reachable host raises no address-validity finding',
+  mxKeys([mxHost({ addresses: ['210.71.187.212'], v4Count: 1,
+    addressScopes: [{ address: '210.71.187.212', scope: 'global' }] })])
+    .filter(k => /^mx-(unroutable|partially-routable|address-literal|null-conflict)$/.test(k)),
+  []);
+
+// Regression: buildIssues is reached with contexts assembled elsewhere, and an
+// mxHealth predating 0.9.1 carries none of these fields. Reading them
+// unguarded threw a TypeError and discarded the whole audit, not just the MX
+// section — the first version of this release did exactly that.
+const preRelease = () => keysFor({
+  advanced: { mxHealth: {
+    hosts: [{ host: 'mail.example.test', preference: 10, preferences: [10],
+      addresses: ['210.71.187.212'], v4Count: 1, v6Count: 0, resolves: 'yes',
+      isCname: false, cnameUnknown: false, inAudited: false }],
+    danglingHosts: [], cnameHosts: [], duplicatePreferences: [], singleHost: false,
+    ipv6Coverage: 'all', sharedPrefixes: [], unknown: false,
+  } },
+});
+eq('an mxHealth without the 0.9.1 fields does not throw', typeof preRelease(), 'object');
+eq('and reports none of the four', preRelease()
+  .filter(k => /^mx-(unroutable|partially-routable|address-literal|null-conflict)$/.test(k)), []);
 
 report();

@@ -29,11 +29,31 @@ A spec is Final before implementation starts. If implementation discovers that
 the spec is wrong, the spec is amended and re-versioned rather than quietly
 diverged from.
 
+**A spec covering more than one release is versioned as one document, and
+approved per release.** The table above assumes one spec is one release, which
+is the normal case. Where a document carries two target releases, the **Status**
+field may mark one of them Final and approved for implementation while the
+document itself stays at `0.x` because a question belonging to the other is
+still open. Approval then extends only to the named release: the rule that a
+spec is Final before implementation starts is satisfied for that release and for
+no other, and beginning the unapproved release — or discharging a gate it
+carries — is out of scope for the approved one. The document reaches
+`1.0 (Final)` only when every release in it is resolved or explicitly deferred.
+[mx-host-validity](mx-host-validity.md) is the first document to use this.
+
+**It moves to [`implemented/`](implemented/) when its LAST release ships, not its
+first.** A document whose first release is out and whose second is not started
+still describes unshipped work, and filing it as implemented would say
+otherwise. It stays here, carrying a `Released in` row naming which half
+shipped, until nothing in it is outstanding. `mx-host-validity` is in exactly
+that state after `v0.9.1`.
+
 ## Planned
 
 `Target release` below is a version-numbering anchor, kept per the naming rule
-in this document. **As of 2026-09-04, one planned release remains:** the 1.0.0 graduation
-gate. 0.9.0 reports shipped. The earlier
+in this document. **As of 2026-09-05, two planned releases remain:** 0.9.2 MX vanity divergence,
+then the 1.0.0 graduation gate. 0.9.0 reports and 0.9.1 MX address validity
+shipped. The earlier
 parallel artifact proposal was retired after the 0.6.0 refactor shipped; 0.7.0
 supplied the final finding shape and 0.8.0 consumed it without widening the
 public-DNS score. See [`HANDOFF.md`](../../HANDOFF.md) for the current operational
@@ -42,6 +62,7 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
+| [mx-host-validity](mx-host-validity.md) | 0.9.1 released, then 0.9.2 | 0.13 | **0.9.1 released as `v0.9.1`**; 0.9.2 not started, blocked on privacy review and `OQ-MXV-03` |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 
@@ -59,6 +80,14 @@ three more releases are layered onto a 5,704-line file than after.
 roadmap ended at 0.9.0 and referred to work “post-1.0” without defining 1.0.0.
 The new spec proposes a dedicated compatibility, browser, accessibility,
 reproducibility and decision-closure release after the remaining features.
+
+**2026-09-04 — two MX releases were inserted between 0.9.0 and 1.0.0.** The
+build order above is amended: 0.9.0 reports, then 0.9.1 and 0.9.2, then the
+1.0.0 graduation gate. [mx-host-validity](mx-host-validity.md) covers both, and
+is the first planned spec to carry two target releases — its two halves extend
+one result object but differ in whether they issue a new class of DNS query,
+which is a release boundary rather than a section boundary. The 0.9.0 start
+condition is unchanged and neither MX release begins before it ships.
 
 ## Captured evidence
 

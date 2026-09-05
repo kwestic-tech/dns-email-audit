@@ -28,6 +28,31 @@ import {
 
 /* ── Shared record shapes ─────────────────────────────────────────────── */
 
+/**
+ * MX-host addresses in this corpus are of two deliberate kinds.
+ *
+ * **Background setup** — every case whose subject is SPF, DKIM, DMARC, DNSSEC,
+ * CAA or BIMI still needs an MX host to resolve, and that host must be
+ * *reachable* or it raises `mx.unroutable` and pollutes the case with a finding
+ * about something it is not testing. Those hosts answer in the `100.x` range:
+ * globally-routable class, chosen for its scope and nothing else. Each is a stub
+ * and asserts nothing about who holds it.
+ *
+ * Two properties are deliberate. The three source blocks map to three distinct
+ * /24s, so no case newly groups under `mx.same-prefix`. And **each stub is the
+ * same number of characters as the address it replaces**, so the substitution
+ * moves no rendered byte: the exported report's length is identical to 0.9.0's
+ * in every case, which is what lets the cross-release guard bound the report
+ * surface exactly instead of estimating it.
+ *
+ * **The subject itself** — `mx-health-and-tlsa` keeps RFC 5737 documentation
+ * addresses precisely because they are not globally reachable. That case exists
+ * to exercise MX health, and `mx.unroutable` there is intentional.
+ *
+ * Documentation addresses elsewhere in this file — apex A records, SPF `ip4:`
+ * mechanisms, website probes — are untouched. Only MX targets matter here.
+ */
+
 // A DS/DNSKEY pair that does NOT match: the digest is arbitrary, so the local
 // matcher reports no-matching-key or digest-mismatch rather than confirming.
 const ORPHAN_DS = ds('12345 8 2 ' + 'ab'.repeat(32));
@@ -116,8 +141,8 @@ cases.push({
     '_mta-sts.alpha.test TXT': txt('v=STSv1; id=20260101000000Z'),
     '_smtp._tls.alpha.test TXT': txt('v=TLSRPTv1; rua=mailto:tlsrpt@alpha.test'),
     'selector1._domainkey.alpha.test TXT': txt('v=DKIM1; k=rsa; p=' + RSA_2048_SPKI),
-    'mail.alpha.test A': a('192.0.2.20'),
-    'mail.alpha.test AAAA': aaaa('2001:db8::20'),
+    'mail.alpha.test A': a('100.2.0.20'),
+    'mail.alpha.test AAAA': aaaa('2a01:100::20'),
     '_25._tcp.mail.alpha.test TLSA': { ad: true, answers: tlsa('3 1 1 ( ' + 'CD'.repeat(32) + ' )') },
     'www.alpha.test A': a('192.0.2.10'),
   }),
@@ -132,7 +157,7 @@ cases.push({
   fetch: () => corpusFixture({
     'bravo.test NS': ns('ns1.bravo.test'),
     'bravo.test MX': mx('10 mail.bravo.test'),
-    'mail.bravo.test A': a('198.51.100.5'),
+    'mail.bravo.test A': a('100.51.100.5'),
   }),
 });
 
@@ -170,7 +195,7 @@ cases.push({
     'sub.delta.test NS': ns('ns1.delta.test'),
     'sub.delta.test MX': mx('10 mail.delta.test'),
     'sub.delta.test TXT': txt('v=spf1 -all'),
-    'mail.delta.test A': a('203.0.113.5'),
+    'mail.delta.test A': a('100.0.113.5'),
   }),
 });
 
@@ -206,7 +231,7 @@ cases.push({
     'foxtrot.test MX cd': mx('10 mail.foxtrot.test'),
     'foxtrot.test TXT cd': txt('v=spf1 -all'),
     '_dmarc.foxtrot.test TXT cd': txt('v=DMARC1; p=none'),
-    'mail.foxtrot.test A cd': a('203.0.113.9'),
+    'mail.foxtrot.test A cd': a('100.0.113.9'),
   }),
 });
 
@@ -223,7 +248,7 @@ cases.push({
     'golf.test DS': ORPHAN_DS,
     'golf.test DNSKEY': SOME_DNSKEY,
     '_dmarc.golf.test TXT': txt('v=DMARC1; p=none'),
-    'mail.golf.test A': a('203.0.113.11'),
+    'mail.golf.test A': a('100.0.113.11'),
   }),
 });
 
@@ -243,7 +268,7 @@ cases.push({
     'hotel.test MX': mx('10 mail​.hotel.test'),
     'hotel.test TXT': txt('v=spf1 include:‮safe.example -all'),
     '_dmarc.hotel.test TXT': txt('v=DMARC1; p=none; rua=mailto:re‮ports@hotel.test'),
-    'mail​.hotel.test A': a('203.0.113.13'),
+    'mail​.hotel.test A': a('100.0.113.13'),
   }),
 });
 
@@ -294,7 +319,7 @@ cases.push({
     'present.spf.test NS': ns('ns1.other.test'),
     'present.spf.test MX': mx('10 mail.other.test'),
     'present.spf.test TXT': txt('v=spf1 ip4:198.51.100.0/24'),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -361,7 +386,7 @@ cases.push({
     'void.spf.test NS': ns('ns1.other.test'),
     'void.spf.test MX': mx('10 mail.other.test'),
     'void.spf.test TXT': txt('v=spf1 include:v1.test include:v2.test include:v3.test -all'),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -410,7 +435,7 @@ cases.push({
     'dnserror.host.test NS': ns('ns1.other.test'),
     'dnserror.host.test MX': mx('10 mail.other.test'),
     'www.dnserror.host.test CNAME': 'servfail',
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -428,7 +453,7 @@ cases.push({
     'nowww.host.test NS': ns('ns1.other.test'),
     'nowww.host.test MX': mx('10 mail.nowww.host.test'),
     'nowww.host.test TXT': txt('v=spf1 -all'),
-    'mail.nowww.host.test A': a('198.51.100.10'),
+    'mail.nowww.host.test A': a('100.51.100.10'),
   }),
   domains: [{ domain: 'nowww.host.test' }],
 });
@@ -459,7 +484,7 @@ cases.push({
     'a.grade.test TXT': txt('v=spf1 -all'),
     '_dmarc.a.grade.test TXT': txt('v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s; rua=mailto:d@a.grade.test'),
     'selector1._domainkey.a.grade.test TXT': txt('v=DKIM1; k=rsa; p=' + RSA_2048_SPKI),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -479,7 +504,7 @@ const CRYPTO_PROFILE_RECORDS = domain => ({
   [`${domain} TXT`]: txt('v=spf1 -all'),
   [`_dmarc.${domain} TXT`]: txt('v=DMARC1; p=reject; rua=mailto:d@' + domain),
   [`selector1._domainkey.${domain} TXT`]: txt('v=DKIM1; k=rsa; p=' + RSA_2048_SPKI),
-  'mail.other.test A': a('198.51.100.10'),
+  'mail.other.test A': a('100.51.100.10'),
 });
 
 /**
@@ -588,7 +613,7 @@ cases.push({
     's1024._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; p=' + RSA_1024_SPKI),
     's512._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; p=' + RSA_512_SPKI),
     'stesting._domainkey.keys.dkim.test TXT': txt('v=DKIM1; k=rsa; t=y; p=' + RSA_2048_SPKI),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -627,7 +652,7 @@ cases.push({
     'errors.dkim.test TXT': txt('v=spf1 -all'),
     '_dmarc.errors.dkim.test TXT': txt('v=DMARC1; p=none'),
     'broken._domainkey.errors.dkim.test TXT': 'servfail',
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -673,7 +698,7 @@ cases.push({
     'pct.dmarc.test NS': ns('ns1.other.test'),
     'pct.dmarc.test MX': mx('10 mail.other.test'),
     '_dmarc.pct.dmarc.test TXT': txt('v=DMARC1; p=reject; pct=50; rf=afrf; ri=86400; zz=extension'),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -737,7 +762,7 @@ cases.push({
     'apex.walk.test NS': ns('ns1.other.test'),
     'apex.walk.test MX': mx('10 mail.other.test'),
     'apex.walk.test TXT': txt('v=spf1 -all', 'v=DMARC1; p=reject'),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -779,7 +804,7 @@ cases.push({
     'reports.test._report._dmarc.loose.vendor.test TXT': txt('v=DMARC1; rua=not-a-uri'),
     'reports.test._report._dmarc.refuse.vendor.test TXT': 'refused',
     'reports.test._report._dmarc.servererror.vendor.test TXT': 'http-error',
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -813,7 +838,7 @@ cases.push({
     [`${LONG_POLICY_DOMAIN} MX`]: mx('10 mail.other.test'),
     [`${LONG_POLICY_DOMAIN} TXT`]: txt('v=spf1 -all'),
     [`_dmarc.${LONG_POLICY_DOMAIN} TXT`]: txt('v=DMARC1; p=reject; rua=mailto:x@' + 'd'.repeat(60) + '.vendor.test'),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }, {
     // Neither of these is a DNS response, so neither can be written as a
     // fixture entry: `timeout` is a request that never settles until its own
@@ -875,7 +900,7 @@ cases.push({
     // is unknown and the state is indeterminate rather than insecure.
     'unreachable.dnssec.test NS': 'refused',
     'unreachable.dnssec.test MX': mx('10 mail.other.test'),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -929,7 +954,7 @@ cases.push({
       '257 3 15 AwEAAQ==',                                // Ed25519 with the wrong length
       '257 3 99 AwEAAQ==',                                // unregistered: eligibility unknown
     ),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -983,7 +1008,7 @@ cases.push({
     'partial.evidence.test MX': mx('10 mail.other.test'),
     'partial.evidence.test TXT': txt('v=spf1 -all'),
     'partial.evidence.test DNSKEY': dnskey(DNSSEC_ZONE_KEY),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }, {
     ...Object.assign({}, ...DNSSEC_FAILURES.map(f => f.override)),
     // The cd=1 re-query has to fail too. A SERVFAIL that RESOLVES with checking
@@ -1032,7 +1057,7 @@ cases.push({
     // A DS that did not parse is a statement about our own input, so it is
     // unverifiable with a reason and never a mismatch.
     'invalidds.dnssec.test DS': ds('1 8 2 zzzz', '1 8 2 ()'),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -1060,7 +1085,7 @@ cases.push({
     'nodigest.dnssec.test TXT': txt('v=spf1 -all'),
     'nodigest.dnssec.test DS': ds(DS_MATCHING_SECURE),
     'nodigest.dnssec.test DNSKEY': dnskey(DNSSEC_ZONE_KEY),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -1098,7 +1123,7 @@ cases.push({
       '0 contactphone "+15550100"',
       '128 unknowncrit "x"',                    // Issuer Critical: a live outage risk
     ),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -1112,12 +1137,17 @@ cases.push({
  */
 cases.push({
   id: 'mx-health-and-tlsa',
-  description: 'partial IPv6 coverage, a host that could not be checked, and every TLSA error token',
+  description: 'deliberately non-routable MX hosts, partial IPv6 coverage, a host that could not be checked, and every TLSA error token',
   domains: [{ domain: 'hosts.mx.test' }],
   fetch: () => corpusFixture({
     'hosts.mx.test NS': ns('ns1.other.test'),
     'hosts.mx.test TXT': txt('v=spf1 -all'),
     'hosts.mx.test MX': mx('10 dual.mx.test', '20 v4only.mx.test', '30 unknown.mx.test'),
+    // RFC 5737 documentation space, kept ON PURPOSE and only here. It is not
+    // globally routable, so these hosts raise `mx.unroutable` — this is the
+    // case that exercises MX health, and that finding is its subject rather
+    // than pollution. Every other case moved its MX hosts to routable-class
+    // stubs so the finding does not appear where it is not being tested.
     'dual.mx.test A': a('198.51.100.20'),
     'dual.mx.test AAAA': aaaa('2001:db8::20'),
     'v4only.mx.test A': a('198.51.100.21'),
@@ -1166,7 +1196,7 @@ cases.push({
     '_mta-sts.unverified.test TXT': 'servfail',
     '_smtp._tls.unverified.test TXT': 'servfail',
     'default._bimi.unverified.test TXT': 'servfail',
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -1182,7 +1212,7 @@ cases.push({
     'dup.bimi.test TXT': txt('v=spf1 -all'),
     '_dmarc.dup.bimi.test TXT': txt('v=DMARC1; p=reject; rua=mailto:d@dup.bimi.test'),
     'default._bimi.dup.bimi.test TXT': txt('v=BIMI1; l=https://dup.bimi.test/a.svg; l=https://dup.bimi.test/b.svg'),
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -1214,7 +1244,7 @@ cases.push({
     // Explicit rather than relying on the fixture's unmatched-query default:
     // the absence is the point of the case, so it is written down.
     'absentauth.test._report._dmarc.gone.vendor.test TXT': 'nxdomain',
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });
 
@@ -1245,6 +1275,6 @@ cases.push({
     'spfbroken.test TXT': txt('v=spf1 include:broken.spf.test -all'),
     '_dmarc.spfbroken.test TXT': txt('v=DMARC1; p=none; rua=mailto:s@spfbroken.test'),
     'broken.spf.test TXT': 'servfail',
-    'mail.other.test A': a('198.51.100.10'),
+    'mail.other.test A': a('100.51.100.10'),
   }),
 });

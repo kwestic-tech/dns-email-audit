@@ -68,6 +68,7 @@ and an unverifiable result is marked rather than hidden.
 | 0.8.0 | Private local MTA-STS policy and BIMI SVG validation with user-supplied provenance | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) |
 | 0.8.1 | Output-integrity hardening for hostile DNS/locale values, audit re-entry and BIMI SVG references | [local-artifact-validation, amended to 1.11](docs/specs/implemented/local-artifact-validation.md) |
 | 0.9.0 | A versioned JSON report, and comparison of two of them in memory with per-protocol observability | [report-comparison](docs/specs/implemented/report-comparison.md) |
+| 0.9.1 | MX host address validity: unreachable and partly unreachable hosts, address literals, and null-MX conflicts | [mx-host-validity](docs/specs/mx-host-validity.md) |
 
 `0.1.0` and the work merged as PRs #1 through #7 predate the spec process and are
 documented in [`CHANGELOG.md`](CHANGELOG.md) only.
@@ -86,6 +87,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
 | 9 | Modular architecture and production build | **Done.** Released as 0.6.0; all six gates met. Spec `1.8`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with thirteen owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md), released |
 | 10 | 1.0 product contract and release readiness | Not started. The compatibility surface, supported environments, accessibility evidence and graduation gate are now explicit rather than inferred from completing 0.9.0. | [1.0.0](docs/specs/one-zero-readiness.md) |
+| 11 | MX host address validity and provider divergence | **0.9.1 released.** Extends workstream 4, which resolved MX targets but never asked what they resolved *to*: a host answering only loopback or private space still reported as healthy. 0.9.1 adds address-scope classification and names an address literal and a null-MX conflict for what they are, at no query cost. 0.9.2 is not started: it adds forward-confirmed reverse lookups to find a vanity MX that has fallen behind its provider's address set, and is blocked on a privacy review and `OQ-MXV-03`. Spec `0.13`. | [0.9.1 and 0.9.2](docs/specs/mx-host-validity.md) |
 
 ## Release sequence
 
@@ -272,6 +274,39 @@ Exit condition: reloading the page discards imported reports, hostile strings
 inside imported JSON render as text only, a protocol that was unobserved on
 either side reports its findings as unknown rather than resolved, and no
 user-supplied artifact finding appears in an exported report.
+
+### 0.9.1: MX host address validity — released
+
+Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) — `0.13`.
+Released as `v0.9.1`. 0.9.2 is specified in the same document and is not started.
+
+0.4.0 taught the audit to resolve every MX target and report the ones that do
+not resolve. Neither it nor anything since asks what a target resolves *to*, so a
+host answering `127.0.0.1` or `10.0.0.4` produces `resolves: 'yes'`, raises
+nothing, and reads as a correctly configured mail domain while receiving no mail
+from the internet. That false negative is why 0.9.1 exists; two adjacent defects
+— an address literal in the MX RDATA, and a null MX published beside a real one —
+are diagnosed today as dangling hosts, which is the right alarm attached to
+remediation the operator cannot carry out.
+
+0.9.2 addresses a quieter failure. A domain that points its MX at a name in its
+own zone holding a hand-copied snapshot of a provider's address has forked from
+that provider: the copy does not follow renumbering and need not contain every
+address the provider publishes. The check identifies the provider by
+forward-confirmed reverse DNS and reports the addresses that were never copied.
+
+**The releases split on query cost, not on subject.** 0.9.1 issues no query the
+audit does not already make. 0.9.2 adds `PTR` lookups on a path that deep checks
+leave enabled by default, which moves published DNS fan-out and therefore
+requires the privacy review `AGENTS.md` makes a stop condition. 0.9.1 is not
+blocked by that review; 0.9.2 does not begin until it concludes.
+
+Exit condition for 0.9.1: an MX host resolving only into special-purpose address
+space is reported as unreachable rather than healthy, the two misdiagnosed
+defects raise their own findings and suppress `mx.dangling`, and no score or
+grade moves. For 0.9.2: a vanity host missing addresses its forward-confirmed
+provider publishes is reported with those addresses named, an equal set reports
+nothing, and `PRIVACY.md` carries re-measured fan-out figures.
 
 ### 1.0.0: Product contract and release readiness
 

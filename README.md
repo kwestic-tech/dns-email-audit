@@ -51,7 +51,8 @@ sent to Cloudflare and are subject to Cloudflare's privacy policy.
 | **Domain registration** | Uses NS results to distinguish registered and unregistered domains. |
 | **DNS provider** | Identifies common managed providers and self-hosted nameservers. |
 | **Website hosting** | Traverses the `www` CNAME chain with loop protection, resolves final A/AAAA records, and identifies common hosts and proxies. |
-| **MX and mail state** | Detects inbound providers, explicit RFC 7505 null MX (`0 .`), absent MX, and fragile RFC 5321 implicit-MX fallback. |
+| **MX and mail state** | Detects inbound providers, explicit RFC 7505 null MX (`0 .`), absent MX, and fragile RFC 5321 implicit-MX fallback. Reports a null MX published alongside real MX records, which RFC 7505 §3 forbids. |
+| **MX host reachability** | Classifies every resolved MX address against the IANA special-purpose registries, so a host answering only loopback, private, link-local, carrier-shared, documentation or reserved space is reported as unreachable rather than healthy — it resolves, so nothing that checks only for an address record sees it. A host mixing routable and unreachable addresses is reported separately, because delivery succeeds intermittently. Also names an address written where the MX record requires a hostname (RFC 1035 §3.3.9), which cannot resolve and for which no address record can be added. |
 | **SPF** | Validates record uniqueness, provider includes, `all` qualifiers, and case-insensitive syntax. |
 | **SPF evaluation** | Recursively follows lookup-causing terms and `include`/`redirect` policies; reports cycles, excessive depth, macros, void lookups, and RFC 7208's 10-lookup limit. |
 | **SPF authorized range size** | Classifies every `ip4:`/`ip6:` block by how much address space it authorizes, on separate tables per family — IPv4 by host count, IPv6 by allocation tier, so a `/64` is read as the standard single-subnet allocation it is (RFC 4291 §2.5.4) rather than as 2^64 hosts. Advisory: it reports size, not ownership. |
@@ -316,7 +317,7 @@ JSON files from disk, so translated interfaces require HTTP.
 | `npm ci` | Install exact versions of esbuild and its platform binary; no install scripts run. |
 | `npm start` | Serve the already-built application on port 8080 with the dependency-free development server. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Build the bundle, then run locale validation plus **5,491** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
+| `npm test` | Build the bundle, then run locale validation plus **5,624** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `src/data/locales-en.js` after editing `locales/en.json`. |

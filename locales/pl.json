@@ -203,9 +203,9 @@
     "showLess": "Pokaż mniej",
     "moreRecords": {
       "one": "{0} rekord więcej nie jest wyświetlany",
+      "other": "{0} rekordów więcej nie jest wyświetlanych",
       "few": "{0} rekordy więcej nie są wyświetlane",
-      "many": "{0} rekordów więcej nie jest wyświetlanych",
-      "other": "{0} rekordów więcej nie jest wyświetlanych"
+      "many": "{0} rekordów więcej nie jest wyświetlanych"
     },
     "hygieneTitle": "Higiena rekordu",
     "hygiene": {
@@ -989,6 +989,29 @@
       "msg": "Dwa lub więcej hostów MX mają tę samą wartość preferencji: {0} — serwery nadawcze rozłożą na nie ruch.",
       "what": "Równe wartości preferencji to celowa funkcja: RFC 5321 §5.1 mówi, że nadawca powinien losowo wybierać spośród hostów o równej preferencji, co rozprasza pocztę przychodzącą pomiędzy nie. Tego właśnie chcesz przy dwóch równoważnych frontendach. Nie chcesz tego, jeśli jeden z hostów miał być zapasowy, bo połowa Twojej poczty będzie trafiać do zapasowego przez cały czas.",
       "fix": "Nic, jeśli hosty są równoważne. Jeśli jeden ma być rezerwą, nadaj mu wyższy numer preferencji — wyższy znaczy mniej preferowany."
+    },
+    "mx-unroutable": {
+      "msg": "Host MX rozwiązuje się wyłącznie do nieosiągalnej przestrzeni adresowej: {0} ({1}) — żaden serwer nadawczy w internecie nie dostarczy tam poczty.",
+      "what": "Rekord MX wskazuje host przyjmujący pocztę, a ten host musi być osiągalny z publicznego internetu, żeby ktokolwiek mógł cokolwiek dostarczyć. Ten się rozwiązuje, więc nie wygląda na zepsuty w narzędziu sprawdzającym jedynie, czy nazwa ma rekord adresowy — ale każdy zwracany przez niego adres należy do przestrzeni specjalnego przeznaczenia, która nie jest routowana globalnie: pętla zwrotna, zakres prywatny, link-local, współdzielony operatorski, dokumentacyjny lub zarezerwowany. Serwer nadawczy, który wybierze ten host, otrzyma adres, do którego nie potrafi routować. Wstawi wiadomość do kolejki, będzie ponawiał przez wiele dni i ją zwróci. Jeśli to jedyny host MX, nie odbierasz poczty w ogóle — i nie odbierasz jej od chwili opublikowania rekordu.\n\nZwykłą przyczyną jest strefa przeznaczona do użytku wewnętrznego serwowana na zewnątrz albo adres wewnętrzny wklejony do publicznego rekordu. W obu przypadkach adres zdradza też każdemu pytającemu, jak ponumerowana jest twoja sieć wewnętrzna.",
+      "fix": "Opublikuj adres, pod którym host odpowiada spoza twojej sieci. Jeśli serwer pocztowy naprawdę stoi za translacją adresów, rekord MX musi wskazywać jego adres publiczny, a nie wewnętrzny. Jeśli ten rekord był przeznaczony wyłącznie do wewnętrznego widoku strefy, nie powinno go być w strefie publicznej w ogóle.",
+      "fixCode": "; Źle — adres jest prywatny i żaden nadawca do niego nie doroutuje:\nmail.example.com.   A      10.0.0.4\n\n; Dobrze — publiczny adres, pod którym serwer odpowiada z zewnątrz.\n; 203.0.113.10 to tylko wartość przykładowa: wstaw własny adres publiczny.\nmail.example.com.   A      203.0.113.10"
+    },
+    "mx-partially-routable": {
+      "msg": "Host MX ma zarówno osiągalne, jak i nieosiągalne adresy: {0} — do {1} nie da się dotrzeć z internetu.",
+      "what": "Ten host publikuje więcej niż jeden adres, przy czym co najmniej jeden jest routowalny globalnie, a co najmniej jeden nie. Poczta wciąż dochodzi i właśnie to sprawia, że warto o tym poinformować, zamiast uznać rzecz za oczywistą: serwer nadawczy wybiera spośród adresów hosta, więc dostarczenie udaje się tym, którzy trafią na adres routowalny, a zacina się dla pozostałych. Objaw jest przerywany, nie koreluje z niczym, co nadawca może zobaczyć, i zwykle trafia do ciebie jako „twoja poczta czasem wraca” długo po tym, jak się zaczął.\n\nNajczęściej jest to pozostałość — adres wewnętrzny dodany do testów albo stary adres zachowany po przenumerowaniu — obok adresu, który faktycznie działa.",
+      "fix": "Usuń rekordy adresowe nieosiągalne spoza twojej sieci, zostawiając tylko adresy, pod którymi serwer rzeczywiście przyjmuje pocztę. Jeśli dodatkowy adres jest zamierzony i wewnętrzny, jego miejsce jest w wewnętrznym widoku strefy, a nie w publicznym."
+    },
+    "mx-address-literal": {
+      "msg": "Rekord MX wskazuje adres zamiast nazwy hosta: {0} — RFC 1035 wymaga tu nazwy domenowej.",
+      "what": "Prawa strona rekordu MX to nazwa domenowa, nie adres. RFC 1035 §3.3.9 tak definiuje to pole, a RFC 5321 §5.1 wymaga, by ta nazwa miała własny rekord adresowy, więc serwer nadawczy bierze to, co tu znajdzie, i odpytuje jako nazwę hosta. Adres zapisany w tym miejscu jest zatem traktowany jak nazwa, a ponieważ korzeń DNS nie deleguje żadnej w pełni numerycznej domeny najwyższego poziomu, nie może się rozwiązać do niczego. Nic nie zostaje dostarczone.\n\nWarto oddzielić to od zwykłego hosta, który się nie rozwiązuje, bo naprawa jest inna. Wiszący MX zwykle oznacza brakujący lub błędnie wpisany rekord adresowy gdzieś indziej; ten oznacza, że rekord ma złą postać i nigdy nie da się dodać rekordu adresowego, który by go naprawił.",
+      "fix": "Nadaj serwerowi pocztowemu nazwę hosta, opublikuj jego adres pod tą nazwą i skieruj rekord MX na tę nazwę.",
+      "fixCode": "; Źle — adres tam, gdzie powinna być nazwa:\nexample.com.        MX     10 203.0.113.10\n\n; Dobrze — nazwa i adres opublikowany pod nią.\n; 203.0.113.10 to tylko wartość przykładowa: wstaw własny adres publiczny.\nexample.com.        MX     10 mail.example.com.\nmail.example.com.   A      203.0.113.10"
+    },
+    "mx-null-conflict": {
+      "msg": "Pusty MX opublikowano obok prawdziwych rekordów MX — domena deklaruje jednocześnie, że przyjmuje pocztę i że nie przyjmuje żadnej.",
+      "what": "RFC 7505 definiuje `0 .` jako pusty MX: wyraźne oświadczenie, że domena nie odbiera poczty, dzięki czemu serwer nadawczy może odrzucić wiadomość natychmiast, zamiast kolejkować ją i ponawiać przez wiele dni. RFC 7505 §3 wymaga, by był jedynym rekordem MX w zestawie, właśnie dlatego, że znaczy coś, obok czego żaden inny rekord nie może być prawdziwy.\n\nOpublikowanie go obok prawdziwego hosta MX pozostawia dwie sprzeczne deklaracje, a to, którą z nich zastosuje dany nadawca, nie zależy od ciebie. Część uszanuje pusty MX i odrzuci twoją pocztę wprost; inni go zignorują i dostarczą do hosta. Ta połowa, która odrzuca, robi to trwale, więc te wiadomości nie są ponawiane ani możliwe do odzyskania.",
+      "fix": "Zdecyduj, co jest prawdą, i opublikuj tylko to. Jeśli domena odbiera pocztę, usuń rekord `0 .`. Jeśli nie odbiera, usuń pozostałe rekordy MX i zostaw sam pusty MX — po to właśnie istnieje.",
+      "fixCode": "; Źle — obie deklaracje naraz:\nexample.com.   MX   0 .\nexample.com.   MX   10 mail.example.com.\n\n; Dobrze, jeśli domena odbiera pocztę:\nexample.com.   MX   10 mail.example.com.\n\n; Dobrze, jeśli nie odbiera — i nic poza tym:\nexample.com.   MX   0 ."
     },
     "tlsa-published-unsigned": {
       "msg": "TLSA opublikowane bez zweryfikowanego łańcucha DNSSEC: {0} — DANE nie daje tu żadnej ochrony.",

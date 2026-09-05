@@ -2,45 +2,55 @@
 
 ## Current state
 
-Released through `v0.9.0`. A finished audit can be exported as a versioned JSON
-report and two reports can be compared entirely in the browser tab. The
-comparison overlays the existing results table, and leaving the mode or
-reloading discards both reports; nothing is written to storage.
+Released through `v0.9.1`. An MX host is now read for what it resolves to, not
+only for whether it resolves: every resolved address is classified against the
+IANA special-purpose registries, so a host answering only loopback, private,
+link-local, carrier-shared, documentation or reserved space is reported as
+unreachable instead of healthy. A host mixing routable and unreachable addresses
+gets its own finding, because delivery succeeds intermittently and correlates
+with nothing the sender can see.
 
-`v0.9.0` also adds a per-protocol observability fact to every audit — a total
-map over the thirteen protocols, closed over observed, unproven and not-run.
-That is what makes a comparison safe to trust: a protocol either report did not
-observe is marked with the side that lacked it and the reason, rather than
-having its findings reported as resolved. `analysisVersion` gates the score
-delta only, and a difference in generator version shows the finding movement
-without labelling it improved or regressed.
+Two adjacent defects are now named for what they are rather than diagnosed as
+dangling hosts: an address written where the record requires a hostname, which
+also stops spending three lookups proving what the RDATA already stated; and a
+null MX published beside a real MX record, which RFC 7505 §3 forbids and which
+was previously reported nowhere at all, because the parser rejects `0 .` before
+any lookup.
 
-The `report-comparison` spec is at `1.10 (Implemented, amended)` and records
-nine implementation divergences in its **As implemented** section, eight of them
-found by review of the working tree rather than of the finished branch.
+`v0.9.1` issues no new DNS query and moves no score or grade. Deterministic
+replay across the 32-case corpus shows byte-identical query traces, and the
+cross-release guard in `tests/build/release-compat.test.mjs` bounds every
+surface of the authorized delta with 67 assertions.
 
-One release remains:
+Two releases remain:
 
 ```text
-1.0.0 readiness
+0.9.2 MX vanity divergence → 1.0.0 readiness
 ```
 
-## Start here: review `one-zero-readiness` to Final
+## Start here: conclude the 0.9.2 privacy review
 
-Spec: [`docs/specs/one-zero-readiness.md`](docs/specs/one-zero-readiness.md),
-**`0.1`, Draft — not approved for implementation.** Every spec is Final before
-its implementation begins, and this one is not: its `OQ-ONE-*` questions are
-open, starting with `OQ-ONE-01`, whether 1.0.0 remains a dedicated graduation
-release at all rather than a version number placed on the state 0.9.0 leaves.
+Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) §7,
+`0.13`. **0.9.2 does not begin until this concludes**, and nothing else in the
+document gates it.
 
-`0.9.0` is what makes that question answerable now. The public report schema is
-the last compatibility surface the 1.x promise has to cover, and it exists:
-`schemaVersion`, a closed rejection vocabulary, published limits, and an
-explicit policy that fields are added and deprecated but never repurposed.
+0.9.2 adds `PTR` lookups to identify the provider behind a vanity MX host by
+forward-confirmed reverse DNS, and reports the addresses a customer's copy has
+fallen behind on. That moves published DNS fan-out, and `AGENTS.md` makes
+anything implying a `PRIVACY.md` edit a stop condition rather than a note.
 
-[`docs/specs/external-intelligence.md`](docs/specs/external-intelligence.md) is
-a decision document with no implementation phase; the readiness draft requires
-it to be Final before 1.0.0, subject to `OQ-ONE-05`.
+The review has to answer one question the spec deliberately does not presume:
+whether inferring and resolving a provider name the user never supplied is
+within the consent an audit run already carries, or whether it needs its own
+control. §4 records that a dedicated flag is the mechanism if the answer is the
+latter, and what its provenance and comparability cost would be.
+
+`OQ-MXV-03` — the measured query cost — is held open with it, because the same
+traces answer both what it costs and what it discloses. Two entries must be
+added to `PRIVACY.md`'s disclosure list, and its published per-domain figures
+re-measured rather than estimated.
+
+The 1.0.0 readiness review continues independently of both.
 
 ## What follows
 
@@ -49,7 +59,9 @@ it to be Final before 1.0.0, subject to `OQ-ONE-05`.
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
 | 0.9.0 | [report-comparison](docs/specs/implemented/report-comparison.md) | Released as `v0.9.0` | Versioned JSON schema, import validation and stateless comparison |
-| 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.0 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
+| 0.9.1 | [mx-host-validity](docs/specs/mx-host-validity.md) | Released as `v0.9.1` | MX address-scope classification; address-literal and null-MX-conflict diagnosis |
+| 0.9.2 | [mx-host-validity](docs/specs/mx-host-validity.md) | 0.9.1 released; **privacy review concluded** and `PRIVACY.md` re-measured | Forward-confirmed reverse DNS and provider address-set divergence |
+| 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.1 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary
 
@@ -92,7 +104,9 @@ no implementation phase. Review it as a decision document alongside the
 [`AGENTS.md`](AGENTS.md) is authoritative. In particular:
 
 - Work on a branch, never on `main`.
-- A spec is Final before implementation starts.
+- A spec is Final before implementation starts. For a multi-release spec, that
+  is per release: `mx-host-validity` `0.13` covers 0.9.1, which shipped, and
+  0.9.2, which is not approved.
 - A task is boundable to one owning directory; cross-directory work is split
   into separate commits with an architectural explanation.
 - Resolver and generated data dependencies are passed, never imported by their

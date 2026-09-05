@@ -42,7 +42,7 @@
  * it.
  */
 
-import { parseIpCidr } from '../shared/ip.js';
+import { parseIpCidr, ipScope } from '../shared/ip.js';
 
 /** The three answers a host lookup can give. Registry algebra `mx.host.resolves`. */
 export const MX_HOST_RESOLVES = Object.freeze(['yes', 'no', 'unknown']);
@@ -56,6 +56,32 @@ export const MX_HOST_RESOLVES = Object.freeze(['yes', 'no', 'unknown']);
  * distinction is already carried by `hosts[].resolves`.
  */
 export const MX_IPV6_COVERAGE = Object.freeze(['none', 'some', 'all']);
+
+/**
+ * How much of a host's address set is reachable from the internet. Registry
+ * algebra `mx.host.reachability`.
+ *
+ * `partial` is a real state and not a rounding of either neighbour: a host with
+ * one routable and one unroutable address accepts mail from most senders and
+ * stalls whichever ones select the other, which is harder to diagnose from
+ * outside than total failure.
+ *
+ * `unknown` covers three situations that all support no claim — the host did not
+ * resolve, the record was an address literal so nothing was looked up, and every
+ * address returned was unparseable. Unknown is not absent.
+ */
+export const MX_HOST_REACHABILITY = Object.freeze(['global', 'partial', 'none', 'unknown']);
+
+/**
+ * Whether an MX target is an address rather than a name.
+ *
+ * A dotted quad is safe to treat as an address because the DNS root delegates
+ * no all-numeric top-level domain, so a name of this shape cannot resolve. A
+ * colon cannot appear in a hostname at all.
+ */
+function looksLikeAddressLiteral(host) {
+  return /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) || host.indexOf(':') !== -1;
+}
 
 /**
  * RFC 7505: `0 .` is a null MX, an explicit declaration that the domain
@@ -93,13 +119,64 @@ function bigIntToIp(value, family) {
   return groups.join(':');
 }
 
-/** `10 mail.example.com.` → `{ preference: 10, host: 'mail.example.com' }`. */
+/**
+ * `10 mail.example.com.` → `{ preference: 10, host: 'mail.example.com', … }`.
+ *
+ * Null and unchanged for anything malformed, which includes RFC 7505's `0 .`:
+ * stripping the trailing dot leaves an empty host and the record is rejected.
+ * That is why a null MX never reaches a lookup, and why a null MX published
+ * beside a real one produces silence rather than a dangling host.
+ * `hasNullMxConflict()` reads the record set to report what this rejection
+ * hides.
+ *
+ * No preference-range check. RFC 1035 §3.3.9 encodes the preference as an
+ * unsigned 16-bit integer in the wire format, so a value above 65535 cannot
+ * survive a real MX response and cannot reach this function from the resolver.
+ * A check for it could only ever be exercised by handing this parser a string
+ * no resolver produces, which is the reviewed-registry stop condition in
+ * `AGENTS.md` rather than a finding.
+ */
 export function parseMxRecord(record) {
   var parts = String(record || '').trim().split(/\s+/);
   if (parts.length < 2 || !/^\d+$/.test(parts[0])) return null;
   var host = parts.slice(1).join(' ').replace(/\.$/, '').toLowerCase();
   if (!host) return null;
-  return { preference: Number(parts[0]), host: host };
+  return {
+    preference: Number(parts[0]),
+    host: host,
+    isAddressLiteral: looksLikeAddressLiteral(host),
+  };
+}
+
+/** Whether one record is RFC 7505's `0 .`, in its own right. */
+function isNullMxRecord(record) {
+  var parts = String(record).trim().split(/\s+/);
+  return parts.length === 2 && parts[0] === '0' && parts[1] === '.';
+}
+
+/**
+ * RFC 7505 §3: a null MX must be the only MX record in the set.
+ *
+ * Deliberately not folded into `isNullMx()`, whose `mx.length !== 1` guard is
+ * load-bearing in the deep-check gate, in `@null-mx` provider detection and in
+ * the MTA-STS `policy-on-null-mx` finding. All three want its current meaning —
+ * "this domain has declared it receives no mail" — and a domain publishing a
+ * contradictory set has declared nothing coherent, so it correctly fails that
+ * predicate and correctly raises this one.
+ */
+export function hasNullMxConflict(mx) {
+  var records = mx || [];
+  var nulls = 0;
+  var others = 0;
+  records.forEach(function (record) {
+    if (isNullMxRecord(record)) nulls++; else others++;
+  });
+  // Both halves are required. Two `0 .` answers are a duplicate of one
+  // declaration and say nothing contradictory, so they are not a conflict. A
+  // `0 .` beside anything else is, including beside a record too malformed to
+  // parse into a host: the domain has published "no mail here" alongside an
+  // attempt to name somewhere mail goes, and no sender can honour both.
+  return nulls > 0 && others > 0;
 }
 
 /**
@@ -127,10 +204,15 @@ export function parseMxRecord(record) {
 export function createMxAudit({ dohQuery, optionalCheck }) {
   async function auditMxHosts(mx, domain, queryOpts) {
     var entries = (mx || []).map(parseMxRecord).filter(Boolean);
+    // Read from the records, not from `entries`: the record this reports on is
+    // exactly the one `parseMxRecord()` rejects.
+    var nullMxConflict = hasNullMxConflict(mx);
     if (!entries.length) {
       return {
         hosts: [], danglingHosts: [], cnameHosts: [], duplicatePreferences: [],
         singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [], unknown: false,
+        addressLiteralHosts: [], unroutableHosts: [], partiallyRoutableHosts: [],
+        nullMxConflict: nullMxConflict,
       };
     }
 
@@ -145,7 +227,10 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
     entries.forEach(function (entry) {
       var target = byHost[entry.host];
       if (target) { target.preferences.push(entry.preference); return; }
-      target = { host: entry.host, preference: entry.preference, preferences: [entry.preference] };
+      target = {
+        host: entry.host, preference: entry.preference, preferences: [entry.preference],
+        isAddressLiteral: entry.isAddressLiteral,
+      };
       byHost[entry.host] = target;
       targets.push(target);
     });
@@ -156,6 +241,18 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
     });
 
     var hosts = await Promise.all(targets.map(async function (entry) {
+      // An address literal cannot resolve, and three queries per host spent
+      // proving what the RDATA already stated are three queries wasted. The
+      // record is reported for what it is instead.
+      if (entry.isAddressLiteral) {
+        return {
+          host: entry.host, preference: entry.preference, preferences: entry.preferences,
+          addresses: [], v4Count: 0, v6Count: 0,
+          resolves: 'no', isCname: false, cnameUnknown: false,
+          inAudited: entry.host === domain || entry.host.endsWith('.' + domain),
+          isAddressLiteral: true, addressScopes: [], reachability: 'unknown',
+        };
+      }
       var UNKNOWN = {};
       var results = await Promise.all([
         optionalCheck(function () { return dohQuery(entry.host, 'A', queryOpts); }, UNKNOWN),
@@ -166,6 +263,19 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
       var v6 = results[1] === UNKNOWN ? null : results[1];
       var cname = results[2] === UNKNOWN ? null : results[2];
       var addresses = (v4 || []).concat(v6 || []);
+      // One entry per address, `scope: null` included. An address the classifier
+      // could not read is excluded from the reachability verdict below rather
+      // than counted as reachable — these are third-party DNS answers, and
+      // calling an unreadable one 'global' would state a claim never checked.
+      var addressScopes = addresses.map(function (address) {
+        return {
+          address: address,
+          scope: ipScope(address, address.indexOf(':') === -1 ? 'ipv4' : 'ipv6'),
+        };
+      });
+      var classified = addressScopes.filter(function (entry) { return entry.scope !== null; });
+      var globalCount = classified.filter(function (entry) { return entry.scope === 'global'; }).length;
+      var resolves = addresses.length ? 'yes' : (v4 === null || v6 === null) ? 'unknown' : 'no';
       return {
         host: entry.host,
         preference: entry.preference,
@@ -177,10 +287,15 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
         v6Count: v6 ? v6.length : 0,
         // 'no' is claimed only when both address lookups actually returned.
         // One failed lookup and one empty answer is not evidence of absence.
-        resolves: addresses.length ? 'yes' : (v4 === null || v6 === null) ? 'unknown' : 'no',
+        resolves: resolves,
         isCname: cname === null ? false : cname.length > 0,
         cnameUnknown: cname === null,
         inAudited: entry.host === domain || entry.host.endsWith('.' + domain),
+        isAddressLiteral: false,
+        addressScopes: addressScopes,
+        reachability: resolves !== 'yes' || !classified.length ? 'unknown'
+          : globalCount === classified.length ? 'global'
+            : globalCount ? 'partial' : 'none',
       };
     }));
 
@@ -217,7 +332,18 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
 
     return {
       hosts: hosts,
-      danglingHosts: hosts.filter(function (h) { return h.resolves === 'no'; }).map(function (h) { return h.host; }),
+      // An address literal resolves to nothing, but reporting it as dangling
+      // sends the operator to look for a missing address record that can never
+      // exist. It has its own finding; this one stays for real dangling hosts.
+      danglingHosts: hosts.filter(function (h) { return h.resolves === 'no' && !h.isAddressLiteral; })
+        .map(function (h) { return h.host; }),
+      addressLiteralHosts: hosts.filter(function (h) { return h.isAddressLiteral; })
+        .map(function (h) { return h.host; }),
+      unroutableHosts: hosts.filter(function (h) { return h.reachability === 'none'; })
+        .map(function (h) { return h.host; }),
+      partiallyRoutableHosts: hosts.filter(function (h) { return h.reachability === 'partial'; })
+        .map(function (h) { return h.host; }),
+      nullMxConflict: nullMxConflict,
       cnameHosts: hosts.filter(function (h) { return h.isCname; }).map(function (h) { return h.host; }),
       duplicatePreferences: duplicatePreferences,
       singleHost: hosts.length === 1,
