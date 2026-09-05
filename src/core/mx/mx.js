@@ -42,7 +42,7 @@
  * it.
  */
 
-import { parseIpCidr, ipScope, ipv4ToBigInt, ipv6ToBigInt } from '../shared/ip.js';
+import { parseIpCidr, ipScope, ipIdentity, ipv4ToBigInt, ipv6ToBigInt } from '../shared/ip.js';
 
 /** The three answers a host lookup can give. Registry algebra `mx.host.resolves`. */
 export const MX_HOST_RESOLVES = Object.freeze(['yes', 'no', 'unknown']);
@@ -242,13 +242,34 @@ export function hasNullMxConflict(mx) {
  * edge to `core/dns/`.
  */
 /**
- * First-seen-order de-duplication. §4 compares address SETS; DNS answers are
- * multisets and a zone publishing the same RR twice must not change either the
- * comparison or the evidence rendered from it.
+ * The comparable identity of an address, never its spelling.
+ *
+ * Everything §4 does with addresses — de-duplicating an answer, confirming a
+ * PTR against the address it came from, testing `H ⊂ P` — is set membership
+ * over IP values. Text that is not an address keys as itself so that a
+ * malformed answer still de-duplicates rather than silently multiplying.
+ */
+function addressKey(text) {
+  var key = ipIdentity(text);
+  return key === null ? 'text:' + String(text == null ? '' : text).trim().toLowerCase() : key;
+}
+
+/**
+ * First-seen-order de-duplication, by identity rather than by text. §4 compares
+ * address SETS; DNS answers are multisets, and a zone publishing the same RR
+ * twice — or the same address in two legal spellings — must not change either
+ * the comparison or the evidence rendered from it. The text kept is the first
+ * spelling seen, because the evidence should read as the zone published it.
  */
 function uniqueAddresses(list) {
   var out = [];
-  (list || []).forEach(function (a) { if (out.indexOf(a) === -1) out.push(a); });
+  var seen = [];
+  (list || []).forEach(function (a) {
+    var key = addressKey(a);
+    if (seen.indexOf(key) !== -1) return;
+    seen.push(key);
+    out.push(a);
+  });
   return out;
 }
 
@@ -461,7 +482,8 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
       // candidate. A PTR is authored by whoever holds the reverse zone and
       // nothing forces it to name a service, so an unconfirmed name is never
       // acted on and is never recorded as this host's provider.
-      if (provider.indexOf(pick.source) === -1) continue;
+      var providerKeys = provider.map(addressKey);
+      if (providerKeys.indexOf(addressKey(pick.source)) === -1) continue;
 
       qHost.providerName = candidate;
       qHost.providerAddresses = provider;
@@ -469,9 +491,10 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
       // Sets, not arrays: a provider publishing the same RR twice must not
       // duplicate the evidence. Strict subset only, H ⊂ P — divergence in both
       // directions is a different finding and is deferred (RQ-MXV-06).
-      var missing = provider.filter(function (a) { return hostAddresses.indexOf(a) === -1; });
+      var hostKeys = hostAddresses.map(addressKey);
+      var missing = provider.filter(function (a) { return hostKeys.indexOf(addressKey(a)) === -1; });
       var strictSubset = missing.length > 0
-        && hostAddresses.every(function (a) { return provider.indexOf(a) !== -1; });
+        && hostKeys.every(function (k) { return providerKeys.indexOf(k) !== -1; });
       if (strictSubset) {
         qHost.missingAddresses = missing;
         divergentHosts.push({ host: qHost.host, provider: candidate, missing: missing });

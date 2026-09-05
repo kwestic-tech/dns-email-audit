@@ -9,7 +9,7 @@
  */
 
 import { createSuite } from '../../../tests/lib/assert.mjs';
-import { ipv4ToBigInt, ipv6ToBigInt, parseIpCidr, ipScope, IP_SCOPE } from './ip.js';
+import { ipv4ToBigInt, ipv6ToBigInt, parseIpCidr, ipScope, ipIdentity, IP_SCOPE } from './ip.js';
 
 const { eq, section, report } = createSuite();
 
@@ -211,5 +211,31 @@ eq('every returned scope is a declared member',
     .map(function (a) { return IP_SCOPE.indexOf(ipScope(a, 'ipv4')) !== -1; })
     .every(Boolean),
   true);
+
+section('ipIdentity: one address is one key, however it is written');
+
+// The reason this exists: an address set compared as text makes one address
+// two, and the MX subset test then reports nothing.
+eq('the elided and expanded forms of one address are one key',
+  ipIdentity('2a01:100::20'),
+  ipIdentity('2a01:0100:0000:0000:0000:0000:0000:0020'));
+eq('case does not change identity either',
+  ipIdentity('2A01:100::AB'), ipIdentity('2a01:100::ab'));
+eq('surrounding whitespace does not', ipIdentity(' 192.0.2.1 '), ipIdentity('192.0.2.1'));
+eq('and two different addresses are two keys',
+  ipIdentity('2a01:100::20') === ipIdentity('2a01:100::21'), false);
+
+// The families are kept apart on purpose: an AAAA publishing an IPv4-mapped
+// address is a different delivery path from an A publishing the same quad.
+eq('an IPv4-mapped v6 address does not key as its v4 form',
+  ipIdentity('::ffff:192.0.2.1') === ipIdentity('192.0.2.1'), false);
+eq('and it is still a v6 key',
+  ipIdentity('::ffff:192.0.2.1').startsWith('v6:'), true);
+
+// Text that is not an address has no identity; callers decide what to do.
+eq('a malformed octet is not an address', ipIdentity('999.1.1.1'), null);
+eq('a hostname is not an address', ipIdentity('mail.example.test'), null);
+eq('an empty string is not', ipIdentity(''), null);
+eq('and neither is nothing at all', ipIdentity(undefined), null);
 
 report();

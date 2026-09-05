@@ -650,4 +650,70 @@ eq('the usable address is reversed',
 eq('and no malformed reverse name is ever queried',
   partlyMalformed.asked.some(q => q.includes('999')), false);
 
+/* ── 17. An address set is a set of values, not of spellings ──────────── */
+section('17. Equivalent spellings are one address');
+
+const V6_EXPANDED = '2a01:0100:0000:0000:0000:0000:0000:0020';
+const V6_SHORT = '2a01:100::20';
+const V6_REVERSE =
+  '0.2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.1.0.a.2.ip6.arpa';
+
+// F1. The host publishes the expanded form; the provider publishes the
+// compressed one. Comparing the text fails forward confirmation and the real
+// divergence is reported nowhere.
+const spelledDifferently = await oneVanity({
+  'mail.example.test': { A: [], AAAA: [V6_EXPANDED], CNAME: [] },
+  [V6_REVERSE]: { PTR: [PROVIDER] },
+  [PROVIDER]: { A: [], AAAA: [V6_SHORT, '2a01:100::21'] },
+});
+eq('the PTR source confirms against the same address written differently',
+  spelledDifferently.result.hosts[0].providerName, PROVIDER);
+eq('and the divergence is found, naming only the address the host lacks',
+  spelledDifferently.result.divergentHosts,
+  [{ host: 'mail.example.test', provider: PROVIDER, missing: ['2a01:100::21'] }]);
+
+// Membership, the other way round: an address the host does publish must not
+// appear as missing because the provider spelled it out in full.
+const providerSpellsItOut = await oneVanity({
+  'mail.example.test': { A: [], AAAA: [V6_SHORT], CNAME: [] },
+  [V6_REVERSE]: { PTR: [PROVIDER] },
+  [PROVIDER]: { A: [], AAAA: [V6_EXPANDED] },
+});
+eq('an equal set in two spellings is not a divergence',
+  providerSpellsItOut.result.divergentHosts, []);
+
+// De-duplication is by identity too: one address written twice is one address,
+// so it neither inflates the host's set nor breaks the subset test.
+const twoSpellings = await oneVanity({
+  'mail.example.test': { A: [], AAAA: [V6_SHORT, V6_EXPANDED], CNAME: [] },
+  [V6_REVERSE]: { PTR: [PROVIDER] },
+  [PROVIDER]: { A: [], AAAA: [V6_SHORT, '2a01:100::21'] },
+});
+eq('one address written twice is still one address',
+  twoSpellings.result.divergentHosts,
+  [{ host: 'mail.example.test', provider: PROVIDER, missing: ['2a01:100::21'] }]);
+// And it costs one reverse lookup, not two identical ones.
+eq('and it is reversed once',
+  twoSpellings.asked.filter(q => q === V6_REVERSE + '/PTR').length, 1);
+
+// The evidence keeps the text the zone published, not a normalized rendering.
+const providerWritesItLong = await oneVanity({
+  'mail.example.test': { A: [], AAAA: [V6_SHORT], CNAME: [] },
+  [V6_REVERSE]: { PTR: [PROVIDER] },
+  [PROVIDER]: { A: [], AAAA: [V6_SHORT, '2A01:0100:0000:0000:0000:0000:0000:0021'] },
+});
+eq('the missing address is quoted as the provider published it',
+  providerWritesItLong.result.divergentHosts[0].missing,
+  ['2A01:0100:0000:0000:0000:0000:0000:0021']);
+
+// The two families stay apart: an A and an AAAA are different delivery paths.
+const mappedV4 = await oneVanity({
+  'mail.example.test': { A: ['100.2.0.20'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: [PROVIDER] },
+  [PROVIDER]: { A: ['100.2.0.20'], AAAA: ['::ffff:100.2.0.20'] },
+});
+eq('an IPv4-mapped AAAA is an address the host does not publish',
+  mappedV4.result.divergentHosts,
+  [{ host: 'mail.example.test', provider: PROVIDER, missing: ['::ffff:100.2.0.20'] }]);
+
 report();
