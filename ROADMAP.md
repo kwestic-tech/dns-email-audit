@@ -87,7 +87,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
 | 9 | Modular architecture and production build | **Done.** Released as 0.6.0; all six gates met. Spec `1.8`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with thirteen owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md), released |
 | 10 | 1.0 product contract and release readiness | Not started. The compatibility surface, supported environments, accessibility evidence and graduation gate are now explicit rather than inferred from completing 0.9.0. | [1.0.0](docs/specs/one-zero-readiness.md) |
-| 11 | MX host address validity and provider divergence | **0.9.1 released.** Extends workstream 4, which resolved MX targets but never asked what they resolved *to*: a host answering only loopback or private space still reported as healthy. 0.9.1 adds address-scope classification and names an address literal and a null-MX conflict for what they are, at no query cost. 0.9.2 adds forward-confirmed reverse lookups to find a vanity MX that has fallen behind its provider's address set. Its privacy review was conducted before any implementation and accepted on 2026-09-05; measured through the shipping code, it costs 8 additional queries across the corpus's 80 background domains — 0 for a domain whose MX hosts are provider-named — and 4 for the dedicated case that exercises it. Spec `1.4`; implemented with review corrections applied, in code review, not released. | [0.9.1 and 0.9.2](docs/specs/mx-host-validity.md) |
+| 11 | MX host address validity and provider divergence | **0.9.1 released.** Extends workstream 4, which resolved MX targets but never asked what they resolved *to*: a host answering only loopback or private space still reported as healthy. 0.9.1 adds address-scope classification and names an address literal and a null-MX conflict for what they are, at no query cost. 0.9.2 adds forward-confirmed reverse lookups to find a vanity MX that has fallen behind its provider's address set. Its privacy review was conducted before any implementation and accepted on 2026-09-05; measured through the shipping code, it costs 8 additional queries across the corpus's 80 background domains — 0 for a domain whose MX hosts are provider-named — and 4 for the dedicated case that exercises it. Spec `1.5`; implemented with review corrections applied, in code review, not released. | [0.9.1 and 0.9.2](docs/specs/mx-host-validity.md) |
 
 ## Release sequence
 
@@ -277,7 +277,7 @@ user-supplied artifact finding appears in an exported report.
 
 ### 0.9.1: MX host address validity — released
 
-Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) — `1.4`.
+Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) — `1.5`.
 Released as `v0.9.1`. 0.9.2 is specified in the same document, is implemented on this branch, and is in code review — not released.
 
 0.4.0 taught the audit to resolve every MX target and report the ones that do

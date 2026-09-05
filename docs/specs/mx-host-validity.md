@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.4 (Final, amended) |
+| Spec version | 1.5 (Final, amended) |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 released**; **0.9.2 implemented, awaiting code review** — privacy review accepted at `ac7e984`; implementation measured and bounded, `PRIVACY.md` amended with measured figures |
@@ -398,7 +398,10 @@ Per qualifying host:
 `2a01:0100:0000:0000:0000:0000:0000:0020` are one address written two ways, and
 a zone is free to publish either. Membership — de-duplication, the
 forward-confirmation test in step 3, and `H ⊂ P` in step 4 — is therefore
-decided on `ipIdentity()` keys from `core/shared/ip.js`, never on the text.
+decided on address VALUES, never on the text. The identity that decides it is
+`addressKey()`, private to `core/mx/` and built from the shared parsers: MX is
+the only owner asking this question, and `core/shared/` is for helpers two or
+more protocol owners read.
 Comparing text made the two spellings two addresses, which failed confirmation
 and reported a real divergence nowhere.
 
@@ -409,6 +412,27 @@ fold the families together: an `AAAA` publishing `::ffff:203.0.113.1` keys as
 IPv6, because it is a different delivery path from an `A` publishing
 `203.0.113.1` and treating them as one would report a host as holding an
 address it does not publish.
+
+**And they are sets of REACHABLE values.** `H` and `P` are taken over globally
+routable addresses only — `ipScope()` returning `'global'` — before either the
+subset test or `P \ H` is computed. The finding says the operator is missing
+redundancy a sender could have used; a provider's private, shared-space,
+documentation, IPv4-mapped or unparseable value is not that, and naming it in
+`missingAddresses` would tell the operator to publish an address 0.9.1 reports
+as `mx.unroutable`. The finding would be recommending the defect its sibling
+reports.
+
+The restriction applies to **both** sides, which is what stops it introducing a
+second defect: with only `P` restricted, an extra private address on the host
+would leave `H ⊄ P`, read as bidirectional divergence, and suppress a real
+missing global address entirely. Two consequences follow and are asserted:
+`H` empty — a host with no reachable address of its own — supports no claim and
+produces nothing, rather than passing a vacuous subset test; and genuine
+bidirectional divergence between two *reachable* sets is still `RQ-MXV-06`'s
+deferred case, not this finding.
+
+Evidence is unaffected: what `missingAddresses` carries is still the provider's
+published text for the addresses that survive the filter.
 
 **Query budget.** With the two-host cap above, a domain costs at most
 `2 hosts × 4 addresses = 8` PTR plus `2 candidates × 2 = 4` forward lookups —
@@ -956,6 +980,41 @@ plan through the real audit path. Every other case keeps self-hosted reverse
 DNS and reports neither finding, which `release-compat.test.mjs` asserts
 directly. This closes the coverage gap recorded at `1.1`.
 
+**An architectural widening and a remediation defect, corrected at `1.5`.**
+Round 19 reproduced both against `9eff55b` first.
+
+*Identity did not belong in `core/shared/`.* `1.4` added `ipIdentity()` there
+with tests and an API entry, on the argument that a second protocol owner could
+one day read it. §12 defines that directory as helpers **two or more** protocol
+owners read, and the search is unambiguous: one production consumer,
+`core/mx/mx.js`. The export, its API entry and its shared-only tests are
+withdrawn; `addressKey()` is private to `core/mx/`, built from the already
+allowed `ipv4ToBigInt()` and `ipv6ToBigInt()`, and every MX behaviour and
+control from `1.4` is retained unchanged. A possible future reader is not an
+architectural edge — it is what would justify moving the helper on the day that
+reader exists.
+
+*The finding recommended publishing addresses that cannot receive mail.*
+Executed: a vanity host publishing `100.2.0.20` against a provider publishing
+`100.2.0.20` and `10.0.0.5` emitted `mx.vanity-divergent` with
+`missing: ["10.0.0.5"]` — remediation telling the operator to add a private
+address to a public MX host. Documentation space, shared space, an IPv4-mapped
+form and text that is not an address at all all did the same, and `1.4`'s own
+IPv4-mapped control pinned the defect as though it were the contract. The
+comparison is now over globally reachable values on both sides, per §4; that
+control is replaced by one asserting the mapped address is **not** reported.
+
+Reproduced alongside it, and fixed by the same change: an extra private address
+on the host made `H ⊄ P` and suppressed a real missing global address, so the
+audit reported nothing at all for a host that genuinely lacked reachable
+redundancy. Twelve controls in `mx.test.js`, including both directions of that
+case and the still-deferred reachable-both-ways case.
+
+*And a wording correction while in the file.* `src/core/mx/API.md` said the
+reverse DNS says "who really operates" the addresses. §Non-goals says the
+opposite in terms: forward-confirmed reverse DNS evidences a relationship and
+does not establish ownership or operation. Corrected.
+
 **An identity defect and three documentation defects, corrected at `1.4`.**
 Round 18 reproduced all four against `4f0b7b3` first.
 
@@ -965,7 +1024,8 @@ equivalent `2a01:100::20` failed forward confirmation — `provider.indexOf()` o
 presentation text — so `providerName` stayed null and a real strict-subset
 divergence was reported nowhere. The same defect made two spellings of one
 address two members of `H`, which then could not be a subset of anything.
-`ipIdentity()` in `core/shared/ip.js` now gives an address a comparable key, and
+An address identity — `addressKey()`, private to `core/mx/` since `1.5` and
+built from the shared parsers — now gives an address a comparable key, and
 de-duplication, forward confirmation and the `H ⊂ P` test all compare keys.
 First-seen text is preserved for evidence, because the remediation should quote
 the address as the zone published it, and `hosts[].addresses` still records the
@@ -981,8 +1041,9 @@ that file the architectural contract, and leaving the new surface only in this
 spec means the contract a reader is told to trust is the wrong one. It now
 tables all eight exports, the full top-level and per-host result with the
 release each field arrived in, the three states of `reverseNames`, the identity
-rule above, and the three caps. `core/shared/API.md` gains `ipScope()`,
-`ipIdentity()` and `IP_SCOPE`, which were also missing.
+rule above, and the three caps. `core/shared/API.md` gains `ipScope()` and
+`IP_SCOPE`, which were also missing. *(It also gained an `ipIdentity()` entry,
+withdrawn at `1.5` along with the export itself.)*
 
 *The stated shipment version went backwards.* This document is `1.4`, and
 several sentences said shipping would make it `1.0 (Implemented)` — which would
@@ -1209,6 +1270,12 @@ are later admitted to the grade, that change is backtested with
     and costs one reverse lookup. An IPv4-mapped `::ffff:` address does not
     satisfy membership for the IPv4 address it embeds. The evidence quotes the
     spelling that was published.
+17. `H` and `P` are compared over globally reachable addresses. A provider-only
+    private, shared-space, documentation, IPv4-mapped or unparseable value
+    raises nothing; a missing global address still raises the finding; an extra
+    non-global address on the host does not suppress it; a host with no
+    reachable address of its own raises nothing; and two reachable sets
+    diverging in both directions remain `RQ-MXV-06`'s deferred case.
 
 ## Risks
 
@@ -1332,6 +1399,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 1.5 | 2026-09-05 | Codex round 19, both findings reproduced first. Withdrew `ipIdentity()` from `core/shared/`: it had exactly one production consumer, and §12 reserves that directory for helpers two or more protocol owners read. The identity is now `addressKey()`, private to `core/mx/` and built from the shared parsers, with every `1.4` behaviour and control retained. Restricted the `H ⊂ P` comparison to globally reachable addresses on both sides, after the audit was executed recommending that an operator publish a provider's private `10.0.0.5` on a public MX host — remediation that contradicts 0.9.1's `mx.unroutable`; the same run showed an extra private address on the host suppressing a real missing global one, which restricting both sides also fixes. Criterion 17 and twelve controls. Corrected the MX API's "who really operates them", which §Non-goals contradicts. |
 | 1.4 | 2026-09-05 | Codex round 18, all four findings reproduced first. Address identity is now canonical: `ipIdentity()` keys an address by value, so equivalent IPv6 spellings de-duplicate, forward-confirm and compare as one member of `H` and `P` — the executed reproduction showed a real divergence reported nowhere because the host wrote its address out in full and its provider compressed it. First-seen text is preserved for evidence and the families are kept apart. Brought `src/core/mx/API.md` up to the full eight-export, 0.9.2 contract and added the three missing `ip.js` exports to `core/shared/API.md`. Defined the monotonic post-Final version rule in the specs README and stopped saying shipment returns the document to `1.0`. Withdrew the `1.3` claim that the report hash cannot bind finding text: `reportSurface()` hashes the complete HTML, so the pin binds every byte, which a one-word message change demonstrates. |
 | 1.3 | 2026-09-05 | Codex round 17, all four findings reproduced first. `reverseNames` now encodes three states rather than two, so a lookup that did not answer is never recorded as an empty answer. The authorized trace delta became exact multiset equality after a substitution — one `TLSA` removed, one `PTR` added — was shown to pass the counting rule. The one authorized new case, which `1.2` exempted from surface comparison entirely, is bound by content hash on all five surfaces with per-surface mutation controls and both findings asserted through `findings`, remediation, CSV and DOM. Reconciled `HANDOFF.md` and `ROADMAP.md`, which still described 0.9.2 as unapproved, unstarted, and privacy-neutral. *(This row also recorded that the report hash cannot prove finding text. That was wrong and is withdrawn at `1.4`: the surface hashes the complete HTML.)* |
 | 1.2 | 2026-09-05 | Codex round 16. Four behaviour defects corrected, each reproduced first: absence was claimed when one lookup had not returned; provider fields were populated before forward confirmation, which itself tested any host address rather than the one whose PTR produced the candidate; address sets were compared as arrays, so a duplicated RR duplicated the evidence; and `reverseName()` built names from malformed IPv4. Added the dedicated `mx-vanity-divergence` equivalence case so both findings are reachable through the real audit path, closing the `1.1` coverage gap — authorized as exactly one new case, with the case-set rule tightened rather than relaxed. |

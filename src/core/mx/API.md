@@ -6,8 +6,10 @@ each owning directory checks in `API.md` in the same commit that creates it.
 **Responsibility.** What DNS alone can say about a domain's MX set: whether
 each exchange resolves, whether it sits behind a CNAME, how the preferences
 are published, how concentrated the addresses are, whether the addresses are
-reachable at all, and — since 0.9.2 — what the reverse DNS of those addresses
-says about who really operates them. This directory emits no finding, severity,
+reachable at all, and — since 0.9.2 — what the forward-confirmed reverse DNS of
+those addresses evidences about a relationship between the host and a provider
+name. It evidences a relationship; it does not establish who owns or operates
+the address, which §Non-goals of the spec says explicitly. This directory emits no finding, severity,
 score or locale key — `mx-dangling-host`, `mx-single-host` and their siblings
 are built by the audit layer from the facts below.
 
@@ -22,9 +24,14 @@ attempt would do.
 | `core/shared/` | everything else — including `core/dns/`, another protocol directory, `audit/`, `ui/`, `data/` and the platform |
 
 `core/shared/ip.js` supplies `parseIpCidr()` for the block-concentration
-grouping, `ipScope()` for address reachability (0.9.1), and `ipIdentity()` for
-address-set comparison (0.9.2); `core/spf/` reads the same file for a different
-question. The resolver is **passed**.
+grouping and `ipScope()` for address reachability (0.9.1); `core/spf/` reads the
+same file for a different question. The resolver is **passed**.
+
+`addressKey()` — the value identity two spellings of one address share — is
+**private to this directory**, built from the shared parsers. `core/shared/` is
+for value helpers two or more protocol owners read, and MX is the only owner
+asking this question; a second owner is what would move it, not the possibility
+of one.
 
 `bigIntToIp()` is **private**: it renders a network address back to text for
 the prefix label and has one internal caller. Its observable contract is
@@ -106,11 +113,23 @@ gives `resolves` three values.
 #### An address set is a set of values
 
 De-duplication, forward confirmation and the `H ⊂ P` subset test compare
-`ipIdentity()` keys, not text. `2a01:100::20` and its expanded form are one
-address; comparing the strings made them two, which failed confirmation and
+`addressKey()` identities, not text. `2a01:100::20` and its expanded form are
+one address; comparing the strings made them two, which failed confirmation and
 reported nothing. First-seen text is preserved for evidence, and the two
 families are kept apart: an `AAAA` publishing `::ffff:203.0.113.1` is a
 different delivery path from an `A` publishing `203.0.113.1`.
+
+#### And it is a set of **reachable** values
+
+`H` and `P` are taken over globally routable addresses only. The finding is
+about missing reachable redundancy, so a provider's private, shared, mapped,
+documentation or unparseable value is not something the operator is missing,
+and naming it in the remediation would tell them to publish an address
+`mx.unroutable` reports as broken. Both sides are restricted, not just the
+provider's: an extra private address on the host would otherwise read as
+divergence in the other direction and suppress a real missing global one. A host
+with no reachable address of its own supports no claim at all, and produces
+none.
 
 #### What 0.9.2 costs, and what bounds it
 
