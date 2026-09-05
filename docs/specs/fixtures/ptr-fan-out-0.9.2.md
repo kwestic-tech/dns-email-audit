@@ -68,6 +68,34 @@ outbound per audited domain          : 0.175
 **14 is the number `PRIVACY.md` speaks in**, and it is now observed at the
 transport seam rather than derived from 16 by subtraction.
 
+### The ordered outbound trace
+
+All fourteen questions that leave the browser, in the order they are asked.
+This block is asserted equal to `EXPECTED.outboundTrace` by the harness, so it
+cannot drift from the executable without failing it.
+
+```text
+20.0.2.100.in-addr.arpa/PTR
+0.2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.1.0.a.2.ip6.arpa/PTR
+mailfilter.provider.test/A
+mailfilter.provider.test/AAAA
+5.100.51.100.in-addr.arpa/PTR
+5.113.0.100.in-addr.arpa/PTR
+9.113.0.100.in-addr.arpa/PTR
+11.113.0.100.in-addr.arpa/PTR
+unconfirmed.provider.test/A
+unconfirmed.provider.test/AAAA
+13.113.0.100.in-addr.arpa/PTR
+equal.provider.test/A
+equal.provider.test/AAAA
+10.100.51.100.in-addr.arpa/PTR
+```
+
+Reading it: four of the entries are forward-confirmation pairs and the other
+ten are reverse lookups. `mailfilter.provider.test` appears **once**, though two
+domains ask for it — that pair is the cache reuse, and control 2 removes it by
+renaming the second.
+
 ### Controls
 
 ```

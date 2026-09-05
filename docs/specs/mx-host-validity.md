@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.16 |
+| Spec version | 0.17 |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 released**; 0.9.2 not started — privacy review conducted and its fan-out executed (§7). `OQ-MXV-03` open pending the reviewer's acceptance; **promote to `1.0 (Final)` on approval, and not before implementation** |
@@ -541,11 +541,23 @@ Two observations the projection could not have produced. The forward step
 **doubles** the call count, being per candidate rather than per address. And the
 cache absorbs exactly two of the sixteen — `alpha.test` and `nowww.host.test`
 reach the same provider, and the two-candidate cap is per domain and does not
-dedupe across them. Three controls hold the measurement honest: the gate off
-issues nothing; renaming the repeated provider returns outbound to 16, proving
-the saving is the cache's; and the same name under a different type misses,
-proving the key discriminates on both. Capture:
-[ptr-fan-out-0.9.2](fixtures/ptr-fan-out-0.9.2.md).
+dedupe across them.
+
+**The accepted result is pinned, not merely printed.** Every figure above is a
+`node:assert/strict` constant in the harness — the domain and host counts, the
+8 + 8 split, 16 above the cache, 14 outbound, 2 saved, the three findings, and
+the ordered fourteen-entry outbound trace. An earlier verdict asserted only the
+controls, and all of them still passed while the ordinary result drifted to
+14/12; that drift now exits non-zero.
+
+Five controls hold it honest. The gate off issues nothing. Renaming the repeated
+provider returns outbound to exactly 16 — pinned to 16, not to "more than 14",
+because 15 would mean the cache had absorbed a request it should not have. The
+same name under a different type misses, so the key discriminates on both. The
+pinned check is itself run against a deliberately drifted fixture and must
+reject it. And the trace printed in the capture is asserted equal to the
+executable's constant, so document and harness cannot part company silently.
+Capture: [ptr-fan-out-0.9.2](fixtures/ptr-fan-out-0.9.2.md).
 
 What is executed is the *shape*, not the real-world distribution: how often a
 reverse name forward-confirms, and how often two audited domains share a
@@ -1121,6 +1133,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.17 | 2026-09-05 | Codex review round 14. Pinned the accepted result with `node:assert/strict` — counts, the 8+8 split, 16 above cache, 14 outbound, 2 saved, the three findings and the ordered fourteen-entry outbound trace — after the previous verdict was shown to print CONTROLS PASS while the ordinary result drifted to 14/12. Pinned the renamed control to exactly 16 rather than greater-than. Added a control that runs the pinned check against a deliberately drifted fixture and requires rejection, and a control asserting the capture's printed trace equals the executable constant. Reproduced the fourteen-entry trace in the capture, which the spec already claimed was there. |
 | 0.16 | 2026-09-05 | Codex review round 13. Executed the outbound fan-out instead of calculating it: the spike now runs §4 through the production cache and transport with a recording `fetch` beneath, so **14 requests leaving the browser** is observed at the transport seam rather than derived from 16 by subtraction. Added two reuse controls — renaming the repeated provider returns outbound to 16, and the same name under a different type misses — alongside the gate control. Withdrew the claim that a run is unlinkable to any other and that `PRIVACY.md` promises it: `PRIVACY.md` promises no such thing, and Cloudflare can correlate runs from ordinary connection metadata regardless. What remains is the supported claim — 0.9.2 adds no application-level identifier, persistence, or new recipient. |
 | 0.15 | 2026-09-05 | Codex review round 12. Replaced the 0.14 figures, which counted stored addresses and were wrongly labelled measured, with an executed measurement: a spike runs §4 literally against a recording resolver with a negative control, captured in `fixtures/ptr-fan-out-0.9.2.md`. It issues 16 queries where the projection said 8, because forward-confirm is per candidate — and 14 through the page cache, which is why `PRIVACY.md` must be re-measured rather than adjusted. Rewrote §7.4 to weigh query intent and linkability instead of claiming the marginal disclosure is nil, and named what would reverse the decision. Restored `OQ-MXV-03`: the evidence now exists, but accepting it is the reviewer's call, and promotion to `1.0 (Final)` belongs to that approval. |
 | 0.14 | 2026-09-05 | 0.9.2 privacy review conducted before any implementation. Measured PTR fan-out from the committed oracle: 8 queries across 80 audited domains, 0 for provider-named MX, 3 for the common vanity shape. Found the worst case unbounded in MX-host count and capped §4 at two qualifying hosts, bounding a domain at 12 and the default path at 600. Inventoried the two newly disclosed name classes. Decided against a separate opt-in, because every name queried comes from an answer the same resolver just returned. Resolved `OQ-MXV-03` as `RQ-MXV-03`; no open questions remain. The `PRIVACY.md` amendment is drafted in §7.5 and deliberately not applied, because that document describes shipped behavior. |

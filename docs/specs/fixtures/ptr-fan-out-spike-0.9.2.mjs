@@ -32,6 +32,7 @@
  * Nothing here is imported by `src/`. It is evidence, and it is reproducible.
  */
 
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -220,6 +221,65 @@ async function run({ deepChecks, stack = productionStack() }) {
   return { audited, qualifyingHosts, findings, stack };
 }
 
+/* ── The accepted result, pinned exactly ──────────────────────────────── */
+
+/**
+ * Every headline figure this capture publishes, as an executable constant.
+ *
+ * An earlier verdict asserted only the gate, that the renamed run exceeded the
+ * ordinary one, and the type probe. All three still passed when the ordinary
+ * result drifted from 16/14 to 14/12 — which invalidates the capture and every
+ * number in §7.2 while printing CONTROLS PASS. Relative movement does not bound
+ * an accepted result; the result itself has to be stated.
+ */
+const EXPECTED = {
+  audited: 80,
+  qualifyingHosts: 7,
+  ptrCalls: 8,
+  forwardCalls: 8,
+  callsAboveCache: 16,
+  outbound: 14,
+  savedByCache: 2,
+  findings: [
+    { domain: 'alpha.test', host: 'mail.alpha.test', finding: 'mx.vanity-divergent', missing: ['100.51.100.10', '100.9.9.9'] },
+    { domain: 'delta.test', host: 'mail.delta.test', finding: 'mx.no-reverse-dns' },
+    { domain: 'nowww.host.test', host: 'mail.nowww.host.test', finding: 'mx.vanity-divergent', missing: ['100.2.0.20', '100.9.9.9', '2a01:100::20'] },
+  ],
+  // The ordered questions that leave the browser. This is the trace reproduced
+  // in ptr-fan-out-0.9.2.md; the two must agree.
+  outboundTrace: [
+    '20.0.2.100.in-addr.arpa/PTR',
+    '0.2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.1.0.a.2.ip6.arpa/PTR',
+    'mailfilter.provider.test/A',
+    'mailfilter.provider.test/AAAA',
+    '5.100.51.100.in-addr.arpa/PTR',
+    '5.113.0.100.in-addr.arpa/PTR',
+    '9.113.0.100.in-addr.arpa/PTR',
+    '11.113.0.100.in-addr.arpa/PTR',
+    'unconfirmed.provider.test/A',
+    'unconfirmed.provider.test/AAAA',
+    '13.113.0.100.in-addr.arpa/PTR',
+    'equal.provider.test/A',
+    'equal.provider.test/AAAA',
+    '10.100.51.100.in-addr.arpa/PTR',
+  ],
+};
+
+/** Throws unless the ordinary run is exactly the accepted result. */
+function assertOrdinaryResult(result) {
+  const above = result.stack.above;
+  const outbound = result.stack.outbound;
+  assert.equal(result.audited, EXPECTED.audited, 'audited domains');
+  assert.equal(result.qualifyingHosts, EXPECTED.qualifyingHosts, 'qualifying hosts');
+  assert.equal(above.filter(q => q.endsWith('/PTR')).length, EXPECTED.ptrCalls, 'PTR calls above cache');
+  assert.equal(above.filter(q => !q.endsWith('/PTR')).length, EXPECTED.forwardCalls, 'forward calls above cache');
+  assert.equal(above.length, EXPECTED.callsAboveCache, 'calls above cache');
+  assert.equal(outbound.length, EXPECTED.outbound, 'requests that left the browser');
+  assert.equal(above.length - outbound.length, EXPECTED.savedByCache, 'saved by cache reuse');
+  assert.deepEqual(result.findings, EXPECTED.findings, 'findings');
+  assert.deepEqual(outbound, EXPECTED.outboundTrace, 'ordered outbound trace');
+}
+
 const on = await run({ deepChecks: true });
 const ptrAbove = on.stack.above.filter(q => q.endsWith('/PTR'));
 const fwdAbove = on.stack.above.filter(q => !q.endsWith('/PTR'));
@@ -267,8 +327,59 @@ const afterType = typeProbe.outbound.length;
 console.log('\nCONTROL 3 — the cache key includes the type');
 console.log(`  first A: ${afterFirst}   repeated A: ${afterRepeat} (must not rise)   then AAAA: ${afterType} (must rise)`);
 
-const ok = off.stack.above.length === 0 && off.stack.outbound.length === 0 && off.findings.length === 0
-  && byName.stack.outbound.length > on.stack.outbound.length
-  && afterRepeat === afterFirst && afterType === afterFirst + 1;
-console.log(`\nCONTROLS ${ok ? 'PASS' : 'FAILED'}`);
-if (!ok) process.exit(1);
+/* ── Assertions. Anything below that throws exits non-zero. ───────────── */
+
+assertOrdinaryResult(on);
+
+// The gate.
+assert.equal(off.stack.above.length, 0, 'gate off: calls above cache');
+assert.equal(off.stack.outbound.length, 0, 'gate off: outbound');
+assert.equal(off.findings.length, 0, 'gate off: findings');
+
+// The reuse is the cache's. Pinned to 16 exactly, not merely "more than 14":
+// a renamed run that produced 15 would satisfy a greater-than and still mean
+// the cache had absorbed a request it should not have.
+assert.equal(byName.stack.above.length, 16, 'renamed: calls above cache');
+assert.equal(byName.stack.outbound.length, 16, 'renamed: outbound');
+
+// The key discriminates on type as well as name.
+assert.equal(afterFirst, 1, 'first A');
+assert.equal(afterRepeat, 1, 'repeated A must reuse');
+assert.equal(afterType, 2, 'AAAA must miss');
+
+/**
+ * The positive check has to be able to fail, or it bounds nothing.
+ *
+ * This is the exact drift that passed the previous verdict: golf.test publishes
+ * no PTR instead of a provider that fails forward-confirmation, which removes
+ * two forward calls and two outbound requests. `assertOrdinaryResult` must
+ * reject it.
+ */
+const drifted = await run({
+  deepChecks: true,
+  stack: productionStack({
+    ptrAnswers: { ...PTR_ANSWERS, '11.113.0.100.in-addr.arpa': [] },
+  }),
+});
+let rejected = false;
+try { assertOrdinaryResult(drifted); } catch { rejected = true; }
+console.log('\nCONTROL 4 — the pinned result rejects a drifted run');
+console.log(`  drifted run: ${drifted.stack.above.length} above, ${drifted.stack.outbound.length} outbound   rejected: ${rejected}  (must be true)`);
+assert.equal(rejected, true, 'a drifted ordinary result must be rejected');
+
+/**
+ * The capture beside this file reproduces the trace for a reader who is not
+ * going to run the script. The spec says the trace is captured there, so the
+ * two must be the same fourteen lines in the same order — otherwise the
+ * document can drift from the executable silently, which is how the headline
+ * figures drifted in the first place.
+ */
+const captureText = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'ptr-fan-out-0.9.2.md'), 'utf8');
+const captureBlock = /### The ordered outbound trace[\s\S]*?```text\n([\s\S]*?)```/.exec(captureText);
+assert.ok(captureBlock, 'the capture must contain an ordered outbound trace block');
+const captureTrace = captureBlock[1].trim().split('\n').map(line => line.trim()).filter(Boolean);
+console.log('\nCONTROL 5 — the capture reproduces the executable trace');
+console.log(`  capture entries: ${captureTrace.length}   executable entries: ${EXPECTED.outboundTrace.length}`);
+assert.deepEqual(captureTrace, EXPECTED.outboundTrace, 'capture trace must equal EXPECTED.outboundTrace');
+
+console.log('\nRESULT PINNED AND CONTROLS PASS');
