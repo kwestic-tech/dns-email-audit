@@ -156,4 +156,4 @@ node docs/specs/fixtures/ptr-fan-out-spike-0.9.2.mjs
 
 Deterministic: no network, no clock, no randomness. The harness is not imported
 by `src/` and is not part of any suite; it is evidence, kept beside the spec it
-settles, per the captured-evidence rule in [the specs README](../README.md).
+settles, per the captured-evidence rule in [the specs README](../../README.md).

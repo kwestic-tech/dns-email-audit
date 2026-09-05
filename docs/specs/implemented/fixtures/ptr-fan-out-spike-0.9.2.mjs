@@ -37,12 +37,12 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { createDohCache } from '../../../src/core/dns/cache.js';
-import { createDohTransport } from '../../../src/core/dns/doh.js';
-import { createResolver } from '../../../src/core/dns/resolver.js';
-import { dnsError, dnsTypeNum, DNS_TYPES } from '../../../src/core/dns/errors.js';
+import { createDohCache } from '../../../../src/core/dns/cache.js';
+import { createDohTransport } from '../../../../src/core/dns/doh.js';
+import { createResolver } from '../../../../src/core/dns/resolver.js';
+import { dnsError, dnsTypeNum, DNS_TYPES } from '../../../../src/core/dns/errors.js';
 
-const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
 const baseline = JSON.parse(
   readFileSync(join(REPO, 'tests/fixtures/equivalence/baseline-v0.9.1.json'), 'utf8'));
 

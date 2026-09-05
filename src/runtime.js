@@ -71,7 +71,7 @@ import { dnsError, dnsTypeNum } from './core/dns/errors.js';
  * baseline-only/current-only labels rather than a claim about improvement.
  * `ANALYSIS_VERSION` is the field that gates the score delta.
  */
-const APP_VERSION = '0.9.1';
+const APP_VERSION = '0.9.2';
 
 /**
  * Build one audit runtime.

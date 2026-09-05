@@ -77,7 +77,7 @@ export const MX_HOST_REACHABILITY = Object.freeze(['global', 'partial', 'none', 
  * was set by taste: together they bound the additional outbound work at twelve
  * queries per domain, which is what made keeping this check under the existing
  * deep-check flag proportionate rather than a widening of what the tool
- * discloses. Spec §4 and §7, measured in `fixtures/ptr-fan-out-0.9.2.md`.
+ * discloses. Spec §4 and §7, measured in `docs/specs/implemented/fixtures/ptr-fan-out-0.9.2.md`.
  */
 var MX_MAX_DIVERGENCE_HOSTS = 2;
 var MX_MAX_REVERSE_ADDRESSES = 4;

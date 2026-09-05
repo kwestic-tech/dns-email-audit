@@ -2,7 +2,7 @@
 
 ## Current state
 
-Released through `v0.9.1`. An MX host is now read for what it resolves to, not
+Released through `v0.9.2`. An MX host is now read for what it resolves to, not
 only for whether it resolves: every resolved address is classified against the
 IANA special-purpose registries, so a host answering only loopback, private,
 link-local, carrier-shared, documentation or reserved space is reported as
@@ -22,27 +22,37 @@ replay across the 32-case corpus shows byte-identical query traces, and the
 cross-release guard in `tests/build/release-compat.test.mjs` bounds every
 surface of the authorized delta with 60 assertions.
 
-Two releases remain:
+`v0.9.2` completes that document. A vanity MX host — a name in the audited
+domain holding a copy of a provider's addresses — is checked against the
+provider by forward-confirmed reverse DNS, and reported when the provider
+publishes globally reachable addresses the copy lacks. A host whose checked
+addresses publish no reverse record at all gets an advisory note. It is the
+first release to introduce a new query class since 0.8.0, which is why it
+carried a privacy review before any code: measured through the shipping code,
+**8 additional queries across the corpus's 80 audited domains**, 0 for a domain
+whose MX hosts are provider-named, 12 as the per-domain ceiling. Neither finding
+moves a score or a grade.
+
+One release remains:
 
 ```text
-0.9.2 MX vanity divergence → 1.0.0 readiness
+1.0.0 readiness
 ```
 
-## Start here: 0.9.2 is implemented and in code review
+## Start here: 1.0.0 readiness
 
-Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) `1.8`.
-**The privacy review was conducted, its fan-out executed, and both accepted on
-2026-09-05 at `ac7e984`; the spec reached `1.0 (Final)` and 0.9.2 was
-implemented on that authority. It is not released.** `package.json` and
-`APP_VERSION` remain `0.9.1`, nothing is tagged, and the branch is unpushed. The
-document records the next monotonic `1.x (Implemented)` revision when 0.9.2
-ships — not `1.0`, which it left three amendments ago.
+Spec: [`docs/specs/one-zero-readiness.md`](docs/specs/one-zero-readiness.md),
+still to be reviewed to Final. It is the next release and the only one
+outstanding; nothing in the MX workstream is left open.
 
-What follows describes the review that authorized the work. It is kept because
-the measurements in it are the evidence for the decision, not because the
-decision is still pending.
+## How 0.9.2 was authorized, for the record
 
-What the review established, before any 0.9.2 code was written:
+Its spec is now
+[`docs/specs/implemented/mx-host-validity.md`](docs/specs/implemented/mx-host-validity.md)
+`1.12 (Implemented)` — the revision the release commit carries — with the
+measurement fixtures beside it. The privacy review
+was conducted, its fan-out executed, and both accepted on 2026-09-05 at
+`ac7e984`, before any 0.9.2 code was written. What that review established:
 
 - **The fan-out is small, and it was executed — including what leaves the
   browser.** A measurement-only spike runs §4 through the **production cache and
@@ -52,7 +62,7 @@ What the review established, before any 0.9.2 code was written:
   counted stored addresses and called it measured; the second measured the 16
   calls and *calculated* the 14. `PRIVACY.md` speaks in outbound requests, so 14
   is the figure, and it is now observed at the transport seam. Evidence:
-  [`fixtures/ptr-fan-out-0.9.2.md`](docs/specs/fixtures/ptr-fan-out-0.9.2.md).
+  [`fixtures/ptr-fan-out-0.9.2.md`](docs/specs/implemented/fixtures/ptr-fan-out-0.9.2.md).
   A domain whose MX hosts are named by its provider — the common case for hosted
   mail — costs **nothing**, because the gate requires an in-domain MX host.
 - **The worst case was unbounded, and is not any more.** §4 capped addresses per
@@ -74,11 +84,11 @@ What the review established, before any 0.9.2 code was written:
   unlinkable to another — Cloudflare can correlate runs from ordinary connection
   metadata, and `PRIVACY.md` promises nothing to the contrary. §7.4 names what
   would reverse the decision.
-- **`RQ-MXV-03` is accepted.** No question remains open, which is what Final
-  records; the document records its next monotonic `1.x (Implemented)` revision
-  when 0.9.2 ships.
+- **`RQ-MXV-03` is accepted.** No question remained open, which is what Final
+  records; the release commit carries `1.12 (Implemented)`, the next monotonic
+  revision after the last amendment.
 
-**`PRIVACY.md` is amended on this branch.** It was deliberately left alone
+**`PRIVACY.md` is amended for what shipped.** It was deliberately left alone
 through the review rounds, because it describes what the application does and
 0.9.2 did not exist yet; the amendment drafted in §7.5 was applied once the code
 did, with figures **re-measured through the implementation** rather than carried
@@ -94,9 +104,9 @@ The 1.0.0 readiness review continues independently.
 | 0.7.0 | [findings-and-remediation](docs/specs/implemented/findings-and-remediation.md) | Released as `v0.7.0` | Stable finding identity, evidence, confidence and remediation dependencies |
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
 | 0.9.0 | [report-comparison](docs/specs/implemented/report-comparison.md) | Released as `v0.9.0` | Versioned JSON schema, import validation and stateless comparison |
-| 0.9.1 | [mx-host-validity](docs/specs/mx-host-validity.md) | Released as `v0.9.1` | MX address-scope classification; address-literal and null-MX-conflict diagnosis |
-| 0.9.2 | [mx-host-validity](docs/specs/mx-host-validity.md) | 0.9.1 released; privacy review **accepted 2026-09-05**; spec `1.8 (Final, amended)`; implemented, in code review | Forward-confirmed reverse DNS and provider address-set divergence | Forward-confirmed reverse DNS and provider address-set divergence |
-| 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.1 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
+| 0.9.1 | [mx-host-validity](docs/specs/implemented/mx-host-validity.md) | Released as `v0.9.1` | MX address-scope classification; address-literal and null-MX-conflict diagnosis |
+| 0.9.2 | [mx-host-validity](docs/specs/implemented/mx-host-validity.md) | Released as `v0.9.2` | Forward-confirmed reverse DNS and provider address-set divergence |
+| 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.2 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary
 
@@ -140,8 +150,8 @@ no implementation phase. Review it as a decision document alongside the
 
 - Work on a branch, never on `main`.
 - A spec is Final before implementation starts. For a multi-release spec, that
-  is per release: `mx-host-validity` `1.8` covers 0.9.1, which shipped, and
-  0.9.2, which is approved and implemented but not yet released.
+  is per release: `mx-host-validity` covered 0.9.1 and 0.9.2, both of which have
+  now shipped, so the document is in `implemented/`.
 - A task is boundable to one owning directory; cross-directory work is split
   into separate commits with an architectural explanation.
 - Resolver and generated data dependencies are passed, never imported by their

@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.8 (Final, amended) |
-| Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
+| Spec version | 1.12 (Implemented) |
+| Released in | `v0.9.1`, 2026-09-05 (the 0.9.1 half) and `v0.9.2`, 2026-09-05 (the 0.9.2 half) |
 | Target release | 0.9.1, then 0.9.2 |
-| Status | **0.9.1 released**; **0.9.2 implemented, awaiting code review** — privacy review accepted at `ac7e984`; implementation measured and bounded, `PRIVACY.md` amended with measured figures |
-| Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
+| Status | **Released.** Both halves have shipped: 0.9.1 as `v0.9.1` and 0.9.2 as `v0.9.2`. Nothing in this document is outstanding, which is what moving it here records. |
+| Depends on | [report-comparison](report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
 | Last updated | 2026-09-05 |
@@ -26,35 +26,45 @@
 > **not** because 0.9.2 was unshipped, which is what the Implemented revision
 > records. The 0.13 note had those backwards; review corrected it at 0.15.
 >
-> **The version is monotonic.** This document reached Final at `1.0` and has
-> been amended since, so shipment records the **next** `1.x (Implemented)`
-> revision after its last amendment — never `1.0 (Implemented)`, which would
-> claim the shipped text is the Final text. The number is fixed in the release
-> commit, because review can still increment this document until then.
+> **The version is monotonic, and the release commit carries the number.** This
+> document reached Final at `1.0` and was amended eight times after that, so
+> shipment records the **next** `1.x (Implemented)` revision after its last
+> amendment — never `1.0 (Implemented)`, which would claim the shipped text is
+> the Final text. **`1.12` is that revision**, and it is what the release commit
+> contains.
+>
+> `1.9`, `1.10` and `1.11` are **superseded pre-publication revisions**. Each
+> was written into a release commit that no longer exists: artifact review found
+> defects in the release artifacts themselves, and each correction was folded
+> into the same commit with `git commit --amend`, which replaces it. There is no
+> published history in which those numbers were ever the release — the branch
+> holds exactly one release commit, and it carries `1.12`. The rows below are
+> kept because the corrections are the record; the numbers on them are not
+> claims about what shipped.
 
 ## Problem
 
-[`src/core/mx/mx.js`](../../src/core/mx/mx.js) resolves every MX target and reports
+[`src/core/mx/mx.js`](../../../src/core/mx/mx.js) resolves every MX target and reports
 eleven findings about the result. Its own docblock states the finding it exists
 for: an MX host that does not resolve is a total inbound mail outage that,
 before it was checked, read in the interface exactly like a healthy mail domain.
 
 That sentence is still true of four other configurations, because `resolves` is
-computed at [`mx.js:180`](../../src/core/mx/mx.js:180) as `addresses.length ? 'yes' : …`
+computed at [`mx.js:180`](../../../src/core/mx/mx.js:180) as `addresses.length ? 'yes' : …`
 and nothing downstream asks what those addresses are.
 
 **An MX host resolving only to unroutable space reports as healthy.** A host
 answering `127.0.0.1`, `10.0.0.4` or `::1` produces `resolves: 'yes'`, no
 finding, and a domain that reads as correctly configured. No sending server on
 the internet can reach it. A grep of `src/` finds no address-range predicate of
-any kind: `parseIpCidr()` in [`src/core/shared/ip.js`](../../src/core/shared/ip.js) does
+any kind: `parseIpCidr()` in [`src/core/shared/ip.js`](../../../src/core/shared/ip.js) does
 the arithmetic for `mx.same-prefix` and for SPF prefix sizing, and neither
 caller asks about scope. This is the only case in this spec where the tool
 states a false negative rather than a true finding with the wrong explanation,
 and it is the reason 0.9.1 exists.
 
 **An address literal in the MX RDATA is diagnosed as a missing address record.**
-`parseMxRecord()` at [`mx.js:97`](../../src/core/mx/mx.js:97) requires only a numeric
+`parseMxRecord()` at [`mx.js:97`](../../../src/core/mx/mx.js:97) requires only a numeric
 preference and a non-empty remainder, so `10 203.0.113.5` parses to host
 `203.0.113.5`. Two lookups are then spent on a name that cannot exist, and the
 host surfaces as `mx.dangling`. The severity is right and the remediation is
@@ -65,7 +75,7 @@ defines the RDATA as a `<domain-name>`; RFC 5321 §5.1 requires that name to
 have an address record of its own.
 
 **A null MX published beside a real one is reported nowhere at all.**
-`isNullMx()` at [`mx.js:64`](../../src/core/mx/mx.js:64) returns `false` whenever
+`isNullMx()` at [`mx.js:64`](../../../src/core/mx/mx.js:64) returns `false` whenever
 `mx.length !== 1`, which is correct for its own contract and wrong as a whole
 account of the record set. So a domain publishing both `0 .` and
 `10 mail.example.com` is treated as an ordinary mail domain. The `.` is then
@@ -93,11 +103,17 @@ mailfilter.hibox.hinet.net.    316 IN A  61.219.36.11
 mailfilter.allremote.com.tw.  3158 IN A  210.71.187.212     ; customer, one
 ```
 
+> **Amended at `1.7` — see §8.** "Two mail servers" is what this section said,
+> and it is more than DNS establishes: two `A` records are two address paths,
+> which may or may not be separate machines. The finding's user-facing text was
+> corrected to say address paths; this paragraph is left as written, because it
+> is the reasoning that produced the check.
+
 The customer reaches one of the two mail servers their provider advertises. The
 audit reports `mx.single-host` at `info` — technically true, and it names the
 wrong cause, because the operator reads it as "my provider gave me one host"
 when the provider gave them two. `inAudited` is already computed per host at
-[`mx.js:183`](../../src/core/mx/mx.js:183) and is consumed by no finding, so the
+[`mx.js:183`](../../../src/core/mx/mx.js:183) and is consumed by no finding, so the
 discriminator this needs is present and unused.
 
 ## Scope
@@ -130,7 +146,7 @@ deep-check gate.
   the reader to ignore the check. Only divergence is a finding. See `RQ-MXV-02`.
 - **No ownership attribution.** The PTR gives a name, not an operator. No ASN,
   no WHOIS, no registry of hosted mail providers. This follows the precedent
-  set by [spf-subnet-and-redundancy](implemented/spf-subnet-and-redundancy.md), whose
+  set by [spf-subnet-and-redundancy](spf-subnet-and-redundancy.md), whose
   Non-goals excluded the same network destinations for the same reason.
 - **No reverse-DNS finding on the sending path.** Reverse DNS matters most for
   the IP that connects outbound, and this tool audits a domain's published
@@ -142,7 +158,7 @@ deep-check gate.
   3 change to the transport contract and is out of scope for both releases. It
   is recorded as a known limitation rather than an oversight.
 - **No scoring change in either release.** Both inherit the advisory-before-
-  scoring constraint from [the specs README](README.md): a new check reports for at
+  scoring constraint from [the specs README](../README.md): a new check reports for at
   least one release before it affects the grade.
 
 ## Design
@@ -160,7 +176,7 @@ is a convention and not a guarantee. It roughly doubles the query count for the
 MX section on domains that qualify. It deserves its own review and its own
 release, and it must not delay four unambiguous correctness findings.
 
-`PTR` is already a supported transport type — [`errors.js:48`](../../src/core/dns/errors.js:48)
+`PTR` is already a supported transport type — [`errors.js:48`](../../../src/core/dns/errors.js:48)
 lists it in `DNS_TYPES` — so 0.9.2 needs no transport change and no new
 architectural edge. `createMxAudit()` already receives `dohQuery` and
 `optionalCheck` as arguments, per §12's rule that a protocol directory has no
@@ -168,7 +184,7 @@ edge to `core/dns/`. Both releases use what is already injected.
 
 ### 1. `ipScope()` — 0.9.1
 
-New export in [`src/core/shared/ip.js`](../../src/core/shared/ip.js), beside
+New export in [`src/core/shared/ip.js`](../../../src/core/shared/ip.js), beside
 `parseIpCidr()` which it uses for the range arithmetic. Placement follows the
 existing import matrix: `core/mx/` already imports from `core/shared/`, and
 `core/spf/` will be able to use the same predicate without a new edge.
@@ -319,7 +335,7 @@ would lose precisely the case the finding exists for.
 `isNullMx()` is **not** changed. Its `mx.length !== 1` guard is load-bearing in
 three places — the `src/audit/` deep-check gate, provider detection via
 `@null-mx`, and the MTA-STS `policy-on-null-mx` finding at
-[`artifacts.js:341`](../../src/audit/artifacts.js:341) — and every one of them wants the
+[`artifacts.js:341`](../../../src/audit/artifacts.js:341) — and every one of them wants the
 current meaning, which is "this domain has declared it receives no mail". A
 domain with a contradictory set has declared nothing coherent, so it correctly
 fails that predicate and correctly raises this one.
@@ -454,7 +470,7 @@ of them have a qualifying host at all (§7.1).
 
 **The gate is not an opt-in, and the 0.1 draft was wrong to imply it.** Deep
 checks ship ticked: `MAX_DEEP_CHECK_DOMAINS` at
-[`events.js:105`](../../src/ui/events.js:105) switches them off only above 50
+[`events.js:105`](../../../src/ui/events.js:105) switches them off only above 50
 domains, and PRIVACY.md states plainly that they are the default and that the
 published per-domain figures are the numbers with them on. An ordinary
 single-domain run therefore issues these queries. Every cost and disclosure
@@ -462,7 +478,7 @@ argument in this document is made on that basis, and the fan-out it implies is
 measured in §7.2 rather than assumed.
 
 **Why the deep-check gate and not a new one.** MX already sits behind it, DANE
-already extends it at [`audit-domain.js:347`](../../src/audit/audit-domain.js:347),
+already extends it at [`audit-domain.js:347`](../../../src/audit/audit-domain.js:347),
 and 0.9.0 made `deepChecks` part of report provenance precisely so that a
 report run without it is not compared as though the protocol were observed.
 Putting 0.9.2 behind the same flag means the comparison release handles it
@@ -476,8 +492,8 @@ provenance and comparability cost is the price. §7 decides this; §4 does not.
 
 ### 5. Findings
 
-Registered in [`src/audit/findings.js`](../../src/audit/findings.js) and raised from
-[`src/audit/issues.js`](../../src/audit/issues.js) beside the existing `mx-*` block at
+Registered in [`src/audit/findings.js`](../../../src/audit/findings.js) and raised from
+[`src/audit/issues.js`](../../../src/audit/issues.js) beside the existing `mx-*` block at
 lines 532–546.
 
 | Release | Key | Id | Severity | Category | Effort |
@@ -525,7 +541,7 @@ side where it matters least.
 ### 6. Evidence
 
 All six findings emit `host` evidence, already an `EVIDENCE_KINDS` member at
-[`findings.js:72`](../../src/audit/findings.js:72), except `mx-null-conflict`,
+[`findings.js:72`](../../../src/audit/findings.js:72), except `mx-null-conflict`,
 which emits `mx` evidence because the defect is in the record set rather than in
 any host. `mx.unroutable` and `mx.partially-routable`
 carry the offending address and its scope in their arguments, so the report
@@ -533,7 +549,7 @@ states which address is unreachable and why, not merely that one is.
 
 ### 7. Privacy review — conducted, with the fan-out executed
 
-[`AGENTS.md`](../../AGENTS.md:110) makes anything implying a `PRIVACY.md` edit a
+[`AGENTS.md`](../../../AGENTS.md:110) makes anything implying a `PRIVACY.md` edit a
 stop condition. 0.9.2 implies one. This section is the review that discharges
 it, conducted before any 0.9.2 production code was written.
 
@@ -728,7 +744,7 @@ the decision is wrong. Likewise if the procedure ever queried a name *not*
 derivable from the audited domain's published records — a provider registry, a
 reputation service, an ASN lookup — the first two reasons collapse and it
 belongs behind its own control, or in
-[external-intelligence](external-intelligence.md). The forward-confirm gate is
+[external-intelligence](../external-intelligence.md). The forward-confirm gate is
 what keeps 0.9.2 on the near side of that line: it refuses any candidate that
 does not resolve back to the address the audited domain published, so no name
 outside that chain is ever acted on. That gate is now load-bearing for privacy
@@ -758,10 +774,33 @@ above predicts a corpus average of 0.1 additional queries per domain and a
 bounded worst case of 12, but the published figures come from a real run and
 this document does not get to estimate them.
 
-### 8. As implemented — 0.9.1
+### 8. As implemented
 
-Five departures from this document, found while building it. None changes what
-0.9.1 reports; all change how the spec described getting there.
+The 0.9.1 record comes first because it was written first; the 0.9.2 entries
+follow it in the order review produced them, newest first. Nothing here has been
+rewritten to match the finished state — an amendment says what was wrong and
+what replaced it, and the original claim stays visible above it.
+
+**Released as `v0.9.2` on 2026-09-05.** The behaviour that shipped is the §4
+algorithm with all three caps load-bearing, forward confirmation against the
+source address, value-identity comparison over globally reachable addresses
+only, and the three-state `reverseNames`. Measured through the shipping code
+across the 32-case corpus's 80 audited domains: **8 additional queries**, 0.1
+per domain, 0 for a domain whose MX hosts are provider-named, and **4** for the
+dedicated case that exercises both findings. `PRIVACY.md` carries those measured
+figures. No score, grade, CSV, DOM or report surface moves on any pre-existing
+case; the single new case is content-pinned on all five surfaces.
+
+#### 8.1 As implemented — 0.9.1
+
+Five departures from this document, found while building it. **Corrected at
+`1.10`:** this section originally said none of them changes what 0.9.1 reports.
+Two do. The preference check below was withdrawn outright, so a finding this
+document specified is not in the release at all; and the null-MX conflict's
+emission moved at `0.6`, which changes what is reported for a record set that
+parses into no host. The other three change only how the spec described getting
+there. Each departure is left as it was written, with a correction beside it
+where a later round overtook it.
 
 **The five-commit order was wrong: steps 3 and 4 are one commit.** The spec and
 the handoff both put the locale strings before the findings, because `t()`
@@ -786,6 +825,17 @@ a record set of nothing but `0 .` entries — where `hasNullMxConflict()` is
 behavior, since the contradiction the finding is about is a null MX beside a
 *real* host, but the predicate and the finding are not coextensive and the spec
 implied they were.
+
+> **Superseded at `0.6`, before 0.9.1 shipped. This paragraph is history, not
+> current behaviour.** Two of its claims are now false. `hasNullMxConflict()`
+> does **not** return `true` for a set of nothing but `0 .` entries: it means
+> `0 .` published beside a **different** record, so two copies of `0 .` are a
+> duplicate and not a conflict — final §3, and revision `0.6`. And the finding
+> is no longer gated on a resolved host existing: emission moved outside the
+> `hosts.length` gate in the same round, precisely so a record set that parses
+> into no host still reports the contradiction. What survives from this
+> paragraph is the observation that drove the change — that the predicate and
+> the finding were not coextensive.
 
 **The existing fixture corpus publishes RFC 5737 documentation addresses, so
 `mx.unroutable` fires across it.** `203.0.113.x` is not globally reachable, so
@@ -1527,9 +1577,14 @@ overstated what the evidence supports and is withdrawn.
 ## Open questions
 
 None. Every question this document raised is resolved or explicitly deferred,
-which is what Final records. Shipping 0.9.2 is what will later make it
-`1.x (Implemented)` — the next revision after the last amendment, fixed in the
-release commit. 0.9.2 has not shipped.
+which is what Final recorded. 0.9.2 ships as `v0.9.2`, and the release commit
+records `1.12 (Implemented)` — the next revision after the last amendment,
+exactly as the rule requires, and the number that stays true after the squash
+merge and the tag. The three revisions below it were written into earlier states
+of that same commit and superseded by amendment before publication.
+`RQ-MXV-06`, bidirectional divergence, remains deliberately deferred and is not
+an open question in this document; a future release that wants it starts a new
+spec.
 
 ## Review record
 
@@ -1548,6 +1603,10 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 1.12 | 2026-09-05 | **Implemented.** Codex round 26 corrected round 25's chronology, which this document had adopted from that review. `git commit --amend` *replaces* a commit, so `f09e00f`, `81e2af4` and `7291777` are not a sequence of published states — verified against the branch, which contains exactly one release commit and no ancestor carrying `1.9`, `1.10` or `1.11`. The rule those rounds were applying says the Implemented number is fixed in the release commit; the release commit is the one that will be published, and it carries this revision. So `1.9`, `1.10` and `1.11` are superseded pre-publication release-artifact revisions folded into the final commit, not versions that shipped, and every "released at `1.9`" claim is withdrawn from the spec, `HANDOFF.md`, `ROADMAP.md` and the specs index. `1.12` is what the squash merge and the `v0.9.2` tag will carry. |
+| 1.11 | 2026-09-05 | *(Superseded pre-publication; folded into the final release commit. Its chronology — that `1.9` was "the release revision" and that later rounds came after it in history — came from the Codex round 25 review and was corrected in round 26 at `1.12`.)* Codex round 25, artifact review. One blocking inconsistency, reproduced first: the revision table records `1.9` as the release revision and `1.10` as round 24's artifact amendment, while three passages still described `1.10` as the revision fixed in the release commit — the header blockquote, the Open questions conclusion and `HANDOFF.md`'s `RQ-MXV-03` bullet. A document cannot be at once the release revision and two amendments past it. Corrected to state the chronology: `1.9` shipped, and the artifact reviews that followed it produced `1.10` and now `1.11`, each amending the same unpushed release commit rather than being written by it. Applying the monotonic rule to this finding is what makes it `1.11`. |
+| 1.10 | 2026-09-05 | *(Superseded pre-publication; folded into the final release commit. An earlier annotation here said `1.9` shipped and this row was the amendment after it — corrected at `1.12`: no version below `1.12` was ever published.)* Codex round 24, artifact review. Five artifact defects, each reproduced first. The `v0.9.1` assertion baseline quoted in the PR body was fabricated — the tag's own inventory sums to 5,617, not the 5,658 claimed, and the 5,624 in the README committed at the tag is the already-recorded stale-doc defect. The `1.9` row below claimed no review round changed what the audit asks, which the append-only record refutes: round 16 stopped a malformed IPv4 address becoming a `PTR` question, and the later identity and reachability corrections change whether a candidate's forward queries are reached for affected inputs. What did not change is narrower and is what the row now says. The move left two consecutive monotonic blockquotes, a §8.1 null-conflict paragraph reading as current fact after `0.6` had superseded it, an unamended "two mail servers" in the Problem section, and a §8.1 opening claim too broad to be true. Historical text preserved; inline correction pointers added at each. |
+| 1.9 | 2026-09-05 | *(Superseded pre-publication at `1.12`. This row recorded the first state of the release commit; two artifact reviews amended that commit before it was published, so this number never shipped.)* 0.9.2 released as `v0.9.2`; both halves of the document have now shipped, so it moves to `implemented/` with its measurement fixtures beside it. Behaviour approved by review at `b4d21f7`, after an implementation round and then seven corrective review rounds (16 through 22); the privacy decision at round 15 preceded implementation. *(This row first said none of those rounds changed what the audit asks — corrected at `1.10`: several changed which questions are reached. What is unchanged is the reviewed 0.9.2 design's shape: the three caps, the `A`-before-`AAAA` order and the deep-check gate.)* Status set to released; version is the next monotonic revision after `1.8`, not a return to `1.0`. |
 | 1.8 | 2026-09-05 | Codex round 22, reproduced against `318f36f` first. The disclosed order was fiction: `1.7` said the four checked addresses are taken in the order the zone returned them, but the audit makes two lookups and concatenates `A` answers before `AAAA` answers, de-duplicates and takes four — so a host with four IPv4 addresses never has an IPv6 address checked, which the executed case shows. Every normative and status occurrence now says up to four unique addresses per host, `A` answers before `AAAA`, resolver order within each type, in the spec and in all fourteen locales. Query behaviour is deliberately unchanged: the cap and that order were reviewed and accepted, and this corrects the description. Criterion 19 and a mixed-family control asserting the trace as well as the result. |
 | 1.7 | 2026-09-05 | Codex round 21, both findings reproduced first. `mx-vanity-divergent`'s remediation no longer installs the name the audit inferred: FCrDNS proves a mapping, not a documented, supported MX target, so the first step is verification against the provider's documentation and the `fixCode` "after" block is conditional with a placeholder name. Its explanation describes reachable address paths instead of independent mail servers, which an address list does not establish. `mx-no-reverse-dns` now names the **checked** addresses and discloses the four-address cap *(described in this row and in the strings as "in zone order", which was wrong and is corrected at `1.8`: `A` answers are considered before `AAAA` answers)*, after a host publishing a `PTR` on its unasked fifth address was shown to receive "this host publishes none". Criterion 18 and a five-address control. Fourteen locales; one case, three rendered surfaces re-pinned, result and trace unchanged. |
 | 1.6 | 2026-09-05 | Codex round 20, both findings reproduced first. Corrected `mx-vanity-divergent` in English and all thirteen locales: the forward-confirmed name evidences a relationship rather than operation, the message describes missing globally reachable addresses rather than a smaller raw count, and the fix names only the reachable missing addresses and warns that publishing a reserved one creates the `mx.unroutable` fault. Added the RFC 5737 example-only warning to the `fixCode` block, reusing each locale's existing wording. Re-pinned the one authorized case's csv, dom and report to the corrected text; its result and trace are unchanged, as are all 32 other cases on all five surfaces. Replaced `1.5`'s unreproducible "twelve controls" with the accounting the file produces: eight new §18 assertions replacing one, net `+7`, 141 to 148, fourteen across §§17–18. |
