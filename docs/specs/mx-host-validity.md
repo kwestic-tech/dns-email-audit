@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.17 |
+| Spec version | 1.0 (Final) |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
-| Status | **0.9.1 released**; 0.9.2 not started — privacy review conducted and its fan-out executed (§7). `OQ-MXV-03` open pending the reviewer's acceptance; **promote to `1.0 (Final)` on approval, and not before implementation** |
+| Status | **0.9.1 released**; **0.9.2 Final and approved for implementation** — privacy review conducted, its fan-out executed (§7), and accepted by review at `ac7e984` on 2026-09-05 |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
@@ -1083,8 +1083,27 @@ found that a null-MX conflict raises no `mx.dangling` to suppress, because
 nothing either, since a host that resolves is never also dangling. The
 resolution's principle is unchanged; its extent was overstated.
 
-**`RQ-MXV-03` — the query cost is acceptable, at a cap that did not exist when
-the question was asked.** Measured rather than argued: 8 `PTR` queries across the
+**`RQ-MXV-03` — the query cost and the disclosure it carries are acceptable.**
+Accepted by review at `ac7e984` on 2026-09-05, on executed evidence rather than
+on argument: the harness in [ptr-fan-out-0.9.2](fixtures/ptr-fan-out-0.9.2.md)
+runs §4 through the production cache, transport and resolver with a recording
+`fetch` beneath, and its accepted result is pinned — 16 calls above the cache,
+**14 requests leaving the browser**, 2 saved by reuse, with five controls
+including one that rejects a deliberately drifted run and one that binds the
+capture's printed trace to the executable constant.
+
+The review recorded the decision as proportionate because the caps bound
+additional outbound work at 12 per domain, the procedure adds no application
+identifier, persistence or recipient, and a separate flag would create its own
+provenance and comparability surface.
+
+The reasoning that got here is preserved in full rather than summarised away:
+the cost was first projected at 8 and was wrong, then measured at 16 calls and
+still wrong about what leaves the browser, before being executed at 14. Each
+correction is in the revision history, and the harness that settles it is kept
+beside this document.
+
+**The original question, for the record.** Measured rather than argued: 8 `PTR` queries across the
 32-case corpus's 80 audited domains, 0 for any domain whose MX hosts are
 provider-named, 3 for the common vanity shape. The measurement also found the
 worst case unbounded in the number of MX hosts, which §4 now caps at two —
@@ -1102,19 +1121,9 @@ overstated what the evidence supports and is withdrawn.
 
 ## Open questions
 
-**`OQ-MXV-03` — is the query cost and the disclosure it carries acceptable?**
-Restored, deliberately, after the 0.14 draft closed it on evidence that did not
-exist. The evidence exists now — §7's figures are executed and captured in
-[ptr-fan-out-0.9.2](fixtures/ptr-fan-out-0.9.2.md), and §7.4 weighs intent and
-linkability rather than asserting the disclosure is nil — but **whether that is
-acceptable is the reviewer's call, not the author's**, and it is the last thing
-standing between this document and `1.0 (Final)`.
-
-On approval: this question moves to `RQ-MXV-03`, the document is promoted to
-`1.0 (Final)` in the same edit, and only then may 0.9.2 implementation begin.
-The specs README is explicit that Final is about questions being resolved and
-`1.0 (Implemented)` is what shipping earns; the 0.13 note that kept this
-document below 1.0 *because 0.9.2 was unshipped* had those two backwards.
+None. Every question this document raised is resolved or explicitly deferred,
+which is what `1.0 (Final)` records — shipping is what will later make it
+`1.0 (Implemented)`, and 0.9.2 has not shipped.
 
 ## Review record
 
@@ -1133,6 +1142,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 1.0 | 2026-09-05 | **Final.** Codex round 15 accepted the privacy review at `ac7e984`. `OQ-MXV-03` becomes `RQ-MXV-03`; no question remains open, which is what Final records. 0.9.2 is approved for implementation under the reviewed §4 algorithm and acceptance criteria, with the caps, the deep-check gate and the no-score-movement rule load-bearing. The document reaches `1.0 (Implemented)` when 0.9.2 ships. |
 | 0.17 | 2026-09-05 | Codex review round 14. Pinned the accepted result with `node:assert/strict` — counts, the 8+8 split, 16 above cache, 14 outbound, 2 saved, the three findings and the ordered fourteen-entry outbound trace — after the previous verdict was shown to print CONTROLS PASS while the ordinary result drifted to 14/12. Pinned the renamed control to exactly 16 rather than greater-than. Added a control that runs the pinned check against a deliberately drifted fixture and requires rejection, and a control asserting the capture's printed trace equals the executable constant. Reproduced the fourteen-entry trace in the capture, which the spec already claimed was there. |
 | 0.16 | 2026-09-05 | Codex review round 13. Executed the outbound fan-out instead of calculating it: the spike now runs §4 through the production cache and transport with a recording `fetch` beneath, so **14 requests leaving the browser** is observed at the transport seam rather than derived from 16 by subtraction. Added two reuse controls — renaming the repeated provider returns outbound to 16, and the same name under a different type misses — alongside the gate control. Withdrew the claim that a run is unlinkable to any other and that `PRIVACY.md` promises it: `PRIVACY.md` promises no such thing, and Cloudflare can correlate runs from ordinary connection metadata regardless. What remains is the supported claim — 0.9.2 adds no application-level identifier, persistence, or new recipient. |
 | 0.15 | 2026-09-05 | Codex review round 12. Replaced the 0.14 figures, which counted stored addresses and were wrongly labelled measured, with an executed measurement: a spike runs §4 literally against a recording resolver with a negative control, captured in `fixtures/ptr-fan-out-0.9.2.md`. It issues 16 queries where the projection said 8, because forward-confirm is per candidate — and 14 through the page cache, which is why `PRIVACY.md` must be re-measured rather than adjusted. Rewrote §7.4 to weigh query intent and linkability instead of claiming the marginal disclosure is nil, and named what would reverse the decision. Restored `OQ-MXV-03`: the evidence now exists, but accepting it is the reviewer's call, and promotion to `1.0 (Final)` belongs to that approval. |

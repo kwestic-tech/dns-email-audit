@@ -30,10 +30,10 @@ Two releases remain:
 
 ## Start here: 0.9.2 awaits approval, not investigation
 
-Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) `0.17`,
-§7. **The privacy review is done and its fan-out is executed, not projected. 0.9.2
-is not started and must not begin until `OQ-MXV-03` is accepted and the document
-is promoted to `1.0 (Final)`.**
+Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) `1.0 (Final)`,
+§7. **The privacy review is done, its fan-out executed, and both accepted by review
+on 2026-09-05 at `ac7e984`. The spec is `1.0 (Final)` and 0.9.2 is approved for
+implementation.**
 
 What the review established, before any 0.9.2 code was written:
 
@@ -67,9 +67,8 @@ What the review established, before any 0.9.2 code was written:
   unlinkable to another — Cloudflare can correlate runs from ordinary connection
   metadata, and `PRIVACY.md` promises nothing to the contrary. §7.4 names what
   would reverse the decision.
-- **`OQ-MXV-03` is open, on purpose.** The evidence exists; accepting it is the
-  reviewer's call, and it is the last thing between this document and
-  `1.0 (Final)`.
+- **`RQ-MXV-03` is accepted.** No question remains open, which is what Final
+  records; the document becomes `1.0 (Implemented)` when 0.9.2 ships.
 
 `PRIVACY.md` is deliberately unchanged. It describes what the shipped
 application does, and 0.9.2 does not ship yet; §7.5 carries the exact amendment
@@ -86,7 +85,7 @@ The 1.0.0 readiness review continues independently.
 | 0.8.0 | [local-artifact-validation](docs/specs/implemented/local-artifact-validation.md) | Released as `v0.8.0` | User-supplied provenance and local MTA-STS/BIMI artifact results |
 | 0.9.0 | [report-comparison](docs/specs/implemented/report-comparison.md) | Released as `v0.9.0` | Versioned JSON schema, import validation and stateless comparison |
 | 0.9.1 | [mx-host-validity](docs/specs/mx-host-validity.md) | Released as `v0.9.1` | MX address-scope classification; address-literal and null-MX-conflict diagnosis |
-| 0.9.2 | [mx-host-validity](docs/specs/mx-host-validity.md) | 0.9.1 released; privacy review conducted and **approved**; `PRIVACY.md` amended and re-measured on the shipping release | Forward-confirmed reverse DNS and provider address-set divergence |
+| 0.9.2 | [mx-host-validity](docs/specs/mx-host-validity.md) | 0.9.1 released; privacy review **accepted 2026-09-05**; spec `1.0 (Final)` | Forward-confirmed reverse DNS and provider address-set divergence | Forward-confirmed reverse DNS and provider address-set divergence |
 | 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.1 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary
@@ -131,7 +130,7 @@ no implementation phase. Review it as a decision document alongside the
 
 - Work on a branch, never on `main`.
 - A spec is Final before implementation starts. For a multi-release spec, that
-  is per release: `mx-host-validity` `0.17` covers 0.9.1, which shipped, and
+  is per release: `mx-host-validity` `1.0 (Final)` covers 0.9.1, which shipped, and
   0.9.2, which is not approved.
 - A task is boundable to one owning directory; cross-directory work is split
   into separate commits with an architectural explanation.
