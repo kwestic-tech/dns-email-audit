@@ -763,4 +763,34 @@ const bothWaysGlobal = await oneVanity({
 eq('two reachable sets diverging both ways is still not this finding',
   bothWaysGlobal.result.divergentHosts, []);
 
+/* ── 19. The advisory says only what was checked ──────────────────────── */
+section('19. The four-address cap is part of what the finding means');
+
+// The finding names the host, and its text says the CHECKED addresses. This is
+// the case that makes the difference matter: five addresses, reverse DNS on the
+// fifth, and the fifth is never asked. Claiming the host publishes none would
+// be false about this zone — the text says what was observed instead, and the
+// cap is disclosed to the reader rather than left implicit.
+const fifthHasReverse = auditWith({
+  'mail.example.test': {
+    A: ['100.2.0.20', '100.2.0.21', '100.2.0.22', '100.2.0.23', '100.2.0.24'],
+    AAAA: [], CNAME: [],
+  },
+  '20.0.2.100.in-addr.arpa': { PTR: [] }, '21.0.2.100.in-addr.arpa': { PTR: [] },
+  '22.0.2.100.in-addr.arpa': { PTR: [] }, '23.0.2.100.in-addr.arpa': { PTR: [] },
+  '24.0.2.100.in-addr.arpa': { PTR: ['mail.example.test'] },
+});
+const capped = await fifthHasReverse.run(['10 mail.example.test.'], 'example.test');
+eq('the fifth address is never asked', [
+  fifthHasReverse.asked.filter(q => q.endsWith('/PTR')).length,
+  fifthHasReverse.asked.includes('24.0.2.100.in-addr.arpa/PTR'),
+], [4, false]);
+eq('and the host is still named, because the checked addresses published none',
+  capped.hostsWithoutReverse, ['mail.example.test']);
+// The scope of the claim lives in the finding's text, which is asserted in the
+// locale suite; what this file pins is that the observation itself is exactly
+// "the four that were checked", never the whole published set.
+eq('the recorded answer covers the checked addresses only',
+  [capped.hosts[0].reverseNames, capped.hosts[0].addresses.length], [[], 5]);
+
 report();
