@@ -1184,11 +1184,16 @@ const AUTHORIZED_NEW_CASE = 'mx-vanity-divergence';
  * changing one word of the `mx-vanity-divergent` message, which moves the CSV,
  * the DOM **and** the report surface — and it understated the evidence.
  */
+// Round 20 moved three of these five: the finding's message, explanation, fix
+// and fixCode were corrected in English and thirteen locales, so the case's
+// csv, dom and report are re-pinned to the corrected text. `result` and `trace`
+// are byte-identical to the `1.2` capture, which is the evidence that the
+// change was to what is SAID and not to what is measured or asked.
 const NEW_CASE_SURFACES = Object.freeze({
   result: 'ee4a9bd378f08a9960a25c255b488c905d9d18c515d00afb559fbe2e1cf353b2',
-  csv: '017f9e81cb9a1bbe75f41f40a5b3cc27914003a564e482dc8e2dfcb9d3864a46',
-  dom: 'af4ed72b9ff8143e31ed37f1a4f9bdc484f930f1433e05f4ce6213fd12115113',
-  report: '7089196c27aae26a9dbfb1a2100d3e87c152ced12a1016d784d6fa738fdd10a7',
+  csv: '87a35240376b94aba8339eb7e2b673058cb58b5c728601e6f0de1c9f26ad7a49',
+  dom: '68ab19f6424b66fafa825dec4b3bf1b4c800b2f98c78b00bfa2c0ac66ff7ecfc',
+  report: '0f2a6baf340be88c320bec24006259cfc7018d60ff8e701235a993791e5ba143',
   trace: 'c125036cb445c632724fa661661d132b50dd0f1135512290828326b69d483ccc',
 });
 const surfaceHash = value => sha256(JSON.stringify(value));
