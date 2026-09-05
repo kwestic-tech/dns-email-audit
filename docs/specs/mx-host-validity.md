@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.10 |
+| Spec version | 0.11 |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 implemented**, pending review; 0.9.2 blocked on privacy review (§7) and `OQ-MXV-03` |
 | Depends on | [report-comparison](implemented/report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](implemented/findings-and-remediation.md) for finding identity |
@@ -642,6 +642,24 @@ below `1.0 (Final)`. It continues at `0.10`. The table did not anticipate a
 document revised this many times before its second release is approved, and the
 numbering is the only thing that needed a decision.
 
+**Partial shapes, closed (0.11).** Round 4 found the shape validation itself
+incomplete in two places. The structured finding carries fourteen fields and the
+validator checked seven, so `args`, `blocks`, `dependsOn`, `evidence`,
+`keyspace`, `noteArgs` and `noteKey` could change while the finding was still
+removed as authorized; it is now compared whole, key-order-independently,
+against all fourteen. And the CSV `Issues` segment was matched by its opening
+words, so arbitrary text after `address space:` was counted, removed and
+normalized back to 0.9.0; the complete 230-character rendered message is now the
+comparand. Three controls added: the finding with rewritten `args`, the same
+with rewritten `evidence`, and the CSV message rewritten after its prefix.
+
+The pattern across rounds 2, 3 and 4 is worth naming, because it is the failure
+this kind of guard invites: each round the rule bound one more property of the
+authorized material — first that it appeared, then how often, then in what order,
+then with what content — and each intermediate version looked exact while
+accepting a mutation nobody had thought to write a control for. The controls are
+the specification; the rule is only their consequence.
+
 **Evidence for the record-level finding is special-cased, as §6 asked.**
 The protocol-generic `case 'mx':` fallback emits the resolved hosts, which for a
 null-MX conflict would show everything except the `0 .` that is the whole
@@ -864,6 +882,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.11 | 2026-09-05 | Codex review round 4. Compared the structured finding whole — all fourteen fields, key-order-independent — where seven identity fields had been checked and the rest could change freely. Replaced the CSV issue-segment prefix match with the complete 230-character rendered message. Three new controls. |
 | 0.10 | 2026-09-04 | Codex review round 3. Bound the report structure as an ordered edit script rather than a token multiset, which had accepted a full reversal. Validated the shape of every removed entry — issue arguments and severity, finding identity fields, and each DOM subtree by role, line count and content hash — where only occurrence counts had been checked. Required exactly one authorized segment in each of the four CSV columns, resolved by header, where the rule had flagged duplication but accepted absence. Seven new controls. |
 | 0.9 | 2026-09-04 | Codex review round 2. Bounded the authorized report exactly (3,371-byte length delta and a measured element-composition delta) where it had accepted any structure and any growth. Made the DOM transform finding-wide rather than severity-wide, so a second critical finding in the same group is no longer hidden. Gave every remover an exact occurrence count, so duplicated authorized material cannot ride through. Seven new controls, all mutating the authorized case. Recorded what the report guard cannot prove. |
 | 0.8 | 2026-09-04 | Codex review round 1. Made the stub addresses length-preserving so report length and structure move only in the authorized case. Closed three gaps in the cross-release guard: the report surface was unread, the authorized case skipped CSV and DOM entirely, and the seven new field names were stripped recursively rather than at their authorized paths. Guard now bounds all five surfaces with sixteen negative controls. |

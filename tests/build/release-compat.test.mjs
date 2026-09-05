@@ -401,9 +401,34 @@ const AUTHORIZED_ISSUE = Object.freeze({
   args: ['dual.mx.test, v4only.mx.test',
     '198.51.100.20 (documentation), 2001:db8::20 (documentation), 198.51.100.21 (documentation)'],
 });
+/**
+ * The complete authorized finding — all fourteen fields, not the seven identity
+ * ones. Validating a subset let `args`, `evidence`, `blocks`, `dependsOn`,
+ * `keyspace`, `noteArgs` and `noteKey` change arbitrarily while the finding was
+ * still removed as though it were the one that was authorized.
+ *
+ * `noteArgs` and `noteKey` are the oracle's encoding of `undefined`.
+ */
 const AUTHORIZED_FINDING_SHAPE = Object.freeze({
-  id: 'mx.unroutable', key: 'mx-unroutable', severity: 'critical',
-  protocol: 'mx', category: 'transport', effort: 'moderate', confidence: 'confirmed',
+  args: ['dual.mx.test, v4only.mx.test',
+    '198.51.100.20 (documentation), 2001:db8::20 (documentation), 198.51.100.21 (documentation)'],
+  blocks: [],
+  category: 'transport',
+  confidence: 'confirmed',
+  dependsOn: [],
+  effort: 'moderate',
+  evidence: [
+    { kind: 'host', queryName: 'hosts.mx.test', value: '10 dual.mx.test' },
+    { kind: 'host', queryName: 'hosts.mx.test', value: '20 v4only.mx.test' },
+    { kind: 'host', queryName: 'hosts.mx.test', value: '30 unknown.mx.test' },
+  ],
+  id: 'mx.unroutable',
+  key: 'mx-unroutable',
+  keyspace: 'issue',
+  noteArgs: { $undefined: true },
+  noteKey: { $undefined: true },
+  protocol: 'mx',
+  severity: 'critical',
 });
 
 /** The two rendered occurrences, by role, size and exact content. */
@@ -413,8 +438,14 @@ const AUTHORIZED_DOM_SUBTREES = [
 ];
 
 const sha256 = text => createHash('sha256').update(text).digest('hex');
-const subsetOf = (value, shape) =>
-  Object.entries(shape).every(([k, v]) => JSON.stringify(value[k]) === JSON.stringify(v));
+
+/** Key-order-independent deep comparison: the oracle emits object keys sorted. */
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.keys(value).sort().map(k => [k, canonical(value[k])]));
+}
+const deepEqual = (a, b) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 
 /** Remove the first match only, and report how many there were. */
 function removeOne(list, predicate) {
@@ -446,21 +477,18 @@ function stripAuthorizedFinding(resultEntries) {
     const r = entry && entry.result;
     if (!r) continue;
     if (Array.isArray(r.issues)) {
+      // Whole-object equality, key-order-independent: the oracle emits keys
+      // sorted, and an order difference is not a shape difference.
       for (const issue of r.issues.filter(i => i.key === AUTHORIZED_FINDING_KEY)) {
-        // Field-wise, not by serialized order: the oracle emits keys sorted,
-        // and an order difference is not a shape difference. Every field of
-        // the authorized issue must match, arguments included.
-        if (!subsetOf(issue, AUTHORIZED_ISSUE)
-          || Object.keys(issue).sort().join() !== Object.keys(AUTHORIZED_ISSUE).sort().join()) {
-          shapeHeld = false;
-        }
+        if (!deepEqual(issue, AUTHORIZED_ISSUE)) shapeHeld = false;
       }
       const out = removeOne(r.issues, i => i.key === AUTHORIZED_FINDING_KEY);
       r.issues = out.kept; issues += out.seen;
     }
     if (Array.isArray(r.findings)) {
+      // All fourteen fields, and no others.
       for (const finding of r.findings.filter(f => f.id === AUTHORIZED_FINDING_ID)) {
-        if (!subsetOf(finding, AUTHORIZED_FINDING_SHAPE)) shapeHeld = false;
+        if (!deepEqual(finding, AUTHORIZED_FINDING_SHAPE)) shapeHeld = false;
       }
       const out = removeOne(r.findings, f => f.id === AUTHORIZED_FINDING_ID);
       r.findings = out.kept; findings += out.seen;
@@ -535,8 +563,17 @@ function removeAuthorizedFindingFromDom(lines) {
   return out;
 }
 
-/** The rendered English message, matched by prefix so its arguments may vary. */
-const AUTHORIZED_MESSAGE_PREFIX = 'MX host resolves only into unreachable address space:';
+/**
+ * The complete rendered message, matched in full.
+ *
+ * Matching a prefix let arbitrary text after `address space:` be counted once,
+ * removed, and normalized back to 0.9.0 — the whole rendered string is the
+ * authorized material, so the whole string is what is compared.
+ */
+const AUTHORIZED_CSV_ISSUE_SEGMENT = 'MX host resolves only into unreachable address '
+  + 'space: dual.mx.test, v4only.mx.test (198.51.100.20 (documentation), '
+  + '2001:db8::20 (documentation), 198.51.100.21 (documentation)) — no sending '
+  + 'server on the internet can deliver to it.';
 
 /**
  * The four columns that carry the authorized finding, resolved by header.
@@ -562,7 +599,7 @@ function removeAuthorizedFindingFromCsv(lines) {
     if (rowIndex === 0) return cells;
     const segments = column => cells[column].split(' | ');
     const isAuthorized = (part, column) => column === issuesColumn
-      ? part.startsWith(AUTHORIZED_MESSAGE_PREFIX)
+      ? part === AUTHORIZED_CSV_ISSUE_SEGMENT
       : part === AUTHORIZED_FINDING_ID;
 
     // Exactly one authorized segment in each of the three id/message columns.
@@ -918,6 +955,36 @@ mutatedFindingShape091.cases[authorizedIndex].result[0].result.findings
 eq('the authorized finding in a different category is caught',
   release091Violations(mutatedFindingShape091).filter(v => v.endsWith(':result')),
   [NON_ROUTABLE_MX_CASE + ':result']);
+
+// The structured finding carries fourteen fields, not seven. Changing the ones
+// that are not identity fields, while every identity field stays put, is the
+// case a subset check could not see.
+const mutatedFindingArgs091 = structuredClone(release091);
+mutatedFindingArgs091.cases[authorizedIndex].result[0].result.findings
+  .find(f => f.id === AUTHORIZED_FINDING_ID).args = ['anything', 'at all'];
+eq('the authorized finding with rewritten args is caught',
+  release091Violations(mutatedFindingArgs091).filter(v => v.endsWith(':result')),
+  [NON_ROUTABLE_MX_CASE + ':result']);
+
+const mutatedFindingEvidence091 = structuredClone(release091);
+mutatedFindingEvidence091.cases[authorizedIndex].result[0].result.findings
+  .find(f => f.id === AUTHORIZED_FINDING_ID).evidence = [
+    { kind: 'host', queryName: 'elsewhere.test', value: '10 elsewhere.test' }];
+eq('the authorized finding with rewritten evidence is caught',
+  release091Violations(mutatedFindingEvidence091).filter(v => v.endsWith(':result')),
+  [NON_ROUTABLE_MX_CASE + ':result']);
+
+// And the CSV message is the whole rendered string, not its opening.
+const mutatedCsvSuffix091 = structuredClone(release091);
+{
+  const csv = mutatedCsvSuffix091.cases[authorizedIndex].csv;
+  csv.lines = csv.lines.map(line =>
+    line.replace('no sending server on the internet can deliver to it.',
+      'arbitrary replacement text.'));
+}
+eq('the authorized CSV message rewritten after its prefix is caught',
+  release091Violations(mutatedCsvSuffix091).filter(v => v.endsWith(':csv')),
+  [NON_ROUTABLE_MX_CASE + ':csv']);
 
 // Content inside the authorized DOM subtree, with both occurrence counts intact.
 const mutatedSubtree091 = structuredClone(release091);
