@@ -20,7 +20,7 @@
 import { createSuite } from '../../../tests/lib/assert.mjs';
 import { optionalCheck } from '../dns/optional.js';
 import {
-  createMxAudit, isNullMx, hasNullMxConflict, parseMxRecord,
+  createMxAudit, isNullMx, hasNullMxConflict, parseMxRecord, reverseName,
   MX_HOST_RESOLVES, MX_IPV6_COVERAGE, MX_HOST_REACHABILITY,
 } from './mx.js';
 
@@ -405,5 +405,146 @@ eq('every reachability value observed is a declared member',
 eq('and all four were actually produced',
   [...new Set(reachObserved.flatMap(a => a.hosts.map(h => h.reachability)))].sort(),
   ['global', 'none', 'partial', 'unknown']);
+
+/* ── 10. 0.9.2: the name a PTR is asked under ─────────────────────────── */
+section('10. reverseName');
+
+// This is what reaches the resolver, and therefore what the privacy review
+// inventories as disclosed. It is not the address.
+eq('IPv4 reverses the octets under in-addr.arpa',
+  reverseName('100.2.0.20'), '20.0.2.100.in-addr.arpa');
+eq('IPv6 reverses all 32 nibbles under ip6.arpa',
+  reverseName('2a01:100::20'),
+  '0.2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.1.0.a.2.ip6.arpa');
+// `::` elides a run of zeroes, so the address must be expanded before it is
+// reversed. Reversing the text as written would give a short, wrong name.
+eq('and the elided form and the written-out form agree',
+  reverseName('2a01:100::20'),
+  reverseName('2a01:0100:0000:0000:0000:0000:0000:0020'));
+eq('an unparseable address has no reverse name', reverseName('garbage'), null);
+eq('and neither has an empty one', reverseName(''), null);
+
+/* ── 11. 0.9.2: divergence, and every branch that reports nothing ──────── */
+section('11. Vanity divergence');
+
+const PROVIDER = 'mailfilter.provider.test';
+// A vanity host: named in the audited domain, resolving into routable space.
+const vanity = (over = {}) => ({
+  'mail.example.test': { A: ['100.2.0.20'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: [PROVIDER] },
+  [PROVIDER]: { A: ['100.2.0.20', '100.9.9.9'], AAAA: [] },
+  ...over,
+});
+const runMx = table => auditWith(table);
+const oneVanity = async table => {
+  const h = runMx(table);
+  const result = await h.run(['10 mail.example.test.'], 'example.test');
+  return { result, asked: h.asked };
+};
+
+const divergent = await oneVanity(vanity());
+eq('a provider publishing an address the copy lacks is divergent',
+  divergent.result.divergentHosts,
+  [{ host: 'mail.example.test', provider: PROVIDER, missing: ['100.9.9.9'] }]);
+eq('and the PTR is asked under the reverse zone, not the address',
+  divergent.asked.includes('20.0.2.100.in-addr.arpa/PTR'), true);
+eq('and the provider name is forward-confirmed before it is trusted',
+  [divergent.asked.includes(PROVIDER + '/A'), divergent.asked.includes(PROVIDER + '/AAAA')],
+  [true, true]);
+
+// Equal sets: confirmed, compared, and correctly silent.
+eq('an equal address set reports nothing',
+  (await oneVanity(vanity({ [PROVIDER]: { A: ['100.2.0.20'], AAAA: [] } }))).result.divergentHosts, []);
+
+// Not forward-confirmed: the reverse name is not acted on at all.
+eq('a reverse name that does not forward-confirm reports nothing',
+  (await oneVanity(vanity({ [PROVIDER]: { A: ['203.0.113.200'], AAAA: [] } }))).result.divergentHosts, []);
+
+// Bidirectional divergence is deferred (RQ-MXV-06): H must be a strict subset.
+eq('a set diverging in both directions reports nothing',
+  (await oneVanity(vanity({
+    'mail.example.test': { A: ['100.2.0.20', '100.7.7.7'], AAAA: [], CNAME: [] },
+    '7.7.7.100.in-addr.arpa': { PTR: [PROVIDER] },
+  }))).result.divergentHosts, []);
+
+// Self-hosted: the reverse name is inside the audited zone, so there is no
+// provider to compare against — and no forward query is spent finding out.
+const selfHosted = await oneVanity(vanity({
+  '20.0.2.100.in-addr.arpa': { PTR: ['mail.example.test'] },
+}));
+eq('a reverse name inside the audited domain reports nothing',
+  selfHosted.result.divergentHosts, []);
+eq('and costs no forward-confirmation query',
+  selfHosted.asked.some(q => q.startsWith(PROVIDER)), false);
+
+section('12. Reverse DNS absence, failure, and the gate');
+
+// An answer of nothing is a claim of absence.
+const noReverse = await oneVanity(vanity({ '20.0.2.100.in-addr.arpa': { PTR: [] } }));
+eq('a host with no PTR published is named', noReverse.result.hostsWithoutReverse, ['mail.example.test']);
+eq('and reverseNames is an empty answer, not null', noReverse.result.hosts[0].reverseNames, []);
+
+// A lookup that does not return is not a claim of absence.
+const failedReverse = await oneVanity(vanity({ '20.0.2.100.in-addr.arpa': { PTR: null } }));
+eq('a PTR that did not return claims nothing', failedReverse.result.hostsWithoutReverse, []);
+eq('and reverseNames stays null', failedReverse.result.hosts[0].reverseNames, null);
+
+// Out-of-domain hosts never qualify: the operator does not control that name.
+const outOfDomain = auditWith({
+  'mx.provider.test': { A: ['100.2.0.20'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: [PROVIDER] },
+});
+const outResult = await outOfDomain.run(['10 mx.provider.test.'], 'example.test');
+eq('an out-of-domain MX host is not examined', outResult.divergentHosts, []);
+eq('and no PTR is issued for it', outOfDomain.asked.some(q => q.endsWith('/PTR')), false);
+
+// An unreachable host is not examined either.
+const unreachable = auditWith({
+  'mail.example.test': { A: ['127.0.0.1'], AAAA: [], CNAME: [] },
+  '1.0.0.127.in-addr.arpa': { PTR: [PROVIDER] },
+});
+await unreachable.run(['10 mail.example.test.'], 'example.test');
+eq('an unroutable host costs no PTR', unreachable.asked.some(q => q.endsWith('/PTR')), false);
+
+section('13. The caps are load-bearing');
+
+// Two lowest-preference qualifying hosts, and no more. Three in-domain hosts
+// would otherwise cost twelve PTR queries on their own.
+const threeHosts = auditWith({
+  'a.example.test': { A: ['100.2.0.20'], AAAA: [], CNAME: [] },
+  'b.example.test': { A: ['100.2.0.21'], AAAA: [], CNAME: [] },
+  'c.example.test': { A: ['100.2.0.22'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: [] },
+  '21.0.2.100.in-addr.arpa': { PTR: [] },
+  '22.0.2.100.in-addr.arpa': { PTR: [] },
+});
+await threeHosts.run(['10 a.example.test.', '20 b.example.test.', '30 c.example.test.'], 'example.test');
+eq('only the two lowest-preference hosts are examined',
+  threeHosts.asked.filter(q => q.endsWith('/PTR')).sort(),
+  ['20.0.2.100.in-addr.arpa/PTR', '21.0.2.100.in-addr.arpa/PTR']);
+
+// Four addresses per host, and no more.
+const fiveAddresses = auditWith({
+  'mail.example.test': { A: ['100.2.0.20', '100.2.0.21', '100.2.0.22', '100.2.0.23', '100.2.0.24'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: [] }, '21.0.2.100.in-addr.arpa': { PTR: [] },
+  '22.0.2.100.in-addr.arpa': { PTR: [] }, '23.0.2.100.in-addr.arpa': { PTR: [] },
+  '24.0.2.100.in-addr.arpa': { PTR: [] },
+});
+await fiveAddresses.run(['10 mail.example.test.'], 'example.test');
+eq('at most four addresses per host are reversed',
+  fiveAddresses.asked.filter(q => q.endsWith('/PTR')).length, 4);
+
+// Two candidate provider names per domain, and no more.
+const threeCandidates = auditWith({
+  'a.example.test': { A: ['100.2.0.20'], AAAA: [], CNAME: [] },
+  'b.example.test': { A: ['100.2.0.21'], AAAA: [], CNAME: [] },
+  '20.0.2.100.in-addr.arpa': { PTR: ['one.provider.test'] },
+  '21.0.2.100.in-addr.arpa': { PTR: ['two.provider.test'] },
+  'one.provider.test': { A: ['100.2.0.20'], AAAA: [] },
+  'two.provider.test': { A: ['100.2.0.21'], AAAA: [] },
+});
+await threeCandidates.run(['10 a.example.test.', '20 b.example.test.'], 'example.test');
+eq('two candidates are resolved, one A and one AAAA each',
+  threeCandidates.asked.filter(q => /provider\.test\/(A|AAAA)$/.test(q)).length, 4);
 
 report();

@@ -42,7 +42,7 @@
  * it.
  */
 
-import { parseIpCidr, ipScope } from '../shared/ip.js';
+import { parseIpCidr, ipScope, ipv6ToBigInt } from '../shared/ip.js';
 
 /** The three answers a host lookup can give. Registry algebra `mx.host.resolves`. */
 export const MX_HOST_RESOLVES = Object.freeze(['yes', 'no', 'unknown']);
@@ -71,6 +71,44 @@ export const MX_IPV6_COVERAGE = Object.freeze(['none', 'some', 'all']);
  * address returned was unparseable. Unknown is not absent.
  */
 export const MX_HOST_REACHABILITY = Object.freeze(['global', 'partial', 'none', 'unknown']);
+
+/**
+ * Caps on the 0.9.2 divergence procedure. Every one is load-bearing, and none
+ * was set by taste: together they bound the additional outbound work at twelve
+ * queries per domain, which is what made keeping this check under the existing
+ * deep-check flag proportionate rather than a widening of what the tool
+ * discloses. Spec §4 and §7, measured in `fixtures/ptr-fan-out-0.9.2.md`.
+ */
+var MX_MAX_DIVERGENCE_HOSTS = 2;
+var MX_MAX_REVERSE_ADDRESSES = 4;
+var MX_MAX_CANDIDATES = 2;
+
+/**
+ * The name a `PTR` is actually asked under.
+ *
+ * Reverse DNS does not look up an address; it looks up a name derived from one,
+ * and that derived name is what reaches the resolver — so it is also what the
+ * privacy review inventories as disclosed. IPv4 reverses the octets under
+ * `in-addr.arpa`. IPv6 reverses all 32 nibbles under `ip6.arpa`, which means
+ * the address must be expanded first: `::` elides a run of zeroes, and
+ * reversing the text as written would produce a short, wrong name.
+ *
+ * Returns null for anything that does not parse, which the caller treats as an
+ * address it cannot ask about rather than as an absent reverse record.
+ */
+export function reverseName(address, family) {
+  var text = String(address || '');
+  if (family === 'ipv6' || text.indexOf(':') !== -1) {
+    var value = ipv6ToBigInt(text);
+    if (value === null) return null;
+    var nibbles = [];
+    for (var i = 0; i < 32; i++) nibbles.push((((value >> BigInt(i * 4)) & 0xfn)).toString(16));
+    return nibbles.join('.') + '.ip6.arpa';
+  }
+  var octets = text.split('.');
+  if (octets.length !== 4 || !octets.every(function (o) { return /^\d{1,3}$/.test(o); })) return null;
+  return octets.slice().reverse().join('.') + '.in-addr.arpa';
+}
 
 /**
  * Whether an MX target is an address rather than a name.
@@ -201,6 +239,11 @@ export function hasNullMxConflict(mx) {
  * record type. Both are arguments because §12 gives a protocol directory no
  * edge to `core/dns/`.
  */
+/** A thunk for `optionalCheck`, named so the loop above stays readable. */
+function makeQuery(dohQuery, name, type, queryOpts) {
+  return function () { return dohQuery(name, type, queryOpts); };
+}
+
 export function createMxAudit({ dohQuery, optionalCheck }) {
   async function auditMxHosts(mx, domain, queryOpts) {
     var entries = (mx || []).map(parseMxRecord).filter(Boolean);
@@ -212,7 +255,7 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
         hosts: [], danglingHosts: [], cnameHosts: [], duplicatePreferences: [],
         singleHost: false, ipv6Coverage: 'none', sharedPrefixes: [], unknown: false,
         addressLiteralHosts: [], unroutableHosts: [], partiallyRoutableHosts: [],
-        nullMxConflict: nullMxConflict,
+        nullMxConflict: nullMxConflict, divergentHosts: [], hostsWithoutReverse: [],
       };
     }
 
@@ -251,6 +294,7 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
           resolves: 'no', isCname: false, cnameUnknown: false,
           inAudited: entry.host === domain || entry.host.endsWith('.' + domain),
           isAddressLiteral: true, addressScopes: [], reachability: 'unknown',
+          reverseNames: null, providerName: null, providerAddresses: null, missingAddresses: [],
         };
       }
       var UNKNOWN = {};
@@ -292,12 +336,110 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
         cnameUnknown: cname === null,
         inAudited: entry.host === domain || entry.host.endsWith('.' + domain),
         isAddressLiteral: false,
+        // 0.9.2 fills these for qualifying hosts only. `null` means "not
+        // asked" and is not the same as `[]`, which is an answer.
+        reverseNames: null,
+        providerName: null,
+        providerAddresses: null,
+        missingAddresses: [],
         addressScopes: addressScopes,
         reachability: resolves !== 'yes' || !classified.length ? 'unknown'
           : globalCount === classified.length ? 'global'
             : globalCount ? 'partial' : 'none',
       };
     }));
+
+    /* ── 0.9.2: vanity divergence, and the reverse-DNS advisory ─────────
+       Only for hosts named INSIDE the audited domain that resolved to
+       something reachable. A provider-named MX has no vanity copy to have
+       fallen behind, and a name the operator does not control is not theirs to
+       fix. The three caps below are the privacy review's, not taste: together
+       they bound the additional outbound work at twelve queries per domain. */
+    var divergentHosts = [];
+    var hostsWithoutReverse = [];
+    var candidates = [];
+    var qualifying = hosts
+      .filter(function (h) {
+        return h.inAudited && h.resolves === 'yes' && h.reachability !== 'none';
+      })
+      .slice()
+      .sort(function (a, b) { return a.preference - b.preference; })
+      .slice(0, MX_MAX_DIVERGENCE_HOSTS);
+
+    for (var qi = 0; qi < qualifying.length; qi++) {
+      var qHost = qualifying[qi];
+      var names = [];
+      var anyReturned = false;
+      var reverseTargets = qHost.addresses.slice(0, MX_MAX_REVERSE_ADDRESSES);
+
+      // Per address, never per host: one lookup that does not return must not
+      // stop another from yielding a usable name. The same rule `resolves`
+      // follows, and the reason it has three values rather than two.
+      for (var ai = 0; ai < reverseTargets.length; ai++) {
+        var addr = reverseTargets[ai];
+        var rName = reverseName(addr, addr.indexOf(':') === -1 ? 'ipv4' : 'ipv6');
+        if (!rName) continue;
+        var UNKNOWN_PTR = {};
+        var answer = await optionalCheck(
+          makeQuery(dohQuery, rName, 'PTR', queryOpts), UNKNOWN_PTR);
+        if (answer === UNKNOWN_PTR) continue;
+        anyReturned = true;
+        for (var xi = 0; xi < answer.length; xi++) {
+          var clean = String(answer[xi] || '').trim().replace(/\.$/, '').toLowerCase();
+          if (clean && names.indexOf(clean) === -1) names.push(clean);
+        }
+      }
+
+      // `null` is "every lookup failed", which supports no claim either way.
+      // `[]` is an answer, and the only state that reports absent reverse DNS.
+      qHost.reverseNames = anyReturned ? names : null;
+      if (!anyReturned) continue;
+      if (!names.length) { hostsWithoutReverse.push(qHost.host); continue; }
+
+      // A reverse name inside the audited zone is the self-hosted case: no
+      // separate provider name exists to compare against, so nothing is said.
+      var candidate = null;
+      for (var ni = 0; ni < names.length; ni++) {
+        var n = names[ni];
+        if (n === qHost.host || n === domain || n.endsWith('.' + domain)) continue;
+        candidate = n;
+        break;
+      }
+      if (!candidate) continue;
+      if (candidates.indexOf(candidate) === -1) {
+        if (candidates.length >= MX_MAX_CANDIDATES) continue;
+        candidates.push(candidate);
+      }
+
+      var UNKNOWN_FWD = {};
+      var forward = await Promise.all([
+        optionalCheck(makeQuery(dohQuery, candidate, 'A', queryOpts), UNKNOWN_FWD),
+        optionalCheck(makeQuery(dohQuery, candidate, 'AAAA', queryOpts), UNKNOWN_FWD),
+      ]);
+      var pv4 = forward[0] === UNKNOWN_FWD ? null : forward[0];
+      var pv6 = forward[1] === UNKNOWN_FWD ? null : forward[1];
+      if (pv4 === null && pv6 === null) continue;
+      var provider = (pv4 || []).concat(pv6 || []);
+      qHost.providerName = candidate;
+      qHost.providerAddresses = provider;
+
+      // Forward confirmation. A PTR is authored by whoever holds the reverse
+      // zone, and nothing forces it to name a service, so an unconfirmed name
+      // is never acted on. This gate is also what keeps the procedure inside
+      // the chain the audited domain published — the property the privacy
+      // review relied on.
+      if (!qHost.addresses.some(function (a) { return provider.indexOf(a) !== -1; })) continue;
+
+      // Strict subset only: H ⊂ P. Divergence in both directions is a
+      // different finding and is deliberately deferred — RQ-MXV-06.
+      var missing = provider.filter(function (a) { return qHost.addresses.indexOf(a) === -1; });
+      var strictSubset = missing.length > 0
+        && qHost.addresses.every(function (a) { return provider.indexOf(a) !== -1; });
+      if (strictSubset) {
+        qHost.missingAddresses = missing;
+        divergentHosts.push({ host: qHost.host, provider: candidate, missing: missing });
+      }
+    }
 
     var seenPreferences = Object.create(null);
     var duplicatePreferences = [];
@@ -344,6 +486,8 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
       partiallyRoutableHosts: hosts.filter(function (h) { return h.reachability === 'partial'; })
         .map(function (h) { return h.host; }),
       nullMxConflict: nullMxConflict,
+      divergentHosts: divergentHosts,
+      hostsWithoutReverse: hostsWithoutReverse,
       cnameHosts: hosts.filter(function (h) { return h.isCname; }).map(function (h) { return h.host; }),
       duplicatePreferences: duplicatePreferences,
       singleHost: hosts.length === 1,
