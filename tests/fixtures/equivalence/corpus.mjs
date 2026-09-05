@@ -1183,6 +1183,45 @@ cases.push({
   }),
 });
 
+/* ── 27b. 0.9.2: a vanity MX that has fallen behind its provider ───────── */
+
+/**
+ * The subject of 0.9.2, and the only case that reaches either of its findings.
+ *
+ * Both MX hosts are named inside the audited domain, which is what the gate
+ * requires — a provider-named host has no vanity copy to have fallen behind.
+ * The first has reverse DNS pointing at a provider that publishes one address
+ * more than the copy does; the second publishes no reverse record at all. The
+ * two hosts sit in different /24s so that `mx.same-prefix` does not fire and
+ * blur what this case is about.
+ *
+ * Every other case in this corpus gives its MX hosts reverse DNS naming
+ * themselves, so neither 0.9.2 finding appears anywhere else. That separation
+ * is deliberate and is the same one 0.9.1 drew for addresses.
+ */
+cases.push({
+  id: 'mx-vanity-divergence',
+  description: 'a vanity MX host missing an address its provider publishes, and a second host with no reverse DNS at all',
+  domains: [{ domain: 'vanity.mx.test' }],
+  fetch: () => corpusFixture({
+    'vanity.mx.test NS': ns('ns1.other.test'),
+    'vanity.mx.test TXT': txt('v=spf1 -all'),
+    'vanity.mx.test MX': mx('10 mail.vanity.mx.test', '20 backup.vanity.mx.test'),
+
+    // The divergent host. Its address is one of two the provider publishes.
+    'mail.vanity.mx.test A': a('100.3.0.10'),
+    '10.0.3.100.in-addr.arpa PTR': ptr('mailfilter.vanity-provider.test'),
+    // Forward confirmation resolves the candidate back to the address whose
+    // PTR named it, and shows one more address the copy never picked up.
+    'mailfilter.vanity-provider.test A': a('100.3.0.10', '100.3.0.11'),
+
+    // The second host answers its reverse lookup with nothing, which is a
+    // claim of absence — distinct from a lookup that never returned.
+    'backup.vanity.mx.test A': a('100.4.0.20'),
+    '20.0.4.100.in-addr.arpa PTR': [],
+  }),
+});
+
 /* ── 28. Controls that could not be verified ──────────────────────────── */
 
 /**

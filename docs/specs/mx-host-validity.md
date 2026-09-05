@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.1 (Final, amended) |
+| Spec version | 1.2 (Final, amended) |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 released**; **0.9.2 implemented, awaiting code review** — privacy review accepted at `ac7e984`; implementation measured and bounded, `PRIVACY.md` amended with measured figures |
@@ -916,14 +916,44 @@ host publishes both an `A` and an `AAAA`. The difference from the spike is that
 the corpus's reverse names are self-hosted, so forward confirmation is never
 reached there. `PRIVACY.md` carries the measured figure and says so.
 
-*The corpus does not exercise `mx.vanity-divergent` end to end.* Divergence is
-covered by unit tests in `core/mx/` and by emission tests in `src/audit/`, and
-its state-matrix rows name those suites honestly — but no equivalence case
-produces the finding, because every corpus reverse name is self-hosted by the
-choice above. **This is a recorded coverage gap, not a claim of coverage.**
-Closing it needs a corpus case with an in-domain MX host whose reverse name
-resolves to a provider publishing a superset, which reshapes a fixture and is
-left for review rather than taken unilaterally at the end of the change.
+*The corpus now exercises both findings, in a case of their own.*
+`mx-vanity-divergence` audits a domain with two in-domain MX hosts: one whose
+provider publishes an address the copy lacks, and one with no reverse record at
+all. Both findings reach `issues`, CSV, DOM, the report and the remediation
+plan through the real audit path. Every other case keeps self-hosted reverse
+DNS and reports neither finding, which `release-compat.test.mjs` asserts
+directly. This closes the coverage gap recorded at `1.1`.
+
+**Four behaviour defects, found by review of the implementation and corrected
+at `1.2`.** Each was reproduced before it was changed, and each has a control
+that fails without the fix.
+
+*Unknown was being reported as absent.* A host with one `PTR` that never
+returned and one that returned empty was added to `hostsWithoutReverse`. The
+code tracked whether **any** lookup returned, where §2.3 and criterion 14
+require **every** attempted lookup to have returned before absence is claimed.
+Per-address aggregation is unchanged; only the absence claim is now gated on
+`returned === attempted`. Criterion 13's case — one address fails, the other
+yields a confirmed provider, divergence still evaluated — is now a control too.
+
+*An unconfirmed name was recorded as the host's provider, and confirmation
+tested the wrong address.* `providerName` and `providerAddresses` were assigned
+before the forward-confirmation gate, so a name that failed it still appeared in
+the result as though it had passed. Worse, confirmation accepted **any** address
+of the MX host rather than the one whose `PTR` produced the candidate. Each
+reverse name is now kept with its source address, confirmation tests that source
+specifically, and both fields are populated only after it passes.
+
+*Address sets were being compared as arrays.* A provider publishing the same RR
+twice put the same address twice into `missingAddresses` and therefore into the
+rendered remediation. §4 defines `H` and `P` as sets; both sides are now
+de-duplicated in first-seen order, on the host's side as well as the provider's.
+
+*`reverseName()` accepted malformed IPv4.* Its octet check was a shape regex, so
+`999.1.1.1` produced `1.1.1.999.in-addr.arpa` — a malformed question on the
+wire, from a host that could still qualify through a second, valid address. It
+now validates with `ipv4ToBigInt()`, the shared parser, and a host with one
+usable and one malformed address is proven to reverse only the usable one.
 
 **Evidence for the record-level finding is special-cased, as §6 asked.**
 The protocol-generic `case 'mx':` fallback emits the resolved hosts, which for a
@@ -1171,6 +1201,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 1.2 | 2026-09-05 | Codex round 16. Four behaviour defects corrected, each reproduced first: absence was claimed when one lookup had not returned; provider fields were populated before forward confirmation, which itself tested any host address rather than the one whose PTR produced the candidate; address sets were compared as arrays, so a duplicated RR duplicated the evidence; and `reverseName()` built names from malformed IPv4. Added the dedicated `mx-vanity-divergence` equivalence case so both findings are reachable through the real audit path, closing the `1.1` coverage gap — authorized as exactly one new case, with the case-set rule tightened rather than relaxed. |
 | 1.1 | 2026-09-05 | 0.9.2 implemented under the reviewed §4 algorithm. Reverse lookups use real reverse-zone names; the caps, the deep-check gate, per-address aggregation, forward confirmation and strict-subset-only are all load-bearing in code and covered by negative controls. Corpus background hosts were given self-hosted reverse DNS so the advisory does not fire in cases about other protocols — with that, no rendered surface moves and only the result shape and seven traces differ. Measured 8 additional queries across 80 audited domains and amended `PRIVACY.md` with that figure. Recorded one coverage gap: no equivalence case exercises `mx.vanity-divergent` end to end. |
 | 1.0 | 2026-09-05 | **Final.** Codex round 15 accepted the privacy review at `ac7e984`. `OQ-MXV-03` becomes `RQ-MXV-03`; no question remains open, which is what Final records. 0.9.2 is approved for implementation under the reviewed §4 algorithm and acceptance criteria, with the caps, the deep-check gate and the no-score-movement rule load-bearing. The document reaches `1.0 (Implemented)` when 0.9.2 ships. |
 | 0.17 | 2026-09-05 | Codex review round 14. Pinned the accepted result with `node:assert/strict` — counts, the 8+8 split, 16 above cache, 14 outbound, 2 saved, the three findings and the ordered fourteen-entry outbound trace — after the previous verdict was shown to print CONTROLS PASS while the ordinary result drifted to 14/12. Pinned the renamed control to exactly 16 rather than greater-than. Added a control that runs the pinned check against a deliberately drifted fixture and requires rejection, and a control asserting the capture's printed trace equals the executable constant. Reproduced the fourteen-entry trace in the capture, which the spec already claimed was there. |

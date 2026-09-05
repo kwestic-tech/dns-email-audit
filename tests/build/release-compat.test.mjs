@@ -1131,15 +1131,29 @@ const AUTHORIZED_TRACE_DELTA = {
 };
 const AUTHORIZED_TRACE_TOTAL = 8;
 
+/**
+ * 0.9.2 adds exactly one case, and its identity is pinned.
+ *
+ * The case set is not merely allowed to grow: it must be `v0.9.1`'s set plus
+ * this one name. A rule that only checked "no case was removed" would let a
+ * second fixture arrive unexamined, and a rule that dropped the check entirely
+ * would lose the protection that caught a missing case in the 0.9.1 round.
+ */
+const AUTHORIZED_NEW_CASE = 'mx-vanity-divergence';
+
 function release092Violations(after) {
   const violations = [];
-  if (JSON.stringify([...byId(after).keys()].sort()) !== JSON.stringify([...release091ById.keys()].sort())) {
+  const expectedCases = [...release091ById.keys(), AUTHORIZED_NEW_CASE].sort();
+  if (JSON.stringify([...byId(after).keys()].sort()) !== JSON.stringify(expectedCases)) {
     return ['case-set'];
   }
   let traceTotal = 0;
   for (const c of after.cases) {
-    const before = release091ById.get(c.id);
     const id = c.id;
+    // The new case has no `v0.9.1` counterpart to differ from; it is pinned
+    // separately below, by what it must produce rather than by what it moved.
+    if (id === AUTHORIZED_NEW_CASE) continue;
+    const before = release091ById.get(id);
 
     // Scores and grades do not move. The findings are advisory.
     if (JSON.stringify(scoresOf(c)) !== JSON.stringify(scoresOf(before))) violations.push(id + ':score');
@@ -1180,6 +1194,32 @@ section('The 0.9.2 difference class is exact');
 eq('the 0.9.2 baseline differs only by its authorized surface changes',
   release092Violations(release092), []);
 
+/* The one authorized new case, pinned by what it proves rather than by a
+   diff — it has no predecessor. It exists because neither 0.9.2 finding was
+   otherwise reachable through the real audit path. */
+
+const newCase = release092.cases.find(c => c.id === AUTHORIZED_NEW_CASE);
+eq('the authorized new case is present', !!newCase, true);
+const newResult = newCase.result[0].result;
+eq('and it exercises BOTH new findings end to end',
+  newResult.issues.map(i => i.key).filter(k => /^mx-(vanity-divergent|no-reverse-dns)$/.test(k)).sort(),
+  ['mx-no-reverse-dns', 'mx-vanity-divergent']);
+eq('the divergence names the provider and the missing address',
+  newResult.advanced.mxHealth.divergentHosts,
+  [{ host: 'mail.vanity.mx.test', missing: ['100.3.0.11'], provider: 'mailfilter.vanity-provider.test' }]);
+eq('and the second host is reported as having no reverse DNS',
+  newResult.advanced.mxHealth.hostsWithoutReverse, ['backup.vanity.mx.test']);
+// It reaches the rendered surfaces too, which is the whole reason it exists.
+eq('the findings reach CSV and DOM',
+  [JSON.stringify(newCase.csv).includes('mx.vanity-divergent'),
+    JSON.stringify(newCase.dom).includes('mx.vanity-divergent')],
+  [true, true]);
+// Its reverse lookups are exactly the two its two hosts require.
+eq('and it issues exactly two reverse lookups',
+  (newCase.trace.queries || []).map(q => q.query).filter(q => /\.arpa\b/.test(q)).sort(),
+  ['10.0.3.100.in-addr.arpa PTR do=0 cd=0', '20.0.4.100.in-addr.arpa PTR do=0 cd=0']);
+eq('its trace total is pinned', newCase.trace.total, 43);
+
 // The new fields are really present, or the rule above compares nothing.
 const mxHealths092 = release092.cases
   .flatMap(c => c.result.map(e => e.result))
@@ -1189,16 +1229,28 @@ eq('every mxHealth carries the two new top-level fields',
   [mxHealths092.length > 0, mxHealths092.filter(m => !MX_DIVERGENCE_TOP_FIELDS.every(f => f in m)).length],
   [true, 0]);
 
-// And the corpus really is clean of the advisory, which is why nothing rendered
-// moved. If a fixture loses its reverse DNS this stops being true.
-eq('no case reports absent reverse DNS',
-  mxHealths092.filter(m => (m.hostsWithoutReverse || []).length).length, 0);
+// Every case EXCEPT the authorized one is clean of both findings, which is why
+// nothing rendered moved in them. If a background fixture loses its reverse
+// DNS, or gains a diverging provider, this stops being true.
+const backgroundMx092 = release092.cases
+  .filter(c => c.id !== AUTHORIZED_NEW_CASE)
+  .flatMap(c => c.result.map(e => e.result))
+  .map(r => r && r.advanced && r.advanced.mxHealth)
+  .filter(Boolean);
+eq('no background case reports either 0.9.2 finding',
+  backgroundMx092.filter(m => (m.hostsWithoutReverse || []).length
+    || (m.divergentHosts || []).length).length, 0);
 
 section('Every 0.9.2 compatibility rule has a negative control');
 
 const missing092 = structuredClone(release092);
-missing092.cases.pop();
-eq('a case-set movement is caught', release092Violations(missing092), ['case-set']);
+missing092.cases = missing092.cases.filter(c => c.id !== 'enforcing-signed');
+eq('a removed case is caught', release092Violations(missing092), ['case-set']);
+
+// Growth is authorized for one named case, not in general.
+const secondNew092 = structuredClone(release092);
+secondNew092.cases.push({ ...structuredClone(release092.cases[0]), id: 'another-new-case' });
+eq('a SECOND new case is caught', release092Violations(secondNew092), ['case-set']);
 
 const score092 = structuredClone(release092);
 score092.cases[0].result[0].result.score.pts += 1;

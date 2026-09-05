@@ -80,9 +80,12 @@ MX hosts after their provider and are not examined at all. A domain that does
 use a name in its own zone pays one query per address of its first two such
 hosts, and up to four more if a reverse name is found and has to be confirmed.
 
-That corpus measures the cost, not the shape of the internet: its reverse names
-are self-hosted, so forward confirmation is reached in unit tests rather than
-there. The ceiling above — twelve for any one domain — is what bounds it.
+One further case exists whose subject is exactly this check: a domain with two
+in-domain MX hosts, one whose provider publishes an address the domain's copy
+lacks and one with no reverse record at all. It costs **four** additional
+queries — two reverse lookups and two to confirm the provider name — which is
+the shape a real vanity-MX domain pays. The ceiling above, twelve for any one
+domain, is what bounds the worst case.
 
 Turning them off leaves **about 34 queries per domain** on the 40-domain sample
 and **45** for `cloudflare.com`. That is 0.3.0's and 0.4.0's shared figure of 43

@@ -281,7 +281,7 @@
   },
   {
    "path": "src/core/mx/mx.test.js",
-   "assertions": 119,
+   "assertions": 132,
    "note": "Co-located per spec §9. Phase 4, Task 4.2. The audit runs against a fake resolver and the REAL optionalCheck imported from core/dns/ — the module has to work against the function it will actually be handed, and a local reimplementation would only prove the test agrees with itself. A test import is not a production edge.",
    "areas": [
     "the two published state constants, with every value the audit can produce shown to be one of them and all six shown to be reachable",
@@ -776,7 +776,7 @@
   },
   {
    "path": "tests/build/release-compat.test.mjs",
-   "assertions": 73,
+   "assertions": 81,
    "areas": [
     "the v0.7.0, v0.8.0, v0.9.0 and v0.9.1 baselines cover the same deterministic cases",
     "audit results and DNS traces remain byte-identical from v0.7.0 to v0.8.0",
