@@ -23,7 +23,22 @@ filename:
 | `0.1 (Draft)` | First complete statement of the design. Open questions unanswered. |
 | `0.2`–`0.9` | Revised after a review pass. Each revision records what changed and why. |
 | `1.0 (Final)` | Every open question is resolved or explicitly deferred. Implementation may begin. |
-| `1.0 (Implemented)` | The release shipped. The document has moved to [`implemented/`](implemented/) and records what was actually built. |
+| `1.x (Final, amended)` | Amended after Final. Each amendment increments the minor: `1.1`, `1.2`, and so on. |
+| `1.x (Implemented)` | The release shipped. The document has moved to [`implemented/`](implemented/) and records what was actually built. |
+
+**The version only ever goes up.** A document that reached Final at `1.0` and
+was then amended three times is at `1.3`, and shipping it records
+`1.4 (Implemented)` — the **next** revision after its last amendment, not a
+return to `1.0 (Implemented)`. Writing `1.0 (Implemented)` on a `1.3` document
+would say the shipped text is the Final text, which is exactly what the
+amendments prove it is not. A document still under review therefore does not
+name its Implemented number in advance: it says shipment records the next
+monotonic `1.x`, and the number is fixed in the release commit, when no further
+amendment can arrive.
+
+This is a rule the table had not stated, not a new practice:
+[rendering-and-robustness](implemented/rendering-and-robustness.md) shipped as
+`1.3 (Implemented)` for exactly this reason.
 
 A spec is Final before implementation starts. If implementation discovers that
 the spec is wrong, the spec is amended and re-versioned rather than quietly
@@ -62,7 +77,7 @@ a second roadmap narrative.
 
 | Spec | Target release | Spec version | Status |
 | --- | --- | --- | --- |
-| [mx-host-validity](mx-host-validity.md) | 0.9.1 released, then 0.9.2 | 1.3 (Final, amended) | **0.9.1 released as `v0.9.1`**; **0.9.2 implemented and in code review**, privacy review accepted 2026-09-05 |
+| [mx-host-validity](mx-host-validity.md) | 0.9.1 released, then 0.9.2 | 1.4 (Final, amended) | **0.9.1 released as `v0.9.1`**; **0.9.2 implemented and in code review**, privacy review accepted 2026-09-05 |
 | [one-zero-readiness](one-zero-readiness.md) | 1.0.0 | 0.1 | Draft, awaiting review |
 | [external-intelligence](external-intelligence.md) | post-1.0 | 0.2 | Draft, decision pending |
 

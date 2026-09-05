@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.3 (Final, amended) |
+| Spec version | 1.4 (Final, amended) |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 released**; **0.9.2 implemented, awaiting code review** — privacy review accepted at `ac7e984`; implementation measured and bounded, `PRIVACY.md` amended with measured figures |
@@ -22,9 +22,15 @@
 > **The Status field carries per-release approval; the Spec version tracks the
 > document.** The specs README's version table assumes one spec is one release,
 > so it has no value for a document whose first release is approved while its
-> second is not. This one stays below `1.0 (Final)` while a question is open —
-> **not** because 0.9.2 is unshipped, which is what `1.0 (Implemented)` records.
-> The 0.13 note had those backwards; review corrected it at 0.15.
+> second is not. This one stayed below `1.0 (Final)` while a question was open —
+> **not** because 0.9.2 was unshipped, which is what the Implemented revision
+> records. The 0.13 note had those backwards; review corrected it at 0.15.
+>
+> **The version is monotonic.** This document reached Final at `1.0` and has
+> been amended since, so shipment records the **next** `1.x (Implemented)`
+> revision after its last amendment — never `1.0 (Implemented)`, which would
+> claim the shipped text is the Final text. The number is fixed in the release
+> commit, because review can still increment this document until then.
 
 ## Problem
 
@@ -387,6 +393,22 @@ Per qualifying host:
    `H = P` is the correct vanity configuration and produces nothing. `H ⊄ P`
    means the two names have diverged in both directions, which is not this
    finding and is left alone; deferred as `RQ-MXV-06`.
+
+**These are sets of address values, not of strings.** `2a01:100::20` and
+`2a01:0100:0000:0000:0000:0000:0000:0020` are one address written two ways, and
+a zone is free to publish either. Membership — de-duplication, the
+forward-confirmation test in step 3, and `H ⊂ P` in step 4 — is therefore
+decided on `ipIdentity()` keys from `core/shared/ip.js`, never on the text.
+Comparing text made the two spellings two addresses, which failed confirmation
+and reported a real divergence nowhere.
+
+Two things this deliberately does not do. It does not rewrite the evidence: the
+first-seen spelling is what `missingAddresses` and `hosts[].addresses` carry, so
+the remediation quotes the address as its zone published it. And it does not
+fold the families together: an `AAAA` publishing `::ffff:203.0.113.1` keys as
+IPv6, because it is a different delivery path from an `A` publishing
+`203.0.113.1` and treating them as one would report a host as holding an
+address it does not publish.
 
 **Query budget.** With the two-host cap above, a domain costs at most
 `2 hosts × 4 addresses = 8` PTR plus `2 candidates × 2 = 4` forward lookups —
@@ -934,6 +956,42 @@ plan through the real audit path. Every other case keeps self-hosted reverse
 DNS and reports neither finding, which `release-compat.test.mjs` asserts
 directly. This closes the coverage gap recorded at `1.1`.
 
+**An identity defect and three documentation defects, corrected at `1.4`.**
+Round 18 reproduced all four against `4f0b7b3` first.
+
+*An address set was a set of spellings.* A host publishing
+`2a01:0100:0000:0000:0000:0000:0000:0020` whose provider publishes the
+equivalent `2a01:100::20` failed forward confirmation — `provider.indexOf()` on
+presentation text — so `providerName` stayed null and a real strict-subset
+divergence was reported nowhere. The same defect made two spellings of one
+address two members of `H`, which then could not be a subset of anything.
+`ipIdentity()` in `core/shared/ip.js` now gives an address a comparable key, and
+de-duplication, forward confirmation and the `H ⊂ P` test all compare keys.
+First-seen text is preserved for evidence, because the remediation should quote
+the address as the zone published it, and `hosts[].addresses` still records the
+answer as it came back: canonicalization is for the comparisons, not for the
+report. The two families stay apart — an `AAAA` publishing `::ffff:203.0.113.1`
+is a different delivery path from an `A` publishing `203.0.113.1`, and folding
+them would report a host as holding an address it does not publish. Six
+controls in `mx.test.js` and eight in `ip.test.js`.
+
+*The owning directory's API contract was three releases stale.*
+`src/core/mx/API.md` documented five exports and the pre-0.9.1 result. §12 makes
+that file the architectural contract, and leaving the new surface only in this
+spec means the contract a reader is told to trust is the wrong one. It now
+tables all eight exports, the full top-level and per-host result with the
+release each field arrived in, the three states of `reverseNames`, the identity
+rule above, and the three caps. `core/shared/API.md` gains `ipScope()`,
+`ipIdentity()` and `IP_SCOPE`, which were also missing.
+
+*The stated shipment version went backwards.* This document is `1.4`, and
+several sentences said shipping would make it `1.0 (Implemented)` — which would
+claim the shipped text is the Final text, three amendments after it stopped
+being. The specs README now states the monotonic rule and names
+`1.x (Final, amended)` and `1.x (Implemented)`; every current-state sentence
+follows it, and the number is deliberately not chosen yet, because review can
+still increment this document.
+
 **Three guard defects and one encoding defect, corrected at `1.3`.** Round 17
 reproduced all four against `35d137d` before anything was changed.
 
@@ -969,12 +1027,21 @@ that `PRIVACY.md` was untouched, beside prose recording the approval, the
 implementation and a 25-line privacy amendment. Corrected to the actual state;
 the superseded measurements are kept as history where they are labelled as such.
 
-*What the new-case guard still cannot prove.* The report surface is bound by the
-hash of its recorded form, and that form carries no finding text — so the guard
-proves the report's structure and its numbers are what review saw, not that the
-sentences rendered for `mx.vanity-divergent` and `mx.no-reverse-dns` are the
-reviewed ones. That is what the locale gate and `src/audit`'s own suites cover,
-and the division is deliberate rather than an oversight.
+*What the new-case guard proves about the report — corrected at `1.4`.* The
+paragraph here at `1.3` said the report's recorded form carries no finding text
+and that the guard therefore could not bind the rendered sentences. That was
+false, and it understated the evidence: `reportSurface()` records `sha256` over
+the **complete generated HTML**, and the pinned surface hash covers that field,
+so every byte of the reviewed report is bound — both findings' sentences
+included. Verified by changing one word of the `mx-vanity-divergent` message and
+re-running the comparison, which moves the CSV, the DOM and the report surface.
+
+What remains true is much narrower: the binding is cryptographic, not semantic.
+It does not locate an id inside the document, so a rejection says the report
+changed rather than where, and the id-level end-to-end claim is made separately
+against issues, findings, remediation, CSV and DOM, where a failure names the
+surface that moved. That is a division of labour between two rules, not a gap
+in either.
 
 **Four behaviour defects, found by review of the implementation and corrected
 at `1.2`.** Each was reproduced before it was changed, and each has a control
@@ -1135,6 +1202,13 @@ are later admitted to the grade, that change is backtested with
     recorded in the 0.9.2 pull request and in `PRIVACY.md`, and `PRIVACY.md`'s
     disclosure list names the reverse zones and the provider name. Criterion 15
     is not satisfiable before the §7 review concludes.
+16. Address-set membership is decided on address values. A host publishing the
+    expanded form of an address whose provider publishes the compressed form
+    forward-confirms and reports the divergence; an equal set written in two
+    spellings reports nothing; one address written twice is one member of `H`
+    and costs one reverse lookup. An IPv4-mapped `::ffff:` address does not
+    satisfy membership for the IPv4 address it embeds. The evidence quotes the
+    spelling that was published.
 
 ## Risks
 
@@ -1237,8 +1311,9 @@ overstated what the evidence supports and is withdrawn.
 ## Open questions
 
 None. Every question this document raised is resolved or explicitly deferred,
-which is what `1.0 (Final)` records — shipping is what will later make it
-`1.0 (Implemented)`, and 0.9.2 has not shipped.
+which is what Final records. Shipping 0.9.2 is what will later make it
+`1.x (Implemented)` — the next revision after the last amendment, fixed in the
+release commit. 0.9.2 has not shipped.
 
 ## Review record
 
@@ -1257,10 +1332,11 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
-| 1.3 | 2026-09-05 | Codex round 17, all four findings reproduced first. `reverseNames` now encodes three states rather than two, so a lookup that did not answer is never recorded as an empty answer. The authorized trace delta became exact multiset equality after a substitution — one `TLSA` removed, one `PTR` added — was shown to pass the counting rule. The one authorized new case, which `1.2` exempted from surface comparison entirely, is bound by content hash on all five surfaces with per-surface mutation controls and both findings asserted through `findings`, remediation, CSV and DOM. Reconciled `HANDOFF.md` and `ROADMAP.md`, which still described 0.9.2 as unapproved, unstarted, and privacy-neutral. Recorded that the report hash cannot prove finding text. |
+| 1.4 | 2026-09-05 | Codex round 18, all four findings reproduced first. Address identity is now canonical: `ipIdentity()` keys an address by value, so equivalent IPv6 spellings de-duplicate, forward-confirm and compare as one member of `H` and `P` — the executed reproduction showed a real divergence reported nowhere because the host wrote its address out in full and its provider compressed it. First-seen text is preserved for evidence and the families are kept apart. Brought `src/core/mx/API.md` up to the full eight-export, 0.9.2 contract and added the three missing `ip.js` exports to `core/shared/API.md`. Defined the monotonic post-Final version rule in the specs README and stopped saying shipment returns the document to `1.0`. Withdrew the `1.3` claim that the report hash cannot bind finding text: `reportSurface()` hashes the complete HTML, so the pin binds every byte, which a one-word message change demonstrates. |
+| 1.3 | 2026-09-05 | Codex round 17, all four findings reproduced first. `reverseNames` now encodes three states rather than two, so a lookup that did not answer is never recorded as an empty answer. The authorized trace delta became exact multiset equality after a substitution — one `TLSA` removed, one `PTR` added — was shown to pass the counting rule. The one authorized new case, which `1.2` exempted from surface comparison entirely, is bound by content hash on all five surfaces with per-surface mutation controls and both findings asserted through `findings`, remediation, CSV and DOM. Reconciled `HANDOFF.md` and `ROADMAP.md`, which still described 0.9.2 as unapproved, unstarted, and privacy-neutral. *(This row also recorded that the report hash cannot prove finding text. That was wrong and is withdrawn at `1.4`: the surface hashes the complete HTML.)* |
 | 1.2 | 2026-09-05 | Codex round 16. Four behaviour defects corrected, each reproduced first: absence was claimed when one lookup had not returned; provider fields were populated before forward confirmation, which itself tested any host address rather than the one whose PTR produced the candidate; address sets were compared as arrays, so a duplicated RR duplicated the evidence; and `reverseName()` built names from malformed IPv4. Added the dedicated `mx-vanity-divergence` equivalence case so both findings are reachable through the real audit path, closing the `1.1` coverage gap — authorized as exactly one new case, with the case-set rule tightened rather than relaxed. |
 | 1.1 | 2026-09-05 | 0.9.2 implemented under the reviewed §4 algorithm. Reverse lookups use real reverse-zone names; the caps, the deep-check gate, per-address aggregation, forward confirmation and strict-subset-only are all load-bearing in code and covered by negative controls. Corpus background hosts were given self-hosted reverse DNS so the advisory does not fire in cases about other protocols — with that, no rendered surface moves and only the result shape and seven traces differ. Measured 8 additional queries across 80 audited domains and amended `PRIVACY.md` with that figure. Recorded one coverage gap: no equivalence case exercises `mx.vanity-divergent` end to end. |
-| 1.0 | 2026-09-05 | **Final.** Codex round 15 accepted the privacy review at `ac7e984`. `OQ-MXV-03` becomes `RQ-MXV-03`; no question remains open, which is what Final records. 0.9.2 is approved for implementation under the reviewed §4 algorithm and acceptance criteria, with the caps, the deep-check gate and the no-score-movement rule load-bearing. The document reaches `1.0 (Implemented)` when 0.9.2 ships. |
+| 1.0 | 2026-09-05 | *(The closing sentence of this row said shipment would make the document `1.0 (Implemented)`. Superseded at `1.4`: the version is monotonic, so shipment records the next `1.x`.)* **Final.** Codex round 15 accepted the privacy review at `ac7e984`. `OQ-MXV-03` becomes `RQ-MXV-03`; no question remains open, which is what Final records. 0.9.2 is approved for implementation under the reviewed §4 algorithm and acceptance criteria, with the caps, the deep-check gate and the no-score-movement rule load-bearing. The document reaches `1.0 (Implemented)` when 0.9.2 ships. |
 | 0.17 | 2026-09-05 | Codex review round 14. Pinned the accepted result with `node:assert/strict` — counts, the 8+8 split, 16 above cache, 14 outbound, 2 saved, the three findings and the ordered fourteen-entry outbound trace — after the previous verdict was shown to print CONTROLS PASS while the ordinary result drifted to 14/12. Pinned the renamed control to exactly 16 rather than greater-than. Added a control that runs the pinned check against a deliberately drifted fixture and requires rejection, and a control asserting the capture's printed trace equals the executable constant. Reproduced the fourteen-entry trace in the capture, which the spec already claimed was there. |
 | 0.16 | 2026-09-05 | Codex review round 13. Executed the outbound fan-out instead of calculating it: the spike now runs §4 through the production cache and transport with a recording `fetch` beneath, so **14 requests leaving the browser** is observed at the transport seam rather than derived from 16 by subtraction. Added two reuse controls — renaming the repeated provider returns outbound to 16, and the same name under a different type misses — alongside the gate control. Withdrew the claim that a run is unlinkable to any other and that `PRIVACY.md` promises it: `PRIVACY.md` promises no such thing, and Cloudflare can correlate runs from ordinary connection metadata regardless. What remains is the supported claim — 0.9.2 adds no application-level identifier, persistence, or new recipient. |
 | 0.15 | 2026-09-05 | Codex review round 12. Replaced the 0.14 figures, which counted stored addresses and were wrongly labelled measured, with an executed measurement: a spike runs §4 literally against a recording resolver with a negative control, captured in `fixtures/ptr-fan-out-0.9.2.md`. It issues 16 queries where the projection said 8, because forward-confirm is per candidate — and 14 through the page cache, which is why `PRIVACY.md` must be re-measured rather than adjusted. Rewrote §7.4 to weigh query intent and linkability instead of claiming the marginal disclosure is nil, and named what would reverse the decision. Restored `OQ-MXV-03`: the evidence now exists, but accepting it is the reviewer's call, and promotion to `1.0 (Final)` belongs to that approval. |

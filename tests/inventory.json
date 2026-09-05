@@ -216,14 +216,15 @@
   },
   {
    "path": "src/core/shared/ip.test.js",
-   "assertions": 83,
+   "assertions": 93,
    "note": "Co-located per spec §9. Phase 4, Task 4.0.",
    "areas": [
     "IPv4 and IPv6 parsing, including the embedded dotted-quad of RFC 4291 §2.2.3",
     ":: expands to exactly eight hextets before any arithmetic, asserted against the same address written in full",
     "BigInt end to end: the all-ones IPv6 address is exact, not rounded",
     "a malformed address or prefix returns null so one bad mechanism does not discard the record",
-    "family is the caller's declaration, never guessed from the text"
+    "family is the caller's declaration, never guessed from the text",
+    "ipIdentity keys one address by value however it is spelled, keeps the two families apart, and has no identity for text that is not an address"
    ]
   },
   {
@@ -281,7 +282,7 @@
   },
   {
    "path": "src/core/mx/mx.test.js",
-   "assertions": 134,
+   "assertions": 141,
    "note": "Co-located per spec §9. Phase 4, Task 4.2. The audit runs against a fake resolver and the REAL optionalCheck imported from core/dns/ — the module has to work against the function it will actually be handed, and a local reimplementation would only prove the test agrees with itself. A test import is not a production edge.",
    "areas": [
     "the two published state constants, with every value the audit can produce shown to be one of them and all six shown to be reachable",
@@ -289,6 +290,7 @@
     "resolves is three values, and `no` — a total inbound mail outage — is claimed only when both address lookups returned",
     "an unknown host is never dangling and never contributes to the block-concentration grouping",
     "reverseNames encodes three states — names, an empty answer, and a lookup that did not answer — read together with hostsWithoutReverse, since either alone accepts a wrong encoding",
+    "address sets compare values, not spellings: expanded and compressed IPv6 confirm and subset as one address, a duplicate spelling is reversed once, and an IPv4-mapped address is not its IPv4 form",
     "optionalCheck applied per host: one unreachable target does not turn the others into an outage report",
     "two records naming one exchange are one host, queried once, still a single point of failure — while duplicate PREFERENCES are about the records",
     "block concentration through core/shared/ip.js at /24 and /48, with the private label renderer observed through sharedPrefixes[].prefix rather than exported for the test",
@@ -777,7 +779,7 @@
   },
   {
    "path": "tests/build/release-compat.test.mjs",
-   "assertions": 94,
+   "assertions": 95,
    "areas": [
     "the v0.7.0, v0.8.0, v0.9.0 and v0.9.1 baselines cover the same deterministic cases",
     "audit results and DNS traces remain byte-identical from v0.7.0 to v0.8.0",
