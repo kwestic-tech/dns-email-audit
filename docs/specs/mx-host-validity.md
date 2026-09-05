@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 0.15 |
+| Spec version | 0.16 |
 | Released in | `v0.9.1`, 2026-09-05 — the 0.9.1 half only |
 | Target release | 0.9.1, then 0.9.2 |
 | Status | **0.9.1 released**; 0.9.2 not started — privacy review conducted and its fan-out executed (§7). `OQ-MXV-03` open pending the reviewer's acceptance; **promote to `1.0 (Final)` on approval, and not before implementation** |
@@ -514,15 +514,22 @@ Per qualifying host the procedure costs `min(addresses, 4)` `PTR` queries; per
 domain it then costs at most two candidate names × two lookups each (`A` and
 `AAAA`) to forward-confirm.
 
-Executed over the corpus, deep checks on:
+Executed over the corpus, deep checks on, through the **production cache and
+transport** with a recording `fetch` beneath them:
 
 | | Observed |
 | --- | --- |
-| `PTR` queries issued | **8** |
-| Forward-confirm queries issued | **8** |
-| Total additional queries | **16** |
-| Per audited domain | **0.200** |
-| With the gate off (negative control) | **0** |
+| Procedure calls above the cache | **16** (8 `PTR` + 8 forward) |
+| **Requests that left the browser** | **14** |
+| Saved by page-lifetime cache reuse | **2** |
+| Outbound per audited domain | **0.175** |
+| With the gate off (control) | **0** |
+
+The distinction is the point. `PRIVACY.md` publishes transport fan-out — what
+leaves the browser after cache reuse — so **14** is the figure in its terms, and
+it is observed at the `fetch` seam rather than derived from 16 by subtraction. A
+draft of this section calculated 14 instead of executing it, which was the same
+mistake one layer down.
 
 | Case | Additional queries |
 | --- | --- |
@@ -531,11 +538,20 @@ Executed over the corpus, deep checks on:
 | Domain with one vanity host, two addresses | 2 + 2 = **4** |
 
 Two observations the projection could not have produced. The forward step
-**doubles** the cost, being per candidate rather than per address. And the
-harness counts *requests, not cache misses*: two domains reach the same provider
-name, so a real run through the page-lifetime DoH cache issues **14**, not 16.
-That is precisely why §7.5 requires `PRIVACY.md`'s figures to be re-measured on
-the shipping release rather than adjusted by adding this number.
+**doubles** the call count, being per candidate rather than per address. And the
+cache absorbs exactly two of the sixteen — `alpha.test` and `nowww.host.test`
+reach the same provider, and the two-candidate cap is per domain and does not
+dedupe across them. Three controls hold the measurement honest: the gate off
+issues nothing; renaming the repeated provider returns outbound to 16, proving
+the saving is the cache's; and the same name under a different type misses,
+proving the key discriminates on both. Capture:
+[ptr-fan-out-0.9.2](fixtures/ptr-fan-out-0.9.2.md).
+
+What is executed is the *shape*, not the real-world distribution: how often a
+reverse name forward-confirms, and how often two audited domains share a
+provider, are properties of the internet rather than of this corpus. §7.5's
+requirement that `PRIVACY.md` be re-measured rather than adjusted stands for
+exactly that reason.
 
 For scale: deep checks already cost **four queries per MX host** — three to
 resolve and probe for a `CNAME`, plus one `TLSA`. On a single-address vanity
@@ -600,10 +616,20 @@ already inferable from the existing MX, `A`, `AAAA`, `CNAME` and `TLSA` queries
 the audit issues for the same host within the same page. An observer who can
 correlate the new queries could already correlate those.
 
-**The correlation window is not widened.** All of it happens inside one page
-lifetime, against one resolver, for domains the user typed. 0.9.2 adds no
-persistence, no new destination, and no identifier; a run remains unlinkable to
-any other run, which is the property `PRIVACY.md` actually promises.
+**0.9.2 adds no new means of correlation of its own.** All of it happens inside
+one page lifetime, against the one resolver the application already uses, for
+domains the user typed: no application-level identifier, no persistence, and no
+new recipient.
+
+That is the whole of the claim, and it is deliberately narrower than a draft of
+this section made it. That draft said a run stays "unlinkable to any other run,
+which is the property `PRIVACY.md` actually promises". Both halves were wrong.
+`PRIVACY.md` promises no such thing — it says plainly that every query name is
+visible to Cloudflare and governed by Cloudflare's policy. And Cloudflare can
+correlate runs from ordinary connection metadata — source address, TLS
+connection, timing — whether or not this application contributes an identifier.
+Adding nothing is not the same as preventing it, and this document does not get
+to claim the second.
 
 **The derivation starts in the audited domain's own records.** MX → address →
 `PTR` → name is a chain whose first link the domain published deliberately. This
@@ -617,8 +643,8 @@ observability map, and its own comparability rule — machinery that exists to
 prevent false "resolved" claims, duplicated for a distinction the paragraph
 above says is nearly empty.
 
-**What would change this answer.** If the correlation outlived the page, reached
-a second destination, or attached to an identifier, the second reason fails and
+**What would change this answer.** If 0.9.2 introduced persistence across runs,
+a second destination, or an application-level identifier, the second reason fails and
 the decision is wrong. Likewise if the procedure ever queried a name *not*
 derivable from the audited domain's published records — a provider registry, a
 reputation service, an ASN lookup — the first two reasons collapse and it
@@ -1095,6 +1121,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 0.16 | 2026-09-05 | Codex review round 13. Executed the outbound fan-out instead of calculating it: the spike now runs §4 through the production cache and transport with a recording `fetch` beneath, so **14 requests leaving the browser** is observed at the transport seam rather than derived from 16 by subtraction. Added two reuse controls — renaming the repeated provider returns outbound to 16, and the same name under a different type misses — alongside the gate control. Withdrew the claim that a run is unlinkable to any other and that `PRIVACY.md` promises it: `PRIVACY.md` promises no such thing, and Cloudflare can correlate runs from ordinary connection metadata regardless. What remains is the supported claim — 0.9.2 adds no application-level identifier, persistence, or new recipient. |
 | 0.15 | 2026-09-05 | Codex review round 12. Replaced the 0.14 figures, which counted stored addresses and were wrongly labelled measured, with an executed measurement: a spike runs §4 literally against a recording resolver with a negative control, captured in `fixtures/ptr-fan-out-0.9.2.md`. It issues 16 queries where the projection said 8, because forward-confirm is per candidate — and 14 through the page cache, which is why `PRIVACY.md` must be re-measured rather than adjusted. Rewrote §7.4 to weigh query intent and linkability instead of claiming the marginal disclosure is nil, and named what would reverse the decision. Restored `OQ-MXV-03`: the evidence now exists, but accepting it is the reviewer's call, and promotion to `1.0 (Final)` belongs to that approval. |
 | 0.14 | 2026-09-05 | 0.9.2 privacy review conducted before any implementation. Measured PTR fan-out from the committed oracle: 8 queries across 80 audited domains, 0 for provider-named MX, 3 for the common vanity shape. Found the worst case unbounded in MX-host count and capped §4 at two qualifying hosts, bounding a domain at 12 and the default path at 600. Inventoried the two newly disclosed name classes. Decided against a separate opt-in, because every name queried comes from an answer the same resolver just returned. Resolved `OQ-MXV-03` as `RQ-MXV-03`; no open questions remain. The `PRIVACY.md` amendment is drafted in §7.5 and deliberately not applied, because that document describes shipped behavior. |
 | 0.13 | 2026-09-05 | Release-blocking CI failure, found after push. The `Five-surface equivalence` job regenerated the pre-refactor `v0.5.0` oracle over the *current* corpus and diffed it byte-for-byte, which made the shared fixture corpus immutable — a constraint that had held only because nothing had edited the corpus since 0.6.0 created it. Retired that oracle rather than regenerating it: its purpose was discharged by the 0.6.0 refactor, and regenerating would have rewritten a pre-refactor record and left the trap in place. Chain now starts at `v0.7.0`; two suites repointed at the current oracle for the data they were reading. |

@@ -8,8 +8,20 @@
  * rather than an argument. Counting addresses in the v0.9.1 oracle answers only
  * how many PTR calls the algorithm would REQUEST; it cannot answer what the
  * forward-confirm step costs, because v0.9.1 holds no PTR answers from which a
- * candidate name could be selected. So this executes §4 literally against a
- * recording resolver and reports the queries it actually issued.
+ * candidate name could be selected.
+ *
+ * Two different numbers matter, and an earlier version of this file measured
+ * only the first and then did arithmetic for the second:
+ *
+ *   - calls the procedure makes ABOVE the cache, and
+ *   - requests that actually leave the browser, AFTER cache reuse.
+ *
+ * `PRIVACY.md` publishes the second. So this runs §4 through the REAL cache and
+ * the REAL transport — `createDohCache()` and `createDohTransport()` as
+ * production composes them, with their own key and admission rules — and puts a
+ * recording `fetch` underneath. `fetch` is the production seam: `doh.js` takes
+ * it from the injected platform precisely so it can be substituted. Outbound
+ * requests are counted there, not inferred.
  *
  * The qualifying hosts and their addresses are read from the committed
  * `baseline-v0.9.1.json`, so the input is the real corpus and not invented. The
@@ -24,30 +36,53 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { createDohCache } from '../../../src/core/dns/cache.js';
+import { createDohTransport } from '../../../src/core/dns/doh.js';
+import { createResolver } from '../../../src/core/dns/resolver.js';
+import { dnsError, dnsTypeNum, DNS_TYPES } from '../../../src/core/dns/errors.js';
+
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const baseline = JSON.parse(
   readFileSync(join(REPO, 'tests/fixtures/equivalence/baseline-v0.9.1.json'), 'utf8'));
 
 /* ── The fixture, one branch of §4 per domain ─────────────────────────── */
 
+/**
+ * The name a PTR is actually asked under. This is what reaches the resolver,
+ * and therefore what §7.3 lists as disclosed — not the bare address.
+ */
+function reverseName(address) {
+  if (address.includes(':')) {
+    const groups = address.split('::');
+    const head = groups[0] ? groups[0].split(':') : [];
+    const tail = groups.length > 1 && groups[1] ? groups[1].split(':') : [];
+    const full = groups.length > 1
+      ? [...head, ...Array(8 - head.length - tail.length).fill('0'), ...tail]
+      : head;
+    const nibbles = full.map(g => g.padStart(4, '0')).join('');
+    return nibbles.split('').reverse().join('.') + '.ip6.arpa';
+  }
+  return address.split('.').reverse().join('.') + '.in-addr.arpa';
+}
+
 const SERVFAIL = Symbol('servfail');
 const PTR_ANSWERS = {
   // Divergent: provider publishes an address the customer's copy does not.
-  '100.2.0.20': ['mailfilter.provider.test'],
-  '2a01:100::20': ['mailfilter.provider.test'],
+  '20.0.2.100.in-addr.arpa': ['mailfilter.provider.test'],
+  '0.2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.1.0.a.2.ip6.arpa': ['mailfilter.provider.test'],
   // Self-hosted: the reverse name is inside the audited domain, so there is no
   // separate provider name to compare against and step 2 selects no candidate.
-  '100.51.100.5': ['mail.bravo.test'],
+  '5.100.51.100.in-addr.arpa': ['mail.bravo.test'],
   // No PTR published at all — an answer, and therefore a claim of absence.
-  '100.0.113.5': [],
+  '5.113.0.100.in-addr.arpa': [],
   // The lookup did not return. Not a claim either way.
-  '100.0.113.9': SERVFAIL,
+  '9.113.0.100.in-addr.arpa': SERVFAIL,
   // A reverse name that does not forward-confirm: step 3 must stop.
-  '100.0.113.11': ['unconfirmed.provider.test'],
+  '11.113.0.100.in-addr.arpa': ['unconfirmed.provider.test'],
   // Equal address sets: confirmed, compared, and correctly reports nothing.
-  '100.0.113.13': ['equal.provider.test'],
+  '13.113.0.100.in-addr.arpa': ['equal.provider.test'],
   // Divergent again, on a second domain.
-  '100.51.100.10': ['mailfilter.provider.test'],
+  '10.100.51.100.in-addr.arpa': ['mailfilter.provider.test'],
 };
 const FORWARD_ANSWERS = {
   'mailfilter.provider.test': { A: ['100.2.0.20', '100.51.100.10', '100.9.9.9'], AAAA: ['2a01:100::20'] },
@@ -56,21 +91,61 @@ const FORWARD_ANSWERS = {
   'equal.provider.test': { A: ['100.0.113.13'], AAAA: [] },
 };
 
-/* ── A resolver that records every question asked ─────────────────────── */
+/* ── The real cache and transport, over a recording fetch ─────────────── */
 
-function recordingResolver() {
-  const asked = [];
+const NUM_TO_TYPE = Object.fromEntries(
+  Object.entries(DNS_TYPES).map(([name, num]) => [num, name]));
+
+/** A DoH JSON body, in the shape `doh.js` parses. */
+function dohBody(type, values) {
   return {
-    asked,
-    query(name, type) {
-      asked.push(`${name}/${type}`);
+    ok: true,
+    status: 200,
+    json: async () => ({
+      Status: values.length ? 0 : 3,
+      Answer: values.map(data => ({ type: DNS_TYPES[type], data })),
+      AD: false,
+    }),
+  };
+}
+
+/**
+ * Production composition: recording fetch → real transport → real cache → real
+ * resolver. Nothing here is a stand-in for the cache; the cache IS the
+ * production one, so its key and admission rules are the ones under test.
+ */
+function productionStack({ ptrAnswers = PTR_ANSWERS, forwardAnswers = FORWARD_ANSWERS } = {}) {
+  const outbound = [];
+  const platform = {
+    fetch: async (url) => {
+      const params = new URL(String(url)).searchParams;
+      const name = params.get('name');
+      const type = NUM_TO_TYPE[Number(params.get('type'))];
+      outbound.push(`${name}/${type}`);
       if (type === 'PTR') {
-        const answer = PTR_ANSWERS[name];
-        if (answer === SERVFAIL) return null;      // did not return
-        return answer || [];
+        const answer = ptrAnswers[name];
+        if (answer === SERVFAIL) return { ok: true, status: 200, json: async () => ({ Status: 2, Answer: [], AD: false }) };
+        return dohBody('PTR', answer || []);
       }
-      const entry = FORWARD_ANSWERS[name];
-      return entry ? (entry[type] || []) : [];
+      const entry = forwardAnswers[name];
+      return dohBody(type, entry ? (entry[type] || []) : []);
+    },
+    AbortController: globalThis.AbortController,
+    URLSearchParams: globalThis.URLSearchParams,
+    setTimeout: (...a) => globalThis.setTimeout(...a),
+    clearTimeout: (...a) => globalThis.clearTimeout(...a),
+  };
+  const cache = createDohCache();
+  const { dohFetch } = createDohTransport({ platform, cache, dnsError, dnsTypeNum, retries: 0 });
+  const { dohQuery } = createResolver({ dohFetch });
+
+  const above = [];
+  return {
+    outbound,
+    above,
+    async query(name, type) {
+      above.push(`${name}/${type}`);
+      try { return await dohQuery(name, type); } catch (e) { return null; }
     },
   };
 }
@@ -81,7 +156,7 @@ const MAX_HOSTS = 2;          // §4, added by the 0.14 privacy review
 const MAX_ADDRESSES = 4;
 const MAX_CANDIDATES = 2;
 
-function divergenceForDomain(domain, hosts, resolver) {
+async function divergenceForDomain(domain, hosts, resolver) {
   const qualifying = hosts
     .filter(h => h.inAudited && h.resolves === 'yes' && h.reachability !== 'none')
     .sort((a, b) => a.preference - b.preference)
@@ -93,7 +168,7 @@ function divergenceForDomain(domain, hosts, resolver) {
     const names = [];
     let anyReturned = false;
     for (const address of (host.addresses || []).slice(0, MAX_ADDRESSES)) {
-      const answer = resolver.query(address, 'PTR');
+      const answer = await resolver.query(reverseName(address), 'PTR');
       if (answer === null) continue;              // per-address, never per-host
       anyReturned = true;
       names.push(...answer);
@@ -109,9 +184,9 @@ function divergenceForDomain(domain, hosts, resolver) {
       candidates.push(candidate);
     }
 
-    const providerA = resolver.query(candidate, 'A');
-    const providerAAAA = resolver.query(candidate, 'AAAA');
-    const provider = [...providerA, ...providerAAAA];
+    const providerA = await resolver.query(candidate, 'A');
+    const providerAAAA = await resolver.query(candidate, 'AAAA');
+    const provider = [...(providerA || []), ...(providerAAAA || [])];
     const confirmed = (host.addresses || []).some(a => provider.includes(a));
     if (!confirmed) continue;                     // step 3 stops
 
@@ -125,8 +200,7 @@ function divergenceForDomain(domain, hosts, resolver) {
 
 /* ── Run it over the real corpus ──────────────────────────────────────── */
 
-function run({ deepChecks }) {
-  const resolver = recordingResolver();
+async function run({ deepChecks, stack = productionStack() }) {
   const findings = [];
   let audited = 0;
   let qualifyingHosts = 0;
@@ -140,35 +214,61 @@ function run({ deepChecks }) {
       const hosts = mxHealth.hosts || [];
       qualifyingHosts += hosts.filter(h =>
         h.inAudited && h.resolves === 'yes' && h.reachability !== 'none').length;
-      findings.push(...divergenceForDomain(result.domain, hosts, resolver));
+      findings.push(...await divergenceForDomain(result.domain, hosts, stack));
     }
   }
-  const ptr = resolver.asked.filter(q => q.endsWith('/PTR'));
-  const forward = resolver.asked.filter(q => !q.endsWith('/PTR'));
-  return { audited, qualifyingHosts, ptr, forward, findings, asked: resolver.asked };
+  return { audited, qualifyingHosts, findings, stack };
 }
 
-const on = run({ deepChecks: true });
+const on = await run({ deepChecks: true });
+const ptrAbove = on.stack.above.filter(q => q.endsWith('/PTR'));
+const fwdAbove = on.stack.above.filter(q => !q.endsWith('/PTR'));
 console.log('OBSERVED, deep checks on');
-console.log(`  domains audited                 : ${on.audited}`);
-console.log(`  qualifying hosts                : ${on.qualifyingHosts}`);
-console.log(`  PTR queries ISSUED              : ${on.ptr.length}`);
-console.log(`  forward-confirm queries ISSUED  : ${on.forward.length}`);
-console.log(`  TOTAL additional queries        : ${on.asked.length}`);
-console.log(`  per audited domain              : ${(on.asked.length / on.audited).toFixed(3)}`);
+console.log(`  domains audited                      : ${on.audited}`);
+console.log(`  qualifying hosts                     : ${on.qualifyingHosts}`);
+console.log(`  procedure calls ABOVE the cache      : ${on.stack.above.length}  (${ptrAbove.length} PTR + ${fwdAbove.length} forward)`);
+console.log(`  requests that LEFT the browser       : ${on.stack.outbound.length}`);
+console.log(`  saved by page-lifetime cache reuse   : ${on.stack.above.length - on.stack.outbound.length}`);
+console.log(`  outbound per audited domain          : ${(on.stack.outbound.length / on.audited).toFixed(3)}`);
 console.log('  findings produced:');
 for (const f of on.findings) console.log(`    ${f.finding.padEnd(22)} ${f.domain} (${f.host})${f.missing ? ' missing ' + JSON.stringify(f.missing) : ''}`);
-console.log('  every question asked:');
-for (const q of on.asked) console.log(`    ${q}`);
+console.log('  every request that left the browser:');
+for (const q of on.stack.outbound) console.log(`    ${q}`);
 
-// The negative control. With the gate off there is no mxHealth to read, so the
-// procedure must issue nothing at all — otherwise the measurement above would
-// be counting queries the gate was supposed to prevent.
-const off = run({ deepChecks: false });
-console.log('\nNEGATIVE CONTROL, deep checks off');
-console.log(`  queries issued                  : ${off.asked.length}  (must be 0)`);
-console.log(`  findings produced               : ${off.findings.length}  (must be 0)`);
-if (off.asked.length !== 0 || off.findings.length !== 0) {
-  console.error('CONTROL FAILED');
-  process.exit(1);
-}
+/* ── Negative controls ────────────────────────────────────────────────── */
+
+// 1. The gate. With deep checks off there is no mxHealth to read, so nothing
+//    may be issued at all — otherwise the count above includes queries the gate
+//    was supposed to prevent.
+const off = await run({ deepChecks: false });
+console.log('\nCONTROL 1 — gate off');
+console.log(`  above the cache: ${off.stack.above.length}   outbound: ${off.stack.outbound.length}   findings: ${off.findings.length}   (all must be 0)`);
+
+// 2. The reuse is the CACHE's, not an accident of the harness. The saving above
+//    comes from one provider name being asked for twice. Rename it on the
+//    second domain and the same procedure must go out again — if the number
+//    does not move, nothing was being deduplicated in the first place.
+const renamed = { ...PTR_ANSWERS, '10.100.51.100.in-addr.arpa': ['second.provider.test'] };
+const renamedForward = { ...FORWARD_ANSWERS, 'second.provider.test': FORWARD_ANSWERS['mailfilter.provider.test'] };
+const byName = await run({ deepChecks: true,
+  stack: productionStack({ ptrAnswers: renamed, forwardAnswers: renamedForward }) });
+console.log('\nCONTROL 2 — a repeated query renamed');
+console.log(`  above the cache: ${byName.stack.above.length}   outbound: ${byName.stack.outbound.length}   (outbound must RISE)`);
+
+// 3. Same, by TYPE. The cache key is name|type|dnssec|cd, so asking the same
+//    name under a different type must miss.
+const typeProbe = productionStack();
+await typeProbe.query('mailfilter.provider.test', 'A');
+const afterFirst = typeProbe.outbound.length;
+await typeProbe.query('mailfilter.provider.test', 'A');      // same key: must reuse
+const afterRepeat = typeProbe.outbound.length;
+await typeProbe.query('mailfilter.provider.test', 'AAAA');   // different type: must miss
+const afterType = typeProbe.outbound.length;
+console.log('\nCONTROL 3 — the cache key includes the type');
+console.log(`  first A: ${afterFirst}   repeated A: ${afterRepeat} (must not rise)   then AAAA: ${afterType} (must rise)`);
+
+const ok = off.stack.above.length === 0 && off.stack.outbound.length === 0 && off.findings.length === 0
+  && byName.stack.outbound.length > on.stack.outbound.length
+  && afterRepeat === afterFirst && afterType === afterFirst + 1;
+console.log(`\nCONTROLS ${ok ? 'PASS' : 'FAILED'}`);
+if (!ok) process.exit(1);

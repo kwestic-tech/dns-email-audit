@@ -30,19 +30,21 @@ Two releases remain:
 
 ## Start here: 0.9.2 awaits approval, not investigation
 
-Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) `0.15`,
+Spec: [`docs/specs/mx-host-validity.md`](docs/specs/mx-host-validity.md) `0.16`,
 §7. **The privacy review is done and its fan-out is executed, not projected. 0.9.2
 is not started and must not begin until `OQ-MXV-03` is accepted and the document
 is promoted to `1.0 (Final)`.**
 
 What the review established, before any 0.9.2 code was written:
 
-- **The fan-out is small, and it was executed rather than counted.** A
-  measurement-only spike runs §4 against a recording resolver with a negative
-  control: **8 `PTR` and 8 forward-confirm queries, 16 in total, 0.200 per
-  audited domain** — 14 through the page cache. The first draft projected 8 by
-  counting stored addresses and called it measured; forward-confirm is per
-  candidate and doubles it. Evidence:
+- **The fan-out is small, and it was executed — including what leaves the
+  browser.** A measurement-only spike runs §4 through the **production cache and
+  transport** with a recording `fetch` beneath: **16 calls above the cache, 14
+  requests actually sent, 0.175 per audited domain**, with three controls. Two
+  earlier drafts got this wrong in the same way at different layers — the first
+  counted stored addresses and called it measured; the second measured the 16
+  calls and *calculated* the 14. `PRIVACY.md` speaks in outbound requests, so 14
+  is the figure, and it is now observed at the transport seam. Evidence:
   [`fixtures/ptr-fan-out-0.9.2.md`](docs/specs/fixtures/ptr-fan-out-0.9.2.md).
   A domain whose MX hosts are named by its provider — the common case for hosted
   mail — costs **nothing**, because the gate requires an in-domain MX host.
@@ -60,8 +62,11 @@ What the review established, before any 0.9.2 code was written:
   is investigating this address and links it to the provider name and the rest of
   the run. §7.4 weighs that and still declines a separate control, because the
   correlation is already inferable from the MX, `A`, `CNAME` and `TLSA` queries
-  the same page issues for the same host, and nothing outlives the page. It also
-  names what would reverse the decision.
+  the same page issues for the same host, and 0.9.2 adds no application-level
+  identifier, persistence, or new recipient. It does **not** claim a run is
+  unlinkable to another — Cloudflare can correlate runs from ordinary connection
+  metadata, and `PRIVACY.md` promises nothing to the contrary. §7.4 names what
+  would reverse the decision.
 - **`OQ-MXV-03` is open, on purpose.** The evidence exists; accepting it is the
   reviewer's call, and it is the last thing between this document and
   `1.0 (Final)`.
@@ -126,7 +131,7 @@ no implementation phase. Review it as a decision document alongside the
 
 - Work on a branch, never on `main`.
 - A spec is Final before implementation starts. For a multi-release spec, that
-  is per release: `mx-host-validity` `0.15` covers 0.9.1, which shipped, and
+  is per release: `mx-host-validity` `0.16` covers 0.9.1, which shipped, and
   0.9.2, which is not approved.
 - A task is boundable to one owning directory; cross-directory work is split
   into separate commits with an architectural explanation.
