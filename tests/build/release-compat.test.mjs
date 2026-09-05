@@ -1120,16 +1120,39 @@ function stripMxDivergence(resultEntries) {
  * Pinned per case and summed, not merely bounded: a rule that only checked the
  * total would accept the same eight queries landing on different domains.
  */
-const AUTHORIZED_TRACE_DELTA = {
-  'enforcing-signed': 2,
-  'bare-registered': 1,
-  'cache-reuse-siblings': 1,
-  'dnssec-bogus': 1,
-  'dnssec-orphan-ds': 1,
-  'hygiene-sentinels': 1,
-  'website-probe-off': 1,
+/**
+ * The exact questions 0.9.2 adds, per case, with their counts and their
+ * transport options.
+ *
+ * Counting the delta was not enough. A guard that compared totals, distinct
+ * counts and "questions absent from the old set" accepted removing
+ * `_25._tcp.mail.bravo.test TLSA` and adding a second reverse question in its
+ * place: totals held, and the addition still looked like a reverse zone. The
+ * comparison below is a multiset equality — every old entry and count must
+ * survive, and the additions must be these exact strings, `do=`/`cd=` included.
+ */
+const AUTHORIZED_TRACE_ADDITIONS = {
+  'enforcing-signed': [
+    ['0.2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.1.0.a.2.ip6.arpa PTR do=0 cd=0', 1],
+    ['20.0.2.100.in-addr.arpa PTR do=0 cd=0', 1],
+  ],
+  'bare-registered': [['5.100.51.100.in-addr.arpa PTR do=0 cd=0', 1]],
+  'cache-reuse-siblings': [['5.113.0.100.in-addr.arpa PTR do=0 cd=0', 1]],
+  // Checking-disabled, because this case audits a bogus DNSSEC chain and the
+  // reverse lookup inherits the same query options as the rest of the run.
+  'dnssec-bogus': [['9.113.0.100.in-addr.arpa PTR do=0 cd=1', 1]],
+  'dnssec-orphan-ds': [['11.113.0.100.in-addr.arpa PTR do=0 cd=0', 1]],
+  'hygiene-sentinels': [['13.113.0.100.in-addr.arpa PTR do=0 cd=0', 1]],
+  'website-probe-off': [['10.100.51.100.in-addr.arpa PTR do=0 cd=0', 1]],
 };
 const AUTHORIZED_TRACE_TOTAL = 8;
+
+/** `queries` as a question -> count map. */
+function queryCounts(trace) {
+  const counts = new Map();
+  for (const q of trace.queries || []) counts.set(q.query, (counts.get(q.query) || 0) + q.count);
+  return counts;
+}
 
 /**
  * 0.9.2 adds exactly one case, and its identity is pinned.
@@ -1141,6 +1164,28 @@ const AUTHORIZED_TRACE_TOTAL = 8;
  */
 const AUTHORIZED_NEW_CASE = 'mx-vanity-divergence';
 
+/**
+ * The new case has no `v0.9.1` counterpart to differ from, so it is bound by a
+ * fixed expected shape rather than by a diff. Having no predecessor is a reason
+ * to content-address it, not a reason to leave it outside the rule: an earlier
+ * version skipped it entirely and checked a few spot values underneath, which
+ * bound nothing about the rest of its result, CSV, DOM, report or trace.
+ *
+ * The report's recorded form carries no finding text — it is a structure of tag
+ * names, a length and a hash — so presence of a finding *in the report* is
+ * established by pinning it, not by matching an id inside it. The id-level
+ * end-to-end claim is made against issues, findings, remediation, CSV and DOM,
+ * where the ids are actually visible.
+ */
+const NEW_CASE_SURFACES = Object.freeze({
+  result: 'ee4a9bd378f08a9960a25c255b488c905d9d18c515d00afb559fbe2e1cf353b2',
+  csv: '017f9e81cb9a1bbe75f41f40a5b3cc27914003a564e482dc8e2dfcb9d3864a46',
+  dom: 'af4ed72b9ff8143e31ed37f1a4f9bdc484f930f1433e05f4ce6213fd12115113',
+  report: '7089196c27aae26a9dbfb1a2100d3e87c152ced12a1016d784d6fa738fdd10a7',
+  trace: 'c125036cb445c632724fa661661d132b50dd0f1135512290828326b69d483ccc',
+});
+const surfaceHash = value => sha256(JSON.stringify(value));
+
 function release092Violations(after) {
   const violations = [];
   const expectedCases = [...release091ById.keys(), AUTHORIZED_NEW_CASE].sort();
@@ -1150,9 +1195,15 @@ function release092Violations(after) {
   let traceTotal = 0;
   for (const c of after.cases) {
     const id = c.id;
-    // The new case has no `v0.9.1` counterpart to differ from; it is pinned
-    // separately below, by what it must produce rather than by what it moved.
-    if (id === AUTHORIZED_NEW_CASE) continue;
+    // Bound, not exempted: every one of its five surfaces is content-addressed.
+    if (id === AUTHORIZED_NEW_CASE) {
+      for (const surface of ['result', 'csv', 'dom', 'report', 'trace']) {
+        if (surfaceHash(c[surface]) !== NEW_CASE_SURFACES[surface]) {
+          violations.push(id + ':' + surface);
+        }
+      }
+      continue;
+    }
     const before = release091ById.get(id);
 
     // Scores and grades do not move. The findings are advisory.
@@ -1168,21 +1219,25 @@ function release092Violations(after) {
     if (JSON.stringify(c.dom) !== JSON.stringify(before.dom)) violations.push(id + ':dom');
     if (JSON.stringify(c.report) !== JSON.stringify(before.report)) violations.push(id + ':report');
 
-    // The trace moves by exactly the measured amount, in exactly these cases,
-    // and in no other way: the queries themselves are otherwise untouched.
-    const expected = AUTHORIZED_TRACE_DELTA[id] || 0;
+    // The question multiset must be the old one plus exactly the authorized
+    // additions. Nothing may be removed, substituted, or re-typed.
+    const expectedCounts = queryCounts(before.trace);
+    for (const [question, count] of AUTHORIZED_TRACE_ADDITIONS[id] || []) {
+      expectedCounts.set(question, (expectedCounts.get(question) || 0) + count);
+    }
+    const actualCounts = queryCounts(c.trace);
+    const asPairs = m => [...m.entries()].sort((x, y) => (x[0] < y[0] ? -1 : 1));
+    if (JSON.stringify(asPairs(actualCounts)) !== JSON.stringify(asPairs(expectedCounts))) {
+      violations.push(id + ':trace-queries');
+    }
+
+    const expectedDelta = (AUTHORIZED_TRACE_ADDITIONS[id] || []).reduce((n, [, c2]) => n + c2, 0);
     const actual = c.trace.total - before.trace.total;
     traceTotal += actual;
-    if (actual !== expected || c.trace.distinct - before.trace.distinct !== expected) {
+    if (actual !== expectedDelta || c.trace.distinct - before.trace.distinct !== expectedDelta) {
       violations.push(id + ':trace');
     }
     const strip = t => ({ ...t, total: 0, distinct: 0, queries: undefined });
-    // `queries` is a list of { query, count }, so compare the question text.
-    // Every question 0.9.2 adds must be a reverse lookup; anything else is a
-    // different disclosure wearing the authorized count.
-    const askedBefore = new Set((before.trace.queries || []).map(q => q.query));
-    const added = (c.trace.queries || []).filter(q => !askedBefore.has(q.query));
-    if (added.some(q => !/\.(in-addr|ip6)\.arpa\b/.test(q.query))) violations.push(id + ':trace-shape');
     if (JSON.stringify(strip(c.trace)) !== JSON.stringify(strip(before.trace))) violations.push(id + ':trace-other');
   }
   if (traceTotal !== AUTHORIZED_TRACE_TOTAL) violations.push('trace-total');
@@ -1219,6 +1274,22 @@ eq('and it issues exactly two reverse lookups',
   (newCase.trace.queries || []).map(q => q.query).filter(q => /\.arpa\b/.test(q)).sort(),
   ['10.0.3.100.in-addr.arpa PTR do=0 cd=0', '20.0.4.100.in-addr.arpa PTR do=0 cd=0']);
 eq('its trace total is pinned', newCase.trace.total, 43);
+
+// The end-to-end claim, made where the ids are actually visible.
+const BOTH_IDS = ['mx.no-reverse-dns', 'mx.vanity-divergent'];
+eq('both findings appear in findings[]',
+  newResult.findings.map(f => f.id).filter(id => BOTH_IDS.includes(id)).sort(), BOTH_IDS);
+eq('both appear in the remediation plan',
+  [...new Set((newResult.remediationPlan || []).flatMap(step => step.findings || []))]
+    .filter(id => BOTH_IDS.includes(id)).sort(), BOTH_IDS);
+eq('both reach the CSV',
+  BOTH_IDS.filter(id => JSON.stringify(newCase.csv).includes(id)), BOTH_IDS);
+eq('both reach the DOM',
+  BOTH_IDS.filter(id => JSON.stringify(newCase.dom).includes(id)), BOTH_IDS);
+// The report records no finding text, so it is bound by its hash instead —
+// stated rather than implied.
+eq('and the report is pinned by content, which is all its recorded form allows',
+  surfaceHash(newCase.report), NEW_CASE_SURFACES.report);
 
 // The new fields are really present, or the rule above compares nothing.
 const mxHealths092 = release092.cases
@@ -1295,11 +1366,66 @@ movedTrace092.cases.find(c => c.id === 'bare-registered').trace.distinct += 1;
 eq('a query moved onto another domain is caught',
   release092Violations(movedTrace092).filter(v => v.endsWith(':trace')), ['bare-registered:trace']);
 
-// And a query that is not a reverse lookup is not what 0.9.2 authorized.
-const wrongShape092 = structuredClone(release092);
-const wsCase = wrongShape092.cases.find(c => c.id === 'bare-registered');
-wsCase.trace.queries = [...(wsCase.trace.queries || []), { query: 'unauthorized.example TXT do=0 cd=0', count: 1 }];
-eq('an added query that is not a reverse lookup is caught',
-  release092Violations(wrongShape092).filter(v => v.endsWith(':trace-shape')), ['bare-registered:trace-shape']);
+/* The new case is bound on every surface, so every surface has a control. */
+
+for (const surface of ['result', 'csv', 'dom', 'report', 'trace']) {
+  const mutated = structuredClone(release092);
+  const target = mutated.cases.find(c => c.id === AUTHORIZED_NEW_CASE);
+  if (surface === 'result') target.result[0].result.domain = 'mutated.test';
+  else if (surface === 'csv') target.csv.lines[0] = '"inserted",' + target.csv.lines[0];
+  else if (surface === 'dom') target.dom.push('unauthorized node');
+  else if (surface === 'report') target.report.length += 1;
+  else target.trace.total += 1;
+  eq(`a change to the new case's ${surface} is caught`,
+    release092Violations(mutated).filter(v => v === AUTHORIZED_NEW_CASE + ':' + surface),
+    [AUTHORIZED_NEW_CASE + ':' + surface]);
+}
+
+// Substitution: remove an old question and add an authorized-looking reverse
+// one in its place. Totals, distinct counts and "the addition looks like a
+// reverse zone" all still hold — which is exactly how this passed before.
+const substituted092 = structuredClone(release092);
+{
+  const t = substituted092.cases.find(c => c.id === 'bare-registered').trace;
+  t.queries = t.queries
+    .filter(q => !q.query.startsWith('_25._tcp.mail.bravo.test TLSA'))
+    .concat([{ query: '99.100.51.100.in-addr.arpa PTR do=0 cd=0', count: 1 }]);
+}
+eq('a removed question replaced by a reverse lookup is caught',
+  release092Violations(substituted092).filter(v => v.endsWith(':trace-queries')),
+  ['bare-registered:trace-queries']);
+
+// A reverse-zone NAME asked under the wrong type is not what was authorized.
+const wrongType092 = structuredClone(release092);
+{
+  const t = wrongType092.cases.find(c => c.id === 'bare-registered').trace;
+  t.queries = t.queries.map(q => (q.query === '5.100.51.100.in-addr.arpa PTR do=0 cd=0'
+    ? { ...q, query: '5.100.51.100.in-addr.arpa TXT do=0 cd=0' } : q));
+}
+eq('a reverse-zone name asked as TXT is caught',
+  release092Violations(wrongType092).filter(v => v.endsWith(':trace-queries')),
+  ['bare-registered:trace-queries']);
+
+// And the transport options are part of the authorized question.
+const wrongOpts092 = structuredClone(release092);
+{
+  const t = wrongOpts092.cases.find(c => c.id === 'bare-registered').trace;
+  t.queries = t.queries.map(q => (q.query === '5.100.51.100.in-addr.arpa PTR do=0 cd=0'
+    ? { ...q, query: '5.100.51.100.in-addr.arpa PTR do=1 cd=0' } : q));
+}
+eq('the same question under different transport options is caught',
+  release092Violations(wrongOpts092).filter(v => v.endsWith(':trace-queries')),
+  ['bare-registered:trace-queries']);
+
+// A silently dropped question, with nothing added.
+const dropped092 = structuredClone(release092);
+{
+  const t = dropped092.cases.find(c => c.id === 'bare-registered').trace;
+  t.queries = t.queries.filter(q => !q.query.startsWith('_25._tcp.mail.bravo.test TLSA'));
+  t.total -= 1; t.distinct -= 1;
+}
+eq('a question removed and not replaced is caught',
+  release092Violations(dropped092).filter(v => v.endsWith(':trace-queries')),
+  ['bare-registered:trace-queries']);
 
 report();
