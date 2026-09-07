@@ -783,9 +783,9 @@
   },
   {
    "path": "tests/build/release-compat.test.mjs",
-   "assertions": 95,
+   "assertions": 108,
    "areas": [
-    "the v0.7.0, v0.8.0, v0.9.0 and v0.9.1 baselines cover the same deterministic cases",
+    "the v0.7.0 through v0.9.3 baselines cover the authorized deterministic case sets",
     "audit results and DNS traces remain byte-identical from v0.7.0 to v0.8.0",
     "v0.8.0 CSV changes only through three appended artifact cells and one exact MTA-STS wording replacement",
     "v0.8.0 DOM changes only through the exact MTA-STS wording replacement",
@@ -796,7 +796,10 @@
     "v0.9.0 report changes are bounded to the named comparison CSS block, its byte count and the document length, with the hash required to move",
     "negative controls prove every v0.9.0 rule fails, including a second new result field and a different addition of exactly the authorized size",
     "v0.9.2 query traces are an exact multiset equality — the v0.9.1 trace plus named questions at named counts — with substitution, wrong-type, wrong-transport-option and silent-drop controls",
-    "the one authorized new case is bound by content hash on all five surfaces, with a per-surface mutation control, and both 0.9.2 findings are proven to reach findings, remediation, CSV and DOM"
+    "the one authorized new case is bound by content hash on all five surfaces, with a per-surface mutation control, and both 0.9.2 findings are proven to reach findings, remediation, CSV and DOM",
+    "v0.9.3 adds one path-scoped multihomed boolean to every MX host, with exactly one corpus host true and no score or query-trace movement",
+    "v0.9.3 removes mx.single-host only from the multihomed case, with exact result, CSV and DOM reconstruction and bounded report movement",
+    "negative controls prove the v0.9.3 result, fact value, score, trace, CSV, DOM and report guards fail"
    ]
   },
   {
@@ -819,9 +822,9 @@
  "notInNpmTest": [
   {
    "command": "npm run equivalence",
-   "why": "The five-surface comparison against the finished release baseline. Roughly 70 s for 32 cases, so it runs in CI rather than inside npm test; release-compat.test.mjs separately bounds the intentional v0.7.0 to v0.8.0, v0.8.0 to v0.9.0 and v0.9.0 to v0.9.1 deltas. The pre-refactor v0.5.0 oracle was retired at 0.9.1: it was regenerated from the v0.5.0 implementation over the CURRENT corpus, which made the shared corpus immutable.",
+   "why": "The five-surface comparison against the finished release baseline. Roughly 70 s for 33 cases, so it runs in CI rather than inside npm test; release-compat.test.mjs separately bounds every intentional delta from v0.7.0 through v0.9.3. The pre-refactor v0.5.0 oracle was retired at 0.9.1: it was regenerated from the v0.5.0 implementation over the CURRENT corpus, which made the shared corpus immutable.",
    "areas": [
-    "exact five-surface equivalence against v0.9.0: result, query trace, CSV, HTML report, DOM"
+    "exact five-surface equivalence against v0.9.3: result, query trace, CSV, HTML report, DOM"
    ]
   },
   {

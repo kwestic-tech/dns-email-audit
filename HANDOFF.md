@@ -2,7 +2,7 @@
 
 ## Current state
 
-Released through `v0.9.2`. An MX host is now read for what it resolves to, not
+Released through `v0.9.3`. An MX host is now read for what it resolves to, not
 only for whether it resolves: every resolved address is classified against the
 IANA special-purpose registries, so a host answering only loopback, private,
 link-local, carrier-shared, documentation or reserved space is reported as
@@ -32,6 +32,16 @@ carried a privacy review before any code: measured through the shipping code,
 **8 additional queries across the corpus's 80 audited domains**, 0 for a domain
 whose MX hosts are provider-named, 12 as the per-domain ceiling. Neither finding
 moves a score or a grade.
+
+`v0.9.3` corrects the remaining resilience interpretation against its governing
+standard. RFC 5321 §5.1 treats multiple MX records and multiple addresses on a
+multihomed target as alternative delivery paths, and requires an SMTP sender to
+try the relevant list. A sole target with at least two distinct globally
+reachable addresses therefore no longer raises `mx.single-host`. Its expanded
+row shows the complete IPv4 and IPv6 set instead of four values and an
+ellipsis. The release also adds [`docs/rfc-appendix.md`](docs/rfc-appendix.md),
+which maps every cited standard to the code that applies it. No DNS question,
+score, grade, or published fan-out figure moves.
 
 One release remains:
 
@@ -106,7 +116,8 @@ The 1.0.0 readiness review continues independently.
 | 0.9.0 | [report-comparison](docs/specs/implemented/report-comparison.md) | Released as `v0.9.0` | Versioned JSON schema, import validation and stateless comparison |
 | 0.9.1 | [mx-host-validity](docs/specs/implemented/mx-host-validity.md) | Released as `v0.9.1` | MX address-scope classification; address-literal and null-MX-conflict diagnosis |
 | 0.9.2 | [mx-host-validity](docs/specs/implemented/mx-host-validity.md) | Released as `v0.9.2` | Forward-confirmed reverse DNS and provider address-set divergence |
-| 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.2 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
+| 0.9.3 | [mx-host-validity](docs/specs/implemented/mx-host-validity.md) | Released as `v0.9.3` | RFC 5321 multihoming correction, complete address display, and RFC appendix |
+| 1.0.0 | [one-zero-readiness](docs/specs/one-zero-readiness.md) | 0.7.0–0.9.3 released; spec must still be reviewed to Final | Supported 1.x compatibility, browser, accessibility and production contract |
 
 ### 0.8.0 boundary
 
@@ -150,8 +161,8 @@ no implementation phase. Review it as a decision document alongside the
 
 - Work on a branch, never on `main`.
 - A spec is Final before implementation starts. For a multi-release spec, that
-  is per release: `mx-host-validity` covered 0.9.1 and 0.9.2, both of which have
-  now shipped, so the document is in `implemented/`.
+  is per release: `mx-host-validity` covered 0.9.1 and 0.9.2 and was amended for
+  the 0.9.3 correction; all have shipped, so the document is in `implemented/`.
 - A task is boundable to one owning directory; cross-directory work is split
   into separate commits with an architectural explanation.
 - Resolver and generated data dependencies are passed, never imported by their

@@ -25,6 +25,7 @@ const release080 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalenc
 const release090 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.9.0.json'), 'utf8'));
 const release091 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.9.1.json'), 'utf8'));
 const release092 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.9.2.json'), 'utf8'));
+const release093 = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/equivalence/baseline-v0.9.3.json'), 'utf8'));
 const { eq, section, report } = createSuite();
 
 const byId = document => new Map(document.cases.map(c => [c.id, c]));
@@ -1449,5 +1450,305 @@ const dropped092 = structuredClone(release092);
 eq('a question removed and not replaced is caught',
   release092Violations(dropped092).filter(v => v.endsWith(':trace-queries')),
   ['bare-registered:trace-queries']);
+
+/* ── 0.9.3: RFC 5321 multihoming ──────────────────────────────────────── */
+
+const release092ById = byId(release092);
+const MULTIHOMED_CASE = 'enforcing-signed';
+const MULTIHOMED_HOST = 'mail.alpha.test';
+const SINGLE_HOST_ID = 'mx.single-host';
+const SINGLE_HOST_KEY = 'mx-single-host';
+const SINGLE_HOST_ISSUE = Object.freeze({
+  args: [MULTIHOMED_HOST],
+  key: SINGLE_HOST_KEY,
+  sev: 'info',
+});
+const SINGLE_HOST_FINDING = Object.freeze({
+  args: [MULTIHOMED_HOST],
+  blocks: [],
+  category: 'resilience',
+  confidence: 'confirmed',
+  dependsOn: [],
+  effort: 'moderate',
+  evidence: [{ kind: 'host', queryName: 'alpha.test', value: '10 mail.alpha.test' }],
+  id: SINGLE_HOST_ID,
+  key: SINGLE_HOST_KEY,
+  keyspace: 'issue',
+  noteArgs: { $undefined: true },
+  noteKey: { $undefined: true },
+  protocol: 'mx',
+  severity: 'info',
+});
+
+function stripMxMultihoming(resultEntries) {
+  const copy = structuredClone(resultEntries);
+  for (const entry of copy) {
+    const mxHealth = entry && entry.result && entry.result.advanced
+      && entry.result.advanced.mxHealth;
+    if (!mxHealth) continue;
+    for (const host of mxHealth.hosts || []) delete host.multihomed;
+  }
+  return copy;
+}
+
+function removeSingleHostFromResult(resultEntries) {
+  const copy = structuredClone(resultEntries);
+  let issues = 0;
+  let findings = 0;
+  let planFindings = 0;
+  let shapeHeld = true;
+  for (const entry of copy) {
+    const r = entry && entry.result;
+    if (!r) continue;
+    for (const issue of (r.issues || []).filter(i => i.key === SINGLE_HOST_KEY)) {
+      issues++;
+      if (!deepEqual(issue, SINGLE_HOST_ISSUE)) shapeHeld = false;
+    }
+    r.issues = (r.issues || []).filter(i => i.key !== SINGLE_HOST_KEY);
+    for (const finding of (r.findings || []).filter(f => f.id === SINGLE_HOST_ID)) {
+      findings++;
+      if (!deepEqual(finding, SINGLE_HOST_FINDING)) shapeHeld = false;
+    }
+    r.findings = (r.findings || []).filter(f => f.id !== SINGLE_HOST_ID);
+    for (const step of r.remediationPlan || []) {
+      const count = (step.findings || []).filter(id => id === SINGLE_HOST_ID).length;
+      planFindings += count;
+      step.findings = (step.findings || []).filter(id => id !== SINGLE_HOST_ID);
+    }
+  }
+  return shapeHeld && issues === 1 && findings === 1 && planFindings === 1 ? copy : null;
+}
+
+const SINGLE_HOST_CSV_MESSAGE = 'Only one MX host is published: mail.alpha.test '
+  + '— mail queues at the sender while it is unreachable.';
+
+function removeSingleHostFromCsv(lines) {
+  const rows = csvRows(lines);
+  const header = rows[0] || [];
+  const issuesColumn = header.indexOf('Issues');
+  const idColumn = header.indexOf('Finding IDs');
+  const severityColumn = header.indexOf('Finding Severities');
+  const planColumn = header.indexOf('Remediation Step 1');
+  if ([issuesColumn, idColumn, severityColumn, planColumn].some(i => i < 0)) return null;
+  let ok = true;
+  const mapped = rows.map((cells, rowIndex) => {
+    if (rowIndex === 0) return cells;
+    const parts = column => cells[column].split(' | ');
+    const issueParts = parts(issuesColumn);
+    const idParts = parts(idColumn);
+    const severityParts = parts(severityColumn);
+    const planParts = parts(planColumn);
+    const idAt = idParts.indexOf(SINGLE_HOST_ID);
+    if (issueParts.filter(x => x === SINGLE_HOST_CSV_MESSAGE).length !== 1
+      || idParts.filter(x => x === SINGLE_HOST_ID).length !== 1
+      || planParts.filter(x => x === SINGLE_HOST_ID).length !== 1
+      || idAt < 0 || severityParts[idAt] !== 'info') ok = false;
+    const next = [...cells];
+    next[issuesColumn] = issueParts.filter(x => x !== SINGLE_HOST_CSV_MESSAGE).join(' | ');
+    next[idColumn] = idParts.filter(x => x !== SINGLE_HOST_ID).join(' | ');
+    next[severityColumn] = severityParts.filter((_, i) => i !== idAt).join(' | ');
+    next[planColumn] = planParts.filter(x => x !== SINGLE_HOST_ID).join(' | ');
+    return next;
+  });
+  return ok ? mapped : null;
+}
+
+const SINGLE_HOST_DOM_SUBTREES = Object.freeze([
+  { role: 'finding', lines: 34, sha256: '64592741d4ceb909eec5c29631ffcb60687fc87849202846229853f8efd7c8e7' },
+  { role: 'plan-finding', lines: 6, sha256: 'bf655bd74dc6c5cd2e27cd3cc77702dc23c1b4af330a47613d35600990281736' },
+]);
+
+function removeSingleHostFromDom(lines) {
+  const seen = [];
+  const out = [];
+  let openLabels = 0;
+  let buttonLabels = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/data-finding-id="mx\.single-host"/.test(line)) {
+      const end = subtreeEnd(lines, i);
+      const body = lines.slice(i, end);
+      seen.push({
+        role: /class="plan-finding"/.test(line) ? 'plan-finding' : 'finding',
+        lines: body.length,
+        sha256: sha256(body.join('\n')),
+      });
+      i = end - 1;
+      continue;
+    }
+    if (line.includes('data-open-label="Show 4 more"')) {
+      openLabels++;
+      out.push(line.replace('data-open-label="Show 4 more"', 'data-open-label="Show 3 more"'));
+      continue;
+    }
+    if (line.includes('#3 "Show 4 more"')) {
+      buttonLabels++;
+      out.push(line.replace('#3 "Show 4 more"', '#3 "Show 3 more"'));
+      continue;
+    }
+    out.push(line);
+  }
+  return openLabels === 1 && buttonLabels === 1
+    && JSON.stringify(seen) === JSON.stringify(SINGLE_HOST_DOM_SUBTREES) ? out : null;
+}
+
+const SINGLE_HOST_REPORT_REMOVALS = 'div span /span div span /span div span /span '
+  + 'span /span div div div code span /span /code span span /span /span /div '
+  + 'button /button /div div /div div /div div /div /div /div /div /div /div '
+  + '/div /div div div div div span /span div span /span /div /div';
+const SINGLE_HOST_REPORT_LENGTH_DELTA = -1807;
+
+function removedReportTokens(before, after) {
+  const oldTokens = before.split(' ');
+  const newTokens = after.split(' ');
+  const removed = [];
+  let next = 0;
+  for (const token of oldTokens) {
+    if (token === newTokens[next]) next++;
+    else removed.push(token);
+  }
+  return next === newTokens.length ? removed.join(' ') : null;
+}
+
+function csvMetadataHolds(csv) {
+  const text = csv.lines.join('\n');
+  return csv.bytes === Buffer.byteLength(text, 'utf8') && csv.sha256 === sha256(text);
+}
+
+function release093Violations(after) {
+  const violations = [];
+  if (JSON.stringify([...byId(after).keys()].sort()) !== JSON.stringify([...release092ById.keys()].sort())) {
+    return ['case-set'];
+  }
+  for (const c of after.cases) {
+    const before = release092ById.get(c.id);
+    const id = c.id;
+    const mxHealths = c.result
+      .map(e => e.result && e.result.advanced && e.result.advanced.mxHealth)
+      .filter(Boolean);
+    for (const mxHealth of mxHealths) {
+      for (const host of mxHealth.hosts || []) {
+        const expected = id === MULTIHOMED_CASE && host.host === MULTIHOMED_HOST;
+        if (host.multihomed !== expected) violations.push(id + ':multihomed');
+      }
+    }
+
+    if (JSON.stringify(scoresOf(c)) !== JSON.stringify(scoresOf(before))) violations.push(id + ':score');
+    if (JSON.stringify(c.trace) !== JSON.stringify(before.trace)) violations.push(id + ':trace');
+
+    const expectedResult = id === MULTIHOMED_CASE
+      ? removeSingleHostFromResult(before.result) : before.result;
+    if (!expectedResult
+      || JSON.stringify(stripMxMultihoming(c.result)) !== JSON.stringify(expectedResult)) {
+      violations.push(id + ':result');
+    }
+
+    if (id !== MULTIHOMED_CASE) {
+      if (JSON.stringify(c.csv) !== JSON.stringify(before.csv)) violations.push(id + ':csv');
+      if (JSON.stringify(c.dom) !== JSON.stringify(before.dom)) violations.push(id + ':dom');
+      if (JSON.stringify(c.report) !== JSON.stringify(before.report)) violations.push(id + ':report');
+      continue;
+    }
+
+    const expectedCsvRows = removeSingleHostFromCsv(before.csv.lines);
+    if (!expectedCsvRows || JSON.stringify(csvRows(c.csv.lines)) !== JSON.stringify(expectedCsvRows)
+      || !csvMetadataHolds(c.csv)) violations.push(id + ':csv');
+
+    const expectedDom = removeSingleHostFromDom(before.dom);
+    if (!expectedDom || JSON.stringify(c.dom) !== JSON.stringify(expectedDom)) violations.push(id + ':dom');
+
+    const oldReport = before.report;
+    const newReport = c.report;
+    const reportIsBounded =
+      newReport.generated === oldReport.generated
+      && JSON.stringify(newReport.bytes) === JSON.stringify(oldReport.bytes)
+      && newReport.length === oldReport.length + SINGLE_HOST_REPORT_LENGTH_DELTA
+      && removedReportTokens(oldReport.structure, newReport.structure) === SINGLE_HOST_REPORT_REMOVALS
+      && newReport.sha256 !== oldReport.sha256;
+    if (!reportIsBounded) violations.push(id + ':report');
+  }
+  return violations;
+}
+
+section('The 0.9.3 difference class is exact');
+
+eq('the 0.9.3 baseline differs only by its authorized surface changes',
+  release093Violations(release093), []);
+
+const mxHosts093 = release093.cases.flatMap(c => c.result.flatMap(e => {
+  const mxHealth = e.result && e.result.advanced && e.result.advanced.mxHealth;
+  return (mxHealth && mxHealth.hosts || []).map(host => ({ caseId: c.id, host }));
+}));
+eq('every MX host carries the new boolean fact',
+  [mxHosts093.length > 0, mxHosts093.filter(x => typeof x.host.multihomed !== 'boolean').length],
+  [true, 0]);
+eq('only the RFC 5321 multihomed fixture is true',
+  mxHosts093.filter(x => x.host.multihomed).map(x => [x.caseId, x.host.host]),
+  [[MULTIHOMED_CASE, MULTIHOMED_HOST]]);
+
+section('Every 0.9.3 compatibility rule has a negative control');
+
+const result093 = structuredClone(release093);
+result093.cases[0].result[0].result.domain = 'mutated.test';
+eq('a result movement outside multihoming is caught',
+  release093Violations(result093).filter(v => v.endsWith(':result')),
+  [release093.cases[0].id + ':result']);
+
+const missingFact093 = structuredClone(release093);
+delete missingFact093.cases[0].result[0].result.advanced.mxHealth.hosts[0].multihomed;
+eq('a missing multihoming fact is caught',
+  release093Violations(missingFact093).filter(v => v.endsWith(':multihomed')),
+  [release093.cases[0].id + ':multihomed']);
+
+const wrongFact093 = structuredClone(release093);
+wrongFact093.cases.find(c => c.id === 'bare-registered')
+  .result[0].result.advanced.mxHealth.hosts[0].multihomed = true;
+eq('a true fact on the wrong host is caught',
+  release093Violations(wrongFact093).filter(v => v.endsWith(':multihomed')),
+  ['bare-registered:multihomed']);
+
+const score093 = structuredClone(release093);
+score093.cases[0].result[0].result.score.pts += 1;
+eq('a score movement is caught',
+  release093Violations(score093).filter(v => v.endsWith(':score')),
+  [release093.cases[0].id + ':score']);
+
+const trace093 = structuredClone(release093);
+trace093.cases[0].trace.total += 1;
+eq('a query-trace movement is caught',
+  release093Violations(trace093).filter(v => v.endsWith(':trace')),
+  [release093.cases[0].id + ':trace']);
+
+const csv093 = structuredClone(release093);
+csv093.cases.find(c => c.id === MULTIHOMED_CASE).csv.lines[0] =
+  '"inserted",' + csv093.cases.find(c => c.id === MULTIHOMED_CASE).csv.lines[0];
+eq('an unrelated CSV change in the authorized case is caught',
+  release093Violations(csv093).filter(v => v.endsWith(':csv')),
+  [MULTIHOMED_CASE + ':csv']);
+
+const dom093 = structuredClone(release093);
+dom093.cases.find(c => c.id === MULTIHOMED_CASE).dom.push('unauthorized node');
+eq('an unrelated DOM change in the authorized case is caught',
+  release093Violations(dom093).filter(v => v.endsWith(':dom')),
+  [MULTIHOMED_CASE + ':dom']);
+
+const reportLength093 = structuredClone(release093);
+reportLength093.cases.find(c => c.id === MULTIHOMED_CASE).report.length += 1;
+eq('an off-by-one report length is caught',
+  release093Violations(reportLength093).filter(v => v.endsWith(':report')),
+  [MULTIHOMED_CASE + ':report']);
+
+const reportStructure093 = structuredClone(release093);
+reportStructure093.cases.find(c => c.id === MULTIHOMED_CASE).report.structure += ' script';
+eq('an unrelated report structure change is caught',
+  release093Violations(reportStructure093).filter(v => v.endsWith(':report')),
+  [MULTIHOMED_CASE + ':report']);
+
+const reportHash093 = structuredClone(release093);
+reportHash093.cases.find(c => c.id === MULTIHOMED_CASE).report.sha256 =
+  release092ById.get(MULTIHOMED_CASE).report.sha256;
+eq('a report hash that failed to move is caught',
+  release093Violations(reportHash093).filter(v => v.endsWith(':report')),
+  [MULTIHOMED_CASE + ':report']);
 
 report();

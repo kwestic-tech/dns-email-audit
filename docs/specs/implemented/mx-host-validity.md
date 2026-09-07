@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.13 (Final, amended) |
-| Released in | `v0.9.1`, 2026-09-05 (the 0.9.1 half) and `v0.9.2`, 2026-09-05 (the 0.9.2 half) |
-| Target release | 0.9.1, then 0.9.2; multihoming correction in the next release |
-| Status | **Released, with a Final amendment awaiting shipment.** Both original halves shipped in 0.9.1 and 0.9.2. Revision 1.13 corrects the `mx.single-host` rule against RFC 5321 §5.1; no tagged release contains the correction yet. |
+| Spec version | 1.14 (Implemented, amended) |
+| Released in | `v0.9.1`, 2026-09-05 (the 0.9.1 half); `v0.9.2`, 2026-09-05 (the 0.9.2 half); amended at `v0.9.3`, 2026-09-07 (RFC 5321 multihoming) |
+| Target release | 0.9.1, then 0.9.2; multihoming correction released in 0.9.3 |
+| Status | **Released, including the amended rule.** Both original halves shipped in 0.9.1 and 0.9.2. Revision 1.13 corrected the `mx.single-host` rule against RFC 5321 §5.1; revision 1.14 records its implementation in 0.9.3. |
 | Depends on | [report-comparison](report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
@@ -31,7 +31,8 @@
 > so the release recorded the **next** `1.x (Implemented)` revision after its
 > last amendment — never `1.0 (Implemented)`, which would claim the shipped text
 > is the Final text. **`1.12` is that released revision.** The RFC 5321 defect
-> found afterwards is the monotonic `1.13 (Final, amended)` correction.
+> found afterwards is the monotonic `1.13 (Final, amended)` correction, and
+> `1.14 (Implemented, amended)` records its shipment.
 >
 > `1.9`, `1.10` and `1.11` are **superseded pre-publication revisions**. Each
 > was written into a release commit that no longer exists: artifact review found
@@ -1318,6 +1319,14 @@ One defect was found by the suite and fixed before commit: reading the new
 them, discarding the entire audit rather than the MX section. Guarded, and
 pinned by a regression test.
 
+**As implemented — RFC 5321 multihoming amendment.** The protocol owner derives
+`multihomed` from at least two distinct, globally reachable address values on
+one MX target. The audit consumes that fact and withholds `mx.single-host` only
+for the sole-target multihomed shape; it does not infer resilience from a
+provider name or allowlist. The row renderer now joins the complete address set
+instead of slicing it to four values and appending an ellipsis. These changes
+add no DNS question and move no score or grade.
+
 ## Localization impact
 
 Six new entries in `locales/en.json` under the existing findings block, each
@@ -1588,9 +1597,9 @@ overstated what the evidence supports and is withdrawn.
 
 None. Every question this document raised is resolved or explicitly deferred,
 which is what Final recorded. 0.9.2 shipped as `v0.9.2`, and its release commit
-records `1.12 (Implemented)`. Revision 1.13 is a later Final amendment correcting
-the multihoming defect before implementation; its eventual shipment records the
-next monotonic Implemented revision. The three revisions below 1.12 were written
+records `1.12 (Implemented)`. Revision 1.13 is the later Final amendment that
+corrected the multihoming defect before implementation; 0.9.3 ships it and
+records `1.14 (Implemented, amended)`. The three revisions below 1.12 were written
 into earlier states of the 0.9.2 release commit and superseded before publication.
 `RQ-MXV-06`, bidirectional divergence, remains deliberately deferred and is not
 an open question in this document; a future release that wants it starts a new
@@ -1614,6 +1623,7 @@ accepted or declined. All were reproduced against the code before folding in.
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 1.14 | 2026-09-07 | **Implemented, amended.** Ships the 1.13 RFC 5321 correction in `v0.9.3`: the protocol result exposes whether one MX target has at least two distinct globally reachable addresses, the audit withholds `mx.single-host` for that multihomed shape, and the expanded row displays the complete A/AAAA set without an ellipsis. Adds the RFC appendix alongside the correction. No provider allowlist, DNS query, score, grade, or fan-out movement. |
 | 1.13 | 2026-09-07 | **Final, amended after implementation review.** Corrects the released conclusion that one MX owner name is necessarily one delivery point. RFC 5321 §5.1 explicitly recognizes multihomed hosts as an alternative-address source alongside multiple MX records. Requires the MX owner to expose multihoming and the audit to withhold `mx.single-host` for a sole target with at least two distinct globally reachable address values. Records that the earlier spec review failed to check its name-count assumption against the governing RFC. No provider allowlist and no additional DNS query. |
 | 1.12 | 2026-09-05 | **Implemented.** Codex round 26 corrected round 25's chronology, which this document had adopted from that review. `git commit --amend` *replaces* a commit, so `f09e00f`, `81e2af4` and `7291777` are not a sequence of published states — verified against the branch, which contains exactly one release commit and no ancestor carrying `1.9`, `1.10` or `1.11`. The rule those rounds were applying says the Implemented number is fixed in the release commit; the release commit is the one that will be published, and it carries this revision. So `1.9`, `1.10` and `1.11` are superseded pre-publication release-artifact revisions folded into the final commit, not versions that shipped, and every "released at `1.9`" claim is withdrawn from the spec, `HANDOFF.md`, `ROADMAP.md` and the specs index. `1.12` is what the squash merge and the `v0.9.2` tag will carry. |
 | 1.11 | 2026-09-05 | *(Superseded pre-publication; folded into the final release commit. Its chronology — that `1.9` was "the release revision" and that later rounds came after it in history — came from the Codex round 25 review and was corrected in round 26 at `1.12`.)* Codex round 25, artifact review. One blocking inconsistency, reproduced first: the revision table records `1.9` as the release revision and `1.10` as round 24's artifact amendment, while three passages still described `1.10` as the revision fixed in the release commit — the header blockquote, the Open questions conclusion and `HANDOFF.md`'s `RQ-MXV-03` bullet. A document cannot be at once the release revision and two amendments past it. Corrected to state the chronology: `1.9` shipped, and the artifact reviews that followed it produced `1.10` and now `1.11`, each amending the same unpushed release commit rather than being written by it. Applying the monotonic rule to this finding is what makes it `1.11`. |

@@ -16,6 +16,36 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Nothing yet.
 
+## [0.9.3] — 2026-09-07
+
+### Added
+
+- **The standards appendix now maps each cited RFC to the code that applies
+  it.** The appendix records the role each standard plays rather than merely
+  listing citations, including the May 2026 DMARCbis and DNSSEC-guidance
+  baseline and the Internet-Draft status of BIMI.
+
+### Fixed
+
+- **A sole MX target is no longer called a single point of failure when it is
+  multihomed.** RFC 5321 §5.1 explicitly recognizes multiple MX records and
+  multiple addresses for a multihomed host as the two sources of alternative
+  delivery addresses, and requires an SMTP sender to try the relevant list.
+  The MX result now records multihoming from at least two distinct, globally
+  reachable A/AAAA address values, and `mx.single-host` is withheld for that
+  shape. This is protocol-derived behavior, with no provider allowlist.
+- **The expanded MX row shows the complete address set.** The interface no
+  longer truncates a target after four addresses or appends an unexplained
+  ellipsis, so IPv4 and IPv6 answers remain visible exactly as the audit
+  resolved them.
+
+### Notes
+
+- **No score, grade, DNS query, or published fan-out figure moves.** The
+  multihoming fact is derived from answers the audit already has. Deterministic
+  replay changes only the MX result shape and removes `mx.single-host` from the
+  existing multihomed case; its query trace is unchanged.
+
 ## [0.9.2] — 2026-09-05
 
 ### Added
@@ -1571,7 +1601,8 @@ First public release.
   directly from disk works in English — browsers block `fetch()` of local JSON
   over `file://`, so other languages need the app served over HTTP.
 
-[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/kwestic-tech/dns-email-audit/compare/v0.8.1...v0.9.0
