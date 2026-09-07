@@ -739,6 +739,18 @@ const mxHealth = {
 };
 const mxText = textOf(APP.mxDetail(mxRow(mxHealth)));
 eq('a resolving host shows its address', mxText.includes('203.0.113.1'), true);
+const allMxAddresses = ['100.2.0.20', '100.9.9.9', '142.250.157.26', '142.250.157.27',
+  '2a01:100::20', '2a01:100::21'];
+const allMxText = textOf(APP.mxDetail(mxRow({
+  ...mxHealth,
+  hosts: [{
+    ...mxHealth.hosts[0], host: 'smtp.example', preference: 1,
+    addresses: allMxAddresses, v4Count: 4, v6Count: 2,
+  }],
+})));
+eq('a multihomed MX renders every IPv4 and IPv6 address without an ellipsis',
+  allMxText,
+  '1 smtp.example — ' + allMxAddresses.join(', '));
 eq('a dangling host says it does not resolve', mxText.includes('does not resolve'), true);
 // The distinction the whole resilience argument rests on: a host we could not
 // check must read differently from one that genuinely has no address.

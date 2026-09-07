@@ -952,7 +952,7 @@ export function createUi(capabilities) {
     if (!hosts.length) return R.list(r.mx, { sep: '\n' });
     return R.frag(hosts.map(function (h) {
       var state = h.resolves === 'yes'
-        ? h.addresses.slice(0, 4).join(', ') + (h.addresses.length > 4 ? ' …' : '')
+        ? h.addresses.join(', ')
         : h.resolves === 'no' ? t('mx.doesNotResolve') : t('mx.notChecked');
       return R.el('div', { className: 'mx-host mx-host-' + h.resolves }, [
         R.el('code', null, R.host(h.preference + ' ' + h.host)),
