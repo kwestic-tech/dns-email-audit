@@ -248,7 +248,7 @@
   },
   {
    "path": "src/core/bimi/svg.test.js",
-   "assertions": 154,
+   "assertions": 158,
    "note": "Co-located per spec §9. local-artifact-validation 1.6. Pure screening over an INJECTED parser: the fixture tree exercises the rules, and tests/build/local-input-security.test.mjs drives the real DOMParser. Neither half is evidence for the other.",
    "areas": [
     "the two frozen vocabularies, and why multiple-roots is not among the diagnostics: XML makes a second root a parse error",
@@ -288,6 +288,7 @@
     "RFC 7505: a null MX is exactly one record and exactly `0 .`, so a null MX beside another record is not one",
     "resolves is three values, and `no` — a total inbound mail outage — is claimed only when both address lookups returned",
     "an unknown host is never dangling and never contributes to the block-concentration grouping",
+    "RFC 5321 multihoming is explicit for one MX target with two distinct globally reachable address values, while a duplicate or an unreachable alternative remains one delivery path",
     "reverseNames encodes three states — names, an empty answer, and a lookup that did not answer — read together with hostsWithoutReverse, since either alone accepts a wrong encoding",
     "address sets compare values, not spellings: expanded and compressed IPv6 confirm and subset as one address, and a duplicate spelling is reversed once",
     "divergence compares globally reachable addresses on both sides, so a provider's private, shared, documentation, mapped or unparseable value is never remediation and an extra non-global host address cannot suppress a real missing global one",

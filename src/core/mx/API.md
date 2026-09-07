@@ -6,7 +6,8 @@ each owning directory checks in `API.md` in the same commit that creates it.
 **Responsibility.** What DNS alone can say about a domain's MX set: whether
 each exchange resolves, whether it sits behind a CNAME, how the preferences
 are published, how concentrated the addresses are, whether the addresses are
-reachable at all, and — since 0.9.2 — what the forward-confirmed reverse DNS of
+reachable at all, whether one exchange is explicitly multihomed under RFC 5321
+§5.1, and — since 0.9.2 — what the forward-confirmed reverse DNS of
 those addresses evidences about a relationship between the host and a provider
 name. It evidences a relationship; it does not establish who owns or operates
 the address, which §Non-goals of the spec says explicitly. This directory emits no finding, severity,
@@ -93,6 +94,7 @@ without someone having named the resolver it runs on.
 | `isAddressLiteral` | 0.9.1 | Set from the record, never from a failed lookup. |
 | `addressScopes[]` | 0.9.1 | `{ address, scope }` per address, `scope` from `ipScope()` and `null` for text that did not parse. |
 | `reachability` | 0.9.1 | `global` / `partial` / `none` / `unknown`, over the addresses that **did** parse. An address that could not be classified is excluded rather than assumed reachable. |
+| `multihomed` | next release | RFC 5321 §5.1: `true` when this target publishes at least two distinct globally reachable address values. Duplicate answer rows and unreachable address space do not create an alternative delivery path. |
 | `reverseNames` | 0.9.2 | Three states, below. |
 | `providerName`, `providerAddresses[]` | 0.9.2 | Populated **only** after forward confirmation, never before. |
 | `missingAddresses[]` | 0.9.2 | `P \ H`, and non-empty only when `H ⊂ P` strictly. |
@@ -174,6 +176,7 @@ Both readings are kept, because they answer different questions:
 | Field | About |
 | --- | --- |
 | `hosts[]`, `singleHost`, `sharedPrefixes` | the delivery **targets** |
+| `hosts[].multihomed` | alternative reachable address paths behind one target, explicitly recognized by RFC 5321 §5.1 |
 | `duplicatePreferences` | the **records** — the preference analysis is about what was published |
 | `hosts[].preferences` | every preference one host is published at, kept as evidence |
 

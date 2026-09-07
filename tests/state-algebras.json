@@ -2749,6 +2749,13 @@
      ]
     },
     {
+     "axis": "hosts[].multihomed",
+     "values": [
+      "true",
+      "false"
+     ]
+    },
+    {
      "axis": "hosts[].cnameUnknown",
      "values": [
       "true",

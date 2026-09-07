@@ -105,6 +105,34 @@ eq('one host is a single point of failure', healthy.singleHost, true);
 eq('and the host is inside the audited domain', healthy.hosts[0].inAudited, true);
 eq('nothing is dangling', healthy.danglingHosts, []);
 
+// RFC 5321 §5.1 recognizes multihoming alongside multiple MX records as a
+// source of alternative delivery addresses. This is a positive fact over
+// distinct, globally reachable address values: duplicates and non-delivery
+// space must not make one usable path read as two.
+const multihomed = await audit({
+  'smtp.example.test': {
+    A: ['100.2.0.20', '100.9.9.9'], AAAA: ['2a01:100::20'], CNAME: [],
+  },
+})(['1 smtp.example.test.'], 'example.test');
+eq('one MX target with several reachable addresses is explicitly multihomed',
+  multihomed.hosts[0].multihomed, true);
+
+const oneReachable = await audit({
+  'single.example.test': { A: ['100.2.0.20'], AAAA: [], CNAME: [] },
+})(['1 single.example.test.'], 'example.test');
+eq('one reachable address is not multihomed', oneReachable.hosts[0].multihomed, false);
+
+const duplicateAddress = await audit({
+  'duplicate.example.test': { A: ['100.2.0.20', '100.2.0.20'], AAAA: [], CNAME: [] },
+})(['1 duplicate.example.test.'], 'example.test');
+eq('a duplicate address is still one delivery path', duplicateAddress.hosts[0].multihomed, false);
+
+const privateAlternative = await audit({
+  'private.example.test': { A: ['100.2.0.20', '10.0.0.5'], AAAA: [], CNAME: [] },
+})(['1 private.example.test.'], 'example.test');
+eq('an unreachable alternative does not manufacture multihoming',
+  privateAlternative.hosts[0].multihomed, false);
+
 /**
  * The finding this whole module exists for. An MX host that does not resolve
  * is a total inbound mail outage, and it used to read exactly like health.
