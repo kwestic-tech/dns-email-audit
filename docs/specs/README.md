@@ -184,7 +184,7 @@ precedent, and one spec was superseded outright during implementation.
 | [findings-and-remediation](implemented/findings-and-remediation.md) | 0.7.0 | [#29](https://github.com/kwestic-tech/dns-email-audit/pull/29) | `v0.7.0` | 1.7 (Implemented) |
 | [local-artifact-validation](implemented/local-artifact-validation.md) | 0.8.0, amended in 0.8.1 | [#30](https://github.com/kwestic-tech/dns-email-audit/pull/30) | `v0.8.0`, amended at `v0.8.1` | 1.11 (Implemented, amended) |
 | [report-comparison](implemented/report-comparison.md) | 0.9.0 | [#32](https://github.com/kwestic-tech/dns-email-audit/pull/32) | `v0.9.0` | 1.10 (Implemented, amended) |
-| [mx-host-validity](implemented/mx-host-validity.md) | 0.9.1 and 0.9.2 | [#33](https://github.com/kwestic-tech/dns-email-audit/pull/33) for 0.9.1 | `v0.9.1`, then `v0.9.2` | 1.12 (Implemented) |
+| [mx-host-validity](implemented/mx-host-validity.md) | 0.9.1 and 0.9.2; multihoming correction in 0.9.3 | [#33](https://github.com/kwestic-tech/dns-email-audit/pull/33) for 0.9.1 | `v0.9.1`, `v0.9.2`, amended at `v0.9.3` | 1.14 (Implemented, amended) |
 
 Releases before 0.2.0 predate this process and have no spec. `0.1.0` and the
 work merged as PRs #1 through #7 are documented in

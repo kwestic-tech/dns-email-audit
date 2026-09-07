@@ -3052,7 +3052,7 @@ sandbox.fetch = dohFixture({
   'only.example A': a('198.51.100.5'), 'only.example AAAA': 'nodata', 'only.example CNAME': 'nodata',
 });
 const single = await D.auditMxHosts(['10 only.example.'], 'example.com', { retries: 0, noCache: true });
-eq('a lone MX host is a single point of failure', single.singleHost, true);
+eq('a lone MX owner name is one target', single.singleHost, true);
 eq('and IPv4-only reads as no IPv6',              single.ipv6Coverage, 'none');
 
 // Concentration: three hosts, one /24. The prefix label is what the operator
@@ -3089,8 +3089,9 @@ eq('the failed host is unknown',          flakyMx.hosts[1].resolves, 'unknown');
 eq('an unknown host is NOT dangling',     flakyMx.danglingHosts, []);
 eq('and the audit says it is incomplete', flakyMx.unknown, true);
 
-// Two MX records naming the same exchange are ONE delivery target: one point
-// of failure, one set of lookups, one row. Mapping records straight to audits
+// Two MX records naming the same exchange are ONE target name, one set of
+// lookups and one row. Its address set separately decides multihoming. Mapping
+// records straight to audits
 // queried it twice, counted it twice, and suppressed `mx-single-host` on a
 // domain that has exactly one host.
 sandbox.fetch = dohFixture({
@@ -3099,7 +3100,7 @@ sandbox.fetch = dohFixture({
 const dupTarget = await D.auditMxHosts(
   ['10 dup.example.', '20 dup.example.'], 'example.com', { retries: 0, noCache: true });
 eq('one exchange at two preferences is one host',  dupTarget.hosts.length, 1);
-eq('and is still a single point of failure',       dupTarget.singleHost, true);
+eq('and is still one target name',                  dupTarget.singleHost, true);
 eq('and both preferences survive as evidence',     dupTarget.hosts[0].preferences, [10, 20]);
 eq('and the host is described by the preferred one', dupTarget.hosts[0].preference, 10);
 eq('and it is queried once per type, not twice',   sandbox.fetch.calls.length, 3);
@@ -3124,7 +3125,7 @@ sandbox.fetch = dohFixture({
 const twoTargets = await D.auditMxHosts(
   ['10 x1.example.', '20 x2.example.'], 'example.com', { retries: 0, noCache: true });
 eq('two distinct hosts remain two',       twoTargets.hosts.length, 2);
-eq('and are not a single point',          twoTargets.singleHost, false);
+eq('and are not a single target',         twoTargets.singleHost, false);
 eq('and each carries one preference',
   twoTargets.hosts.map(h => h.preferences), [[10], [20]]);
 // Duplicate PREFERENCES are about the records, not the targets, so a repeated

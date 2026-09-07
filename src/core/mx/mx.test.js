@@ -5,8 +5,8 @@
  * Two properties carry most of the value and both are about NOT overclaiming:
  * a host whose lookups failed is `unknown` and never `no`, because `no` is a
  * total inbound mail outage and saying it wrongly is the worst thing this
- * check can do; and two MX records naming one exchange are one host, one point
- * of failure and one set of lookups.
+ * check can do; and two MX records naming one exchange are one target and one
+ * set of lookups, while its addresses decide whether it is multihomed.
  *
  * The audit is driven by a fake resolver, because both capabilities are
  * passed — the property Task 4.1 established and every owner after it keeps.
@@ -101,9 +101,37 @@ const healthy = await audit({
 eq('a resolving host resolves yes', healthy.hosts[0].resolves, 'yes');
 eq('its addresses are both families', healthy.hosts[0].addresses, ['192.0.2.1', '2001:db8::1']);
 eq('IPv6 coverage is all', healthy.ipv6Coverage, 'all');
-eq('one host is a single point of failure', healthy.singleHost, true);
+eq('one MX owner name is one target', healthy.singleHost, true);
 eq('and the host is inside the audited domain', healthy.hosts[0].inAudited, true);
 eq('nothing is dangling', healthy.danglingHosts, []);
+
+// RFC 5321 §5.1 recognizes multihoming alongside multiple MX records as a
+// source of alternative delivery addresses. This is a positive fact over
+// distinct, globally reachable address values: duplicates and non-delivery
+// space must not make one usable path read as two.
+const multihomed = await audit({
+  'smtp.example.test': {
+    A: ['100.2.0.20', '100.9.9.9'], AAAA: ['2a01:100::20'], CNAME: [],
+  },
+})(['1 smtp.example.test.'], 'example.test');
+eq('one MX target with several reachable addresses is explicitly multihomed',
+  multihomed.hosts[0].multihomed, true);
+
+const oneReachable = await audit({
+  'single.example.test': { A: ['100.2.0.20'], AAAA: [], CNAME: [] },
+})(['1 single.example.test.'], 'example.test');
+eq('one reachable address is not multihomed', oneReachable.hosts[0].multihomed, false);
+
+const duplicateAddress = await audit({
+  'duplicate.example.test': { A: ['100.2.0.20', '100.2.0.20'], AAAA: [], CNAME: [] },
+})(['1 duplicate.example.test.'], 'example.test');
+eq('a duplicate address is still one delivery path', duplicateAddress.hosts[0].multihomed, false);
+
+const privateAlternative = await audit({
+  'private.example.test': { A: ['100.2.0.20', '10.0.0.5'], AAAA: [], CNAME: [] },
+})(['1 private.example.test.'], 'example.test');
+eq('an unreachable alternative does not manufacture multihoming',
+  privateAlternative.hosts[0].multihomed, false);
 
 /**
  * The finding this whole module exists for. An MX host that does not resolve
@@ -140,8 +168,8 @@ eq('and a cname we could not read is flagged rather than assumed',
   [mixed.hosts[1].isCname, mixed.hosts[1].cnameUnknown], [false, true]);
 
 /**
- * Two records naming one exchange are ONE host: one point of failure and one
- * set of lookups. Mapping records straight to audits queried it twice, counted
+ * Two records naming one exchange are ONE target name and one set of lookups.
+ * Mapping records straight to audits queried it twice, counted
  * it twice, and suppressed `mx-single-host` on a domain that has exactly one.
  */
 const duplicate = auditWith({
@@ -150,7 +178,7 @@ const duplicate = auditWith({
 const deduped = await duplicate.run(
   ['10 mail.example.test.', '20 mail.example.test.'], 'example.test');
 eq('one exchange at two preferences is one host', deduped.hosts.length, 1);
-eq('and it is still a single point of failure', deduped.singleHost, true);
+eq('and it is still one target name', deduped.singleHost, true);
 eq('both preferences are kept as evidence', deduped.hosts[0].preferences, [10, 20]);
 eq('the lowest is the one that describes it', deduped.hosts[0].preference, 10);
 eq('and it was queried once per type, not twice',
@@ -164,7 +192,7 @@ const tied = await audit({
 eq('two hosts at one preference is a duplicate preference',
   tied.duplicatePreferences, [10]);
 eq('and they are two hosts', tied.hosts.length, 2);
-eq('so it is not a single point of failure', tied.singleHost, false);
+eq('so it is not a single target', tied.singleHost, false);
 
 // Block concentration, via core/shared/ip.js. /24 for v4, /48 for v6.
 const concentrated = await audit({

@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Spec version | 1.12 (Implemented) |
-| Released in | `v0.9.1`, 2026-09-05 (the 0.9.1 half) and `v0.9.2`, 2026-09-05 (the 0.9.2 half) |
-| Target release | 0.9.1, then 0.9.2 |
-| Status | **Released.** Both halves have shipped: 0.9.1 as `v0.9.1` and 0.9.2 as `v0.9.2`. Nothing in this document is outstanding, which is what moving it here records. |
+| Spec version | 1.14 (Implemented, amended) |
+| Released in | `v0.9.1`, 2026-09-05 (the 0.9.1 half); `v0.9.2`, 2026-09-05 (the 0.9.2 half); amended at `v0.9.3`, 2026-09-07 (RFC 5321 multihoming) |
+| Target release | 0.9.1, then 0.9.2; multihoming correction released in 0.9.3 |
+| Status | **Released, including the amended rule.** Both original halves shipped in 0.9.1 and 0.9.2. Revision 1.13 corrected the `mx.single-host` rule against RFC 5321 §5.1; revision 1.14 records its implementation in 0.9.3. |
 | Depends on | [report-comparison](report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
-| Last updated | 2026-09-05 |
+| Last updated | 2026-09-07 |
 
 > **Two releases, one document.** The capability is one question — what DNS can
 > say about an MX host beyond whether the name resolves — but it splits on a
@@ -27,18 +27,19 @@
 > records. The 0.13 note had those backwards; review corrected it at 0.15.
 >
 > **The version is monotonic, and the release commit carries the number.** This
-> document reached Final at `1.0` and was amended eight times after that, so
-> shipment records the **next** `1.x (Implemented)` revision after its last
-> amendment — never `1.0 (Implemented)`, which would claim the shipped text is
-> the Final text. **`1.12` is that revision**, and it is what the release commit
-> contains.
+> document reached Final at `1.0` and was amended eight times before shipment,
+> so the release recorded the **next** `1.x (Implemented)` revision after its
+> last amendment — never `1.0 (Implemented)`, which would claim the shipped text
+> is the Final text. **`1.12` is that released revision.** The RFC 5321 defect
+> found afterwards is the monotonic `1.13 (Final, amended)` correction, and
+> `1.14 (Implemented, amended)` records its shipment.
 >
 > `1.9`, `1.10` and `1.11` are **superseded pre-publication revisions**. Each
 > was written into a release commit that no longer exists: artifact review found
 > defects in the release artifacts themselves, and each correction was folded
 > into the same commit with `git commit --amend`, which replaces it. There is no
-> published history in which those numbers were ever the release — the branch
-> holds exactly one release commit, and it carries `1.12`. The rows below are
+> published history in which those numbers were ever the release — the release
+> commit carries `1.12`. The rows below are
 > kept because the corrections are the record; the numbers on them are not
 > claims about what shipped.
 
@@ -523,14 +524,21 @@ finding adds a report where there was silence rather than replacing a wrong one.
 `mx.unroutable` likewise suppresses nothing, because a host that resolves is not
 dangling and the two never co-occur.
 
-**`mx.vanity-divergent` does not suppress `mx.single-host`, and the 0.1 Risks
-section was wrong to group them.** The two state different facts: `single-host`
-counts MX *names*, `vanity-divergent` compares *addresses behind one name*.
-Neither implies the other, and unlike the `mx.dangling` pairs, `single-host`'s
-remediation stays correct — publishing a second MX host is still sound advice for
-a domain that has one, whether or not the first one's address set is complete.
-Suppressing it would hide a real resilience fact that survives fixing the
-divergence. Both appear, and acceptance criterion 12 asserts it.
+**Amended at 1.13: `mx.single-host` must account for multihoming.** The earlier
+text treated an MX owner name as a delivery endpoint and concluded that one MX
+name was necessarily one point of failure. RFC 5321 §5.1 says otherwise: the
+alternative delivery-address list can arise from multiple MX records,
+multihoming, or both, and an SMTP sender must be able to try each relevant
+address. A sole MX target with two or more distinct, globally reachable address
+values is therefore multihomed and does not raise `mx.single-host`.
+
+The MX owner exposes that fact explicitly on the host result. The audit layer
+continues to own the finding: it emits `mx.single-host` only when exactly one MX
+target exists and that target is not multihomed. `mx.vanity-divergent` remains
+independent: it can coexist with `mx.single-host` when the sole vanity target
+has one reachable address, while a multihomed target suppresses only the
+single-host advisory because its premise is false. This correction is general
+protocol behavior, not a provider allowlist.
 
 `mx.no-reverse-dns` is `info` and must stay `info`. RFC 5321 §4.1.4 states that
 a failed reverse lookup **SHOULD NOT** on its own be grounds for refusing mail,
@@ -1311,6 +1319,14 @@ One defect was found by the suite and fixed before commit: reading the new
 them, discarding the entire audit rather than the MX section. Guarded, and
 pinned by a regression test.
 
+**As implemented — RFC 5321 multihoming amendment.** The protocol owner derives
+`multihomed` from at least two distinct, globally reachable address values on
+one MX target. The audit consumes that fact and withholds `mx.single-host` only
+for the sole-target multihomed shape; it does not infer resilience from a
+provider name or allowlist. The row renderer now joins the complete address set
+instead of slicing it to four values and appending an ellipsis. These changes
+add no DNS question and move no score or grade.
+
 ## Localization impact
 
 Six new entries in `locales/en.json` under the existing findings block, each
@@ -1435,8 +1451,10 @@ are later admitted to the grade, that change is backtested with
     appears. Deep checks being **on** by default, this is the non-default path,
     and criterion 14 covers the default one.
 11. No score or grade differs from `v0.9.1` on the deterministic corpus.
-12. A domain with one MX host that is also divergent raises **both**
-    `mx.single-host` and `mx.vanity-divergent`. Neither suppresses the other.
+12. A domain with one MX target and one globally reachable address that is also
+    divergent raises both `mx.single-host` and `mx.vanity-divergent`. A sole MX
+    target with two or more distinct globally reachable addresses is explicitly
+    multihomed and raises no `mx.single-host`, whether or not it is divergent.
 13. On a host with two addresses where the first `PTR` lookup does not return
     and the second yields a forward-confirmed provider name, the divergence is
     still evaluated from the second. Asserted against a stub resolver that fails
@@ -1506,9 +1524,10 @@ prescribes an impossible fix — loses confidence in both. *Mitigation:*
 `RQ-MXV-05` settles it in §5 and acceptance criterion 3 asserts the suppression.
 `mx.null-conflict` was listed here in the 0.3 draft on the mistaken belief that a
 conflicted set produced a dangling host; it does not, and there is nothing to
-suppress. `mx.vanity-divergent` and `mx.single-host` were listed here
-in the 0.1 draft and do **not** belong: they state different facts and both
-correctly appear together, which criterion 12 now asserts.
+suppress. `mx.vanity-divergent` and `mx.single-host` can correctly appear
+together for a sole, non-multihomed vanity target. Revision 1.13 narrows that
+statement: a multihomed target does not raise `mx.single-host`, because RFC 5321
+recognizes its address list as alternative delivery paths.
 
 ## Resolved questions
 
@@ -1577,11 +1596,11 @@ overstated what the evidence supports and is withdrawn.
 ## Open questions
 
 None. Every question this document raised is resolved or explicitly deferred,
-which is what Final recorded. 0.9.2 ships as `v0.9.2`, and the release commit
-records `1.12 (Implemented)` — the next revision after the last amendment,
-exactly as the rule requires, and the number that stays true after the squash
-merge and the tag. The three revisions below it were written into earlier states
-of that same commit and superseded by amendment before publication.
+which is what Final recorded. 0.9.2 shipped as `v0.9.2`, and its release commit
+records `1.12 (Implemented)`. Revision 1.13 is the later Final amendment that
+corrected the multihoming defect before implementation; 0.9.3 ships it and
+records `1.14 (Implemented, amended)`. The three revisions below 1.12 were written
+into earlier states of the 0.9.2 release commit and superseded before publication.
 `RQ-MXV-06`, bidirectional divergence, remains deliberately deferred and is not
 an open question in this document; a future release that wants it starts a new
 spec.
@@ -1593,16 +1612,19 @@ accepted or declined. All were reproduced against the code before folding in.
 
 | Finding | Disposition | Reasoning |
 | --- | --- | --- |
+| `mx.single-host` ignores RFC 5321 multihoming | **Accepted; 1.13 correction** | Reproduced against the implementation: `singleHost` is only `hosts.length === 1`, even though the same result carries every A and AAAA address. RFC 5321 §5.1 explicitly names multiple MX records and multihomed hosts as the two sources of alternative delivery addresses and requires SMTP senders to try the relevant list. The earlier review incorrectly treated the implemented spec's name-count rule as authoritative instead of checking it against the governing standard. The correction adds an explicit owner-produced multihoming fact and removes the advisory when one hostname provides multiple globally reachable delivery addresses. |
 | "Off the default path entirely" is false | **Accepted** | Reproduced: `MAX_DEEP_CHECK_DOMAINS = 50` at `events.js:105`; PRIVACY.md states deep checks ship ticked and the published figures include them. The claim was load-bearing for both the cost and disclosure arguments. §4 corrected. |
 | 0.9.2 needs a privacy review and probably a `PRIVACY.md` edit | **Accepted** | Reproduced: `AGENTS.md:110` item 4 makes a `PRIVACY.md` implication a stop condition. New §7; 0.9.2 blocked in the header. |
 | PTR failure needs per-address aggregation, and `hostsWithoutReverse` needs a definition | **Accepted** | The 0.1 text ended the whole host's procedure on one failed lookup, contradicting the per-host `optionalCheck` discipline this module already documents as its reason for three-valued `resolves`. §4 and §2.3 corrected. |
-| Decide whether `mx.vanity-divergent` suppresses `mx.single-host` | **Accepted as a gap; decided against suppression** | They state different facts — name count versus addresses behind one name — and `single-host`'s remediation stays correct after the divergence is fixed, unlike the `mx.dangling` pairs. The 0.1 Risks section implied suppression and was wrong. §5 decides, criterion 12 asserts. |
+| Decide whether `mx.vanity-divergent` suppresses `mx.single-host` | **Accepted as a gap; original decision superseded at 1.13** | The original review decided against suppression because it treated name count as the resilience fact. Revision 1.13 preserves the historical decision but corrects its premise against RFC 5321 §5.1: a multihomed sole target suppresses `mx.single-host`; a non-multihomed divergent target can still raise both findings. |
 
 ## Revision history
 
 | Version | Date | Change |
 | --- | --- | --- |
 | 0.1 | 2026-09-04 | First complete statement. Six open questions. |
+| 1.14 | 2026-09-07 | **Implemented, amended.** Ships the 1.13 RFC 5321 correction in `v0.9.3`: the protocol result exposes whether one MX target has at least two distinct globally reachable addresses, the audit withholds `mx.single-host` for that multihomed shape, and the expanded row displays the complete A/AAAA set without an ellipsis. Adds the RFC appendix alongside the correction. No provider allowlist, DNS query, score, grade, or fan-out movement. |
+| 1.13 | 2026-09-07 | **Final, amended after implementation review.** Corrects the released conclusion that one MX owner name is necessarily one delivery point. RFC 5321 §5.1 explicitly recognizes multihomed hosts as an alternative-address source alongside multiple MX records. Requires the MX owner to expose multihoming and the audit to withhold `mx.single-host` for a sole target with at least two distinct globally reachable address values. Records that the earlier spec review failed to check its name-count assumption against the governing RFC. No provider allowlist and no additional DNS query. |
 | 1.12 | 2026-09-05 | **Implemented.** Codex round 26 corrected round 25's chronology, which this document had adopted from that review. `git commit --amend` *replaces* a commit, so `f09e00f`, `81e2af4` and `7291777` are not a sequence of published states — verified against the branch, which contains exactly one release commit and no ancestor carrying `1.9`, `1.10` or `1.11`. The rule those rounds were applying says the Implemented number is fixed in the release commit; the release commit is the one that will be published, and it carries this revision. So `1.9`, `1.10` and `1.11` are superseded pre-publication release-artifact revisions folded into the final commit, not versions that shipped, and every "released at `1.9`" claim is withdrawn from the spec, `HANDOFF.md`, `ROADMAP.md` and the specs index. `1.12` is what the squash merge and the `v0.9.2` tag will carry. |
 | 1.11 | 2026-09-05 | *(Superseded pre-publication; folded into the final release commit. Its chronology — that `1.9` was "the release revision" and that later rounds came after it in history — came from the Codex round 25 review and was corrected in round 26 at `1.12`.)* Codex round 25, artifact review. One blocking inconsistency, reproduced first: the revision table records `1.9` as the release revision and `1.10` as round 24's artifact amendment, while three passages still described `1.10` as the revision fixed in the release commit — the header blockquote, the Open questions conclusion and `HANDOFF.md`'s `RQ-MXV-03` bullet. A document cannot be at once the release revision and two amendments past it. Corrected to state the chronology: `1.9` shipped, and the artifact reviews that followed it produced `1.10` and now `1.11`, each amending the same unpushed release commit rather than being written by it. Applying the monotonic rule to this finding is what makes it `1.11`. |
 | 1.10 | 2026-09-05 | *(Superseded pre-publication; folded into the final release commit. An earlier annotation here said `1.9` shipped and this row was the amendment after it — corrected at `1.12`: no version below `1.12` was ever published.)* Codex round 24, artifact review. Five artifact defects, each reproduced first. The `v0.9.1` assertion baseline quoted in the PR body was fabricated — the tag's own inventory sums to 5,617, not the 5,658 claimed, and the 5,624 in the README committed at the tag is the already-recorded stale-doc defect. The `1.9` row below claimed no review round changed what the audit asks, which the append-only record refutes: round 16 stopped a malformed IPv4 address becoming a `PTR` question, and the later identity and reachability corrections change whether a candidate's forward queries are reached for affected inputs. What did not change is narrower and is what the row now says. The move left two consecutive monotonic blockquotes, a §8.1 null-conflict paragraph reading as current fact after `0.6` had superseded it, an unamended "two mail servers" in the Problem section, and a §8.1 opening claim too broad to be true. Historical text preserved; inline correction pointers added at each. |

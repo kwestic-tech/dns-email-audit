@@ -70,6 +70,7 @@ and an unverifiable result is marked rather than hidden.
 | 0.9.0 | A versioned JSON report, and comparison of two of them in memory with per-protocol observability | [report-comparison](docs/specs/implemented/report-comparison.md) |
 | 0.9.1 | MX host address validity: unreachable and partly unreachable hosts, address literals, and null-MX conflicts | [mx-host-validity](docs/specs/implemented/mx-host-validity.md) |
 | 0.9.2 | Vanity MX divergence from a forward-confirmed provider, and a reverse-DNS advisory | [mx-host-validity](docs/specs/implemented/mx-host-validity.md) |
+| 0.9.3 | RFC 5321 multihoming correction, complete MX address display, and an RFC-to-code appendix | [mx-host-validity](docs/specs/implemented/mx-host-validity.md) |
 
 `0.1.0` and the work merged as PRs #1 through #7 predate the spec process and are
 documented in [`CHANGELOG.md`](CHANGELOG.md) only.
@@ -88,7 +89,7 @@ documented in [`CHANGELOG.md`](CHANGELOG.md) only.
 | 8 | External intelligence | Intentionally deferred. Would cross the privacy boundary. | [post-1.0](docs/specs/external-intelligence.md) |
 | 9 | Modular architecture and production build | **Done.** Released as 0.6.0; all six gates met. Spec `1.8`. The application was seven classic scripts loading IIFEs onto `window`, with `js/dns.js` alone at 5,704 lines owning transport, every protocol, scoring and issue construction. It is now ES modules under `src/`, bundled to one artifact, with thirteen owning directories, zero adapters and a two-member browser API. | [0.6.0](docs/specs/implemented/modular-architecture-and-production-build.md), released |
 | 10 | 1.0 product contract and release readiness | Not started. The compatibility surface, supported environments, accessibility evidence and graduation gate are now explicit rather than inferred from completing 0.9.0. | [1.0.0](docs/specs/one-zero-readiness.md) |
-| 11 | MX host address validity and provider divergence | **Done.** Extends workstream 4, which resolved MX targets but never asked what they resolved *to*: a host answering only loopback or private space still reported as healthy. 0.9.1 adds address-scope classification and names an address literal and a null-MX conflict for what they are, at no query cost. 0.9.2 adds forward-confirmed reverse lookups to find a vanity MX that has fallen behind its provider's globally reachable address set, plus a reverse-DNS advisory scoped to the addresses it checked. Its privacy review was conducted before any implementation and accepted on 2026-09-05; measured through the shipping code, 8 additional queries across the corpus's 80 audited domains — 0 for a domain whose MX hosts are provider-named — and 12 as the per-domain ceiling. Spec `1.12 (Implemented)`. | [0.9.1 and 0.9.2](docs/specs/implemented/mx-host-validity.md), released |
+| 11 | MX host address validity and provider divergence | **Done.** Extends workstream 4, which resolved MX targets but never asked what they resolved *to*: a host answering only loopback or private space still reported as healthy. 0.9.1 adds address-scope classification and names an address literal and a null-MX conflict for what they are, at no query cost. 0.9.2 adds forward-confirmed reverse lookups to find a vanity MX that has fallen behind its provider's globally reachable address set, plus a reverse-DNS advisory scoped to the addresses it checked. Its privacy review was conducted before any implementation and accepted on 2026-09-05; measured through the shipping code, 8 additional queries across the corpus's 80 audited domains — 0 for a domain whose MX hosts are provider-named — and 12 as the per-domain ceiling. 0.9.3 corrects the resilience rule against RFC 5321 §5.1 so a single multihomed target is not called a single point of failure, and displays its complete address set. Spec `1.14 (Implemented, amended)`. | [0.9.1 through 0.9.3](docs/specs/implemented/mx-host-validity.md), released |
 
 ## Release sequence
 
@@ -276,12 +277,12 @@ inside imported JSON render as text only, a protocol that was unobserved on
 either side reports its findings as unknown rather than resolved, and no
 user-supplied artifact finding appears in an exported report.
 
-### 0.9.1 and 0.9.2: MX host address validity and vanity divergence — released
+### 0.9.1 through 0.9.3: MX host validity, divergence and multihoming — released
 
 Spec:
 [`docs/specs/implemented/mx-host-validity.md`](docs/specs/implemented/mx-host-validity.md)
-— `1.12 (Implemented)`. One document, two releases: `v0.9.1` and `v0.9.2`, both
-2026-09-05.
+— `1.14 (Implemented, amended)`. One document, three releases: `v0.9.1` and
+`v0.9.2` on 2026-09-05, amended at `v0.9.3` on 2026-09-07.
 
 0.4.0 taught the audit to resolve every MX target and report the ones that do
 not resolve. Neither it nor anything since asks what a target resolves *to*, so a
@@ -315,6 +316,15 @@ the two misdiagnosed defects raise their own findings and suppress
 globally reachable addresses its forward-confirmed provider publishes is
 reported with those addresses named, an equal set reports nothing, and no score
 or grade moves there either.
+
+0.9.3 corrects one conclusion discovered after those releases. RFC 5321 §5.1
+names multiple MX records and multihomed targets as the two sources of
+alternative delivery addresses and requires an SMTP sender to try the relevant
+list. The audit now derives multihoming from at least two distinct globally
+reachable addresses on one target, withholds `mx.single-host` for that shape,
+and displays the complete A/AAAA set instead of four values followed by an
+ellipsis. The same release adds an appendix mapping every cited RFC to the code
+that applies it. None of this adds a DNS query or moves a score or grade.
 
 ### 1.0.0: Product contract and release readiness
 

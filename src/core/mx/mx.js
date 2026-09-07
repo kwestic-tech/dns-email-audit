@@ -326,8 +326,9 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
     }
 
     // Distinct delivery targets. Two MX records naming the same exchange at
-    // different preferences are one host, one point of failure and one set of
-    // lookups — mapping records straight to audits queried it twice, counted it
+    // different preferences are one target name and one set of lookups. Its
+    // address set separately says whether it is multihomed. Mapping records
+    // straight to audits queried it twice, counted it
     // twice in the CSV, and suppressed `mx-single-host` on a domain that has
     // exactly one. The records themselves stay in `entries` for the preference
     // analysis, which is about the records and not the targets.
@@ -360,6 +361,7 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
           resolves: 'no', isCname: false, cnameUnknown: false,
           inAudited: entry.host === domain || entry.host.endsWith('.' + domain),
           isAddressLiteral: true, addressScopes: [], reachability: 'unknown',
+          multihomed: false,
           reverseNames: null, providerName: null, providerAddresses: null, missingAddresses: [],
         };
       }
@@ -385,6 +387,11 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
       });
       var classified = addressScopes.filter(function (entry) { return entry.scope !== null; });
       var globalCount = classified.filter(function (entry) { return entry.scope === 'global'; }).length;
+      // RFC 5321 §5.1 treats multihoming and multiple MX records as the two
+      // ways a lookup produces alternative delivery addresses. Count address
+      // VALUES, not answer rows, and count only paths an Internet sender can
+      // actually reach: a duplicate RR or a private address is not redundancy.
+      var multihomed = uniqueAddresses(addresses.filter(isGloballyReachable)).length > 1;
       var resolves = addresses.length ? 'yes' : (v4 === null || v6 === null) ? 'unknown' : 'no';
       return {
         host: entry.host,
@@ -412,6 +419,7 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
         reachability: resolves !== 'yes' || !classified.length ? 'unknown'
           : globalCount === classified.length ? 'global'
             : globalCount ? 'partial' : 'none',
+        multihomed: multihomed,
       };
     }));
 
