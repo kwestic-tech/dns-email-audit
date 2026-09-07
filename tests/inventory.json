@@ -556,7 +556,7 @@
   },
   {
    "path": "src/audit/issues.test.js",
-   "assertions": 92,
+   "assertions": 94,
    "areas": [
     "the shape of a finding: a key, a severity, no complete message prose",
     "the closed three-member severity vocabulary",
@@ -565,7 +565,8 @@
     "the compositional precondition: forwarded SPF warnings are trusted from the closed owner algebra, not filtered here",
     "suggestions as tips rather than findings",
     "a configured domain is not told to configure itself",
-    "the input boundary — record contents are never parsed, while owner facts and evidence including record count are consumed"
+    "the input boundary — record contents are never parsed, while owner facts and evidence including record count are consumed",
+    "RFC 5321 multihoming suppresses the single-host advisory from an owner-supplied fact, while a sole non-multihomed target still emits it"
    ]
   },
   {

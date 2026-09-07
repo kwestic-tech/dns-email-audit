@@ -385,6 +385,14 @@ const mxKeys = (hosts, top = {}) => keysFor({
   },
 });
 
+// RFC 5321 §5.1 recognizes multiple addresses behind one MX target as
+// multihoming. The owner supplies that fact; the audit must consume it rather
+// than re-counting DNS answers or treating one owner name as one machine.
+eq('a sole multihomed MX target raises no single-host advisory',
+  mxKeys([mxHost({ multihomed: true })], { singleHost: true }).includes('mx-single-host'), false);
+eq('a sole non-multihomed target still raises the advisory',
+  mxKeys([mxHost({ multihomed: false })], { singleHost: true }).includes('mx-single-host'), true);
+
 const unroutable = mxKeys([mxHost({
   addresses: ['127.0.0.1'], v4Count: 1, reachability: 'none',
   addressScopes: [{ address: '127.0.0.1', scope: 'loopback' }],

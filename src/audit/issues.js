@@ -537,7 +537,12 @@ export function buildIssues({ emailProvider, spfStatus, spfRecords, dkimStatus, 
     if (mxHealth.cnameHosts.length) {
       issues.push({ key: 'mx-cname-target', sev: 'warn', args: [mxHealth.cnameHosts.join(', ')] });
     }
-    if (mxHealth.singleHost) issues.push({ key: 'mx-single-host', sev: 'info', args: [mxHealth.hosts[0].host] });
+    // RFC 5321 §5.1 explicitly recognizes multihoming as an alternative to
+    // multiple MX records. One owner name is not one delivery path when its
+    // address list contains several distinct, reachable endpoints.
+    if (mxHealth.singleHost && !mxHealth.hosts[0].multihomed) {
+      issues.push({ key: 'mx-single-host', sev: 'info', args: [mxHealth.hosts[0].host] });
+    }
     if (mxHealth.ipv6Coverage === 'none') issues.push({ key: 'mx-no-ipv6', sev: 'info' });
     mxHealth.sharedPrefixes.forEach(function (group) {
       issues.push({ key: 'mx-same-prefix', sev: 'info', args: [group.prefix, group.hosts.join(', ')] });
