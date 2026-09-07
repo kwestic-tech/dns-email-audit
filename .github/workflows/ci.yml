@@ -244,18 +244,18 @@ jobs:
   # ────────────────────────────────────────────────────────────────────────
   # The supported floor.
   #
-  # package.json declares `engines: node >=20`. This job says whether that is
+  # package.json declares `engines: node >=24`. This job says whether that is
   # still true, on its own, so a floor problem reads as a floor problem rather
   # than as a supply-chain or equivalence failure.
   # ────────────────────────────────────────────────────────────────────────
   supported-floor:
-    name: Node 20 (declared engines floor)
+    name: Node 24 (declared engines floor)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version: '20'
+          node-version: '24'
       - run: npm ci
       - run: npm test
       - run: npm run build
