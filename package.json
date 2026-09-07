@@ -50,7 +50,7 @@
     "i18n"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "devDependencies": {
     "esbuild": "0.28.2"

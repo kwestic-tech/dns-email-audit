@@ -17,7 +17,8 @@ deliberately **not** changed.
 
 **Found:** 2026-08-27, during the 0.6.0 Gate 1 CI run
 ([33058521236](https://github.com/kwestic-tech/dns-email-audit/actions/runs/33058521236)).
-**Status:** open. **Deliberately not changed in 0.6.0.**
+**Status:** resolved 2026-09-07 on `codex/node24-migration`.
+**Deliberately not changed in 0.6.0.**
 
 Every job in that run emitted this annotation:
 
@@ -28,7 +29,7 @@ actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020. For more informatio
 https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
 ```
 
-### The pins, as they stand
+### The pins when observed
 
 | Action | Pinned SHA | Tag | Used by |
 | --- | --- | --- | --- |
@@ -60,6 +61,19 @@ diff is reviewable as what it is.
 supply chain of `esbuild`; re-pinning unrelated actions in the same release
 would mix an unreviewed supply-chain change into a diff nobody would expect to
 find one in.
+
+### Resolution
+
+The dedicated migration updated both actions to reviewed, SHA-pinned releases
+whose upstream `action.yml` declares `node24`:
+
+| Action | Pinned SHA | Release |
+| --- | --- | --- |
+| `actions/checkout` | `93cb6efe18208431cddfb8368fd83d5badbf9bfd` | v5.0.1 |
+| `actions/setup-node` | `a0853c24544627f65ddf259abe73b1d18a591444` | v5.0.0 |
+
+The original v4 pins and warning remain above as the evidence that caused this
+entry; they are no longer used by either workflow.
 
 ---
 
