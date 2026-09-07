@@ -326,8 +326,9 @@ export function createMxAudit({ dohQuery, optionalCheck }) {
     }
 
     // Distinct delivery targets. Two MX records naming the same exchange at
-    // different preferences are one host, one point of failure and one set of
-    // lookups — mapping records straight to audits queried it twice, counted it
+    // different preferences are one target name and one set of lookups. Its
+    // address set separately says whether it is multihomed. Mapping records
+    // straight to audits queried it twice, counted it
     // twice in the CSV, and suppressed `mx-single-host` on a domain that has
     // exactly one. The records themselves stay in `entries` for the preference
     // analysis, which is about the records and not the targets.

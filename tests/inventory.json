@@ -295,7 +295,7 @@
     "the reverse-DNS advisory is scoped to the addresses actually checked: a host with five addresses whose fifth publishes a PTR is asked about four and the finding says so",
     "the cap runs over A answers before AAAA answers, asserted on the trace: four IPv4 addresses exhaust it and the host's IPv6 address is never asked about",
     "optionalCheck applied per host: one unreachable target does not turn the others into an outage report",
-    "two records naming one exchange are one host, queried once, still a single point of failure — while duplicate PREFERENCES are about the records",
+    "two records naming one exchange are one target name and one set of lookups, while its address set separately decides multihoming and duplicate PREFERENCES remain about the records",
     "block concentration through core/shared/ip.js at /24 and /48, with the private label renderer observed through sharedPrefixes[].prefix rather than exported for the test",
     "two audits over two resolvers share nothing"
    ]

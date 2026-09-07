@@ -167,8 +167,9 @@ than a plain resolver.
 ## Records versus targets
 
 Two MX records naming the same exchange at different preferences are **one
-host**: one point of failure and one set of lookups. Mapping records straight
-to audits queried it twice, counted it twice in the CSV, and suppressed
+target name** and one set of lookups. Its address set separately determines
+whether it is multihomed. Mapping records straight to audits queried it twice,
+counted it twice in the CSV, and suppressed
 `mx-single-host` on a domain that has exactly one.
 
 Both readings are kept, because they answer different questions:
