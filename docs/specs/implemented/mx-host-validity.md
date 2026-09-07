@@ -5,7 +5,7 @@
 | Spec version | 1.13 (Final, amended) |
 | Released in | `v0.9.1`, 2026-09-05 (the 0.9.1 half) and `v0.9.2`, 2026-09-05 (the 0.9.2 half) |
 | Target release | 0.9.1, then 0.9.2; multihoming correction in the next release |
-| Status | **Released, with an approved correction.** Both original halves shipped in 0.9.1 and 0.9.2. Revision 1.13 corrects the `mx.single-host` rule against RFC 5321 §5.1 before its replacement is implemented. |
+| Status | **Released, with a Final amendment awaiting shipment.** Both original halves shipped in 0.9.1 and 0.9.2. Revision 1.13 corrects the `mx.single-host` rule against RFC 5321 §5.1; no tagged release contains the correction yet. |
 | Depends on | [report-comparison](report-comparison.md), released as `v0.9.0`, for the observability projection and the `deepChecks` provenance field; [findings-and-remediation](findings-and-remediation.md) for finding identity |
 | Blocks | Nothing |
 | Slug for open questions | `MXV` |
