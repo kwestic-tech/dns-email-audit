@@ -3,10 +3,14 @@
 import { cp, mkdir, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
-const output = join(repo, '_site');
+// `_site` unless a directory is named. tests/build/artifact.test.mjs names a
+// private one: it runs in both `npm test` and `npm run inventory`, and two
+// runs removing and refilling the same `_site` at once failed each other with
+// EEXIST or ENOENT partway through the copy.
+const output = process.argv[2] ? resolve(process.argv[2]) : join(repo, '_site');
 // The deployment allowlist. `js` became `dist` when the delivery boundary
 // moved: what ships is the built artifact and its source map, not the source
 // it was built from. Everything absent from this list is absent from the
