@@ -40,17 +40,32 @@ for (const suite of inventory.suites) {
   if (!existsSync(path)) continue;
 
   let output = '';
+  let stderr = '';
   let failed = false;
   try {
     output = execFileSync('node', [path], { cwd: REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (error) {
-    output = String(error.stdout || '') + String(error.stderr || '');
+    stderr = String(error.stderr || '');
+    output = String(error.stdout || '') + stderr;
     failed = true;
   }
   eq(`${suite.path} passes`, failed, false);
 
   const match = /(\d+) passed, (\d+) failed/.exec(output);
   measured.set(suite.path, match ? Number(match[1]) : null);
+
+  // Say why. A suite that crashed printed its reason to stderr, and without it
+  // the only visible symptom is the count mismatches below — which read as a
+  // stale inventory rather than as the crash they are. The error is the head
+  // of stderr; what follows the first stack frame is noise, often a Buffer
+  // dumped byte by byte.
+  if (failed) {
+    const lines = match
+      ? output.split('\n').filter(line => line.includes('✗'))
+      : stderr.split(/\n\s+at /)[0].trimEnd().split('\n').slice(0, 15);
+    console.log(`  ${suite.path} ${match ? 'failed' : 'crashed before reporting a count'}:\n` +
+      lines.map(line => `      | ${line}`).join('\n'));
+  }
   eq(`${suite.path} reports no failures`, match ? Number(match[2]) : 0, 0);
 
   // A suite that reports a count must report the recorded one. This is the
