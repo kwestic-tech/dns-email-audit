@@ -261,6 +261,9 @@ standard model selection.
   `check-locales.mjs` will fail on `src/data/locales-en.js` being out of sync.
 - Never edit while on `main`; branch first.
 - `tmp/` is scratch and git-ignored.
+- A suite writes only to a temporary directory of its own, never to a shared
+  path in the repository. `npm test` and `npm run inventory` run at the same
+  time safely only because of this — see CONTRIBUTING.md.
 
 ## Committing, pushing, and when the PR opens
 

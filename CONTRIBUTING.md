@@ -196,6 +196,18 @@ the optional platform package supplies the binary.
 several suites assert against `dist/app.min.js` — a source-only run would be
 testing something the browser never sees.
 
+**`npm test` and `npm run inventory` can run at the same time.** They share
+build output — `pretest` rewrites `dist/` and `.build/metafile.json` while the
+other gate's suites read them — and that used to let the inventory report
+misleading count mismatches. Two things make it safe now:
+`tools/build-bundle.mjs` writes each file to a temporary and renames it into
+place, so a reader sees a whole file, never a partial one; and
+`tests/build/artifact.test.mjs` assembles its site into a private temporary
+directory rather than the repository's `_site/`, which two runs used to delete
+out from under each other. A new suite that writes to a shared path in the
+repository undoes this: write to a temporary directory instead. If a suite
+does crash, the inventory prints the error it died with.
+
 ### The test layout
 
 Tests live beside what they test:
