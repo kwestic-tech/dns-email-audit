@@ -782,6 +782,19 @@
    ]
   },
   {
+   "path": "tests/build/build-output.test.mjs",
+   "assertions": 51,
+   "areas": [
+    "the bundle, source map and metafile are replaced by rename, observed through hard links to the old files",
+    "no build temporary is left in dist/ or .build/",
+    "two overlapping artifact runs assemble in two private destinations outside the repository, observed at the build-site call",
+    "the artifact suite leaves the repository's _site alone",
+    "build-site refuses the repository, its ancestors, input paths, symlink aliases, existing directories and dangling symlinks as a destination, and removes nothing",
+    "build-site still builds a fresh outside destination and still replaces the default _site",
+    "the hard-link probe is shown to catch a write in place"
+   ]
+  },
+  {
    "path": "tests/build/release-compat.test.mjs",
    "assertions": 108,
    "areas": [
