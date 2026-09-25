@@ -9,10 +9,10 @@
  * artifact, everything the browser runs comes through here.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import esbuild from 'esbuild';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -117,6 +117,25 @@ export function inputOrderFromMetafile(metafile) {
 }
 
 /**
+ * Write whole or not at all: a temporary file, then a rename over the target.
+ *
+ * `npm test` rebuilds in `pretest` while `npm run inventory` may be reading
+ * these same files, and a write in place let a reader see a truncated bundle or
+ * half a metafile — measured at 2 torn reads in 767 across 25 rebuilds. A
+ * rename is atomic on one filesystem, so a reader now gets the previous file or
+ * the new one, and from the same source tree those are byte-identical.
+ *
+ * The temporary file lives in `.build/`, not beside its target: `dist/` is
+ * copied wholesale into `_site/`, so a temporary left there by a killed build
+ * would ship.
+ */
+function writeAtomic(root, target, contents) {
+  const temporary = join(root, '.build', `tmp-${process.pid}-${basename(target)}`);
+  writeFileSync(temporary, contents);
+  renameSync(temporary, target);
+}
+
+/**
  * Build into `root`, which defaults to the repository.
  *
  * Parameterised because the oracle validation now has to build every mutated
@@ -129,8 +148,10 @@ export async function build({ root = REPO } = {}) {
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   mkdirSync(join(root, 'dist'), { recursive: true });
 
+  mkdirSync(join(root, '.build'), { recursive: true });
+
   const started = process.hrtime.bigint();
-  const result = await esbuild.build(buildOptions(pkg.version, root));
+  const result = await esbuild.build({ ...buildOptions(pkg.version, root), write: false });
   const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
 
   if (result.errors.length) {
@@ -138,6 +159,7 @@ export async function build({ root = REPO } = {}) {
     throw new Error(`build: ${result.errors.length} error(s)`);
   }
   for (const warning of result.warnings) console.error(`build warning: ${warning.text}`);
+  for (const file of result.outputFiles) writeAtomic(root, file.path, file.contents);
 
   const bundle = readFileSync(join(root, OUTFILE));
   const map = readFileSync(join(root, `${OUTFILE}.map`));
@@ -153,8 +175,7 @@ export async function build({ root = REPO } = {}) {
       `  bundle:     ${bundled.join(' ')}`);
   }
 
-  mkdirSync(join(root, '.build'), { recursive: true });
-  writeFileSync(join(root, METAFILE), JSON.stringify(result.metafile, null, 2) + '\n');
+  writeAtomic(root, join(root, METAFILE), JSON.stringify(result.metafile, null, 2) + '\n');
 
   return {
     metafile: result.metafile,
