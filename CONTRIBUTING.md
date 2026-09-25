@@ -207,6 +207,21 @@ directory rather than the repository's `_site/`, which two runs used to delete
 out from under each other. A new suite that writes to a shared path in the
 repository undoes this: write to a temporary directory instead. If a suite
 does crash, the inventory prints the error it died with.
+`tests/build/build-output.test.mjs` observes both guarantees directly rather
+than by stress, and fails if either is undone.
+
+That holds for two gates over an already-built, unchanged source tree with the
+same build settings, which is what running them together means. It is not a
+multi-file transaction: the bundle, its map and the metafile are each renamed
+separately, and a reader can see a new one beside an old one. They are
+identical only because the build is deterministic. Editing source, cleaning
+build output or building with different settings while a gate runs is not
+covered.
+
+`node tools/build-site.mjs <dir>` builds the site somewhere other than
+`_site/`. The directory must not exist yet and must resolve, through symlinks,
+outside the repository; anything else is refused before anything is written.
+Only the default `_site/` is ever removed and rebuilt.
 
 ### The test layout
 
