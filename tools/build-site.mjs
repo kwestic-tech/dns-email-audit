@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 
 import { cp, mkdir, rm } from 'node:fs/promises';
-import { existsSync, lstatSync, realpathSync } from 'node:fs';
+import { existsSync, lstatSync, realpathSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { basename, dirname, join, resolve, sep } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// The deployment allowlist. `js` became `dist` when the delivery boundary
+// moved: what ships is the built artifact and its source map, not the source
+// it was built from. Everything absent from this list is absent from the
+// published site, and tests/build/artifact.test.mjs asserts both directions.
+const files = ['index.html', 'CNAME', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'css', 'dist', 'locales'];
 
 /**
  * A named destination, refused unless it is safe to create.
@@ -18,9 +24,19 @@ const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
  * A named destination is never removed, only created, so it must not exist
  * yet. The first version of this removed whatever it was given, and `.` from
  * the repository root deleted the source tree before failing to copy
- * `index.html` out of it. It must also resolve outside the repository, judged
- * through symlinks: copying into an input directory copies it into itself.
- * Not existing already rules out the repository, its ancestors and `/`.
+ * `index.html` out of it. Not existing already rules out the repository, its
+ * ancestors and `/`.
+ *
+ * It must also not be inside an input: copying `css` into `css/nested` copies
+ * a directory into itself, and `cp` writes the top-level files before it
+ * notices. Elsewhere in the repository is allowed — a temporary directory can
+ * live there, and a new directory nobody removes has nothing to damage.
+ *
+ * "Inside" is judged by filesystem identity, device and inode, walking up from
+ * the nearest existing ancestor. A spelling cannot be trusted to name a
+ * directory once: symlinks alias it, and on a case-insensitive filesystem
+ * `caserepo/css` reaches `CaseRepo/css` while `realpath` keeps the spelling it
+ * was given.
  */
 function namedOutput(path) {
   const target = resolve(path);
@@ -31,24 +47,28 @@ function namedOutput(path) {
   const exists = p => lstatSync(p, { throwIfNoEntry: false }) !== undefined;
   if (exists(target)) refuse('it already exists; name a directory that does not, and it will be created');
 
-  let existing = target;
-  const rest = [];
-  while (!exists(existing)) {
-    rest.unshift(basename(existing));
-    existing = dirname(existing);
+  let existing = dirname(target);
+  while (!exists(existing)) existing = dirname(existing);
+
+  const identity = p => { const stat = statSync(p); return `${stat.dev}:${stat.ino}`; };
+  const inputs = new Map(files.filter(file => existsSync(join(repo, file)))
+    .map(file => [identity(join(repo, file)), file]));
+  let dir;
+  try {
+    dir = realpathSync(existing);
+  } catch {
+    refuse(`${existing} cannot be resolved`);
   }
-  const real = join(realpathSync(existing), ...rest);
-  const realRepo = realpathSync(repo);
-  if (real === realRepo || real.startsWith(realRepo + sep)) refuse('it is inside the repository');
+  for (;;) {
+    const input = inputs.get(identity(dir));
+    if (input) refuse(`it is inside ${input}, which the site is copied from`);
+    if (dir === dirname(dir)) break;
+    dir = dirname(dir);
+  }
   return target;
 }
 
 const output = process.argv[2] ? namedOutput(process.argv[2]) : join(repo, '_site');
-// The deployment allowlist. `js` became `dist` when the delivery boundary
-// moved: what ships is the built artifact and its source map, not the source
-// it was built from. Everything absent from this list is absent from the
-// published site, and tests/build/artifact.test.mjs asserts both directions.
-const files = ['index.html', 'CNAME', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'css', 'dist', 'locales'];
 
 // locales/pending-translations.json is build-time tracking state, not a
 // bundle the browser ever fetches — it must not be published with the site.
