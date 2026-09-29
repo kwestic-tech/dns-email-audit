@@ -14,7 +14,37 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- **`npm test` and `npm run inventory` can run at the same time.** Run
+  together, they used to fail each other in two ways:
+  - `pretest` rewrote `dist/` and `.build/metafile.json` in place while the
+    other gate was reading them.
+  - Both gates run `tests/build/artifact.test.mjs`, and each run deleted and
+    rebuilt the one shared `_site/`, so one run could delete the other's copy.
+  Either gate could be the one that failed, and the inventory reported the
+  failure as assertion-count mismatches.
+
+  Now:
+  - The build writes each output to a temporary file and renames it into
+    place.
+  - The artifact suite assembles its site in a private temporary directory.
+  - `tests/build/build-output.test.mjs` observes both guarantees directly
+    rather than by stress. It records every filesystem call on the build
+    outputs and fails if either guarantee is undone.
+  - This holds for gates over an already-built, unchanged source tree. It is
+    not a multi-file transaction.
+- **The inventory says why a suite failed.** A crashed suite's error is
+  printed, instead of only the count mismatches it causes.
+
+### Changed
+
+- **`tools/build-site.mjs` takes an optional output directory.**
+  - The directory must not already exist.
+  - It must not be inside anything the site is copied from. This is judged
+    by filesystem identity, so symlink and case aliases are caught.
+  - Anything else is refused before anything is written.
+  - Only the default `_site/` is ever removed.
 
 ## [0.9.3] — 2026-09-07
 
