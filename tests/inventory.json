@@ -782,6 +782,21 @@
    ]
   },
   {
+   "path": "tests/build/build-output.test.mjs",
+   "assertions": 71,
+   "areas": [
+    "the bundle, source map and metafile are only read or renamed into place, once, from a whole temporary: every node:fs call naming them is recorded",
+    "the old outputs are not rewritten through their inode, observed through hard links",
+    "no build temporary is left in dist/ or .build/",
+    "two overlapping artifact runs assemble in two private destinations, observed at the build-site call, and leave the repository's _site alone",
+    "the artifact suite passes with TMPDIR inside the repository",
+    "build-site refuses the repository, its ancestors, existing directories, dangling symlinks and any path inside an input, judged by device and inode through symlink and case aliases, and removes nothing",
+    "a named destination that appears after validation is built into, never removed",
+    "build-site still builds fresh destinations inside and outside the repository and still replaces the default _site",
+    "the hard-link probe and the fs recorder are each shown to catch the failure the other misses"
+   ]
+  },
+  {
    "path": "tests/build/release-compat.test.mjs",
    "assertions": 108,
    "areas": [

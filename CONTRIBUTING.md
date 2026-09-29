@@ -196,6 +196,37 @@ the optional platform package supplies the binary.
 several suites assert against `dist/app.min.js` — a source-only run would be
 testing something the browser never sees.
 
+**`npm test` and `npm run inventory` can run at the same time.** They share
+build output — `pretest` rewrites `dist/` and `.build/metafile.json` while the
+other gate's suites read them — and that used to let the inventory report
+misleading count mismatches. Two things make it safe now:
+`tools/build-bundle.mjs` writes each file to a temporary and renames it into
+place, so a reader sees a whole file, never a partial one; and
+`tests/build/artifact.test.mjs` assembles its site into a private temporary
+directory rather than the repository's `_site/`, which two runs used to delete
+out from under each other. A new suite that writes to a shared path in the
+repository undoes this: write to a temporary directory instead. If a suite
+does crash, the inventory prints the error it died with.
+`tests/build/build-output.test.mjs` observes both guarantees directly rather
+than by stress, and fails if either is undone.
+
+That holds for two gates over an already-built, unchanged source tree with the
+same build settings, which is what running them together means. It is not a
+multi-file transaction: the bundle, its map and the metafile are each renamed
+separately, and a reader can see a new one beside an old one. They are
+identical only because the build is deterministic. Editing source, cleaning
+build output or building with different settings while a gate runs is not
+covered.
+
+`node tools/build-site.mjs <dir>` builds the site somewhere other than
+`_site/`. The directory must not exist yet, and must not be inside anything the
+site is copied from — `css/`, `dist/`, `locales/` and the top-level files —
+judged by filesystem identity, so a symlink or a differently cased spelling of
+the same directory is caught too. Anything else is refused before anything is
+written. Elsewhere in the repository is allowed, which is what lets a
+`TMPDIR` inside the checkout work. Only the default `_site/` is ever removed
+and rebuilt.
+
 ### The test layout
 
 Tests live beside what they test:

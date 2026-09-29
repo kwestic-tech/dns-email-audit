@@ -319,12 +319,12 @@ JSON files from disk, so translated interfaces require HTTP.
 | `npm ci` | Install exact versions of esbuild and its platform binary; no install scripts run. |
 | `npm start` | Serve the already-built application on port 8080 with the dependency-free development server. |
 | `npm run check` | Validate locale files and the generated English fallback. |
-| `npm test` | Build the bundle, then run locale validation plus **5,735** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
+| `npm test` | Build the bundle, then run locale validation plus **5,806** parser, protocol, scoring, rendering, export, contract and artifact assertions. |
 | `npm run test:scoring` | Run the parser and scoring assertions only. |
 | `npm run test:render` | Run the rendering, interpolation, export and CSP assertions only. |
 | `npm run build:fallback` | Regenerate `src/data/locales-en.js` after editing `locales/en.json`. |
 | `npm run build` | Bundle `src/` into `dist/app.min.js`, then build the allowlisted static deployment into `_site/`. |
-| `npm run inventory` | Run every suite and check each one's assertion count against `tests/inventory.json`. |
+| `npm run inventory` | Run every suite and check each one's assertion count against `tests/inventory.json`. Safe to run at the same time as `npm test`. |
 | `npm run test:file-url` | Open the built page from `file://` in real Chrome. |
 | `npm run test:local-input-security` | Drive hostile and conformant local artifacts through the production panel in real Chrome while observing network, storage, and DOM insertion. |
 | `npm run update:psl` | Refresh the vendored Mozilla Public Suffix List snapshot. |

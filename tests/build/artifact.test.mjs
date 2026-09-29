@@ -11,8 +11,9 @@
  * publishing the entire repository beside the site.
  */
 
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync, mkdtempSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, sep } from 'node:path';
 
@@ -20,11 +21,14 @@ import { createSuite } from '../lib/assert.mjs';
 
 const REPO = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { eq, section, report } = createSuite();
-const SITE = join(REPO, '_site');
-
 // Assembled here rather than assumed present, so this suite tests what the
-// build produces rather than whatever happened to be lying around.
-execFileSync('node', [join(REPO, 'tools', 'build-site.mjs')], { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
+// build produces rather than whatever happened to be lying around — and into a
+// directory of its own, not the repository's `_site`. This suite runs in both
+// `npm test` and `npm run inventory`; sharing `_site` let one run delete the
+// tree the other was copying into or reading.
+const SITE = join(mkdtempSync(join(tmpdir(), 'artifact-')), '_site');
+process.on('exit', () => rmSync(dirname(SITE), { recursive: true, force: true }));
+execFileSync('node', [join(REPO, 'tools', 'build-site.mjs'), SITE], { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
 
 const walk = (dir, base = dir) => readdirSync(dir).flatMap(name => {
   const full = join(dir, name);
