@@ -219,9 +219,13 @@ build output or building with different settings while a gate runs is not
 covered.
 
 `node tools/build-site.mjs <dir>` builds the site somewhere other than
-`_site/`. The directory must not exist yet and must resolve, through symlinks,
-outside the repository; anything else is refused before anything is written.
-Only the default `_site/` is ever removed and rebuilt.
+`_site/`. The directory must not exist yet, and must not be inside anything the
+site is copied from — `css/`, `dist/`, `locales/` and the top-level files —
+judged by filesystem identity, so a symlink or a differently cased spelling of
+the same directory is caught too. Anything else is refused before anything is
+written. Elsewhere in the repository is allowed, which is what lets a
+`TMPDIR` inside the checkout work. Only the default `_site/` is ever removed
+and rebuilt.
 
 ### The test layout
 
